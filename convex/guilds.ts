@@ -97,6 +97,7 @@ export const getGuild = query({
         badWords: guild.badWords ?? [],
         heatEnabled: guild.heatEnabled ?? HEAT_DEFAULTS.enabled,
         heatDecayPerMin: decayPerMin,
+        heatWarnAt: guild.heatWarnAt ?? HEAT_DEFAULTS.warnAt,
         heatTimeoutAt: guild.heatTimeoutAt ?? HEAT_DEFAULTS.timeoutAt,
         heatKickAt: guild.heatKickAt ?? HEAT_DEFAULTS.kickAt,
         heatBanAt: guild.heatBanAt ?? HEAT_DEFAULTS.banAt,
@@ -175,10 +176,13 @@ export const getBotConfig = query({
       badWords: guild.badWords ?? [],
       heatEnabled: guild.heatEnabled ?? HEAT_DEFAULTS.enabled,
       heatDecayPerMin: decayPerMin,
+      heatWarnAt: guild.heatWarnAt ?? HEAT_DEFAULTS.warnAt,
       heatTimeoutAt: guild.heatTimeoutAt ?? HEAT_DEFAULTS.timeoutAt,
       heatKickAt: guild.heatKickAt ?? HEAT_DEFAULTS.kickAt,
       heatBanAt: guild.heatBanAt ?? HEAT_DEFAULTS.banAt,
       safetyPercent,
+      heatResetRequested: guild.heatResetRequested ?? false,
+      heatResetUserId: guild.heatResetUserId ?? null,
       heatStates,
       autoReplies,
       modules: modules.map((m) => ({
@@ -206,6 +210,7 @@ export const updateSettings = mutation({
     badWords: v.optional(v.array(v.string())),
     heatEnabled: v.optional(v.boolean()),
     heatDecayPerMin: v.optional(v.number()),
+    heatWarnAt: v.optional(v.number()),
     heatTimeoutAt: v.optional(v.number()),
     heatKickAt: v.optional(v.number()),
     heatBanAt: v.optional(v.number()),
@@ -238,6 +243,12 @@ export const updateSettings = mutation({
     if (args.heatEnabled !== undefined) patch.heatEnabled = args.heatEnabled;
     if (args.heatDecayPerMin !== undefined) {
       patch.heatDecayPerMin = Math.max(0, Math.min(60, Math.floor(args.heatDecayPerMin)));
+    }
+    if (args.heatWarnAt !== undefined) {
+      const w = Math.max(1, Math.min(99, Math.floor(args.heatWarnAt)));
+      const t = args.heatTimeoutAt ?? guild.heatTimeoutAt ?? HEAT_DEFAULTS.timeoutAt;
+      if (w >= t) throw new Error("Ngưỡng cảnh báo phải nhỏ hơn ngưỡng tạm khóa");
+      patch.heatWarnAt = w;
     }
     if (
       args.heatTimeoutAt !== undefined ||
@@ -282,6 +293,36 @@ export const updateLockdown = mutation({
       patch.lockdownMinutes = Math.max(1, Math.min(120, Math.floor(minutes)));
     }
     await ctx.db.patch(guild._id, patch);
+    return { ok: true };
+  },
+});
+
+/** Dashboard xóa nhiệt độ của một (hoặc toàn bộ) thành viên. */
+export const resetHeat = mutation({
+  args: { token: v.string(), guildId: v.string(), userId: v.optional(v.string()) },
+  handler: async (ctx, { token, guildId, userId }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild)) {
+      throw new Error("Không có quyền quản lý server này");
+    }
+    const states = await ctx.db
+      .query("heatStates")
+      .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
+      .collect();
+    for (const s of states) {
+      if (userId && s.userId !== userId) continue;
+      await ctx.db.delete(s._id);
+    }
+    // Báo bot xóa nhiệt trong bộ nhớ (bot kiểm tra cờ này định kỳ).
+    await ctx.db.patch(guild._id, {
+      heatResetRequested: true,
+      heatResetUserId: userId ?? undefined,
+      updatedAt: Date.now(),
+    });
     return { ok: true };
   },
 });
@@ -368,6 +409,7 @@ export const botSyncGuilds = mutation({
           badWords: [],
           heatEnabled: HEAT_DEFAULTS.enabled,
           heatDecayPerMin: HEAT_DEFAULTS.decayPerMin,
+          heatWarnAt: HEAT_DEFAULTS.warnAt,
           heatTimeoutAt: HEAT_DEFAULTS.timeoutAt,
           heatKickAt: HEAT_DEFAULTS.kickAt,
           heatBanAt: HEAT_DEFAULTS.banAt,

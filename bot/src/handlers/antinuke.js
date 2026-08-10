@@ -293,6 +293,24 @@ module.exports = function createAntiNuke(client, store, heat) {
     }
   }
 
+  /**
+   * Dashboard bấm "Xóa nhiệt" → đặt cờ heatResetRequested. Bot xóa nhiệt trong
+   * bộ nhớ (và bỏ cảnh báo DM đã gửi) rồi xóa cờ để không reset lại lần sau.
+   */
+  async function tickHeatResets() {
+    for (const guild of client.guilds.cache.values()) {
+      try {
+        const config = await store.getConfig(guild.id);
+        if (!config || !config.heatResetRequested) continue;
+        heat.resetGuild(guild.id, config.heatResetUserId || undefined);
+        await store.client.mutation("bot_writes:botClearHeatReset", { guildId: guild.id });
+        console.log(`[heat:reset] ${guild.id} đã xóa nhiệt${config.heatResetUserId ? ` của ${config.heatResetUserId}` : " toàn bộ"}`);
+      } catch (err) {
+        console.error(`[heat:reset] ${guild.id}:`, err.message);
+      }
+    }
+  }
+
   async function handleMessageBulk(messages) {
     const guild = messages.first()?.guild;
     await handleAttributeEvent({
@@ -382,6 +400,7 @@ module.exports = function createAntiNuke(client, store, heat) {
 
     setInterval(() => {
       void tickUnlocks().catch((e) => console.error("[antinuke:tick]", e.message));
+      void tickHeatResets().catch((e) => console.error("[heat:resetTick]", e.message));
     }, 20_000);
   }
 

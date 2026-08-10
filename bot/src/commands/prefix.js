@@ -19,6 +19,7 @@ const MODULES = [
   "massRoleDelete",
   "massMessageDelete",
   "spam",
+  "mention",
   "badword",
   "attachment",
   "invite",
@@ -292,6 +293,7 @@ async function handleHeat(client, message, args, config, store) {
   const s = {
     enabled: config.heatEnabled !== false,
     decayPerMin: config.heatDecayPerMin ?? 3,
+    warnAt: config.heatWarnAt ?? 25,
     timeoutAt: config.heatTimeoutAt ?? 40,
     kickAt: config.heatKickAt ?? 70,
     banAt: config.heatBanAt ?? 90,
@@ -308,7 +310,7 @@ async function handleHeat(client, message, args, config, store) {
         s.enabled
           ? `Hệ thống nhiệt **đang bật** — giảm ${s.decayPerMin} điểm/phút.`
           : `Hệ thống nhiệt **đang tắt**.`,
-        `Ngưỡng: tạm khóa **${s.timeoutAt}** · kick **${s.kickAt}** · ban **${s.banAt}** (tối đa 100).`,
+        `Ngưỡng: cảnh báo **${s.warnAt}** · tạm khóa **${s.timeoutAt}** · kick **${s.kickAt}** · ban **${s.banAt}** (tối đa 100).`,
       ].join("\n"),
     );
   if (top.length > 0) {

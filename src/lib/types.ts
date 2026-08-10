@@ -102,6 +102,7 @@ export interface GuildData {
     badWords: string[];
     heatEnabled: boolean;
     heatDecayPerMin: number;
+    heatWarnAt: number;
     heatTimeoutAt: number;
     heatKickAt: number;
     heatBanAt: number;

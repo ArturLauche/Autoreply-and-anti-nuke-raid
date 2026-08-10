@@ -1,9 +1,20 @@
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "convex/react";
-import { ArrowLeft, Bot, ExternalLink, Loader2, ShieldAlert } from "lucide-react";
+import {
+  ArrowLeft,
+  Bot,
+  ExternalLink,
+  LayoutDashboard,
+  Loader2,
+  MessageSquareReply,
+  Settings,
+  ShieldAlert,
+  ShieldCheck,
+} from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { Badge } from "../components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { cn } from "../lib/utils";
 import { buildBotInviteUrl, discordGuildIconUrl, SESSION_TOKEN_KEY } from "../lib/discord";
 import { usePublicConfig } from "../lib/usePublicConfig";
 import { timeAgo } from "../lib/utils";
@@ -11,10 +22,22 @@ import type { GuildData } from "../lib/types";
 import OverviewPanel from "../components/dashboard/OverviewPanel";
 import AutoReplyPanel from "../components/dashboard/AutoReplyPanel";
 import AntiNukePanel from "../components/dashboard/AntiNukePanel";
+import ModerationPanel from "../components/dashboard/ModerationPanel";
 import SettingsPanel from "../components/dashboard/SettingsPanel";
+
+type SectionKey = "overview" | "moderation" | "antinuke" | "autoreply" | "settings";
+
+const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof LayoutDashboard }[] = [
+  { key: "overview", label: "Tổng quan", icon: LayoutDashboard },
+  { key: "moderation", label: "Moderation", icon: ShieldCheck },
+  { key: "antinuke", label: "Chống nuke / raid", icon: ShieldAlert },
+  { key: "autoreply", label: "Auto Reply", icon: MessageSquareReply },
+  { key: "settings", label: "Cài đặt", icon: Settings },
+];
 
 export default function GuildPage() {
   const { guildId = "" } = useParams();
+  const [section, setSection] = useState<SectionKey>("overview");
   const token = localStorage.getItem(SESSION_TOKEN_KEY) ?? "";
   const data = useQuery(api.guilds.getGuild, { token, guildId }) as GuildData | null | undefined;
   const { clientId } = usePublicConfig();
@@ -96,36 +119,57 @@ export default function GuildPage() {
       </header>
 
       <main className="container py-8">
-        <Tabs defaultValue="overview">
-          <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="overview">Tổng quan</TabsTrigger>
-            <TabsTrigger value="autoreply">Auto Reply</TabsTrigger>
-            <TabsTrigger value="antinuke">Anti Nuke</TabsTrigger>
-            <TabsTrigger value="settings">Cài đặt</TabsTrigger>
-          </TabsList>
-          <TabsContent value="overview">
-            <OverviewPanel data={data} />
-          </TabsContent>
-          <TabsContent value="autoreply">
-            <AutoReplyPanel data={data} />
-          </TabsContent>
-          <TabsContent value="antinuke">
-            <AntiNukePanel data={data} />
-          </TabsContent>
-          <TabsContent value="settings">
-            <SettingsPanel data={data} />
-          </TabsContent>
-        </Tabs>
+        <div className="grid gap-6 lg:grid-cols-[230px_1fr]">
+          {/* Sidebar */}
+          <aside className="h-fit lg:sticky lg:top-6">
+            <nav className="flex gap-1 overflow-x-auto rounded-xl border border-border bg-card/50 p-1.5 lg:flex-col lg:overflow-visible">
+              {NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const active = section === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => setSection(item.key)}
+                    className={cn(
+                      "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </nav>
+            <div className="mt-4 hidden rounded-xl border border-border bg-card/50 p-4 text-xs text-muted-foreground lg:block">
+              <p className="mb-2 font-medium text-foreground">Mẹo nhanh</p>
+              <p>• Moderation = lọc tin nhắn, mention, từ xấu, ảnh/file, link mời.</p>
+              <p className="mt-1">• Chống nuke / raid = bảo vệ cấu trúc server.</p>
+              <p className="mt-1">• Thay đổi áp dụng trong ~30 giây.</p>
+            </div>
+          </aside>
 
-        <div className="mt-10 flex justify-center">
-          <a
-            href={`https://discord.com/channels/${data.guild.discordId}`}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-primary"
-          >
-            <ExternalLink className="h-3.5 w-3.5" /> Mở Discord server
-          </a>
+          {/* Content */}
+          <div>
+            {section === "overview" && <OverviewPanel data={data} />}
+            {section === "moderation" && <ModerationPanel data={data} />}
+            {section === "antinuke" && <AntiNukePanel data={data} />}
+            {section === "autoreply" && <AutoReplyPanel data={data} />}
+            {section === "settings" && <SettingsPanel data={data} />}
+
+            <div className="mt-10 flex justify-center">
+              <a
+                href={`https://discord.com/channels/${data.guild.discordId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-primary"
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> Mở Discord server
+              </a>
+            </div>
+          </div>
         </div>
       </main>
     </div>

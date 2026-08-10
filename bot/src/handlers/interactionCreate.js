@@ -12,6 +12,7 @@ const MODULES = [
   "massRoleDelete",
   "massMessageDelete",
   "spam",
+  "mention",
   "badword",
   "attachment",
   "invite",
@@ -47,7 +48,7 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
           [
             "**Auto Reply** — `/autoreply add` tạo rule từ khóa hoặc @mention, `/autoreply list`, `/autoreply remove`",
             "**Chống nuke** — `/antinuke status`, `/antinuke on|off`, `/antinuke module`, `/antinuke unlock`, `/antinuke lockdown`",
-            "**Lọc nội dung** — `/badword add|remove|list`, module \`badword\`, \`invite\`, \`attachment\` (bật tắt trong `/antinuke module`)`, `/heat status`",
+            "**Lọc nội dung** — module \`badword\`, \`invite\`, \`attachment\`, \`mention\` (bật tắt trong `/antinuke module`) · `/badword add|remove|list` · `/heat status`",
             "**Cấu hình** — `/setup log-channel`, `/setup mod-role`, `/setup admin-role`, `/prefix set`",
             "**Khác** — `/ping`",
           ].join("\n"),
@@ -243,6 +244,7 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
       const s = {
         enabled: config?.heatEnabled !== false,
         decayPerMin: config?.heatDecayPerMin ?? 3,
+        warnAt: config?.heatWarnAt ?? 25,
         timeoutAt: config?.heatTimeoutAt ?? 40,
         kickAt: config?.heatKickAt ?? 70,
         banAt: config?.heatBanAt ?? 90,
@@ -258,7 +260,7 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
             s.enabled
               ? `Hệ thống nhiệt **đang bật** — giảm ${s.decayPerMin} điểm/phút.`
               : `Hệ thống nhiệt **đang tắt**.`,
-            `Ngưỡng: tạm khóa **${s.timeoutAt}** · kick **${s.kickAt}** · ban **${s.banAt}** (tối đa 100).`,
+            `Ngưỡng: cảnh báo **${s.warnAt}** · tạm khóa **${s.timeoutAt}** · kick **${s.kickAt}** · ban **${s.banAt}** (tối đa 100).`,
           ].join("\n"),
         );
       if (top.length > 0) {

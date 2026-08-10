@@ -1,7 +1,13 @@
-import { Flame } from "lucide-react";
+import { Flame, RotateCcw, Trash2 } from "lucide-react";
+import { useMutation } from "convex/react";
+import { toast } from "sonner";
+import { api } from "../../../convex/_generated/api";
 import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
 import { HEAT_DEFAULTS, HEAT_TIER_LABEL } from "../../lib/constants";
 import type { GuildData, HeatState } from "../../lib/types";
+
+const TOKEN = () => localStorage.getItem("wio_session_token") ?? "";
 
 /** Nhiệt độ hiệu dụng sau khi trừ decay theo thời gian. */
 export function effectiveHeat(
@@ -42,6 +48,7 @@ function decayedStates(data: GuildData): HeatState[] {
 
 /** Thanh phần trăm thể hiện mức an toàn của server. */
 export function SafetyBar({ data }: { data: GuildData }) {
+  const resetHeat = useMutation(api.guilds.resetHeat);
   const states = decayedStates(data);
   const maxHeat = states[0]?.heat ?? 0;
   const safety = Math.max(0, Math.min(100, 100 - maxHeat));
@@ -57,6 +64,15 @@ export function SafetyBar({ data }: { data: GuildData }) {
       : safety >= 40
         ? "text-amber-400"
         : "text-red-400";
+
+  async function resetAll() {
+    try {
+      await resetHeat({ token: TOKEN(), guildId: data.guild.discordId });
+      toast.success("Đã xóa toàn bộ nhiệt độ vi phạm");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Xóa thất bại");
+    }
+  }
 
   return (
     <div className="grid gap-3">
@@ -78,18 +94,31 @@ export function SafetyBar({ data }: { data: GuildData }) {
           style={{ width: `${safety}%` }}
         />
       </div>
-      <div className="flex justify-between text-[11px] text-muted-foreground">
-        <span>🔴 {data.guild.heatBanAt ?? HEAT_DEFAULTS.banAt} = ban</span>
-        <span>🟠 {data.guild.heatKickAt ?? HEAT_DEFAULTS.kickAt} = kick</span>
-        <span>🟣 {data.guild.heatTimeoutAt ?? HEAT_DEFAULTS.timeoutAt} = tạm khóa</span>
-        <span>🟢 0 = an toàn</span>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          <span>🔴 {data.guild.heatBanAt ?? HEAT_DEFAULTS.banAt} = ban</span>
+          <span>🟠 {data.guild.heatKickAt ?? HEAT_DEFAULTS.kickAt} = kick</span>
+          <span>🟣 {data.guild.heatTimeoutAt ?? HEAT_DEFAULTS.timeoutAt} = tạm khóa</span>
+          <span>🟡 {data.guild.heatWarnAt ?? HEAT_DEFAULTS.warnAt} = cảnh báo</span>
+          <span>🟢 0 = an toàn</span>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={resetAll}
+          disabled={states.length === 0}
+          className="gap-1.5 text-muted-foreground"
+        >
+          <RotateCcw className="h-3.5 w-3.5" /> Xóa toàn bộ nhiệt
+        </Button>
       </div>
     </div>
   );
 }
 
-/** Danh sách thành viên đang có nhiệt độ cao nhất. */
+/** Danh sách thành viên đang có nhiệt độ cao nhất (kèm nút xóa nhiệt từng người). */
 export function TopOffenders({ data, limit = 5 }: { data: GuildData; limit?: number }) {
+  const resetHeat = useMutation(api.guilds.resetHeat);
   const states = decayedStates(data).slice(0, limit);
   if (states.length === 0) {
     return (
@@ -100,6 +129,16 @@ export function TopOffenders({ data, limit = 5 }: { data: GuildData; limit?: num
     );
   }
   const g = data.guild;
+
+  async function resetUser(userId: string, username: string) {
+    try {
+      await resetHeat({ token: TOKEN(), guildId: data.guild.discordId, userId });
+      toast.success(`Đã xóa nhiệt của ${username || userId}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Xóa thất bại");
+    }
+  }
+
   return (
     <ul className="space-y-2">
       {states.map((h) => {
@@ -115,6 +154,14 @@ export function TopOffenders({ data, limit = 5 }: { data: GuildData; limit?: num
             <div className="flex shrink-0 items-center gap-2">
               <span className="font-mono text-sm font-semibold tabular-nums">{h.heat}/100</span>
               <Badge className={TIER_STYLE[tier]}>{HEAT_TIER_LABEL[tier]}</Badge>
+              <button
+                onClick={() => resetUser(h.userId, h.username)}
+                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger"
+                title={`Xóa nhiệt của ${h.username || h.userId}`}
+                aria-label={`Xóa nhiệt của ${h.username || h.userId}`}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
             </div>
           </li>
         );

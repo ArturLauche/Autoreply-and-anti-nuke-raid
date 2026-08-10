@@ -83,6 +83,14 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
     defaultPunish: "timeout",
     defaultHeat: 10,
   },
+  mention: {
+    label: "Chống spam mention",
+    description: "Phát hiện spam tag người/role/kênh liên tục trong thời gian ngắn",
+    defaultThreshold: 10,
+    defaultWindowSeconds: 10,
+    defaultPunish: "timeout",
+    defaultHeat: 15,
+  },
   badword: {
     label: "Lọc từ ngữ xấu",
     description: "Tự động xóa tin nhắn chứa từ trong danh sách từ ngữ xấu của server",
@@ -119,10 +127,26 @@ export const ANTINUKE_ORDER = [
   "massRoleDelete",
   "massMessageDelete",
   "spam",
+  "mention",
   "badword",
   "attachment",
   "invite",
 ] as const;
+
+/** Nhóm module chống nuke / raid (sự kiện cấu trúc server). */
+export const NUKE_MODULES = [
+  "massBan",
+  "massKick",
+  "massJoin",
+  "massChannelCreate",
+  "massChannelDelete",
+  "massRoleCreate",
+  "massRoleDelete",
+  "massMessageDelete",
+] as const;
+
+/** Nhóm module moderation nội dung (tin nhắn & đính kèm). */
+export const MODERATION_MODULES = ["spam", "mention", "badword", "attachment", "invite"] as const;
 
 export const PUNISH_LABEL: Record<string, string> = {
   warn: "Cảnh báo",
@@ -136,6 +160,7 @@ export const HEAT_DEFAULTS = {
   max: 100,
   enabled: true,
   decayPerMin: 3,
+  warnAt: 25,
   timeoutAt: 40,
   kickAt: 70,
   banAt: 90,
