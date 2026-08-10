@@ -3,14 +3,16 @@ import { motion } from "framer-motion";
 import {
   ArrowRight,
   Bot,
-  Command,
+  Bug,
   Crown,
+  Flame,
   LayoutDashboard,
   MessageSquareReply,
-  ShieldCheck,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   Timer,
+  UserCheck,
   Zap,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -40,7 +42,7 @@ function Nav() {
         </Link>
         <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
           <a href="#features" className="transition-colors hover:text-foreground">Tính năng</a>
-          <a href="#antinuke" className="transition-colors hover:text-foreground">Chống nuke</a>
+          <a href="#antinuke" className="transition-colors hover:text-foreground">Bảo vệ server</a>
           <a href="#how" className="transition-colors hover:text-foreground">Cách hoạt động</a>
         </nav>
         <Link to="/auth">
@@ -48,6 +50,18 @@ function Nav() {
         </Link>
       </div>
     </header>
+  );
+}
+
+/** Thanh nhiệt mini mô phỏng trong mockup chat. */
+function HeatBar({ value, color }: { value: number; color: string }) {
+  return (
+    <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+      <div
+        className={`h-full rounded-full transition-all ${color}`}
+        style={{ width: `${value}%` }}
+      />
+    </div>
   );
 }
 
@@ -68,16 +82,16 @@ function HeroChatCard() {
           <span className="ml-3 text-xs font-medium text-white/40"># general · Protogon Bot</span>
         </div>
         <div className="space-y-4 p-5 font-sans">
+          {/* Auto reply */}
           <div className="flex items-end gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#5865f2] text-xs font-bold text-white">Huy</span>
             <div className="max-w-[80%]">
-              <p className="mb-1 text-xs font-semibold text-white">huy_nguyen <span className="ml-1 font-normal text-white/40">Hôm nay chơi gì mọi người? @protogon</span></p>
+              <p className="mb-1 text-xs font-semibold text-white">huy_nguyen <span className="ml-1 font-normal text-white/40">Hôm nay chơi gì @protogon?</span></p>
               <div className="rounded-lg rounded-bl-none bg-[#2b2d31] px-3 py-2 text-sm text-white/90">
-                Hôm nay chơi gì mọi người? <span className="font-semibold text-[#7289da]">@protogon</span>
+                Hôm nay chơi gì? <span className="font-semibold text-[#7289da]">@protogon</span>
               </div>
             </div>
           </div>
-
           <div className="flex items-end gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_0_16px_-2px_hsl(187_92%_55%/0.9)]">
               <Bot className="h-5 w-5" />
@@ -85,20 +99,41 @@ function HeroChatCard() {
             <div className="max-w-[80%]">
               <p className="mb-1 text-xs font-semibold text-white">Protogon <span className="ml-1 font-normal text-white/40">BOT</span></p>
               <div className="rounded-lg rounded-bl-none border border-primary/40 bg-[#2b2d31] px-3 py-2 text-sm text-white/90">
-                Chào <span className="font-semibold text-primary">Huy</span>! Hôm nay thử một trận Valorant 5v5 nhé 🎮 — mọi người ai chưa có team thì tag tớ nhé!
+                Chào <span className="font-semibold text-primary">Huy</span>! Hôm nay thử một trận Valorant 5v5 nhé 🎮
               </div>
               <div className="mt-1.5 flex items-center gap-1.5 text-xs text-white/40">
-                <Timer className="h-3 w-3" /> trả lời theo rule “game-night” · cooldown 30s
+                <Timer className="h-3 w-3" /> rule “game-night” · cooldown 30s
               </div>
             </div>
           </div>
 
-          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5">
-            <div className="flex items-center gap-2 text-xs font-semibold text-red-400">
-              <ShieldAlert className="h-4 w-4" /> CẢNH BÁO CHỐNG NUKE
+          {/* Cảnh báo nhiệt */}
+          <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2.5">
+            <div className="flex items-center gap-2 text-xs font-semibold text-orange-400">
+              <Flame className="h-4 w-4" /> NHIỆT ĐỘ VI PHẠM — THÀNH VIÊN “dang_spam”
             </div>
-            <p className="mt-1 text-xs text-white/70">
-              Phát hiện <span className="font-semibold text-red-400">6 lượt ban trong 10 giây</span> — đã <span className="font-semibold text-red-400">ban</span> thủ phạm và gửi log cho đội ngũ quản trị.
+            <div className="mt-2 flex items-center gap-2">
+              <div className="flex-1">
+                <HeatBar value={55} color="bg-gradient-to-r from-amber-500 to-violet-500" />
+                <div className="mt-1 flex justify-between text-[10px] text-white/40">
+                  <span>warn 25</span><span>tạm khóa 40</span><span>kick 70</span><span>ban 90</span>
+                </div>
+              </div>
+              <span className="shrink-0 rounded-md bg-violet-500/20 px-1.5 py-0.5 font-mono text-[10px] font-bold text-violet-300">55/100</span>
+            </div>
+            <p className="mt-1.5 text-[11px] text-white/60">
+              Tái phạm trong 30 phút → nhiệt <b className="text-orange-300">×2</b> · đã gửi DM cảnh báo ⚠️
+            </p>
+          </div>
+
+          {/* Join gate */}
+          <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 px-3 py-2.5">
+            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
+              <UserCheck className="h-4 w-4" /> JOIN GATE — TỰ ĐỘNG CHẶN SELFBOT
+            </div>
+            <p className="mt-1 text-[11px] text-white/60">
+              🚪 <span className="font-mono text-white/80">selfbot_9123</span> bị chặn: tài khoản{" "}
+              <b className="text-emerald-300">mới 2 ngày</b>, không avatar, không huy hiệu → đã kick.
             </p>
           </div>
         </div>
@@ -120,33 +155,33 @@ function Features() {
   const items = [
     {
       icon: MessageSquareReply,
-      title: "Tự trả lời theo từ khóa",
-      desc: "Cấu hình phản hồi tùy chỉnh cho từ khóa hoặc khi bot bị tag @mention. Hỗ trợ placeholder {user}, {username}, cooldown chống spam.",
+      title: "Tự trả lời thông minh",
+      desc: "Rule theo từ khóa hoặc @mention, hỗ trợ {user}, {username}, cooldown chống spam. Trả lời ngay, đúng giọng server của bạn.",
+    },
+    {
+      icon: Flame,
+      title: "Hệ thống nhiệt độ 4 giai đoạn",
+      desc: "Mỗi vi phạm cộng điểm nhiệt; đủ ngưỡng tự tăng cấp: cảnh báo DM → tạm khóa → kick → ban. Hạ nhiệt theo phút, tái phạm bị ×2 nhiệt.",
+    },
+    {
+      icon: ShieldCheck,
+      title: "Moderation lọc nội dung",
+      desc: "Chống spam tin nhắn, spam mention, từ ngữ xấu, spam ảnh/file và chặn link mời Discord — kèm warn tích lũy tăng cấp hình phạt.",
+    },
+    {
+      icon: Bug,
+      title: "Chặn link độc hại & file nguy hiểm",
+      desc: "Phát hiện domain lừa đảo (nitro giả, gift giả, crypto scam…), link IP và file đuôi nguy hiểm (.exe, .scr, .bat…) — xóa tin + cảnh báo ngay.",
+    },
+    {
+      icon: UserCheck,
+      title: "Join Gate chống selfbot",
+      desc: "Cổng vào server: chặn tài khoản quá mới, không avatar, không huy hiệu và mọi lượt vào khi đang bị raid — kèm danh sách trắng.",
     },
     {
       icon: ShieldAlert,
       title: "Chống nuke & raid",
-      desc: "9 module phát hiện ban/kick hàng loạt, raid thành viên, spam tin nhắn, tạo/xóa kênh, role và xóa tin — kèm khóa kênh tự động khi bị tấn công.",
-    },
-    {
-      icon: Command,
-      title: "Prefix + Slash command",
-      desc: "Đầy đủ lệnh cơ bản: !help, !prefix, !autoreply, !antinuke, !setlog… và bản slash command tương ứng /autoreply, /antinuke.",
-    },
-    {
-      icon: LayoutDashboard,
-      title: "Dashboard quản trị",
-      desc: "Quản lý mọi thứ bằng giao diện web: thêm rule, chỉnh threshold, chọn role được miễn trừ, chọn kênh log — không cần code.",
-    },
-    {
-      icon: Zap,
-      title: "Áp dụng tức thì",
-      desc: "Cấu hình từ dashboard được bot đồng bộ trong vòng 30 giây, tự động cho mọi server bạn đang quản lý.",
-    },
-    {
-      icon: Crown,
-      title: "Quyền theo vai trò",
-      desc: "Phân quyền linh hoạt: role Mod / Admin được miễn trừ khỏi chống nuke, chỉ chủ server và mod mới chỉnh được cấu hình.",
+      desc: "8 module phát hiện ban/kick hàng loạt, raid thành viên, tạo/xóa kênh, role, xóa tin — phạt trực tiếp + khóa kênh tự động khi bị tấn công.",
     },
   ];
   return (
@@ -163,10 +198,10 @@ function Features() {
             <Badge className="mb-4"><Sparkles className="h-3.5 w-3.5" /> Mọi thứ trong một bot</Badge>
           </motion.div>
           <motion.h2 variants={fadeUp} className="font-display text-3xl font-bold tracking-tight md:text-5xl">
-            Công cụ bảo vệ & <span className="text-gradient-cyan">giao tiếp</span> cho server của bạn
+            Bảo vệ toàn diện & <span className="text-gradient-cyan">giao tiếp</span> cho server của bạn
           </motion.h2>
           <motion.p variants={fadeUp} className="mt-4 text-muted-foreground">
-            Protogon kết hợp tự động trả lời thông minh và phòng thủ chống raid trong một bot duy nhất — cấu hình nhanh qua dashboard.
+            Từ tự trả lời thông minh đến 14 module bảo vệ — Protogon canh server 24/7 và cấu hình mọi thứ qua dashboard trực quan.
           </motion.p>
         </motion.div>
 
@@ -189,16 +224,86 @@ function Features() {
             </motion.div>
           ))}
         </motion.div>
+
+        {/* Dải điểm nổi bật thêm */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.5 }}
+          className="mt-10 grid gap-3 rounded-2xl border border-border bg-card/60 p-6 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          {[
+            { icon: Crown, t: "Warn tích lũy", d: "Đủ N lần warn → tự tăng cấp hình phạt" },
+            { icon: LayoutDashboard, t: "Bảng nhiệt & warn", d: "Xem từng thành viên, xóa nhiệt 1 cú nhấn" },
+            { icon: Zap, t: "Đồng bộ 30 giây", d: "Chỉnh trên web → bot áp dụng ngay" },
+            { icon: Timer, t: "Báo cáo hàng ngày", d: "Tóm tắt sự kiện, nhiệt & warn gửi vào kênh log" },
+          ].map((b) => (
+            <div key={b.t} className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <b.icon className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold">{b.t}</p>
+                <p className="text-xs text-muted-foreground">{b.d}</p>
+              </div>
+            </div>
+          ))}
+        </motion.div>
       </div>
     </section>
   );
 }
 
+/** Thang nhiệt 4 giai đoạn — trực quan + sinh động. */
+function HeatLadder() {
+  const tiers = [
+    { label: "Cảnh báo", range: "25 → 39", color: "from-amber-500 to-yellow-400", text: "text-amber-400", bar: "bg-amber-500/60" },
+    { label: "Tạm khóa", range: "40 → 69", color: "from-violet-500 to-purple-400", text: "text-violet-400", bar: "bg-violet-500/60" },
+    { label: "Kick", range: "70 → 89", color: "from-orange-500 to-amber-400", text: "text-orange-400", bar: "bg-orange-500/60" },
+    { label: "Ban", range: "90 → 100", color: "from-red-500 to-rose-400", text: "text-red-400", bar: "bg-red-500/60" },
+  ];
+  return (
+    <div className="rounded-xl border border-border bg-secondary/30 p-4">
+      <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-foreground">
+        <Flame className="h-4 w-4 text-orange-400" /> Thang nhiệt tự leo thang hình phạt
+      </div>
+      <div className="grid gap-2 sm:grid-cols-4">
+        {tiers.map((t, i) => (
+          <motion.div
+            key={t.label}
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4, delay: i * 0.1 }}
+            className={`rounded-lg border border-border bg-gradient-to-b ${t.color} p-3`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-black/70">{t.label}</span>
+              <span className="font-mono text-[10px] font-semibold text-black/60">{t.range}</span>
+            </div>
+            <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-black/20">
+              <div className={`h-full rounded-full ${t.bar}`} style={{ width: `${(i + 1) * 25}%` }} />
+            </div>
+          </motion.div>
+        ))}
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Vừa bị phạt mà tái phạm → nhiệt nhân <b className="text-orange-400">×2</b> trong 30 phút. Warn tích lũy chạy song song: đủ 3 lần warn → tự tăng cấp.
+      </p>
+    </div>
+  );
+}
+
 function AntiNuke() {
-  const modules = [
+  const nukeModules = [
     "Chống ban hàng loạt", "Chống kick hàng loạt", "Chống raid thành viên",
     "Chống tạo kênh spam", "Chống xóa kênh hàng loạt", "Chống tạo role spam",
-    "Chống xóa role hàng loạt", "Chống xóa tin hàng loạt", "Chống spam tin nhắn",
+    "Chống xóa role hàng loạt", "Chống xóa tin hàng loạt",
+  ];
+  const modModules = [
+    "Chống spam tin nhắn", "Chống spam mention", "Lọc từ ngữ xấu",
+    "Chống spam ảnh/file", "Chặn link mời Discord", "Chặn link độc hại & file nguy hiểm",
   ];
   return (
     <section id="antinuke" className="relative overflow-hidden py-24">
@@ -211,20 +316,24 @@ function AntiNuke() {
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.6 }}
           >
-            <Badge variant="danger" className="mb-4"><ShieldAlert className="h-3.5 w-3.5" /> Anti Nuke Raid</Badge>
+            <Badge variant="danger" className="mb-4"><ShieldAlert className="h-3.5 w-3.5" /> Phòng thủ 14 module</Badge>
             <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
               Chặn đứng kẻ phá hoại <br />
               trước khi <span className="text-gradient-cyan">server sụp đổ</span>
             </h2>
             <p className="mt-4 max-w-lg text-muted-foreground">
-              Khi vượt ngưỡng trong một khoảng thời gian ngắn, Protogon tự động xác định thủ phạm qua audit log và xử lý theo chuỗi leo thang bạn chọn — kèm cảnh báo real-time tới kênh log.
+              Hai lớp phòng thủ: <b className="text-foreground">Anti Nuke</b> canh cấu trúc server (ban/kick hàng loạt, phá kênh, phá role…) và{" "}
+              <b className="text-foreground">Moderation</b> lọc nội dung độc hại mỗi ngày. Vượt ngưỡng → xác định thủ phạm qua audit log, phạt theo cài đặt và cảnh báo real-time tới kênh log.
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
-              {["Cảnh báo", "Kick", "Ban", "Miễn trừ role", "Kênh log riêng"].map((t) => (
+              {["Phạt trực tiếp", "Khóa kênh khi raid", "Miễn trừ role", "Kênh log riêng", "Báo cáo hàng ngày"].map((t) => (
                 <span key={t} className="rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs text-muted-foreground">
                   {t}
                 </span>
               ))}
+            </div>
+            <div className="mt-8">
+              <HeatLadder />
             </div>
           </motion.div>
 
@@ -239,11 +348,27 @@ function AntiNuke() {
               <div className="flex items-center gap-2 font-display font-semibold">
                 <ShieldCheck className="h-5 w-5 text-primary" /> Module đang bảo vệ
               </div>
-              <Badge variant="success">9/9 bật</Badge>
+              <Badge variant="success">14/14 bật</Badge>
             </div>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              🛡️ Anti Nuke / Raid
+            </p>
             <div className="grid gap-2 sm:grid-cols-2">
-              {modules.map((m) => (
-                <div key={m} className="flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-3 py-2.5">
+              {nukeModules.map((m) => (
+                <div key={m} className="flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-3 py-2">
+                  <span className="text-sm">{m}</span>
+                  <span className="relative ml-2 flex h-4 w-7 items-center rounded-full bg-primary px-0.5">
+                    <span className="ml-auto h-3 w-3 rounded-full bg-white" />
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              🧹 Moderation nội dung
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {modModules.map((m) => (
+                <div key={m} className="flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-3 py-2">
                   <span className="text-sm">{m}</span>
                   <span className="relative ml-2 flex h-4 w-7 items-center rounded-full bg-primary px-0.5">
                     <span className="ml-auto h-3 w-3 rounded-full bg-white" />
@@ -253,9 +378,6 @@ function AntiNuke() {
             </div>
             <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-100/70">
               <span className="font-semibold text-amber-300">🔒 Khóa kênh khi raid:</span> vượt ngưỡng bất kỳ module nào → bot chặn thành viên gửi tin trong toàn server, tự mở lại sau vài phút hoặc khi mod dùng <code className="font-mono">/antinuke unlock</code>.
-            </div>
-            <div className="mt-2 rounded-lg border border-border bg-secondary/30 p-3 text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">Ví dụ:</span> ai đó ban 5 thành viên trong 10 giây → Protogon kiểm tra quyền, cảnh báo trong #logs, tự động ban thủ phạm và khóa kênh. Mod & Admin được miễn trừ.
             </div>
           </motion.div>
         </div>
@@ -276,13 +398,13 @@ function HowItWorks() {
       n: "02",
       icon: ShieldCheck,
       title: "Mời bot vào server",
-      desc: "Nhấn Mời bot, chọn server của bạn — Protogon tự động tạo cấu hình mặc định an toàn.",
+      desc: "Nhấn Mời bot, chọn server của bạn — Protogon tự động tạo cấu hình mặc định an toàn với đủ 14 module.",
     },
     {
       n: "03",
       icon: LayoutDashboard,
       title: "Cấu hình trên dashboard",
-      desc: "Thêm rule trả lời, chỉnh ngưỡng chống nuke, phân quyền mod/admin chỉ trong vài phút.",
+      desc: "Thêm rule trả lời, chỉnh nhiệt độ & warn, bật Join Gate, chọn hình phạt — mọi thứ hiệu lực trong 30 giây.",
     },
   ];
   return (
@@ -343,7 +465,7 @@ function CtaBanner() {
               Sẵn sàng bảo vệ server của bạn?
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-              Đăng nhập bằng Discord, mời Protogon vào server và bật chống nuke ngay lập tức. Miễn phí cho mọi server.
+              Đăng nhập bằng Discord, mời Protogon vào server — nhiệt độ, Join Gate, lọc nội dung và chống nuke bật ngay lập tức. Miễn phí cho mọi server.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link to="/auth">
@@ -379,7 +501,7 @@ export default function Landing() {
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
                   </span>
-                  Discord Bot · Auto Reply & Anti Nuke
+                  Discord Bot · Tự trả lời · Nhiệt độ · Join Gate
                 </Badge>
               </motion.div>
               <motion.h1
@@ -388,9 +510,9 @@ export default function Landing() {
                 transition={{ duration: 0.7, delay: 0.1 }}
                 className="font-display text-4xl font-bold leading-[1.1] tracking-tight md:text-6xl"
               >
-                Bot Discord <span className="text-gradient-cyan">tự trả lời</span>
+                Bot Discord <span className="text-gradient-cyan">bảo vệ toàn diện</span>
                 <br />
-                theo từ khóa & <span className="shimmer-text">chống raid</span>
+                tự trả lời & <span className="shimmer-text">chống raid</span>
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0, y: 24 }}
@@ -398,7 +520,10 @@ export default function Landing() {
                 transition={{ duration: 0.7, delay: 0.2 }}
                 className="mt-5 max-w-lg text-lg text-muted-foreground"
               >
-                Tag <span className="font-mono text-primary">@protogon</span> hoặc nhắc đến từ khóa — bot trả lời ngay theo nội dung bạn tùy chỉnh. Cùng bộ giáp chống nuke bật tắt từng phần theo ý mod & owner.
+                Tag <span className="font-mono text-primary">@protogon</span> hoặc nhắc từ khóa — bot trả lời ngay. Hệ thống{" "}
+                <b className="text-foreground">nhiệt độ 4 giai đoạn</b>,{" "}
+                <b className="text-foreground">Join Gate chống selfbot</b> và{" "}
+                <b className="text-foreground">14 module bảo vệ</b> canh server 24/7.
               </motion.p>
               <motion.div
                 initial={{ opacity: 0, y: 24 }}
@@ -419,9 +544,9 @@ export default function Landing() {
                 className="mt-10 grid max-w-md grid-cols-3 gap-4 border-t border-border pt-6"
               >
                 {[
-                  ["9+", "Module chống nuke"],
-                  ["2", "Prefix & slash"],
-                  ["30s", "Đồng bộ cấu hình"],
+                  ["14", "Module bảo vệ"],
+                  ["4", "Giai đoạn nhiệt"],
+                  ["24/7", "Giám sát tự động"],
                 ].map(([v, l]) => (
                   <div key={l}>
                     <p className="font-display text-2xl font-bold text-primary">{v}</p>
@@ -450,7 +575,7 @@ export default function Landing() {
             <span className="font-display font-semibold">Protogon Bot</span>
           </div>
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Protogon Bot · Tự trả lời thông minh & phòng thủ chống raid cho Discord.
+            © {new Date().getFullYear()} Protogon Bot · Tự trả lời thông minh, nhiệt độ vi phạm & phòng thủ chống raid cho Discord.
           </p>
         </div>
       </footer>
