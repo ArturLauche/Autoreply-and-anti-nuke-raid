@@ -101,6 +101,13 @@ export const getGuild = query({
         heatTimeoutAt: guild.heatTimeoutAt ?? HEAT_DEFAULTS.timeoutAt,
         heatKickAt: guild.heatKickAt ?? HEAT_DEFAULTS.kickAt,
         heatBanAt: guild.heatBanAt ?? HEAT_DEFAULTS.banAt,
+        joinGateEnabled: guild.joinGateEnabled ?? false,
+        joinGateMinAgeDays: guild.joinGateMinAgeDays ?? 0,
+        joinGateRequireAvatar: guild.joinGateRequireAvatar ?? false,
+        joinGateRequireFlag: guild.joinGateRequireFlag ?? false,
+        joinGateRaidKick: guild.joinGateRaidKick ?? false,
+        joinGatePunish: guild.joinGatePunish ?? "kick",
+        joinGateWhitelist: guild.joinGateWhitelist ?? [],
         safetyPercent,
       },
       heatStates,
@@ -183,6 +190,13 @@ export const getBotConfig = query({
       safetyPercent,
       heatResetRequested: guild.heatResetRequested ?? false,
       heatResetUserId: guild.heatResetUserId ?? null,
+      joinGateEnabled: guild.joinGateEnabled ?? false,
+      joinGateMinAgeDays: guild.joinGateMinAgeDays ?? 0,
+      joinGateRequireAvatar: guild.joinGateRequireAvatar ?? false,
+      joinGateRequireFlag: guild.joinGateRequireFlag ?? false,
+      joinGateRaidKick: guild.joinGateRaidKick ?? false,
+      joinGatePunish: guild.joinGatePunish ?? "kick",
+      joinGateWhitelist: guild.joinGateWhitelist ?? [],
       heatStates,
       autoReplies,
       modules: modules.map((m) => ({
@@ -214,6 +228,13 @@ export const updateSettings = mutation({
     heatTimeoutAt: v.optional(v.number()),
     heatKickAt: v.optional(v.number()),
     heatBanAt: v.optional(v.number()),
+    joinGateEnabled: v.optional(v.boolean()),
+    joinGateMinAgeDays: v.optional(v.number()),
+    joinGateRequireAvatar: v.optional(v.boolean()),
+    joinGateRequireFlag: v.optional(v.boolean()),
+    joinGateRaidKick: v.optional(v.boolean()),
+    joinGatePunish: v.optional(v.union(v.literal("kick"), v.literal("ban"))),
+    joinGateWhitelist: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const user = await getUserByToken(ctx, args.token);
@@ -267,6 +288,21 @@ export const updateSettings = mutation({
       patch.heatTimeoutAt = tC;
       patch.heatKickAt = kC;
       patch.heatBanAt = bC;
+    }
+    if (args.joinGateEnabled !== undefined) patch.joinGateEnabled = args.joinGateEnabled;
+    if (args.joinGateMinAgeDays !== undefined) {
+      patch.joinGateMinAgeDays = Math.max(0, Math.min(3650, Math.floor(args.joinGateMinAgeDays)));
+    }
+    if (args.joinGateRequireAvatar !== undefined) patch.joinGateRequireAvatar = args.joinGateRequireAvatar;
+    if (args.joinGateRequireFlag !== undefined) patch.joinGateRequireFlag = args.joinGateRequireFlag;
+    if (args.joinGateRaidKick !== undefined) patch.joinGateRaidKick = args.joinGateRaidKick;
+    if (args.joinGatePunish !== undefined) patch.joinGatePunish = args.joinGatePunish;
+    if (args.joinGateWhitelist !== undefined) {
+      const ids = args.joinGateWhitelist
+        .map((id) => id.trim())
+        .filter((id) => /^\d{15,20}$/.test(id))
+        .slice(0, 100);
+      patch.joinGateWhitelist = [...new Set(ids)];
     }
     await ctx.db.patch(guild._id, patch);
     return { ok: true };
@@ -413,6 +449,13 @@ export const botSyncGuilds = mutation({
           heatTimeoutAt: HEAT_DEFAULTS.timeoutAt,
           heatKickAt: HEAT_DEFAULTS.kickAt,
           heatBanAt: HEAT_DEFAULTS.banAt,
+          joinGateEnabled: false,
+          joinGateMinAgeDays: 0,
+          joinGateRequireAvatar: false,
+          joinGateRequireFlag: false,
+          joinGateRaidKick: false,
+          joinGatePunish: "kick" as const,
+          joinGateWhitelist: [],
           managers: [],
           botInGuild: true,
           lastHeartbeat: now,

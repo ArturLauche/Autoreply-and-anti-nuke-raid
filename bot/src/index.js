@@ -13,6 +13,7 @@ const onMessageCreate = require("./handlers/messageCreate");
 const onInteractionCreate = require("./handlers/interactionCreate");
 const createAntiNuke = require("./handlers/antinuke");
 const scanMessage = require("./handlers/filters");
+const joinGate = require("./handlers/joinGate");
 const { HeatTracker } = require("./heat");
 const { runDailyReports } = require("./handlers/dailyReport");
 const { registerCommands } = require("./register-slash");
@@ -89,6 +90,7 @@ client.on("interactionCreate", (i) =>
     if (e?.errors) console.error("[interaction] details:", JSON.stringify(e.errors).slice(0, 600));
   }),
 );
+client.on("guildMemberAdd", (m) => joinGate(client, m, store).catch((e) => console.error("[joinGate]", e.message)));
 client.on("guildCreate", () => guildSync.syncAll(client, store).catch(() => {}));
 client.on("guildDelete", () => guildSync.syncAll(client, store).catch(() => {}));
 

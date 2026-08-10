@@ -106,6 +106,13 @@ export interface GuildData {
     heatTimeoutAt: number;
     heatKickAt: number;
     heatBanAt: number;
+    joinGateEnabled: boolean;
+    joinGateMinAgeDays: number;
+    joinGateRequireAvatar: boolean;
+    joinGateRequireFlag: boolean;
+    joinGateRaidKick: boolean;
+    joinGatePunish: "kick" | "ban";
+    joinGateWhitelist: string[];
     safetyPercent: number;
   };
   heatStates: HeatState[];

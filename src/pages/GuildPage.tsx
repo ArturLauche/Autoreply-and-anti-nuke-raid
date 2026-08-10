@@ -4,6 +4,7 @@ import { useQuery } from "convex/react";
 import {
   ArrowLeft,
   Bot,
+  DoorOpen,
   ExternalLink,
   LayoutDashboard,
   Loader2,
@@ -23,13 +24,15 @@ import OverviewPanel from "../components/dashboard/OverviewPanel";
 import AutoReplyPanel from "../components/dashboard/AutoReplyPanel";
 import AntiNukePanel from "../components/dashboard/AntiNukePanel";
 import ModerationPanel from "../components/dashboard/ModerationPanel";
+import JoinGatePanel from "../components/dashboard/JoinGatePanel";
 import SettingsPanel from "../components/dashboard/SettingsPanel";
 
-type SectionKey = "overview" | "moderation" | "antinuke" | "autoreply" | "settings";
+type SectionKey = "overview" | "moderation" | "joingate" | "antinuke" | "autoreply" | "settings";
 
 const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "overview", label: "Tổng quan", icon: LayoutDashboard },
   { key: "moderation", label: "Moderation", icon: ShieldCheck },
+  { key: "joingate", label: "Join Gate", icon: DoorOpen },
   { key: "antinuke", label: "Chống nuke / raid", icon: ShieldAlert },
   { key: "autoreply", label: "Auto Reply", icon: MessageSquareReply },
   { key: "settings", label: "Cài đặt", icon: Settings },
@@ -155,6 +158,7 @@ export default function GuildPage() {
           <div>
             {section === "overview" && <OverviewPanel data={data} />}
             {section === "moderation" && <ModerationPanel data={data} />}
+            {section === "joingate" && <JoinGatePanel data={data} />}
             {section === "antinuke" && <AntiNukePanel data={data} />}
             {section === "autoreply" && <AutoReplyPanel data={data} />}
             {section === "settings" && <SettingsPanel data={data} />}
