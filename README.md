@@ -1,4 +1,4 @@
-# Wio Bot — Auto Reply & Anti Nuke Raid
+# Protogon Bot — Auto Reply & Anti Nuke Raid
 
 Bot Discord tự động trả lời tin nhắn thành viên theo **từ khóa** hoặc khi bị **tag @mention** (nội dung do bạn tùy chỉnh), hỗ trợ đầy đủ **prefix (`!`) + slash commands**, kèm hệ thống **chống nuke/raid** bật tắt từng phần theo ý mod & owner — tất cả quản lý qua một **dashboard web** tùy chỉnh.
 
@@ -49,10 +49,11 @@ Xem hướng dẫn chi tiết tại [`bot/README.md`](bot/README.md). Tóm tắt
 
 ```bash
 cd bot
-cp .env.example .env    # điền DISCORD_TOKEN, DISCORD_CLIENT_ID, CONVEX_URL
 bun install
 bun run start
 ```
+
+**Không có máy/VPS để chạy bot?** → Dùng **Bot-Hosting.net miễn phí** (cloud chuyên host bot Discord, không cần thẻ, bot chạy 24/7 bằng hệ thống coin): `cd bot && npm run pack:host` rồi upload `protogon-bot.zip` theo hướng dẫn trong [`bot/README.md`](bot/README.md) → mục “Chạy bot MIỄN PHÍ trên Bot-Hosting.net”.
 
 Bot tự đăng ký slash commands và đồng bộ server/kênh/role lên Convex mỗi 60 giây.
 

@@ -59,7 +59,7 @@ export default function AuthPage() {
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-[0_0_20px_-4px_hsl(187_92%_55%/0.8)]">
               <Bot className="h-5 w-5" />
             </span>
-            <span className="font-display text-xl font-bold">Wio<span className="text-primary">.</span></span>
+            <span className="font-display text-xl font-bold">Protogon<span className="text-primary">.</span></span>
           </Link>
           <h1 className="font-display text-4xl font-bold leading-tight tracking-tight">
             Quản lý bot Discord của bạn <span className="text-gradient-cyan">từ một nơi</span>
@@ -88,7 +88,7 @@ export default function AuthPage() {
         >
           <Card className="border-border/80 bg-card/70 shadow-2xl backdrop-blur">
             <CardHeader className="text-center">
-              <CardTitle className="text-2xl">Đăng nhập vào Wio</CardTitle>
+              <CardTitle className="text-2xl">Đăng nhập vào Protogon</CardTitle>
               <CardDescription>
                 Sử dụng tài khoản Discord để quản lý các server của bạn
               </CardDescription>
@@ -118,12 +118,16 @@ export default function AuthPage() {
                     <li>Tạo bot tại Discord Developer Portal</li>
                     <li>Sao chép <b>Application ID</b> (Client ID)</li>
                     <li>Dán vào API Keys với tên <b>DISCORD_CLIENT_ID</b></li>
+                    <li>
+                      Thêm redirect URI <code className="rounded bg-black/30 px-1 font-mono text-xs">{window.location.origin}/discord/callback</code>{" "}
+                      vào <b>OAuth2 → Redirects</b> của ứng dụng
+                    </li>
                   </ol>
                 </div>
               )}
 
               <p className="text-center text-xs leading-relaxed text-muted-foreground">
-                Khi đăng nhập, Wio cần quyền <b className="text-foreground">identify</b> và{" "}
+                Khi đăng nhập, Protogon cần quyền <b className="text-foreground">identify</b> và{" "}
                 <b className="text-foreground">guilds</b> để hiển thị server bạn quản lý.
                 Chúng tôi không lưu mật khẩu hay tin nhắn của bạn.
               </p>

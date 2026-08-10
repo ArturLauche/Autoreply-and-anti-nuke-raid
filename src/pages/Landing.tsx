@@ -35,7 +35,7 @@ function Nav() {
             <Bot className="h-5 w-5" />
           </span>
           <span className="font-display text-lg font-bold tracking-tight">
-            Wio<span className="text-primary">.</span>
+            Protogon<span className="text-primary">.</span>
           </span>
         </Link>
         <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
@@ -65,15 +65,15 @@ function HeroChatCard() {
           <span className="h-3 w-3 rounded-full bg-[#f23f43]" />
           <span className="h-3 w-3 rounded-full bg-[#f0b232]" />
           <span className="h-3 w-3 rounded-full bg-[#23a55a]" />
-          <span className="ml-3 text-xs font-medium text-white/40"># general · Wio Bot</span>
+          <span className="ml-3 text-xs font-medium text-white/40"># general · Protogon Bot</span>
         </div>
         <div className="space-y-4 p-5 font-sans">
           <div className="flex items-end gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#5865f2] text-xs font-bold text-white">Huy</span>
             <div className="max-w-[80%]">
-              <p className="mb-1 text-xs font-semibold text-white">huy_nguyen <span className="ml-1 font-normal text-white/40">Hôm nay chơi gì mọi người? @wio</span></p>
+              <p className="mb-1 text-xs font-semibold text-white">huy_nguyen <span className="ml-1 font-normal text-white/40">Hôm nay chơi gì mọi người? @protogon</span></p>
               <div className="rounded-lg rounded-bl-none bg-[#2b2d31] px-3 py-2 text-sm text-white/90">
-                Hôm nay chơi gì mọi người? <span className="font-semibold text-[#7289da]">@wio</span>
+                Hôm nay chơi gì mọi người? <span className="font-semibold text-[#7289da]">@protogon</span>
               </div>
             </div>
           </div>
@@ -83,7 +83,7 @@ function HeroChatCard() {
               <Bot className="h-5 w-5" />
             </span>
             <div className="max-w-[80%]">
-              <p className="mb-1 text-xs font-semibold text-white">Wio <span className="ml-1 font-normal text-white/40">BOT</span></p>
+              <p className="mb-1 text-xs font-semibold text-white">Protogon <span className="ml-1 font-normal text-white/40">BOT</span></p>
               <div className="rounded-lg rounded-bl-none border border-primary/40 bg-[#2b2d31] px-3 py-2 text-sm text-white/90">
                 Chào <span className="font-semibold text-primary">Huy</span>! Hôm nay thử một trận Valorant 5v5 nhé 🎮 — mọi người ai chưa có team thì tag tớ nhé!
               </div>
@@ -166,7 +166,7 @@ function Features() {
             Công cụ bảo vệ & <span className="text-gradient-cyan">giao tiếp</span> cho server của bạn
           </motion.h2>
           <motion.p variants={fadeUp} className="mt-4 text-muted-foreground">
-            Wio kết hợp tự động trả lời thông minh và phòng thủ chống raid trong một bot duy nhất — cấu hình nhanh qua dashboard.
+            Protogon kết hợp tự động trả lời thông minh và phòng thủ chống raid trong một bot duy nhất — cấu hình nhanh qua dashboard.
           </motion.p>
         </motion.div>
 
@@ -217,7 +217,7 @@ function AntiNuke() {
               trước khi <span className="text-gradient-cyan">server sụp đổ</span>
             </h2>
             <p className="mt-4 max-w-lg text-muted-foreground">
-              Khi vượt ngưỡng trong một khoảng thời gian ngắn, Wio tự động xác định thủ phạm qua audit log và xử lý theo chuỗi leo thang bạn chọn — kèm cảnh báo real-time tới kênh log.
+              Khi vượt ngưỡng trong một khoảng thời gian ngắn, Protogon tự động xác định thủ phạm qua audit log và xử lý theo chuỗi leo thang bạn chọn — kèm cảnh báo real-time tới kênh log.
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
               {["Cảnh báo", "Kick", "Ban", "Miễn trừ role", "Kênh log riêng"].map((t) => (
@@ -255,7 +255,7 @@ function AntiNuke() {
               <span className="font-semibold text-amber-300">🔒 Khóa kênh khi raid:</span> vượt ngưỡng bất kỳ module nào → bot chặn thành viên gửi tin trong toàn server, tự mở lại sau vài phút hoặc khi mod dùng <code className="font-mono">/antinuke unlock</code>.
             </div>
             <div className="mt-2 rounded-lg border border-border bg-secondary/30 p-3 text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">Ví dụ:</span> ai đó ban 5 thành viên trong 10 giây → Wio kiểm tra quyền, cảnh báo trong #logs, tự động ban thủ phạm và khóa kênh. Mod & Admin được miễn trừ.
+              <span className="font-semibold text-foreground">Ví dụ:</span> ai đó ban 5 thành viên trong 10 giây → Protogon kiểm tra quyền, cảnh báo trong #logs, tự động ban thủ phạm và khóa kênh. Mod & Admin được miễn trừ.
             </div>
           </motion.div>
         </div>
@@ -270,13 +270,13 @@ function HowItWorks() {
       n: "01",
       icon: Bot,
       title: "Tạo ứng dụng Discord",
-      desc: "Tạo bot trên Discord Developer Portal, lấy token và Client ID, dán vào API Keys của Wio.",
+      desc: "Tạo bot trên Discord Developer Portal, lấy token và Client ID, dán vào API Keys của Protogon.",
     },
     {
       n: "02",
       icon: ShieldCheck,
       title: "Mời bot vào server",
-      desc: "Nhấn Mời bot, chọn server của bạn — Wio tự động tạo cấu hình mặc định an toàn.",
+      desc: "Nhấn Mời bot, chọn server của bạn — Protogon tự động tạo cấu hình mặc định an toàn.",
     },
     {
       n: "03",
@@ -343,7 +343,7 @@ function CtaBanner() {
               Sẵn sàng bảo vệ server của bạn?
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-              Đăng nhập bằng Discord, mời Wio vào server và bật chống nuke ngay lập tức. Miễn phí cho mọi server.
+              Đăng nhập bằng Discord, mời Protogon vào server và bật chống nuke ngay lập tức. Miễn phí cho mọi server.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link to="/auth">
@@ -398,7 +398,7 @@ export default function Landing() {
                 transition={{ duration: 0.7, delay: 0.2 }}
                 className="mt-5 max-w-lg text-lg text-muted-foreground"
               >
-                Tag <span className="font-mono text-primary">@wio</span> hoặc nhắc đến từ khóa — bot trả lời ngay theo nội dung bạn tùy chỉnh. Cùng bộ giáp chống nuke bật tắt từng phần theo ý mod & owner.
+                Tag <span className="font-mono text-primary">@protogon</span> hoặc nhắc đến từ khóa — bot trả lời ngay theo nội dung bạn tùy chỉnh. Cùng bộ giáp chống nuke bật tắt từng phần theo ý mod & owner.
               </motion.p>
               <motion.div
                 initial={{ opacity: 0, y: 24 }}
@@ -447,10 +447,10 @@ export default function Landing() {
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 text-primary">
               <Bot className="h-4 w-4" />
             </span>
-            <span className="font-display font-semibold">Wio Bot</span>
+            <span className="font-display font-semibold">Protogon Bot</span>
           </div>
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Wio Bot · Tự trả lời thông minh & phòng thủ chống raid cho Discord.
+            © {new Date().getFullYear()} Protogon Bot · Tự trả lời thông minh & phòng thủ chống raid cho Discord.
           </p>
         </div>
       </footer>

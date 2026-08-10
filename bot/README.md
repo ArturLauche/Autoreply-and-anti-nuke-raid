@@ -1,6 +1,53 @@
-# Wio Bot — process Discord
+# Protogon Bot — process Discord
 
 Bot Discord standalone (Node.js + discord.js v14) kết nối tới **cùng một Convex backend** với dashboard web, nên mọi cấu hình chỉnh trên dashboard được bot áp dụng tự động.
+
+## 🆓 Chạy bot MIỄN PHÍ trên Bot-Hosting.net (không cần tiền, không cần thiết bị)
+
+> Dành cho ai không có máy/VPS riêng: bot chạy 24/7 trên cloud của **Bot-Hosting.net** — dịch vụ chuyên host bot Discord, gói miễn phí **không cần thẻ ngân hàng**, đăng nhập bằng tài khoản Discord.
+
+### Bước 1 — Đăng ký & nhận coin
+
+1. Vào **[bot-hosting.net](https://bot-hosting.net)** → **Login** → đăng nhập bằng tài khoản Discord (không cần thẻ).
+2. Vào mục **Earn coins** trên dashboard → làm captcha để nhận coin miễn phí mỗi ngày (gói free vận hành bằng hệ thống coin — cần coin để giữ server chạy).
+
+### Bước 2 — Tạo server & cài biến môi trường
+
+1. **Create Server** → chọn **Node.js** → chọn gói miễn phí (RAM thường 256–512 MB, đủ cho bot này ở server nhỏ) → chọn chu kỳ thanh toán (weekly).
+2. Vào panel server → tab **Startup** → phần **Environment Variables** → thêm:
+
+```env
+DISCORD_TOKEN=<bot token của bạn>
+DISCORD_CLIENT_ID=1536232784660795402
+CONVEX_URL=<URL Convex công khai — xem bên dưới>
+CONVEX_DEPLOY_KEY=<deploy key nếu là bản production>
+```
+
+> ⚠️ **Quan trọng**: `CONVEX_URL` phải là URL **truy cập được từ internet** (bản `http://127.0.0.1:3210` chỉ chạy được khi bot nằm chung máy với Convex dev). Xem mục **“Convex backend công khai”** bên dưới.
+
+### Bước 3 — Nén & upload
+
+```bash
+cd bot
+npm install
+npm run pack:host    # tạo ra protogon-bot.zip (không gồm node_modules/.env)
+```
+
+Rồi:
+
+1. Vào panel server → tab **Files** → upload file `protogon-bot.zip`.
+2. Bấm **Unarchive** (giải nén) file zip → mở thư mục vừa tạo → chọn tất cả file bên trong → **Move** lên thư mục gốc `/home/container` (nếu để lồng trong thư mục con, bot sẽ báo lỗi không tìm thấy module).
+3. Vào tab **Startup**: đảm bảo lệnh khởi động chạy đúng entry point — với bot này dùng **`npm start`** (tương đương `node src/index.js`).
+4. Bấm **Start** ở tab Console — Bot-Hosting tự chạy `npm install` rồi khởi động bot.
+
+> Lưu ý: gói miễn phí cần **đủ coin** khi tới chu kỳ thanh toán, nếu hết coin bot sẽ bị tạm ngừng — vào trang Earn coins nhận coin định kỳ là duy trì được 24/7.
+
+## Convex backend công khai (cần cho bot trên cloud)
+
+Dashboard web chạy trên Freebuff, còn bot chạy ở nơi khác — cả hai phải trỏ về **cùng một Convex backend**. Có 2 lựa chọn:
+
+- **Bản dev local** (`http://127.0.0.1:3210`): chỉ chạy được khi bot nằm ngay trên máy chạy `convex dev`. Dùng để thử nhanh.
+- **Deployment Convex production**: dùng `npx convex deploy` từ máy bạn (tài khoản Convex miễn phí) để đưa backend lên cloud → được URL dạng `https://<tên-dự-án>.convex.site` + **Deploy Key** (Convex dashboard → *Deployments → Keys*). Đây là URL điền vào `CONVEX_URL`.
 
 ## Yêu cầu
 
@@ -12,7 +59,7 @@ Bot Discord standalone (Node.js + discord.js v14) kết nối tới **cùng mộ
 
 ```bash
 cd bot
-cp .env.example .env   # tạo file .env và điền giá trị bên dưới
+# tạo file .env và điền giá trị (xem bảng biến môi trường bên dưới)
 bun install            # hoặc npm install
 ```
 

@@ -63,7 +63,7 @@ export default function Dashboard() {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-[0_0_20px_-4px_hsl(187_92%_55%/0.8)]">
               <Bot className="h-5 w-5" />
             </span>
-            <span className="font-display text-lg font-bold">Wio<span className="text-primary">.</span></span>
+            <span className="font-display text-lg font-bold">Protogon<span className="text-primary">.</span></span>
           </button>
           <div className="flex items-center gap-3">
             {avatar ? (
@@ -138,7 +138,7 @@ export default function Dashboard() {
               <div>
                 <h2 className="font-display text-xl font-semibold">Chưa có server nào</h2>
                 <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                  Mời Wio vào server của bạn rồi quay lại đây. Cần quyền{" "}
+                  Mời Protogon vào server của bạn rồi quay lại đây. Cần quyền{" "}
                   <b className="text-foreground">Quản lý server</b> để chỉnh cấu hình.
                 </p>
               </div>

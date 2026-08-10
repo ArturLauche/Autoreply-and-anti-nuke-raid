@@ -5,6 +5,7 @@ dist
 .env.*.local
 bot/node_modules
 bot/.env
+bot/*.zip
 .convex
 *.tsbuildinfo
 *.log

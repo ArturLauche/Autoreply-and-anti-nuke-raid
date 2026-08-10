@@ -260,7 +260,7 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="keyword">Từ khóa trong tin nhắn</SelectItem>
-                  <SelectItem value="mention">Tag bot (@wio)</SelectItem>
+                  <SelectItem value="mention">Tag bot (@protogon)</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
