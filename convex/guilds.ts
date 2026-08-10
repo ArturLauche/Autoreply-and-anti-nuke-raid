@@ -1,7 +1,29 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild } from "./auth";
-import { ANTI_NUKE_MODULES } from "./modules";
+import { ANTI_NUKE_MODULES, HEAT_DEFAULTS, MODULE_HEAT_DEFAULTS } from "./modules";
+
+/** Decay a stored heat value by the guild's per-minute decay rate. */
+function decayHeat(heat: number, updatedAt: number, decayPerMin: number) {
+  const elapsedMin = (Date.now() - updatedAt) / 60000;
+  return Math.max(0, Math.round(heat - elapsedMin * decayPerMin));
+}
+
+async function loadHeatStates(ctx: { db: import("./_generated/server").DatabaseReader }, guildId: string, decayPerMin: number) {
+  const raw = await ctx.db
+    .query("heatStates")
+    .withIndex("by_guildId_heat", (q) => q.eq("guildId", guildId))
+    .order("desc")
+    .take(15);
+  return raw
+    .map((h) => ({
+      userId: h.userId,
+      username: h.username,
+      heat: decayHeat(h.heat, h.updatedAt, decayPerMin),
+      updatedAt: h.updatedAt,
+    }))
+    .filter((h) => h.heat > 0);
+}
 
 export const listMine = query({
   args: { token: v.string() },
@@ -50,6 +72,9 @@ export const getGuild = query({
       .query("guildRoles")
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
       .collect();
+    const decayPerMin = guild.heatDecayPerMin ?? HEAT_DEFAULTS.decayPerMin;
+    const heatStates = await loadHeatStates(ctx, guildId, decayPerMin);
+    const safetyPercent = Math.max(0, Math.min(100, 100 - (heatStates[0]?.heat ?? 0)));
     return {
       guild: {
         discordId: guild.discordId,
@@ -69,7 +94,15 @@ export const getGuild = query({
         lockdownRequested: guild.lockdownRequested ?? false,
         dailyReportEnabled: guild.dailyReportEnabled ?? true,
         lastReportAt: guild.lastReportAt ?? null,
+        badWords: guild.badWords ?? [],
+        heatEnabled: guild.heatEnabled ?? HEAT_DEFAULTS.enabled,
+        heatDecayPerMin: decayPerMin,
+        heatTimeoutAt: guild.heatTimeoutAt ?? HEAT_DEFAULTS.timeoutAt,
+        heatKickAt: guild.heatKickAt ?? HEAT_DEFAULTS.kickAt,
+        heatBanAt: guild.heatBanAt ?? HEAT_DEFAULTS.banAt,
+        safetyPercent,
       },
+      heatStates,
       autoReplies: autoReplies.map((r) => ({
         _id: r._id,
         name: r.name,
@@ -88,6 +121,7 @@ export const getGuild = query({
         windowSeconds: m.windowSeconds,
         punish: m.punish,
         whitelistRoles: m.whitelistRoles,
+        heat: m.heat ?? MODULE_HEAT_DEFAULTS[m.module] ?? 10,
       })),
       channels: channels.map((c) => ({
         channelId: c.channelId,
@@ -123,6 +157,9 @@ export const getBotConfig = query({
       .query("antinukeModules")
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
       .collect();
+    const decayPerMin = guild.heatDecayPerMin ?? HEAT_DEFAULTS.decayPerMin;
+    const heatStates = await loadHeatStates(ctx, guildId, decayPerMin);
+    const safetyPercent = Math.max(0, Math.min(100, 100 - (heatStates[0]?.heat ?? 0)));
     return {
       prefix: guild.prefix,
       logChannelId: guild.logChannelId ?? null,
@@ -135,6 +172,14 @@ export const getBotConfig = query({
       lockdownRequested: guild.lockdownRequested ?? false,
       dailyReportEnabled: guild.dailyReportEnabled ?? true,
       lastReportAt: guild.lastReportAt ?? null,
+      badWords: guild.badWords ?? [],
+      heatEnabled: guild.heatEnabled ?? HEAT_DEFAULTS.enabled,
+      heatDecayPerMin: decayPerMin,
+      heatTimeoutAt: guild.heatTimeoutAt ?? HEAT_DEFAULTS.timeoutAt,
+      heatKickAt: guild.heatKickAt ?? HEAT_DEFAULTS.kickAt,
+      heatBanAt: guild.heatBanAt ?? HEAT_DEFAULTS.banAt,
+      safetyPercent,
+      heatStates,
       autoReplies,
       modules: modules.map((m) => ({
         module: m.module,
@@ -143,6 +188,7 @@ export const getBotConfig = query({
         windowSeconds: m.windowSeconds,
         punish: m.punish,
         whitelistRoles: m.whitelistRoles,
+        heat: m.heat ?? MODULE_HEAT_DEFAULTS[m.module] ?? 10,
       })),
     };
   },
@@ -157,6 +203,12 @@ export const updateSettings = mutation({
     modRoles: v.optional(v.array(v.string())),
     adminRoles: v.optional(v.array(v.string())),
     dailyReportEnabled: v.optional(v.boolean()),
+    badWords: v.optional(v.array(v.string())),
+    heatEnabled: v.optional(v.boolean()),
+    heatDecayPerMin: v.optional(v.number()),
+    heatTimeoutAt: v.optional(v.number()),
+    heatKickAt: v.optional(v.number()),
+    heatBanAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const user = await getUserByToken(ctx, args.token);
@@ -176,6 +228,35 @@ export const updateSettings = mutation({
     if (args.logChannelId !== undefined) patch.logChannelId = args.logChannelId || undefined;
     if (args.modRoles !== undefined) patch.modRoles = args.modRoles;
     if (args.adminRoles !== undefined) patch.adminRoles = args.adminRoles;
+    if (args.badWords !== undefined) {
+      if (args.badWords.length > 100) throw new Error("Tối đa 100 từ ngữ xấu");
+      const words = args.badWords
+        .map((w) => w.trim().toLowerCase())
+        .filter((w) => w.length > 0 && w.length <= 40);
+      patch.badWords = [...new Set(words)];
+    }
+    if (args.heatEnabled !== undefined) patch.heatEnabled = args.heatEnabled;
+    if (args.heatDecayPerMin !== undefined) {
+      patch.heatDecayPerMin = Math.max(0, Math.min(60, Math.floor(args.heatDecayPerMin)));
+    }
+    if (
+      args.heatTimeoutAt !== undefined ||
+      args.heatKickAt !== undefined ||
+      args.heatBanAt !== undefined
+    ) {
+      const t = args.heatTimeoutAt ?? guild.heatTimeoutAt ?? HEAT_DEFAULTS.timeoutAt;
+      const k = args.heatKickAt ?? guild.heatKickAt ?? HEAT_DEFAULTS.kickAt;
+      const b = args.heatBanAt ?? guild.heatBanAt ?? HEAT_DEFAULTS.banAt;
+      const tC = Math.max(1, Math.min(100, t));
+      const kC = Math.max(1, Math.min(100, k));
+      const bC = Math.max(1, Math.min(100, b));
+      if (!(tC < kC && kC < bC)) {
+        throw new Error("Ngưỡng nhiệt phải tăng dần: tạm khóa < kick < ban");
+      }
+      patch.heatTimeoutAt = tC;
+      patch.heatKickAt = kC;
+      patch.heatBanAt = bC;
+    }
     await ctx.db.patch(guild._id, patch);
     return { ok: true };
   },
@@ -284,6 +365,12 @@ export const botSyncGuilds = mutation({
           lockdownRequested: false,
           dailyReportEnabled: true,
           lastReportAt: undefined,
+          badWords: [],
+          heatEnabled: HEAT_DEFAULTS.enabled,
+          heatDecayPerMin: HEAT_DEFAULTS.decayPerMin,
+          heatTimeoutAt: HEAT_DEFAULTS.timeoutAt,
+          heatKickAt: HEAT_DEFAULTS.kickAt,
+          heatBanAt: HEAT_DEFAULTS.banAt,
           managers: [],
           botInGuild: true,
           lastHeartbeat: now,
@@ -299,7 +386,9 @@ export const botSyncGuilds = mutation({
             windowSeconds: m.windowSeconds,
             punish: m.punish as "warn" | "kick" | "ban" | "timeout",
             whitelistRoles: [],
-            timeoutSeconds: m.module === "spam" ? 300 : undefined,
+            timeoutSeconds:
+              m.module === "spam" || m.module === "attachment" ? 300 : 600,
+            heat: m.heat,
             updatedAt: now,
           });
         }

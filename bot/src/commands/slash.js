@@ -100,6 +100,40 @@ const commands = [
     ],
   },
   {
+    name: "badword",
+    description: "Quản lý danh sách từ ngữ xấu (bad word)",
+    options: [
+      {
+        name: "add",
+        description: "Thêm từ ngữ xấu",
+        type: 1,
+        options: [{ name: "word", description: "Từ ngữ cần chặn", type: 3, required: true }],
+      },
+      {
+        name: "remove",
+        description: "Xóa từ ngữ xấu",
+        type: 1,
+        options: [{ name: "word", description: "Từ ngữ cần bỏ chặn", type: 3, required: true }],
+      },
+      {
+        name: "list",
+        description: "Xem danh sách từ ngữ xấu",
+        type: 1,
+      },
+    ],
+  },
+  {
+    name: "heat",
+    description: "Xem mức nhiệt độ vi phạm và độ an toàn của server",
+    options: [
+      {
+        name: "status",
+        description: "Xem trạng thái nhiệt độ & độ an toàn",
+        type: 1,
+      },
+    ],
+  },
+  {
     name: "setup",
     description: "Cấu hình nhanh bot cho server",
     options: [

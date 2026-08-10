@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Bot,
   ExternalLink,
+  Flame,
   Hash,
   History,
   MessageSquareReply,
@@ -19,6 +20,7 @@ import { buildBotInviteUrl } from "../../lib/discord";
 import { usePublicConfig } from "../../lib/usePublicConfig";
 import { timeAgo } from "../../lib/utils";
 import { ANTINUKE_MODULE_META } from "../../lib/constants";
+import { SafetyBar, TopOffenders } from "./HeatBar";
 import type { AntiNukeEvent, GuildData } from "../../lib/types";
 
 function RecentEvents({ data }: { data: GuildData }) {
@@ -143,6 +145,31 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
           </Card>
         ))}
       </div>
+
+      <Card className="border-orange-500/25 bg-gradient-to-br from-orange-500/10 via-transparent to-rose-500/5">
+        <CardContent className="grid gap-6 p-5 lg:grid-cols-2">
+          <div className="flex flex-col justify-center gap-3">
+            <h3 className="flex items-center gap-2 font-display font-semibold">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-500/15 text-orange-400">
+                <Flame className="h-4 w-4" />
+              </span>
+              Mức an toàn của server
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Dựa trên tổng nhiệt độ vi phạm của các thành viên. Vi phạm càng nhiều, nhiệt
+              càng cao và mức an toàn càng giảm — khi chạm ngưỡng, hình phạt tự tăng cấp
+              (tạm khóa → kick → ban).
+            </p>
+            <SafetyBar data={data} />
+          </div>
+          <div>
+            <h4 className="mb-3 text-sm font-medium text-muted-foreground">
+              🔥 Thành viên có nhiệt độ cao nhất
+            </h4>
+            <TopOffenders data={data} limit={6} />
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">

@@ -42,4 +42,15 @@ async function syncAll(client, store) {
   });
 }
 
-module.exports = { syncAll };
+/** Đảm bảo mọi guild đều có đủ các module mặc định (kể cả module mới thêm). */
+async function ensureModules(client, store) {
+  for (const g of client.guilds.cache.values()) {
+    try {
+      await store.client.mutation("bot_writes:botEnsureModules", { guildId: g.id });
+    } catch (err) {
+      console.error(`[sync:ensure] ${g.id}:`, err.message);
+    }
+  }
+}
+
+module.exports = { syncAll, ensureModules };

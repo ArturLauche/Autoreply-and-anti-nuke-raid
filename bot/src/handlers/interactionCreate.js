@@ -12,6 +12,9 @@ const MODULES = [
   "massRoleDelete",
   "massMessageDelete",
   "spam",
+  "badword",
+  "attachment",
+  "invite",
 ];
 
 function needPerm(interaction) {
@@ -44,6 +47,7 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
           [
             "**Auto Reply** — `/autoreply add` tạo rule từ khóa hoặc @mention, `/autoreply list`, `/autoreply remove`",
             "**Chống nuke** — `/antinuke status`, `/antinuke on|off`, `/antinuke module`, `/antinuke unlock`, `/antinuke lockdown`",
+            "**Lọc nội dung** — `/badword add|remove|list`, module \`badword\`, \`invite\`, \`attachment\` (bật tắt trong `/antinuke module`)`, `/heat status`",
             "**Cấu hình** — `/setup log-channel`, `/setup mod-role`, `/setup admin-role`, `/prefix set`",
             "**Khác** — `/ping`",
           ].join("\n"),
@@ -171,6 +175,105 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
         });
       }
       return;
+    }
+
+    case "badword": {
+      const sub = interaction.options.getSubcommand();
+      const config = await store.getConfig(guild.id);
+      const words = [...(config?.badWords || [])];
+
+      if (sub === "list") {
+        if (words.length === 0) {
+          return interaction.reply({ content: "Danh sách từ ngữ xấu đang trống — dùng `/badword add` hoặc dashboard để thêm.", ephemeral: true });
+        }
+        const embed = new EmbedBuilder()
+          .setColor(Colors.Aqua)
+          .setTitle(`📋 Danh sách từ ngữ xấu (${words.length})`)
+          .setDescription(words.map((w) => `\`${w}\``).join(", ").slice(0, 4000));
+        return interaction.reply({ embeds: [embed], ephemeral: true });
+      }
+
+      if (!canManageGuild(interaction.member)) return needPerm(interaction);
+
+      if (sub === "add") {
+        const word = interaction.options.getString("word", true).trim().toLowerCase();
+        if (!word) return interaction.reply({ content: "Từ ngữ không được để trống.", ephemeral: true });
+        if (word.length > 40) {
+          return interaction.reply({ content: "Từ ngữ tối đa 40 ký tự.", ephemeral: true });
+        }
+        if (words.includes(word)) {
+          return interaction.reply({ content: `\`${word}\` đã có trong danh sách.`, ephemeral: true });
+        }
+        if (words.length >= 100) {
+          return interaction.reply({ content: "Danh sách đã đạt tối đa 100 từ.", ephemeral: true });
+        }
+        words.push(word);
+        await store.client.mutation("bot_writes:botUpdateSettings", {
+          guildId: guild.id,
+          badWords: words,
+        });
+        store.invalidate(guild.id);
+        return interaction.reply({
+          content: `✅ Đã thêm \`${word}\` vào danh sách từ ngữ xấu (${words.length} từ).`,
+          ephemeral: true,
+        });
+      }
+
+      if (sub === "remove") {
+        const word = interaction.options.getString("word", true).trim().toLowerCase();
+        const next = words.filter((w) => w !== word);
+        if (next.length === words.length) {
+          return interaction.reply({ content: `Không tìm thấy \`${word}\` trong danh sách.`, ephemeral: true });
+        }
+        await store.client.mutation("bot_writes:botUpdateSettings", {
+          guildId: guild.id,
+          badWords: next,
+        });
+        store.invalidate(guild.id);
+        return interaction.reply({
+          content: `✅ Đã xóa \`${word}\` khỏi danh sách từ ngữ xấu.`,
+          ephemeral: true,
+        });
+      }
+      return;
+    }
+
+    case "heat": {
+      const config = await store.getConfig(guild.id);
+      const s = {
+        enabled: config?.heatEnabled !== false,
+        decayPerMin: config?.heatDecayPerMin ?? 3,
+        timeoutAt: config?.heatTimeoutAt ?? 40,
+        kickAt: config?.heatKickAt ?? 70,
+        banAt: config?.heatBanAt ?? 90,
+      };
+      const top = config?.heatStates || [];
+      const safety = config?.safetyPercent ?? 100;
+      const tier = (heat) => (heat >= s.banAt ? "🚫 Ban" : heat >= s.kickAt ? "👢 Kick" : heat >= s.timeoutAt ? "⏸️ Tạm khóa" : "⚠️ Theo dõi");
+      const embed = new EmbedBuilder()
+        .setColor(safety >= 70 ? Colors.Green : safety >= 40 ? Colors.Yellow : Colors.Red)
+        .setTitle(`🌡️ Nhiệt độ vi phạm: ${safety}% an toàn`)
+        .setDescription(
+          [
+            s.enabled
+              ? `Hệ thống nhiệt **đang bật** — giảm ${s.decayPerMin} điểm/phút.`
+              : `Hệ thống nhiệt **đang tắt**.`,
+            `Ngưỡng: tạm khóa **${s.timeoutAt}** · kick **${s.kickAt}** · ban **${s.banAt}** (tối đa 100).`,
+          ].join("\n"),
+        );
+      if (top.length > 0) {
+        embed.addFields({
+          name: "Thành viên nóng nhất",
+          value: top
+            .slice(0, 10)
+            .map((h) => `<@${h.userId}> — **${h.heat}/100** — ${tier(h.heat)}`)
+            .join("\n")
+            .slice(0, 1024),
+        });
+      } else {
+        embed.addFields({ name: "Thành viên nóng nhất", value: "Chưa có vi phạm nào — server rất an toàn 🎉" });
+      }
+      return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
     case "antinuke": {

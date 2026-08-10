@@ -1,6 +1,6 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { isAntiNukeModule } from "./modules";
+import { ANTI_NUKE_MODULES, isAntiNukeModule } from "./modules";
 
 /**
  * These mutations are called by the Discord bot process itself. The bot
@@ -15,6 +15,7 @@ export const botUpdateSettings = mutation({
     logChannelId: v.optional(v.union(v.string(), v.null())),
     modRoles: v.optional(v.array(v.string())),
     adminRoles: v.optional(v.array(v.string())),
+    badWords: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const guild = await ctx.db
@@ -32,6 +33,13 @@ export const botUpdateSettings = mutation({
     if (args.logChannelId !== undefined) patch.logChannelId = args.logChannelId ?? undefined;
     if (args.modRoles !== undefined) patch.modRoles = args.modRoles;
     if (args.adminRoles !== undefined) patch.adminRoles = args.adminRoles;
+    if (args.badWords !== undefined) {
+      const words = args.badWords
+        .map((w) => w.trim().toLowerCase())
+        .filter((w) => w.length > 0 && w.length <= 40)
+        .slice(0, 100);
+      patch.badWords = [...new Set(words)];
+    }
     await ctx.db.patch(guild._id, patch);
     return { ok: true };
   },
@@ -109,6 +117,7 @@ export const botModuleUpdate = mutation({
     ),
     timeoutSeconds: v.optional(v.number()),
     whitelistRoles: v.optional(v.array(v.string())),
+    heat: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     if (!isAntiNukeModule(args.module)) throw new Error("Module không hợp lệ");
@@ -125,6 +134,7 @@ export const botModuleUpdate = mutation({
     if (args.punish !== undefined) patch.punish = args.punish;
     if (args.timeoutSeconds !== undefined) patch.timeoutSeconds = Math.max(1, args.timeoutSeconds);
     if (args.whitelistRoles !== undefined) patch.whitelistRoles = args.whitelistRoles;
+    if (args.heat !== undefined) patch.heat = Math.max(1, Math.min(100, args.heat));
     if (mod) {
       await ctx.db.patch(mod._id, patch);
     } else {
@@ -137,6 +147,7 @@ export const botModuleUpdate = mutation({
         punish: args.punish ?? "kick",
         timeoutSeconds: args.timeoutSeconds ?? 300,
         whitelistRoles: args.whitelistRoles ?? [],
+        heat: args.heat ?? 10,
         updatedAt: Date.now(),
       });
     }
@@ -232,6 +243,41 @@ export const botSetReportAt = mutation({
   },
 });
 
+/** Bot đảm bảo mọi module mặc định tồn tại cho một guild (thêm các module còn thiếu). */
+export const botEnsureModules = mutation({
+  args: { guildId: v.string() },
+  handler: async (ctx, { guildId }) => {
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) return { ok: true };
+    const existing = await ctx.db
+      .query("antinukeModules")
+      .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
+      .collect();
+    const have = new Set(existing.map((m) => m.module));
+    const now = Date.now();
+    for (const m of ANTI_NUKE_MODULES) {
+      if (have.has(m.module)) continue;
+      await ctx.db.insert("antinukeModules", {
+        guildId,
+        module: m.module,
+        enabled: true,
+        threshold: m.threshold,
+        windowSeconds: m.windowSeconds,
+        punish: m.punish as "warn" | "kick" | "ban" | "timeout",
+        whitelistRoles: [],
+        timeoutSeconds:
+          m.module === "spam" || m.module === "attachment" ? 300 : 600,
+        heat: m.heat,
+        updatedAt: now,
+      });
+    }
+    return { ok: true };
+  },
+});
+
 export const botSetAntinuke = mutation({
   args: { guildId: v.string(), enabled: v.boolean() },
   handler: async (ctx, { guildId, enabled }) => {
@@ -241,6 +287,42 @@ export const botSetAntinuke = mutation({
       .first();
     if (!guild) throw new Error("Server chưa được đồng bộ");
     await ctx.db.patch(guild._id, { antinukeEnabled: enabled, updatedAt: Date.now() });
+    return { ok: true };
+  },
+});
+
+/** Bot upserts the current heat level of one user in a guild. */
+export const botRecordHeat = mutation({
+  args: {
+    guildId: v.string(),
+    userId: v.string(),
+    username: v.optional(v.string()),
+    heat: v.number(),
+    updatedAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    if (args.heat <= 0) return { ok: true };
+    const existing = await ctx.db
+      .query("heatStates")
+      .withIndex("by_guildId_userId", (q) =>
+        q.eq("guildId", args.guildId).eq("userId", args.userId),
+      )
+      .first();
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        username: args.username ?? existing.username,
+        heat: Math.max(1, Math.min(100, Math.round(args.heat))),
+        updatedAt: args.updatedAt,
+      });
+    } else {
+      await ctx.db.insert("heatStates", {
+        guildId: args.guildId,
+        userId: args.userId,
+        username: args.username ?? "",
+        heat: Math.max(1, Math.min(100, Math.round(args.heat))),
+        updatedAt: args.updatedAt,
+      });
+    }
     return { ok: true };
   },
 });

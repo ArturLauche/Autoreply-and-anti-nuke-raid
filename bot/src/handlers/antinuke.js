@@ -1,6 +1,12 @@
 const { AuditLogEvent, PermissionFlagsBits, Colors } = require("discord.js");
 const { logEmbed, sendLog } = require("../util");
 const { isLocked, markLocked, lockGuild, unlockGuild } = require("../lockdown");
+const {
+  heatSettings,
+  punishMember,
+  choosePunish,
+  heatSummary,
+} = require("../heat");
 
 const MODULE_LABELS = {
   massBan: "Ban hàng loạt",
@@ -12,9 +18,12 @@ const MODULE_LABELS = {
   massRoleDelete: "Xóa role hàng loạt",
   massMessageDelete: "Xóa tin hàng loạt",
   spam: "Chống spam tin nhắn",
+  badword: "Từ ngữ xấu",
+  attachment: "Spam ảnh/file đính kèm",
+  invite: "Link mời Discord",
 };
 
-module.exports = function createAntiNuke(client, store) {
+module.exports = function createAntiNuke(client, store, heat) {
   /** Persist a punished event for the daily report. Fire-and-forget. */
   async function recordEvent(guildId, payload) {
     try {
@@ -62,35 +71,29 @@ module.exports = function createAntiNuke(client, store) {
     }
   }
 
-  async function punish(guild, member, moduleCfg, reason) {
-    const punishType = moduleCfg.punish || "warn";
-    if (punishType === "timeout") {
-      const seconds = Math.max(1, Math.min(86400, moduleCfg.timeoutSeconds || 300));
-      try {
-        await member.timeout(seconds * 1000, reason);
-        return `đã tạm khóa ${Math.round(seconds / 60)} phút`;
-      } catch {
-        return "không thể tạm khóa (thiếu quyền)";
-      }
-    }
-    if (punishType === "warn") {
-      try {
-        await member.send(`⚠️ **Cảnh báo từ Protogon**\n${reason}\n\nĐây là cảnh báo tự động từ hệ thống chống nuke. Vui lòng dừng hành vi này.`);
-        return "đã cảnh báo qua DM";
-      } catch {
-        return "đã cố cảnh báo (DM đóng)";
-      }
-    }
-    try {
-      if (punishType === "kick") {
-        await member.kick(reason);
-        return "đã kick";
-      }
-      await member.ban({ reason, deleteMessageSeconds: 0 });
-      return "đã ban";
-    } catch {
-      return "không thể xử lý (thiếu quyền)";
-    }
+  /**
+   * Phạt một thành viên, tự tăng cấp hình phạt nếu nhiệt độ vượt ngưỡng.
+   * Trả về mô tả hành động.
+   */
+  async function punishWithHeat(guild, member, moduleCfg, reason) {
+    const s = heatSettings(configOf(guild.id));
+    const heatRes = await heat.add(
+      guild.id,
+      member.id,
+      member.user?.username,
+      moduleCfg.heat ?? 10,
+      s,
+    );
+    const chosen = choosePunish(moduleCfg.punish || "warn", heatRes);
+    const action = await punishMember(guild, member, chosen, reason, moduleCfg.timeoutSeconds);
+    return { action: action + heatSummary(heatRes), chosen, heatRes };
+  }
+
+  // Lưu config đã đọc gần nhất để punishWithHeat tái sử dụng (tránh đọc lại DB).
+  const lastConfigs = new Map(); // guildId -> config
+
+  function configOf(guildId) {
+    return lastConfigs.get(guildId) ?? {};
   }
 
   /** Auto-lock channels when a raid is confirmed and lockdown is enabled. */
@@ -104,6 +107,7 @@ module.exports = function createAntiNuke(client, store) {
     if (!guild || guild.available === false) return;
     const config = await store.getConfig(guild.id);
     if (!config || !config.antinukeEnabled) return;
+    lastConfigs.set(guild.id, config);
     const moduleCfg = config.modules.find((m) => m.module === module);
     if (!moduleCfg || !moduleCfg.enabled) return;
 
@@ -121,7 +125,8 @@ module.exports = function createAntiNuke(client, store) {
       const member = await guild.members.fetch(executor.id).catch(() => null);
       const reason = `[Protogon AntiNuke] ${MODULE_LABELS[module]}: ${count} lượt trong ${moduleCfg.windowSeconds}s (ngưỡng ${moduleCfg.threshold})`;
       if (member) {
-        action = await punish(guild, member, moduleCfg, reason);
+        const res = await punishWithHeat(guild, member, moduleCfg, reason);
+        action = res.action;
       } else if (moduleCfg.punish === "ban") {
         try {
           await guild.members.ban(executor.id, { reason });
@@ -152,7 +157,7 @@ module.exports = function createAntiNuke(client, store) {
       color: Colors.Red,
       fields: [
         { name: "Thủ phạm", value: `<@${executor.id}>`, inline: true },
-        { name: "Xử lý", value: action, inline: true },
+        { name: "Xử lý", value: action.slice(0, 1000), inline: true },
         { name: "Module", value: `\`${module}\``, inline: true },
         ...(describeTarget ? [{ name: "Đối tượng", value: describeTarget, inline: false }] : []),
       ],
@@ -165,6 +170,7 @@ module.exports = function createAntiNuke(client, store) {
     const guild = member.guild;
     const config = await store.getConfig(guild.id);
     if (!config || !config.antinukeEnabled) return;
+    lastConfigs.set(guild.id, config);
     const moduleCfg = config.modules.find((m) => m.module === "massJoin");
     if (!moduleCfg || !moduleCfg.enabled) return;
 
@@ -180,8 +186,8 @@ module.exports = function createAntiNuke(client, store) {
     for (const j of fresh) {
       const m = await guild.members.fetch(j.id).catch(() => null);
       if (!m || isExempt(m, moduleCfg, config)) continue;
-      const action = await punish(guild, m, moduleCfg, reason);
-      results.push(`<@${j.id}>: ${action}`);
+      const res = await punishWithHeat(guild, m, moduleCfg, reason);
+      results.push(`<@${j.id}>: ${res.action}`);
     }
     await maybeLockdown(guild, config);
 
@@ -218,6 +224,7 @@ module.exports = function createAntiNuke(client, store) {
     if (message.channel.isDMBased?.()) return;
     const config = await store.getConfig(message.guild.id);
     if (!config || !config.antinukeEnabled) return;
+    lastConfigs.set(message.guild.id, config);
     const moduleCfg = config.modules.find((m) => m.module === "spam");
     if (!moduleCfg || !moduleCfg.enabled) return;
     const member = message.member;
@@ -234,7 +241,8 @@ module.exports = function createAntiNuke(client, store) {
 
     spamBuckets.delete(key); // reset after punishing
     const reason = `[Protogon AntiNuke] Spam: ${fresh.length} tin nhắn trong ${moduleCfg.windowSeconds}s`;
-    const action = await punish(message.guild, member, moduleCfg, reason);
+    const res = await punishWithHeat(message.guild, member, moduleCfg, reason);
+    const action = res.action;
     await maybeLockdown(message.guild, config);
 
     await recordEvent(message.guild.id, {
@@ -254,7 +262,7 @@ module.exports = function createAntiNuke(client, store) {
       color: Colors.Red,
       fields: [
         { name: "Thủ phạm", value: `<@${message.author.id}>`, inline: true },
-        { name: "Xử lý", value: action, inline: true },
+        { name: "Xử lý", value: action.slice(0, 1000), inline: true },
         { name: "Module", value: "`spam`", inline: true },
       ],
       footer: "Protogon Anti Nuke",

@@ -12,6 +12,8 @@ const guildSync = require("./handlers/guildSync");
 const onMessageCreate = require("./handlers/messageCreate");
 const onInteractionCreate = require("./handlers/interactionCreate");
 const createAntiNuke = require("./handlers/antinuke");
+const scanMessage = require("./handlers/filters");
+const { HeatTracker } = require("./heat");
 const { runDailyReports } = require("./handlers/dailyReport");
 const { registerCommands } = require("./register-slash");
 
@@ -39,7 +41,8 @@ const client = new Client({
 });
 
 const store = new ConvexStore();
-const antinuke = createAntiNuke(client, store);
+const heat = new HeatTracker(store);
+const antinuke = createAntiNuke(client, store, heat);
 
 client.once("ready", async () => {
   console.log(`✅ Protogon đã online: ${client.user.tag} — ${client.guilds.cache.size} server`);
@@ -55,6 +58,7 @@ client.once("ready", async () => {
   }
 
   await guildSync.syncAll(client, store);
+  await guildSync.ensureModules(client, store);
   setInterval(() => guildSync.syncAll(client, store), 60_000);
 
   setInterval(() => {
@@ -72,9 +76,13 @@ client.once("ready", async () => {
   // Daily anti-nuke report: once shortly after start, then every 10 minutes.
   setTimeout(() => runDailyReports(client, store).catch((e) => console.error("[report]", e.message)), 30_000);
   setInterval(() => runDailyReports(client, store).catch((e) => console.error("[report]", e.message)), 10 * 60 * 1000);
+
+  // Flush pending heat states to Convex so the dashboard stays in sync.
+  setInterval(() => heat.flushAll().catch((e) => console.error("[heat:flush]", e.message)), 30_000);
 });
 
 client.on("messageCreate", (m) => onMessageCreate(client, m, store).catch((e) => console.error("[messageCreate]", e.message)));
+client.on("messageCreate", (m) => scanMessage(client, m, store, heat).catch((e) => console.error("[filters]", e.message)));
 client.on("interactionCreate", (i) =>
   onInteractionCreate(client, i, store).catch((e) => {
     console.error("[interaction]", e?.message || e);

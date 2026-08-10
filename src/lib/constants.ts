@@ -6,6 +6,8 @@ export interface ModuleMeta {
   defaultThreshold: number;
   defaultWindowSeconds: number;
   defaultPunish: "warn" | "kick" | "ban" | "timeout";
+  /** Điểm nhiệt mặc định mỗi lần vi phạm. */
+  defaultHeat: number;
 }
 
 export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
@@ -15,6 +17,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
     defaultThreshold: 5,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
+    defaultHeat: 25,
   },
   massKick: {
     label: "Kick hàng loạt",
@@ -22,6 +25,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
     defaultThreshold: 5,
     defaultWindowSeconds: 10,
     defaultPunish: "kick",
+    defaultHeat: 20,
   },
   massJoin: {
     label: "Raid thành viên",
@@ -29,6 +33,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
     defaultThreshold: 8,
     defaultWindowSeconds: 10,
     defaultPunish: "kick",
+    defaultHeat: 15,
   },
   massChannelCreate: {
     label: "Tạo kênh hàng loạt",
@@ -36,6 +41,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
+    defaultHeat: 25,
   },
   massChannelDelete: {
     label: "Xóa kênh hàng loạt",
@@ -43,6 +49,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
+    defaultHeat: 25,
   },
   massRoleCreate: {
     label: "Tạo role hàng loạt",
@@ -50,6 +57,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
+    defaultHeat: 25,
   },
   massRoleDelete: {
     label: "Xóa role hàng loạt",
@@ -57,6 +65,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
+    defaultHeat: 25,
   },
   massMessageDelete: {
     label: "Xóa tin nhắn hàng loạt",
@@ -64,6 +73,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "warn",
+    defaultHeat: 20,
   },
   spam: {
     label: "Chống spam tin nhắn",
@@ -71,6 +81,31 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
     defaultThreshold: 6,
     defaultWindowSeconds: 10,
     defaultPunish: "timeout",
+    defaultHeat: 10,
+  },
+  badword: {
+    label: "Lọc từ ngữ xấu",
+    description: "Tự động xóa tin nhắn chứa từ trong danh sách từ ngữ xấu của server",
+    defaultThreshold: 1,
+    defaultWindowSeconds: 10,
+    defaultPunish: "warn",
+    defaultHeat: 10,
+  },
+  attachment: {
+    label: "Chống spam ảnh & file",
+    description: "Phát hiện spam ảnh, file đính kèm liên tục trong thời gian ngắn",
+    defaultThreshold: 5,
+    defaultWindowSeconds: 10,
+    defaultPunish: "timeout",
+    defaultHeat: 15,
+  },
+  invite: {
+    label: "Chặn link mời Discord",
+    description: "Xóa tin nhắn chứa link mời discord.gg / discord.com/invite",
+    defaultThreshold: 1,
+    defaultWindowSeconds: 10,
+    defaultPunish: "warn",
+    defaultHeat: 20,
   },
 };
 
@@ -84,6 +119,9 @@ export const ANTINUKE_ORDER = [
   "massRoleDelete",
   "massMessageDelete",
   "spam",
+  "badword",
+  "attachment",
+  "invite",
 ] as const;
 
 export const PUNISH_LABEL: Record<string, string> = {
@@ -92,6 +130,28 @@ export const PUNISH_LABEL: Record<string, string> = {
   ban: "Ban",
   timeout: "Tạm khóa (timeout)",
 };
+
+/** Giá trị mặc định cho hệ thống nhiệt độ vi phạm. */
+export const HEAT_DEFAULTS = {
+  max: 100,
+  enabled: true,
+  decayPerMin: 3,
+  timeoutAt: 40,
+  kickAt: 70,
+  banAt: 90,
+} as const;
+
+export const HEAT_TIER_LABEL: Record<string, string> = {
+  warn: "Theo dõi",
+  timeout: "Tạm khóa",
+  kick: "Kick",
+  ban: "Ban",
+};
+
+/** Tính phần trăm an toàn (100 - nhiệt cao nhất). */
+export function safetyFromHeat(heat: number | undefined): number {
+  return Math.max(0, Math.min(100, 100 - (heat ?? 0)));
+}
 
 export const CHANNEL_TYPE_LABEL: Record<number, string> = {
   0: "Văn bản",

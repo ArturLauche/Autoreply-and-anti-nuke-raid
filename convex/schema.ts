@@ -38,6 +38,12 @@ export default defineSchema({
     lockdownRequested: v.optional(v.boolean()),
     dailyReportEnabled: v.optional(v.boolean()),
     lastReportAt: v.optional(v.number()),
+    badWords: v.optional(v.array(v.string())),
+    heatEnabled: v.optional(v.boolean()),
+    heatDecayPerMin: v.optional(v.number()),
+    heatTimeoutAt: v.optional(v.number()),
+    heatKickAt: v.optional(v.number()),
+    heatBanAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_discordId", ["discordId"]),
@@ -71,10 +77,22 @@ export default defineSchema({
     ),
     timeoutSeconds: v.optional(v.number()),
     whitelistRoles: v.array(v.string()),
+    heat: v.optional(v.number()),
     updatedAt: v.number(),
   })
     .index("by_guildId", ["guildId"])
     .index("by_guild_module", ["guildId", "module"]),
+
+  heatStates: defineTable({
+    guildId: v.string(),
+    userId: v.string(),
+    username: v.string(),
+    heat: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_guildId", ["guildId"])
+    .index("by_guildId_userId", ["guildId", "userId"])
+    .index("by_guildId_heat", ["guildId", "heat"]),
 
   guildChannels: defineTable({
     guildId: v.string(),

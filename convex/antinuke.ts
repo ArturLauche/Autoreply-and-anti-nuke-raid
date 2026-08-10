@@ -16,6 +16,7 @@ export const updateModule = mutation({
     ),
     timeoutSeconds: v.optional(v.number()),
     whitelistRoles: v.optional(v.array(v.string())),
+    heat: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     if (!isAntiNukeModule(args.module)) throw new Error("Module không hợp lệ");
@@ -45,6 +46,7 @@ export const updateModule = mutation({
       patch.timeoutSeconds = Math.max(1, Math.min(86400, Math.floor(args.timeoutSeconds)));
     }
     if (args.whitelistRoles !== undefined) patch.whitelistRoles = args.whitelistRoles;
+    if (args.heat !== undefined) patch.heat = Math.max(1, Math.min(100, Math.floor(args.heat)));
     if (mod) {
       await ctx.db.patch(mod._id, patch);
     } else {
@@ -57,6 +59,7 @@ export const updateModule = mutation({
         punish: args.punish ?? "kick",
         timeoutSeconds: args.timeoutSeconds ?? 300,
         whitelistRoles: args.whitelistRoles ?? [],
+        heat: args.heat ?? 10,
         updatedAt: Date.now(),
       });
     }

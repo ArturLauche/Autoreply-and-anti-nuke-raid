@@ -6,6 +6,7 @@ export const ANTI_NUKE_MODULES = [
     threshold: 5,
     windowSeconds: 10,
     punish: "ban",
+    heat: 25,
   },
   {
     module: "massKick",
@@ -13,6 +14,7 @@ export const ANTI_NUKE_MODULES = [
     threshold: 5,
     windowSeconds: 10,
     punish: "kick",
+    heat: 20,
   },
   {
     module: "massJoin",
@@ -20,6 +22,7 @@ export const ANTI_NUKE_MODULES = [
     threshold: 8,
     windowSeconds: 10,
     punish: "kick",
+    heat: 15,
   },
   {
     module: "massChannelCreate",
@@ -27,6 +30,7 @@ export const ANTI_NUKE_MODULES = [
     threshold: 3,
     windowSeconds: 10,
     punish: "ban",
+    heat: 25,
   },
   {
     module: "massChannelDelete",
@@ -34,6 +38,7 @@ export const ANTI_NUKE_MODULES = [
     threshold: 3,
     windowSeconds: 10,
     punish: "ban",
+    heat: 25,
   },
   {
     module: "massRoleCreate",
@@ -41,6 +46,7 @@ export const ANTI_NUKE_MODULES = [
     threshold: 3,
     windowSeconds: 10,
     punish: "ban",
+    heat: 25,
   },
   {
     module: "massRoleDelete",
@@ -48,6 +54,7 @@ export const ANTI_NUKE_MODULES = [
     threshold: 3,
     windowSeconds: 10,
     punish: "ban",
+    heat: 25,
   },
   {
     module: "massMessageDelete",
@@ -55,6 +62,7 @@ export const ANTI_NUKE_MODULES = [
     threshold: 3,
     windowSeconds: 10,
     punish: "warn",
+    heat: 20,
   },
   {
     module: "spam",
@@ -62,6 +70,31 @@ export const ANTI_NUKE_MODULES = [
     threshold: 6,
     windowSeconds: 10,
     punish: "timeout",
+    heat: 10,
+  },
+  {
+    module: "badword",
+    label: "Lọc từ ngữ xấu",
+    threshold: 1,
+    windowSeconds: 10,
+    punish: "warn",
+    heat: 10,
+  },
+  {
+    module: "attachment",
+    label: "Chống spam ảnh & file",
+    threshold: 5,
+    windowSeconds: 10,
+    punish: "timeout",
+    heat: 15,
+  },
+  {
+    module: "invite",
+    label: "Chặn link mời Discord",
+    threshold: 1,
+    windowSeconds: 10,
+    punish: "warn",
+    heat: 20,
   },
 ] as const;
 
@@ -69,6 +102,20 @@ export const ANTI_NUKE_MODULES = [
 export const LOCKDOWN_DEFAULTS = {
   enabled: true,
   minutes: 5,
+} as const;
+
+/** Default per-violation heat points, keyed by module name. */
+export const MODULE_HEAT_DEFAULTS: Record<string, number> = Object.fromEntries(
+  ANTI_NUKE_MODULES.map((m) => [m.module, m.heat]),
+);
+
+/** Defaults for the heat escalation system (per guild). */
+export const HEAT_DEFAULTS = {
+  enabled: true,
+  decayPerMin: 3,
+  timeoutAt: 40,
+  kickAt: 70,
+  banAt: 90,
 } as const;
 
 export type AntiNukeModuleKey = (typeof ANTI_NUKE_MODULES)[number]["module"];

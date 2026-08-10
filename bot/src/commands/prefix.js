@@ -19,6 +19,9 @@ const MODULES = [
   "massRoleDelete",
   "massMessageDelete",
   "spam",
+  "badword",
+  "attachment",
+  "invite",
 ];
 
 function noPerm(message) {
@@ -49,11 +52,15 @@ async function handleHelp(client, message) {
         "!antinuke module <tên> on|off",
         "!antinuke unlock       - mở khóa kênh ngay",
         "!lockdown on|off       - khóa kênh tự động khi raid",
+        "!badword add <từ>      - thêm từ ngữ xấu",
+        "!badword remove <từ>   - xóa từ ngữ xấu",
+        "!badword list          - danh sách từ ngữ xấu",
+        "!heat                  - xem mức nhiệt độ vi phạm",
         "!setlog #kênh          - đặt kênh log",
         "```",
       ].join("\n"),
     )
-    .setFooter({ text: "Slash command tương đương: /help /prefix /autoreply /antinuke /setup" });
+    .setFooter({ text: "Slash command tương đương: /help /prefix /autoreply /antinuke /badword /heat /setup" });
   await message.reply({ embeds: [embed] });
 }
 
@@ -233,6 +240,92 @@ async function handleLockdown(client, message, args, config, store) {
   );
 }
 
+async function handleBadword(client, message, args, config, store) {
+  if (!canManageGuild(message.member)) return noPerm(message);
+  const sub = args[0]?.toLowerCase();
+  const words = [...(config.badWords || [])];
+
+  if (sub === "list" || !sub) {
+    if (words.length === 0) {
+      return message.reply("Danh sách từ ngữ xấu đang trống — dùng `!badword add <từ>` hoặc dashboard.");
+    }
+    const embed = new EmbedBuilder()
+      .setColor(Colors.Aqua)
+      .setTitle(`📋 Từ ngữ xấu (${words.length})`)
+      .setDescription(words.map((w) => `\`${w}\``).join(", ").slice(0, 4000));
+    return message.reply({ embeds: [embed] });
+  }
+
+  if (sub === "add") {
+    const word = args.slice(1).join(" ").trim().toLowerCase();
+    if (!word) return message.reply("Cú pháp: `!badword add <từ cần chặn>`");
+    if (word.length > 40) return message.reply("Từ ngữ tối đa 40 ký tự.");
+    if (words.includes(word)) return message.reply(`\`${word}\` đã có trong danh sách.`);
+    if (words.length >= 100) return message.reply("Danh sách đã đạt tối đa 100 từ.");
+    words.push(word);
+    await store.client.mutation("bot_writes:botUpdateSettings", {
+      guildId: message.guild.id,
+      badWords: words,
+    });
+    store.invalidate(message.guild.id);
+    return message.reply(`✅ Đã thêm \`${word}\` (${words.length} từ).`);
+  }
+
+  if (sub === "remove") {
+    const word = args.slice(1).join(" ").trim().toLowerCase();
+    const next = words.filter((w) => w !== word);
+    if (next.length === words.length) {
+      return message.reply(`Không tìm thấy \`${word}\` trong danh sách.`);
+    }
+    await store.client.mutation("bot_writes:botUpdateSettings", {
+      guildId: message.guild.id,
+      badWords: next,
+    });
+    store.invalidate(message.guild.id);
+    return message.reply(`✅ Đã xóa \`${word}\` khỏi danh sách.`);
+  }
+
+  return message.reply("Cú pháp: `!badword add|remove|list`");
+}
+
+async function handleHeat(client, message, args, config, store) {
+  const s = {
+    enabled: config.heatEnabled !== false,
+    decayPerMin: config.heatDecayPerMin ?? 3,
+    timeoutAt: config.heatTimeoutAt ?? 40,
+    kickAt: config.heatKickAt ?? 70,
+    banAt: config.heatBanAt ?? 90,
+  };
+  const top = config.heatStates || [];
+  const safety = config.safetyPercent ?? 100;
+  const tier = (heat) =>
+    heat >= s.banAt ? "🚫 Ban" : heat >= s.kickAt ? "👢 Kick" : heat >= s.timeoutAt ? "⏸️ Tạm khóa" : "⚠️ Theo dõi";
+  const embed = new EmbedBuilder()
+    .setColor(safety >= 70 ? Colors.Green : safety >= 40 ? Colors.Yellow : Colors.Red)
+    .setTitle(`🌡️ Nhiệt độ vi phạm: ${safety}% an toàn`)
+    .setDescription(
+      [
+        s.enabled
+          ? `Hệ thống nhiệt **đang bật** — giảm ${s.decayPerMin} điểm/phút.`
+          : `Hệ thống nhiệt **đang tắt**.`,
+        `Ngưỡng: tạm khóa **${s.timeoutAt}** · kick **${s.kickAt}** · ban **${s.banAt}** (tối đa 100).`,
+      ].join("\n"),
+    );
+  if (top.length > 0) {
+    embed.addFields({
+      name: "Thành viên nóng nhất",
+      value: top
+        .slice(0, 10)
+        .map((h) => `<@${h.userId}> — **${h.heat}/100** — ${tier(h.heat)}`)
+        .join("\n")
+        .slice(0, 1024),
+    });
+  } else {
+    embed.addFields({ name: "Thành viên nóng nhất", value: "Chưa có vi phạm nào — server rất an toàn 🎉" });
+  }
+  return message.reply({ embeds: [embed] });
+}
+
 async function handleSetlog(client, message, args, config, store) {
   if (!canManageGuild(message.member)) return noPerm(message);
   const channel = message.mentions.channels.first();
@@ -261,5 +354,7 @@ module.exports = {
   autoreply: handleAutoReply,
   antinuke: handleAntinuke,
   lockdown: handleLockdown,
+  badword: handleBadword,
+  heat: handleHeat,
   setlog: handleSetlog,
 };

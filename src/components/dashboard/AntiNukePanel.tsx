@@ -2,17 +2,23 @@ import { useEffect, useState } from "react";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import {
+  Flame,
   FolderPlus,
   Gavel,
+  Link2,
+  ListX,
   Lock,
   MessageSquare,
   MessageSquareX,
+  Paperclip,
+  Plus,
   ShieldAlert,
   ShieldPlus,
   ShieldX,
   Unlock,
   UserX,
   Users,
+  X,
   XSquare,
 } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
@@ -25,6 +31,7 @@ import { Button } from "../ui/button";
 import { MultiSelect } from "../ui/multi-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { ANTINUKE_MODULE_META, ANTINUKE_ORDER, PUNISH_LABEL } from "../../lib/constants";
+import { SafetyBar, TopOffenders } from "./HeatBar";
 import type { GuildData, ModuleConfig } from "../../lib/types";
 
 const TOKEN = () => localStorage.getItem("wio_session_token") ?? "";
@@ -39,6 +46,9 @@ const MODULE_ICONS: Record<string, typeof Gavel> = {
   massRoleDelete: ShieldX,
   massMessageDelete: MessageSquareX,
   spam: MessageSquare,
+  badword: ListX,
+  attachment: Paperclip,
+  invite: Link2,
 };
 
 const PUNISH_STYLE: Record<string, string> = {
@@ -89,6 +99,14 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
   const setGlobal = useMutation(api.guilds.setAntinukeGlobal);
   const updateLockdown = useMutation(api.guilds.updateLockdown);
   const requestUnlock = useMutation(api.guilds.requestUnlock);
+  const updateSettings = useMutation(api.guilds.updateSettings);
+
+  const [tiers, setTiers] = useState({
+    timeoutAt: data.guild.heatTimeoutAt,
+    kickAt: data.guild.heatKickAt,
+    banAt: data.guild.heatBanAt,
+  });
+  const [badWordInput, setBadWordInput] = useState("");
 
   const roleOptions = data.roles
     .filter((r) => r.name !== "@everyone")
@@ -106,6 +124,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
         punish: meta.defaultPunish,
         timeoutSeconds: 300,
         whitelistRoles: [],
+        heat: meta.defaultHeat,
       }
     );
   }
@@ -150,6 +169,68 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
     }
   }
 
+  async function patchHeatSettings(patch: {
+    heatEnabled?: boolean;
+    heatDecayPerMin?: number;
+    heatTimeoutAt?: number;
+    heatKickAt?: number;
+    heatBanAt?: number;
+  }) {
+    try {
+      await updateSettings({ token: TOKEN(), guildId: data.guild.discordId, ...patch });
+      toast.success("Đã lưu cài đặt hệ thống nhiệt độ");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+    }
+  }
+
+  /** Cập nhật 3 ngưỡng cùng lúc để luôn tăng dần (tạm khóa < kick < ban). */
+  async function commitTier(field: "heatTimeoutAt" | "heatKickAt" | "heatBanAt", n: number) {
+    const next = {
+      heatTimeoutAt: field === "heatTimeoutAt" ? n : tiers.timeoutAt,
+      heatKickAt: field === "heatKickAt" ? n : tiers.kickAt,
+      heatBanAt: field === "heatBanAt" ? n : tiers.banAt,
+    };
+    setTiers({ timeoutAt: next.heatTimeoutAt, kickAt: next.heatKickAt, banAt: next.heatBanAt });
+    await patchHeatSettings(next);
+  }
+
+  async function addBadWord() {
+    const word = badWordInput.trim().toLowerCase();
+    if (!word) return;
+    if (word.length > 40) return toast.error("Từ ngữ tối đa 40 ký tự");
+    const current = data.guild.badWords || [];
+    if (current.includes(word)) {
+      setBadWordInput("");
+      return toast.info(`"${word}" đã có trong danh sách`);
+    }
+    if (current.length >= 100) return toast.error("Danh sách tối đa 100 từ");
+    try {
+      await updateSettings({
+        token: TOKEN(),
+        guildId: data.guild.discordId,
+        badWords: [...current, word],
+      });
+      setBadWordInput("");
+      toast.success(`Đã thêm "${word}"`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Thất bại");
+    }
+  }
+
+  async function removeBadWord(word: string) {
+    try {
+      await updateSettings({
+        token: TOKEN(),
+        guildId: data.guild.discordId,
+        badWords: (data.guild.badWords || []).filter((w) => w !== word),
+      });
+      toast.success(`Đã xóa "${word}"`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Thất bại");
+    }
+  }
+
   const enabledCount = ANTINUKE_ORDER.filter((m) => configFor(m).enabled).length;
   const g = data.guild;
   const locked = g.lockdownUntil !== null && g.lockdownUntil > Date.now();
@@ -163,7 +244,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
         <div>
           <h2 className="font-display text-lg font-semibold">Chống nuke / raid</h2>
           <p className="text-sm text-muted-foreground">
-            Bật tắt từng module, chỉnh ngưỡng phát hiện và hình thức xử lý
+            Bật tắt từng module, chỉnh ngưỡng phát hiện, nhiệt độ và hình thức xử lý
           </p>
         </div>
         <Card className="border-primary/30 bg-primary/5">
@@ -187,6 +268,140 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
           ⚠️ Chống nuke đang tắt toàn bộ. Server của bạn không được bảo vệ khỏi raid.
         </div>
       )}
+
+      {/* Hệ thống nhiệt độ */}
+      <Card className="border-orange-500/25 bg-gradient-to-br from-orange-500/10 via-transparent to-rose-500/5">
+        <CardContent className="grid gap-5 p-5 lg:grid-cols-2">
+          <div>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-500/15 text-orange-400">
+                  <Flame className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="font-display font-semibold">Hệ thống nhiệt độ vi phạm</p>
+                  <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+                    Mỗi vi phạm cộng điểm nhiệt theo cài đặt của module (xem bên dưới). Nhiệt
+                    độ tăng dần, tự giảm theo thời gian và khi chạm ngưỡng sẽ tự tăng cấp hình
+                    phạt: <b className="text-violet-400">tạm khóa</b> →{" "}
+                    <b className="text-orange-400">kick</b> → <b className="text-danger">ban</b>.
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={data.guild.heatEnabled}
+                onCheckedChange={(v) => patchHeatSettings({ heatEnabled: v })}
+              />
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid gap-1.5">
+                <Label className="text-xs text-muted-foreground">Giảm nhiệt (điểm/phút)</Label>
+                <ModuleNumber
+                  value={data.guild.heatDecayPerMin}
+                  min={0}
+                  max={60}
+                  onCommit={(n) => patchHeatSettings({ heatDecayPerMin: n })}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="text-xs text-violet-400">Ngưỡng tạm khóa</Label>
+                <ModuleNumber
+                  value={tiers.timeoutAt}
+                  min={1}
+                  max={100}
+                  onCommit={(n) => commitTier("heatTimeoutAt", n)}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="text-xs text-orange-400">Ngưỡng kick</Label>
+                <ModuleNumber
+                  value={tiers.kickAt}
+                  min={1}
+                  max={100}
+                  onCommit={(n) => commitTier("heatKickAt", n)}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="text-xs text-danger">Ngưỡng ban</Label>
+                <ModuleNumber
+                  value={tiers.banAt}
+                  min={1}
+                  max={100}
+                  onCommit={(n) => commitTier("heatBanAt", n)}
+                />
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Ngưỡng phải tăng dần: tạm khóa &lt; kick &lt; ban (tối đa 100 điểm).
+            </p>
+          </div>
+          <div className="flex flex-col justify-center gap-4 rounded-xl border border-border bg-card/60 p-4">
+            <SafetyBar data={data} />
+            <TopOffenders data={data} limit={4} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Danh sách từ ngữ xấu */}
+      <Card className="border-danger/25">
+        <CardContent className="p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-danger/15 text-danger">
+                <ListX className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="font-display font-semibold">Danh sách từ ngữ xấu (bad word)</p>
+                <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+                  Khi module <b className="text-foreground">Lọc từ ngữ xấu</b> bật, tin nhắn chứa
+                  một trong các từ dưới đây sẽ bị xóa và xử lý tự động. Thêm từ bỏ trống để tắt
+                  lọc từ ngữ xấu.
+                </p>
+              </div>
+            </div>
+            <Badge variant="secondary">{data.guild.badWords?.length ?? 0}/100 từ</Badge>
+          </div>
+
+          <div className="mt-4 flex gap-2">
+            <Input
+              placeholder="Nhập từ ngữ cần chặn…"
+              value={badWordInput}
+              onChange={(e) => setBadWordInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void addBadWord();
+              }}
+            />
+            <Button onClick={addBadWord}>
+              <Plus className="h-4 w-4" /> Thêm
+            </Button>
+          </div>
+
+          {(data.guild.badWords ?? []).length === 0 ? (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Chưa có từ nào — bộ lọc từ ngữ xấu sẽ không hoạt động cho tới khi bạn thêm từ.
+            </p>
+          ) : (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {data.guild.badWords.map((w) => (
+                <span
+                  key={w}
+                  className="group flex items-center gap-1.5 rounded-lg border border-danger/30 bg-danger/10 px-2.5 py-1 font-mono text-xs text-danger transition-colors hover:bg-danger/20"
+                >
+                  {w}
+                  <button
+                    onClick={() => removeBadWord(w)}
+                    className="text-danger/60 transition-colors hover:text-danger"
+                    aria-label={`Xóa ${w}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="border-amber-500/30 bg-amber-500/5">
         <CardContent className="p-5">
@@ -248,6 +463,12 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
           const cfg = configFor(key);
           const meta = ANTINUKE_MODULE_META[key];
           const Icon = MODULE_ICONS[key] ?? ShieldAlert;
+          const unit =
+            key === "spam"
+              ? "tin nhắn"
+              : key === "attachment"
+                ? "tin có ảnh/file"
+                : "vi phạm";
           return (
             <Card key={key} className={cfg.enabled ? "" : "opacity-60"}>
               <CardHeader className="pb-3">
@@ -271,7 +492,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="grid gap-1.5">
                     <Label className="text-xs text-muted-foreground">
-                      Ngưỡng ({key === "spam" ? "tin nhắn" : "lần"} trong {cfg.windowSeconds}s)
+                      Ngưỡng ({unit} trong {cfg.windowSeconds}s)
                     </Label>
                     <ModuleNumber
                       value={cfg.threshold}
@@ -289,7 +510,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div className="grid gap-1.5">
                     <Label className="text-xs text-muted-foreground">Hình thức xử lý</Label>
                     <Select
@@ -306,6 +527,15 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                         <SelectItem value="timeout">⏸️ Tạm khóa (timeout)</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label className="text-xs text-orange-400/80">🔥 Nhiệt/vi phạm</Label>
+                    <ModuleNumber
+                      value={cfg.heat}
+                      min={1}
+                      max={100}
+                      onCommit={(n) => patchModule(key, { heat: n })}
+                    />
                   </div>
                   <div className="flex items-end pb-1">
                     <Badge className={PUNISH_STYLE[cfg.punish]}>{PUNISH_LABEL[cfg.punish]}</Badge>

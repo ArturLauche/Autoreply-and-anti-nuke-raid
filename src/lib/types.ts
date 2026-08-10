@@ -44,6 +44,15 @@ export interface ModuleConfig {
   punish: "warn" | "kick" | "ban" | "timeout";
   timeoutSeconds?: number;
   whitelistRoles: string[];
+  /** Điểm nhiệt cộng mỗi lần vi phạm (hệ thống nhiệt độ). */
+  heat: number;
+}
+
+export interface HeatState {
+  userId: string;
+  username: string;
+  heat: number;
+  updatedAt: number;
 }
 
 export interface ChannelInfo {
@@ -90,7 +99,15 @@ export interface GuildData {
     lockdownRequested: boolean;
     dailyReportEnabled: boolean;
     lastReportAt: number | null;
+    badWords: string[];
+    heatEnabled: boolean;
+    heatDecayPerMin: number;
+    heatTimeoutAt: number;
+    heatKickAt: number;
+    heatBanAt: number;
+    safetyPercent: number;
   };
+  heatStates: HeatState[];
   autoReplies: AutoReply[];
   modules: ModuleConfig[];
   channels: ChannelInfo[];
