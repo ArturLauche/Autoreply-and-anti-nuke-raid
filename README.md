@@ -55,6 +55,8 @@ bun run start
 
 **Không có máy/VPS để chạy bot?** → Dùng **Bot-Hosting.net miễn phí** (cloud chuyên host bot Discord, không cần thẻ, bot chạy 24/7 bằng hệ thống coin): `cd bot && npm run pack:host` rồi upload `protogon-bot.zip` theo hướng dẫn trong [`bot/README.md`](bot/README.md) → mục “Chạy bot MIỄN PHÍ trên Bot-Hosting.net”.
 
+**Bot trên cloud cần Convex backend công khai?** → Hướng dẫn deploy Convex Cloud miễn phí (`npx convex login` + `npx convex deploy`, lấy URL + Deploy Key): xem [`bot/README.md`](bot/README.md) → mục “Deploy Convex backend lên cloud miễn phí”.
+
 Bot tự đăng ký slash commands và đồng bộ server/kênh/role lên Convex mỗi 60 giây.
 
 ### 4. Mời bot & quản lý

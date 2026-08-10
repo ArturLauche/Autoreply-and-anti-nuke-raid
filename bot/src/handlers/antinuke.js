@@ -75,7 +75,7 @@ module.exports = function createAntiNuke(client, store) {
     }
     if (punishType === "warn") {
       try {
-        await member.send(`⚠️ **Cảnh báo từ Wio**\n${reason}\n\nĐây là cảnh báo tự động từ hệ thống chống nuke. Vui lòng dừng hành vi này.`);
+        await member.send(`⚠️ **Cảnh báo từ Protogon**\n${reason}\n\nĐây là cảnh báo tự động từ hệ thống chống nuke. Vui lòng dừng hành vi này.`);
         return "đã cảnh báo qua DM";
       } catch {
         return "đã cố cảnh báo (DM đóng)";
@@ -119,7 +119,7 @@ module.exports = function createAntiNuke(client, store) {
     let action = "đã ghi nhận";
     try {
       const member = await guild.members.fetch(executor.id).catch(() => null);
-      const reason = `[Wio AntiNuke] ${MODULE_LABELS[module]}: ${count} lượt trong ${moduleCfg.windowSeconds}s (ngưỡng ${moduleCfg.threshold})`;
+      const reason = `[Protogon AntiNuke] ${MODULE_LABELS[module]}: ${count} lượt trong ${moduleCfg.windowSeconds}s (ngưỡng ${moduleCfg.threshold})`;
       if (member) {
         action = await punish(guild, member, moduleCfg, reason);
       } else if (moduleCfg.punish === "ban") {
@@ -156,7 +156,7 @@ module.exports = function createAntiNuke(client, store) {
         { name: "Module", value: `\`${module}\``, inline: true },
         ...(describeTarget ? [{ name: "Đối tượng", value: describeTarget, inline: false }] : []),
       ],
-      footer: "Wio Anti Nuke",
+      footer: "Protogon Anti Nuke",
     });
     await sendLog(guild, config, embed);
   }
@@ -175,7 +175,7 @@ module.exports = function createAntiNuke(client, store) {
     joiners.set(guild.id, fresh);
     if (fresh.length < moduleCfg.threshold) return;
 
-    const reason = `[Wio AntiNuke] Raid thành viên: ${fresh.length} người tham gia trong ${moduleCfg.windowSeconds}s`;
+    const reason = `[Protogon AntiNuke] Raid thành viên: ${fresh.length} người tham gia trong ${moduleCfg.windowSeconds}s`;
     const results = [];
     for (const j of fresh) {
       const m = await guild.members.fetch(j.id).catch(() => null);
@@ -207,7 +207,7 @@ module.exports = function createAntiNuke(client, store) {
         results.length > 0
           ? [{ name: "Kết quả xử lý", value: results.slice(0, 10).join("\n").slice(0, 1000) }]
           : [],
-      footer: "Wio Anti Nuke",
+      footer: "Protogon Anti Nuke",
     });
     await sendLog(guild, config, embed);
   }
@@ -233,7 +233,7 @@ module.exports = function createAntiNuke(client, store) {
     if (fresh.length < moduleCfg.threshold) return;
 
     spamBuckets.delete(key); // reset after punishing
-    const reason = `[Wio AntiNuke] Spam: ${fresh.length} tin nhắn trong ${moduleCfg.windowSeconds}s`;
+    const reason = `[Protogon AntiNuke] Spam: ${fresh.length} tin nhắn trong ${moduleCfg.windowSeconds}s`;
     const action = await punish(message.guild, member, moduleCfg, reason);
     await maybeLockdown(message.guild, config);
 
@@ -257,7 +257,7 @@ module.exports = function createAntiNuke(client, store) {
         { name: "Xử lý", value: action, inline: true },
         { name: "Module", value: "`spam`", inline: true },
       ],
-      footer: "Wio Anti Nuke",
+      footer: "Protogon Anti Nuke",
     });
     await sendLog(message.guild, config, embed);
   }

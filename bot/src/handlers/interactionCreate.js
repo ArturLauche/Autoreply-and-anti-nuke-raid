@@ -1,5 +1,5 @@
 const { EmbedBuilder, Colors } = require("discord.js");
-const { canManageGuild, isAdmin } = require("../util");
+const { canManageGuild, isAdmin, canManageWithConfig } = require("../util");
 const { isLocked, markLocked, unlockGuild } = require("../lockdown");
 
 const MODULES = [
@@ -16,7 +16,7 @@ const MODULES = [
 
 function needPerm(interaction) {
   return interaction.reply({
-    content: "❌ Bạn cần quyền **Quản lý server** để dùng lệnh này.",
+    content: "❌ Bạn không có quyền dùng lệnh này — cần quyền **Quản lý server** hoặc role **Mod/Admin** được cấu hình qua `/setup`.",
     ephemeral: true,
   });
 }
@@ -39,7 +39,7 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
     case "help": {
       const embed = new EmbedBuilder()
         .setColor(Colors.Cyan)
-        .setTitle("🧭 Lệnh của Wio")
+        .setTitle("🧭 Lệnh của Protogon")
         .setDescription(
           [
             "**Auto Reply** — `/autoreply add` tạo rule từ khóa hoặc @mention, `/autoreply list`, `/autoreply remove`",
@@ -75,8 +75,9 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
 
     case "autoreply": {
       const sub = interaction.options.getSubcommand();
+      const config = await store.getConfig(guild.id);
+
       if (sub === "list") {
-        const config = await store.getConfig(guild.id);
         const rules = config?.autoReplies || [];
         if (rules.length === 0) {
           return interaction.reply({ content: "Chưa có rule auto reply nào.", ephemeral: true });
@@ -92,7 +93,8 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
         return interaction.reply({ embeds: [embed], ephemeral: true });
       }
 
-      if (!canManageGuild(interaction.member)) return needPerm(interaction);
+      // Mod/Admin (Manage Guild) hoặc role Mod/Admin được cấu hình qua /setup.
+      if (!canManageWithConfig(interaction.member, config)) return needPerm(interaction);
 
       if (sub === "add") {
         const name = interaction.options.getString("name", true);
@@ -123,7 +125,7 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
         }
         store.invalidate(guild.id);
         return interaction.reply({
-          content: `✅ Đã tạo rule \`${name}\` — bot trả lời: "${response.slice(0, 80)}${response.length > 80 ? "…" : ""}"`,
+          content: `✅ Đã lưu rule \`${name}\` (thêm mới hoặc cập nhật) — bot trả lời: "${response.slice(0, 80)}${response.length > 80 ? "…" : ""}"`,
           ephemeral: true,
         });
       }
@@ -137,6 +139,34 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
         store.invalidate(guild.id);
         return interaction.reply({
           content: `✅ Đã xóa rule \`${name}\`.`,
+          ephemeral: true,
+        });
+      }
+
+      if (sub === "edit") {
+        const name = interaction.options.getString("name", true);
+        const response = interaction.options.getString("response");
+        const cooldown = interaction.options.getInteger("cooldown");
+        const rule = (config?.autoReplies || []).find((r) => r.name === name);
+        if (!rule) {
+          return interaction.reply({
+            content: `Không tìm thấy rule \`${name}\`. Dùng \`/autoreply list\` để xem danh sách.`,
+            ephemeral: true,
+          });
+        }
+        await store.client.mutation("bot_writes:botAutoReplyUpsert", {
+          guildId: guild.id,
+          name,
+          triggerType: rule.triggerType,
+          keywords: rule.keywords,
+          response: response ?? rule.response,
+          channels: rule.channels || [],
+          cooldownSeconds: cooldown !== null ? Math.max(0, cooldown) : rule.cooldownSeconds,
+          enabled: rule.enabled,
+        });
+        store.invalidate(guild.id);
+        return interaction.reply({
+          content: `✅ Đã cập nhật rule \`${name}\`.`,
           ephemeral: true,
         });
       }

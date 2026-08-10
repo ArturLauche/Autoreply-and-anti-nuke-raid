@@ -5,7 +5,7 @@ const {
   ButtonBuilder,
   ButtonStyle,
 } = require("discord.js");
-const { canManageGuild, isAdmin } = require("../util");
+const { canManageGuild, isAdmin, canManageWithConfig } = require("../util");
 
 const { isLocked, markLocked, unlockGuild } = require("../lockdown");
 
@@ -98,7 +98,12 @@ async function handleAutoReply(client, message, args, config, store) {
     return message.reply({ embeds: [embed] });
   }
 
-  if (!canManageGuild(message.member)) return noPerm(message);
+  // Cho phép quyền Manage Guild/Administrator hoặc role Mod/Admin đã cấu hình.
+  if (!canManageWithConfig(message.member, config)) {
+    return message.reply(
+      "❌ Bạn cần quyền **Quản lý server** hoặc role **Mod/Admin** của server để dùng lệnh này.",
+    );
+  }
 
   if (sub === "remove") {
     const name = args[1];
@@ -145,7 +150,7 @@ async function handleAutoReply(client, message, args, config, store) {
       return message.reply(`❌ ${err.message}`);
     }
     store.invalidate(message.guild.id);
-    return message.reply(`✅ Đã tạo rule \`${name}\``);
+    return message.reply(`✅ Đã lưu rule \`${name}\` (thêm mới hoặc cập nhật)`);
   }
 
   return message.reply("Cú pháp: `!autoreply add/list/remove`");

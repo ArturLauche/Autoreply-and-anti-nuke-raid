@@ -5,10 +5,20 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./index.css";
 
-// Freebuff injects VITE_CONVEX_URL for production; fall back to the local dev
-// server when running the preview.
+// Convex backend URL (shared with the Discord bot):
+// 1. A VITE_CONVEX_URL that points at a real deployment wins.
+// 2. The workspace injects a local-dev value (http://127.0.0.1:3210) that only
+//    works inside the sandbox — never in a user's browser — so any localhost
+//    value is ignored and we fall back to the public Protogon production
+//    deployment. The deployed site therefore always talks to the real backend.
+const configuredUrl = import.meta.env.VITE_CONVEX_URL ?? "";
+const isLocalDevUrl = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(
+  configuredUrl,
+);
 const convexUrl =
-  import.meta.env.VITE_CONVEX_URL ?? "http://localhost:3210";
+  !configuredUrl || isLocalDevUrl
+    ? "https://accomplished-chipmunk-74.convex.cloud"
+    : configuredUrl;
 
 const convex = new ConvexReactClient(convexUrl);
 

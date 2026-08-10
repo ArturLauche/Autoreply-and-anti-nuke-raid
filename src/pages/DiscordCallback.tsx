@@ -17,12 +17,16 @@ import {
 
 export default function DiscordCallback() {
   const navigate = useNavigate();
-  const { clientId, loading: configLoading } = usePublicConfig();
+  const { clientId, loading: configLoading, error: configError } = usePublicConfig();
   const login = useMutation(api.sessions.login);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (configLoading) return;
+    if (configError) {
+      setError("Không thể kết nối tới máy chủ Protogon. Vui lòng thử lại sau.");
+      return;
+    }
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
     const state = params.get("state");
@@ -76,7 +80,7 @@ export default function DiscordCallback() {
       }
     }
     void run();
-  }, [clientId, configLoading, login, navigate]);
+  }, [clientId, configLoading, configError, login, navigate]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">

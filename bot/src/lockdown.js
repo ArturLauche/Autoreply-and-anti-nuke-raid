@@ -18,14 +18,14 @@ function markLocked(guildId) {
  */
 async function lockGuild(client, guild, config, store) {
   if (locked.has(guild.id)) return false;
-  const me = guild.members.me;
+  const me = await guild.members.fetchMe().catch(() => null);
   if (!me || !me.permissions.has(PermissionFlagsBits.ManageChannels)) {
     const embed = logEmbed({
       title: "⚠️ Không thể khóa kênh",
       description:
         "Bot thiếu quyền **Quản lý kênh** (Manage Channels) nên không thể tự động khóa kênh khi raid. Hãy cấp quyền này cho bot.",
       color: Colors.Yellow,
-      footer: "Wio Anti Nuke",
+      footer: "Protogon Anti Nuke",
     });
     await sendLog(guild, config, embed);
     return false;
@@ -57,7 +57,7 @@ async function lockGuild(client, guild, config, store) {
     description: `Server đã bị **khóa ${minutes} phút** — thành viên không gửi được tin nhắn/voice cho tới khi hết hạn hoặc mod dùng \`/antinuke unlock\`.`,
     color: Colors.Red,
     fields: [{ name: "Kênh bị khóa", value: `${count} kênh`, inline: true }],
-    footer: "Wio Anti Nuke",
+    footer: "Protogon Anti Nuke",
   });
   await sendLog(guild, config, embed);
   return true;
@@ -94,7 +94,7 @@ async function unlockGuild(client, guild, config, store) {
     title: "🔓 Đã mở khóa kênh",
     description: `Đã mở lại **${count} kênh** — thành viên có thể giao tiếp bình thường.`,
     color: Colors.Green,
-    footer: "Wio Anti Nuke",
+    footer: "Protogon Anti Nuke",
   });
   await sendLog(guild, config, embed);
   return true;

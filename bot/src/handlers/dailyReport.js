@@ -82,7 +82,7 @@ async function sendReport(guild, config, list, from, to) {
     );
   }
 
-  embed.setFooter({ text: "Báo cáo tự động từ Wio Anti Nuke" });
+  embed.setFooter({ text: "Báo cáo tự động từ Protogon" });
   await sendLog(guild, config, embed);
 }
 

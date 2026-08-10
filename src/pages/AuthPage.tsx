@@ -21,7 +21,7 @@ const DISCORD_LOGO = (
 );
 
 export default function AuthPage() {
-  const { clientId } = usePublicConfig();
+  const { clientId, error: configError } = usePublicConfig();
   const [loading, setLoading] = useState(false);
   const location = useLocation();
   const returnTo =
@@ -104,6 +104,19 @@ export default function AuthPage() {
                   {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : DISCORD_LOGO}
                   {loading ? "Đang chuyển tới Discord…" : "Đăng nhập với Discord"}
                 </Button>
+              ) : configError ? (
+                <div className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-sm">
+                  <p className="flex items-center gap-2 font-semibold text-danger">
+                    <ShieldCheck className="h-4 w-4" /> Không kết nối được máy chủ
+                  </p>
+                  <p className="mt-2 leading-relaxed text-danger/80">
+                    Máy chủ backend của Protogon hiện không truy cập được từ trang
+                    web này (lỗi kết nối Convex). Nếu bạn là quản trị viên, hãy
+                    kiểm tra cấu hình{" "}
+                    <code className="rounded bg-black/30 px-1.5 py-0.5 font-mono text-xs">VITE_CONVEX_URL</code>{" "}
+                    và thử lại sau ít phút.
+                  </p>
+                </div>
               ) : (
                 <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
                   <p className="flex items-center gap-2 font-semibold text-amber-400">

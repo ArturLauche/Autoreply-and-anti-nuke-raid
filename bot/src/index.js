@@ -1,6 +1,12 @@
 require("dotenv").config();
 
-const { Client, GatewayIntentBits, ActivityType } = require("discord.js");
+const {
+  Client,
+  GatewayIntentBits,
+  ActivityType,
+  Collection,
+  LimitedCollection,
+} = require("discord.js");
 const ConvexStore = require("./convex");
 const guildSync = require("./handlers/guildSync");
 const onMessageCreate = require("./handlers/messageCreate");
@@ -17,13 +23,26 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildModeration,
   ],
+  // ⚡ Tối ưu RAM: không giữ tin nhắn trong cache (chỉ 1 msg tối đa),
+  // giới hạn cache user/member, các cache khác giữ mặc định.
+  makeCache: (manager) => {
+    if (manager.name === "MessageManager") return new LimitedCollection({ maxSize: 0 });
+    if (manager.name === "UserManager" || manager.name === "GuildMemberManager") {
+      return new LimitedCollection({ maxSize: 200 });
+    }
+    return new Collection();
+  },
+  sweepers: {
+    messages: { interval: 900, lifetime: 1800 },
+    users: { interval: 900, filter: () => (user) => user.id !== client.user.id },
+  },
 });
 
 const store = new ConvexStore();
 const antinuke = createAntiNuke(client, store);
 
 client.once("ready", async () => {
-  console.log(`✅ Wio đã online: ${client.user.tag} — ${client.guilds.cache.size} server`);
+  console.log(`✅ Protogon đã online: ${client.user.tag} — ${client.guilds.cache.size} server`);
 
   if (process.env.AUTO_REGISTER_COMMANDS !== "false") {
     try {

@@ -26,7 +26,7 @@ const commands = [
     options: [
       {
         name: "add",
-        description: "Thêm rule auto reply",
+        description: "Thêm (hoặc cập nhật) rule auto reply",
         type: 1,
         options: [
           { name: "name", description: "Tên rule (chữ, số, _ -)", type: 3, required: true },
@@ -37,12 +37,22 @@ const commands = [
             required: true,
             choices: [
               { name: "Từ khóa trong tin nhắn", value: "keyword" },
-              { name: "Tag bot (@wio)", value: "mention" },
+              { name: "Tag bot (@protogon)", value: "mention" },
             ],
           },
           { name: "keywords", description: "Từ khóa, phân cách bằng dấu phẩy", type: 3, required: false },
           { name: "response", description: "Nội dung trả lời ({user} để tag)", type: 3, required: true },
           { name: "cooldown", description: "Cooldown giây (0 = không giới hạn)", type: 4, required: false },
+        ],
+      },
+      {
+        name: "edit",
+        description: "Sửa nội dung trả lời / cooldown của rule",
+        type: 1,
+        options: [
+          { name: "name", description: "Tên rule cần sửa", type: 3, required: true },
+          { name: "response", description: "Nội dung trả lời mới ({user} để tag)", type: 3, required: false },
+          { name: "cooldown", description: "Cooldown giây mới", type: 4, required: false },
         ],
       },
       {

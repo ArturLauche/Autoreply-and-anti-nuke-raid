@@ -13,6 +13,17 @@ function isAdmin(member) {
   return hasPermission(member, PermissionFlagsBits.Administrator);
 }
 
+/**
+ * Quản lý auto reply: quyền Manage Guild/Administrator, HOẶC có role Mod/Admin
+ * đã được cấu hình qua /setup mod-role, /setup admin-role.
+ */
+function canManageWithConfig(member, config) {
+  if (canManageGuild(member) || isAdmin(member)) return true;
+  if (!config || !member) return false;
+  const ids = [...(config.modRoles || []), ...(config.adminRoles || [])];
+  return ids.some((id) => member.roles.cache.has(id));
+}
+
 /** Fill {user} / {username} placeholders in a response. */
 function fillPlaceholders(text, author) {
   return text
@@ -52,6 +63,7 @@ module.exports = {
   hasPermission,
   canManageGuild,
   isAdmin,
+  canManageWithConfig,
   fillPlaceholders,
   logEmbed,
   sendLog,

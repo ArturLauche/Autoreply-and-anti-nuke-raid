@@ -19,11 +19,14 @@ Bot Discord standalone (Node.js + discord.js v14) kết nối tới **cùng mộ
 ```env
 DISCORD_TOKEN=<bot token của bạn>
 DISCORD_CLIENT_ID=1536232784660795402
-CONVEX_URL=<URL Convex công khai — xem bên dưới>
-CONVEX_DEPLOY_KEY=<deploy key nếu là bản production>
+CONVEX_URL=https://accomplished-chipmunk-74.convex.cloud
+CONVEX_DEPLOY_KEY=<deploy key — hỏi quản trị / lấy ở mục Deploy Keys bên dưới>
 ```
 
-> ⚠️ **Quan trọng**: `CONVEX_URL` phải là URL **truy cập được từ internet** (bản `http://127.0.0.1:3210` chỉ chạy được khi bot nằm chung máy với Convex dev). Xem mục **“Convex backend công khai”** bên dưới.
+> ✅ **Deployment production của Protogon đã sẵn sàng** (tạo ngày 10/08/2026):
+> project `wiothemilo:protogon`, deployment `accomplished-chipmunk-74`, biến `DISCORD_CLIENT_ID` đã được set trên deployment. Bot chỉ cần token + deploy key.
+
+> ⚠️ **Quan trọng**: `CONVEX_URL` phải là URL **truy cập được từ internet** (bản `http://127.0.0.1:3210` chỉ chạy được khi bot nằm chung máy với Convex dev). Xem mục **“Deploy Convex backend lên cloud miễn phí”** bên dưới.
 
 ### Bước 3 — Nén & upload
 
@@ -42,12 +45,62 @@ Rồi:
 
 > Lưu ý: gói miễn phí cần **đủ coin** khi tới chu kỳ thanh toán, nếu hết coin bot sẽ bị tạm ngừng — vào trang Earn coins nhận coin định kỳ là duy trì được 24/7.
 
-## Convex backend công khai (cần cho bot trên cloud)
+## ☁️ Deploy Convex backend lên cloud miễn phí (bắt buộc cho bot trên Bot-Hosting.net)
 
-Dashboard web chạy trên Freebuff, còn bot chạy ở nơi khác — cả hai phải trỏ về **cùng một Convex backend**. Có 2 lựa chọn:
+Dashboard web (Freebuff) và bot (Bot-Hosting.net) phải trỏ về **cùng một Convex backend**. Backend dev local (`http://127.0.0.1:3210`) chỉ chạy trong workspace, bot trên cloud **không truy cập được** — nên bạn cần đưa backend lên **Convex Cloud** (gói free, không cần thẻ).
 
-- **Bản dev local** (`http://127.0.0.1:3210`): chỉ chạy được khi bot nằm ngay trên máy chạy `convex dev`. Dùng để thử nhanh.
-- **Deployment Convex production**: dùng `npx convex deploy` từ máy bạn (tài khoản Convex miễn phí) để đưa backend lên cloud → được URL dạng `https://<tên-dự-án>.convex.site` + **Deploy Key** (Convex dashboard → *Deployments → Keys*). Đây là URL điền vào `CONVEX_URL`.
+> **Gói free Convex**: 1 triệu function calls/tháng, 0.5 GB database, 1 GB file storage — thoải mái cho bot này.
+
+### Bước 1 — Tạo tài khoản Convex
+
+1. Vào **[convex.dev](https://www.convex.dev)** → **Get Started / Sign up** → đăng ký bằng tài khoản GitHub hoặc email (không cần thẻ ngân hàng).
+2. Sau khi vào dashboard, tạo project mới (hoặc để CLI tự tạo — xem bước 2).
+
+### Bước 2 — Đăng nhập CLI & deploy từ thư mục dự án
+
+Mở terminal **tại thư mục gốc dự án** (nơi có `convex.json`) rồi chạy:
+
+```bash
+npx convex login          # mở trình duyệt đăng nhập tài khoản Convex
+npx convex deploy         # đưa toàn bộ hàm + schema trong convex/ lên Convex Cloud
+```
+
+- `login` mở trình duyệt để xác thực (1 lần duy nhất).
+- `deploy` tự đọc `convex.json` (hàm ở thư mục `convex/`), kiểm tra type, bundle và đưa lên **production deployment** — chạy được ngay, 24/7 miễn phí.
+
+### Bước 3 — Lấy URL deployment & Deploy Key
+
+1. Vào **[dashboard.convex.dev](https://dashboard.convex.dev)** → chọn project của bạn.
+2. **URL deployment**: trang **Settings → URL and Deploy Key** hiển thị URL dạng `https://<tên>.convex.cloud` — đây là `CONVEX_URL` dùng cho client (chú ý: dùng **`.convex.cloud`**, không phải `.convex.site` — `.convex.site` chỉ dành cho HTTP routes tùy chỉnh, client gọi API ở `.convex.cloud`).
+3. **Deploy Key**: vào **Settings → Deploy Keys** (hoặc *Keys*) → **Generate a deploy key** → đặt tên (VD `bot`) → copy chuỗi key — đây là `CONVEX_DEPLOY_KEY` (cho bot quyền ghi dữ liệu).
+
+### Bước 4 — Điền vào Bot-Hosting.net
+
+Vào panel bot trên Bot-Hosting.net → tab **Startup → Environment Variables** → thêm:
+
+```env
+DISCORD_TOKEN=<bot token của bạn>
+DISCORD_CLIENT_ID=1536232784660795402
+CONVEX_URL=https://<tên-dự-án>.convex.site
+CONVEX_DEPLOY_KEY=<deploy key ở bước 3>
+```
+
+Rồi bấm **Start** — bot sẽ kết nối Convex Cloud và đồng bộ với dashboard.
+
+### Bước 5 — Trỏ dashboard về cùng backend (nếu cần dùng chung dữ liệu)
+
+Để dashboard web hiển thị đúng dữ liệu bot ghi (server, kênh, sự kiện…), dashboard cũng phải dùng **cùng URL Convex** này (biến `VITE_CONVEX_URL` cho bản production của Freebuff). Nếu không, dashboard và bot dùng 2 database riêng biệt.
+
+## Lưu ý khi deploy lại code
+
+- Sửa hàm Convex trong `convex/` xong → chạy lại `npx convex deploy` từ máy bạn để cập nhật lên cloud.
+- Bot gọi các mutation `bot-writes:*` qua `CONVEX_DEPLOY_KEY` — key chỉ nằm trong panel Bot-Hosting, không commit lên git.
+- Khi chạy thử ở local, vẫn dùng `http://127.0.0.1:3210` như cũ — không ảnh hưởng.
+
+## Tối ưu RAM & dung lượng
+
+- Bot **không cache tin nhắn** (giới hạn 0), giới hạn cache thành viên/người dùng (tối đa 200), và tự sweep cache cũ — phù hợp gói 256–512 MB RAM của Bot-Hosting.net.
+- `npm run pack:host` loại bỏ `node_modules`, `.env`, `.md` khỏi zip → file chỉ ~20 KB.
 
 ## Yêu cầu
 
@@ -69,7 +122,7 @@ bun install            # hoặc npm install
 | --- | --- | --- |
 | `DISCORD_TOKEN` | ✅ | Bot token — Developer Portal → *Bot* → *Reset Token* |
 | `DISCORD_CLIENT_ID` | ✅ | Application ID (Client ID) — dùng để đăng ký slash commands |
-| `CONVEX_URL` | ✅ | URL Convex. Dev local: `http://127.0.0.1:3210`. Production: URL deployment của bạn |
+| `CONVEX_URL` | ✅ | URL Convex. Dev local: `http://127.0.0.1:3210`. Production: `https://<tên-deployment>.convex.cloud` |
 | `CONVEX_DEPLOY_KEY` | production | Deploy key (quyền ghi) — Convex dashboard → *Deployments → Keys*. Bản dev local không cần |
 | `AUTO_REGISTER_COMMANDS` | ❌ | `true` (mặc định) để tự đăng ký slash commands khi bot khởi động |
 
@@ -108,7 +161,9 @@ Muốn đăng ký lại slash commands thủ công: `bun run register`.
 | `!lockdown on \| off` | Bật/tắt khóa kênh tự động khi raid |
 | `!setlog #kênh` | Đặt kênh log |
 
-**Slash commands:** `/help`, `/ping`, `/prefix set`, `/autoreply add|list|remove`, `/antinuke status|on|off|module|unlock|lockdown`, `/setup log-channel|mod-role|admin-role`.
+**Slash commands:** `/help`, `/ping`, `/prefix set`, `/autoreply add|edit|list|remove`, `/antinuke status|on|off|module|unlock|lockdown`, `/setup log-channel|mod-role|admin-role`.
+
+> **Ai được tạo/sửa auto reply?** — Mod (quyền Manage Guild), Administrator, **hoặc** người có role **Mod/Admin** được cấu hình qua `/setup mod-role` / `/setup admin-role`. Chạy `/autoreply add` với tên rule đã tồn tại = cập nhật lại rule đó.
 
 ## Module chống nuke
 
