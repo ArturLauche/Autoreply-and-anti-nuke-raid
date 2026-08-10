@@ -1,7 +1,12 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild } from "./auth";
-import { ANTI_NUKE_MODULES, HEAT_DEFAULTS, MODULE_HEAT_DEFAULTS } from "./modules";
+import {
+  ANTI_NUKE_MODULES,
+  HEAT_DEFAULTS,
+  MODULE_HEAT_DEFAULTS,
+  WARN_STRIKE_DEFAULTS,
+} from "./modules";
 
 /** Decay a stored heat value by the guild's per-minute decay rate. */
 function decayHeat(heat: number, updatedAt: number, decayPerMin: number) {
@@ -108,6 +113,11 @@ export const getGuild = query({
         joinGateRaidKick: guild.joinGateRaidKick ?? false,
         joinGatePunish: guild.joinGatePunish ?? "kick",
         joinGateWhitelist: guild.joinGateWhitelist ?? [],
+        heatRepeatMultiplier: guild.heatRepeatMultiplier ?? HEAT_DEFAULTS.repeatMultiplier,
+        heatRepeatWindowMin: guild.heatRepeatWindowMin ?? HEAT_DEFAULTS.repeatWindowMin,
+        warnStrikeLimit: guild.warnStrikeLimit ?? WARN_STRIKE_DEFAULTS.limit,
+        warnStrikeWindowMin: guild.warnStrikeWindowMin ?? WARN_STRIKE_DEFAULTS.windowMin,
+        warnStrikePunish: guild.warnStrikePunish ?? WARN_STRIKE_DEFAULTS.punish,
         safetyPercent,
       },
       heatStates,
@@ -197,6 +207,11 @@ export const getBotConfig = query({
       joinGateRaidKick: guild.joinGateRaidKick ?? false,
       joinGatePunish: guild.joinGatePunish ?? "kick",
       joinGateWhitelist: guild.joinGateWhitelist ?? [],
+      heatRepeatMultiplier: guild.heatRepeatMultiplier ?? HEAT_DEFAULTS.repeatMultiplier,
+      heatRepeatWindowMin: guild.heatRepeatWindowMin ?? HEAT_DEFAULTS.repeatWindowMin,
+      warnStrikeLimit: guild.warnStrikeLimit ?? WARN_STRIKE_DEFAULTS.limit,
+      warnStrikeWindowMin: guild.warnStrikeWindowMin ?? WARN_STRIKE_DEFAULTS.windowMin,
+      warnStrikePunish: guild.warnStrikePunish ?? WARN_STRIKE_DEFAULTS.punish,
       heatStates,
       autoReplies,
       modules: modules.map((m) => ({
@@ -235,6 +250,13 @@ export const updateSettings = mutation({
     joinGateRaidKick: v.optional(v.boolean()),
     joinGatePunish: v.optional(v.union(v.literal("kick"), v.literal("ban"))),
     joinGateWhitelist: v.optional(v.array(v.string())),
+    heatRepeatMultiplier: v.optional(v.number()),
+    heatRepeatWindowMin: v.optional(v.number()),
+    warnStrikeLimit: v.optional(v.number()),
+    warnStrikeWindowMin: v.optional(v.number()),
+    warnStrikePunish: v.optional(
+      v.union(v.literal("timeout"), v.literal("kick"), v.literal("ban")),
+    ),
   },
   handler: async (ctx, args) => {
     const user = await getUserByToken(ctx, args.token);
@@ -304,6 +326,19 @@ export const updateSettings = mutation({
         .slice(0, 100);
       patch.joinGateWhitelist = [...new Set(ids)];
     }
+    if (args.heatRepeatMultiplier !== undefined) {
+      patch.heatRepeatMultiplier = Math.max(1, Math.min(10, Math.floor(args.heatRepeatMultiplier)));
+    }
+    if (args.heatRepeatWindowMin !== undefined) {
+      patch.heatRepeatWindowMin = Math.max(1, Math.min(1440, Math.floor(args.heatRepeatWindowMin)));
+    }
+    if (args.warnStrikeLimit !== undefined) {
+      patch.warnStrikeLimit = Math.max(0, Math.min(20, Math.floor(args.warnStrikeLimit)));
+    }
+    if (args.warnStrikeWindowMin !== undefined) {
+      patch.warnStrikeWindowMin = Math.max(1, Math.min(1440, Math.floor(args.warnStrikeWindowMin)));
+    }
+    if (args.warnStrikePunish !== undefined) patch.warnStrikePunish = args.warnStrikePunish;
     await ctx.db.patch(guild._id, patch);
     return { ok: true };
   },
@@ -456,6 +491,11 @@ export const botSyncGuilds = mutation({
           joinGateRaidKick: false,
           joinGatePunish: "kick" as const,
           joinGateWhitelist: [],
+          heatRepeatMultiplier: HEAT_DEFAULTS.repeatMultiplier,
+          heatRepeatWindowMin: HEAT_DEFAULTS.repeatWindowMin,
+          warnStrikeLimit: WARN_STRIKE_DEFAULTS.limit,
+          warnStrikeWindowMin: WARN_STRIKE_DEFAULTS.windowMin,
+          warnStrikePunish: WARN_STRIKE_DEFAULTS.punish as "timeout" | "kick" | "ban",
           managers: [],
           botInGuild: true,
           lastHeartbeat: now,

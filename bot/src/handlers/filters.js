@@ -7,9 +7,38 @@ const MODULE_LABELS = {
   invite: "Link mời Discord",
   attachment: "Spam ảnh/file đính kèm",
   mention: "Spam mention",
+  malware: "Link độc hại & file nguy hiểm",
 };
 
 const INVITE_RE = /(?:discord\.(?:gg|me)\/|discord(?:app)?\.com\/invite\/)[a-zA-Z0-9_-]+/gi;
+
+// Danh sách domain scam/lừa đảo phổ biến (nitro giả, gift giả, crypto scam…)
+const MALICIOUS_DOMAINS = [
+  "discord-nitro.ru", "discordnitro.ru", "discord-gift.ru", "discordnitro.gift",
+  "nitro-gift.ru", "nitrogift.ru", "discordgift.site", "discord-giveaway.com",
+  "steam-gift.net", "steamgift.ru", "steam-gifts.com", "steam-giveaways.com",
+  "steam-keys.ru", "free-steam-keys.com", "csgo-gifts.ru", "csgofast.com",
+  "metamask-verify.com", "metamask-auth.com", "binance-airdrop.top",
+  "binance-claim.com", "coinbase-verify.com", "paypal-verify.cc",
+  "wallet-connect.verify", "uniswap-airdrop.site", "opensea-verify.com",
+  "discord-airdrop.com", "discord-verification.com", "discord-verify.com",
+  "discord-login.com", "discord-verify.net", "discordbot.help", "discord-hub.com",
+  "nitro-win.ru", "nitrowin.ru", "boost-gift.ru", "nitro-gift.site",
+  "get-nitro.com", "freе-nitro.com", "free-nitro.ru", "nitro.quest",
+  "discord.gift-claim.com", "claim-gift.ru", "gift-nitro.ru", "nitro-gift.ru",
+  "airdrop-token.top", "claim-airdrop.com", "crypto-claim.site",
+  "hypesquad-event.com", "xbox-gift.net", "psn-gift.net", "roblox-gift.net",
+].map((d) => d.toLowerCase());
+
+const DANGEROUS_EXTENSIONS = [
+  ".exe", ".scr", ".bat", ".cmd", ".com", ".msi", ".msp",
+  ".vbs", ".vbe", ".js", ".jse", ".hta", ".ps1", ".psm1",
+  ".jar", ".apk", ".cpl", ".reg",
+];
+
+// Chữ ký nội dung lừa đảo phổ biến
+const SCAM_KEYWORD_RE =
+  /(free\s?nitro|steam\s?gift|discord\s?nitro\s?(gift|code)|giveaway|airdrop|claim\s?(reward|prize|gift)|you\s?(won|are\s?(the\s?)?winner))/i;
 
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -29,8 +58,38 @@ function isExempt(member, config) {
   return false;
 }
 
-/** Xử lý một vi phạm nội dung: xóa tin, phạt (tăng cấp theo nhiệt), ghi log. */
-async function handleViolation(client, message, moduleCfg, config, heat, reason, detail) {
+/** Tìm link độc hại trong nội dung tin nhắn. */
+function findMaliciousLink(content) {
+  const urls = content.match(/https?:\/\/[^\s<>"]+|www\.[^\s<>"]+/gi) || [];
+  for (const raw of urls) {
+    const host = raw
+      .replace(/^https?:\/\//i, "")
+      .replace(/^www\./i, "")
+      .split(/[/?#]/)[0]
+      .toLowerCase();
+    if (MALICIOUS_DOMAINS.includes(host)) return { kind: "domain", value: host };
+    if (/^\d{1,3}(\.\d{1,3}){3}(:\d+)?$/.test(host)) {
+      return { kind: "ip", value: host }; // link IP trực tiếp — nghi ngờ
+    }
+  }
+  if (SCAM_KEYWORD_RE.test(content)) return { kind: "scam-keyword", value: "nội dung lừa đảo" };
+  return null;
+}
+
+/** Tìm file đính kèm có phần mở rộng nguy hiểm. */
+function findDangerousAttachment(attachments) {
+  for (const att of attachments.values()) {
+    const ext = (att.name.match(/\.[a-z0-9]+$/i) || [""])[0].toLowerCase();
+    if (DANGEROUS_EXTENSIONS.includes(ext)) return { name: att.name, ext };
+  }
+  return null;
+}
+
+/**
+ * Luồng xử lý chung cho mọi vi phạm moderation: cộng nhiệt → chọn hình phạt
+ * (tăng cấp theo nhiệt hoặc warn tích lũy) → thực thi → xóa tin → ghi log.
+ */
+async function punishFlow(client, message, moduleCfg, config, heat, reason, detail, count) {
   const member = message.member;
   if (!member) return;
 
@@ -42,12 +101,23 @@ async function handleViolation(client, message, moduleCfg, config, heat, reason,
     moduleCfg.heat ?? 10,
     s,
   );
-  const chosen = choosePunish(moduleCfg.punish || "warn", heatRes);
+  let chosen = choosePunish(moduleCfg.punish || "warn", heatRes);
+  let strikeTag = "";
+  if (chosen === "warn") {
+    const st = heat.strike(message.guild.id, message.author.id, s);
+    if (st.escalated) {
+      chosen = st.punish;
+      strikeTag = ` — đủ ${st.count} warn, tăng cấp ${st.punish}`;
+    } else if (st.count > 0 && s.warnStrikeLimit) {
+      strikeTag = ` — warn ${st.count}/${s.warnStrikeLimit}`;
+    }
+  }
+  if (chosen !== "warn") heat.markPunished(message.guild.id, message.author.id);
   const action = await punishMember(
     message.guild,
     member,
     chosen,
-    reason,
+    reason + strikeTag,
     moduleCfg.timeoutSeconds,
   );
 
@@ -60,7 +130,7 @@ async function handleViolation(client, message, moduleCfg, config, heat, reason,
       executorId: message.author.id,
       executorName: message.author.username,
       action: action + (heatRes ? ` (nhiệt ${Math.round(heatRes.heat)})` : ""),
-      count: 1,
+      count: count || 1,
       windowSeconds: moduleCfg.windowSeconds || 10,
       threshold: moduleCfg.threshold || 1,
       punish: chosen,
@@ -84,8 +154,8 @@ async function handleViolation(client, message, moduleCfg, config, heat, reason,
 }
 
 /**
- * Quét từng tin nhắn: chặn link mời Discord, từ ngữ xấu, spam mention,
- * spam ảnh/file. Được gọi từ index.js trên sự kiện messageCreate.
+ * Quét từng tin nhắn: link mời Discord, từ ngữ xấu, link độc hại, file nguy hiểm,
+ * spam mention, spam ảnh/file. Được gọi từ index.js trên sự kiện messageCreate.
  */
 async function scanMessage(client, message, store, heat) {
   if (!message.guild || message.author.bot || message.channel.isDMBased?.()) return;
@@ -97,6 +167,7 @@ async function scanMessage(client, message, store, heat) {
   const modules = config.modules || [];
   const inviteCfg = modules.find((m) => m.module === "invite");
   const badwordCfg = modules.find((m) => m.module === "badword");
+  const malwareCfg = modules.find((m) => m.module === "malware");
   const mentionCfg = modules.find((m) => m.module === "mention");
   const attachmentCfg = modules.find((m) => m.module === "attachment");
 
@@ -104,36 +175,56 @@ async function scanMessage(client, message, store, heat) {
   if (inviteCfg?.enabled && message.content) {
     const match = message.content.match(INVITE_RE);
     if (match) {
-      return handleViolation(
-        client,
-        message,
-        inviteCfg,
-        config,
-        heat,
+      return punishFlow(
+        client, message, inviteCfg, config, heat,
         `[Protogon] Chặn link mời Discord: ${match[0]}`,
         `Chứa link mời \`${match[0]}\``,
+        1,
       );
     }
   }
 
-  // 2) Từ ngữ xấu (danh sách tùy chỉnh trong cài đặt server)
+  // 2) Từ ngữ xấu
   if (badwordCfg?.enabled && message.content && (config.badWords || []).length > 0) {
     const lower = message.content.toLowerCase();
     const bad = (config.badWords || []).find((w) => w && wordBoundaryRegex(w).test(lower));
     if (bad) {
-      return handleViolation(
-        client,
-        message,
-        badwordCfg,
-        config,
-        heat,
+      return punishFlow(
+        client, message, badwordCfg, config, heat,
         `[Protogon] Từ ngữ xấu: "${bad}"`,
         `Chứa từ ngữ xấu \`${bad}\``,
+        1,
       );
     }
   }
 
-  // 3) Spam mention: đếm số tin có mention trong cửa sổ
+  // 3) Link độc hại (domain lừa đảo / IP / chữ ký scam)
+  if (malwareCfg?.enabled && message.content) {
+    const hit = findMaliciousLink(message.content);
+    if (hit) {
+      return punishFlow(
+        client, message, malwareCfg, config, heat,
+        `[Protogon] Link độc hại: ${hit.value || hit.kind}`,
+        `Chứa link/nội dung độc hại (\`${hit.kind}: ${hit.value || ""}\`)`,
+        1,
+      );
+    }
+  }
+
+  // 4) File nguy hiểm (đuôi .exe .scr .bat …)
+  if (malwareCfg?.enabled && message.attachments.size > 0) {
+    const bad = findDangerousAttachment(message.attachments);
+    if (bad) {
+      return punishFlow(
+        client, message, malwareCfg, config, heat,
+        `[Protogon] File nguy hiểm: ${bad.name} (${bad.ext})`,
+        `Đính kèm file nguy hiểm \`${bad.name}\` (\`${bad.ext}\`)`,
+        1,
+      );
+    }
+  }
+
+  // 5) Spam mention
   if (mentionCfg?.enabled && message.content) {
     const mentions =
       message.mentions.users.size +
@@ -152,59 +243,16 @@ async function scanMessage(client, message, store, heat) {
         return;
       }
       mentionBuckets.delete(key);
-
-      const s = heatSettings(config);
-      const heatRes = await heat.add(
-        message.guild.id,
-        message.author.id,
-        message.author.username,
-        mentionCfg.heat ?? 15,
-        s,
+      return punishFlow(
+        client, message, mentionCfg, config, heat,
+        `[Protogon] Spam mention: ${fresh.length} tin mention trong ${mentionCfg.windowSeconds || 10}s`,
+        `<@${message.author.id}> đã gửi **${fresh.length} tin có mention** trong **${mentionCfg.windowSeconds || 10} giây** (ngưỡng ${mentionCfg.threshold || 10})`,
+        fresh.length,
       );
-      const chosen = choosePunish(mentionCfg.punish || "timeout", heatRes);
-      const reason = `[Protogon] Spam mention: ${fresh.length} tin mention trong ${mentionCfg.windowSeconds || 10}s`;
-      const action = await punishMember(
-        message.guild,
-        member,
-        chosen,
-        reason,
-        mentionCfg.timeoutSeconds,
-      );
-      await message.delete().catch(() => {});
-
-      try {
-        await heat.store.client.mutation("bot_writes:botRecordAntinukeEvent", {
-          guildId: message.guild.id,
-          module: "mention",
-          executorId: message.author.id,
-          executorName: message.author.username,
-          action: action + (heatRes ? ` (nhiệt ${Math.round(heatRes.heat)})` : ""),
-          count: fresh.length,
-          windowSeconds: mentionCfg.windowSeconds || 10,
-          threshold: mentionCfg.threshold || 10,
-          punish: chosen,
-        });
-      } catch (e) {
-        console.error("[filters:record]", e.message);
-      }
-
-      const embed = logEmbed({
-        title: "🚨 Cảnh báo: Spam mention",
-        description: `<@${message.author.id}> đã gửi **${fresh.length} tin có mention** trong **${mentionCfg.windowSeconds || 10} giây** (ngưỡng ${mentionCfg.threshold || 10}).`,
-        color: Colors.Red,
-        fields: [
-          { name: "Thủ phạm", value: `<@${message.author.id}>`, inline: true },
-          { name: "Xử lý", value: (action + heatSummary(heatRes)).slice(0, 1000), inline: true },
-          { name: "Module", value: "`mention`", inline: true },
-        ],
-        footer: "Protogon Moderation",
-      });
-      await sendLog(message.guild, config, embed);
-      return;
     }
   }
 
-  // 4) Spam ảnh / file đính kèm (đếm tin có đính kèm trong cửa sổ)
+  // 6) Spam ảnh / file đính kèm
   if (attachmentCfg?.enabled && message.attachments.size > 0) {
     const key = `${message.guild.id}:${message.author.id}`;
     const now = Date.now();
@@ -217,54 +265,12 @@ async function scanMessage(client, message, store, heat) {
       return;
     }
     attachmentBuckets.delete(key);
-
-    const s = heatSettings(config);
-    const heatRes = await heat.add(
-      message.guild.id,
-      message.author.id,
-      message.author.username,
-      attachmentCfg.heat ?? 15,
-      s,
+    return punishFlow(
+      client, message, attachmentCfg, config, heat,
+      `[Protogon] Spam ảnh/file: ${fresh.length} tin đính kèm trong ${attachmentCfg.windowSeconds || 10}s`,
+      `<@${message.author.id}> đã gửi **${fresh.length} tin có đính kèm** trong **${attachmentCfg.windowSeconds || 10} giây** (ngưỡng ${attachmentCfg.threshold || 5})`,
+      fresh.length,
     );
-    const chosen = choosePunish(attachmentCfg.punish || "timeout", heatRes);
-    const reason = `[Protogon] Spam ảnh/file: ${fresh.length} tin đính kèm trong ${attachmentCfg.windowSeconds || 10}s`;
-    const action = await punishMember(
-      message.guild,
-      member,
-      chosen,
-      reason,
-      attachmentCfg.timeoutSeconds,
-    );
-    await message.delete().catch(() => {});
-
-    try {
-      await heat.store.client.mutation("bot_writes:botRecordAntinukeEvent", {
-        guildId: message.guild.id,
-        module: "attachment",
-        executorId: message.author.id,
-        executorName: message.author.username,
-        action: action + (heatRes ? ` (nhiệt ${Math.round(heatRes.heat)})` : ""),
-        count: fresh.length,
-        windowSeconds: attachmentCfg.windowSeconds || 10,
-        threshold: attachmentCfg.threshold || 5,
-        punish: chosen,
-      });
-    } catch (e) {
-      console.error("[filters:record]", e.message);
-    }
-
-    const embed = logEmbed({
-      title: "🚨 Cảnh báo: Spam ảnh/file đính kèm",
-      description: `<@${message.author.id}> đã gửi **${fresh.length} tin có đính kèm** trong **${attachmentCfg.windowSeconds || 10} giây** (ngưỡng ${attachmentCfg.threshold || 5}).`,
-      color: Colors.Red,
-      fields: [
-        { name: "Thủ phạm", value: `<@${message.author.id}>`, inline: true },
-        { name: "Xử lý", value: (action + heatSummary(heatRes)).slice(0, 1000), inline: true },
-        { name: "Module", value: "`attachment`", inline: true },
-      ],
-      footer: "Protogon Moderation",
-    });
-    await sendLog(message.guild, config, embed);
   }
 }
 
@@ -275,3 +281,5 @@ const mentionBuckets = new Map();
 
 module.exports = scanMessage;
 module.exports.MODULE_LABELS = MODULE_LABELS;
+module.exports.findMaliciousLink = findMaliciousLink;
+module.exports.findDangerousAttachment = findDangerousAttachment;

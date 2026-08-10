@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
-import { Flame, ListX, Plus, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, Flame, ListX, Plus, ShieldCheck, X } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { Card, CardContent } from "../ui/card";
 import { Switch } from "../ui/switch";
@@ -9,9 +9,14 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { ANTINUKE_MODULE_META, MODERATION_MODULES } from "../../lib/constants";
+import {
+  ANTINUKE_MODULE_META,
+  MODERATION_MODULES,
+  WARN_STRIKE_DEFAULTS,
+} from "../../lib/constants";
 import ModuleCard from "./ModuleCard";
 import { SafetyBar, TopOffenders } from "./HeatBar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import type { GuildData, ModuleConfig } from "../../lib/types";
 
 const TOKEN = () => localStorage.getItem("wio_session_token") ?? "";
@@ -62,6 +67,15 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
     kickAt: data.guild.heatKickAt,
     banAt: data.guild.heatBanAt,
   });
+  const [repeat, setRepeat] = useState({
+    multiplier: data.guild.heatRepeatMultiplier,
+    windowMin: data.guild.heatRepeatWindowMin,
+  });
+  const [strikes, setStrikes] = useState({
+    limit: data.guild.warnStrikeLimit,
+    windowMin: data.guild.warnStrikeWindowMin,
+    punish: data.guild.warnStrikePunish,
+  });
   const [badWordInput, setBadWordInput] = useState("");
 
   function configFor(module: string): ModuleConfig {
@@ -101,10 +115,43 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
     heatTimeoutAt?: number;
     heatKickAt?: number;
     heatBanAt?: number;
+    heatRepeatMultiplier?: number;
+    heatRepeatWindowMin?: number;
   }) {
     try {
       await updateSettings({ token: TOKEN(), guildId: data.guild.discordId, ...patch });
       toast.success("Đã lưu cài đặt hệ thống nhiệt độ");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+    }
+  }
+
+  async function commitRepeat(field: "multiplier" | "windowMin", n: number) {
+    const next = {
+      multiplier: field === "multiplier" ? n : repeat.multiplier,
+      windowMin: field === "windowMin" ? n : repeat.windowMin,
+    };
+    setRepeat(next);
+    await patchHeatSettings({
+      heatRepeatMultiplier: next.multiplier,
+      heatRepeatWindowMin: next.windowMin,
+    });
+  }
+
+  async function commitStrikes(patch: {
+    warnStrikeLimit?: number;
+    warnStrikeWindowMin?: number;
+    warnStrikePunish?: "timeout" | "kick" | "ban";
+  }) {
+    const next = {
+      limit: patch.warnStrikeLimit ?? strikes.limit,
+      windowMin: patch.warnStrikeWindowMin ?? strikes.windowMin,
+      punish: patch.warnStrikePunish ?? strikes.punish,
+    };
+    setStrikes(next);
+    try {
+      await updateSettings({ token: TOKEN(), guildId: data.guild.discordId, ...patch });
+      toast.success("Đã lưu cài đặt warn tích lũy");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Lưu thất bại");
     }
@@ -215,6 +262,24 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                 />
               </div>
               <div className="grid gap-1.5">
+                <Label className="text-xs text-rose-400">Tái phạm ×(lần)</Label>
+                <ModuleNumber
+                  value={repeat.multiplier}
+                  min={1}
+                  max={10}
+                  onCommit={(n) => commitRepeat("multiplier", n)}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="text-xs text-muted-foreground">Cửa sổ tái phạm (phút)</Label>
+                <ModuleNumber
+                  value={repeat.windowMin}
+                  min={1}
+                  max={1440}
+                  onCommit={(n) => commitRepeat("windowMin", n)}
+                />
+              </div>
+              <div className="grid gap-1.5">
                 <Label className="text-xs text-amber-400">Ngưỡng cảnh báo DM</Label>
                 <ModuleNumber
                   value={tiers.warnAt}
@@ -252,12 +317,90 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
               </div>
               <p className="col-span-full text-xs text-muted-foreground">
                 Ngưỡng phải tăng dần: cảnh báo &lt; tạm khóa &lt; kick &lt; ban (tối đa 100 điểm).
+                Thành viên vừa bị phạt mà <b className="text-rose-400">tái phạm trong {repeat.windowMin} phút</b>{" "}
+                sẽ nhận <b className="text-rose-400">×{repeat.multiplier} điểm nhiệt</b> mỗi lần vi phạm — đầy thanh nhanh hơn.
               </p>
             </div>
           </div>
           <div className="flex flex-col justify-center gap-4 rounded-xl border border-border bg-card/60 p-4">
             <SafetyBar data={data} />
             <TopOffenders data={data} limit={5} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Warn tích lũy */}
+      <Card className="border-amber-500/25 bg-gradient-to-br from-amber-500/10 via-transparent to-orange-500/5">
+        <CardContent className="grid gap-5 p-5 lg:grid-cols-[1fr_1fr]">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400">
+              <AlertTriangle className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="font-display font-semibold">Warn tích lũy (tăng cấp hình phạt)</p>
+              <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+                Khi module dùng hình phạt <b className="text-foreground">Cảnh báo</b>, mỗi lần vi
+                phạm đếm <b className="text-foreground">1 warn</b>. Đủ số warn trong cửa sổ thời
+                gian, hình phạt tự <b className="text-amber-400">tăng cấp</b> lên mức nặng hơn —
+                song song với hệ thống nhiệt độ.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="grid gap-1.5">
+              <Label className="text-xs text-muted-foreground">Số warn để tăng cấp (0 = tắt)</Label>
+              <ModuleNumber
+                value={strikes.limit}
+                min={0}
+                max={20}
+                onCommit={(n) => commitStrikes({ warnStrikeLimit: n })}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-xs text-muted-foreground">Cửa sổ (phút)</Label>
+              <ModuleNumber
+                value={strikes.windowMin}
+                min={1}
+                max={1440}
+                onCommit={(n) => commitStrikes({ warnStrikeWindowMin: n })}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-xs text-amber-400">Hình phạt khi tăng cấp</Label>
+              <Select
+                value={strikes.punish}
+                onValueChange={(v) =>
+                  commitStrikes({ warnStrikePunish: v as "timeout" | "kick" | "ban" })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="timeout">⏸️ Tạm khóa (timeout)</SelectItem>
+                  <SelectItem value="kick">👢 Kick</SelectItem>
+                  <SelectItem value="ban">🚫 Ban</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="col-span-full text-xs text-muted-foreground">
+              {strikes.limit > 0 ? (
+                <>
+                  Đang bật: <b className="text-amber-400">{strikes.limit} warn</b> trong{" "}
+                  {strikes.windowMin} phút → tự{" "}
+                  <b className="text-amber-400">
+                    {strikes.punish === "timeout"
+                      ? "tạm khóa"
+                      : strikes.punish === "kick"
+                        ? "kick"
+                        : "ban"}
+                  </b>{" "}
+                  (mặc định: {WARN_STRIKE_DEFAULTS.limit} warn / {WARN_STRIKE_DEFAULTS.windowMin} phút).
+                </>
+              ) : (
+                <>Đang tắt — mọi module chỉ cảnh báo, không tăng cấp theo số lần warn.</>
+              )}
+            </p>
           </div>
         </CardContent>
       </Card>

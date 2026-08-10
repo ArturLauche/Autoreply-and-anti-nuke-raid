@@ -104,6 +104,14 @@ export const ANTI_NUKE_MODULES = [
     punish: "warn",
     heat: 20,
   },
+  {
+    module: "malware",
+    label: "Chống link độc hại & file nguy hiểm",
+    threshold: 1,
+    windowSeconds: 10,
+    punish: "warn",
+    heat: 15,
+  },
 ] as const;
 
 /** Defaults for the automatic channel-lockdown-on-raid feature. */
@@ -125,6 +133,15 @@ export const HEAT_DEFAULTS = {
   timeoutAt: 40,
   kickAt: 70,
   banAt: 90,
+  repeatMultiplier: 2,
+  repeatWindowMin: 30,
+} as const;
+
+/** Defaults for the warn-strike escalation (moderation section). */
+export const WARN_STRIKE_DEFAULTS = {
+  limit: 3,
+  windowMin: 60,
+  punish: "timeout",
 } as const;
 
 export type AntiNukeModuleKey = (typeof ANTI_NUKE_MODULES)[number]["module"];

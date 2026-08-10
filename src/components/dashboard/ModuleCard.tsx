@@ -89,6 +89,7 @@ export default function ModuleCard({
   config,
   patchModule,
   unit,
+  showHeat = true,
 }: {
   data: GuildData;
   module: string;
@@ -99,6 +100,8 @@ export default function ModuleCard({
     successMsg?: string,
   ) => Promise<void>;
   unit: string;
+  /** Module nuke/raid phạt trực tiếp — không hiển thị ô nhiệt. */
+  showHeat?: boolean;
 }) {
   const meta = ANTINUKE_MODULE_META[module];
   const Icon = MODULE_ICONS[module] ?? ShieldAlert;
@@ -147,7 +150,7 @@ export default function ModuleCard({
             />
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className={showHeat ? "grid grid-cols-3 gap-3" : "grid grid-cols-2 gap-3"}>
           <div className="grid gap-1.5">
             <Label className="text-xs text-muted-foreground">Hình thức xử lý</Label>
             <Select
@@ -165,15 +168,17 @@ export default function ModuleCard({
               </SelectContent>
             </Select>
           </div>
-          <div className="grid gap-1.5">
-            <Label className="text-xs text-orange-400/80">🔥 Nhiệt/vi phạm</Label>
-            <ModuleNumber
-              value={config.heat}
-              min={1}
-              max={100}
-              onCommit={(n) => patchModule(module, { heat: n })}
-            />
-          </div>
+          {showHeat && (
+            <div className="grid gap-1.5">
+              <Label className="text-xs text-orange-400/80">🔥 Nhiệt/vi phạm</Label>
+              <ModuleNumber
+                value={config.heat}
+                min={1}
+                max={100}
+                onCommit={(n) => patchModule(module, { heat: n })}
+              />
+            </div>
+          )}
           <div className="flex items-end pb-1">
             <Badge className={PUNISH_STYLE[config.punish]}>{PUNISH_LABEL[config.punish]}</Badge>
           </div>
@@ -188,6 +193,11 @@ export default function ModuleCard({
               onCommit={(n) => patchModule(module, { timeoutSeconds: n })}
             />
           </div>
+        )}
+        {!showHeat && (
+          <p className="text-[11px] text-muted-foreground">
+            ⚡ Module chống nuke/raid phạt trực tiếp theo hình thức bên trên — không cộng nhiệt.
+          </p>
         )}
         <div className="grid gap-1.5">
           <Label className="text-xs text-muted-foreground">Role miễn trừ</Label>

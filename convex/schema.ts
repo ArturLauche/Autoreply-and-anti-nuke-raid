@@ -54,6 +54,13 @@ export default defineSchema({
     joinGateRaidKick: v.optional(v.boolean()),
     joinGatePunish: v.optional(v.union(v.literal("kick"), v.literal("ban"))),
     joinGateWhitelist: v.optional(v.array(v.string())),
+    heatRepeatMultiplier: v.optional(v.number()),
+    heatRepeatWindowMin: v.optional(v.number()),
+    warnStrikeLimit: v.optional(v.number()),
+    warnStrikeWindowMin: v.optional(v.number()),
+    warnStrikePunish: v.optional(
+      v.union(v.literal("timeout"), v.literal("kick"), v.literal("ban")),
+    ),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_discordId", ["discordId"]),

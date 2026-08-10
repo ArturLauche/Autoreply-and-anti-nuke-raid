@@ -23,6 +23,7 @@ const MODULES = [
   "badword",
   "attachment",
   "invite",
+  "malware",
 ];
 
 function noPerm(message) {
@@ -53,6 +54,7 @@ async function handleHelp(client, message) {
         "!antinuke module <tên> on|off",
         "!antinuke unlock       - mở khóa kênh ngay",
         "!lockdown on|off       - khóa kênh tự động khi raid",
+        "!heat                  - xem nhiệt độ & warn tích lũy",
         "!badword add <từ>      - thêm từ ngữ xấu",
         "!badword remove <từ>   - xóa từ ngữ xấu",
         "!badword list          - danh sách từ ngữ xấu",
@@ -297,6 +299,11 @@ async function handleHeat(client, message, args, config, store) {
     timeoutAt: config.heatTimeoutAt ?? 40,
     kickAt: config.heatKickAt ?? 70,
     banAt: config.heatBanAt ?? 90,
+    repeatMultiplier: config.heatRepeatMultiplier ?? 2,
+    repeatWindowMin: config.heatRepeatWindowMin ?? 30,
+    warnStrikeLimit: config.warnStrikeLimit ?? 3,
+    warnStrikeWindowMin: config.warnStrikeWindowMin ?? 60,
+    warnStrikePunish: config.warnStrikePunish ?? "timeout",
   };
   const top = config.heatStates || [];
   const safety = config.safetyPercent ?? 100;
@@ -308,9 +315,12 @@ async function handleHeat(client, message, args, config, store) {
     .setDescription(
       [
         s.enabled
-          ? `Hệ thống nhiệt **đang bật** — giảm ${s.decayPerMin} điểm/phút.`
+          ? `Hệ thống nhiệt **đang bật** — giảm ${s.decayPerMin} điểm/phút, tái phạm tăng **x${s.repeatMultiplier}** trong ${s.repeatWindowMin} phút.`
           : `Hệ thống nhiệt **đang tắt**.`,
         `Ngưỡng: cảnh báo **${s.warnAt}** · tạm khóa **${s.timeoutAt}** · kick **${s.kickAt}** · ban **${s.banAt}** (tối đa 100).`,
+        s.warnStrikeLimit
+          ? `Warn tích lũy: **${s.warnStrikeLimit}** lần trong ${s.warnStrikeWindowMin} phút → **${s.warnStrikePunish}**.`
+          : `Warn tích lũy: **đang tắt**.`,
       ].join("\n"),
     );
   if (top.length > 0) {

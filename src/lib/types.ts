@@ -113,6 +113,11 @@ export interface GuildData {
     joinGateRaidKick: boolean;
     joinGatePunish: "kick" | "ban";
     joinGateWhitelist: string[];
+    heatRepeatMultiplier: number;
+    heatRepeatWindowMin: number;
+    warnStrikeLimit: number;
+    warnStrikeWindowMin: number;
+    warnStrikePunish: "timeout" | "kick" | "ban";
     safetyPercent: number;
   };
   heatStates: HeatState[];

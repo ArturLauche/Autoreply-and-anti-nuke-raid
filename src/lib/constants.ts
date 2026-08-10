@@ -115,6 +115,15 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
     defaultPunish: "warn",
     defaultHeat: 20,
   },
+  malware: {
+    label: "Chống link độc hại & file nguy hiểm",
+    description:
+      "Chặn domain lừa đảo (nitro giả, gift giả…), link IP và file đuôi nguy hiểm (.exe, .scr, .bat…)",
+    defaultThreshold: 1,
+    defaultWindowSeconds: 10,
+    defaultPunish: "warn",
+    defaultHeat: 15,
+  },
 };
 
 export const ANTINUKE_ORDER = [
@@ -131,9 +140,10 @@ export const ANTINUKE_ORDER = [
   "badword",
   "attachment",
   "invite",
+  "malware",
 ] as const;
 
-/** Nhóm module chống nuke / raid (sự kiện cấu trúc server). */
+/** Nhóm module chống nuke / raid (sự kiện cấu trúc server) — phạt trực tiếp, không nhiệt. */
 export const NUKE_MODULES = [
   "massBan",
   "massKick",
@@ -145,8 +155,15 @@ export const NUKE_MODULES = [
   "massMessageDelete",
 ] as const;
 
-/** Nhóm module moderation nội dung (tin nhắn & đính kèm). */
-export const MODERATION_MODULES = ["spam", "mention", "badword", "attachment", "invite"] as const;
+/** Nhóm module moderation nội dung (tin nhắn & đính kèm) — có hệ thống nhiệt. */
+export const MODERATION_MODULES = [
+  "spam",
+  "mention",
+  "badword",
+  "attachment",
+  "invite",
+  "malware",
+] as const;
 
 export const PUNISH_LABEL: Record<string, string> = {
   warn: "Cảnh báo",
@@ -164,6 +181,15 @@ export const HEAT_DEFAULTS = {
   timeoutAt: 40,
   kickAt: 70,
   banAt: 90,
+  repeatMultiplier: 2,
+  repeatWindowMin: 30,
+} as const;
+
+/** Giá trị mặc định cho warn tích lũy (tăng cấp sau N lần cảnh báo). */
+export const WARN_STRIKE_DEFAULTS = {
+  limit: 3,
+  windowMin: 60,
+  punish: "timeout" as const,
 } as const;
 
 export const HEAT_TIER_LABEL: Record<string, string> = {

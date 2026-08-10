@@ -216,6 +216,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
             config={configFor(key)}
             patchModule={patchModule}
             unit="vi phạm"
+            showHeat={false}
           />
         ))}
       </div>

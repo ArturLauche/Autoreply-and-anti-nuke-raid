@@ -21,7 +21,20 @@ const MODULE_LABELS = {
   badword: "Từ ngữ xấu",
   attachment: "Spam ảnh/file đính kèm",
   invite: "Link mời Discord",
+  malware: "Link độc hại & file nguy hiểm",
 };
+
+// Module nuke/raid: phạt trực tiếp, KHÔNG cộng nhiệt (chỉ có hình phạt gốc).
+const NUKE_MODULES = new Set([
+  "massBan",
+  "massKick",
+  "massJoin",
+  "massChannelCreate",
+  "massChannelDelete",
+  "massRoleCreate",
+  "massRoleDelete",
+  "massMessageDelete",
+]);
 
 module.exports = function createAntiNuke(client, store, heat) {
   /** Persist a punished event for the daily report. Fire-and-forget. */
@@ -72,10 +85,16 @@ module.exports = function createAntiNuke(client, store, heat) {
   }
 
   /**
-   * Phạt một thành viên, tự tăng cấp hình phạt nếu nhiệt độ vượt ngưỡng.
+   * Phạt một thành viên. Module nuke/raid: phạt trực tiếp theo cài đặt (không nhiệt).
+   * Module moderation: cộng nhiệt và tự tăng cấp nếu vượt ngưỡng.
    * Trả về mô tả hành động.
    */
   async function punishWithHeat(guild, member, moduleCfg, reason) {
+    if (NUKE_MODULES.has(moduleCfg.module)) {
+      const chosen = moduleCfg.punish || "kick";
+      const action = await punishMember(guild, member, chosen, reason, moduleCfg.timeoutSeconds);
+      return { action, chosen, heatRes: null };
+    }
     const s = heatSettings(configOf(guild.id));
     const heatRes = await heat.add(
       guild.id,
@@ -86,6 +105,7 @@ module.exports = function createAntiNuke(client, store, heat) {
     );
     const chosen = choosePunish(moduleCfg.punish || "warn", heatRes);
     const action = await punishMember(guild, member, chosen, reason, moduleCfg.timeoutSeconds);
+    if (chosen !== "warn") heat.markPunished(guild.id, member.id);
     return { action: action + heatSummary(heatRes), chosen, heatRes };
   }
 
