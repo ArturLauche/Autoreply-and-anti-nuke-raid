@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("./loadenv").loadEnv();
 
 const {
   Client,
