@@ -38,7 +38,7 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
 
     case "help": {
       const embed = new EmbedBuilder()
-        .setColor(Colors.Cyan)
+        .setColor(Colors.Aqua)
         .setTitle("🧭 Lệnh của Protogon")
         .setDescription(
           [
@@ -87,7 +87,7 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
             `• **${r.name}** — ${r.triggerType === "mention" ? "@mention" : r.keywords.join(", ")} — ${r.enabled ? "✅" : "⏸️"}`,
         );
         const embed = new EmbedBuilder()
-          .setColor(Colors.Cyan)
+          .setColor(Colors.Aqua)
           .setTitle(`📋 Auto reply (${rules.length})`)
           .setDescription(lines.join("\n").slice(0, 4000));
         return interaction.reply({ embeds: [embed], ephemeral: true });

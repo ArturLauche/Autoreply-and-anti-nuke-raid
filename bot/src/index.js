@@ -75,7 +75,12 @@ client.once("ready", async () => {
 });
 
 client.on("messageCreate", (m) => onMessageCreate(client, m, store).catch((e) => console.error("[messageCreate]", e.message)));
-client.on("interactionCreate", (i) => onInteractionCreate(client, i, store).catch((e) => console.error("[interaction]", e.message)));
+client.on("interactionCreate", (i) =>
+  onInteractionCreate(client, i, store).catch((e) => {
+    console.error("[interaction]", e?.message || e);
+    if (e?.errors) console.error("[interaction] details:", JSON.stringify(e.errors).slice(0, 600));
+  }),
+);
 client.on("guildCreate", () => guildSync.syncAll(client, store).catch(() => {}));
 client.on("guildDelete", () => guildSync.syncAll(client, store).catch(() => {}));
 

@@ -29,7 +29,7 @@ function noPerm(message) {
 
 async function handleHelp(client, message) {
   const embed = new EmbedBuilder()
-    .setColor(Colors.Cyan)
+    .setColor(Colors.Aqua)
     .setTitle("🧭 Danh sách lệnh")
     .setDescription(
       [
@@ -92,7 +92,7 @@ async function handleAutoReply(client, message, args, config, store) {
         `${i + 1}. **${r.name}** — ${r.triggerType === "mention" ? "@mention" : `từ khóa: ${r.keywords.join(", ")}`} — ${r.enabled ? "✅" : "⏸️"}`,
     );
     const embed = new EmbedBuilder()
-      .setColor(Colors.Cyan)
+      .setColor(Colors.Aqua)
       .setTitle(`📋 Auto reply (${rules.length})`)
       .setDescription(lines.join("\n").slice(0, 4000));
     return message.reply({ embeds: [embed] });
