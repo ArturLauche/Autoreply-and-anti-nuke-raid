@@ -1,4 +1,4 @@
-const { ConvexHttpClient } = require("convex");
+const { ConvexHttpClient } = require("convex/browser");
 
 const CONFIG_TTL_MS = 30_000;
 
