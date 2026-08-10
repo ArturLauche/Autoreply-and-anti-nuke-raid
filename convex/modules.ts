@@ -73,6 +73,14 @@ export const ANTI_NUKE_MODULES = [
     heat: 10,
   },
   {
+    module: "mention",
+    label: "Chống spam mention",
+    threshold: 10,
+    windowSeconds: 10,
+    punish: "timeout",
+    heat: 15,
+  },
+  {
     module: "badword",
     label: "Lọc từ ngữ xấu",
     threshold: 1,
@@ -113,6 +121,7 @@ export const MODULE_HEAT_DEFAULTS: Record<string, number> = Object.fromEntries(
 export const HEAT_DEFAULTS = {
   enabled: true,
   decayPerMin: 3,
+  warnAt: 25,
   timeoutAt: 40,
   kickAt: 70,
   banAt: 90,

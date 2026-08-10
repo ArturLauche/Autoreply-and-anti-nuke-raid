@@ -41,7 +41,7 @@ const client = new Client({
 });
 
 const store = new ConvexStore();
-const heat = new HeatTracker(store);
+const heat = new HeatTracker(client, store);
 const antinuke = createAntiNuke(client, store, heat);
 
 client.once("ready", async () => {

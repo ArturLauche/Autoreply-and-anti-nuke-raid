@@ -229,6 +229,24 @@ export const botRecordAntinukeEvent = mutation({
   },
 });
 
+/** Bot xóa cờ yêu cầu reset nhiệt sau khi đã dọn bộ nhớ. */
+export const botClearHeatReset = mutation({
+  args: { guildId: v.string() },
+  handler: async (ctx, { guildId }) => {
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) return { ok: true };
+    await ctx.db.patch(guild._id, {
+      heatResetRequested: false,
+      heatResetUserId: undefined,
+      updatedAt: Date.now(),
+    });
+    return { ok: true };
+  },
+});
+
 /** Bot records when the daily report for a guild was sent. */
 export const botSetReportAt = mutation({
   args: { guildId: v.string(), at: v.number() },

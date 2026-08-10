@@ -6,6 +6,7 @@ const MODULE_LABELS = {
   badword: "Từ ngữ xấu",
   invite: "Link mời Discord",
   attachment: "Spam ảnh/file đính kèm",
+  mention: "Spam mention",
 };
 
 const INVITE_RE = /(?:discord\.(?:gg|me)\/|discord(?:app)?\.com\/invite\/)[a-zA-Z0-9_-]+/gi;
@@ -83,8 +84,8 @@ async function handleViolation(client, message, moduleCfg, config, heat, reason,
 }
 
 /**
- * Quét từng tin nhắn: chặn link mời Discord, từ ngữ xấu, spam ảnh/file.
- * Được gọi từ index.js trên sự kiện messageCreate.
+ * Quét từng tin nhắn: chặn link mời Discord, từ ngữ xấu, spam mention,
+ * spam ảnh/file. Được gọi từ index.js trên sự kiện messageCreate.
  */
 async function scanMessage(client, message, store, heat) {
   if (!message.guild || message.author.bot || message.channel.isDMBased?.()) return;
@@ -96,6 +97,7 @@ async function scanMessage(client, message, store, heat) {
   const modules = config.modules || [];
   const inviteCfg = modules.find((m) => m.module === "invite");
   const badwordCfg = modules.find((m) => m.module === "badword");
+  const mentionCfg = modules.find((m) => m.module === "mention");
   const attachmentCfg = modules.find((m) => m.module === "attachment");
 
   // 1) Link mời Discord
@@ -131,7 +133,78 @@ async function scanMessage(client, message, store, heat) {
     }
   }
 
-  // 3) Spam ảnh / file đính kèm (đếm tin có đính kèm trong cửa sổ)
+  // 3) Spam mention: đếm số tin có mention trong cửa sổ
+  if (mentionCfg?.enabled && message.content) {
+    const mentions =
+      message.mentions.users.size +
+      (message.mentions.roles?.size ?? 0) +
+      (message.mentions.channels?.size ?? 0) +
+      (message.mentions.everyone ? 1 : 0);
+    if (mentions > 0) {
+      const key = `${message.guild.id}:${message.author.id}`;
+      const now = Date.now();
+      const arr = mentionBuckets.get(key) ?? [];
+      arr.push(now);
+      const cutoff = now - (mentionCfg.windowSeconds || 10) * 1000;
+      const fresh = arr.filter((t) => t >= cutoff);
+      if (fresh.length < (mentionCfg.threshold || 10)) {
+        mentionBuckets.set(key, fresh);
+        return;
+      }
+      mentionBuckets.delete(key);
+
+      const s = heatSettings(config);
+      const heatRes = await heat.add(
+        message.guild.id,
+        message.author.id,
+        message.author.username,
+        mentionCfg.heat ?? 15,
+        s,
+      );
+      const chosen = choosePunish(mentionCfg.punish || "timeout", heatRes);
+      const reason = `[Protogon] Spam mention: ${fresh.length} tin mention trong ${mentionCfg.windowSeconds || 10}s`;
+      const action = await punishMember(
+        message.guild,
+        member,
+        chosen,
+        reason,
+        mentionCfg.timeoutSeconds,
+      );
+      await message.delete().catch(() => {});
+
+      try {
+        await heat.store.client.mutation("bot_writes:botRecordAntinukeEvent", {
+          guildId: message.guild.id,
+          module: "mention",
+          executorId: message.author.id,
+          executorName: message.author.username,
+          action: action + (heatRes ? ` (nhiệt ${Math.round(heatRes.heat)})` : ""),
+          count: fresh.length,
+          windowSeconds: mentionCfg.windowSeconds || 10,
+          threshold: mentionCfg.threshold || 10,
+          punish: chosen,
+        });
+      } catch (e) {
+        console.error("[filters:record]", e.message);
+      }
+
+      const embed = logEmbed({
+        title: "🚨 Cảnh báo: Spam mention",
+        description: `<@${message.author.id}> đã gửi **${fresh.length} tin có mention** trong **${mentionCfg.windowSeconds || 10} giây** (ngưỡng ${mentionCfg.threshold || 10}).`,
+        color: Colors.Red,
+        fields: [
+          { name: "Thủ phạm", value: `<@${message.author.id}>`, inline: true },
+          { name: "Xử lý", value: (action + heatSummary(heatRes)).slice(0, 1000), inline: true },
+          { name: "Module", value: "`mention`", inline: true },
+        ],
+        footer: "Protogon Moderation",
+      });
+      await sendLog(message.guild, config, embed);
+      return;
+    }
+  }
+
+  // 4) Spam ảnh / file đính kèm (đếm tin có đính kèm trong cửa sổ)
   if (attachmentCfg?.enabled && message.attachments.size > 0) {
     const key = `${message.guild.id}:${message.author.id}`;
     const now = Date.now();
@@ -197,6 +270,8 @@ async function scanMessage(client, message, store, heat) {
 
 // `${guildId}:${userId}` -> [timestamps của tin có đính kèm]
 const attachmentBuckets = new Map();
+// `${guildId}:${userId}` -> [timestamps của tin có mention]
+const mentionBuckets = new Map();
 
 module.exports = scanMessage;
 module.exports.MODULE_LABELS = MODULE_LABELS;
