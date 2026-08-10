@@ -99,10 +99,10 @@ class HeatTracker {
   constructor(client, store) {
     this.client = client;
     this.store = store;
-    this.states = new Map(); // `${guildId}:${userId}` -> { heat, updatedAt, lastPunishedAt }
+    this.states = new Map(); // `${guildId}:${userId}` -> { heat, updatedAt, lastPunishedAt, username }
     this.warned = new Set(); // đã gửi cảnh báo DM cho ngưỡng này
-    this.strikes = new Map(); // `${guildId}:${userId}` -> { count, firstAt } (warn tích lũy)
-    this.pending = new Map(); // guildId -> Map<key, username> chờ đồng bộ
+    this.strikes = new Map(); // `${guildId}:${userId}` -> { count, firstAt, username } (warn tích lũy)
+    this.pending = new Set(); // guildId đang chờ đồng bộ lên Convex
     this.timers = new Map(); // guildId -> setTimeout id
   }
 
@@ -179,7 +179,7 @@ class HeatTracker {
       username,
     });
     const warned = await this._maybeWarn(guildId, userId, heat, s);
-    this._scheduleFlush(guildId, key, username);
+    this._scheduleFlush(guildId);
     return { heat, tier: tierFor(heat, s), added: heat - prev, warned, repeated, multiplier: s.repeatMultiplier };
   }
 
@@ -213,9 +213,11 @@ class HeatTracker {
     count += 1;
     if (count >= s.warnStrikeLimit) {
       this.strikes.delete(key);
+      this._scheduleFlush(guildId);
       return { escalated: true, punish: s.warnStrikePunish, count };
     }
     this.strikes.set(key, { count, firstAt: now, username: username || hit?.username });
+    this._scheduleFlush(guildId);
     return { escalated: false, punish: "warn", count };
   }
 
@@ -262,24 +264,41 @@ class HeatTracker {
     return out.sort((a, b) => b.count - a.count).slice(0, 15);
   }
 
-  /** Xóa nhiệt trong bộ nhớ (khi dashboard yêu cầu reset). */
+  /** Xóa nhiệt trong bộ nhớ (khi dashboard yêu cầu reset) + xóa hàng tương ứng trên Convex. */
   resetGuild(guildId, userId) {
     const prefix = `${guildId}:`;
     const exact = userId ? `${guildId}:${userId}` : null;
+    const removed = new Set();
     for (const key of [...this.states.keys()]) {
       if (!key.startsWith(prefix)) continue;
       if (exact && key !== exact) continue;
       this.states.delete(key);
       this.warned.delete(key);
+      removed.add(key.slice(prefix.length));
+    }
+    for (const key of [...this.strikes.keys()]) {
+      if (!key.startsWith(prefix)) continue;
+      if (exact && key !== exact) continue;
       this.strikes.delete(key);
-      this.pending.get(guildId)?.delete(key);
+      removed.add(key.slice(prefix.length));
+    }
+    this.pending.delete(guildId);
+    for (const uid of removed) {
+      void this.store.client
+        .mutation("bot_writes:botRecordHeat", {
+          guildId,
+          userId: uid,
+          heat: 0,
+          updatedAt: Date.now(),
+          warnStrikes: 0,
+        })
+        .catch((e) => console.error("[heat:reset]", e.message));
     }
   }
 
-  /** Gộp các lần cộng nhiệt của một guild để ghi lên Convex (4 giây/lần). */
-  _scheduleFlush(guildId, key, username) {
-    if (!this.pending.has(guildId)) this.pending.set(guildId, new Map());
-    this.pending.get(guildId).set(key, username);
+  /** Đánh dấu guild cần đồng bộ lên Convex (gộp nhiều thay đổi, 4 giây/lần). */
+  _scheduleFlush(guildId) {
+    this.pending.add(guildId);
     if (this.timers.has(guildId)) return;
     this.timers.set(
       guildId,
@@ -290,21 +309,38 @@ class HeatTracker {
     );
   }
 
+  /**
+   * Ghi toàn bộ nhiệt + warn tích lũy của một guild lên Convex.
+   * Rows hết nhiệt lẫn warn sẽ được xóa để giữ bảng gọn.
+   */
   async flushGuild(guildId) {
-    const dirty = this.pending.get(guildId);
     this.pending.delete(guildId);
-    if (!dirty) return;
-    for (const [key, username] of dirty) {
-      const entry = this.states.get(key);
-      if (!entry) continue;
+    this.timers.delete(guildId);
+    let config = null;
+    try {
+      config = await this.store.getConfig(guildId);
+    } catch {
+      // vẫn dùng cài đặt mặc định
+    }
+    const s = heatSettings(config);
+    const prefix = `${guildId}:`;
+    const keys = new Set([
+      ...[...this.states.keys()].filter((k) => k.startsWith(prefix)),
+      ...[...this.strikes.keys()].filter((k) => k.startsWith(prefix)),
+    ]);
+    for (const key of keys) {
       const [, userId] = key.split(":");
+      const entry = this.states.get(key);
+      const heat = entry ? this._decay(entry, s) : 0;
+      const strikes = this.strikeCount(guildId, userId, s);
       try {
         await this.store.client.mutation("bot_writes:botRecordHeat", {
           guildId,
           userId,
-          username: username || undefined,
-          heat: entry.heat,
-          updatedAt: entry.updatedAt,
+          username: entry?.username || this.strikes.get(key)?.username || undefined,
+          heat: Math.max(0, heat),
+          updatedAt: entry?.updatedAt ?? Date.now(),
+          warnStrikes: strikes,
         });
       } catch (e) {
         console.error("[heat:flush]", e.message);
@@ -312,9 +348,9 @@ class HeatTracker {
     }
   }
 
-  /** Ghi tất cả nhiệt còn chờ (chạy định kỳ). */
+  /** Ghi tất cả guild còn chờ (chạy định kỳ). */
   async flushAll() {
-    for (const guildId of [...this.pending.keys()]) {
+    for (const guildId of [...this.pending]) {
       await this.flushGuild(guildId);
     }
   }

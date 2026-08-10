@@ -41,8 +41,12 @@ const TIER_STYLE: Record<string, string> = {
 function decayedStates(data: GuildData): HeatState[] {
   const decay = data.guild.heatDecayPerMin ?? HEAT_DEFAULTS.decayPerMin;
   return (data.heatStates || [])
-    .map((h) => ({ ...h, heat: effectiveHeat(h.heat, h.updatedAt, decay) }))
-    .filter((h) => h.heat > 0)
+    .map((h) => ({
+      ...h,
+      heat: effectiveHeat(h.heat, h.updatedAt, decay),
+      warnStrikes: h.warnStrikes ?? 0,
+    }))
+    .filter((h) => h.heat > 0 || h.warnStrikes > 0)
     .sort((a, b) => b.heat - a.heat);
 }
 
@@ -116,7 +120,7 @@ export function SafetyBar({ data }: { data: GuildData }) {
   );
 }
 
-/** Danh sách thành viên đang có nhiệt độ cao nhất (kèm nút xóa nhiệt từng người). */
+/** Danh sách thành viên đang có nhiệt độ / warn cao nhất (kèm nút xóa nhiệt từng người). */
 export function TopOffenders({ data, limit = 5 }: { data: GuildData; limit?: number }) {
   const resetHeat = useMutation(api.guilds.resetHeat);
   const states = decayedStates(data).slice(0, limit);
@@ -152,6 +156,11 @@ export function TopOffenders({ data, limit = 5 }: { data: GuildData; limit?: num
               <p className="font-mono text-[11px] text-muted-foreground">{h.userId}</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              {h.warnStrikes > 0 && (
+                <Badge variant="secondary" className="gap-1 bg-amber-500/15 text-amber-400">
+                  ⚠️ {h.warnStrikes}/{g.warnStrikeLimit || 3}
+                </Badge>
+              )}
               <span className="font-mono text-sm font-semibold tabular-nums">{h.heat}/100</span>
               <Badge className={TIER_STYLE[tier]}>{HEAT_TIER_LABEL[tier]}</Badge>
               <button
@@ -167,5 +176,99 @@ export function TopOffenders({ data, limit = 5 }: { data: GuildData; limit?: num
         );
       })}
     </ul>
+  );
+}
+
+/**
+ * Bảng đầy đủ nhiệt độ & warn tích lũy của từng thành viên (Moderation).
+ * Mỗi dòng: tên + ID, thanh nhiệt mini, giai đoạn, warn X/N, nút xóa nhiệt.
+ */
+export function HeatTable({ data, limit = 20 }: { data: GuildData; limit?: number }) {
+  const resetHeat = useMutation(api.guilds.resetHeat);
+  const states = decayedStates(data).slice(0, limit);
+  const g = data.guild;
+  const strikeLimit = g.warnStrikeLimit || 3;
+
+  if (states.length === 0) {
+    return (
+      <div className="flex items-center gap-3 rounded-lg bg-secondary/40 px-3 py-3 text-sm text-muted-foreground">
+        <Flame className="h-4 w-4 text-emerald-400" />
+        Chưa có ai vi phạm — chưa có nhiệt độ hay warn nào để hiển thị 🎉
+      </div>
+    );
+  }
+
+  async function resetUser(userId: string, username: string) {
+    try {
+      await resetHeat({ token: TOKEN(), guildId: g.discordId, userId });
+      toast.success(`Đã xóa nhiệt của ${username || userId}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Xóa thất bại");
+    }
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card/60">
+      <div className="grid grid-cols-[1fr_auto] items-center gap-2 border-b border-border px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <span>Thành viên</span>
+        <span className="text-right">Nhiệt · Warn</span>
+      </div>
+      <ul className="divide-y divide-border/60">
+        {states.map((h) => {
+          const tier = tierOf(h.heat, g.heatTimeoutAt ?? 40, g.heatKickAt ?? 70, g.heatBanAt ?? 90);
+          const barColor =
+            h.heat >= (g.heatBanAt ?? 90)
+              ? "bg-danger"
+              : h.heat >= (g.heatKickAt ?? 70)
+                ? "bg-orange-500"
+                : h.heat >= (g.heatTimeoutAt ?? 40)
+                  ? "bg-violet-500"
+                  : h.heat >= (g.heatWarnAt ?? 25)
+                    ? "bg-amber-500"
+                    : "bg-emerald-500";
+          return (
+            <li key={h.userId} className="flex items-center gap-3 px-3 py-2.5">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-sm font-medium">
+                    {h.username || `<@${h.userId}>`}
+                    <span className="ml-2 font-mono text-[10px] text-muted-foreground">
+                      {h.userId}
+                    </span>
+                  </p>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {h.warnStrikes > 0 && (
+                      <Badge variant="secondary" className="gap-1 bg-amber-500/15 px-1.5 text-amber-400">
+                        ⚠️ {h.warnStrikes}/{strikeLimit}
+                      </Badge>
+                    )}
+                    <Badge className={TIER_STYLE[tier]}>{HEAT_TIER_LABEL[tier]}</Badge>
+                    <button
+                      onClick={() => resetUser(h.userId, h.username)}
+                      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger"
+                      title={`Xóa nhiệt của ${h.username || h.userId}`}
+                      aria-label={`Xóa nhiệt của ${h.username || h.userId}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <div className="h-1.5 w-full max-w-[160px] overflow-hidden rounded-full bg-secondary">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                      style={{ width: `${Math.max(2, h.heat)}%` }}
+                    />
+                  </div>
+                  <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                    {h.heat}/100
+                  </span>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

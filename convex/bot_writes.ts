@@ -309,7 +309,7 @@ export const botSetAntinuke = mutation({
   },
 });
 
-/** Bot upserts the current heat level of one user in a guild. */
+/** Bot upserts the current heat level + warn strikes of one user in a guild. */
 export const botRecordHeat = mutation({
   args: {
     guildId: v.string(),
@@ -317,20 +317,27 @@ export const botRecordHeat = mutation({
     username: v.optional(v.string()),
     heat: v.number(),
     updatedAt: v.number(),
+    warnStrikes: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    if (args.heat <= 0) return { ok: true };
     const existing = await ctx.db
       .query("heatStates")
       .withIndex("by_guildId_userId", (q) =>
         q.eq("guildId", args.guildId).eq("userId", args.userId),
       )
       .first();
+    const strikes = Math.max(0, Math.floor(args.warnStrikes ?? 0));
+    // Cả nhiệt lẫn warn đều bằng 0 → xóa hàng cũ (dọn dẹp)
+    if (args.heat <= 0 && strikes <= 0) {
+      if (existing) await ctx.db.delete(existing._id);
+      return { ok: true };
+    }
     if (existing) {
       await ctx.db.patch(existing._id, {
         username: args.username ?? existing.username,
         heat: Math.max(1, Math.min(100, Math.round(args.heat))),
         updatedAt: args.updatedAt,
+        warnStrikes: strikes,
       });
     } else {
       await ctx.db.insert("heatStates", {
@@ -339,6 +346,7 @@ export const botRecordHeat = mutation({
         username: args.username ?? "",
         heat: Math.max(1, Math.min(100, Math.round(args.heat))),
         updatedAt: args.updatedAt,
+        warnStrikes: strikes,
       });
     }
     return { ok: true };

@@ -15,7 +15,7 @@ import {
   WARN_STRIKE_DEFAULTS,
 } from "../../lib/constants";
 import ModuleCard from "./ModuleCard";
-import { SafetyBar, TopOffenders } from "./HeatBar";
+import { HeatTable, SafetyBar } from "./HeatBar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import type { GuildData, ModuleConfig } from "../../lib/types";
 
@@ -324,7 +324,10 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
           </div>
           <div className="flex flex-col justify-center gap-4 rounded-xl border border-border bg-card/60 p-4">
             <SafetyBar data={data} />
-            <TopOffenders data={data} limit={5} />
+            <p className="text-xs font-medium text-muted-foreground">
+              🔥 Bảng nhiệt độ & warn tích lũy của từng thành viên
+            </p>
+            <HeatTable data={data} />
           </div>
         </CardContent>
       </Card>

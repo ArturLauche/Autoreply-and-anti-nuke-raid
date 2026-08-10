@@ -53,6 +53,8 @@ export interface HeatState {
   username: string;
   heat: number;
   updatedAt: number;
+  /** Warn tích lũy hiện tại (0 nếu không có). */
+  warnStrikes: number;
 }
 
 export interface ChannelInfo {

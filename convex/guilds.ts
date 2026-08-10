@@ -26,8 +26,9 @@ async function loadHeatStates(ctx: { db: import("./_generated/server").DatabaseR
       username: h.username,
       heat: decayHeat(h.heat, h.updatedAt, decayPerMin),
       updatedAt: h.updatedAt,
+      warnStrikes: h.warnStrikes ?? 0,
     }))
-    .filter((h) => h.heat > 0);
+    .filter((h) => h.heat > 0 || h.warnStrikes > 0);
 }
 
 export const listMine = query({

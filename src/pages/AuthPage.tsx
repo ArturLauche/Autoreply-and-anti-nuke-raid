@@ -21,7 +21,7 @@ const DISCORD_LOGO = (
 );
 
 export default function AuthPage() {
-  const { clientId, error: configError } = usePublicConfig();
+  const { clientId, loading: configLoading, error: configError } = usePublicConfig();
   const [loading, setLoading] = useState(false);
   const location = useLocation();
   const returnTo =
@@ -94,7 +94,13 @@ export default function AuthPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {clientId ? (
+              {configLoading ? (
+                // Đang tải cấu hình — chỉ hiện spinner nhỏ, không hiện hộp cảnh báo vàng
+                <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-secondary/30 py-4 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  Đang kết nối…
+                </div>
+              ) : clientId ? (
                 <Button
                   size="lg"
                   className="w-full bg-[#5865f2] text-white shadow-none hover:bg-[#4752c4]"

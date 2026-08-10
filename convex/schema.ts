@@ -106,6 +106,7 @@ export default defineSchema({
     username: v.string(),
     heat: v.number(),
     updatedAt: v.number(),
+    warnStrikes: v.optional(v.number()),
   })
     .index("by_guildId", ["guildId"])
     .index("by_guildId_userId", ["guildId", "userId"])
