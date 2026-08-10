@@ -2,29 +2,27 @@
 
 Bot Discord standalone (Node.js + discord.js v14) kết nối tới **cùng một Convex backend** với dashboard web, nên mọi cấu hình chỉnh trên dashboard được bot áp dụng tự động.
 
-## 🆓 Chạy bot MIỄN PHÍ trên Bot-Hosting.net (không cần tiền, không cần thiết bị)
+## 🆓 Chạy bot MIỄN PHÍ trên Wispbyte (wispbyte.com)
 
-> Dành cho ai không có máy/VPS riêng: bot chạy 24/7 trên cloud của **Bot-Hosting.net** — dịch vụ chuyên host bot Discord, gói miễn phí **không cần thẻ ngân hàng**, đăng nhập bằng tài khoản Discord.
+> Dành cho ai không có máy/VPS riêng: bot chạy 24/7 trên cloud của **Wispbyte** — host bot Discord miễn phí: **512 MB RAM, chạy 24/7 không ngủ, không cần thẻ ngân hàng, không có hệ thống coin**. Chỉ cần đăng nhập panel (`wispbyte.com/client`) **1 lần mỗi 2 tuần** để giữ server hoạt động.
 
-### Bước 1 — Đăng ký & nhận coin
+### Bước 1 — Đăng ký & tạo server
 
-1. Vào **[bot-hosting.net](https://bot-hosting.net)** → **Login** → đăng nhập bằng tài khoản Discord (không cần thẻ).
-2. Vào mục **Earn coins** trên dashboard → làm captcha để nhận coin miễn phí mỗi ngày (gói free vận hành bằng hệ thống coin — cần coin để giữ server chạy).
+1. Vào **[wispbyte.com](https://wispbyte.com/)** → **Register / Login** → tạo tài khoản (không cần thẻ).
+2. Vào panel **client** tại `wispbyte.com/client` → **Create Server** → chọn loại **Node.js** (gói miễn phí 512 MB RAM) → tạo.
 
-### Bước 2 — Tạo server & cài biến môi trường
+### Bước 2 — Tạo file `.env` trên máy bạn
 
-1. **Create Server** → chọn **Node.js** → chọn gói miễn phí (RAM thường 256–512 MB, đủ cho bot này ở server nhỏ) → chọn chu kỳ thanh toán (weekly).
-2. Vào panel server → tab **Startup** → phần **Environment Variables** → thêm:
+Trong thư mục `bot/`, tạo file `.env` (nếu chưa có) với nội dung:
 
 ```env
 DISCORD_TOKEN=<bot token của bạn>
 DISCORD_CLIENT_ID=1536232784660795402
 CONVEX_URL=https://accomplished-chipmunk-74.convex.cloud
-CONVEX_DEPLOY_KEY=<deploy key — hỏi quản trị / lấy ở mục Deploy Keys bên dưới>
+CONVEX_DEPLOY_KEY=<deploy key — xem mục Deploy Keys bên dưới>
 ```
 
-> ✅ **Deployment production của Protogon đã sẵn sàng** (tạo ngày 10/08/2026):
-> project `wiothemilo:protogon`, deployment `accomplished-chipmunk-74`, biến `DISCORD_CLIENT_ID` đã được set trên deployment. Bot chỉ cần token + deploy key.
+> ✅ **Deployment production của Protogon đã sẵn sàng**: project `wiothemilo:protogon`, deployment `accomplished-chipmunk-74`, biến `DISCORD_CLIENT_ID` đã được set trên Convex. Bot chỉ cần token + deploy key.
 
 > ⚠️ **Quan trọng**: `CONVEX_URL` phải là URL **truy cập được từ internet** (bản `http://127.0.0.1:3210` chỉ chạy được khi bot nằm chung máy với Convex dev). Xem mục **“Deploy Convex backend lên cloud miễn phí”** bên dưới.
 
@@ -33,21 +31,25 @@ CONVEX_DEPLOY_KEY=<deploy key — hỏi quản trị / lấy ở mục Deploy Ke
 ```bash
 cd bot
 npm install
-npm run pack:host    # tạo ra protogon-bot.zip (không gồm node_modules/.env)
+npm run pack:host    # tạo protogon-bot.zip (gồm cả .env, không gồm node_modules)
 ```
 
-Rồi:
+Rồi trên panel Wispbyte:
 
-1. Vào panel server → tab **Files** → upload file `protogon-bot.zip`.
-2. Bấm **Unarchive** (giải nén) file zip → mở thư mục vừa tạo → chọn tất cả file bên trong → **Move** lên thư mục gốc `/home/container` (nếu để lồng trong thư mục con, bot sẽ báo lỗi không tìm thấy module).
-3. Vào tab **Startup**: đảm bảo lệnh khởi động chạy đúng entry point — với bot này dùng **`npm start`** (tương đương `node src/index.js`).
-4. Bấm **Start** ở tab Console — Bot-Hosting tự chạy `npm install` rồi khởi động bot.
+1. Tab **Files** → **Upload** file `protogon-bot.zip`.
+2. Bấm **Unarchive** (giải nén) — các file tự vào thư mục gốc `/home/container`.
+3. Tab **Startup**: đảm bảo lệnh khởi động là **`npm start`** (tương đương `node src/index.js`); nếu panel có mục **Environment**, kiểm tra 4 biến được đọc từ `.env` (file `.env` đã nằm trong zip).
+4. Bấm **Start** ở tab **Console** — Wispbyte tự chạy `npm install` rồi khởi động bot. Xem log:
+   ```
+   ✅ Protogon đã online: Protogon#1234 — 1 server
+   ✅ Đã đăng ký 6 slash commands
+   ```
 
-> Lưu ý: gói miễn phí cần **đủ coin** khi tới chu kỳ thanh toán, nếu hết coin bot sẽ bị tạm ngừng — vào trang Earn coins nhận coin định kỳ là duy trì được 24/7.
+> Lưu ý: **đăng nhập `wispbyte.com/client` ít nhất 1 lần mỗi 2 tuần** — nếu không, server free sẽ bị tạm ngừng. Ngoài ra bot chạy 24/7 không ngủ.
 
-## ☁️ Deploy Convex backend lên cloud miễn phí (bắt buộc cho bot trên Bot-Hosting.net)
+## ☁️ Deploy Convex backend lên cloud miễn phí (bắt buộc cho bot trên Wispbyte)
 
-Dashboard web (Freebuff) và bot (Bot-Hosting.net) phải trỏ về **cùng một Convex backend**. Backend dev local (`http://127.0.0.1:3210`) chỉ chạy trong workspace, bot trên cloud **không truy cập được** — nên bạn cần đưa backend lên **Convex Cloud** (gói free, không cần thẻ).
+Dashboard web (Freebuff) và bot (Wispbyte) phải trỏ về **cùng một Convex backend**. Backend dev local (`http://127.0.0.1:3210`) chỉ chạy trong workspace, bot trên cloud **không truy cập được** — nên bạn cần đưa backend lên **Convex Cloud** (gói free, không cần thẻ).
 
 > **Gói free Convex**: 1 triệu function calls/tháng, 0.5 GB database, 1 GB file storage — thoải mái cho bot này.
 
@@ -74,14 +76,14 @@ npx convex deploy         # đưa toàn bộ hàm + schema trong convex/ lên Co
 2. **URL deployment**: trang **Settings → URL and Deploy Key** hiển thị URL dạng `https://<tên>.convex.cloud` — đây là `CONVEX_URL` dùng cho client (chú ý: dùng **`.convex.cloud`**, không phải `.convex.site` — `.convex.site` chỉ dành cho HTTP routes tùy chỉnh, client gọi API ở `.convex.cloud`).
 3. **Deploy Key**: vào **Settings → Deploy Keys** (hoặc *Keys*) → **Generate a deploy key** → đặt tên (VD `bot`) → copy chuỗi key — đây là `CONVEX_DEPLOY_KEY` (cho bot quyền ghi dữ liệu).
 
-### Bước 4 — Điền vào Bot-Hosting.net
+### Bước 4 — Điền vào Wispbyte
 
-Vào panel bot trên Bot-Hosting.net → tab **Startup → Environment Variables** → thêm:
+Vào panel bot trên Wispbyte → tab **Files** (biến đã nằm trong `.env` của zip) hoặc **Startup → Environment** (nếu panel có) — đảm bảo 4 biến:
 
 ```env
 DISCORD_TOKEN=<bot token của bạn>
 DISCORD_CLIENT_ID=1536232784660795402
-CONVEX_URL=https://<tên-dự-án>.convex.site
+CONVEX_URL=https://accomplished-chipmunk-74.convex.cloud
 CONVEX_DEPLOY_KEY=<deploy key ở bước 3>
 ```
 
@@ -94,13 +96,13 @@ Rồi bấm **Start** — bot sẽ kết nối Convex Cloud và đồng bộ v�
 ## Lưu ý khi deploy lại code
 
 - Sửa hàm Convex trong `convex/` xong → chạy lại `npx convex deploy` từ máy bạn để cập nhật lên cloud.
-- Bot gọi các mutation `bot-writes:*` qua `CONVEX_DEPLOY_KEY` — key chỉ nằm trong panel Bot-Hosting, không commit lên git.
+- Bot gọi các mutation `bot-writes:*` qua `CONVEX_DEPLOY_KEY` — key nằm trong file `bot/.env` (đã thêm vào `.gitignore`) hoặc trên panel Wispbyte, không commit lên git.
 - Khi chạy thử ở local, vẫn dùng `http://127.0.0.1:3210` như cũ — không ảnh hưởng.
 
 ## Tối ưu RAM & dung lượng
 
-- Bot **không cache tin nhắn** (giới hạn 0), giới hạn cache thành viên/người dùng (tối đa 200), và tự sweep cache cũ — phù hợp gói 256–512 MB RAM của Bot-Hosting.net.
-- `npm run pack:host` loại bỏ `node_modules`, `.env`, `.md` khỏi zip → file chỉ ~20 KB.
+- Bot **không cache tin nhắn** (giới hạn 0), giới hạn cache thành viên/người dùng (tối đa 200), và tự sweep cache cũ — phù hợp gói 512 MB RAM của Wispbyte.
+- `npm run pack:host` loại bỏ `node_modules`, `.git`, `.md` khỏi zip (gồm cả `.env` nếu có) → file chỉ ~20 KB.
 
 ## Yêu cầu
 

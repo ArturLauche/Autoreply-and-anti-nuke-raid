@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Tạo file protogon-bot.zip đúng chuẩn để upload lên Bot-Hosting.net
- * (hoặc bất kỳ host nào nhận zip + tự chạy `npm install`):
- * - Gồm package.json, discloud.config, src/, các file config
- * - KHÔNG gồm node_modules (host tự chạy `npm install` từ package.json)
- * - KHÔNG gồm .env (điền biến môi trường trực tiếp trên panel sau khi upload)
+ * Tạo file protogon-bot.zip đúng chuẩn để upload lên Wispbyte (wispbyte.com)
+ * hoặc bất kỳ host nào nhận zip + tự chạy `npm install`:
+ * - Gồm package.json, src/, file .env (nếu có) — host tự chạy `npm install`
+ * - KHÔNG gồm node_modules, .git, .env.local/.env.example, *.md
+ * - Nhớ tạo file bot/.env (dùng .env.example làm mẫu) TRƯỚC khi pack
  */
 const { execSync } = require("child_process");
 const fs = require("fs");
@@ -23,7 +23,6 @@ if (isWin) {
   const excludes = [
     "node_modules",
     ".git",
-    ".env",
     ".env.local",
     ".env.example",
     "protogon-bot.zip",
@@ -37,7 +36,7 @@ if (isWin) {
   cmd = `powershell -NoProfile -Command "Compress-Archive -Path ${items} -DestinationPath '${out}' -Force"`;
 } else {
   // zip (macOS/Linux): loại bỏ các thư mục/file không cần
-  cmd = `cd '${root}' && zip -r '${out}' . -x '*node_modules*' -x '*.git*' -x '.env' -x '.env.*' -x 'protogon-bot.zip' -x 'wio-discloud.zip' -x '*.md'`;
+  cmd = `cd '${root}' && zip -r '${out}' . -x '*node_modules*' -x '*.git*' -x '.env.local' -x '.env.example' -x 'protogon-bot.zip' -x 'wio-discloud.zip' -x '*.md'`;
 }
 
 try {
@@ -49,4 +48,9 @@ try {
 
 const size = (fs.statSync(out).size / 1024 / 1024).toFixed(2);
 console.log(`\n✅ Đã tạo ${out} (${size} MB)`);
-console.log("   → Bot-Hosting.net: panel Files → upload zip → Unarchive → chuyển file lên thư mục gốc.");
+if (!fs.existsSync(path.join(root, ".env"))) {
+  console.warn("⚠️  KHÔNG thấy file bot/.env — biến môi trường sẽ phải nhập trên panel Wispbyte (Startup → Environment).");
+} else {
+  console.log("   → Đã kèm file .env (token + cấu hình) vào zip.");
+}
+console.log("   → Wispbyte: panel Files → Upload zip → Unarchive → Start.");
