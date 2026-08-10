@@ -1,0 +1,120 @@
+/** Slash command definitions (JSON shape for the Discord REST API). */
+const commands = [
+  {
+    name: "help",
+    description: "Xem danh sách lệnh của bot",
+  },
+  {
+    name: "ping",
+    description: "Kiểm tra độ trễ của bot",
+  },
+  {
+    name: "prefix",
+    description: "Xem hoặc đổi prefix lệnh text",
+    options: [
+      {
+        name: "set",
+        description: "Prefix mới (1-3 ký tự đặc biệt)",
+        type: 3,
+        required: false,
+      },
+    ],
+  },
+  {
+    name: "autoreply",
+    description: "Quản lý auto reply theo từ khóa / @mention",
+    options: [
+      {
+        name: "add",
+        description: "Thêm rule auto reply",
+        type: 1,
+        options: [
+          { name: "name", description: "Tên rule (chữ, số, _ -)", type: 3, required: true },
+          {
+            name: "trigger",
+            description: "keyword | mention",
+            type: 3,
+            required: true,
+            choices: [
+              { name: "Từ khóa trong tin nhắn", value: "keyword" },
+              { name: "Tag bot (@wio)", value: "mention" },
+            ],
+          },
+          { name: "keywords", description: "Từ khóa, phân cách bằng dấu phẩy", type: 3, required: false },
+          { name: "response", description: "Nội dung trả lời ({user} để tag)", type: 3, required: true },
+          { name: "cooldown", description: "Cooldown giây (0 = không giới hạn)", type: 4, required: false },
+        ],
+      },
+      {
+        name: "list",
+        description: "Xem danh sách rule auto reply",
+        type: 1,
+      },
+      {
+        name: "remove",
+        description: "Xóa rule auto reply",
+        type: 1,
+        options: [{ name: "name", description: "Tên rule", type: 3, required: true }],
+      },
+    ],
+  },
+  {
+    name: "antinuke",
+    description: "Quản lý chống nuke / raid",
+    options: [
+      { name: "status", description: "Xem trạng thái chống nuke", type: 1 },
+      { name: "on", description: "Bật toàn bộ chống nuke", type: 1 },
+      { name: "off", description: "Tắt toàn bộ chống nuke", type: 1 },
+      {
+        name: "module",
+        description: "Bật/tắt một module cụ thể",
+        type: 1,
+        options: [
+          { name: "module", description: "Tên module", type: 3, required: true },
+          { name: "value", description: "on | off", type: 3, required: true },
+        ],
+      },
+      {
+        name: "unlock",
+        description: "Mở khóa kênh ngay lập tức",
+        type: 1,
+      },
+      {
+        name: "lockdown",
+        description: "Bật/tắt khóa kênh tự động khi raid",
+        type: 1,
+        options: [
+          { name: "value", description: "on | off", type: 3, required: true },
+        ],
+      },
+    ],
+  },
+  {
+    name: "setup",
+    description: "Cấu hình nhanh bot cho server",
+    options: [
+      {
+        name: "log-channel",
+        description: "Chọn kênh nhận cảnh báo chống nuke",
+        type: 1,
+        options: [
+          { name: "channel", description: "Kênh log", type: 7, required: true },
+        ],
+      },
+      {
+        name: "mod-role",
+        description: "Thiết lập role Mod (miễn trừ chống nuke)",
+        type: 1,
+        options: [{ name: "role", description: "Role Mod", type: 8, required: true }],
+      },
+      {
+        name: "admin-role",
+        description: "Thiết lập role Admin (miễn trừ hoàn toàn)",
+        type: 1,
+        options: [{ name: "role", description: "Role Admin", type: 8, required: true }],
+      },
+    ],
+  },
+];
+
+module.exports = { commands };

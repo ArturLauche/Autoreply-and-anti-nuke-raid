@@ -1,0 +1,21 @@
+{
+  "name": "wio-bot",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Wio Discord bot — auto reply, prefix + slash commands, anti-nuke raid protection",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "register": "node src/register-slash.js",
+    "deploy:commands": "node src/register-slash.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "convex": "^1.17.4",
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5"
+  }
+}

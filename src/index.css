@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 4%;
+    --foreground: 210 40% 96%;
+    --card: 222 35% 7%;
+    --card-foreground: 210 40% 96%;
+    --popover: 222 38% 8%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 187 92% 55%;
+    --primary-foreground: 220 45% 8%;
+    --secondary: 217 22% 14%;
+    --secondary-foreground: 210 30% 90%;
+    --muted: 217 22% 12%;
+    --muted-foreground: 215 18% 64%;
+    --accent: 217 22% 16%;
+    --accent-foreground: 210 40% 96%;
+    --destructive: 0 74% 58%;
+    --destructive-foreground: 0 0% 100%;
+    --danger: 0 74% 58%;
+    --danger-foreground: 0 0% 100%;
+    --border: 216 22% 14%;
+    --input: 216 22% 16%;
+    --ring: 187 92% 55%;
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  ::selection {
+    background: hsl(187 92% 55% / 0.28);
+    color: hsl(210 40% 98%);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(216 22% 18%);
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(216 22% 26%);
+    background-clip: content-box;
+  }
+}
+
+@layer utilities {
+  .bg-grid {
+    background-image: radial-gradient(
+      circle at 1px 1px,
+      hsl(210 30% 22% / 0.5) 1px,
+      transparent 0
+    );
+    background-size: 28px 28px;
+  }
+
+  .bg-glow-cyan {
+    background: radial-gradient(
+      42% 42% at 50% 0%,
+      hsl(187 92% 55% / 0.16) 0%,
+      transparent 70%
+    );
+  }
+
+  .text-gradient-cyan {
+    background: linear-gradient(
+      120deg,
+      hsl(187 92% 62%) 0%,
+      hsl(170 90% 55%) 50%,
+      hsl(199 95% 68%) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .card-hover {
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    border-color: hsl(187 92% 55% / 0.35);
+    box-shadow: 0 8px 32px -12px hsl(187 92% 55% / 0.25);
+  }
+
+  .shimmer-text {
+    background: linear-gradient(
+      100deg,
+      hsl(210 30% 60%) 20%,
+      hsl(210 40% 96%) 40%,
+      hsl(210 30% 60%) 60%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}

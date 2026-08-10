@@ -1,0 +1,246 @@
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+import { isAntiNukeModule } from "./modules";
+
+/**
+ * These mutations are called by the Discord bot process itself. The bot
+ * validates the executor's Discord permissions before calling them, and only
+ * the bot holds the Convex admin/deploy key, so no session token is checked.
+ */
+
+export const botUpdateSettings = mutation({
+  args: {
+    guildId: v.string(),
+    prefix: v.optional(v.string()),
+    logChannelId: v.optional(v.union(v.string(), v.null())),
+    modRoles: v.optional(v.array(v.string())),
+    adminRoles: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", args.guildId))
+      .first();
+    if (!guild) throw new Error("Server chưa được đồng bộ");
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.prefix !== undefined) {
+      if (!/^[!^$#&%]{1,3}$/.test(args.prefix)) {
+        throw new Error("Prefix phải là 1-3 ký tự đặc biệt");
+      }
+      patch.prefix = args.prefix;
+    }
+    if (args.logChannelId !== undefined) patch.logChannelId = args.logChannelId ?? undefined;
+    if (args.modRoles !== undefined) patch.modRoles = args.modRoles;
+    if (args.adminRoles !== undefined) patch.adminRoles = args.adminRoles;
+    await ctx.db.patch(guild._id, patch);
+    return { ok: true };
+  },
+});
+
+export const botAutoReplyUpsert = mutation({
+  args: {
+    guildId: v.string(),
+    name: v.string(),
+    triggerType: v.union(v.literal("keyword"), v.literal("mention")),
+    keywords: v.array(v.string()),
+    response: v.string(),
+    channels: v.array(v.string()),
+    cooldownSeconds: v.number(),
+    enabled: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    if (!/^[a-z0-9_-]{1,32}$/i.test(args.name)) throw new Error("Tên rule không hợp lệ");
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("autoReplies")
+      .withIndex("by_guildId_name", (q) =>
+        q.eq("guildId", args.guildId).eq("name", args.name),
+      )
+      .first();
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        triggerType: args.triggerType,
+        keywords: args.keywords,
+        response: args.response,
+        channels: args.channels,
+        cooldownSeconds: args.cooldownSeconds,
+        enabled: args.enabled,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("autoReplies", {
+        guildId: args.guildId,
+        name: args.name,
+        triggerType: args.triggerType,
+        keywords: args.keywords,
+        response: args.response,
+        channels: args.channels,
+        cooldownSeconds: args.cooldownSeconds,
+        enabled: args.enabled,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    return { ok: true };
+  },
+});
+
+export const botAutoReplyRemove = mutation({
+  args: { guildId: v.string(), name: v.string() },
+  handler: async (ctx, { guildId, name }) => {
+    const existing = await ctx.db
+      .query("autoReplies")
+      .withIndex("by_guildId_name", (q) => q.eq("guildId", guildId).eq("name", name))
+      .first();
+    if (existing) await ctx.db.delete(existing._id);
+    return { ok: true };
+  },
+});
+
+export const botModuleUpdate = mutation({
+  args: {
+    guildId: v.string(),
+    module: v.string(),
+    enabled: v.optional(v.boolean()),
+    threshold: v.optional(v.number()),
+    windowSeconds: v.optional(v.number()),
+    punish: v.optional(
+      v.union(v.literal("warn"), v.literal("kick"), v.literal("ban"), v.literal("timeout")),
+    ),
+    timeoutSeconds: v.optional(v.number()),
+    whitelistRoles: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    if (!isAntiNukeModule(args.module)) throw new Error("Module không hợp lệ");
+    const mod = await ctx.db
+      .query("antinukeModules")
+      .withIndex("by_guild_module", (q) =>
+        q.eq("guildId", args.guildId).eq("module", args.module),
+      )
+      .first();
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.enabled !== undefined) patch.enabled = args.enabled;
+    if (args.threshold !== undefined) patch.threshold = Math.max(1, args.threshold);
+    if (args.windowSeconds !== undefined) patch.windowSeconds = Math.max(1, args.windowSeconds);
+    if (args.punish !== undefined) patch.punish = args.punish;
+    if (args.timeoutSeconds !== undefined) patch.timeoutSeconds = Math.max(1, args.timeoutSeconds);
+    if (args.whitelistRoles !== undefined) patch.whitelistRoles = args.whitelistRoles;
+    if (mod) {
+      await ctx.db.patch(mod._id, patch);
+    } else {
+      await ctx.db.insert("antinukeModules", {
+        guildId: args.guildId,
+        module: args.module,
+        enabled: args.enabled ?? true,
+        threshold: args.threshold ?? 5,
+        windowSeconds: args.windowSeconds ?? 10,
+        punish: args.punish ?? "kick",
+        timeoutSeconds: args.timeoutSeconds ?? 300,
+        whitelistRoles: args.whitelistRoles ?? [],
+        updatedAt: Date.now(),
+      });
+    }
+    return { ok: true };
+  },
+});
+
+export const botUpdateLockdown = mutation({
+  args: {
+    guildId: v.string(),
+    enabled: v.optional(v.boolean()),
+    minutes: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", args.guildId))
+      .first();
+    if (!guild) throw new Error("Server chưa được đồng bộ");
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.enabled !== undefined) patch.lockdownEnabled = args.enabled;
+    if (args.minutes !== undefined) {
+      patch.lockdownMinutes = Math.max(1, Math.min(120, Math.floor(args.minutes)));
+    }
+    await ctx.db.patch(guild._id, patch);
+    return { ok: true };
+  },
+});
+
+/** Bot records the current lockdown state (until = unlock timestamp, requested = manual unlock flag). */
+export const botLockState = mutation({
+  args: {
+    guildId: v.string(),
+    until: v.optional(v.union(v.number(), v.null())),
+    requested: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { guildId, until, requested }) => {
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) return { ok: true };
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (until !== undefined) patch.lockdownUntil = until ?? undefined;
+    if (requested !== undefined) patch.lockdownRequested = requested;
+    await ctx.db.patch(guild._id, patch);
+    return { ok: true };
+  },
+});
+
+/** Bot records a punished anti-nuke event for daily reports. */
+export const botRecordAntinukeEvent = mutation({
+  args: {
+    guildId: v.string(),
+    module: v.string(),
+    executorId: v.optional(v.string()),
+    executorName: v.optional(v.string()),
+    action: v.string(),
+    count: v.number(),
+    windowSeconds: v.number(),
+    threshold: v.number(),
+    punish: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("antinukeEvents", {
+      guildId: args.guildId,
+      module: args.module,
+      executorId: args.executorId,
+      executorName: args.executorName,
+      executorNameLower: args.executorName ? args.executorName.toLowerCase() : undefined,
+      action: args.action,
+      count: args.count,
+      windowSeconds: args.windowSeconds,
+      threshold: args.threshold,
+      punish: args.punish,
+      createdAt: Date.now(),
+    });
+    return { ok: true };
+  },
+});
+
+/** Bot records when the daily report for a guild was sent. */
+export const botSetReportAt = mutation({
+  args: { guildId: v.string(), at: v.number() },
+  handler: async (ctx, { guildId, at }) => {
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) return { ok: true };
+    await ctx.db.patch(guild._id, { lastReportAt: at, updatedAt: Date.now() });
+    return { ok: true };
+  },
+});
+
+export const botSetAntinuke = mutation({
+  args: { guildId: v.string(), enabled: v.boolean() },
+  handler: async (ctx, { guildId, enabled }) => {
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) throw new Error("Server chưa được đồng bộ");
+    await ctx.db.patch(guild._id, { antinukeEnabled: enabled, updatedAt: Date.now() });
+    return { ok: true };
+  },
+});
