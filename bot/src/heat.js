@@ -176,6 +176,7 @@ class HeatTracker {
       heat,
       updatedAt: Date.now(),
       lastPunishedAt: entry?.lastPunishedAt,
+      username,
     });
     const warned = await this._maybeWarn(guildId, userId, heat, s);
     this._scheduleFlush(guildId, key, username);
@@ -190,6 +191,7 @@ class HeatTracker {
       heat: entry?.heat ?? 0,
       updatedAt: entry?.updatedAt ?? Date.now(),
       lastPunishedAt: Date.now(),
+      username: entry?.username,
     });
   }
 
@@ -199,7 +201,7 @@ class HeatTracker {
    *  - escalated=true: đủ warnStrikeLimit lần → tăng cấp warnStrikePunish (và reset đếm).
    *  - limit <= 0: tắt tính năng, luôn trả warn.
    */
-  strike(guildId, userId, s) {
+  strike(guildId, userId, s, username) {
     const key = this._key(guildId, userId);
     if (!s.warnStrikeLimit) return { escalated: false, punish: "warn", count: 0 };
     const now = Date.now();
@@ -213,7 +215,7 @@ class HeatTracker {
       this.strikes.delete(key);
       return { escalated: true, punish: s.warnStrikePunish, count };
     }
-    this.strikes.set(key, { count, firstAt: now });
+    this.strikes.set(key, { count, firstAt: now, username: username || hit?.username });
     return { escalated: false, punish: "warn", count };
   }
 
@@ -222,6 +224,42 @@ class HeatTracker {
     const hit = this.strikes.get(this._key(guildId, userId));
     if (!hit || Date.now() - hit.firstAt >= s.warnStrikeWindowMin * MIN_MS) return 0;
     return hit.count;
+  }
+
+  /** Chụp nhiệt độ hiện tại của toàn guild (cho báo cáo hàng ngày). */
+  heatSnapshot(guildId, s) {
+    const prefix = `${guildId}:`;
+    const out = [];
+    for (const [key, entry] of this.states) {
+      if (!key.startsWith(prefix)) continue;
+      const heat = this._decay(entry, s);
+      if (heat <= 0) continue;
+      out.push({
+        userId: key.slice(prefix.length),
+        username: entry.username ?? "",
+        heat,
+        tier: tierFor(heat, s),
+      });
+    }
+    return out.sort((a, b) => b.heat - a.heat).slice(0, 15);
+  }
+
+  /** Chụp warn tích lũy hiện tại của toàn guild (cho báo cáo hàng ngày). */
+  strikeSnapshot(guildId, s) {
+    const prefix = `${guildId}:`;
+    const out = [];
+    const now = Date.now();
+    for (const [key, hit] of this.strikes) {
+      if (!key.startsWith(prefix)) continue;
+      if (now - hit.firstAt >= s.warnStrikeWindowMin * MIN_MS) continue;
+      out.push({
+        userId: key.slice(prefix.length),
+        username: hit.username ?? "",
+        count: hit.count,
+        limit: s.warnStrikeLimit,
+      });
+    }
+    return out.sort((a, b) => b.count - a.count).slice(0, 15);
   }
 
   /** Xóa nhiệt trong bộ nhớ (khi dashboard yêu cầu reset). */

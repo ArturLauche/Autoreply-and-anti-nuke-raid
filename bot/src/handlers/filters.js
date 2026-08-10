@@ -104,7 +104,7 @@ async function punishFlow(client, message, moduleCfg, config, heat, reason, deta
   let chosen = choosePunish(moduleCfg.punish || "warn", heatRes);
   let strikeTag = "";
   if (chosen === "warn") {
-    const st = heat.strike(message.guild.id, message.author.id, s);
+    const st = heat.strike(message.guild.id, message.author.id, s, message.author.username);
     if (st.escalated) {
       chosen = st.punish;
       strikeTag = ` — đủ ${st.count} warn, tăng cấp ${st.punish}`;

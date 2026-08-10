@@ -75,8 +75,8 @@ client.once("ready", async () => {
   }, 120_000);
 
   // Daily anti-nuke report: once shortly after start, then every 10 minutes.
-  setTimeout(() => runDailyReports(client, store).catch((e) => console.error("[report]", e.message)), 30_000);
-  setInterval(() => runDailyReports(client, store).catch((e) => console.error("[report]", e.message)), 10 * 60 * 1000);
+  setTimeout(() => runDailyReports(client, store, heat).catch((e) => console.error("[report]", e.message)), 30_000);
+  setInterval(() => runDailyReports(client, store, heat).catch((e) => console.error("[report]", e.message)), 10 * 60 * 1000);
 
   // Flush pending heat states to Convex so the dashboard stays in sync.
   setInterval(() => heat.flushAll().catch((e) => console.error("[heat:flush]", e.message)), 30_000);
