@@ -66,8 +66,10 @@ export default function AuthPage() {
           className="hidden flex-col justify-center lg:flex"
         >
           <Link to="/" className="mb-8 flex items-center gap-2">
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] p-0.5 shadow-[0_0_20px_-4px_hsl(342_92%_66%/0.8)]">
-              <BotLogo className="h-full w-full" />
+            <span className="rounded-xl bg-gradient-to-br from-white/95 via-white/45 to-white/0 p-[2px] drop-shadow-[0_0_12px_rgba(255,255,255,0.75)]">
+              <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] p-0.5 shadow-[0_0_20px_-4px_hsl(342_92%_66%/0.8)]">
+                <BotLogo className="h-full w-full" />
+              </span>
             </span>
             <span className="font-display text-xl font-bold">Protogon<span className="text-primary">.</span></span>
           </Link>

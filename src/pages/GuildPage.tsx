@@ -115,7 +115,9 @@ export default function GuildPage() {
               )}
               <div>
                 <div className="flex items-center gap-2.5">
-                  <BotLogo className="h-11 w-11 ring-2 ring-primary/25" fallbackClassName="h-6 w-6" />
+                  <span className="rounded-xl bg-gradient-to-br from-white/95 via-white/45 to-white/0 p-[2px] drop-shadow-[0_0_10px_rgba(255,255,255,0.7)]">
+                    <BotLogo className="h-10 w-10 ring-2 ring-primary/25" fallbackClassName="h-6 w-6" />
+                  </span>
                   <h1 className="font-display text-2xl font-bold tracking-tight">{data.guild.name}</h1>
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -177,6 +179,7 @@ export default function GuildPage() {
               <p className="mt-1">• Nuke/raid phạt trực tiếp, không cộng nhiệt.</p>
               <p className="mt-1">• 🔒 Tính năng ẩn = reaction role, giveaway, gửi DM, auto reply, tùy chỉnh giao diện — chỉ chủ sở hữu bot.</p>
               <p className="mt-1">• 🛠️ Lệnh mod: /mod timeout · kick · ban · purge + !timeout !kick !ban !purge — mọi hình phạt hiện trong mục Hình phạt.</p>
+              <p className="mt-1">• 🎭 Reaction role: /reactionrole create · add · remove · edit · delete (kèm !reactionrole) hoặc tạo ngay trên dashboard.</p>
               <p className="mt-1">• 🎨 Mỗi server có chủ đề màu riêng trong Cài đặt.</p>
               <p className="mt-1">• 🎉 Lệnh giveaway: /giveaway start + !giveaway start.</p>
               <p className="mt-1">• Thay đổi áp dụng trong ~30 giây.</p>

@@ -48,7 +48,7 @@ const TOPICS: Topic[] = [
     id: "reactionrole",
     keywords: ["reaction role", "reaction", "emoji", "nhan role", "go role", "tu nhan role"],
     answer:
-      "Reaction Role giúp thành viên tự chọn role chỉ bằng một cú bấm emoji 🎭. Trong Tính năng ẩn, bạn tạo bảng: chọn kênh, đặt tên, rồi thêm từng cặp emoji → role. Bot gửi tin nhắn kèm các emoji vào kênh — ai bấm emoji nào sẽ được gán role đó, bấm lại lần nữa là gỡ role. Mỗi server tạo được tối đa 10 bảng, mỗi bảng tối đa 20 cặp emoji/role.",
+      "Reaction Role giúp thành viên tự chọn role chỉ bằng một cú bấm emoji 🎭. Trong Tính năng ẩn, bạn tạo bảng: chọn kênh, đặt tên, rồi thêm từng cặp emoji → role. Bot gửi tin nhắn kèm các emoji vào kênh — ai bấm emoji nào sẽ được gán role đó, bấm lại lần nữa là gỡ role. Ngoài dashboard, bạn dùng được cả lệnh /reactionrole create · add · remove · edit · delete (kèm !reactionrole) ngay trong Discord. Mỗi server tạo được tối đa 10 bảng, mỗi bảng tối đa 20 cặp emoji/role.",
     suggestions: [
       "Giveaway có những tùy chọn gì?",
       "Tính năng ẩn gồm những gì?",
@@ -359,7 +359,7 @@ const TOPICS: Topic[] = [
       "lệnh",
     ],
     answer:
-      "Bot hỗ trợ cả prefix và slash command ⌨️. Công cụ Mod: /mod timeout, /mod kick, /mod ban, /mod purge — lệnh text tương đương !timeout !kick !ban !purge. Giveaway: /giveaway start <tên> <giải> <thời lượng> hoặc !giveaway start. Ngoài ra: /heat status xem nhiệt & warn, /antinuke bật tắt bảo vệ, /prefix đổi prefix, /badword quản lý từ ngữ xấu. Gõ / trong Discord để xem toàn bộ danh sách slash command.",
+      "Bot hỗ trợ cả prefix và slash command ⌨️. Công cụ Mod: /mod timeout, /mod kick, /mod ban, /mod purge — lệnh text tương đương !timeout !kick !ban !purge. Giveaway: /giveaway start <tên> <giải> <thời lượng> hoặc !giveaway start. Reaction role: /reactionrole create · add · remove · edit · delete (kèm !reactionrole). Ngoài ra: /heat status xem nhiệt & warn, /antinuke bật tắt bảo vệ, /prefix đổi prefix, /badword quản lý từ ngữ xấu. Gõ / trong Discord để xem toàn bộ danh sách slash command.",
     suggestions: [
       "Cách xem nhiệt của thành viên",
       "Công cụ mod gồm những gì?",

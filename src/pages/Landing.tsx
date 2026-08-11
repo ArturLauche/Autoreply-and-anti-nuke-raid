@@ -27,6 +27,7 @@ import { Badge } from "../components/ui/badge";
 import CherryBlossom from "../components/CherryBlossom";
 import BotLogo from "../components/BotLogo";
 import HaimiyaChat, { HaimiyaAvatar } from "../components/HaimiyaChat";
+import { useBranding } from "../lib/useBranding";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -43,8 +44,10 @@ function Nav() {
     <header className="fixed inset-x-0 top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl">
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] p-0.5 shadow-[0_0_20px_-4px_hsl(342_92%_66%/0.9)]">
-            <BotLogo className="h-full w-full" />
+          <span className="rounded-xl bg-gradient-to-br from-white/95 via-white/45 to-white/0 p-[2px] drop-shadow-[0_0_12px_rgba(255,255,255,0.75)]">
+            <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] p-0.5 shadow-[0_0_20px_-4px_hsl(342_92%_66%/0.9)]">
+              <BotLogo className="h-full w-full" />
+            </span>
           </span>
           <span className="font-display text-lg font-bold tracking-tight">
             Protogon<span className="text-primary">.</span>
@@ -280,7 +283,7 @@ function HiddenFeatures() {
     {
       icon: ShieldCheck,
       title: "Reaction Role",
-      desc: "Thành viên bấm emoji dưới tin nhắn là tự nhận / gỡ role — tạo nhiều bảng theo chủ đề.",
+      desc: "Thành viên bấm emoji dưới tin nhắn là tự nhận / gỡ role — tạo & chỉnh bảng ngay trên dashboard hoặc bằng /reactionrole create · add · edit (kèm !reactionrole).",
     },
     {
       icon: Palette,
@@ -483,6 +486,7 @@ function AntiNuke() {
 
 /** Gặp gỡ Haimiya-senpai — trợ lý ảo. */
 function HaimiyaSection() {
+  const branding = useBranding();
   return (
     <section id="haimiya" className="relative overflow-hidden py-24">
       <div className="absolute inset-x-0 bottom-0 h-[420px] bg-glow-sky" />
@@ -498,7 +502,7 @@ function HaimiyaSection() {
               <div className="absolute -inset-8 rounded-full bg-glow-sakura blur-2xl" />
               <div className="relative animate-float">
                 <div className="flex h-64 w-64 items-center justify-center rounded-full border-2 border-white/80 bg-gradient-to-br from-[#ffe0ed] via-[#fdf2f8] to-[#d6ecff] shadow-[0_24px_60px_-20px_hsl(342_60%_55%/0.45)]">
-                  <HaimiyaAvatar className="h-48 w-48" />
+                  <HaimiyaAvatar className="h-48 w-48" src={branding?.haimiyaAvatarUrl ?? null} />
                 </div>
                 <span className="absolute -right-2 top-6 animate-float text-2xl" style={{ animationDelay: "0.6s" }}>🌸</span>
                 <span className="absolute -left-3 bottom-14 animate-float text-xl" style={{ animationDelay: "1.2s" }}>🎀</span>
@@ -617,6 +621,7 @@ function HowItWorks() {
 }
 
 function CtaBanner() {
+  const branding = useBranding();
   return (
     <section className="py-16">
       <div className="container">
@@ -630,7 +635,10 @@ function CtaBanner() {
           <div className="absolute inset-0 bg-glow-sakura opacity-50" />
           <div className="absolute inset-0 bg-glow-sky opacity-60" />
           <div className="relative">
-            <HaimiyaAvatar className="mx-auto h-28 w-28 drop-shadow-[0_10px_30px_hsl(342_92%_66%/0.4)]" />
+            <HaimiyaAvatar
+              className="mx-auto h-28 w-28 drop-shadow-[0_10px_30px_hsl(342_92%_66%/0.4)]"
+              src={branding?.haimiyaAvatarUrl ?? null}
+            />
             <h2 className="mt-4 font-display text-3xl font-bold tracking-tight md:text-5xl">
               Sẵn sàng để Haimiya <br className="hidden md:block" /> hỗ trợ bạn quản lý server?
             </h2>
@@ -655,6 +663,7 @@ function CtaBanner() {
 }
 
 export default function Landing() {
+  const branding = useBranding();
   return (
     <div className="relative min-h-screen text-foreground">
       <CherryBlossom count={18} />
@@ -675,7 +684,7 @@ export default function Landing() {
                   className="flex flex-col items-center gap-4 text-center lg:block lg:text-left"
                 >
                   <span className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-white/70 bg-gradient-to-br from-[#ffe0ed] to-[#d8ecff] shadow-[0_10px_30px_-10px_hsl(342_70%_60%/0.5)] lg:hidden">
-                    <HaimiyaAvatar className="h-20 w-20" />
+                    <HaimiyaAvatar className="h-20 w-20" src={branding?.haimiyaAvatarUrl ?? null} />
                   </span>
                   <Badge variant="secondary" className="border border-primary/30">
                     <span className="relative flex h-2 w-2">
@@ -723,7 +732,7 @@ export default function Landing() {
                     variant="outline"
                     onClick={() => window.dispatchEvent(new Event("haimiya-open"))}
                   >
-                    <HaimiyaAvatar className="h-6 w-6" /> Hỏi Haimiya
+                    <HaimiyaAvatar className="h-6 w-6" src={branding?.haimiyaAvatarUrl ?? null} /> Hỏi Haimiya
                   </Button>
                 </motion.div>
                 <motion.div
@@ -761,7 +770,7 @@ export default function Landing() {
           <div className="container flex flex-col items-center justify-between gap-4 md:flex-row">
             <div className="flex items-center gap-2">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
-                <HaimiyaAvatar className="h-8 w-8" />
+                <HaimiyaAvatar className="h-8 w-8" src={branding?.haimiyaAvatarUrl ?? null} />
               </span>
               <span className="font-display font-semibold">Protogon Bot</span>
             </div>

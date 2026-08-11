@@ -67,8 +67,10 @@ export default function Dashboard() {
               onClick={() => navigate("/")}
               className="flex items-center gap-2"
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] p-0.5 shadow-[0_0_20px_-4px_hsl(342_92%_66%/0.8)]">
-                <BotLogo className="h-full w-full" />
+              <span className="rounded-lg bg-gradient-to-br from-white/95 via-white/45 to-white/0 p-[2px] drop-shadow-[0_0_10px_rgba(255,255,255,0.7)]">
+                <span className="flex h-9 w-9 items-center justify-center rounded-[7px] bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] p-0.5 shadow-[0_0_20px_-4px_hsl(342_92%_66%/0.8)]">
+                  <BotLogo className="h-full w-full" />
+                </span>
               </span>
               <span className="font-display text-lg font-bold">Protogon<span className="text-primary">.</span></span>
             </button>
