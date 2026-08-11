@@ -340,8 +340,8 @@ export default function HaimiyaChat({
             <p className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
               <Sparkles className="h-3 w-3 text-primary" />
               {position === "dashboard"
-                ? "Haimiya sẵn sàng giải đáp — bạn có thể hỏi tôi bất cứ điều gì."
-                : "Haimiya trả lời dựa trên kiến thức của Protogon — nhanh, chính xác."}
+                ? "Haimiya sẵn sàng giải đáp — hỏi về Protogon hay bất cứ điều gì ngoài lề."
+                : "Haimiya trò chuyện thoải mái — hỏi về Protogon hoặc bất cứ điều gì bạn muốn."}
             </p>
           </div>
         </div>

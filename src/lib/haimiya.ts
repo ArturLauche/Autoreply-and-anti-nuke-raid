@@ -434,7 +434,7 @@ export const QUICK_QUESTIONS = [
 ];
 
 const FALLBACK: HaimiyaAnswer = {
-  text: "Xin lỗi, tôi chưa hiểu rõ câu hỏi của bạn. Bạn có thể thử hỏi lại bằng từ khóa như: nhiệt độ, join gate, warn, giveaway, hosting, tính năng ẩn, bảng hình phạt… Hoặc chọn một câu hỏi gợi ý bên dưới.",
+  text: "Mình rất muốn trò chuyện về điều đó! Hiện tại AI thật chưa kết nối được nên mình chỉ trả lời được các câu hỏi về Protogon trong kiến thức sẵn có. Bạn thử hỏi về: nhiệt độ, join gate, warn, giveaway, hosting, tính năng ẩn, bảng hình phạt… Hoặc chọn một câu hỏi gợi ý bên dưới nhé.",
   suggestions: [
     "Hệ thống nhiệt độ hoạt động thế nào?",
     "Join Gate là gì?",

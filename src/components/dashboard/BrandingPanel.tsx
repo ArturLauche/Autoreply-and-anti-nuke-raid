@@ -69,8 +69,10 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
     setUploading(slot);
     try {
       const uploadUrl = await generateUploadUrl({ token, guildId });
+      // Convex storage upload URL yêu cầu POST (không phải PUT) — PUT bị chặn
+      // bởi CORS preflight nên fetch báo "Failed to fetch".
       const res = await fetch(uploadUrl, {
-        method: "PUT",
+        method: "POST",
         headers: { "Content-Type": file.type || "image/png" },
         body: file,
       });
