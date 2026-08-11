@@ -9,6 +9,7 @@ import {
   ShieldAlert,
   Users,
 } from "lucide-react";
+import BotLogo from "../components/BotLogo";
 import { api } from "../../convex/_generated/api";
 import CherryBlossom from "../components/CherryBlossom";
 import HaimiyaChat from "../components/HaimiyaChat";
@@ -66,8 +67,8 @@ export default function Dashboard() {
               onClick={() => navigate("/")}
               className="flex items-center gap-2"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] shadow-[0_0_20px_-4px_hsl(342_92%_66%/0.8)]">
-                <Bot className="h-5 w-5" />
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] p-0.5 shadow-[0_0_20px_-4px_hsl(342_92%_66%/0.8)]">
+                <BotLogo className="h-full w-full" />
               </span>
               <span className="font-display text-lg font-bold">Protogon<span className="text-primary">.</span></span>
             </button>

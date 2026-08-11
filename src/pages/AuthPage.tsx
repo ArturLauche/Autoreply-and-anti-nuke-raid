@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Bot, ExternalLink, KeyRound, ShieldCheck, Loader2 } from "lucide-react";
+import { ExternalLink, KeyRound, ShieldCheck, Loader2 } from "lucide-react";
+import BotLogo from "../components/BotLogo";
 import { Button } from "../components/ui/button";
 import CherryBlossom from "../components/CherryBlossom";
 import HaimiyaChat from "../components/HaimiyaChat";
@@ -65,8 +66,8 @@ export default function AuthPage() {
           className="hidden flex-col justify-center lg:flex"
         >
           <Link to="/" className="mb-8 flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] shadow-[0_0_20px_-4px_hsl(342_92%_66%/0.8)]">
-              <Bot className="h-5 w-5" />
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] p-0.5 shadow-[0_0_20px_-4px_hsl(342_92%_66%/0.8)]">
+              <BotLogo className="h-full w-full" />
             </span>
             <span className="font-display text-xl font-bold">Protogon<span className="text-primary">.</span></span>
           </Link>
@@ -78,7 +79,9 @@ export default function AuthPage() {
               "Hệ thống nhiệt độ 4 giai đoạn + warn tích lũy",
               "Join Gate chống selfbot khi vào server",
               "Chặn link độc hại & file nguy hiểm",
-              "Tính năng ẩn: reaction role, giveaway, gửi DM",
+              "Công cụ mod: timeout, kick, ban, purge kèm lý do",
+              "Giveaway đa mẫu: ảnh, lời dẫn, tự cấp role thưởng",
+              "Tính năng ẩn: reaction role, giveaway, gửi DM, tùy chỉnh avatar — chỉ chủ sở hữu bot",
               "Tùy chọn lưu / không lưu đăng nhập",
             ].map((t) => (
               <li key={t} className="flex items-center gap-3 text-muted-foreground">

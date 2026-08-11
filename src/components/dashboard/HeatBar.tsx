@@ -149,29 +149,40 @@ export function TopOffenders({ data, limit = 5 }: { data: GuildData; limit?: num
       {states.map((h) => {
         const tier = tierOf(h.heat, g.heatTimeoutAt ?? 40, g.heatKickAt ?? 70, g.heatBanAt ?? 90);
         return (
-          <li key={h.userId} className="flex items-center justify-between gap-3 rounded-lg bg-secondary/40 px-3 py-2">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">
-                {h.username || `<@${h.userId}>`}
-              </p>
-              <p className="font-mono text-[11px] text-muted-foreground">{h.userId}</p>
+          <li key={h.userId} className="rounded-lg bg-secondary/40 px-3 py-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">
+                  {h.username || `<@${h.userId}>`}
+                </p>
+                <p className="font-mono text-[11px] text-muted-foreground">{h.userId}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {h.warnStrikes > 0 && (
+                  <Badge variant="secondary" className="gap-1 bg-amber-500/15 text-amber-400">
+                    ⚠️ {h.warnStrikes}/{g.warnStrikeLimit || 3}
+                  </Badge>
+                )}
+                <span className="font-mono text-sm font-semibold tabular-nums">{h.heat}/100</span>
+                <Badge className={TIER_STYLE[tier]}>{HEAT_TIER_LABEL[tier]}</Badge>
+                <button
+                  onClick={() => resetUser(h.userId, h.username)}
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger"
+                  title={`Xóa nhiệt của ${h.username || h.userId}`}
+                  aria-label={`Xóa nhiệt của ${h.username || h.userId}`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {h.warnStrikes > 0 && (
-                <Badge variant="secondary" className="gap-1 bg-amber-500/15 text-amber-400">
-                  ⚠️ {h.warnStrikes}/{g.warnStrikeLimit || 3}
-                </Badge>
-              )}
-              <span className="font-mono text-sm font-semibold tabular-nums">{h.heat}/100</span>
-              <Badge className={TIER_STYLE[tier]}>{HEAT_TIER_LABEL[tier]}</Badge>
-              <button
-                onClick={() => resetUser(h.userId, h.username)}
-                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger"
-                title={`Xóa nhiệt của ${h.username || h.userId}`}
-                aria-label={`Xóa nhiệt của ${h.username || h.userId}`}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+            {/* Thanh nhiệt xoáy bên dưới: xanh → vàng → đỏ */}
+            <div className="mt-1.5 flex items-center gap-2">
+              <div className="h-1.5 w-full max-w-[200px] overflow-hidden rounded-full bg-secondary">
+                <div
+                  className="heat-swirl h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.max(2, h.heat)}%` }}
+                />
+              </div>
             </div>
           </li>
         );
@@ -217,16 +228,6 @@ export function HeatTable({ data, limit = 20 }: { data: GuildData; limit?: numbe
       <ul className="divide-y divide-border/60">
         {states.map((h) => {
           const tier = tierOf(h.heat, g.heatTimeoutAt ?? 40, g.heatKickAt ?? 70, g.heatBanAt ?? 90);
-          const barColor =
-            h.heat >= (g.heatBanAt ?? 90)
-              ? "bg-danger"
-              : h.heat >= (g.heatKickAt ?? 70)
-                ? "bg-orange-500"
-                : h.heat >= (g.heatTimeoutAt ?? 40)
-                  ? "bg-violet-500"
-                  : h.heat >= (g.heatWarnAt ?? 25)
-                    ? "bg-amber-500"
-                    : "bg-emerald-500";
           return (
             <li key={h.userId} className="flex items-center gap-3 px-3 py-2.5">
               <div className="min-w-0 flex-1">
@@ -257,7 +258,7 @@ export function HeatTable({ data, limit = 20 }: { data: GuildData; limit?: numbe
                 <div className="mt-1.5 flex items-center gap-2">
                   <div className="h-1.5 w-full max-w-[160px] overflow-hidden rounded-full bg-secondary">
                     <div
-                      className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                      className="heat-swirl h-full rounded-full transition-all duration-500"
                       style={{ width: `${Math.max(2, h.heat)}%` }}
                     />
                   </div>

@@ -6,6 +6,7 @@ import {
   Bug,
   Crown,
   Flame,
+  Gavel,
   Gift,
   Heart,
   LayoutDashboard,
@@ -13,6 +14,7 @@ import {
   Mail,
   MessageCircle,
   MessageSquareReply,
+  Palette,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
@@ -23,6 +25,7 @@ import {
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import CherryBlossom from "../components/CherryBlossom";
+import BotLogo from "../components/BotLogo";
 import HaimiyaChat, { HaimiyaAvatar } from "../components/HaimiyaChat";
 
 const fadeUp = {
@@ -40,8 +43,8 @@ function Nav() {
     <header className="fixed inset-x-0 top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl">
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] shadow-[0_0_20px_-4px_hsl(342_92%_66%/0.9)]">
-            <HaimiyaAvatar className="h-7 w-7" />
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] p-0.5 shadow-[0_0_20px_-4px_hsl(342_92%_66%/0.9)]">
+            <BotLogo className="h-full w-full" />
           </span>
           <span className="font-display text-lg font-bold tracking-tight">
             Protogon<span className="text-primary">.</span>
@@ -194,6 +197,11 @@ function Features() {
       title: "Chống nuke & raid",
       desc: "8 module phát hiện ban/kick hàng loạt, raid thành viên, tạo/xóa kênh, role, xóa tin — phạt trực tiếp + khóa kênh tự động khi bị tấn công.",
     },
+    {
+      icon: Gavel,
+      title: "Công cụ Mod",
+      desc: "/mod timeout · kick · ban · purge — ghi đầy đủ lý do + người thực hiện vào kênh log. Lệnh text: !timeout !kick !ban !purge.",
+    },
   ];
   return (
     <section id="features" className="relative py-24">
@@ -275,9 +283,14 @@ function HiddenFeatures() {
       desc: "Thành viên bấm emoji dưới tin nhắn là tự nhận / gỡ role — tạo nhiều bảng theo chủ đề.",
     },
     {
+      icon: Palette,
+      title: "Tùy chỉnh giao diện",
+      desc: "Đổi avatar bot & trợ lý AI Haimiya ngay từ web — áp dụng toàn bộ trang chủ, đăng nhập và dashboard.",
+    },
+    {
       icon: Gift,
       title: "Giveaway 🎉",
-      desc: "Bot tự gửi embed, chốt người thắng khi hết giờ, thông báo trong kênh và gửi DM giải thưởng — kèm yêu cầu role.",
+      desc: "Nhiều mẫu tin nhắn (mặc định, sang trọng, VIP, nhanh gọn), chèn ảnh, lời dẫn tùy chỉnh, tự cấp role thưởng cho người thắng — tạo được qua dashboard, /giveaway start hoặc !giveaway start.",
     },
     {
       icon: Mail,

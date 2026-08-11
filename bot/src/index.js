@@ -67,6 +67,18 @@ client.once("ready", async () => {
     }
   }
 
+  // Best-effort: xác định admin sở hữu bot từ ứng dụng Discord (nếu API trả về).
+  try {
+    const app = await client.application.fetch();
+    const owner = app?.owner;
+    const ownerId = owner ? owner.id || owner.ownerId || null : null;
+    if (ownerId) {
+      await store.client.mutation("hidden:botSetOwner", { ownerId });
+    }
+  } catch (e) {
+    console.error("[owner] Không xác định được chủ bot qua API:", e.message);
+  }
+
   await guildSync.syncAll(client, store);
   await guildSync.ensureModules(client, store);
   setInterval(() => guildSync.syncAll(client, store), 60_000);

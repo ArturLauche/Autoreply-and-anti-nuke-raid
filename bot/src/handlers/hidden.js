@@ -117,15 +117,53 @@ async function postPanel(client, store, panel) {
   });
 }
 
+/** Mẫu tin nhắn giveaway — đổi lời chào, màu, footer theo lựa chọn. */
+const GIVEAWAY_TEMPLATES = {
+  default: {
+    color: 0xf48fb1,
+    emoji: "🎉",
+    header: "GIVEAWAY",
+    footer: "Bấm 🎉 để tham gia!",
+    endFooter: "Protogon · Giveaway",
+  },
+  luxury: {
+    color: 0xf1c40f,
+    emoji: "✨",
+    header: "GIVEAWAY SANG TRỌNG",
+    footer: "✨ Chỉ dành cho người may mắn ✨",
+    endFooter: "✨ Protogon · Giveaway cao cấp",
+  },
+  vip: {
+    color: 0x9b59b6,
+    emoji: "💎",
+    header: "GIVEAWAY VIP",
+    footer: "💎 Vận may đang chờ bạn 💎",
+    endFooter: "💎 Protogon · Giveaway VIP",
+  },
+  simple: {
+    color: 0x2ecc71,
+    emoji: "🎁",
+    header: "QUÀ TẶNG",
+    footer: "🎁 Tham gia ngay nhé!",
+    endFooter: "🎁 Protogon · Giveaway",
+  },
+};
+
+function templateOf(giveaway) {
+  return GIVEAWAY_TEMPLATES[giveaway.template] || GIVEAWAY_TEMPLATES.default;
+}
+
 /** Gửi giveaway ra kênh. */
 async function postGiveaway(client, store, giveaway) {
   const channel = await client.channels.fetch(giveaway.channelId);
   if (!channel?.isTextBased()) return;
+  const t = templateOf(giveaway);
   const embed = new EmbedBuilder()
-    .setColor(HIDDEN_COLOR)
-    .setTitle(`🎉 GIVEAWAY — ${giveaway.title}`)
-    .setDescription(giveaway.prize)
+    .setColor(t.color)
+    .setTitle(`${t.emoji} ${t.header} — ${giveaway.title}`)
+    .setDescription(giveaway.message || giveaway.prize)
     .addFields(
+      { name: "🏆 Giải thưởng", value: giveaway.prize, inline: false },
       { name: "👥 Người thắng", value: `${giveaway.winnerCount}`, inline: true },
       {
         name: "⏰ Kết thúc",
@@ -133,9 +171,21 @@ async function postGiveaway(client, store, giveaway) {
         inline: true,
       },
     )
-    .setFooter({ text: "Bấm 🎉 để tham gia!" });
+    .setFooter({ text: t.footer });
+  if (giveaway.imageUrl) embed.setImage(giveaway.imageUrl);
   if (giveaway.requiredRoleId) {
-    embed.addFields({ name: "Điều kiện", value: `Chỉ dành cho <@&${giveaway.requiredRoleId}>`, inline: true });
+    embed.addFields({
+      name: "Điều kiện",
+      value: `Chỉ dành cho <@&${giveaway.requiredRoleId}>`,
+      inline: true,
+    });
+  }
+  if (giveaway.prizeRoleId) {
+    embed.addFields({
+      name: "🎖️ Giải thưởng đặc biệt",
+      value: `Người thắng được cấp role <@&${giveaway.prizeRoleId}>`,
+      inline: true,
+    });
   }
   const msg = await channel.send({ embeds: [embed] });
   await msg.react(GIVEAWAY_EMOJI).catch(() => {});
@@ -145,11 +195,12 @@ async function postGiveaway(client, store, giveaway) {
   });
 }
 
-/** Kết thúc giveaway hết hạn: chọn người thắng, thông báo, DM nếu bật. */
+/** Kết thúc giveaway hết hạn: chọn người thắng, thông báo, cấp role, DM nếu bật. */
 async function endGiveaway(client, store, giveaway) {
   const winners = shuffle(giveaway.entries)
     .slice(0, giveaway.winnerCount)
     .map((e) => ({ userId: e.userId, username: e.username }));
+  const t = templateOf(giveaway);
   try {
     const channel = await client.channels.fetch(giveaway.channelId);
     if (channel?.isTextBased() && giveaway.messageId) {
@@ -157,29 +208,55 @@ async function endGiveaway(client, store, giveaway) {
       if (msg) {
         const embed = new EmbedBuilder()
           .setColor(0x23a55a)
-          .setTitle(`🏁 KẾT THÚC — ${giveaway.title}`)
-          .setDescription(giveaway.prize)
-          .addFields({
-            name: "🎉 Người thắng",
-            value:
-              winners.length > 0
-                ? winners.map((w) => `<@${w.userId}>`).join("\n")
-                : "Không có ai tham gia 😢",
+          .setTitle(`🏁 ${t.emoji} KẾT THÚC — ${giveaway.title}`)
+          .setDescription(giveaway.message || giveaway.prize)
+          .addFields(
+            { name: "🏆 Giải thưởng", value: giveaway.prize, inline: false },
+            {
+              name: "🎉 Người thắng",
+              value:
+                winners.length > 0
+                  ? winners.map((w) => `<@${w.userId}>`).join("\n")
+                  : "Không có ai tham gia 😢",
+              inline: false,
+            },
+          )
+          .setFooter({ text: t.endFooter });
+        if (giveaway.prizeRoleId) {
+          embed.addFields({
+            name: "🎖️ Role đã cấp",
+            value: `<@&${giveaway.prizeRoleId}>`,
             inline: false,
-          })
-          .setFooter({ text: "Protogon · Giveaway" });
+          });
+        }
         await msg.edit({ embeds: [embed] });
       }
     }
   } catch (e) {
     console.error(`[hidden:giveaway end ${giveaway._id}]`, e.message);
   }
+
+  // Tự cấp role thưởng cho người thắng (best-effort).
+  if (giveaway.prizeRoleId) {
+    for (const w of winners) {
+      try {
+        const member = await channel?.guild?.members.fetch(w.userId).catch(() => null);
+        if (member && !member.roles.cache.has(giveaway.prizeRoleId)) {
+          await member.roles.add(giveaway.prizeRoleId);
+        }
+      } catch (e) {
+        console.error(`[hidden:giveaway role ${w.userId}]`, e.message);
+      }
+    }
+  }
+
   if (giveaway.dmWinners) {
+    const roleLine = giveaway.prizeRoleId ? `\n🎖️ Bạn đã được cấp role **<@&${giveaway.prizeRoleId}>** trên server!` : "";
     for (const w of winners) {
       try {
         const user = await client.users.fetch(w.userId);
         await user.send(
-          `🎉 Chúc mừng! Bạn đã thắng giveaway **"${giveaway.title}"** trên server!\n\n🏆 **Giải thưởng:** ${giveaway.prize}\n\nHãy liên hệ admin để nhận thưởng nhé 🌸`,
+          `${giveaway.endMessage || "🎉 Chúc mừng! Bạn đã thắng giveaway!"}\n\n🏆 **${giveaway.title}** — ${giveaway.prize}${roleLine}\n\nHãy liên hệ admin để nhận thưởng nhé 🌸`,
         );
       } catch (e) {
         console.error(`[hidden:giveaway dm ${w.userId}]`, e.message);

@@ -122,6 +122,10 @@ export interface GuildData {
     warnStrikePunish: "timeout" | "kick" | "ban";
     safetyPercent: number;
     hiddenPasswordSet: boolean;
+    /** Người đang đăng nhập có phải admin sở hữu bot không (quyền tính năng ẩn). */
+    isBotOwner: boolean;
+    /** Đã xác định được chủ sở hữu bot chưa. */
+    botOwnerSet: boolean;
   };
   heatStates: HeatState[];
   autoReplies: AutoReply[];
@@ -152,6 +156,11 @@ export interface Giveaway {
   endsAt: number;
   dmWinners: boolean;
   requiredRoleId: string | null;
+  prizeRoleId: string | null;
+  template: string;
+  message: string | null;
+  imageUrl: string | null;
+  endMessage: string | null;
   status: "active" | "ended" | "cancelled";
   messageId: string;
   entriesCount: number;

@@ -31,6 +31,13 @@ const DURATION_PRESETS = [
   { label: "7 ngày", minutes: 10080 },
 ];
 
+const TEMPLATE_PRESETS = [
+  { value: "default", label: "🎉 Mặc định", desc: "Hồng anh đào, lời chào cơ bản" },
+  { value: "luxury", label: "✨ Sang trọng", desc: "Vàng, chữ GIVEAWAY SANG TRỌNG" },
+  { value: "vip", label: "💎 VIP", desc: "Tím, chữ GIVEAWAY VIP" },
+  { value: "simple", label: "🎁 Nhanh gọn", desc: "Xanh lá, chữ QUÀ TẶNG" },
+];
+
 export default function GiveawayPanel({ data }: { data: GuildData }) {
   const createGiveaway = useMutation(api.hidden.createGiveaway);
   const cancelGiveaway = useMutation(api.hidden.cancelGiveaway);
@@ -47,6 +54,11 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [dmWinners, setDmWinners] = useState(true);
   const [requiredRoleId, setRequiredRoleId] = useState("none");
+  const [prizeRoleId, setPrizeRoleId] = useState("none");
+  const [template, setTemplate] = useState("default");
+  const [message, setMessage] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [endMessage, setEndMessage] = useState("");
   const [channelId, setChannelId] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -70,6 +82,11 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
         durationMinutes,
         dmWinners,
         requiredRoleId: requiredRoleId === "none" ? undefined : requiredRoleId,
+        prizeRoleId: prizeRoleId === "none" ? undefined : prizeRoleId,
+        template,
+        message: message.trim() || undefined,
+        imageUrl: imageUrl.trim() || undefined,
+        endMessage: endMessage.trim() || undefined,
       });
       toast.success("Đã tạo giveaway — bot sẽ gửi trong vòng ~30 giây 🎉");
       setOpen(false);
@@ -78,6 +95,9 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
       setChannelId("");
       setWinnerCount(1);
       setDurationMinutes(60);
+      setMessage("");
+      setImageUrl("");
+      setEndMessage("");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Tạo thất bại");
     } finally {
@@ -94,7 +114,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
               <Gift className="h-4 w-4 text-primary" /> Giveaway 🎉
             </h3>
             <p className="text-sm text-muted-foreground">
-              Tự động chọn người thắng, thông báo trong kênh và gửi DM giải thưởng nếu muốn.
+              Chọn mẫu tin nhắn, chèn ảnh, tùy lời dẫn, cấp role thưởng tự động — bot chọn người thắng và thông báo.
             </p>
           </div>
           <Button onClick={() => setOpen(true)} disabled={active.length >= 5}>
@@ -127,7 +147,9 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                     {" · "}
                     <Users className="mr-1 inline h-3 w-3" />
                     {g.entriesCount} người tham gia · {g.winnerCount} người thắng
+                    {g.prizeRoleId ? " · 🎖️ cấp role thưởng" : ""}
                     {g.dmWinners ? " · DM người thắng" : ""}
+                    {g.imageUrl ? " · 🖼️ có ảnh" : ""}
                   </p>
                 </div>
                 <Button
@@ -191,7 +213,8 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
             <DialogHeader>
               <DialogTitle>Tạo giveaway mới</DialogTitle>
               <DialogDescription>
-                Bot gửi embed giveaway + phản ứng 🎉. Hết giờ, bot tự chọn người thắng và thông báo.
+                Bot gửi embed giveaway + phản ứng 🎉 theo mẫu bạn chọn (kèm ảnh nếu muốn). Hết giờ, bot tự chọn
+                người thắng, cấp role thưởng (nếu chọn) và thông báo.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-3">
@@ -274,6 +297,65 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="grid gap-1.5">
+                <Label>🎖️ Role tự cấp cho người thắng (tùy chọn)</Label>
+                <Select value={prizeRoleId} onValueChange={setPrizeRoleId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Không cấp role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— Không cấp role —</SelectItem>
+                    {roleOptions.map((r) => (
+                      <SelectItem key={r.roleId} value={r.roleId}>
+                        {r.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Mẫu tin nhắn giveaway</Label>
+                <Select value={template} onValueChange={setTemplate}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TEMPLATE_PRESETS.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label} — {t.desc}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Lời dẫn tùy chỉnh (hiển thị đầu embed, để trống = dùng giải thưởng)</Label>
+                <Textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="VD: Chào mừng đến với server! Tham gia ngay để có cơ hội nhận…"
+                  maxLength={2000}
+                  rows={2}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Ảnh nền embed (tùy chọn)</Label>
+                <Input
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://… (đường dẫn ảnh)"
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Lời chúc mừng riêng khi gửi DM người thắng (tùy chọn)</Label>
+                <Textarea
+                  value={endMessage}
+                  onChange={(e) => setEndMessage(e.target.value)}
+                  placeholder="VD: Xin chúc mừng! Bạn là người may mắn nhất…"
+                  maxLength={1000}
+                  rows={2}
+                />
               </div>
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-secondary/30 px-3 py-2.5">
                 <div className="text-sm">

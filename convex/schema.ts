@@ -93,6 +93,16 @@ export default defineSchema({
     endsAt: v.number(),
     dmWinners: v.boolean(),
     requiredRoleId: v.optional(v.string()),
+    /** Role tự cấp cho người thắng khi giveaway kết thúc. */
+    prizeRoleId: v.optional(v.string()),
+    /** Mẫu tin nhắn: default | luxury | vip | simple. */
+    template: v.optional(v.string()),
+    /** Lời dẫn / nội dung tùy chỉnh thay cho mẫu. */
+    message: v.optional(v.string()),
+    /** Ảnh nền chèn vào embed. */
+    imageUrl: v.optional(v.string()),
+    /** Lời chúc mừng tùy chỉnh khi kết thúc. */
+    endMessage: v.optional(v.string()),
     status: v.union(v.literal("active"), v.literal("ended"), v.literal("cancelled")),
     messageId: v.optional(v.string()),
     entries: v.array(v.object({ userId: v.string(), username: v.string() })),
@@ -193,5 +203,11 @@ export default defineSchema({
     lastHeartbeat: v.number(),
     startedAt: v.number(),
     version: v.string(),
+    /** Discord ID của admin sở hữu bot (người duy nhất được phép mở khóa tính năng ẩn). */
+    ownerDiscordId: v.optional(v.string()),
+    /** Avatar bot hiển thị trên web (logo, quản lý…). */
+    botAvatarUrl: v.optional(v.string()),
+    /** Avatar trợ lý AI Haimiya-senpai hiển thị trên web. */
+    haimiyaAvatarUrl: v.optional(v.string()),
   }).index("by_kind", ["kind"]),
 });

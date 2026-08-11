@@ -32,13 +32,16 @@ const TOPICS: Topic[] = [
       "quyen an",
       "cho admin",
       "danh rieng admin",
+      "chu so huu bot",
+      "so huu bot",
+      "chu bot",
     ],
     answer:
-      "Tính năng ẩn là khu vực quyền lực dành riêng cho admin đó senpai 🔒! Gồm: Reaction Role (thành viên bấm emoji để tự nhận role), Giveaway (bot tự chốt người thắng, thông báo trong kênh và DM giải thưởng nếu bật), Gửi DM trực tiếp cho bất kỳ ai, và Auto Reply (chuyển vào đây để chỉ admin chỉnh được). Để mở khóa: quản trị viên đặt mật khẩu trong Cài đặt → vào sidebar chọn Tính năng ẩn 🔒 → nhập mật khẩu là xong!",
+      "Tính năng ẩn là khu vực quyền lực dành riêng cho chủ sở hữu bot đó senpai 🔒! Gồm: Reaction Role, Giveaway, Gửi DM trực tiếp, Auto Reply và Tùy chỉnh giao diện (đổi avatar bot & Haimiya). Từ giờ, chỉ admin sở hữu bot mới được phép đặt mật khẩu và đăng nhập vào khu vực này — owner hay mod của một server có quyền quản lý cũng không đủ. Cách mở khóa: chủ bot đăng nhập bằng chính tài khoản Discord đã tạo bot → đặt mật khẩu trong Cài đặt → vào sidebar chọn Tính năng ẩn 🔒 → nhập mật khẩu là xong!",
     suggestions: [
       "Reaction role hoạt động thế nào?",
       "Giveaway có những tùy chọn gì?",
-      "Cách gửi DM cho thành viên",
+      "Đổi avatar bot ở đâu?",
     ],
   },
   {
@@ -54,13 +57,13 @@ const TOPICS: Topic[] = [
   },
   {
     id: "giveaway",
-    keywords: ["giveaway", "quay so", "trung thuong", "giai thuong", "nguoi thang", "dm giveaway"],
+    keywords: ["giveaway", "quay so", "trung thuong", "giai thuong", "nguoi thang", "dm giveaway", "cap role", "role thuong", "mau tin nhan", "chen anh", "loi dan"],
     answer:
-      "Giveaway của Protogon chạy hoàn toàn tự động đó senpai 🎉! Tạo giveaway trong Tính năng ẩn: đặt tên, giải thưởng, số người thắng (1–20), thời lượng (5 phút → 7 ngày), chọn kênh gửi. Tùy chọn DM người thắng: bot nhắn riêng kèm giải thưởng cho từng người thắng 💌. Còn Yêu cầu role giới hạn chỉ thành viên có role đó mới tham gia. Hết giờ, bot tự chọn người thắng ngẫu nhiên và cập nhật thông báo trong kênh. Tối đa 5 giveaway chạy song song.",
+      "Giveaway của Protogon chạy hoàn toàn tự động đó senpai 🎉! Tạo giveaway qua dashboard, /giveaway start hoặc !giveaway start. Chọn 1 trong 4 mẫu tin nhắn (Mặc định 🎉, Sang trọng ✨, VIP 💎, Nhanh gọn 🎁), viết lời dẫn tùy chỉnh, chèn ảnh nền embed, số người thắng (1–20) và thời lượng (5 phút → 7 ngày). Có Yêu cầu role để giới hạn người tham gia, và Role thưởng: hết giờ bot tự chọn người thắng ngẫu nhiên, cấp role thưởng cho họ, thông báo trong kênh và DM kèm lời chúc mừng nếu bật. Tối đa 5 giveaway chạy song song.",
     suggestions: [
-      "Reaction role hoạt động thế nào?",
-      "Cách gửi DM cho thành viên",
-      "Tính năng ẩn gồm những gì?",
+      "Có lệnh giveaway trong Discord không?",
+      "Đổi avatar bot ở đâu?",
+      "Công cụ mod gồm những gì?",
     ],
   },
   {
@@ -83,6 +86,27 @@ const TOPICS: Topic[] = [
       "Tính năng ẩn gồm những gì?",
       "Cách đặt mật khẩu tính năng ẩn",
       "Cách chạy bot trên hosting",
+    ],
+  },
+  {
+    id: "branding",
+    keywords: [
+      "doi avatar",
+      "avatar bot",
+      "avatar haimiya",
+      "anh dai dien",
+      "tuy chinh giao dien",
+      "logo bot",
+      "thay anh",
+      "doi anh",
+      "avatar",
+    ],
+    answer:
+      "Senpai có thể đổi avatar bot và avatar của em ngay trên web đó! 🎨 Vào Tính năng ẩn → mục Tùy chỉnh giao diện: tải ảnh lên (tối đa 2MB) hoặc dán đường dẫn ảnh cho từng mục — Avatar bot (Protogon, hiển thị làm logo toàn web) và Avatar trợ lý AI (Haimiya-senpai, hiển thị trong cửa sổ chat). Thay đổi áp dụng ngay toàn bộ trang chủ, đăng nhập và dashboard. Lưu ý: chỉ admin sở hữu bot mới được đổi nhé!",
+    suggestions: [
+      "Tính năng ẩn gồm những gì?",
+      "Công cụ mod gồm những gì?",
+      "Giveaway có những tùy chọn gì?",
     ],
   },
   {
@@ -335,13 +359,21 @@ const TOPICS: Topic[] = [
       "dung lenh",
       "commands",
       "lệnh",
+      "timeout",
+      "purge",
+      "kick",
+      "ban",
+      "/mod",
+      "xoa tin nhan",
+      "ta khoa",
+      "cam",
     ],
     answer:
-      "Bot hỗ trợ cả prefix và slash command đó senpai ⌨️! Một số lệnh chính: /heat status — xem nhiệt & warn của thành viên (hiển thị đủ 4 mốc cảnh báo/tạm khóa/kick/ban); /antinuke — bật/tắt, khóa kênh (lockdown) và mở khóa (unlock); /prefix — đổi prefix (mặc định là !). Gõ / trong Discord để xem toàn bộ danh sách slash command, hoặc hỏi em thêm nha!",
+      "Bot hỗ trợ cả prefix và slash command đó senpai ⌨️! Công cụ Mod mới: /mod timeout @user 10m [lý do], /mod kick, /mod ban và /mod purge — mọi hành động đều ghi lý do + người thực hiện vào kênh log. Lệnh text tương đương: !timeout !kick !ban !purge. Giveaway cũng có lệnh: /giveaway start <tên> <giải thưởng> <thời lượng> hoặc !giveaway start Tên | Giải thưởng | 1h. Ngoài ra: /heat status xem nhiệt & warn, /antinuke bật tắt bảo vệ, /prefix đổi prefix. Gõ / trong Discord để xem toàn bộ danh sách slash command nhé!",
     suggestions: [
       "Cách xem nhiệt của thành viên",
-      "Khóa kênh khi raid là gì?",
-      "Đổi prefix ở đâu?",
+      "Giveaway có những tùy chọn gì?",
+      "Đổi avatar bot ở đâu?",
     ],
   },
   {

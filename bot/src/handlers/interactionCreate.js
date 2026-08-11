@@ -1,6 +1,14 @@
 const { EmbedBuilder, Colors } = require("discord.js");
 const { canManageGuild, isAdmin, canManageWithConfig } = require("../util");
 const { isLocked, markLocked, unlockGuild } = require("../lockdown");
+const {
+  parseDuration,
+  canMod,
+  timeoutMember,
+  kickMember,
+  banMember,
+  purgeChannel,
+} = require("./modTools");
 
 const MODULES = [
   "massBan",
@@ -50,6 +58,8 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
             "**Auto Reply** — `/autoreply add` tạo rule từ khóa hoặc @mention, `/autoreply list`, `/autoreply remove`",
             "**Chống nuke** — `/antinuke status`, `/antinuke on|off`, `/antinuke module`, `/antinuke unlock`, `/antinuke lockdown`",
             "**Lọc nội dung** — module \`badword\`, \`invite\`, \`attachment\`, \`mention\` (bật tắt trong `/antinuke module`) · `/badword add|remove|list` · `/heat status`",
+            "**Mod tools** — `/mod timeout @user 10m [lý do]`, `/mod kick`, `/mod ban`, `/mod purge` (ghi log lý do + người thực hiện)",
+            "**Giveaway** — `/giveaway start <tên> <giải thưởng> <thời lượng>`, `/giveaway list`, `/giveaway end`",
             "**Cấu hình** — `/setup log-channel`, `/setup mod-role`, `/setup admin-role`, `/prefix set`",
             "**Khác** — `/ping`",
           ].join("\n"),
@@ -371,6 +381,164 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
         store.invalidate(guild.id);
         return interaction.reply({
           content: `✅ Module \`${moduleName}\` đã ${value === "on" ? "bật" : "tắt"}.`,
+          ephemeral: true,
+        });
+      }
+      return;
+    }
+
+    case "mod": {
+      const sub = interaction.options.getSubcommand();
+      const config = await store.getConfig(guild.id);
+      if (!canMod(interaction, config)) return needPerm(interaction);
+
+      if (sub === "timeout") {
+        const target = interaction.options.getMember("user");
+        const minutes = parseDuration(interaction.options.getString("duration", true));
+        const reason = interaction.options.getString("reason") || undefined;
+        if (!target) {
+          return interaction.reply({ content: "Không tìm thấy thành viên đó.", ephemeral: true });
+        }
+        if (!minutes) {
+          return interaction.reply({
+            content: "Thời lượng không hợp lệ (ví dụ: `10m`, `2h`, `1d`). Tối đa 7 ngày.",
+            ephemeral: true,
+          });
+        }
+        try {
+          const out = await timeoutMember({
+            guild,
+            member: target,
+            executor: interaction.user,
+            minutes,
+            reason,
+            guildConfig: config,
+          });
+          return interaction.reply({ content: `✅ ${out}`, ephemeral: true });
+        } catch (e) {
+          return interaction.reply({ content: `❌ Không thể timeout: ${e.message}`, ephemeral: true });
+        }
+      }
+
+      if (sub === "kick") {
+        const target = interaction.options.getMember("user");
+        const reason = interaction.options.getString("reason") || undefined;
+        if (!target) {
+          return interaction.reply({ content: "Không tìm thấy thành viên đó.", ephemeral: true });
+        }
+        try {
+          const out = await kickMember({
+            guild,
+            member: target,
+            executor: interaction.user,
+            reason,
+            guildConfig: config,
+          });
+          return interaction.reply({ content: `✅ ${out}`, ephemeral: true });
+        } catch (e) {
+          return interaction.reply({ content: `❌ Không thể kick: ${e.message}`, ephemeral: true });
+        }
+      }
+
+      if (sub === "ban") {
+        const target = interaction.options.getMember("user");
+        const reason = interaction.options.getString("reason") || undefined;
+        const deleteDays = Math.max(0, Math.min(7, interaction.options.getInteger("delete_days") ?? 0));
+        if (!target) {
+          return interaction.reply({ content: "Không tìm thấy thành viên đó.", ephemeral: true });
+        }
+        try {
+          const out = await banMember({
+            guild,
+            member: target,
+            executor: interaction.user,
+            reason,
+            deleteDays,
+            guildConfig: config,
+          });
+          return interaction.reply({ content: `✅ ${out}`, ephemeral: true });
+        } catch (e) {
+          return interaction.reply({ content: `❌ Không thể ban: ${e.message}`, ephemeral: true });
+        }
+      }
+
+      if (sub === "purge") {
+        const count = interaction.options.getInteger("count", true);
+        try {
+          const out = await purgeChannel(interaction.channel, count, interaction.user, config);
+          return interaction.reply({ content: `✅ ${out}`, ephemeral: true });
+        } catch (e) {
+          return interaction.reply({ content: `❌ Không thể purge: ${e.message}`, ephemeral: true });
+        }
+      }
+      return;
+    }
+
+    case "giveaway": {
+      const sub = interaction.options.getSubcommand();
+      const config = await store.getConfig(guild.id);
+
+      if (sub === "list") {
+        const giveaways = config?.giveaways || [];
+        if (giveaways.length === 0) {
+          return interaction.reply({ content: "Chưa có giveaway nào.", ephemeral: true });
+        }
+        const lines = giveaways
+          .slice(0, 20)
+          .map((g) => `${g.status === "active" ? "🎉" : "🏁"} **${g.title}** — ${g.entries?.length || 0} lượt tham gia`);
+        const embed = new EmbedBuilder()
+          .setColor(Colors.Aqua)
+          .setTitle(`🎉 Giveaway (${giveaways.length})`)
+          .setDescription(lines.join("\n").slice(0, 4000));
+        return interaction.reply({ embeds: [embed], ephemeral: true });
+      }
+
+      if (!canMod(interaction, config)) return needPerm(interaction);
+
+      if (sub === "start") {
+        const title = interaction.options.getString("title", true);
+        const prize = interaction.options.getString("prize", true);
+        const minutes = parseDuration(interaction.options.getString("duration", true));
+        const winnerCount = Math.max(1, Math.min(20, interaction.options.getInteger("winners") ?? 1));
+        const prizeRole = interaction.options.getRole("prize_role");
+        if (!minutes) {
+          return interaction.reply({
+            content: "Thời lượng không hợp lệ (ví dụ: `30m`, `2h`, `1d`).",
+            ephemeral: true,
+          });
+        }
+        try {
+          await store.client.mutation("hidden:botCreateGiveaway", {
+            guildId: guild.id,
+            channelId: interaction.channel.id,
+            title: title.slice(0, 100),
+            prize: prize.slice(0, 2000),
+            winnerCount,
+            durationMinutes: minutes,
+            dmWinners: true,
+            prizeRoleId: prizeRole ? prizeRole.id : undefined,
+          });
+          store.invalidate(guild.id);
+          return interaction.reply({
+            content: `🎉 Đã tạo giveaway "${title}" tại ${interaction.channel} — bot gửi embed trong ~30 giây!`,
+            ephemeral: true,
+          });
+        } catch (e) {
+          return interaction.reply({ content: `❌ ${e.message}`, ephemeral: true });
+        }
+      }
+
+      if (sub === "end") {
+        const title = interaction.options.getString("title", true);
+        const res = await store.client.mutation("hidden:botGiveawayEndNow", {
+          guildId: guild.id,
+          title,
+        });
+        store.invalidate(guild.id);
+        return interaction.reply({
+          content: res.ok
+            ? `✅ Đã kết thúc giveaway "${title}" — bot chốt người thắng trong ~30 giây.`
+            : `Không tìm thấy giveaway đang chạy tên "${title}".`,
           ephemeral: true,
         });
       }

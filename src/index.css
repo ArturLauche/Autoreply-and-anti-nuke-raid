@@ -55,13 +55,13 @@
 
   body {
     @apply text-foreground antialiased;
-    /* Nền mix: hồng anh đào chuyển dần sang xanh trời */
+    /* Nền mix: hồng anh đào chuyển dần sang xanh trời (tương phản rõ hơn) */
     background: linear-gradient(
-      165deg,
-      hsl(345 100% 92%) 0%,
-      hsl(340 100% 96%) 26%,
-      hsl(220 100% 97%) 62%,
-      hsl(207 90% 88%) 100%
+      160deg,
+      hsl(342 100% 87%) 0%,
+      hsl(341 100% 92%) 20%,
+      hsl(218 100% 93%) 52%,
+      hsl(204 95% 81%) 100%
     ) fixed;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
@@ -103,7 +103,7 @@
   .bg-glow-sakura {
     background: radial-gradient(
       46% 46% at 50% 0%,
-      hsl(342 92% 70% / 0.28) 0%,
+      hsl(342 95% 62% / 0.32) 0%,
       transparent 70%
     );
   }
@@ -111,7 +111,7 @@
   .bg-glow-sky {
     background: radial-gradient(
       46% 46% at 50% 100%,
-      hsl(210 95% 72% / 0.3) 0%,
+      hsl(205 100% 60% / 0.36) 0%,
       transparent 70%
     );
   }
@@ -168,6 +168,32 @@
     animation-timing-function: linear;
     animation-iteration-count: infinite;
     will-change: transform, opacity;
+  }
+
+  /* Thanh nhiệt xoáy: xanh → vàng → đỏ chảy liên tục */
+  @keyframes heat-flow {
+    0% {
+      background-position: 0% 0;
+    }
+    100% {
+      background-position: 220% 0;
+    }
+  }
+
+  .heat-swirl {
+    background: linear-gradient(
+      90deg,
+      #3b82f6,
+      #06b6d4,
+      #22c55e,
+      #eab308,
+      #f97316,
+      #ef4444,
+      #3b82f6
+    );
+    background-size: 220% 100%;
+    animation: heat-flow 2.6s linear infinite;
+    box-shadow: 0 0 10px -2px hsl(45 100% 50% / 0.55);
   }
 
   .chat-bubble-tail {

@@ -14,6 +14,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import CherryBlossom from "../components/CherryBlossom";
+import BotLogo from "../components/BotLogo";
 import HaimiyaChat from "../components/HaimiyaChat";
 import HiddenPanel from "../components/dashboard/HiddenPanel";
 import UnlockPanel, { hiddenUnlockKey } from "../components/dashboard/UnlockPanel";
@@ -102,7 +103,10 @@ export default function GuildPage() {
                 </span>
               )}
               <div>
-                <h1 className="font-display text-2xl font-bold tracking-tight">{data.guild.name}</h1>
+                <div className="flex items-center gap-2.5">
+                  <BotLogo className="h-9 w-9 ring-2 ring-primary/25" fallbackClassName="h-5 w-5" />
+                  <h1 className="font-display text-2xl font-bold tracking-tight">{data.guild.name}</h1>
+                </div>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <Badge variant="outline" className="font-mono">{data.guild.prefix} prefix</Badge>
                   <Badge variant="secondary">
@@ -160,7 +164,9 @@ export default function GuildPage() {
               <p>• Moderation = spam tin, mention, từ xấu, ảnh/file, link mời + link độc hại.</p>
               <p className="mt-1">• Join Gate = chặn selfbot khi vào server.</p>
               <p className="mt-1">• Nuke/raid phạt trực tiếp, không cộng nhiệt.</p>
-              <p className="mt-1">• 🔒 Tính năng ẩn = reaction role, giveaway, gửi DM, auto reply.</p>
+              <p className="mt-1">• 🔒 Tính năng ẩn = reaction role, giveaway, gửi DM, auto reply, tùy chỉnh giao diện — chỉ chủ sở hữu bot.</p>
+              <p className="mt-1">• 🛠️ Lệnh mod: /mod timeout · kick · ban · purge + !timeout !kick !ban !purge.</p>
+              <p className="mt-1">• 🎉 Lệnh giveaway: /giveaway start + !giveaway start.</p>
               <p className="mt-1">• Thay đổi áp dụng trong ~30 giây.</p>
             </div>
           </aside>
@@ -173,7 +179,7 @@ export default function GuildPage() {
             {section === "antinuke" && <AntiNukePanel data={data} />}
             {section === "settings" && <SettingsPanel data={data} />}
             {section === "hidden" &&
-              (data.guild.hiddenPasswordSet && !hiddenUnlocked ? (
+              (!data.guild.isBotOwner || (data.guild.hiddenPasswordSet && !hiddenUnlocked) ? (
                 <UnlockPanel
                   data={data}
                   onUnlocked={() => setHiddenUnlocked(true)}

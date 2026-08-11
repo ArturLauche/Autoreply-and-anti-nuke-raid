@@ -81,6 +81,12 @@ export const getGuild = query({
     const decayPerMin = guild.heatDecayPerMin ?? HEAT_DEFAULTS.decayPerMin;
     const heatStates = await loadHeatStates(ctx, guildId, decayPerMin);
     const safetyPercent = Math.max(0, Math.min(100, 100 - (heatStates[0]?.heat ?? 0)));
+    const botStatus = await ctx.db
+      .query("botStatus")
+      .withIndex("by_kind", (q) => q.eq("kind", "status"))
+      .first();
+    const ownerDiscordId = botStatus?.ownerDiscordId;
+    const isBotOwner = !!ownerDiscordId && ownerDiscordId === user.discordId;
     const panels = (
       await ctx.db
         .query("reactionRolePanels")
@@ -104,6 +110,8 @@ export const getGuild = query({
         prefix: guild.prefix,
         logChannelId: guild.logChannelId ?? null,
         hiddenPasswordSet: !!guild.hiddenPasswordHash,
+        isBotOwner,
+        botOwnerSet: !!ownerDiscordId,
         modRoles: guild.modRoles,
         adminRoles: guild.adminRoles,
         antinukeEnabled: guild.antinukeEnabled,
@@ -187,6 +195,11 @@ export const getGuild = query({
         endsAt: g.endsAt,
         dmWinners: g.dmWinners,
         requiredRoleId: g.requiredRoleId ?? null,
+        prizeRoleId: g.prizeRoleId ?? null,
+        template: g.template ?? "default",
+        message: g.message ?? null,
+        imageUrl: g.imageUrl ?? null,
+        endMessage: g.endMessage ?? null,
         status: g.status,
         messageId: g.messageId ?? "",
         entriesCount: g.entries.length,
@@ -219,6 +232,11 @@ export const getBotConfig = query({
     const decayPerMin = guild.heatDecayPerMin ?? HEAT_DEFAULTS.decayPerMin;
     const heatStates = await loadHeatStates(ctx, guildId, decayPerMin);
     const safetyPercent = Math.max(0, Math.min(100, 100 - (heatStates[0]?.heat ?? 0)));
+    const giveaways = await ctx.db
+      .query("giveaways")
+      .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
+      .order("desc")
+      .take(20);
     return {
       prefix: guild.prefix,
       logChannelId: guild.logChannelId ?? null,
@@ -259,6 +277,12 @@ export const getBotConfig = query({
       dmMessage: guild.dmMessage ?? null,
       heatStates,
       autoReplies,
+      giveaways: giveaways.map((g) => ({
+        title: g.title,
+        status: g.status,
+        endsAt: g.endsAt,
+        entries: g.entries,
+      })),
       modules: modules.map((m) => ({
         module: m.module,
         enabled: m.enabled,

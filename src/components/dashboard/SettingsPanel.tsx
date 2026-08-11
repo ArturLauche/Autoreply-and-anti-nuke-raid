@@ -211,11 +211,19 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
             </CardTitle>
             <CardDescription>
               Đặt mật khẩu để mở khóa các tính năng dành riêng cho admin: reaction role,
-              giveaway, gửi DM trực tiếp và auto reply. Chỉ quản trị viên biết mật khẩu mới
-              xem được mục này.
+              giveaway, gửi DM trực tiếp, auto reply và tùy chỉnh giao diện. Chỉ <b>admin sở
+              hữu bot</b> được phép đặt mật khẩu này.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            {!data.guild.isBotOwner && (
+              <p className="rounded-lg bg-amber-500/10 px-3 py-2.5 text-xs text-amber-700">
+                🔒 Bạn không phải admin sở hữu bot — không được phép tương tác mật khẩu tính
+                năng ẩn. Chỉ chủ sở hữu bot (tài khoản Discord đã tạo bot) mới được đặt / đổi
+                / xóa mật khẩu này.
+              </p>
+            )}
+            <div className={data.guild.isBotOwner ? "space-y-3" : "pointer-events-none opacity-50"}>
             <div className="grid flex-1 gap-1.5">
               <Label>Mật khẩu mới</Label>
               <Input
@@ -281,9 +289,10 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
               {data.guild.hiddenPasswordSet ? (
                 <span className="font-medium text-emerald-400">Đã đặt mật khẩu</span>
               ) : (
-                <span className="font-medium text-amber-400">Chưa đặt — mọi quản trị viên đều thấy tính năng ẩn</span>
+                <span className="font-medium text-amber-400">Chưa đặt mật khẩu</span>
               )}
             </p>
+            </div>
           </CardContent>
         </Card>
       </div>

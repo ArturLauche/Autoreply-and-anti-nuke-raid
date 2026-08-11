@@ -6,6 +6,15 @@ const {
   ButtonStyle,
 } = require("discord.js");
 const { canManageGuild, isAdmin, canManageWithConfig } = require("../util");
+const {
+  parseDuration,
+  canMod,
+  needPerm,
+  timeoutMember,
+  kickMember,
+  banMember,
+  purgeChannel,
+} = require("../handlers/modTools");
 
 const { isLocked, markLocked, unlockGuild } = require("../lockdown");
 
@@ -59,11 +68,17 @@ async function handleHelp(client, message) {
         "!badword remove <từ>   - xóa từ ngữ xấu",
         "!badword list          - danh sách từ ngữ xấu",
         "!heat                  - xem mức nhiệt độ vi phạm",
+        "!timeout @user 10m [lý do] - tạm khóa thành viên",
+        "!kick @user [lý do]    - kick thành viên",
+        "!ban @user [lý do]     - ban thành viên (--days 7 xóa tin nhắn)",
+        "!purge <số>            - xóa hàng loạt tin nhắn",
+        "!giveaway start <Tên> | <Giải thưởng> | <thời lượng>",
+        "!giveaway list | end <tên>",
         "!setlog #kênh          - đặt kênh log",
         "```",
       ].join("\n"),
     )
-    .setFooter({ text: "Slash command tương đương: /help /prefix /autoreply /antinuke /badword /heat /setup" });
+    .setFooter({ text: "Slash command tương đương: /help /prefix /autoreply /antinuke /badword /heat /mod /giveaway /setup" });
   await message.reply({ embeds: [embed] });
 }
 
@@ -359,6 +374,162 @@ async function handleSetlog(client, message, args, config, store) {
   });
 }
 
+async function handleTimeout(client, message, args, config, store) {
+  if (!canMod(message, config)) return needPerm(message.channel);
+  const member = message.mentions.members.first();
+  const minutes = parseDuration(args[1]);
+  if (!member) return message.reply("Tag thành viên cần timeout: `!timeout @user 10m [lý do]`");
+  if (!minutes) {
+    return message.reply("Thời lượng không hợp lệ (ví dụ: `10m`, `2h`, `1d`, hoặc số phút). Tối đa 7 ngày.");
+  }
+  const reason = args.slice(2).join(" ").trim() || undefined;
+  try {
+    const out = await timeoutMember({
+      guild: message.guild,
+      member,
+      executor: message.author,
+      minutes,
+      reason,
+      guildConfig: config,
+    });
+    return message.reply(`✅ ${out}`);
+  } catch (e) {
+    return message.reply(`❌ Không thể timeout: ${e.message}`);
+  }
+}
+
+async function handlePurge(client, message, args, config, store) {
+  if (!canMod(message, config)) return needPerm(message.channel);
+  const count = parseInt(args[0], 10);
+  if (!Number.isFinite(count) || count <= 0) {
+    return message.reply("Cú pháp: `!purge <số tin nhắn tối đa 100>`");
+  }
+  try {
+    const out = await purgeChannel(message.channel, count, message.author, config);
+    const sent = await message.reply(`✅ ${out}`);
+    setTimeout(() => sent.delete().catch(() => {}), 5000);
+  } catch (e) {
+    return message.reply(`❌ Không thể purge: ${e.message}`);
+  }
+}
+
+async function handleKick(client, message, args, config, store) {
+  if (!canMod(message, config)) return needPerm(message.channel);
+  const member = message.mentions.members.first();
+  if (!member) return message.reply("Tag thành viên cần kick: `!kick @user [lý do]`");
+  const reason = args.slice(1).join(" ").trim() || undefined;
+  try {
+    const out = await kickMember({
+      guild: message.guild,
+      member,
+      executor: message.author,
+      reason,
+      guildConfig: config,
+    });
+    return message.reply(`✅ ${out}`);
+  } catch (e) {
+    return message.reply(`❌ Không thể kick: ${e.message}`);
+  }
+}
+
+async function handleBan(client, message, args, config, store) {
+  if (!canMod(message, config)) return needPerm(message.channel);
+  const member = message.mentions.members.first();
+  if (!member) return message.reply("Tag thành viên cần ban: `!ban @user [lý do]`");
+  const rest = args.slice(1).join(" ");
+  const daysMatch = /--days (\d+)/.exec(rest);
+  const deleteDays = daysMatch ? Math.max(0, Math.min(7, parseInt(daysMatch[1], 10))) : 0;
+  const reason = rest.replace(/--days \d+/, "").trim() || undefined;
+  try {
+    const out = await banMember({
+      guild: message.guild,
+      member,
+      executor: message.author,
+      reason,
+      deleteDays,
+      guildConfig: config,
+    });
+    return message.reply(`✅ ${out}`);
+  } catch (e) {
+    return message.reply(`❌ Không thể ban: ${e.message}`);
+  }
+}
+
+async function handleGiveaway(client, message, args, config, store) {
+  const sub = args[0]?.toLowerCase();
+
+  if (sub === "list") {
+    const giveaways = config.giveaways || [];
+    if (giveaways.length === 0) {
+      return message.reply("Chưa có giveaway nào — tạo bằng `!giveaway start` hoặc trên dashboard.");
+    }
+    const lines = giveaways
+      .slice(0, 20)
+      .map(
+        (g) =>
+          `${g.status === "active" ? "🎉" : g.status === "ended" ? "🏁" : "🚫"} **${g.title}** — ${g.entries?.length || 0} lượt tham gia — ${g.status}`,
+      );
+    const embed = new EmbedBuilder()
+      .setColor(Colors.Aqua)
+      .setTitle(`🎉 Giveaway (${giveaways.length})`)
+      .setDescription(lines.join("\n").slice(0, 4000));
+    return message.reply({ embeds: [embed] });
+  }
+
+  if (sub === "end") {
+    if (!canMod(message, config)) return needPerm(message.channel);
+    const name = args.slice(1).join(" ").trim();
+    if (!name) return message.reply("Cú pháp: `!giveaway end <tên giveaway>`");
+    const res = await store.client.mutation("hidden:botGiveawayEndNow", {
+      guildId: message.guild.id,
+      title: name,
+    });
+    store.invalidate(message.guild.id);
+    return message.reply(
+      res.ok
+        ? `✅ Đã kết thúc giveaway "${name}" — bot sẽ chốt người thắng trong ~30 giây.`
+        : `Không tìm thấy giveaway đang chạy tên "${name}".`,
+    );
+  }
+
+  if (sub === "start") {
+    if (!canMod(message, config)) return needPerm(message.channel);
+    // !giveaway start <Tên> | <Giải thưởng> | <thời lượng> [số người thắng]
+    const parts = args.slice(1).join(" ").split("|").map((p) => p.trim());
+    if (parts.length < 3) {
+      return message.reply(
+        "Cú pháp: `!giveaway start <Tên> | <Giải thưởng> | <thời lượng: 5p, 1h, 1d, 60> [số người thắng, mặc định 1]`",
+      );
+    }
+    const title = parts[0];
+    const prize = parts[1];
+    const minutes = parseDuration(parts[2]);
+    const winnerCount = parseInt(parts[3] || "1", 10) || 1;
+    if (!minutes) return message.reply("Thời lượng không hợp lệ (ví dụ: `30m`, `2h`, `1d`).");
+    try {
+      await store.client.mutation("hidden:botCreateGiveaway", {
+        guildId: message.guild.id,
+        channelId: message.channel.id,
+        title: title.slice(0, 100),
+        prize: prize.slice(0, 2000),
+        winnerCount: Math.max(1, Math.min(20, winnerCount)),
+        durationMinutes: minutes,
+        dmWinners: true,
+      });
+      store.invalidate(message.guild.id);
+      return message.reply(
+        `🎉 Đã tạo giveaway "${title}" ngay tại kênh này — bot gửi embed trong ~30 giây!`,
+      );
+    } catch (e) {
+      return message.reply(`❌ ${e.message}`);
+    }
+  }
+
+  return message.reply(
+    "Cú pháp: `!giveaway start <Tên> | <Giải thưởng> | <thời lượng> [số người thắng]` · `!giveaway list` · `!giveaway end <tên>`",
+  );
+}
+
 module.exports = {
   help: handleHelp,
   ping: handlePing,
@@ -369,4 +540,9 @@ module.exports = {
   badword: handleBadword,
   heat: handleHeat,
   setlog: handleSetlog,
+  timeout: handleTimeout,
+  purge: handlePurge,
+  kick: handleKick,
+  ban: handleBan,
+  giveaway: handleGiveaway,
 };

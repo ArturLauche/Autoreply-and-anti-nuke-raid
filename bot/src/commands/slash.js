@@ -134,6 +134,108 @@ const commands = [
     ],
   },
   {
+    name: "mod",
+    description: "Công cụ mod: timeout, kick, ban, purge (ghi log lý do + người thực hiện)",
+    options: [
+      {
+        name: "timeout",
+        description: "Tạm khóa thành viên trong một khoảng thời gian",
+        type: 1,
+        options: [
+          { name: "user", description: "Thành viên cần timeout", type: 6, required: true },
+          {
+            name: "duration",
+            description: "Thời lượng: 10m, 2h, 1d, hoặc số phút (tối đa 7 ngày)",
+            type: 3,
+            required: true,
+          },
+          { name: "reason", description: "Lý do", type: 3, required: false },
+        ],
+      },
+      {
+        name: "kick",
+        description: "Kick thành viên khỏi server",
+        type: 1,
+        options: [
+          { name: "user", description: "Thành viên cần kick", type: 6, required: true },
+          { name: "reason", description: "Lý do", type: 3, required: false },
+        ],
+      },
+      {
+        name: "ban",
+        description: "Ban thành viên khỏi server",
+        type: 1,
+        options: [
+          { name: "user", description: "Thành viên cần ban", type: 6, required: true },
+          { name: "reason", description: "Lý do", type: 3, required: false },
+          {
+            name: "delete_days",
+            description: "Xóa tin nhắn của họ trong N ngày (0-7)",
+            type: 4,
+            required: false,
+          },
+        ],
+      },
+      {
+        name: "purge",
+        description: "Xóa hàng loạt tin nhắn trong kênh hiện tại",
+        type: 1,
+        options: [
+          {
+            name: "count",
+            description: "Số tin nhắn cần xóa (1-100)",
+            type: 4,
+            required: true,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    name: "giveaway",
+    description: "Quản lý giveaway ngay trong Discord",
+    options: [
+      {
+        name: "start",
+        description: "Tạo giveaway mới tại kênh hiện tại",
+        type: 1,
+        options: [
+          { name: "title", description: "Tên giveaway", type: 3, required: true },
+          { name: "prize", description: "Giải thưởng", type: 3, required: true },
+          {
+            name: "duration",
+            description: "Thời lượng: 30m, 2h, 1d (tối đa 7 ngày)",
+            type: 3,
+            required: true,
+          },
+          {
+            name: "winners",
+            description: "Số người thắng (1-20, mặc định 1)",
+            type: 4,
+            required: false,
+          },
+          {
+            name: "prize_role",
+            description: "Role tự cấp cho người thắng",
+            type: 8,
+            required: false,
+          },
+        ],
+      },
+      {
+        name: "list",
+        description: "Xem danh sách giveaway đang chạy",
+        type: 1,
+      },
+      {
+        name: "end",
+        description: "Kết thúc giveaway sớm (bot chốt người thắng)",
+        type: 1,
+        options: [{ name: "title", description: "Tên giveaway cần kết thúc", type: 3, required: true }],
+      },
+    ],
+  },
+  {
     name: "setup",
     description: "Cấu hình nhanh bot cho server",
     options: [
