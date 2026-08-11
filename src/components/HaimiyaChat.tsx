@@ -220,8 +220,8 @@ export default function HaimiyaChat({
           open && "pointer-events-none opacity-0",
         )}
       >
-        <span className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white/95 ring-2 ring-white/60 shadow-inner">
-          <HaimiyaAvatar className="h-10 w-10" src={avatarSrc} />
+        <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white/95 ring-2 ring-white/60 shadow-inner">
+          <HaimiyaAvatar className="h-12 w-12" src={avatarSrc} />
           <span className="absolute -right-0.5 -top-0.5 flex h-3 w-3">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
             <span className="relative inline-flex h-3 w-3 rounded-full border-2 border-white bg-emerald-400" />
@@ -244,8 +244,8 @@ export default function HaimiyaChat({
           {/* Header */}
           <div className="relative flex items-center gap-3 bg-gradient-to-r from-[#ffb3d1] via-[#f79fc6] to-[#8fc8ff] px-4 py-3">
             <div className="relative">
-              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/95 ring-2 ring-white/50">
-                <HaimiyaAvatar className="h-10 w-10" src={avatarSrc} />
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/95 ring-2 ring-white/50">
+                <HaimiyaAvatar className="h-11 w-11" src={avatarSrc} />
               </span>
               <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#f79fc6] bg-emerald-400" />
             </div>
@@ -274,8 +274,8 @@ export default function HaimiyaChat({
                 className={cn("flex items-end gap-2", m.role === "user" && "justify-end")}
               >
                 {m.role === "haimiya" && (
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/95 ring-1 ring-border">
-                    <HaimiyaAvatar className="h-7 w-7" src={avatarSrc} />
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/95 ring-1 ring-border">
+                    <HaimiyaAvatar className="h-8 w-8" src={avatarSrc} />
                   </span>
                 )}
                 <div
@@ -305,8 +305,8 @@ export default function HaimiyaChat({
             ))}
             {typing && (
               <div className="flex items-end gap-2">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/95 ring-1 ring-border">
-                  <HaimiyaAvatar className="h-7 w-7" src={avatarSrc} />
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/95 ring-1 ring-border">
+                  <HaimiyaAvatar className="h-8 w-8" src={avatarSrc} />
                 </span>
                 <div className="chat-bubble-tail haimiya rounded-2xl rounded-bl-sm border border-border bg-secondary/80 px-3.5">
                   <TypingDots />

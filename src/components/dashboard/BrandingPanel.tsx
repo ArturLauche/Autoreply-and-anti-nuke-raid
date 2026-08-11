@@ -168,11 +168,11 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
               <div className="flex items-start gap-3">
                 <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/80 ring-2 ring-primary/30">
                   {slot === "haimiya" ? (
-                    <HaimiyaAvatar className="h-14 w-14" src={current[slot]} />
+                    <HaimiyaAvatar className="h-16 w-16" src={current[slot]} />
                   ) : current[slot] ? (
                     <img src={current[slot]} alt="Bot" className="h-14 w-14 rounded-full object-cover" />
                   ) : (
-                    <HaimiyaAvatar className="h-14 w-14" />
+                    <HaimiyaAvatar className="h-16 w-16" />
                   )}
                 </span>
                 <div className="min-w-0">

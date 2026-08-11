@@ -115,7 +115,7 @@ export default function GuildPage() {
               )}
               <div>
                 <div className="flex items-center gap-2.5">
-                  <BotLogo className="h-9 w-9 ring-2 ring-primary/25" fallbackClassName="h-5 w-5" />
+                  <BotLogo className="h-11 w-11 ring-2 ring-primary/25" fallbackClassName="h-6 w-6" />
                   <h1 className="font-display text-2xl font-bold tracking-tight">{data.guild.name}</h1>
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
