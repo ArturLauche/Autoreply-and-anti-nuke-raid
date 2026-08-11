@@ -81,6 +81,20 @@ export const getGuild = query({
     const decayPerMin = guild.heatDecayPerMin ?? HEAT_DEFAULTS.decayPerMin;
     const heatStates = await loadHeatStates(ctx, guildId, decayPerMin);
     const safetyPercent = Math.max(0, Math.min(100, 100 - (heatStates[0]?.heat ?? 0)));
+    const panels = (
+      await ctx.db
+        .query("reactionRolePanels")
+        .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
+        .collect()
+    ).sort((a, b) => b.createdAt - a.createdAt);
+    const giveaways = (
+      await ctx.db
+        .query("giveaways")
+        .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
+        .collect()
+    )
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 30);
     return {
       guild: {
         discordId: guild.discordId,
@@ -89,6 +103,7 @@ export const getGuild = query({
         memberCount: guild.memberCount ?? null,
         prefix: guild.prefix,
         logChannelId: guild.logChannelId ?? null,
+        hiddenPasswordSet: !!guild.hiddenPasswordHash,
         modRoles: guild.modRoles,
         adminRoles: guild.adminRoles,
         antinukeEnabled: guild.antinukeEnabled,
@@ -153,6 +168,31 @@ export const getGuild = query({
         color: r.color,
         position: r.position,
       })),
+      panels: panels.map((p) => ({
+        _id: p._id,
+        channelId: p.channelId,
+        label: p.label,
+        entries: p.entries,
+        messageId: p.messageId ?? "",
+        enabled: p.enabled,
+        createdAt: p.createdAt,
+      })),
+      giveaways: giveaways.map((g) => ({
+        _id: g._id,
+        channelId: g.channelId,
+        title: g.title,
+        prize: g.prize,
+        winnerCount: g.winnerCount,
+        durationMinutes: g.durationMinutes,
+        endsAt: g.endsAt,
+        dmWinners: g.dmWinners,
+        requiredRoleId: g.requiredRoleId ?? null,
+        status: g.status,
+        messageId: g.messageId ?? "",
+        entriesCount: g.entries.length,
+        winners: g.winners,
+        createdAt: g.createdAt,
+      })),
     };
   },
 });
@@ -213,6 +253,10 @@ export const getBotConfig = query({
       warnStrikeLimit: guild.warnStrikeLimit ?? WARN_STRIKE_DEFAULTS.limit,
       warnStrikeWindowMin: guild.warnStrikeWindowMin ?? WARN_STRIKE_DEFAULTS.windowMin,
       warnStrikePunish: guild.warnStrikePunish ?? WARN_STRIKE_DEFAULTS.punish,
+      dmRequested: guild.dmRequested ?? false,
+      dmTargetUserId: guild.dmTargetUserId ?? null,
+      dmTargetUsername: guild.dmTargetUsername ?? null,
+      dmMessage: guild.dmMessage ?? null,
       heatStates,
       autoReplies,
       modules: modules.map((m) => ({

@@ -18,7 +18,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { discordGuildIconUrl, SESSION_TOKEN_KEY } from "../lib/discord";
+import { discordGuildIconUrl, getSessionToken } from "../lib/discord";
 import { ANTINUKE_MODULE_META, ANTINUKE_ORDER, PUNISH_LABEL } from "../lib/constants";
 import type { GuildData } from "../lib/types";
 
@@ -43,7 +43,7 @@ function dateToTs(d: string, endOfDay: boolean): number | undefined {
 
 export default function GuildHistory() {
   const { guildId = "" } = useParams();
-  const token = localStorage.getItem(SESSION_TOKEN_KEY) ?? "";
+  const token = getSessionToken();
 
   const [filterModule, setFilterModule] = useState<string>("all");
   const [fromDate, setFromDate] = useState("");

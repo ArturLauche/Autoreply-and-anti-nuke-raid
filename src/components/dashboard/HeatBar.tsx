@@ -6,8 +6,9 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { HEAT_DEFAULTS, HEAT_TIER_LABEL } from "../../lib/constants";
 import type { GuildData, HeatState } from "../../lib/types";
+import { getSessionToken } from "../../lib/discord";
 
-const TOKEN = () => localStorage.getItem("wio_session_token") ?? "";
+const TOKEN = () => getSessionToken();
 
 /** Nhiệt độ hiệu dụng sau khi trừ decay theo thời gian. */
 export function effectiveHeat(

@@ -61,9 +61,46 @@ export default defineSchema({
     warnStrikePunish: v.optional(
       v.union(v.literal("timeout"), v.literal("kick"), v.literal("ban")),
     ),
+    hiddenPasswordHash: v.optional(v.string()),
+    dmTargetUserId: v.optional(v.string()),
+    dmTargetUsername: v.optional(v.string()),
+    dmMessage: v.optional(v.string()),
+    dmRequested: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_discordId", ["discordId"]),
+
+  reactionRolePanels: defineTable({
+    guildId: v.string(),
+    channelId: v.string(),
+    label: v.string(),
+    entries: v.array(v.object({ emoji: v.string(), roleId: v.string() })),
+    messageId: v.optional(v.string()),
+    enabled: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_guildId", ["guildId"])
+    .index("by_guildId_posted", ["guildId", "messageId"]),
+
+  giveaways: defineTable({
+    guildId: v.string(),
+    channelId: v.string(),
+    title: v.string(),
+    prize: v.string(),
+    winnerCount: v.number(),
+    durationMinutes: v.number(),
+    endsAt: v.number(),
+    dmWinners: v.boolean(),
+    requiredRoleId: v.optional(v.string()),
+    status: v.union(v.literal("active"), v.literal("ended"), v.literal("cancelled")),
+    messageId: v.optional(v.string()),
+    entries: v.array(v.object({ userId: v.string(), username: v.string() })),
+    winners: v.array(v.object({ userId: v.string(), username: v.string() })),
+    createdAt: v.number(),
+  })
+    .index("by_guildId", ["guildId"])
+    .index("by_guildId_endsAt", ["guildId", "endsAt"]),
 
   autoReplies: defineTable({
     guildId: v.string(),

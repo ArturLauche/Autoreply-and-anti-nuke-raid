@@ -6,6 +6,7 @@ const {
   ActivityType,
   Collection,
   LimitedCollection,
+  Partials,
 } = require("discord.js");
 const ConvexStore = require("./convex");
 const guildSync = require("./handlers/guildSync");
@@ -17,8 +18,16 @@ const joinGate = require("./handlers/joinGate");
 const { HeatTracker } = require("./heat");
 const { runDailyReports } = require("./handlers/dailyReport");
 const { registerCommands } = require("./register-slash");
+const { setupHidden } = require("./handlers/hidden");
 
 const client = new Client({
+  partials: [
+    Partials.Message,
+    Partials.Channel,
+    Partials.Reaction,
+    Partials.User,
+    Partials.GuildMember,
+  ],
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
@@ -95,6 +104,7 @@ client.on("guildCreate", () => guildSync.syncAll(client, store).catch(() => {}))
 client.on("guildDelete", () => guildSync.syncAll(client, store).catch(() => {}));
 
 antinuke.attach();
+setupHidden(client, store);
 
 client.login(process.env.DISCORD_TOKEN).catch((err) => {
   console.error("❌ Không thể đăng nhập Discord:", err.message);

@@ -1,12 +1,12 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { SESSION_TOKEN_KEY } from "../lib/discord";
+import { getSessionToken } from "../lib/discord";
 import { Loader2 } from "lucide-react";
 
 export default function RequireAuth({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const token = localStorage.getItem(SESSION_TOKEN_KEY) ?? "";
+  const token = getSessionToken();
   const me = useQuery(api.sessions.me, { token });
 
   if (me === undefined) {

@@ -20,8 +20,9 @@ import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import type { GuildData } from "../../lib/types";
+import { getSessionToken } from "../../lib/discord";
 
-const TOKEN = () => localStorage.getItem("wio_session_token") ?? "";
+const TOKEN = () => getSessionToken();
 
 function ModuleNumber({
   value,

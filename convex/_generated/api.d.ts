@@ -13,10 +13,12 @@ import type * as auth from "../auth.js";
 import type * as autoreplies from "../autoreplies.js";
 import type * as bot_writes from "../bot_writes.js";
 import type * as guilds from "../guilds.js";
+import type * as hidden from "../hidden.js";
 import type * as modules from "../modules.js";
 import type * as public_ from "../public.js";
 import type * as reports from "../reports.js";
 import type * as sessions from "../sessions.js";
+import type * as sha256 from "../sha256.js";
 
 import type {
   ApiFromModules,
@@ -30,10 +32,12 @@ declare const fullApi: ApiFromModules<{
   autoreplies: typeof autoreplies;
   bot_writes: typeof bot_writes;
   guilds: typeof guilds;
+  hidden: typeof hidden;
   modules: typeof modules;
   public: typeof public_;
   reports: typeof reports;
   sessions: typeof sessions;
+  sha256: typeof sha256;
 }>;
 
 /**

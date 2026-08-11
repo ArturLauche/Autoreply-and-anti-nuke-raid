@@ -12,8 +12,9 @@ import { useEffect, useState } from "react";
 import { ANTINUKE_MODULE_META, NUKE_MODULES } from "../../lib/constants";
 import ModuleCard from "./ModuleCard";
 import type { GuildData, ModuleConfig } from "../../lib/types";
+import { getSessionToken } from "../../lib/discord";
 
-const TOKEN = () => localStorage.getItem("wio_session_token") ?? "";
+const TOKEN = () => getSessionToken();
 
 function ModuleNumber({
   value,

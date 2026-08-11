@@ -8,42 +8,46 @@ import {
   ExternalLink,
   LayoutDashboard,
   Loader2,
-  MessageSquareReply,
+  Lock,
   Settings,
   ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
 import CherryBlossom from "../components/CherryBlossom";
 import HaimiyaChat from "../components/HaimiyaChat";
+import HiddenPanel from "../components/dashboard/HiddenPanel";
+import UnlockPanel, { hiddenUnlockKey } from "../components/dashboard/UnlockPanel";
 import { api } from "../../convex/_generated/api";
 import { Badge } from "../components/ui/badge";
 import { cn } from "../lib/utils";
-import { buildBotInviteUrl, discordGuildIconUrl, SESSION_TOKEN_KEY } from "../lib/discord";
+import { buildBotInviteUrl, discordGuildIconUrl, getSessionToken } from "../lib/discord";
 import { usePublicConfig } from "../lib/usePublicConfig";
 import { timeAgo } from "../lib/utils";
 import type { GuildData } from "../lib/types";
 import OverviewPanel from "../components/dashboard/OverviewPanel";
-import AutoReplyPanel from "../components/dashboard/AutoReplyPanel";
 import AntiNukePanel from "../components/dashboard/AntiNukePanel";
 import ModerationPanel from "../components/dashboard/ModerationPanel";
 import JoinGatePanel from "../components/dashboard/JoinGatePanel";
 import SettingsPanel from "../components/dashboard/SettingsPanel";
 
-type SectionKey = "overview" | "moderation" | "joingate" | "antinuke" | "autoreply" | "settings";
+type SectionKey = "overview" | "moderation" | "joingate" | "antinuke" | "hidden" | "settings";
 
 const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "overview", label: "Tổng quan", icon: LayoutDashboard },
   { key: "moderation", label: "Moderation", icon: ShieldCheck },
   { key: "joingate", label: "Join Gate", icon: DoorOpen },
   { key: "antinuke", label: "Chống nuke / raid", icon: ShieldAlert },
-  { key: "autoreply", label: "Auto Reply", icon: MessageSquareReply },
+  { key: "hidden", label: "Tính năng ẩn 🔒", icon: Lock },
   { key: "settings", label: "Cài đặt", icon: Settings },
 ];
 
 export default function GuildPage() {
   const { guildId = "" } = useParams();
   const [section, setSection] = useState<SectionKey>("overview");
-  const token = localStorage.getItem(SESSION_TOKEN_KEY) ?? "";
+  const [hiddenUnlocked, setHiddenUnlocked] = useState(
+    () => sessionStorage.getItem(hiddenUnlockKey(guildId)) === "1",
+  );
+  const token = getSessionToken();
   const data = useQuery(api.guilds.getGuild, { token, guildId }) as GuildData | null | undefined;
   const { clientId } = usePublicConfig();
 
@@ -156,7 +160,7 @@ export default function GuildPage() {
               <p>• Moderation = spam tin, mention, từ xấu, ảnh/file, link mời + link độc hại.</p>
               <p className="mt-1">• Join Gate = chặn selfbot khi vào server.</p>
               <p className="mt-1">• Nuke/raid phạt trực tiếp, không cộng nhiệt.</p>
-              <p className="mt-1">• Bảng nhiệt & warn có nút xóa từng người.</p>
+              <p className="mt-1">• 🔒 Tính năng ẩn = reaction role, giveaway, gửi DM, auto reply.</p>
               <p className="mt-1">• Thay đổi áp dụng trong ~30 giây.</p>
             </div>
           </aside>
@@ -167,8 +171,31 @@ export default function GuildPage() {
             {section === "moderation" && <ModerationPanel data={data} />}
             {section === "joingate" && <JoinGatePanel data={data} />}
             {section === "antinuke" && <AntiNukePanel data={data} />}
-            {section === "autoreply" && <AutoReplyPanel data={data} />}
             {section === "settings" && <SettingsPanel data={data} />}
+            {section === "hidden" &&
+              (data.guild.hiddenPasswordSet && !hiddenUnlocked ? (
+                <UnlockPanel
+                  data={data}
+                  onUnlocked={() => setHiddenUnlocked(true)}
+                />
+              ) : (
+                <>
+                  {data.guild.hiddenPasswordSet && (
+                    <div className="mb-4 flex justify-end">
+                      <button
+                        onClick={() => {
+                          sessionStorage.removeItem(hiddenUnlockKey(data.guild.discordId));
+                          setHiddenUnlocked(false);
+                        }}
+                        className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      >
+                        <Lock className="h-3.5 w-3.5" /> Khóa lại
+                      </button>
+                    </div>
+                  )}
+                  <HiddenPanel data={data} />
+                </>
+              ))}
 
             <div className="mt-10 flex justify-center">
               <a

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
-import { BarChart3, Command, Hash, Save, ShieldHalf, Shield } from "lucide-react";
+import { BarChart3, Command, Hash, KeyRound, Save, ShieldHalf, Shield, Trash2 } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
@@ -11,11 +11,15 @@ import { Switch } from "../ui/switch";
 import { MultiSelect } from "../ui/multi-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import type { GuildData } from "../../lib/types";
+import { getSessionToken } from "../../lib/discord";
 
-const TOKEN = () => localStorage.getItem("wio_session_token") ?? "";
+const TOKEN = () => getSessionToken();
 
 export default function SettingsPanel({ data }: { data: GuildData }) {
   const updateSettings = useMutation(api.guilds.updateSettings);
+  const setHiddenPassword = useMutation(api.hidden.setHiddenPassword);
+  const [hiddenPassword, setHiddenPasswordInput] = useState("");
+  const [hiddenSaving, setHiddenSaving] = useState(false);
 
   const [prefix, setPrefix] = useState(data.guild.prefix);
   const [logChannelId, setLogChannelId] = useState(data.guild.logChannelId ?? "none");
@@ -197,6 +201,89 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
             <Button className="mt-4 w-full" onClick={handleSave} disabled={saving}>
               <Save className="h-4 w-4" /> Lưu thay đổi
             </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="border-primary/25">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <KeyRound className="h-4 w-4 text-primary" /> Mật khẩu tính năng ẩn 🔒
+            </CardTitle>
+            <CardDescription>
+              Đặt mật khẩu để mở khóa các tính năng dành riêng cho admin: reaction role,
+              giveaway, gửi DM trực tiếp và auto reply. Chỉ quản trị viên biết mật khẩu mới
+              xem được mục này.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid flex-1 gap-1.5">
+              <Label>Mật khẩu mới</Label>
+              <Input
+                type="password"
+                value={hiddenPassword}
+                onChange={(e) => setHiddenPasswordInput(e.target.value)}
+                placeholder={
+                  data.guild.hiddenPasswordSet
+                    ? "Nhập mật khẩu mới để thay đổi…"
+                    : "Nhập mật khẩu (4–64 ký tự)…"
+                }
+                maxLength={64}
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                disabled={hiddenSaving || hiddenPassword.length < 4}
+                onClick={async () => {
+                  setHiddenSaving(true);
+                  try {
+                    await setHiddenPassword({
+                      token: TOKEN(),
+                      guildId: data.guild.discordId,
+                      password: hiddenPassword,
+                    });
+                    toast.success("Đã đặt mật khẩu tính năng ẩn");
+                    setHiddenPasswordInput("");
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+                  } finally {
+                    setHiddenSaving(false);
+                  }
+                }}
+              >
+                <KeyRound className="h-4 w-4" /> {data.guild.hiddenPasswordSet ? "Đổi mật khẩu" : "Đặt mật khẩu"}
+              </Button>
+              {data.guild.hiddenPasswordSet && (
+                <Button
+                  variant="outline"
+                  disabled={hiddenSaving}
+                  onClick={async () => {
+                    setHiddenSaving(true);
+                    try {
+                      await setHiddenPassword({
+                        token: TOKEN(),
+                        guildId: data.guild.discordId,
+                        password: "",
+                      });
+                      toast.success("Đã xóa mật khẩu tính năng ẩn");
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Xóa thất bại");
+                    } finally {
+                      setHiddenSaving(false);
+                    }
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" /> Xóa mật khẩu
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Trạng thái:{" "}
+              {data.guild.hiddenPasswordSet ? (
+                <span className="font-medium text-emerald-400">Đã đặt mật khẩu</span>
+              ) : (
+                <span className="font-medium text-amber-400">Chưa đặt — mọi quản trị viên đều thấy tính năng ẩn</span>
+              )}
+            </p>
           </CardContent>
         </Card>
       </div>

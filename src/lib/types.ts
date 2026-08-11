@@ -121,10 +121,40 @@ export interface GuildData {
     warnStrikeWindowMin: number;
     warnStrikePunish: "timeout" | "kick" | "ban";
     safetyPercent: number;
+    hiddenPasswordSet: boolean;
   };
   heatStates: HeatState[];
   autoReplies: AutoReply[];
   modules: ModuleConfig[];
   channels: ChannelInfo[];
   roles: RoleInfo[];
+  panels: ReactionRolePanel[];
+  giveaways: Giveaway[];
+}
+
+export interface ReactionRolePanel {
+  _id: GenericId<"reactionRolePanels">;
+  channelId: string;
+  label: string;
+  entries: { emoji: string; roleId: string }[];
+  messageId: string;
+  enabled: boolean;
+  createdAt: number;
+}
+
+export interface Giveaway {
+  _id: GenericId<"giveaways">;
+  channelId: string;
+  title: string;
+  prize: string;
+  winnerCount: number;
+  durationMinutes: number;
+  endsAt: number;
+  dmWinners: boolean;
+  requiredRoleId: string | null;
+  status: "active" | "ended" | "cancelled";
+  messageId: string;
+  entriesCount: number;
+  winners: { userId: string; username: string }[];
+  createdAt: number;
 }

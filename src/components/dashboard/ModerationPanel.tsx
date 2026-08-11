@@ -18,8 +18,9 @@ import ModuleCard from "./ModuleCard";
 import { HeatTable, SafetyBar } from "./HeatBar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import type { GuildData, ModuleConfig } from "../../lib/types";
+import { getSessionToken } from "../../lib/discord";
 
-const TOKEN = () => localStorage.getItem("wio_session_token") ?? "";
+const TOKEN = () => getSessionToken();
 
 function ModuleNumber({
   value,

@@ -1,6 +1,35 @@
 export const SESSION_TOKEN_KEY = "wio_session_token";
 export const OAUTH_VERIFIER_KEY = "wio_oauth_verifier";
 export const OAUTH_STATE_KEY = "wio_oauth_state";
+export const REMEMBER_LOGIN_KEY = "wio_remember_login";
+
+/**
+ * Đọc token phiên: ưu tiên sessionStorage (không lưu đăng nhập) rồi
+ * localStorage (có lưu đăng nhập).
+ */
+export function getSessionToken(): string {
+  return (
+    sessionStorage.getItem(SESSION_TOKEN_KEY) ??
+    localStorage.getItem(SESSION_TOKEN_KEY) ??
+    ""
+  );
+}
+
+/** Lưu token theo lựa chọn "Lưu đăng nhập" của người dùng. */
+export function setSessionToken(token: string): void {
+  const remember = sessionStorage.getItem(REMEMBER_LOGIN_KEY) !== "0";
+  if (remember) {
+    localStorage.setItem(SESSION_TOKEN_KEY, token);
+  } else {
+    sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+  }
+}
+
+/** Xóa token ở cả hai nơi. */
+export function clearSessionToken(): void {
+  localStorage.removeItem(SESSION_TOKEN_KEY);
+  sessionStorage.removeItem(SESSION_TOKEN_KEY);
+}
 
 const DISCORD_API = "https://discord.com/api/v10";
 

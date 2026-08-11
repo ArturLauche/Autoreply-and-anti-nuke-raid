@@ -6,8 +6,11 @@ import {
   Bug,
   Crown,
   Flame,
+  Gift,
   Heart,
   LayoutDashboard,
+  Lock,
+  Mail,
   MessageCircle,
   MessageSquareReply,
   ShieldAlert,
@@ -256,6 +259,77 @@ function Features() {
                 <p className="text-xs text-muted-foreground">{b.d}</p>
               </div>
             </div>
+          ))}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+/** Tính năng ẩn dành riêng cho admin — bảo vệ bằng mật khẩu. */
+function HiddenFeatures() {
+  const items = [
+    {
+      icon: ShieldCheck,
+      title: "Reaction Role",
+      desc: "Thành viên bấm emoji dưới tin nhắn là tự nhận / gỡ role — tạo nhiều bảng theo chủ đề.",
+    },
+    {
+      icon: Gift,
+      title: "Giveaway 🎉",
+      desc: "Bot tự gửi embed, chốt người thắng khi hết giờ, thông báo trong kênh và gửi DM giải thưởng — kèm yêu cầu role.",
+    },
+    {
+      icon: Mail,
+      title: "Gửi DM trực tiếp",
+      desc: "Nhập ID người dùng + nội dung trên dashboard — bot nhắn riêng cho họ ngay lập tức.",
+    },
+    {
+      icon: MessageSquareReply,
+      title: "Auto Reply cho admin",
+      desc: "Quản lý rule tự trả lời được chuyển vào khu vực ẩn — chỉ người biết mật khẩu mới chỉnh được.",
+    },
+  ];
+  return (
+    <section className="relative py-16">
+      <div className="container">
+        <motion.div
+          variants={stagger}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-60px" }}
+          className="mx-auto max-w-2xl text-center"
+        >
+          <motion.div variants={fadeUp}>
+            <Badge className="mb-4 border-primary/40 bg-primary/10 text-primary">
+              <Lock className="h-3.5 w-3.5" /> Tính năng ẩn — dành riêng admin
+            </Badge>
+          </motion.div>
+          <motion.h2 variants={fadeUp} className="font-display text-3xl font-bold tracking-tight md:text-4xl">
+            Mở khóa bằng <span className="text-gradient-sakura">mật khẩu bí mật</span> 🔒
+          </motion.h2>
+          <motion.p variants={fadeUp} className="mt-3 text-muted-foreground">
+            Quản trị viên đặt mật khẩu trong Cài đặt — ai đăng nhập cũng thấy giao diện bình
+            thường, chỉ người nhập đúng mật khẩu mới thấy khu vực quyền lực này.
+          </motion.p>
+        </motion.div>
+        <motion.div
+          variants={stagger}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-60px" }}
+          className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          {items.map((f) => (
+            <motion.div key={f.title} variants={fadeUp}>
+              <div className="card-hover h-full rounded-xl border border-primary/20 bg-gradient-to-b from-card to-primary/5 p-6">
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <f.icon className="h-5 w-5" />
+                </div>
+                <h3 className="font-display text-lg font-semibold">{f.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
+              </div>
+            </motion.div>
           ))}
         </motion.div>
       </div>
@@ -595,7 +669,7 @@ export default function Landing() {
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
                     </span>
-                    Discord Bot · Nhiệt độ · Join Gate · Có Haimiya-senpai 🌸
+                    Discord Bot · Nhiệt độ · Join Gate · Tính năng ẩn 🔒
                   </Badge>
                 </motion.div>
                 <motion.h1
@@ -664,6 +738,7 @@ export default function Landing() {
           </section>
 
           <Features />
+          <HiddenFeatures />
           <AntiNuke />
           <HaimiyaSection />
           <HowItWorks />

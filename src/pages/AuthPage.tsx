@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import {
   OAUTH_VERIFIER_KEY,
   OAUTH_STATE_KEY,
+  REMEMBER_LOGIN_KEY,
   buildAuthorizeUrl,
   generateChallenge,
   generateVerifier,
@@ -25,6 +26,7 @@ const DISCORD_LOGO = (
 export default function AuthPage() {
   const { clientId, loading: configLoading, error: configError } = usePublicConfig();
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(true);
   const location = useLocation();
   const returnTo =
     new URLSearchParams(location.search).get("returnTo") ?? "/dashboard";
@@ -39,6 +41,8 @@ export default function AuthPage() {
       sessionStorage.setItem(OAUTH_VERIFIER_KEY, verifier);
       sessionStorage.setItem(OAUTH_STATE_KEY, state);
       sessionStorage.setItem("wio_oauth_return", returnTo);
+      // Lưu lựa chọn "lưu đăng nhập" để callback quyết định nơi lưu token.
+      sessionStorage.setItem(REMEMBER_LOGIN_KEY, remember ? "1" : "0");
       window.location.href = buildAuthorizeUrl(clientId, state, challenge);
     } catch {
       setLoading(false);
@@ -74,7 +78,8 @@ export default function AuthPage() {
               "Hệ thống nhiệt độ 4 giai đoạn + warn tích lũy",
               "Join Gate chống selfbot khi vào server",
               "Chặn link độc hại & file nguy hiểm",
-              "Chống nuke/raid + auto reply, đồng bộ 30 giây",
+              "Tính năng ẩn: reaction role, giveaway, gửi DM",
+              "Tùy chọn lưu / không lưu đăng nhập",
             ].map((t) => (
               <li key={t} className="flex items-center gap-3 text-muted-foreground">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-primary">
@@ -106,6 +111,7 @@ export default function AuthPage() {
                   Đang kết nối…
                 </div>
               ) : clientId ? (
+                <>
                 <Button
                   size="lg"
                   className="w-full bg-[#5865f2] text-white shadow-none hover:bg-[#4752c4]"
@@ -115,6 +121,33 @@ export default function AuthPage() {
                   {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : DISCORD_LOGO}
                   {loading ? "Đang chuyển tới Discord…" : "Đăng nhập với Discord"}
                 </Button>
+                <label className="flex cursor-pointer select-none items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={remember}
+                    onClick={() => setRemember((r) => !r)}
+                    className={`relative h-5 w-9 rounded-full transition-colors ${
+                      remember ? "bg-primary" : "bg-secondary"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${
+                        remember ? "left-[18px]" : "left-0.5"
+                      }`}
+                    />
+                  </button>
+                  {remember ? (
+                    <span className="text-foreground/80">
+                      <b className="text-primary">Lưu đăng nhập</b> trên thiết bị này
+                    </span>
+                  ) : (
+                    <span>
+                      <b>Không lưu đăng nhập</b> — đóng trình duyệt sẽ phải đăng nhập lại
+                    </span>
+                  )}
+                </label>
+                </>
               ) : configError ? (
                 <div className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-sm">
                   <p className="flex items-center gap-2 font-semibold text-danger">

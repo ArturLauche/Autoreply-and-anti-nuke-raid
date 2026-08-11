@@ -22,8 +22,9 @@ import { MultiSelect } from "../ui/multi-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { CHANNEL_TYPE_LABEL } from "../../lib/constants";
 import type { AutoReply, GuildData } from "../../lib/types";
+import { getSessionToken } from "../../lib/discord";
 
-const TOKEN = () => localStorage.getItem("wio_session_token") ?? "";
+const TOKEN = () => getSessionToken();
 
 interface FormState {
   name: string;

@@ -16,10 +16,11 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
 import {
-  SESSION_TOKEN_KEY,
   buildBotInviteUrl,
+  clearSessionToken,
   discordAvatarUrl,
   discordGuildIconUrl,
+  getSessionToken,
 } from "../lib/discord";
 import { usePublicConfig } from "../lib/usePublicConfig";
 import type { MeData } from "../lib/types";
@@ -27,7 +28,7 @@ import { toast } from "sonner";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const token = localStorage.getItem(SESSION_TOKEN_KEY) ?? "";
+  const token = getSessionToken();
   const me = useQuery(api.sessions.me, { token }) as MeData | null | undefined;
   const logout = useMutation(api.sessions.logout);
   const { clientId } = usePublicConfig();
@@ -43,7 +44,7 @@ export default function Dashboard() {
 
   async function handleLogout() {
     await logout({ token });
-    localStorage.removeItem(SESSION_TOKEN_KEY);
+    clearSessionToken();
     navigate("/");
   }
 

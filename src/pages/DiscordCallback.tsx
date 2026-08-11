@@ -8,11 +8,11 @@ import { usePublicConfig } from "../lib/usePublicConfig";
 import {
   OAUTH_STATE_KEY,
   OAUTH_VERIFIER_KEY,
-  SESSION_TOKEN_KEY,
   exchangeCode,
   fetchDiscordGuilds,
   fetchDiscordUser,
   newSessionToken,
+  setSessionToken,
 } from "../lib/discord";
 
 export default function DiscordCallback() {
@@ -70,7 +70,7 @@ export default function DiscordCallback() {
             permissions: g.permissions,
           })),
         });
-        localStorage.setItem(SESSION_TOKEN_KEY, token);
+        setSessionToken(token);
         sessionStorage.removeItem(OAUTH_VERIFIER_KEY);
         sessionStorage.removeItem(OAUTH_STATE_KEY);
         sessionStorage.removeItem("wio_oauth_return");
