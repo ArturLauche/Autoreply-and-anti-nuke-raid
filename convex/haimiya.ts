@@ -46,14 +46,19 @@ export const ask = action({
     ),
   },
   handler: async (_ctx, { messages }) => {
-    const key = process.env.OPENAI_API_KEY;
+    // Linh hoạt provider (tất cả đều tương thích OpenAI chat completions):
+    //   OpenAI:     OPENAI_API_KEY (+ OPENAI_MODEL, mặc định gpt-4o-mini)
+    //   Groq (free): AI_BASE_URL=https://api.groq.com/openai/v1 + AI_API_KEY + AI_MODEL=llama-3.3-70b-versatile
+    const key = process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY;
     if (!key) return { reply: "", offline: true };
     const last = messages[messages.length - 1];
     if (!last?.content?.trim()) return { reply: "", offline: true };
-    const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+    const baseUrl = process.env.AI_BASE_URL ?? "https://api.openai.com/v1";
+    const model =
+      process.env.AI_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-4o-mini";
     const history = messages.slice(-8).map((m) => ({ role: m.role, content: m.content }));
     try {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
