@@ -47,15 +47,20 @@ export const ask = action({
   },
   handler: async (_ctx, { messages }) => {
     // Linh hoạt provider (tất cả đều tương thích OpenAI chat completions):
+    //   SambaNova:  SAMBANOVA_API_KEY (mặc định model Meta-Llama-3.3-70B-Instruct)
     //   OpenAI:     OPENAI_API_KEY (+ OPENAI_MODEL, mặc định gpt-4o-mini)
     //   Groq (free): AI_BASE_URL=https://api.groq.com/openai/v1 + AI_API_KEY + AI_MODEL=llama-3.3-70b-versatile
-    const key = process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY;
+    const sambanovaKey = process.env.SAMBANOVA_API_KEY;
+    const key = sambanovaKey ?? process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY;
     if (!key) return { reply: "", offline: true };
     const last = messages[messages.length - 1];
     if (!last?.content?.trim()) return { reply: "", offline: true };
-    const baseUrl = process.env.AI_BASE_URL ?? "https://api.openai.com/v1";
+    const baseUrl = process.env.AI_BASE_URL ??
+      (sambanovaKey ? "https://api.sambanova.ai/v1" : "https://api.openai.com/v1");
     const model =
-      process.env.AI_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+      process.env.AI_MODEL ??
+      process.env.OPENAI_MODEL ??
+      (sambanovaKey ? "Meta-Llama-3.3-70B-Instruct" : "gpt-4o-mini");
     const history = messages.slice(-8).map((m) => ({ role: m.role, content: m.content }));
     try {
       const res = await fetch(`${baseUrl}/chat/completions`, {

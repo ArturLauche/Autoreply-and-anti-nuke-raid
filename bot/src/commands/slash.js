@@ -236,6 +236,70 @@ const commands = [
     ],
   },
   {
+    name: "reactionrole",
+    description: "Quản lý bảng reaction role (bấm emoji nhận role)",
+    options: [
+      {
+        name: "list",
+        description: "Xem danh sách bảng reaction role",
+        type: 1,
+      },
+      {
+        name: "create",
+        description: "Tạo bảng reaction role mới",
+        type: 1,
+        options: [
+          { name: "channel", description: "Kênh gửi bảng", type: 7, required: true },
+          { name: "label", description: "Tên bảng", type: 3, required: true },
+          { name: "description", description: "Nội dung / mô tả hiển thị trong embed", type: 3, required: false },
+          {
+            name: "pairs",
+            description: "Cặp emoji:role, cách nhau khoảng trắng (VD: ✅:123 ⭐:456)",
+            type: 3,
+            required: true,
+          },
+          { name: "thumbnail", description: "URL ảnh thumbnail của bảng", type: 3, required: false },
+        ],
+      },
+      {
+        name: "add",
+        description: "Thêm cặp emoji + role vào bảng",
+        type: 1,
+        options: [
+          { name: "label", description: "Tên bảng", type: 3, required: true },
+          { name: "emoji", description: "Emoji (unicode / <:name:id> / ID)", type: 3, required: true },
+          { name: "role", description: "Role cần gán khi bấm emoji", type: 8, required: true },
+        ],
+      },
+      {
+        name: "remove",
+        description: "Gỡ một cặp emoji khỏi bảng",
+        type: 1,
+        options: [
+          { name: "label", description: "Tên bảng", type: 3, required: true },
+          { name: "emoji", description: "Emoji cần gỡ", type: 3, required: true },
+        ],
+      },
+      {
+        name: "edit",
+        description: "Sửa tên / mô tả / thumbnail của bảng (dùng - để xóa)",
+        type: 1,
+        options: [
+          { name: "label", description: "Tên bảng hiện tại", type: 3, required: true },
+          { name: "new_label", description: "Tên bảng mới", type: 3, required: false },
+          { name: "description", description: "Mô tả mới (dùng "-" để xóa)", type: 3, required: false },
+          { name: "thumbnail", description: "URL thumbnail mới (dùng "-" để xóa)", type: 3, required: false },
+        ],
+      },
+      {
+        name: "delete",
+        description: "Xóa bảng reaction role",
+        type: 1,
+        options: [{ name: "label", description: "Tên bảng", type: 3, required: true }],
+      },
+    ],
+  },
+  {
     name: "setup",
     description: "Cấu hình nhanh bot cho server",
     options: [

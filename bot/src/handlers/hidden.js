@@ -3,9 +3,22 @@ const { EmbedBuilder } = require("discord.js");
 const GIVEAWAY_EMOJI = "🎉";
 const HIDDEN_COLOR = 0xf48fb1;
 
+/**
+ * Chuẩn hóa emoji về dạng khớp: custom emoji (<:name:id>, <a:name:id>, name:id)
+ * → ID số; emoji unicode → bỏ variation selector (U+FE0F) để không lệch nhau.
+ */
+function emojiKeyOf(value) {
+  const s = String(value || "").trim();
+  const custom =
+    /^<a?:[^:]+:(\d{15,20})>$/.exec(s) || /^[^:]+:(\d{15,20})$/.exec(s);
+  if (custom) return custom[1];
+  return s.replace(/\uFE0F/g, "");
+}
+
 function emojiMatches(entryEmoji, emoji) {
-  if (/^\d{15,20}$/.test(entryEmoji)) return emoji.id === entryEmoji;
-  return emoji.name === entryEmoji;
+  const key = emojiKeyOf(entryEmoji);
+  if (/^\d{15,20}$/.test(key)) return emoji.id === key;
+  return emojiKeyOf(emoji.name) === key;
 }
 
 function shuffle(arr) {
@@ -18,10 +31,15 @@ function shuffle(arr) {
 }
 
 async function resolveEmoji(client, emojiStr) {
-  if (/^\d{15,20}$/.test(emojiStr)) {
-    return client.emojis.cache.get(emojiStr) ?? null;
+  const key = emojiKeyOf(emojiStr);
+  if (/^\d{15,20}$/.test(key)) {
+    return (
+      client.emojis.cache.get(key) ??
+      (await client.emojis.fetch(key).catch(() => null)) ??
+      null
+    );
   }
-  return emojiStr;
+  return key;
 }
 
 /** Xử lý reaction: cấp/gỡ role theo bảng reaction role + ghi nhận tham gia giveaway. */
@@ -100,11 +118,20 @@ async function postPanel(client, store, panel) {
   const embed = new EmbedBuilder()
     .setColor(HIDDEN_COLOR)
     .setTitle(panel.label)
-    .setDescription("Chọn emoji bên dưới để nhận role 🌸\nBấm lại lần nữa để gỡ role.")
+    .setDescription(
+      panel.description || "Chọn emoji bên dưới để nhận role 🌸\nBấm lại lần nữa để gỡ role.",
+    )
     .setFooter({ text: "Protogon · Reaction Role" });
+  if (panel.thumbnailUrl) embed.setThumbnail(panel.thumbnailUrl);
   for (const e of panel.entries) {
     const emoji = await resolveEmoji(client, e.emoji);
-    if (emoji) embed.addFields({ name: emoji, value: `<@&${e.roleId}>`, inline: true });
+    if (emoji) {
+      embed.addFields({
+        name: typeof emoji === "string" ? emoji : emoji.toString(),
+        value: `<@&${e.roleId}>`,
+        inline: true,
+      });
+    }
   }
   const msg = await channel.send({ embeds: [embed] });
   for (const e of panel.entries) {
@@ -340,4 +367,4 @@ function setupHidden(client, store) {
   });
 }
 
-module.exports = { setupHidden, pollHidden };
+module.exports = { setupHidden, pollHidden, emojiKeyOf, resolveEmoji };

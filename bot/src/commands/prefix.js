@@ -17,6 +17,7 @@ const {
 } = require("../handlers/modTools");
 
 const { isLocked, markLocked, unlockGuild } = require("../lockdown");
+const { emojiKeyOf } = require("../handlers/hidden");
 
 const MODULES = [
   "massBan",
@@ -74,6 +75,12 @@ async function handleHelp(client, message) {
         "!purge <số>            - xóa hàng loạt tin nhắn",
         "!giveaway start <Tên> | <Giải thưởng> | <thời lượng>",
         "!giveaway list | end <tên>",
+        "!reactionrole list      - danh sách bảng reaction role",
+        "!reactionrole create #kênh | Tên | Mô tả | emoji:role ... | thumbnail",
+        "!reactionrole add <Tên> <emoji> <@role>",
+        "!reactionrole edit <Tên> | Mô tả mới | Thumbnail mới (dùng - để xóa)",
+        "!reactionrole remove <Tên> <emoji>",
+        "!reactionrole delete <Tên>",
         "!setlog #kênh          - đặt kênh log",
         "```",
       ].join("\n"),
@@ -533,6 +540,203 @@ async function handleGiveaway(client, message, args, config, store) {
   );
 }
 
+async function handleReactionRole(client, message, args, config, store) {
+  const sub = args[0]?.toLowerCase();
+  const hidden = await store.client
+    .query("hidden:getBotHidden", { guildId: message.guild.id })
+    .catch(() => null);
+  const panels = hidden?.panels || [];
+  const findPanel = (name) =>
+    panels.find((p) => p.label.toLowerCase() === String(name || "").trim().toLowerCase());
+
+  if (sub === "list" || !sub) {
+    if (panels.length === 0) {
+      return message.reply("Chưa có bảng reaction role nào — dùng `!reactionrole create` hoặc dashboard.");
+    }
+    const lines = panels.map((p) => {
+      const ch = message.guild.channels.cache.get(p.channelId);
+      return `• **${p.label}** — ${ch ? `#${ch.name}` : "kênh đã xóa"} — ${p.entries.length} cặp — ${p.enabled ? "✅" : "⏸️"}`;
+    });
+    const embed = new EmbedBuilder()
+      .setColor(Colors.Aqua)
+      .setTitle(`🎭 Reaction role (${panels.length})`)
+      .setDescription(lines.join("\n").slice(0, 4000));
+    return message.reply({ embeds: [embed] });
+  }
+
+  if (!canManageGuild(message.member)) return noPerm(message);
+
+  if (sub === "create") {
+    // !reactionrole create #channel | Tên | Mô tả | emoji:role emoji:role | thumbnail
+    const raw = args.slice(1).join(" ");
+    const pipe = raw.indexOf("|");
+    if (pipe === -1) return message.reply(REACTION_ROLE_HELP);
+    const channelPart = raw.slice(0, pipe).trim();
+    const channel =
+      message.mentions.channels.first() ||
+      (message.guild.channels.cache.get(channelPart) || null);
+    if (!channel?.isTextBased()) {
+      return message.reply("Cần tag kênh gửi bảng, VD: `!reactionrole create #channel | Tên | …`");
+    }
+    const parts = raw.slice(pipe + 1).split("|").map((s) => s.trim());
+    const label = parts[0];
+    const description = parts[1] || undefined;
+    const pairsRaw = parts[2];
+    const thumbnail = parts[3] || undefined;
+    if (!label) return message.reply("Cần đặt tên cho bảng.");
+    const entries = parseEmojiRolePairs(pairsRaw, message);
+    if (entries.length === 0) {
+      return message.reply(
+        "Cần ít nhất 1 cặp emoji:role, VD: `!reactionrole create #channel | Tên | Mô tả | ✅:ROLEID ⭐:ROLEID`",
+      );
+    }
+    try {
+      await store.client.mutation("hidden:botCreatePanel", {
+        guildId: message.guild.id,
+        channelId: channel.id,
+        label,
+        description,
+        thumbnailUrl: thumbnail || undefined,
+        entries,
+      });
+      store.invalidate(message.guild.id);
+      return message.reply(
+        `✅ Đã tạo bảng "${label}" tại ${channel} — bot gửi tin nhắn trong ~30 giây.`,
+      );
+    } catch (e) {
+      return message.reply(`❌ ${e.message}`);
+    }
+  }
+
+  if (sub === "add") {
+    const label = args[1];
+    const emoji = args[2];
+    const role =
+      message.mentions.roles.first() ||
+      (args[3] ? message.guild.roles.cache.get(args[3]) : null);
+    const panel = findPanel(label);
+    if (!panel) return message.reply(`Không tìm thấy bảng "${label}" — dùng \`!reactionrole list\``);
+    if (!emoji) return message.reply("Cú pháp: `!reactionrole add <Tên> <emoji> <@role>`");
+    if (!role) return message.reply("Cần tag role cần gán, VD: `!reactionrole add Tên ✅ @role`");
+    if (panel.entries.some((e) => emojiKeyOf(e.emoji) === emojiKeyOf(emoji))) {
+      return message.reply("Emoji này đã có trong bảng.");
+    }
+    try {
+      await store.client.mutation("hidden:botUpdatePanel", {
+        guildId: message.guild.id,
+        panelId: panel._id,
+        entries: [...panel.entries, { emoji, roleId: role.id }],
+      });
+      store.invalidate(message.guild.id);
+      return message.reply(
+        `✅ Đã thêm ${emoji} → ${role} vào bảng "${panel.label}" — bot gửi bảng mới trong ~30 giây.`,
+      );
+    } catch (e) {
+      return message.reply(`❌ ${e.message}`);
+    }
+  }
+
+  if (sub === "remove") {
+    const label = args[1];
+    const emoji = args[2];
+    const panel = findPanel(label);
+    if (!panel) return message.reply(`Không tìm thấy bảng "${label}" — dùng \`!reactionrole list\``);
+    if (!emoji) return message.reply("Cú pháp: `!reactionrole remove <Tên> <emoji>`");
+    const next = panel.entries.filter((e) => emojiKeyOf(e.emoji) !== emojiKeyOf(emoji));
+    if (next.length === panel.entries.length) {
+      return message.reply("Không tìm thấy emoji này trong bảng.");
+    }
+    try {
+      await store.client.mutation("hidden:botUpdatePanel", {
+        guildId: message.guild.id,
+        panelId: panel._id,
+        entries: next,
+      });
+      store.invalidate(message.guild.id);
+      return message.reply(
+        `✅ Đã gỡ ${emoji} khỏi bảng "${panel.label}" — bot gửi bảng mới trong ~30 giây.`,
+      );
+    } catch (e) {
+      return message.reply(`❌ ${e.message}`);
+    }
+  }
+
+  if (sub === "edit") {
+    // !reactionrole edit <Tên> | <Mô tả mới> | <Thumbnail mới>   (dùng "-" để xóa)
+    const label = args[1];
+    const panel = findPanel(label);
+    if (!panel) return message.reply(`Không tìm thấy bảng "${label}" — dùng \`!reactionrole list\``);
+    const parts = args.slice(2).join(" ").split("|").map((s) => s.trim());
+    const patch = { guildId: message.guild.id, panelId: panel._id };
+    if (parts[0] !== undefined && parts[0] !== "" && parts[0] !== "-") patch.description = parts[0];
+    else if (parts[0] === "-") patch.description = null;
+    if (parts[1] !== undefined && parts[1] !== "" && parts[1] !== "-") patch.thumbnailUrl = parts[1];
+    else if (parts[1] === "-") patch.thumbnailUrl = null;
+    if (!("description" in patch) && !("thumbnailUrl" in patch)) {
+      return message.reply(
+        "Cú pháp: `!reactionrole edit <Tên> | <Mô tả mới> | <Thumbnail mới>` (dùng `-` để xóa trường)",
+      );
+    }
+    try {
+      await store.client.mutation("hidden:botUpdatePanel", patch);
+      store.invalidate(message.guild.id);
+      return message.reply(
+        `✅ Đã cập nhật bảng "${panel.label}" — bot gửi bảng mới trong ~30 giây.`,
+      );
+    } catch (e) {
+      return message.reply(`❌ ${e.message}`);
+    }
+  }
+
+  if (sub === "delete") {
+    const label = args.slice(1).join(" ").trim();
+    const panel = findPanel(label);
+    if (!panel) return message.reply(`Không tìm thấy bảng "${label}" — dùng \`!reactionrole list\``);
+    try {
+      await store.client.mutation("hidden:botDeletePanel", {
+        guildId: message.guild.id,
+        panelId: panel._id,
+      });
+      store.invalidate(message.guild.id);
+      return message.reply(`✅ Đã xóa bảng "${panel.label}" (tin nhắn cũ trong Discord vẫn còn).`);
+    } catch (e) {
+      return message.reply(`❌ ${e.message}`);
+    }
+  }
+
+  return message.reply(REACTION_ROLE_HELP);
+}
+
+const REACTION_ROLE_HELP =
+  "Cú pháp reaction role:\n" +
+  "`!reactionrole list`\n" +
+  "`!reactionrole create #kênh | Tên | Mô tả | emoji:role emoji:role | thumbnail URL`\n" +
+  "`!reactionrole add <Tên> <emoji> <@role>`\n" +
+  "`!reactionrole edit <Tên> | Mô tả mới | Thumbnail mới` (dùng `-` để xóa)\n" +
+  "`!reactionrole remove <Tên> <emoji>` · `!reactionrole delete <Tên>`";
+
+/** Phân tích chuỗi "emoji:role emoji:role" (role có thể là ID hoặc <@&id>). */
+function parseEmojiRolePairs(pairsRaw, message) {
+  if (!pairsRaw) return [];
+  const entries = [];
+  const tokens = String(pairsRaw).split(/\s+/).filter(Boolean);
+  for (const token of tokens) {
+    const idx = token.lastIndexOf(":");
+    if (idx <= 0 || idx === token.length - 1) continue;
+    const emoji = token.slice(0, idx).trim();
+    let roleId = token.slice(idx + 1).trim().replace(/^<@&(\d+)>$/, "$1");
+    if (!emoji) continue;
+    // Nếu role ghi bằng tên (không phải ID) thì thử tra trong cache.
+    if (!/^\d{15,20}$/.test(roleId) && message) {
+      const role = message.guild.roles.cache.find((r) => r.name.toLowerCase() === roleId.toLowerCase());
+      if (role) roleId = role.id;
+    }
+    if (!/^\d{15,20}$/.test(roleId)) continue;
+    entries.push({ emoji, roleId });
+  }
+  return entries.slice(0, 20);
+}
+
 module.exports = {
   help: handleHelp,
   ping: handlePing,
@@ -548,4 +752,5 @@ module.exports = {
   kick: handleKick,
   ban: handleBan,
   giveaway: handleGiveaway,
+  reactionrole: handleReactionRole,
 };

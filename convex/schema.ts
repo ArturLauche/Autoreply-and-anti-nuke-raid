@@ -76,6 +76,10 @@ export default defineSchema({
     guildId: v.string(),
     channelId: v.string(),
     label: v.string(),
+    /** Nội dung / mô tả hiển thị trong embed (mặc định nếu bỏ trống). */
+    description: v.optional(v.string()),
+    /** Ảnh thumbnail hiển thị góc phải embed. */
+    thumbnailUrl: v.optional(v.string()),
     entries: v.array(v.object({ emoji: v.string(), roleId: v.string() })),
     messageId: v.optional(v.string()),
     enabled: v.boolean(),

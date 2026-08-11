@@ -181,7 +181,7 @@ export default function HaimiyaChat({
     window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(async () => {
       try {
-        // Ưu tiên AI thật (khi đã cấu hình OPENAI_API_KEY); nếu offline → dùng bộ kiến thức.
+        // Ưu tiên AI thật (khi đã cấu hình SAMBANOVA_API_KEY / OPENAI_API_KEY); nếu offline → dùng bộ kiến thức.
         const history = messages
           .concat([{ role: "user", text: q }])
           .slice(-8)

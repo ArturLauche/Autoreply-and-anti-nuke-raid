@@ -31,6 +31,7 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMessageReactions, // cần để nhận sự kiện reaction (reaction role / giveaway)
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildModeration,

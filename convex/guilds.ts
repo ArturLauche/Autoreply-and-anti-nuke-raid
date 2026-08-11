@@ -186,6 +186,8 @@ export const getGuild = query({
         _id: p._id,
         channelId: p.channelId,
         label: p.label,
+        description: p.description ?? null,
+        thumbnailUrl: p.thumbnailUrl ?? null,
         entries: p.entries,
         messageId: p.messageId ?? "",
         enabled: p.enabled,

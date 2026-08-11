@@ -73,6 +73,8 @@ export const getBotHidden = query({
         _id: p._id,
         channelId: p.channelId,
         label: p.label,
+        description: p.description ?? null,
+        thumbnailUrl: p.thumbnailUrl ?? null,
         entries: p.entries,
         messageId: p.messageId ?? "",
         enabled: p.enabled,
@@ -293,6 +295,45 @@ export const verifyHiddenPassword = mutation({
   },
 });
 
+/** Rút gọn emoji về dạng chuẩn: custom emoji → ID số; unicode → bỏ variation selector. */
+function normalizeEmoji(emoji: string): string {
+  const s = emoji.trim();
+  const custom =
+    /^<a?:[^:]+:(\d{15,20})>$/.exec(s) ?? /^[^:]+:(\d{15,20})$/.exec(s);
+  if (custom) return custom[1];
+  return s.replace(/\uFE0F/g, "").slice(0, 32);
+}
+
+function cleanPanelInput(input: {
+  label: string;
+  description?: string;
+  thumbnailUrl?: string;
+  entries: { emoji: string; roleId: string }[];
+}) {
+  const cleanLabel = input.label.trim().slice(0, 100);
+  if (!cleanLabel) throw new Error("Cần đặt tên cho bảng reaction role");
+  const cleanDescription = input.description
+    ? input.description.trim().slice(0, 2000)
+    : undefined;
+  const cleanThumb = input.thumbnailUrl
+    ? input.thumbnailUrl.trim().slice(0, 2000)
+    : undefined;
+  const cleanEntries = input.entries
+    .map((e) => ({
+      emoji: normalizeEmoji(e.emoji),
+      roleId: e.roleId.trim(),
+    }))
+    .filter((e) => e.emoji && /^\d{15,20}$/.test(e.roleId))
+    .slice(0, 20);
+  if (cleanEntries.length === 0) throw new Error("Cần ít nhất 1 cặp emoji + role");
+  return {
+    label: cleanLabel,
+    description: cleanDescription,
+    thumbnailUrl: cleanThumb,
+    entries: cleanEntries,
+  };
+}
+
 /** Tạo bảng reaction role (bot sẽ gửi tin nhắn + gắn emoji). */
 export const createPanel = mutation({
   args: {
@@ -300,17 +341,13 @@ export const createPanel = mutation({
     guildId: v.string(),
     channelId: v.string(),
     label: v.string(),
+    description: v.optional(v.string()),
+    thumbnailUrl: v.optional(v.string()),
     entries: v.array(v.object({ emoji: v.string(), roleId: v.string() })),
   },
-  handler: async (ctx, { token, guildId, channelId, label, entries }) => {
+  handler: async (ctx, { token, guildId, channelId, label, description, thumbnailUrl, entries }) => {
     await requireGuild(ctx, token, guildId);
-    const cleanLabel = label.trim().slice(0, 100);
-    if (!cleanLabel) throw new Error("Cần đặt tên cho bảng reaction role");
-    const cleanEntries = entries
-      .map((e) => ({ emoji: e.emoji.trim().slice(0, 32), roleId: e.roleId.trim() }))
-      .filter((e) => e.emoji && /^\d{15,20}$/.test(e.roleId))
-      .slice(0, 20);
-    if (cleanEntries.length === 0) throw new Error("Cần ít nhất 1 cặp emoji + role");
+    const clean = cleanPanelInput({ label, description, thumbnailUrl, entries });
     const existing = await ctx.db
       .query("reactionRolePanels")
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
@@ -320,8 +357,7 @@ export const createPanel = mutation({
     await ctx.db.insert("reactionRolePanels", {
       guildId,
       channelId,
-      label: cleanLabel,
-      entries: cleanEntries,
+      ...clean,
       enabled: true,
       createdAt: now,
       updatedAt: now,
@@ -330,10 +366,132 @@ export const createPanel = mutation({
   },
 });
 
+/** Bot tạo bảng reaction role từ lệnh (đã kiểm tra quyền ở phía bot). */
+export const botCreatePanel = mutation({
+  args: {
+    guildId: v.string(),
+    channelId: v.string(),
+    label: v.string(),
+    description: v.optional(v.string()),
+    thumbnailUrl: v.optional(v.string()),
+    entries: v.array(v.object({ emoji: v.string(), roleId: v.string() })),
+  },
+  handler: async (ctx, { guildId, channelId, label, description, thumbnailUrl, entries }) => {
+    const clean = cleanPanelInput({ label, description, thumbnailUrl, entries });
+    const existing = await ctx.db
+      .query("reactionRolePanels")
+      .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
+      .collect();
+    if (existing.length >= 10) throw new Error("Tối đa 10 bảng reaction role");
+    const now = Date.now();
+    await ctx.db.insert("reactionRolePanels", {
+      guildId,
+      channelId,
+      ...clean,
+      enabled: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { ok: true };
+  },
+});
+
+/**
+ * Cập nhật bảng reaction role (tên, mô tả, thumbnail, cặp emoji/role).
+ * Nội dung thay đổi → xóa messageId để bot gửi bảng mới ở vòng quét kế tiếp.
+ */
+export const updatePanel = mutation({
+  args: {
+    token: v.string(),
+    guildId: v.string(),
+    panelId: v.id("reactionRolePanels"),
+    label: v.optional(v.string()),
+    description: v.optional(v.union(v.string(), v.null())),
+    thumbnailUrl: v.optional(v.union(v.string(), v.null())),
+    entries: v.optional(v.array(v.object({ emoji: v.string(), roleId: v.string() }))),
+  },
+  handler: async (ctx, { token, guildId, panelId, label, description, thumbnailUrl, entries }) => {
+    await requireGuild(ctx, token, guildId);
+    const panel = await ctx.db.get(panelId);
+    if (!panel || panel.guildId !== guildId) throw new Error("Không tìm thấy bảng reaction role");
+    const patch: Record<string, unknown> = { updatedAt: Date.now(), messageId: undefined };
+    if (label !== undefined) {
+      const clean = label.trim().slice(0, 100);
+      if (!clean) throw new Error("Cần đặt tên cho bảng reaction role");
+      patch.label = clean;
+    }
+    if (description !== undefined) {
+      patch.description = description ? description.trim().slice(0, 2000) : undefined;
+    }
+    if (thumbnailUrl !== undefined) {
+      patch.thumbnailUrl = thumbnailUrl ? thumbnailUrl.trim().slice(0, 2000) : undefined;
+    }
+    if (entries !== undefined) {
+      const cleanEntries = entries
+        .map((e) => ({ emoji: normalizeEmoji(e.emoji), roleId: e.roleId.trim() }))
+        .filter((e) => e.emoji && /^\d{15,20}$/.test(e.roleId))
+        .slice(0, 20);
+      if (cleanEntries.length === 0) throw new Error("Cần ít nhất 1 cặp emoji + role");
+      patch.entries = cleanEntries;
+    }
+    await ctx.db.patch(panelId, patch);
+    return { ok: true };
+  },
+});
+
+/** Bot cập nhật bảng reaction role từ lệnh (đã kiểm tra quyền ở phía bot). */
+export const botUpdatePanel = mutation({
+  args: {
+    guildId: v.string(),
+    panelId: v.id("reactionRolePanels"),
+    label: v.optional(v.string()),
+    description: v.optional(v.union(v.string(), v.null())),
+    thumbnailUrl: v.optional(v.union(v.string(), v.null())),
+    entries: v.optional(v.array(v.object({ emoji: v.string(), roleId: v.string() }))),
+  },
+  handler: async (ctx, { guildId, panelId, label, description, thumbnailUrl, entries }) => {
+    const panel = await ctx.db.get(panelId);
+    if (!panel || panel.guildId !== guildId) throw new Error("Không tìm thấy bảng reaction role");
+    const patch: Record<string, unknown> = { updatedAt: Date.now(), messageId: undefined };
+    if (label !== undefined) {
+      const clean = label.trim().slice(0, 100);
+      if (!clean) throw new Error("Cần đặt tên cho bảng reaction role");
+      patch.label = clean;
+    }
+    if (description !== undefined) {
+      patch.description = description ? description.trim().slice(0, 2000) : undefined;
+    }
+    if (thumbnailUrl !== undefined) {
+      patch.thumbnailUrl = thumbnailUrl ? thumbnailUrl.trim().slice(0, 2000) : undefined;
+    }
+    if (entries !== undefined) {
+      const cleanEntries = entries
+        .map((e) => ({ emoji: normalizeEmoji(e.emoji), roleId: e.roleId.trim() }))
+        .filter((e) => e.emoji && /^\d{15,20}$/.test(e.roleId))
+        .slice(0, 20);
+      if (cleanEntries.length === 0) throw new Error("Cần ít nhất 1 cặp emoji + role");
+      patch.entries = cleanEntries;
+    }
+    await ctx.db.patch(panelId, patch);
+    return { ok: true };
+  },
+});
+
 export const deletePanel = mutation({
   args: { token: v.string(), guildId: v.string(), panelId: v.id("reactionRolePanels") },
   handler: async (ctx, { token, guildId, panelId }) => {
     await requireGuild(ctx, token, guildId);
+    const panel = await ctx.db.get(panelId);
+    if (!panel || panel.guildId !== guildId) throw new Error("Không tìm thấy bảng reaction role");
+    await ctx.db.delete(panelId);
+    return { ok: true };
+  },
+});
+
+/** Bot xóa bảng reaction role từ lệnh (đã kiểm tra quyền ở phía bot). */
+export const botDeletePanel = mutation({
+  args: { guildId: v.string(), panelId: v.id("reactionRolePanels") },
+  handler: async (ctx, { guildId, panelId }) => {
     const panel = await ctx.db.get(panelId);
     if (!panel || panel.guildId !== guildId) throw new Error("Không tìm thấy bảng reaction role");
     await ctx.db.delete(panelId);

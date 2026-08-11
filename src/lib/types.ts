@@ -143,6 +143,10 @@ export interface ReactionRolePanel {
   _id: GenericId<"reactionRolePanels">;
   channelId: string;
   label: string;
+  /** Nội dung / mô tả hiển thị trong embed (null = dùng mặc định). */
+  description: string | null;
+  /** Ảnh thumbnail hiển thị góc phải embed. */
+  thumbnailUrl: string | null;
   entries: { emoji: string; roleId: string }[];
   messageId: string;
   enabled: boolean;
