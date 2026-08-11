@@ -46,11 +46,11 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
       <CherryBlossom count={12} />
       <div className="absolute inset-0 bg-grid opacity-40 [mask-image:radial-gradient(60%_60%_at_50%_40%,black,transparent)]" />
       <div className="absolute inset-x-0 top-0 h-[360px] bg-glow-sakura" />
-      <div className="absolute inset-x-0 bottom-0 h-[300px] bg-glow-lavender" />
+      <div className="absolute inset-x-0 bottom-0 h-[300px] bg-glow-sky" />
       <HaimiyaChat position="dashboard" />
 
       <div className="relative grid w-full max-w-4xl gap-8 lg:grid-cols-2">

@@ -398,7 +398,7 @@ function AntiNuke() {
 function HaimiyaSection() {
   return (
     <section id="haimiya" className="relative overflow-hidden py-24">
-      <div className="absolute inset-x-0 bottom-0 h-[420px] bg-glow-lavender" />
+      <div className="absolute inset-x-0 bottom-0 h-[420px] bg-glow-sky" />
       <div className="container relative">
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <motion.div
@@ -407,11 +407,10 @@ function HaimiyaSection() {
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.6 }}
             className="order-2 lg:order-1"
-          >
-            <div className="relative mx-auto w-fit">
+          >              <div className="relative mx-auto w-fit">
               <div className="absolute -inset-8 rounded-full bg-glow-sakura blur-2xl" />
               <div className="relative animate-float">
-                <div className="flex h-56 w-56 items-center justify-center rounded-full border border-primary/30 bg-gradient-to-br from-[#2a1020] via-[#3d1a2f] to-[#2a1020] shadow-[0_20px_60px_-20px_hsl(342_92%_66%/0.5)]">
+                <div className="flex h-56 w-56 items-center justify-center rounded-full border-2 border-white/80 bg-gradient-to-br from-[#ffe0ed] via-[#fdf2f8] to-[#d6ecff] shadow-[0_24px_60px_-20px_hsl(342_60%_55%/0.45)]">
                   <HaimiyaAvatar className="h-40 w-40" />
                 </div>
                 <span className="absolute -right-2 top-6 animate-float text-2xl" style={{ animationDelay: "0.6s" }}>🌸</span>
@@ -539,9 +538,10 @@ function CtaBanner() {
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="relative overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-br from-primary/15 via-card to-card p-10 text-center md:p-16"
+          className="relative overflow-hidden rounded-3xl border border-white/60 bg-gradient-to-br from-[#ffdcec] via-[#fff7fa] to-[#cfe8ff] p-8 text-center shadow-xl md:p-16"
         >
-          <div className="absolute inset-0 bg-glow-sakura opacity-70" />
+          <div className="absolute inset-0 bg-glow-sakura opacity-50" />
+          <div className="absolute inset-0 bg-glow-sky opacity-60" />
           <div className="relative">
             <HaimiyaAvatar className="mx-auto h-24 w-24 drop-shadow-[0_10px_30px_hsl(342_92%_66%/0.4)]" />
             <h2 className="mt-4 font-display text-3xl font-bold tracking-tight md:text-5xl">
@@ -569,24 +569,28 @@ function CtaBanner() {
 
 export default function Landing() {
   return (
-    <div className="relative min-h-screen bg-background text-foreground">
+    <div className="relative min-h-screen text-foreground">
       <CherryBlossom count={18} />
       <HaimiyaChat />
       <div className="relative z-10">
         <Nav />
         <main>
-          <section className="relative overflow-hidden pt-32 pb-20">
+          <section className="relative overflow-hidden pb-16 pt-28 md:pb-20 md:pt-32">
             <div className="absolute inset-0 bg-grid opacity-50 [mask-image:radial-gradient(70%_60%_at_50%_30%,black,transparent)]" />
             <div className="absolute inset-x-0 top-0 h-[420px] bg-glow-sakura" />
-            <div className="absolute inset-x-0 bottom-0 h-[320px] bg-glow-lavender" />
-            <div className="container relative grid items-center gap-14 lg:grid-cols-2">
+            <div className="absolute inset-x-0 bottom-0 h-[320px] bg-glow-sky" />
+            <div className="container relative grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
               <div>
                 <motion.div
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5 }}
+                  className="flex flex-col items-center gap-4 text-center lg:block lg:text-left"
                 >
-                  <Badge variant="secondary" className="mb-5 border border-primary/30">
+                  <span className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-white/70 bg-gradient-to-br from-[#ffe0ed] to-[#d8ecff] shadow-[0_10px_30px_-10px_hsl(342_70%_60%/0.5)] lg:hidden">
+                    <HaimiyaAvatar className="h-16 w-16" />
+                  </span>
+                  <Badge variant="secondary" className="border border-primary/30">
                     <span className="relative flex h-2 w-2">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
@@ -598,7 +602,7 @@ export default function Landing() {
                   initial={{ opacity: 0, y: 24 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.7, delay: 0.1 }}
-                  className="font-display text-4xl font-bold leading-[1.1] tracking-tight md:text-6xl"
+                  className="mt-4 text-center font-display text-3xl font-bold leading-[1.12] tracking-tight sm:text-4xl md:text-6xl lg:mt-0 lg:text-left"
                 >
                   Bot Discord <span className="text-gradient-sakura">bảo vệ toàn diện</span>
                   <br />
@@ -608,7 +612,7 @@ export default function Landing() {
                   initial={{ opacity: 0, y: 24 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.7, delay: 0.2 }}
-                  className="mt-5 max-w-lg text-lg text-muted-foreground"
+                  className="mx-auto mt-5 max-w-lg text-center text-base text-muted-foreground sm:text-lg lg:mx-0 lg:text-left"
                 >
                   Tag <span className="font-mono text-primary">@protogon</span> hoặc nhắc từ khóa — bot trả lời ngay. Hệ thống{" "}
                   <b className="text-foreground">nhiệt độ 4 giai đoạn</b> kèm warn tích lũy,{" "}
@@ -620,7 +624,7 @@ export default function Landing() {
                   initial={{ opacity: 0, y: 24 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.7, delay: 0.3 }}
-                  className="mt-8 flex flex-wrap items-center gap-3"
+                  className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start"
                 >
                   <Link to="/auth">
                     <Button size="lg">
@@ -639,7 +643,7 @@ export default function Landing() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.8, delay: 0.5 }}
-                  className="mt-10 grid max-w-md grid-cols-3 gap-4 border-t border-border pt-6"
+                  className="mx-auto mt-10 grid max-w-md grid-cols-3 gap-4 border-t border-border pt-6 lg:mx-0"
                 >
                   {[
                     ["14", "Module bảo vệ"],

@@ -55,11 +55,11 @@ export default function Dashboard() {
   const totalMembers = managed.reduce((a, g) => a + (g.memberCount ?? 0), 0);
 
   return (
-    <div className="relative min-h-screen bg-background">
+    <div className="relative min-h-screen">
       <CherryBlossom count={10} />
       <HaimiyaChat position="dashboard" />
       <div className="relative z-10">
-        <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+        <header className="sticky top-0 z-40 border-b border-border/60 bg-white/70 backdrop-blur-xl">
           <div className="container flex h-16 items-center justify-between">
             <button
               onClick={() => navigate("/")}

@@ -21,27 +21,27 @@
 
 @layer base {
   :root {
-    --background: 262 38% 5%;
-    --foreground: 330 28% 96%;
-    --card: 262 32% 8%;
-    --card-foreground: 330 28% 96%;
-    --popover: 262 34% 9%;
-    --popover-foreground: 330 28% 96%;
-    --primary: 342 92% 66%;
-    --primary-foreground: 340 55% 9%;
-    --secondary: 262 22% 14%;
-    --secondary-foreground: 330 25% 90%;
-    --muted: 262 22% 12%;
-    --muted-foreground: 265 16% 64%;
-    --accent: 262 22% 16%;
-    --accent-foreground: 330 28% 96%;
-    --destructive: 0 74% 58%;
+    --background: 340 90% 98%;
+    --foreground: 265 32% 16%;
+    --card: 340 70% 99%;
+    --card-foreground: 265 32% 16%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 265 32% 16%;
+    --primary: 342 92% 60%;
+    --primary-foreground: 340 60% 10%;
+    --secondary: 340 45% 95%;
+    --secondary-foreground: 265 30% 20%;
+    --muted: 340 40% 94%;
+    --muted-foreground: 265 18% 42%;
+    --accent: 340 45% 93%;
+    --accent-foreground: 265 30% 18%;
+    --destructive: 0 74% 52%;
     --destructive-foreground: 0 0% 100%;
-    --danger: 0 74% 58%;
+    --danger: 0 74% 52%;
     --danger-foreground: 0 0% 100%;
-    --border: 262 22% 14%;
-    --input: 262 22% 16%;
-    --ring: 342 92% 66%;
+    --border: 340 40% 88%;
+    --input: 340 40% 86%;
+    --ring: 342 92% 62%;
     --radius: 0.75rem;
   }
 
@@ -50,17 +50,25 @@
   }
 
   html {
-    color-scheme: dark;
+    color-scheme: light;
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply text-foreground antialiased;
+    /* Nền mix: hồng anh đào chuyển dần sang xanh trời */
+    background: linear-gradient(
+      165deg,
+      hsl(345 100% 92%) 0%,
+      hsl(340 100% 96%) 26%,
+      hsl(220 100% 97%) 62%,
+      hsl(207 90% 88%) 100%
+    ) fixed;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   ::selection {
-    background: hsl(342 92% 66% / 0.3);
-    color: hsl(330 40% 98%);
+    background: hsl(342 92% 66% / 0.35);
+    color: hsl(340 50% 10%);
   }
 
   ::-webkit-scrollbar {
@@ -71,13 +79,13 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(262 22% 18%);
+    background: hsl(340 30% 82%);
     border-radius: 8px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(262 22% 26%);
+    background: hsl(340 30% 72%);
     background-clip: content-box;
   }
 }
@@ -86,7 +94,7 @@
   .bg-grid {
     background-image: radial-gradient(
       circle at 1px 1px,
-      hsl(265 30% 26% / 0.5) 1px,
+      hsl(342 70% 78% / 0.55) 1px,
       transparent 0
     );
     background-size: 28px 28px;
@@ -95,15 +103,15 @@
   .bg-glow-sakura {
     background: radial-gradient(
       46% 46% at 50% 0%,
-      hsl(342 92% 66% / 0.18) 0%,
+      hsl(342 92% 70% / 0.28) 0%,
       transparent 70%
     );
   }
 
-  .bg-glow-lavender {
+  .bg-glow-sky {
     background: radial-gradient(
       46% 46% at 50% 100%,
-      hsl(262 84% 66% / 0.16) 0%,
+      hsl(210 95% 72% / 0.3) 0%,
       transparent 70%
     );
   }
@@ -111,9 +119,9 @@
   .text-gradient-sakura {
     background: linear-gradient(
       120deg,
-      hsl(342 92% 76%) 0%,
-      hsl(330 92% 70%) 45%,
-      hsl(262 88% 76%) 100%
+      hsl(342 92% 55%) 0%,
+      hsl(330 90% 50%) 45%,
+      hsl(215 95% 52%) 100%
     );
     -webkit-background-clip: text;
     background-clip: text;
@@ -125,16 +133,16 @@
   }
   .card-hover:hover {
     transform: translateY(-2px);
-    border-color: hsl(342 92% 66% / 0.35);
-    box-shadow: 0 8px 32px -12px hsl(342 92% 66% / 0.28);
+    border-color: hsl(342 92% 66% / 0.45);
+    box-shadow: 0 10px 34px -14px hsl(342 60% 60% / 0.4);
   }
 
   .shimmer-text {
     background: linear-gradient(
       100deg,
-      hsl(330 25% 62%) 20%,
-      hsl(330 40% 96%) 40%,
-      hsl(330 25% 62%) 60%
+      hsl(265 25% 45%) 20%,
+      hsl(265 30% 20%) 40%,
+      hsl(265 25% 45%) 60%
     );
     background-size: 200% 100%;
     -webkit-background-clip: text;
@@ -149,11 +157,11 @@
     border-radius: 80% 0 80% 0;
     background: radial-gradient(
       circle at 30% 30%,
-      hsl(340 95% 90%) 0%,
-      hsl(342 92% 72%) 55%,
-      hsl(342 85% 62%) 100%
+      hsl(340 95% 92%) 0%,
+      hsl(342 92% 74%) 55%,
+      hsl(342 85% 64%) 100%
     );
-    box-shadow: 0 0 8px hsl(342 92% 70% / 0.4);
+    box-shadow: 0 0 8px hsl(342 92% 70% / 0.5);
     opacity: 0;
     pointer-events: none;
     animation-name: petal-fall;
@@ -175,12 +183,12 @@
   }
   .chat-bubble-tail.haimiya::before {
     left: -4px;
-    background: hsl(262 30% 12%);
+    background: hsl(340 45% 94%);
     transform: rotate(45deg);
   }
   .chat-bubble-tail.user::before {
     right: -4px;
-    background: hsl(342 92% 66%);
+    background: hsl(342 92% 60%);
     transform: rotate(45deg);
   }
 }

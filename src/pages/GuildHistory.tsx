@@ -102,8 +102,8 @@ export default function GuildHistory() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border/60 bg-card/50 backdrop-blur">
+    <div className="min-h-screen">
+      <header className="border-b border-border/60 bg-white/60 backdrop-blur">
         <div className="container py-6">
           <div className="flex flex-wrap items-center gap-4">
             <Link

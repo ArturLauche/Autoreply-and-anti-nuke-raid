@@ -76,11 +76,11 @@ export default function GuildPage() {
     Date.now() - data.guild.lastHeartbeat < 180_000;
 
   return (
-    <div className="relative min-h-screen bg-background">
+    <div className="relative min-h-screen">
       <CherryBlossom count={10} />
       <HaimiyaChat position="dashboard" />
       <div className="relative z-10">
-      <header className="border-b border-border/60 bg-card/50 backdrop-blur">
+      <header className="border-b border-border/60 bg-white/60 backdrop-blur">
         <div className="container py-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
