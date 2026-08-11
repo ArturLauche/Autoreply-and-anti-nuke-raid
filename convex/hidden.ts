@@ -21,15 +21,29 @@ async function getBotStatus(ctx: QueryCtx | MutationCtx) {
     .first();
 }
 
+/**
+ * Owner có hợp lệ không: phải khớp một tài khoản Discord đã từng đăng nhập web.
+ * Nếu owner bị ghi sai (VD: ghi nhầm Team ID thay vì User ID) thì coi như chưa có,
+ * để chủ bot thật có thể nhận lại quyền — đây cũng là cách tự phục hồi lỗi đổi ảnh.
+ */
+async function ownerIsValid(ctx: QueryCtx | MutationCtx, ownerId: string | undefined) {
+  if (!ownerId || !/^\d{15,20}$/.test(ownerId)) return false;
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_discordId", (q) => q.eq("discordId", ownerId))
+    .first();
+  return !!user;
+}
+
 /** Chỉ admin SỞ HỮU bot mới được tương tác mật khẩu / tính năng ẩn. */
 async function requireBotOwner(ctx: QueryCtx | MutationCtx, user: { discordId: string } | null) {
   if (!user) throw new Error("Vui lòng đăng nhập");
   const status = await getBotStatus(ctx);
   const ownerId = status?.ownerDiscordId;
-  if (ownerId && ownerId !== user.discordId) {
+  if (ownerId && (await ownerIsValid(ctx, ownerId)) && ownerId !== user.discordId) {
     throw new Error("Chỉ admin sở hữu bot mới được phép tương tác tính năng ẩn 🔒");
   }
-  // Chưa có chủ sở hữu → người đặt mật khẩu đầu tiên chính là chủ bot.
+  // Chưa có chủ sở hữu (hoặc owner cũ không hợp lệ) → người đặt mật khẩu đầu tiên là chủ bot.
   return status;
 }
 
@@ -98,13 +112,15 @@ export const getBotBranding = query({
   },
 });
 
-/** Bot báo chủ sở hữu (best-effort từ ứng dụng Discord) — chỉ ghi khi chưa có. */
+/** Bot báo chủ sở hữu (best-effort từ ứng dụng Discord) — ghi khi chưa có hoặc owner cũ sai. */
 export const botSetOwner = mutation({
   args: { ownerId: v.string() },
   handler: async (ctx, { ownerId }) => {
     if (!/^\d{15,20}$/.test(ownerId)) return { ok: false };
     const status = await getBotStatus(ctx);
-    if (status?.ownerDiscordId) return { ok: false };
+    if (status?.ownerDiscordId && (await ownerIsValid(ctx, status.ownerDiscordId))) {
+      return { ok: false };
+    }
     if (status) {
       await ctx.db.patch(status._id, { ownerDiscordId: ownerId });
     } else {
@@ -225,8 +241,9 @@ export const setHiddenPassword = mutation({
     if (password.length < 4 || password.length > 64) {
       throw new Error("Mật khẩu phải từ 4 đến 64 ký tự");
     }
-    // Người đầu tiên đặt mật khẩu trở thành chủ sở hữu bot (bootstrap).
-    if (!status?.ownerDiscordId && user) {
+    // Người đầu tiên đặt mật khẩu trở thành chủ sở hữu bot (bootstrap) —
+    // cũng cho phép nhận lại quyền khi owner cũ ghi sai / không tồn tại.
+    if (user && (!status?.ownerDiscordId || !(await ownerIsValid(ctx, status.ownerDiscordId)))) {
       await setOwnerId(ctx, user.discordId);
     }
     await ctx.db.patch(guild._id, {

@@ -45,6 +45,7 @@ export const botUpdateSettings = mutation({
   },
 });
 
+
 export const botAutoReplyUpsert = mutation({
   args: {
     guildId: v.string(),
@@ -93,6 +94,7 @@ export const botAutoReplyUpsert = mutation({
   },
 });
 
+
 export const botAutoReplyRemove = mutation({
   args: { guildId: v.string(), name: v.string() },
   handler: async (ctx, { guildId, name }) => {
@@ -104,6 +106,7 @@ export const botAutoReplyRemove = mutation({
     return { ok: true };
   },
 });
+
 
 export const botModuleUpdate = mutation({
   args: {
@@ -155,6 +158,7 @@ export const botModuleUpdate = mutation({
   },
 });
 
+
 export const botUpdateLockdown = mutation({
   args: {
     guildId: v.string(),
@@ -177,6 +181,7 @@ export const botUpdateLockdown = mutation({
   },
 });
 
+
 /** Bot records the current lockdown state (until = unlock timestamp, requested = manual unlock flag). */
 export const botLockState = mutation({
   args: {
@@ -197,6 +202,7 @@ export const botLockState = mutation({
     return { ok: true };
   },
 });
+
 
 /** Bot records a punished anti-nuke event for daily reports. */
 export const botRecordAntinukeEvent = mutation({
@@ -229,6 +235,7 @@ export const botRecordAntinukeEvent = mutation({
   },
 });
 
+
 /** Bot xóa cờ yêu cầu reset nhiệt sau khi đã dọn bộ nhớ. */
 export const botClearHeatReset = mutation({
   args: { guildId: v.string() },
@@ -247,6 +254,7 @@ export const botClearHeatReset = mutation({
   },
 });
 
+
 /** Bot records when the daily report for a guild was sent. */
 export const botSetReportAt = mutation({
   args: { guildId: v.string(), at: v.number() },
@@ -260,6 +268,7 @@ export const botSetReportAt = mutation({
     return { ok: true };
   },
 });
+
 
 /** Bot đảm bảo mọi module mặc định tồn tại cho một guild (thêm các module còn thiếu). */
 export const botEnsureModules = mutation({
@@ -296,6 +305,7 @@ export const botEnsureModules = mutation({
   },
 });
 
+
 export const botSetAntinuke = mutation({
   args: { guildId: v.string(), enabled: v.boolean() },
   handler: async (ctx, { guildId, enabled }) => {
@@ -308,6 +318,7 @@ export const botSetAntinuke = mutation({
     return { ok: true };
   },
 });
+
 
 /** Bot upserts the current heat level + warn strikes of one user in a guild. */
 export const botRecordHeat = mutation({
@@ -349,6 +360,44 @@ export const botRecordHeat = mutation({
         warnStrikes: strikes,
       });
     }
+    return { ok: true };
+  },
+});
+
+
+export const botRecordModAction = mutation({
+  args: {
+    guildId: v.string(),
+    action: v.string(),
+    targetId: v.optional(v.string()),
+    targetName: v.optional(v.string()),
+    executorId: v.optional(v.string()),
+    executorName: v.optional(v.string()),
+    reason: v.optional(v.string()),
+    details: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    await ctx.db.insert("modActions", {
+      guildId: args.guildId,
+      action: args.action.slice(0, 30),
+      targetId: args.targetId ?? undefined,
+      targetName: args.targetName ? args.targetName.slice(0, 80) : undefined,
+      executorId: args.executorId ?? undefined,
+      executorName: args.executorName ? args.executorName.slice(0, 80) : undefined,
+      reason: args.reason ? args.reason.slice(0, 500) : undefined,
+      details: args.details ? args.details.slice(0, 200) : undefined,
+      createdAt: now,
+    });
+    const extras = await ctx.db
+      .query("modActions")
+      .withIndex("by_guildId", (q) => q.eq("guildId", args.guildId))
+      .collect();
+    const drop = extras
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(100)
+      .map((r) => r._id);
+    for (const id of drop) await ctx.db.delete(id);
     return { ok: true };
   },
 });

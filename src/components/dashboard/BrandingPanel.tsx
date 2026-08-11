@@ -7,6 +7,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Card, CardContent } from "../ui/card";
+import type { GenericId } from "convex/values";
 import { getSessionToken } from "../../lib/discord";
 import { useBranding } from "../../lib/useBranding";
 import { HaimiyaAvatar } from "../HaimiyaChat";
@@ -73,11 +74,25 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
         headers: { "Content-Type": file.type || "image/png" },
         body: file,
       });
-      if (!res.ok) throw new Error(`Upload thất bại (${res.status})`);
-      const { storageId } = await res.json();
-      const out = await saveBrandingUpload({ token, guildId, storageId, slot });
+      if (!res.ok) throw new Error(`Upload ảnh lên máy chủ thất bại (HTTP ${res.status})`);
+      let storageId = "";
+      try {
+        const data = (await res.json()) as { storageId?: string };
+        storageId = data?.storageId ?? "";
+      } catch {
+        // phản hồi không phải JSON
+      }
+      if (!storageId) throw new Error("Không nhận được ID ảnh từ máy chủ — thử dán đường dẫn ảnh thay thế");
+      const out = await saveBrandingUpload({
+        token,
+        guildId,
+        storageId: storageId as GenericId<"_storage">,
+        slot,
+      });
       toast.success(
-        slot === "bot" ? "Đã đổi avatar bot — áp dụng toàn web 🎨" : "Đã đổi avatar Haimiya — áp dụng toàn web 🎀",
+        slot === "bot"
+          ? "Đã đổi avatar bot — áp dụng toàn web 🎨"
+          : "Đã đổi avatar Haimiya — áp dụng toàn web 🎀",
       );
       setUrls((u) => ({ ...u, [slot]: "" }));
       void out;

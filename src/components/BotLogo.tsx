@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Bot } from "lucide-react";
 import { useBranding } from "../lib/useBranding";
 import { cn } from "../lib/utils";
@@ -14,12 +15,14 @@ export default function BotLogo({
   fallbackClassName?: string;
 }) {
   const branding = useBranding();
+  const [failed, setFailed] = useState(false);
   const src = branding?.botAvatarUrl ?? branding?.haimiyaAvatarUrl ?? null;
-  if (src) {
+  if (src && !failed) {
     return (
       <img
         src={src}
         alt="Protogon"
+        onError={() => setFailed(true)}
         className={cn("rounded-full object-cover", className)}
         draggable={false}
       />

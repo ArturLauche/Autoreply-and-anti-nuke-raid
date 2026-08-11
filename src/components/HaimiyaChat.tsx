@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { useAction } from "convex/react";
 import { Send, Sparkles, X } from "lucide-react";
+import { api } from "../../convex/_generated/api";
 import { askHaimiya, GREETING, QUICK_QUESTIONS } from "../lib/haimiya";
 import { useBranding } from "../lib/useBranding";
 import { cn } from "../lib/utils";
@@ -23,11 +25,13 @@ export function HaimiyaAvatar({
   className?: string;
   src?: string | null;
 }) {
-  if (src) {
+  const [failed, setFailed] = useState(false);
+  if (src && !failed) {
     return (
       <img
         src={src}
-        alt="Haimiya-senpai"
+        alt="Haimiya"
+        onError={() => setFailed(true)}
         className={`rounded-full object-cover ${className ?? ""}`}
         draggable={false}
       />
@@ -154,6 +158,7 @@ export default function HaimiyaChat({
   const timerRef = useRef<number>(0);
   const branding = useBranding();
   const avatarSrc = branding?.haimiyaAvatarUrl ?? null;
+  const askAI = useAction(api.haimiya.ask);
 
   useEffect(() => {
     function onOpen() {
@@ -174,14 +179,32 @@ export default function HaimiyaChat({
     setInput("");
     setTyping(true);
     window.clearTimeout(timerRef.current);
-    timerRef.current = window.setTimeout(() => {
+    timerRef.current = window.setTimeout(async () => {
+      try {
+        // Ưu tiên AI thật (khi đã cấu hình OPENAI_API_KEY); nếu offline → dùng bộ kiến thức.
+        const history = messages
+          .concat([{ role: "user", text: q }])
+          .slice(-8)
+          .map((m) => ({
+            role: m.role === "user" ? ("user" as const) : ("assistant" as const),
+            content: m.text,
+          }));
+        const res = await askAI({ messages: history });
+        if (res && !res.offline && res.reply) {
+          setMessages((m) => [...m, { role: "haimiya", text: res.reply }]);
+          setTyping(false);
+          return;
+        }
+      } catch {
+        // fallback bên dưới
+      }
       const ans = askHaimiya(q);
       setMessages((m) => [
         ...m,
         { role: "haimiya", text: ans.text, suggestions: ans.suggestions },
       ]);
       setTyping(false);
-    }, 750 + Math.random() * 600);
+    }, 650 + Math.random() * 500);
   }
 
   return (
@@ -189,7 +212,7 @@ export default function HaimiyaChat({
       {/* Nút mở chat */}
       <button
         onClick={() => setOpen(true)}
-        aria-label="Trò chuyện với Haimiya-senpai"
+        aria-label="Trò chuyện với Haimiya"
         className={cn(
           "group fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full",
           "border border-white/50 bg-gradient-to-br from-[#ff8fab] to-[#f2629e] p-0.5 pr-1",
@@ -205,7 +228,7 @@ export default function HaimiyaChat({
           </span>
         </span>
         <span className="hidden pr-2 text-sm font-bold text-[#3d0f22] sm:block">
-          Haimiya-senpai
+          Haimiya
         </span>
       </button>
 
@@ -228,10 +251,10 @@ export default function HaimiyaChat({
             </div>
             <div className="flex-1">
               <p className="font-display text-sm font-bold leading-tight text-[#3d0f22]">
-                Haimiya-senpai
+                Haimiya
               </p>
               <p className="text-[11px] font-medium text-[#5c1533]">
-                Trợ lý ảo của Protogon · luôn bên cạnh senpai 🌸
+                Trợ lý ảo của Protogon — giải đáp về bot, nhiệt độ, tính năng ẩn
               </p>
             </div>
             <button
@@ -302,7 +325,7 @@ export default function HaimiyaChat({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") send(input);
                 }}
-                placeholder="Hỏi em điều gì đó, senpai…"
+                placeholder="Hỏi tôi điều gì đó…"
                 className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
               />
               <button
@@ -317,8 +340,8 @@ export default function HaimiyaChat({
             <p className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
               <Sparkles className="h-3 w-3 text-primary" />
               {position === "dashboard"
-                ? "Haimiya-senpai luôn sẵn sàng giải đáp — hỏi em bất cứ điều gì nhé!"
-                : "Haimiya trả lời dựa trên kiến thức của Protogon — nhanh, miễn phí, không cần API key."}
+                ? "Haimiya sẵn sàng giải đáp — bạn có thể hỏi tôi bất cứ điều gì."
+                : "Haimiya trả lời dựa trên kiến thức của Protogon — nhanh, chính xác."}
             </p>
           </div>
         </div>

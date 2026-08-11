@@ -101,6 +101,11 @@ export const getGuild = query({
     )
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, 30);
+    const modActions = await ctx.db
+      .query("modActions")
+      .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId))
+      .order("desc")
+      .take(30);
     return {
       guild: {
         discordId: guild.discordId,
@@ -112,6 +117,7 @@ export const getGuild = query({
         hiddenPasswordSet: !!guild.hiddenPasswordHash,
         isBotOwner,
         botOwnerSet: !!ownerDiscordId,
+        theme: guild.theme ?? "pink",
         modRoles: guild.modRoles,
         adminRoles: guild.adminRoles,
         antinukeEnabled: guild.antinukeEnabled,
@@ -184,6 +190,17 @@ export const getGuild = query({
         messageId: p.messageId ?? "",
         enabled: p.enabled,
         createdAt: p.createdAt,
+      })),
+      modActions: modActions.map((m) => ({
+        _id: m._id,
+        action: m.action,
+        targetId: m.targetId ?? null,
+        targetName: m.targetName ?? null,
+        executorId: m.executorId ?? null,
+        executorName: m.executorName ?? null,
+        reason: m.reason ?? null,
+        details: m.details ?? null,
+        createdAt: m.createdAt,
       })),
       giveaways: giveaways.map((g) => ({
         _id: g._id,
@@ -326,6 +343,7 @@ export const updateSettings = mutation({
     warnStrikePunish: v.optional(
       v.union(v.literal("timeout"), v.literal("kick"), v.literal("ban")),
     ),
+    theme: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await getUserByToken(ctx, args.token);
@@ -335,6 +353,11 @@ export const updateSettings = mutation({
       .first();
     if (!guild || !canManageGuild(user, guild)) throw new Error("Không có quyền quản lý server này");
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.theme !== undefined) {
+      const THEME_KEYS = ["pink", "rose", "orange", "amber", "green", "teal", "sky", "violet"];
+      if (!THEME_KEYS.includes(args.theme)) throw new Error("Chủ đề màu không hợp lệ");
+      patch.theme = args.theme;
+    }
     if (args.dailyReportEnabled !== undefined) patch.dailyReportEnabled = args.dailyReportEnabled;
     if (args.prefix !== undefined) {
       if (!/^[!^$#&%]{1,3}$/.test(args.prefix)) {

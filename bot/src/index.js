@@ -71,7 +71,8 @@ client.once("ready", async () => {
   try {
     const app = await client.application.fetch();
     const owner = app?.owner;
-    const ownerId = owner ? owner.id || owner.ownerId || null : null;
+    // Ưu tiên ownerId (user id của Team owner); chỉ dùng owner.id khi là User thật.
+    const ownerId = owner?.ownerId || (/^\d{15,20}$/.test(owner?.id || "") ? owner.id : null);
     if (ownerId) {
       await store.client.mutation("hidden:botSetOwner", { ownerId });
     }

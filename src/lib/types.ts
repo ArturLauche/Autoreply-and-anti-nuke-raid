@@ -126,6 +126,8 @@ export interface GuildData {
     isBotOwner: boolean;
     /** Đã xác định được chủ sở hữu bot chưa. */
     botOwnerSet: boolean;
+    /** Chủ đề màu riêng của server (key trong SERVER_THEMES). */
+    theme: string;
   };
   heatStates: HeatState[];
   autoReplies: AutoReply[];
@@ -134,6 +136,7 @@ export interface GuildData {
   roles: RoleInfo[];
   panels: ReactionRolePanel[];
   giveaways: Giveaway[];
+  modActions: ModAction[];
 }
 
 export interface ReactionRolePanel {
@@ -143,6 +146,18 @@ export interface ReactionRolePanel {
   entries: { emoji: string; roleId: string }[];
   messageId: string;
   enabled: boolean;
+  createdAt: number;
+}
+
+export interface ModAction {
+  _id: GenericId<"modActions">;
+  action: string;
+  targetId: string | null;
+  targetName: string | null;
+  executorId: string | null;
+  executorName: string | null;
+  reason: string | null;
+  details: string | null;
   createdAt: number;
 }
 

@@ -42,37 +42,57 @@ function tierFor(heat, s) {
   return "safe";
 }
 
-/** Thực thi một hình phạt đơn. Trả về mô tả hành động đã làm. */
-async function punishMember(guild, member, punishType, reason, timeoutSeconds = 300) {
+/**
+ * Thực thi một hình phạt đơn. Trả về mô tả hành động đã làm.
+ * Nếu truyền `store`, ghi luôn vào bảng hình phạt trên dashboard.
+ */
+async function punishMember(guild, member, punishType, reason, timeoutSeconds = 300, store) {
+  let result;
   if (punishType === "timeout") {
     const seconds = Math.max(1, Math.min(86400, Math.floor(timeoutSeconds || 300)));
     try {
       await member.timeout(seconds * 1000, reason);
-      return `đã tạm khóa ${Math.round(seconds / 60)} phút`;
+      result = `đã tạm khóa ${Math.round(seconds / 60)} phút`;
     } catch {
-      return "không thể tạm khóa (thiếu quyền)";
+      result = "không thể tạm khóa (thiếu quyền)";
     }
-  }
-  if (punishType === "warn") {
+  } else if (punishType === "warn") {
     try {
       await member.send(
         `⚠️ **Cảnh báo từ Protogon**\n${reason}\n\nĐây là cảnh báo tự động từ hệ thống bảo vệ. Vui lòng dừng hành vi này.`,
       );
-      return "đã cảnh báo qua DM";
+      result = "đã cảnh báo qua DM";
     } catch {
-      return "đã cố cảnh báo (DM đóng)";
+      result = "đã cố cảnh báo (DM đóng)";
+    }
+  } else {
+    try {
+      if (punishType === "kick") {
+        await member.kick(reason);
+        result = "đã kick";
+      } else {
+        await member.ban({ reason, deleteMessageSeconds: 0 });
+        result = "đã ban";
+      }
+    } catch {
+      result = "không thể xử lý (thiếu quyền)";
     }
   }
-  try {
-    if (punishType === "kick") {
-      await member.kick(reason);
-      return "đã kick";
+  if (store) {
+    try {
+      await store.client.mutation("bot_writes:botRecordModAction", {
+        guildId: guild.id,
+        action: `Tự động: ${punishType}`,
+        targetId: member.id,
+        targetName: member.user?.username ?? undefined,
+        reason: reason || undefined,
+        details: result,
+      });
+    } catch (e) {
+      console.error(`[heat:record] ${guild.id}:`, e.message);
     }
-    await member.ban({ reason, deleteMessageSeconds: 0 });
-    return "đã ban";
-  } catch {
-    return "không thể xử lý (thiếu quyền)";
   }
+  return result;
 }
 
 /**

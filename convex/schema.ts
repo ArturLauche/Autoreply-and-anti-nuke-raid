@@ -62,6 +62,8 @@ export default defineSchema({
       v.union(v.literal("timeout"), v.literal("kick"), v.literal("ban")),
     ),
     hiddenPasswordHash: v.optional(v.string()),
+    /** Chủ đề màu riêng cho web của server (key trong SERVER_THEMES). */
+    theme: v.optional(v.string()),
     dmTargetUserId: v.optional(v.string()),
     dmTargetUsername: v.optional(v.string()),
     dmMessage: v.optional(v.string()),
@@ -177,6 +179,20 @@ export default defineSchema({
   })
     .index("by_guildId", ["guildId"])
     .index("by_guildId_roleId", ["guildId", "roleId"]),
+
+  modActions: defineTable({
+    guildId: v.string(),
+    action: v.string(),
+    targetId: v.optional(v.string()),
+    targetName: v.optional(v.string()),
+    executorId: v.optional(v.string()),
+    executorName: v.optional(v.string()),
+    reason: v.optional(v.string()),
+    details: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_guildId", ["guildId"])
+    .index("by_guildId_createdAt", ["guildId", "createdAt"]),
 
   antinukeEvents: defineTable({
     guildId: v.string(),

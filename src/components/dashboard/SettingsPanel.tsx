@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
-import { BarChart3, Command, Hash, KeyRound, Save, ShieldHalf, Shield, Trash2 } from "lucide-react";
+import { BarChart3, Command, Hash, KeyRound, Palette, Save, ShieldHalf, Shield, Trash2 } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
@@ -10,6 +10,7 @@ import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
 import { MultiSelect } from "../ui/multi-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { DEFAULT_THEME, SERVER_THEMES } from "../../lib/constants";
 import type { GuildData } from "../../lib/types";
 import { getSessionToken } from "../../lib/discord";
 
@@ -25,6 +26,8 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
   const [logChannelId, setLogChannelId] = useState(data.guild.logChannelId ?? "none");
   const [modRoles, setModRoles] = useState<string[]>(data.guild.modRoles);
   const [adminRoles, setAdminRoles] = useState<string[]>(data.guild.adminRoles);
+  const [theme, setTheme] = useState(data.guild.theme || DEFAULT_THEME);
+  const [themeSaving, setThemeSaving] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const textChannels = data.channels.filter((c) => c.type === 0 || c.type === 5);
@@ -292,6 +295,65 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                 <span className="font-medium text-amber-400">Chưa đặt mật khẩu</span>
               )}
             </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Palette className="h-4 w-4 text-primary" /> Chủ đề màu của server 🎨
+            </CardTitle>
+            <CardDescription>
+              Mỗi server chọn một màu riêng — áp dụng cho toàn bộ trang quản lý server này
+              (nút bấm, thẻ, thanh sidebar) ngay lập tức.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {Object.entries(SERVER_THEMES).map(([key, t]) => (
+                <button
+                  key={key}
+                  onClick={() => setTheme(key)}
+                  className={`flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-all ${
+                    theme === key
+                      ? "border-primary ring-2 ring-primary/40"
+                      : "border-border hover:border-primary/40"
+                  }`}
+                >
+                  <span
+                    className="h-8 w-full rounded-lg"
+                    style={{ background: `linear-gradient(135deg, ${t.swatch}, ${t.swatch2})` }}
+                  />
+                  <span className="text-xs font-medium">{t.label}</span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-border bg-secondary/30 px-3 py-2">
+              <p className="text-xs text-muted-foreground">
+                Đang chọn:{" "}
+                <span className="font-medium text-foreground">
+                  {SERVER_THEMES[theme]?.label ?? "—"}
+                </span>{" "}
+                — {SERVER_THEMES[theme]?.desc}
+              </p>
+              <Button
+                size="sm"
+                disabled={themeSaving || theme === (data.guild.theme || DEFAULT_THEME)}
+                onClick={async () => {
+                  setThemeSaving(true);
+                  try {
+                    await updateSettings({ token: TOKEN(), guildId: data.guild.discordId, theme });
+                    toast.success("Đã áp dụng chủ đề màu mới 🎨");
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+                  } finally {
+                    setThemeSaving(false);
+                  }
+                }}
+              >
+                <Palette className="h-4 w-4" /> {themeSaving ? "Đang lưu…" : "Áp dụng"}
+              </Button>
             </div>
           </CardContent>
         </Card>

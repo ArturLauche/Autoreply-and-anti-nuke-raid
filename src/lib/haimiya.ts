@@ -37,7 +37,7 @@ const TOPICS: Topic[] = [
       "chu bot",
     ],
     answer:
-      "Tính năng ẩn là khu vực quyền lực dành riêng cho chủ sở hữu bot đó senpai 🔒! Gồm: Reaction Role, Giveaway, Gửi DM trực tiếp, Auto Reply và Tùy chỉnh giao diện (đổi avatar bot & Haimiya). Từ giờ, chỉ admin sở hữu bot mới được phép đặt mật khẩu và đăng nhập vào khu vực này — owner hay mod của một server có quyền quản lý cũng không đủ. Cách mở khóa: chủ bot đăng nhập bằng chính tài khoản Discord đã tạo bot → đặt mật khẩu trong Cài đặt → vào sidebar chọn Tính năng ẩn 🔒 → nhập mật khẩu là xong!",
+      "Tính năng ẩn là khu vực dành riêng cho chủ sở hữu bot 🔒: Reaction Role, Giveaway, Gửi DM trực tiếp, Auto Reply và Tùy chỉnh giao diện (đổi avatar bot & Haimiya). Chỉ admin sở hữu bot mới được phép đặt mật khẩu và đăng nhập vào khu vực này — owner hay mod của một server có quyền quản lý cũng không đủ. Cách mở khóa: chủ bot đăng nhập bằng chính tài khoản Discord đã tạo bot → đặt mật khẩu trong Cài đặt → vào sidebar chọn Tính năng ẩn → nhập mật khẩu là xong.",
     suggestions: [
       "Reaction role hoạt động thế nào?",
       "Giveaway có những tùy chọn gì?",
@@ -48,7 +48,7 @@ const TOPICS: Topic[] = [
     id: "reactionrole",
     keywords: ["reaction role", "reaction", "emoji", "nhan role", "go role", "tu nhan role"],
     answer:
-      "Reaction Role giúp thành viên tự chọn role chỉ bằng một cú bấm emoji đó senpai 🎭! Trong Tính năng ẩn, senpai tạo bảng: chọn kênh, đặt tên, rồi thêm từng cặp emoji → role. Bot gửi tin nhắn kèm các emoji vào kênh — ai bấm emoji nào sẽ được gán role đó, bấm lại lần nữa là gỡ role. Mỗi server tạo được tối đa 10 bảng, mỗi bảng tối đa 20 cặp emoji/role.",
+      "Reaction Role giúp thành viên tự chọn role chỉ bằng một cú bấm emoji 🎭. Trong Tính năng ẩn, bạn tạo bảng: chọn kênh, đặt tên, rồi thêm từng cặp emoji → role. Bot gửi tin nhắn kèm các emoji vào kênh — ai bấm emoji nào sẽ được gán role đó, bấm lại lần nữa là gỡ role. Mỗi server tạo được tối đa 10 bảng, mỗi bảng tối đa 20 cặp emoji/role.",
     suggestions: [
       "Giveaway có những tùy chọn gì?",
       "Tính năng ẩn gồm những gì?",
@@ -57,9 +57,21 @@ const TOPICS: Topic[] = [
   },
   {
     id: "giveaway",
-    keywords: ["giveaway", "quay so", "trung thuong", "giai thuong", "nguoi thang", "dm giveaway", "cap role", "role thuong", "mau tin nhan", "chen anh", "loi dan"],
+    keywords: [
+      "giveaway",
+      "quay so",
+      "trung thuong",
+      "giai thuong",
+      "nguoi thang",
+      "dm giveaway",
+      "cap role",
+      "role thuong",
+      "mau tin nhan",
+      "chen anh",
+      "loi dan",
+    ],
     answer:
-      "Giveaway của Protogon chạy hoàn toàn tự động đó senpai 🎉! Tạo giveaway qua dashboard, /giveaway start hoặc !giveaway start. Chọn 1 trong 4 mẫu tin nhắn (Mặc định 🎉, Sang trọng ✨, VIP 💎, Nhanh gọn 🎁), viết lời dẫn tùy chỉnh, chèn ảnh nền embed, số người thắng (1–20) và thời lượng (5 phút → 7 ngày). Có Yêu cầu role để giới hạn người tham gia, và Role thưởng: hết giờ bot tự chọn người thắng ngẫu nhiên, cấp role thưởng cho họ, thông báo trong kênh và DM kèm lời chúc mừng nếu bật. Tối đa 5 giveaway chạy song song.",
+      "Giveaway của Protogon chạy hoàn toàn tự động 🎉. Bạn tạo qua dashboard, /giveaway start hoặc !giveaway start. Có 4 mẫu tin nhắn (Mặc định, Sang trọng, VIP, Nhanh gọn), lời dẫn tùy chỉnh, chèn ảnh nền embed, số người thắng (1–20) và thời lượng (5 phút → 7 ngày). Hỗ trợ Yêu cầu role để giới hạn người tham gia, và Role thưởng: hết giờ bot tự chọn người thắng ngẫu nhiên, cấp role thưởng cho họ, thông báo trong kênh và gửi DM kèm lời chúc mừng nếu bật. Tối đa 5 giveaway chạy song song.",
     suggestions: [
       "Có lệnh giveaway trong Discord không?",
       "Đổi avatar bot ở đâu?",
@@ -70,22 +82,11 @@ const TOPICS: Topic[] = [
     id: "dm",
     keywords: ["gui dm", "dm truc tiep", "nhan tin rieng", "gui tin nhan rieng", "dm cho", "gui cho"],
     answer:
-      "Tính năng gửi DM trực tiếp cho phép admin nhắn riêng bất kỳ người dùng nào qua bot đó senpai 💌! Trong Tính năng ẩn, nhập ID người dùng (bật Developer Mode trong Discord, chuột phải người dùng → Copy User ID), viết nội dung rồi bấm Gửi — bot sẽ nhắn riêng cho họ trong vòng ~30 giây. Lưu ý: nếu người đó đã chặn tin nhắn từ bot thì việc gửi sẽ không thành công.",
+      "Tính năng gửi DM trực tiếp cho phép admin nhắn riêng bất kỳ người dùng nào qua bot 💌. Trong Tính năng ẩn, bạn nhập ID người dùng (bật Developer Mode trong Discord, chuột phải người dùng → Copy User ID), viết nội dung rồi bấm Gửi — bot sẽ nhắn riêng cho họ trong vòng ~30 giây. Lưu ý: nếu người đó đã chặn tin nhắn từ bot thì việc gửi sẽ không thành công.",
     suggestions: [
       "Giveaway có những tùy chọn gì?",
       "Cách đặt mật khẩu tính năng ẩn",
       "Tính năng ẩn gồm những gì?",
-    ],
-  },
-  {
-    id: "remember",
-    keywords: ["luu dang nhap", "khong luu dang nhap", "nho dang nhap", "dang nhap lai", "nho mat khau"],
-    answer:
-      "Trang đăng nhập giờ có tùy chọn lưu đăng nhập đó senpai 🪪! Tích Lưu đăng nhập → phiên đăng nhập được giữ lại trên thiết bị, mở lại trình duyệt không cần đăng nhập lại. Chọn Không lưu đăng nhập → token chỉ sống trong tab hiện tại, đóng trình duyệt là phải đăng nhập lại — an toàn hơn khi dùng máy công cộng.",
-    suggestions: [
-      "Tính năng ẩn gồm những gì?",
-      "Cách đặt mật khẩu tính năng ẩn",
-      "Cách chạy bot trên hosting",
     ],
   },
   {
@@ -102,11 +103,84 @@ const TOPICS: Topic[] = [
       "avatar",
     ],
     answer:
-      "Senpai có thể đổi avatar bot và avatar của em ngay trên web đó! 🎨 Vào Tính năng ẩn → mục Tùy chỉnh giao diện: tải ảnh lên (tối đa 2MB) hoặc dán đường dẫn ảnh cho từng mục — Avatar bot (Protogon, hiển thị làm logo toàn web) và Avatar trợ lý AI (Haimiya-senpai, hiển thị trong cửa sổ chat). Thay đổi áp dụng ngay toàn bộ trang chủ, đăng nhập và dashboard. Lưu ý: chỉ admin sở hữu bot mới được đổi nhé!",
+      "Bạn có thể đổi avatar bot và avatar của tôi ngay trên web 🎨. Vào Tính năng ẩn → mục Tùy chỉnh giao diện: tải ảnh lên (tối đa 2MB) hoặc dán đường dẫn ảnh cho từng mục — Avatar bot (Protogon, hiển thị làm logo toàn web) và Avatar trợ lý AI (Haimiya, hiển thị trong cửa sổ chat). Thay đổi áp dụng ngay toàn bộ trang chủ, đăng nhập và dashboard. Lưu ý: chỉ admin sở hữu bot mới được đổi.",
     suggestions: [
       "Tính năng ẩn gồm những gì?",
-      "Công cụ mod gồm những gì?",
+      "Chủ đề màu server là gì?",
       "Giveaway có những tùy chọn gì?",
+    ],
+  },
+  {
+    id: "theme",
+    keywords: [
+      "chu de mau",
+      "mau sac",
+      "theme",
+      "doi mau",
+      "mau chu de",
+      "mau rieng",
+      "mau server",
+      "mau web",
+    ],
+    answer:
+      "Mỗi server có thể chọn chủ đề màu riêng cho trang quản lý 🎨. Vào Cài đặt → mục Chủ đề màu của server: chọn 1 trong 8 màu (Hồng anh đào, Hồng đỏ, Cam hoàng hôn, Vàng hổ phách, Xanh lá, Xanh ngọc, Xanh trời, Tím oải hương) rồi bấm Áp dụng. Màu sẽ áp dụng ngay cho nút bấm, thẻ và sidebar của riêng server đó trên web.",
+    suggestions: [
+      "Đổi avatar bot ở đâu?",
+      "Bảng hình phạt là gì?",
+      "Công cụ mod gồm những gì?",
+    ],
+  },
+  {
+    id: "punishments",
+    keywords: [
+      "bang hinh phat",
+      "hinh phat",
+      "lich su phat",
+      "mod action",
+      "ai da kick",
+      "ai da ban",
+      "ai da timeout",
+      "punish",
+    ],
+    answer:
+      "Bảng hình phạt nằm trong mục Hình phạt trên sidebar trang quản lý server 🛠️. Nó liệt kê đầy đủ các hình phạt gần nhất: timeout, kick, ban, purge — kèm thời gian, thành viên bị phạt, người thực hiện (mod) và lý do. Các hình phạt tự động từ hệ thống chống nuke/nhiệt độ cũng được ghi vào bảng này với nhãn Tự động. Bot ghi nhận khi bạn dùng /mod hoặc !timeout !kick !ban !purge.",
+    suggestions: [
+      "Công cụ mod gồm những gì?",
+      "Chủ đề màu server là gì?",
+      "Hệ thống nhiệt độ hoạt động thế nào?",
+    ],
+  },
+  {
+    id: "modtools",
+    keywords: [
+      "cong cu mod",
+      "mod tools",
+      "timeout",
+      "purge",
+      "kick",
+      "ban",
+      "ta khoa",
+      "xoa tin nhan",
+      "/mod",
+      "cam thanh vien",
+    ],
+    answer:
+      "Công cụ Mod giúp xử lý thành viên nhanh chóng và có ghi chép đầy đủ 🛠️: /mod timeout @user 10m [lý do], /mod kick @user [lý do], /mod ban @user [lý do] (kèm --days để xóa tin nhắn) và /mod purge <số tin>. Lệnh text tương đương: !timeout, !kick, !ban, !purge. Mọi hành động đều được ghi vào kênh log và bảng hình phạt trên dashboard với lý do + người thực hiện. Cần quyền Quản lý server hoặc role Mod/Admin được cấu hình.",
+    suggestions: [
+      "Bảng hình phạt là gì?",
+      "Giveaway có những tùy chọn gì?",
+      "Tính năng ẩn gồm những gì?",
+    ],
+  },
+  {
+    id: "remember",
+    keywords: ["luu dang nhap", "khong luu dang nhap", "nho dang nhap", "dang nhap lai", "nho mat khau"],
+    answer:
+      "Trang đăng nhập có tùy chọn lưu đăng nhập 🪪. Tích Lưu đăng nhập → phiên đăng nhập được giữ lại trên thiết bị, mở lại trình duyệt không cần đăng nhập lại. Chọn Không lưu đăng nhập → token chỉ sống trong tab hiện tại, đóng trình duyệt là phải đăng nhập lại — an toàn hơn khi dùng máy công cộng.",
+    suggestions: [
+      "Tính năng ẩn gồm những gì?",
+      "Cách đặt mật khẩu tính năng ẩn",
+      "Cách chạy bot trên hosting",
     ],
   },
   {
@@ -117,7 +191,6 @@ const TOPICS: Topic[] = [
       "haimiya",
       "gioi thieu",
       "ai la",
-      "mau",
       "tro ly",
       "tro chuyen",
       "chao",
@@ -125,7 +198,7 @@ const TOPICS: Topic[] = [
       "hi ",
     ],
     answer:
-      "Em là Haimiya-senpai 🌸 — trợ lý ảo của Protogon! Em hơi nhát nhưng luôn muốn chăm sóc senpai thật tốt. Senpai cứ hỏi em về bot: hệ thống nhiệt độ, Join Gate, chống nuke/raid, auto reply, tính năng ẩn, giveaway… Em biết hết đó!",
+      "Tôi là Haimiya, trợ lý ảo của Protogon — bot Discord bảo vệ server. Tôi có thể giải đáp về hệ thống nhiệt độ, Join Gate, chống nuke/raid, auto reply, tính năng ẩn, giveaway, công cụ mod… Bạn cứ hỏi, tôi sẽ trả lời rõ ràng.",
     suggestions: [
       "Hệ thống nhiệt độ hoạt động thế nào?",
       "Join Gate là gì?",
@@ -135,95 +208,64 @@ const TOPICS: Topic[] = [
   {
     id: "heat",
     keywords: [
-      "nhiet",
-      "heat",
-      "han nhiet",
-      "ha nhiet",
-      "giam nhiet",
-      "tai pham",
-      "x2",
-      "nhan doi",
-      "cam bao",
-      "canh bao nhiet",
       "nhiet do",
-      "thanh nhiet",
-      "muc do",
+      "heat",
+      "diem nhiet",
+      "cong nhiet",
+      "hạ nhiệt",
+      "ha nhiet",
+      "giai doan",
+      "nong",
     ],
     answer:
-      "Hệ thống nhiệt độ của em hoạt động như thang nhiệt đó senpai 🔥: mỗi vi phạm (spam, từ xấu, link độc hại…) cộng điểm nhiệt theo cài đặt của từng module. Đủ mốc 25 → em DM cảnh báo, 40 → tạm khóa, 70 → kick, 90 → ban. Nhiệt tự hạ dần theo phút (cài được), và nếu senpai vừa bị phạt mà tái phạm trong cửa sổ (mặc định 30 phút) thì nhiệt sẽ tăng nhanh gấp ×2 (cài 1–10 lần). Cảnh báo qua DM và reset nhiệt từng người / toàn bộ đều làm được trên dashboard nha!",
+      "Hệ thống nhiệt độ hoạt động theo thang điểm 0–100 🌡️. Mỗi vi phạm cộng điểm nhiệt theo cài đặt; ngưỡng mặc định: cảnh báo 25, tạm khóa 40, kick 70, ban 90. Khi chạm ngưỡng, bot tự xử lý (cảnh báo DM → tạm khóa → kick → ban). Nhiệt giảm dần theo phút (mặc định 3 điểm/phút) và nếu tái phạm trong cửa sổ (mặc định 30 phút) sẽ bị nhân nhiệt (mặc định x2). Tất cả ngưỡng đều chỉnh được trong Moderation.",
     suggestions: [
       "Warn tích lũy là gì?",
+      "Bảng hình phạt là gì?",
       "Cách xem nhiệt của thành viên",
-      "Hạ nhiệt nhanh như thế nào?",
     ],
   },
   {
     id: "warn",
-    keywords: [
-      "warn",
-      "strike",
-      "tich luy",
-      "canh bao tich luy",
-      "so lan canh bao",
-      "tang cap",
-      "warn bao nhieu",
-    ],
+    keywords: ["warn", "canh bao", "tich luy", "strike", "warn tich luy", "canh bao tich luy"],
     answer:
-      "Warn tích lũy chạy song song với nhiệt độ đó senpai ⚠️: khi hình phạt là Cảnh báo, em đếm số lần warn của thành viên trong cửa sổ (mặc định 60 phút). Đủ số warn cài trước (mặc định 3) → tự động tăng cấp thành hình phạt nặng hơn (tạm khóa / kick / ban — senpai chọn được). Trên web, bảng Moderation hiển thị huy hiệu warn 2/3 cạnh từng thành viên, và báo cáo hàng ngày cũng liệt kê đầy đủ!",
+      "Warn tích lũy giúp phát hiện người tái phạm liên tục ⚠️. Mỗi lần vi phạm bị xử lý Cảnh báo sẽ được đếm; đủ N lần (mặc định 3) trong cửa sổ (mặc định 60 phút) thì tự tăng cấp hình phạt (tạm khóa / kick / ban — bạn chọn được). Số warn hiển thị dạng X/N ngay trong bảng nhiệt trên dashboard và báo cáo hàng ngày.",
     suggestions: [
       "Hệ thống nhiệt độ hoạt động thế nào?",
-      "Bảng nhiệt trên web ở đâu?",
+      "Bảng hình phạt là gì?",
       "Báo cáo hàng ngày là gì?",
     ],
   },
   {
     id: "joingate",
-    keywords: [
-      "join gate",
-      "cong vao",
-      "cua vao",
-      "selfbot",
-      "tai khoan moi",
-      "avatar",
-      "huy hieu",
-      "flag",
-      "thanh vien moi",
-      "chong selfbot",
-      "danh sach trang",
-      "whitelist",
-    ],
+    keywords: ["join gate", "cong vao", "selfbot", "vào server", "vo server", "tai khoan moi", "check avatar"],
     answer:
-      "Join Gate là cổng vào server chống selfbot đó senpai 🚪! Khi có người mới vào, em quét ngay các tiêu chí senpai tick trên dashboard: chặn tài khoản quá mới (số ngày tuổi tối thiểu), chặn tài khoản dùng avatar mặc định, chặn tài khoản không có huy hiệu công khai, và chặn mọi lượt vào khi server đang bị raid. Hình phạt chọn Kick nhẹ hoặc Ban mạnh, kèm danh sách trắng để luôn cho một số ID vào. Lưu ý nhỏ: Discord không cho bot đọc email/điện thoại đã xác thực nên em dùng các tín hiệu công khai trên — rất hiệu quả với selfbot!",
+      "Join Gate là cổng kiểm soát thành viên khi vào server 🚪. Bạn bật từng tùy chọn trong mục Join Gate: chặn tài khoản quá mới (số ngày tùy chỉnh), bắt buộc có avatar, bắt buộc có huy hiệu, và chặn toàn bộ lượt vào khi server đang bị raid. Có danh sách trắng để miễn trừ, và chọn hình phạt Kick hoặc Ban cho các trường hợp bị chặn.",
     suggestions: [
-      "Chống link độc hại hoạt động thế nào?",
-      "Cách bật Join Gate",
       "Chống nuke/raid là gì?",
+      "Hệ thống nhiệt độ hoạt động thế nào?",
+      "Join Gate chống được gì?",
     ],
   },
   {
     id: "malware",
     keywords: [
-      "malware",
-      "virus",
       "link doc hai",
-      "doc hai",
-      "lua dao",
-      "scam",
       "file nguy hiem",
-      "file nguy",
-      "dang nhap",
-      "duoi file",
-      "exe",
+      "malware",
+      "lua dao",
       "nitro gia",
-      "gift gia",
-      "crypto",
+      "domain xau",
+      "exe",
+      "virus",
+      "link ip",
     ],
     answer:
-      "Em canh link độc hại & file nguy hiểm rất kỹ đó senpai 🛡️! Module Chống link độc hại & file nguy hiểm chặn ~50 domain lừa đảo phổ biến (nitro giả, gift giả, crypto scam…), link dạng IP trực tiếp, và chữ ký nội dung scam như free nitro, giveaway. Đồng thời quét file đính kèm: đuôi nguy hiểm như .exe, .scr, .bat, .cmd, .msi, .vbs, .ps1, .jar, .apk, .hta… bị phát hiện là xóa tin ngay + cảnh báo kèm tên file vào kênh log. Bật/tắt và chỉnh nhiệt từng lần vi phạm trong mục Moderation nha!",
+      "Module chống link độc hại & file nguy hiểm bảo vệ thành viên khỏi lừa đảo 🛡️. Bot phát hiện và xóa tin chứa: domain lừa đảo phổ biến (nitro giả, gift giả, crypto scam…), link IP trực tiếp, chữ ký nội dung scam, và file đuôi nguy hiểm (.exe .scr .bat .msi .vbs .ps1 .jar .apk .hta…). Mỗi lần phát hiện đều cảnh báo trong kênh log kèm tên file hoặc link.",
     suggestions: [
-      "Moderation gồm những gì?",
-      "Hệ thống nhiệt độ hoạt động thế nào?",
-      "Cách đặt kênh log",
+      "Chống nuke/raid là gì?",
+      "Moderation lọc những gì?",
+      "Bảng hình phạt là gì?",
     ],
   },
   {
@@ -231,119 +273,75 @@ const TOPICS: Topic[] = [
     keywords: [
       "moderation",
       "spam",
-      "badword",
-      "tu xau",
+      "bad word",
       "tu ngu xau",
-      "mention",
-      "tag",
-      "anh",
-      "file dinh kem",
-      "dinh kem",
-      "invite",
+      "mention spam",
+      "anh spam",
+      "file spam",
       "link moi",
-      "loc noi dung",
-      "lọc nội dung",
-      "anti spam",
+      "filter",
     ],
     answer:
-      "Mục Moderation của em gồm 6 module lọc nội dung senpai 🧹: chống spam tin nhắn, chống spam mention (tag người/role/kênh liên tục), lọc từ ngữ xấu (danh sách từ senpai tự thêm trong Cài đặt), chống spam ảnh & file đính kèm, chặn link mời Discord (discord.gg), và chống link độc hại & file nguy hiểm. Mỗi module có ngưỡng, cửa sổ thời gian, hình phạt và điểm nhiệt riêng — bật/tắt từng cái trên web nha!",
+      "Mục Moderation tập trung lọc nội dung tin nhắn ✂️: chống spam tin nhắn, chống spam mention, lọc từ ngữ xấu (danh sách tùy chỉnh), chống spam ảnh/file đính kèm, chặn link mời Discord (discord.gg, discord.com/invite) và chống link độc hại/file nguy hiểm. Mỗi module bật/tắt riêng, chỉnh ngưỡng, hình phạt và mức nhiệt cộng cho từng vi phạm.",
     suggestions: [
-      "Warn tích lũy là gì?",
-      "Chống link độc hại hoạt động thế nào?",
-      "Thêm từ xấu ở đâu?",
+      "Hệ thống nhiệt độ hoạt động thế nào?",
+      "Chống nuke/raid là gì?",
+      "Chủ đề màu server là gì?",
     ],
   },
   {
     id: "antinuke",
     keywords: [
-      "nuke",
-      "raid",
-      "anti nuke",
       "chong nuke",
-      "chong raid",
+      "anti nuke",
+      "raid",
+      "nuke",
       "ban hang loat",
       "kick hang loat",
-      "tao kenh",
       "xoa kenh",
       "tao role",
-      "xoa role",
-      "xoa tin",
-      "khoa kenh",
       "lockdown",
-      "pha hoai",
-      "tan cong",
+      "khoa kenh",
     ],
     answer:
-      "Chống nuke/raid là lớp phòng thủ cấu trúc server đó senpai 🛡️! Em theo dõi audit log để phát hiện: ban/kick hàng loạt, làn sóng thành viên giả vào ồ ạt, tạo/xóa kênh hay role hàng loạt, và quét sạch tin nhắn. Vượt ngưỡng → em xác định thủ phạm và phạt TRỰC TIẾP (không cộng nhiệt) theo cài đặt, đồng thời có thể khóa kênh toàn server tự động khi bị tấn công (mở lại bằng /antinuke unlock). Mod/Admin trong danh sách Cài đặt được miễn trừ. Tất cả 8 module bật/tắt riêng trong sidebar Chống nuke / raid!",
+      "Chống nuke/raid bảo vệ cấu trúc server 🛡️ với 8 module: ban hàng loạt, kick hàng loạt, raid thành viên, tạo kênh hàng loạt, xóa kênh hàng loạt, tạo role hàng loạt, xóa role hàng loạt, xóa tin hàng loạt. Các module này phạt trực tiếp (warn/kick/ban/timeout), không cộng nhiệt. Khi bị tấn công, bot có thể tự khóa kênh (lockdown) để chặn phá hoại, và bạn mở khóa ngay bằng nút hoặc lệnh /antinuke unlock.",
     suggestions: [
-      "Khóa kênh khi raid là gì?",
-      "Cách miễn trừ mod/admin",
       "Join Gate là gì?",
+      "Moderation lọc những gì?",
+      "Bảng hình phạt là gì?",
     ],
   },
   {
     id: "autoreply",
-    keywords: [
-      "auto reply",
-      "tu tra loi",
-      "tu dong tra loi",
-      "tu khoa",
-      "keyword",
-      "mention",
-      "cooldown",
-      "placeholder",
-      "tra loi tu dong",
-      "rule",
-      "tra loi",
-    ],
+    keywords: ["auto reply", "tu tra loi", "tu dong tra loi", "keyword", "mention bot", "rule"],
     answer:
-      "Auto reply là thế mạnh của Protogon đó senpai 💬! Senpai tạo rule với từ khóa hoặc @mention làm mồi — khi ai đó nhắn khớp, em trả lời ngay. Hỗ trợ placeholder {user} (tag người nhắn) và {username} (lấy tên họ), chọn kênh áp dụng và cooldown chống spam. Ví dụ rule chơi gì → Hôm nay thử Valorant 5v5 nhé {user} 🎮 — trả lời tự nhiên đúng giọng server của senpai! Hiện Auto Reply đã được chuyển vào Tính năng ẩn 🔒 để chỉ admin mới chỉnh được.",
+      "Auto Reply tự động trả lời tin nhắn theo rule 💬. Mỗi rule gồm: tên, loại kích hoạt (từ khóa xuất hiện trong tin hoặc khi thành viên tag bot), nội dung trả lời (hỗ trợ {user} và {username}), giới hạn kênh và cooldown chống spam. Quản lý rule trong Tính năng ẩn → Auto Reply, hoặc lệnh !autoreply add/list/remove.",
     suggestions: [
-      "Cách tạo rule auto reply",
       "Tính năng ẩn gồm những gì?",
-      "Cách đặt mật khẩu tính năng ẩn",
+      "Bot có những lệnh nào?",
+      "Hệ thống nhiệt độ hoạt động thế nào?",
     ],
   },
   {
     id: "report",
-    keywords: [
-      "bao cao",
-      "bao cao hang ngay",
-      "daily",
-      "report",
-      "tom tat",
-      "tong ket",
-      "thong ke",
-    ],
+    keywords: ["bao cao", "daily report", "bao cao hang ngay", "tong ket", "bao cao chong nuke"],
     answer:
-      "Báo cáo hàng ngày là bản tóm tắt an ninh của server đó senpai 📊! Mỗi ngày em gửi vào kênh log: tổng số sự kiện vi phạm, chi tiết theo từng module, thủ phạm thường xuyên, trạng thái khóa kênh — và đặc biệt là bảng nhiệt độ & warn tích lũy của từng thành viên (ví dụ: Alice 30/100 ⚠️, Bob 10/100 + warn 2/3), xếp theo nhiệt giảm dần. Bật trong Cài đặt → Báo cáo chống nuke hàng ngày và nhớ đặt kênh log nha!",
+      "Báo cáo hàng ngày là bản tóm tắt gửi vào kênh log mỗi ngày 📊: tổng số sự kiện, chi tiết theo module, thủ phạm thường xuyên, trạng thái khóa kênh, cùng danh sách nhiệt độ và warn tích lũy của từng thành viên. Bật/tắt trong Cài đặt → Báo cáo chống nuke hàng ngày, nhớ đặt kênh log.",
     suggestions: [
+      "Hệ thống nhiệt độ hoạt động thế nào?",
+      "Bảng hình phạt là gì?",
       "Cách đặt kênh log",
-      "Bảng nhiệt trên web ở đâu?",
-      "Warn tích lũy là gì?",
     ],
   },
   {
     id: "dashboard",
-    keywords: [
-      "dashboard",
-      "web",
-      "giao dien",
-      "bang dieu khien",
-      "chinh",
-      "cau hinh",
-      "sidebar",
-      "trang web",
-      "bảng",
-      "hien thi",
-      "dieu khien",
-    ],
+    keywords: ["dashboard", "bang dieu khien", "trang quan ly", "web", "website", "giao dien web"],
     answer:
-      "Dashboard của chúng em chia sidebar thành 6 mục rõ ràng đó senpai 🖥️: Tổng quan (mức an toàn + thành viên nóng nhất), Moderation (spam, mention, từ xấu, ảnh/file, link mời, link độc hại + cài đặt nhiệt & warn), Join Gate, Chống nuke/raid, Tính năng ẩn 🔒 (auto reply, reaction role, giveaway, gửi DM — mở khóa bằng mật khẩu) và Cài đặt. Có cả bảng nhiệt độ & warn đầy đủ của từng thành viên với nút xóa nhiệt ngay trong bảng. Mọi thay đổi được bot đồng bộ trong ~30 giây — chỉnh trên web xong em lo phần còn lại!",
+      "Dashboard là trang quản lý bot trên web 🖥️. Bạn đăng nhập bằng Discord, chọn server, rồi quản lý mọi thứ: Moderation (nhiệt độ, warn, lọc nội dung), Join Gate, Chống nuke/raid, Hình phạt, Tính năng ẩn và Cài đặt (prefix, kênh log, chủ đề màu). Thay đổi được bot áp dụng trong khoảng 30 giây.",
     suggestions: [
-      "Bảng nhiệt trên web ở đâu?",
-      "Cách đặt kênh log",
-      "Tính năng ẩn gồm những gì?",
+      "Cách đăng nhập dashboard",
+      "Chủ đề màu server là gì?",
+      "Bảng hình phạt là gì?",
     ],
   },
   {
@@ -359,45 +357,24 @@ const TOPICS: Topic[] = [
       "dung lenh",
       "commands",
       "lệnh",
-      "timeout",
-      "purge",
-      "kick",
-      "ban",
-      "/mod",
-      "xoa tin nhan",
-      "ta khoa",
-      "cam",
     ],
     answer:
-      "Bot hỗ trợ cả prefix và slash command đó senpai ⌨️! Công cụ Mod mới: /mod timeout @user 10m [lý do], /mod kick, /mod ban và /mod purge — mọi hành động đều ghi lý do + người thực hiện vào kênh log. Lệnh text tương đương: !timeout !kick !ban !purge. Giveaway cũng có lệnh: /giveaway start <tên> <giải thưởng> <thời lượng> hoặc !giveaway start Tên | Giải thưởng | 1h. Ngoài ra: /heat status xem nhiệt & warn, /antinuke bật tắt bảo vệ, /prefix đổi prefix. Gõ / trong Discord để xem toàn bộ danh sách slash command nhé!",
+      "Bot hỗ trợ cả prefix và slash command ⌨️. Công cụ Mod: /mod timeout, /mod kick, /mod ban, /mod purge — lệnh text tương đương !timeout !kick !ban !purge. Giveaway: /giveaway start <tên> <giải> <thời lượng> hoặc !giveaway start. Ngoài ra: /heat status xem nhiệt & warn, /antinuke bật tắt bảo vệ, /prefix đổi prefix, /badword quản lý từ ngữ xấu. Gõ / trong Discord để xem toàn bộ danh sách slash command.",
     suggestions: [
       "Cách xem nhiệt của thành viên",
+      "Công cụ mod gồm những gì?",
       "Giveaway có những tùy chọn gì?",
-      "Đổi avatar bot ở đâu?",
     ],
   },
   {
     id: "hosting",
-    keywords: [
-      "hosting",
-      "wispbyte",
-      "zip",
-      "deploy",
-      "chay bot",
-      "may chu",
-      "upload",
-      "unarchive",
-      "restart",
-      "github",
-      "host deploy",
-      "tai zip",
-    ],
+    keywords: ["hosting", "wispbyte", "bot hosting", "chay bot", "host", "zip", "deploy", "24/7"],
     answer:
-      "Cách chạy bot trên hosting — em hướng dẫn senpai từng bước nha 📦! 1) Vào GitHub repo → nhánh host-deploy → tải file protogon-bot.zip (nhớ F5 trước để lấy bản mới). 2) Lên Wispbyte → xóa file zip cũ → upload zip mới → Unarchive. 3) Bấm Restart và xem log: thấy ✅ Protogon online là thành công. Còn web thì bấm nút Deploy trên Freebuff rồi Ctrl+F5. Mỗi lần cập nhật mình đều push zip mới lên nhánh host-deploy đó!",
+      "Để bot chạy 24/7, bạn cần một hosting bot (ví dụ Wispbyte) 🚀. Quy trình: tải file zip bot từ nhánh host-deploy trên GitHub → vào hosting, xóa file cũ → upload zip mới → Unarchive → Restart. Mỗi lần có bản cập nhật, lặp lại đúng quy trình đó. Nhớ cấu hình đủ token Discord và khóa Convex trong file cấu hình.",
     suggestions: [
+      "Cách đăng nhập dashboard",
       "Bot có những lệnh nào?",
       "Báo cáo hàng ngày là gì?",
-      "Đăng nhập dashboard thế nào?",
     ],
   },
   {
@@ -416,7 +393,7 @@ const TOPICS: Topic[] = [
       "phí",
     ],
     answer:
-      "Yên tâm senpai, Protogon miễn phí cho mọi server đó 🎀! Toàn bộ tính năng — auto reply, nhiệt độ 4 giai đoạn, warn tích lũy, Join Gate, chống nuke/raid, chặn link độc hại, giveaway, reaction role, báo cáo hàng ngày — đều dùng được không giới hạn. Chỉ cần bot và dashboard của senpai được host là xong, không mất phí nha!",
+      "Protogon miễn phí cho mọi server 💰. Toàn bộ tính năng — auto reply, nhiệt độ 4 giai đoạn, warn tích lũy, Join Gate, chống nuke/raid, chặn link độc hại, giveaway, reaction role, công cụ mod, bảng hình phạt, báo cáo hàng ngày — đều dùng được không giới hạn. Bạn chỉ cần host bot và dùng dashboard, không mất phí.",
     suggestions: [
       "Cách chạy bot trên hosting",
       "Tính năng ẩn gồm những gì?",
@@ -437,7 +414,7 @@ const TOPICS: Topic[] = [
       "vo dashboard",
     ],
     answer:
-      "Đăng nhập rất nhanh đó senpai 🪪! Bấm nút Đăng nhập với Discord ở góc phải trên cùng (hoặc nút Mở dashboard), Discord sẽ xác nhận quyền, xong là vào thẳng dashboard. Trang đăng nhập còn có tùy chọn Lưu đăng nhập / Không lưu đăng nhập. Nhớ là chỉ server nào senpai có quyền quản lý mới hiện ra thôi nha — nếu chưa thấy server, hãy mời bot vào server đó trước!",
+      "Đăng nhập rất nhanh 🪪. Bấm nút Đăng nhập với Discord ở góc phải trên cùng (hoặc nút Mở dashboard), Discord xác nhận quyền, xong là vào thẳng dashboard. Trang đăng nhập có tùy chọn Lưu đăng nhập / Không lưu đăng nhập. Chỉ server nào bạn có quyền quản lý mới hiện ra — nếu chưa thấy server, hãy mời bot vào server đó trước.",
     suggestions: [
       "Cách chạy bot trên hosting",
       "Lưu đăng nhập là gì?",
@@ -447,7 +424,7 @@ const TOPICS: Topic[] = [
 ];
 
 export const GREETING =
-  "Chào senpai! Em là Haimiya-senpai 🌸 — trợ lý ảo của Protogon. Em hơi nhát, nhưng senpai cứ hỏi em bất cứ điều gì về bot nhé: nhiệt độ, Join Gate, chống nuke, auto reply, tính năng ẩn… Em sẽ cố hết sức! (◕‿◕)";
+  "Xin chào! Tôi là Haimiya, trợ lý ảo của Protogon — bot Discord bảo vệ server. Tôi có thể giúp bạn giải đáp về hệ thống nhiệt độ, Join Gate, chống nuke/raid, tính năng ẩn, giveaway, công cụ mod và nhiều hơn nữa. Bạn muốn hỏi điều gì?";
 
 export const QUICK_QUESTIONS = [
   "Hệ thống nhiệt độ hoạt động thế nào?",
@@ -457,7 +434,7 @@ export const QUICK_QUESTIONS = [
 ];
 
 const FALLBACK: HaimiyaAnswer = {
-  text: "Hmm… em chưa hiểu rõ ý senpai lắm 😖. Nhưng đừng ngại, em luôn ở đây! Senpai thử hỏi em một trong những câu bên dưới nhé, hoặc gõ từ khóa như nhiệt độ, join gate, warn, giveaway, hosting…",
+  text: "Xin lỗi, tôi chưa hiểu rõ câu hỏi của bạn. Bạn có thể thử hỏi lại bằng từ khóa như: nhiệt độ, join gate, warn, giveaway, hosting, tính năng ẩn, bảng hình phạt… Hoặc chọn một câu hỏi gợi ý bên dưới.",
   suggestions: [
     "Hệ thống nhiệt độ hoạt động thế nào?",
     "Join Gate là gì?",

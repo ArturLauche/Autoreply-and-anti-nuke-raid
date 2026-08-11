@@ -413,6 +413,7 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
             minutes,
             reason,
             guildConfig: config,
+            store,
           });
           return interaction.reply({ content: `✅ ${out}`, ephemeral: true });
         } catch (e) {
@@ -433,6 +434,7 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
             executor: interaction.user,
             reason,
             guildConfig: config,
+            store,
           });
           return interaction.reply({ content: `✅ ${out}`, ephemeral: true });
         } catch (e) {
@@ -455,6 +457,7 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
             reason,
             deleteDays,
             guildConfig: config,
+            store,
           });
           return interaction.reply({ content: `✅ ${out}`, ephemeral: true });
         } catch (e) {
@@ -465,7 +468,7 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
       if (sub === "purge") {
         const count = interaction.options.getInteger("count", true);
         try {
-          const out = await purgeChannel(interaction.channel, count, interaction.user, config);
+          const out = await purgeChannel(interaction.channel, count, interaction.user, config, store);
           return interaction.reply({ content: `✅ ${out}`, ephemeral: true });
         } catch (e) {
           return interaction.reply({ content: `❌ Không thể purge: ${e.message}`, ephemeral: true });

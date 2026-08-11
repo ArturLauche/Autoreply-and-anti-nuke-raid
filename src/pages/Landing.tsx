@@ -49,14 +49,14 @@ function Nav() {
           <span className="font-display text-lg font-bold tracking-tight">
             Protogon<span className="text-primary">.</span>
             <span className="ml-1.5 hidden align-middle text-xs font-semibold text-muted-foreground sm:inline">
-              🌸 bên Haimiya-senpai
+              🌸 cùng trợ lý Haimiya
             </span>
           </span>
         </Link>
         <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
           <a href="#features" className="transition-colors hover:text-foreground">Tính năng</a>
           <a href="#antinuke" className="transition-colors hover:text-foreground">Bảo vệ server</a>
-          <a href="#haimiya" className="transition-colors hover:text-foreground">Haimiya-senpai</a>
+          <a href="#haimiya" className="transition-colors hover:text-foreground">Haimiya</a>
           <a href="#how" className="transition-colors hover:text-foreground">Cách hoạt động</a>
         </nav>
         <Link to="/auth">
@@ -220,7 +220,7 @@ function Features() {
             Bảo vệ toàn diện & <span className="text-gradient-sakura">giao tiếp</span> cho server của bạn
           </motion.h2>
           <motion.p variants={fadeUp} className="mt-4 text-muted-foreground">
-            Từ tự trả lời thông minh đến 14 module bảo vệ — Protogon canh server 24/7 và cấu hình mọi thứ qua dashboard trực quan, có Haimiya-senpai sẵn sàng giải đáp.
+            Từ tự trả lời thông minh đến 14 module bảo vệ — Protogon canh server 24/7 và cấu hình mọi thứ qua dashboard trực quan, có trợ lý Haimiya sẵn sàng giải đáp.
           </motion.p>
         </motion.div>
 
@@ -515,18 +515,18 @@ function HaimiyaSection() {
           >
             <Badge className="mb-4"><Heart className="h-3.5 w-3.5" /> Gặp gỡ trợ lý ảo</Badge>
             <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
-              Haimiya-senpai — <span className="text-gradient-sakura">nhát nhưng rất quan tâm</span>
+              Haimiya — <span className="text-gradient-sakura">trợ lý ảo đáng tin cậy</span>
             </h2>
             <p className="mt-4 max-w-lg text-muted-foreground">
-              Lấy cảm hứng từ cô senpai "đáng sợ mà đáng yêu" — Haimiya-senpai là trợ lý ảo của Protogon,
-              luôn túc trực trên website và dashboard. Em giải đáp mọi thắc mắc về bot bằng tiếng Việt:
+              Lấy cảm hứng từ nhân vật "đáng sợ mà đáng yêu" — Haimiya là trợ lý ảo của Protogon,
+              luôn túc trực trên website và dashboard. Tôi giải đáp mọi thắc mắc về bot bằng tiếng Việt:
               hệ thống nhiệt độ, warn tích lũy, Join Gate, chống nuke/raid, auto reply, cách host bot…
             </p>
             <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
               {[
                 "Giải đáp tức thì, 24/7 — không cần chờ đợi",
                 "Biết rõ từng tính năng & cách cấu hình của Protogon",
-                "Luôn ở bên cạnh senpai — trên web lẫn trong dashboard",
+                "Trả lời rõ ràng, nghiêm túc — trên web lẫn trong dashboard",
               ].map((t) => (
                 <li key={t} className="flex items-start gap-3">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs text-primary">🌸</span>
@@ -632,7 +632,7 @@ function CtaBanner() {
           <div className="relative">
             <HaimiyaAvatar className="mx-auto h-24 w-24 drop-shadow-[0_10px_30px_hsl(342_92%_66%/0.4)]" />
             <h2 className="mt-4 font-display text-3xl font-bold tracking-tight md:text-5xl">
-              Sẵn sàng để Haimiya-senpai <br className="hidden md:block" /> chăm sóc server của bạn?
+              Sẵn sàng để Haimiya <br className="hidden md:block" /> hỗ trợ bạn quản lý server?
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
               Đăng nhập bằng Discord, mời Protogon vào server — nhiệt độ, Join Gate, lọc nội dung, chống nuke và trợ lý ảo bật ngay lập tức. Miễn phí cho mọi server.
@@ -723,7 +723,7 @@ export default function Landing() {
                     variant="outline"
                     onClick={() => window.dispatchEvent(new Event("haimiya-open"))}
                   >
-                    <HaimiyaAvatar className="h-5 w-5" /> Hỏi Haimiya-senpai
+                    <HaimiyaAvatar className="h-5 w-5" /> Hỏi Haimiya
                   </Button>
                 </motion.div>
                 <motion.div

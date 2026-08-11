@@ -391,6 +391,7 @@ async function handleTimeout(client, message, args, config, store) {
       minutes,
       reason,
       guildConfig: config,
+      store,
     });
     return message.reply(`✅ ${out}`);
   } catch (e) {
@@ -405,7 +406,7 @@ async function handlePurge(client, message, args, config, store) {
     return message.reply("Cú pháp: `!purge <số tin nhắn tối đa 100>`");
   }
   try {
-    const out = await purgeChannel(message.channel, count, message.author, config);
+    const out = await purgeChannel(message.channel, count, message.author, config, store);
     const sent = await message.reply(`✅ ${out}`);
     setTimeout(() => sent.delete().catch(() => {}), 5000);
   } catch (e) {
@@ -425,6 +426,7 @@ async function handleKick(client, message, args, config, store) {
       executor: message.author,
       reason,
       guildConfig: config,
+      store,
     });
     return message.reply(`✅ ${out}`);
   } catch (e) {
@@ -448,6 +450,7 @@ async function handleBan(client, message, args, config, store) {
       reason,
       deleteDays,
       guildConfig: config,
+      store,
     });
     return message.reply(`✅ ${out}`);
   } catch (e) {

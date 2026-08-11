@@ -6,6 +6,7 @@ import {
   Bot,
   DoorOpen,
   ExternalLink,
+  Gavel,
   LayoutDashboard,
   Loader2,
   Lock,
@@ -13,6 +14,7 @@ import {
   ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
+import { DEFAULT_THEME, SERVER_THEMES } from "../lib/constants";
 import CherryBlossom from "../components/CherryBlossom";
 import BotLogo from "../components/BotLogo";
 import HaimiyaChat from "../components/HaimiyaChat";
@@ -28,16 +30,18 @@ import type { GuildData } from "../lib/types";
 import OverviewPanel from "../components/dashboard/OverviewPanel";
 import AntiNukePanel from "../components/dashboard/AntiNukePanel";
 import ModerationPanel from "../components/dashboard/ModerationPanel";
+import ModActionsPanel from "../components/dashboard/ModActionsPanel";
 import JoinGatePanel from "../components/dashboard/JoinGatePanel";
 import SettingsPanel from "../components/dashboard/SettingsPanel";
 
-type SectionKey = "overview" | "moderation" | "joingate" | "antinuke" | "hidden" | "settings";
+type SectionKey = "overview" | "moderation" | "joingate" | "antinuke" | "punishments" | "hidden" | "settings";
 
 const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "overview", label: "Tổng quan", icon: LayoutDashboard },
   { key: "moderation", label: "Moderation", icon: ShieldCheck },
   { key: "joingate", label: "Join Gate", icon: DoorOpen },
   { key: "antinuke", label: "Chống nuke / raid", icon: ShieldAlert },
+  { key: "punishments", label: "Hình phạt", icon: Gavel },
   { key: "hidden", label: "Tính năng ẩn 🔒", icon: Lock },
   { key: "settings", label: "Cài đặt", icon: Settings },
 ];
@@ -80,8 +84,15 @@ export default function GuildPage() {
     data.guild.lastHeartbeat !== null &&
     Date.now() - data.guild.lastHeartbeat < 180_000;
 
+  // Chủ đề màu riêng của server — ghi đè CSS var trong phạm vi trang này.
+  const theme = SERVER_THEMES[data.guild.theme] ?? SERVER_THEMES[DEFAULT_THEME];
+  const themeVars = {
+    "--primary": theme.primary,
+    "--ring": theme.ring,
+  } as React.CSSProperties;
+
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen" style={themeVars}>
       <CherryBlossom count={10} />
       <HaimiyaChat position="dashboard" />
       <div className="relative z-10">
@@ -165,7 +176,8 @@ export default function GuildPage() {
               <p className="mt-1">• Join Gate = chặn selfbot khi vào server.</p>
               <p className="mt-1">• Nuke/raid phạt trực tiếp, không cộng nhiệt.</p>
               <p className="mt-1">• 🔒 Tính năng ẩn = reaction role, giveaway, gửi DM, auto reply, tùy chỉnh giao diện — chỉ chủ sở hữu bot.</p>
-              <p className="mt-1">• 🛠️ Lệnh mod: /mod timeout · kick · ban · purge + !timeout !kick !ban !purge.</p>
+              <p className="mt-1">• 🛠️ Lệnh mod: /mod timeout · kick · ban · purge + !timeout !kick !ban !purge — mọi hình phạt hiện trong mục Hình phạt.</p>
+              <p className="mt-1">• 🎨 Mỗi server có chủ đề màu riêng trong Cài đặt.</p>
               <p className="mt-1">• 🎉 Lệnh giveaway: /giveaway start + !giveaway start.</p>
               <p className="mt-1">• Thay đổi áp dụng trong ~30 giây.</p>
             </div>
@@ -177,6 +189,7 @@ export default function GuildPage() {
             {section === "moderation" && <ModerationPanel data={data} />}
             {section === "joingate" && <JoinGatePanel data={data} />}
             {section === "antinuke" && <AntiNukePanel data={data} />}
+            {section === "punishments" && <ModActionsPanel data={data} />}
             {section === "settings" && <SettingsPanel data={data} />}
             {section === "hidden" &&
               (!data.guild.isBotOwner || (data.guild.hiddenPasswordSet && !hiddenUnlocked) ? (

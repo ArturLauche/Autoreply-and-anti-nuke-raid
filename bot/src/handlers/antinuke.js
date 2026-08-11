@@ -92,7 +92,7 @@ module.exports = function createAntiNuke(client, store, heat) {
   async function punishWithHeat(guild, member, moduleCfg, reason) {
     if (NUKE_MODULES.has(moduleCfg.module)) {
       const chosen = moduleCfg.punish || "kick";
-      const action = await punishMember(guild, member, chosen, reason, moduleCfg.timeoutSeconds);
+      const action = await punishMember(guild, member, chosen, reason, moduleCfg.timeoutSeconds, store);
       return { action, chosen, heatRes: null };
     }
     const s = heatSettings(configOf(guild.id));
@@ -104,7 +104,7 @@ module.exports = function createAntiNuke(client, store, heat) {
       s,
     );
     const chosen = choosePunish(moduleCfg.punish || "warn", heatRes);
-    const action = await punishMember(guild, member, chosen, reason, moduleCfg.timeoutSeconds);
+    const action = await punishMember(guild, member, chosen, reason, moduleCfg.timeoutSeconds, store);
     if (chosen !== "warn") heat.markPunished(guild.id, member.id);
     return { action: action + heatSummary(heatRes), chosen, heatRes };
   }
