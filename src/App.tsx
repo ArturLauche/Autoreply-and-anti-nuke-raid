@@ -6,6 +6,8 @@ import DiscordCallback from "./pages/DiscordCallback";
 import Dashboard from "./pages/Dashboard";
 import GuildPage from "./pages/GuildPage";
 import GuildHistory from "./pages/GuildHistory";
+import Monitor from "./pages/Monitor";
+import Admin from "./pages/Admin";
 import RequireAuth from "./components/RequireAuth";
 import Taskbar from "./components/Taskbar";
 
@@ -17,6 +19,8 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/discord/callback" element={<DiscordCallback />} />
+        <Route path="/monitor" element={<Monitor />} />
+        <Route path="/admin" element={<Admin />} />
         <Route
           path="/dashboard"
           element={

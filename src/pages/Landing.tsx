@@ -1,5 +1,8 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import {
   ArrowRight,
   Bot,
@@ -24,6 +27,7 @@ import {
   UserCheck,
   Zap,
 } from "lucide-react";
+import { ChevronDown, LogOut } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import CherryBlossom from "../components/CherryBlossom";
@@ -32,6 +36,13 @@ import HaimiyaChat, { HaimiyaAvatar } from "../components/HaimiyaChat";
 import { useBranding } from "../lib/useBranding";
 import { usePublicConfig } from "../lib/usePublicConfig";
 import { useBotStatus } from "../lib/useBotStatus";
+import {
+  clearSessionToken,
+  discordAvatarUrl,
+  getSessionToken,
+  setRememberLogin,
+} from "../lib/discord";
+import type { MeData } from "../lib/types";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -44,6 +55,25 @@ const stagger = {
 };
 
 function Nav() {
+  const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const token = getSessionToken();
+  const me = useQuery(api.sessions.me, { token }) as MeData | null | undefined;
+  const logout = useMutation(api.sessions.logout);
+  const avatar = me?.user
+    ? discordAvatarUrl({ id: me.user.discordId, avatar: me.user.avatar })
+    : null;
+  const [remember, setRemember] = useState(
+    sessionStorage.getItem("wio_remember_login") !== "0",
+  );
+
+  async function handleLogout() {
+    setMenuOpen(false);
+    await logout({ token });
+    clearSessionToken();
+    navigate("/");
+  }
+
   return (
     <header className="fixed inset-x-0 top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl">
       <div className="container flex h-16 items-center justify-between">
@@ -66,9 +96,76 @@ function Nav() {
           <a href="#haimiya" className="transition-colors hover:text-foreground">Haimiya</a>
           <a href="#how" className="transition-colors hover:text-foreground">Cách hoạt động</a>
         </nav>
-        <Link to="/auth">
-          <Button size="sm">Đăng nhập</Button>
-        </Link>
+        {me ? (
+          <div className="relative">
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              className="flex items-center gap-2 rounded-full border border-border bg-card/70 py-1 pl-1 pr-2.5 transition-colors hover:bg-accent"
+            >
+              {avatar ? (
+                <img src={avatar} alt={me.user.username} className="h-8 w-8 rounded-full ring-2 ring-primary/40" />
+              ) : (
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary">
+                  {(me.user.globalName ?? me.user.username).slice(0, 1).toUpperCase()}
+                </span>
+              )}
+              <span className="hidden max-w-[8rem] truncate text-sm font-medium sm:block">
+                {me.user.globalName ?? me.user.username}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-border bg-card/95 p-2 shadow-2xl backdrop-blur">
+                <div className="border-b border-border/70 px-2.5 pb-2 pt-1">
+                  <p className="truncate text-sm font-bold">{me.user.globalName ?? me.user.username}</p>
+                  <p className="truncate text-xs text-muted-foreground">{me.user.discordId}</p>
+                </div>
+                <Link
+                  to="/dashboard"
+                  onClick={() => setMenuOpen(false)}
+                  className="mt-1 flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                >
+                  <LayoutDashboard className="h-4 w-4 text-primary" /> Bảng điều khiển
+                </Link>
+                <label className="mt-1 flex cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-accent">
+                  <span className="text-xs text-muted-foreground">
+                    Lưu đăng nhập <b className="text-foreground">(7 ngày)</b>
+                  </span>
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={remember}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const next = !remember;
+                      setRemember(next);
+                      setRememberLogin(next);
+                    }}
+                    className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+                      remember ? "bg-primary" : "bg-secondary"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${
+                        remember ? "left-[18px]" : "left-0.5"
+                      }`}
+                    />
+                  </button>
+                </label>
+                <button
+                  onClick={handleLogout}
+                  className="mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-danger/10"
+                >
+                  <LogOut className="h-4 w-4" /> Đăng xuất
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <Link to="/auth">
+            <Button size="sm">Đăng nhập</Button>
+          </Link>
+        )}
       </div>
     </header>
   );
@@ -634,7 +731,7 @@ function CtaBanner() {
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="relative overflow-hidden rounded-3xl border border-white/60 bg-gradient-to-br from-[#ffdcec] via-[#fff7fa] to-[#cfe8ff] p-8 text-center shadow-xl md:p-16"
+          className="relative overflow-hidden rounded-3xl border border-white/60 bg-gradient-to-br from-[#ffdcec] via-[#fff7fa] to-[#cfe8ff] p-8 text-center shadow-xl md:p-16 dark:border-white/10 dark:from-[#2b1c33] dark:via-[#241c33] dark:to-[#152238]"
         >
           <div className="absolute inset-0 bg-glow-sakura opacity-50" />
           <div className="absolute inset-0 bg-glow-sky opacity-60" />

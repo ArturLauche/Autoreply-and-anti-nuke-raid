@@ -3,23 +3,63 @@ export const OAUTH_VERIFIER_KEY = "wio_oauth_verifier";
 export const OAUTH_STATE_KEY = "wio_oauth_state";
 export const REMEMBER_LOGIN_KEY = "wio_remember_login";
 
+/** Chỉ lưu đăng nhập tối đa 7 ngày khi bật "Lưu đăng nhập". */
+export const SESSION_EXPIRY_DAYS = 7;
+
+interface StoredSession {
+  t: string;
+  e: number; // expiresAt (ms)
+}
+
+/** Bật/tắt "Lưu đăng nhập" — chuyển token giữa sessionStorage và localStorage. */
+export function setRememberLogin(remember: boolean): void {
+  sessionStorage.setItem(REMEMBER_LOGIN_KEY, remember ? "1" : "0");
+  const token = getSessionToken();
+  if (!token) return;
+  if (remember) {
+    localStorage.setItem(
+      SESSION_TOKEN_KEY,
+      JSON.stringify({ t: token, e: Date.now() + SESSION_EXPIRY_DAYS * 86400_000 } as StoredSession),
+    );
+    sessionStorage.removeItem(SESSION_TOKEN_KEY);
+  } else {
+    localStorage.removeItem(SESSION_TOKEN_KEY);
+    sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+  }
+}
+
 /**
  * Đọc token phiên: ưu tiên sessionStorage (không lưu đăng nhập) rồi
- * localStorage (có lưu đăng nhập).
+ * localStorage (có lưu đăng nhập — tự hết hạn sau 7 ngày).
  */
 export function getSessionToken(): string {
-  return (
-    sessionStorage.getItem(SESSION_TOKEN_KEY) ??
-    localStorage.getItem(SESSION_TOKEN_KEY) ??
-    ""
-  );
+  const fromSession = sessionStorage.getItem(SESSION_TOKEN_KEY);
+  if (fromSession) return fromSession;
+  const raw = localStorage.getItem(SESSION_TOKEN_KEY);
+  if (!raw) return "";
+  try {
+    const parsed = JSON.parse(raw) as StoredSession;
+    if (parsed && typeof parsed.t === "string" && typeof parsed.e === "number") {
+      if (Date.now() > parsed.e) {
+        localStorage.removeItem(SESSION_TOKEN_KEY);
+        return "";
+      }
+      return parsed.t;
+    }
+  } catch {
+    // dữ liệu cũ (token thô chưa có hạn) — vẫn chấp nhận.
+  }
+  return raw;
 }
 
 /** Lưu token theo lựa chọn "Lưu đăng nhập" của người dùng. */
 export function setSessionToken(token: string): void {
   const remember = sessionStorage.getItem(REMEMBER_LOGIN_KEY) !== "0";
   if (remember) {
-    localStorage.setItem(SESSION_TOKEN_KEY, token);
+    localStorage.setItem(
+      SESSION_TOKEN_KEY,
+      JSON.stringify({ t: token, e: Date.now() + SESSION_EXPIRY_DAYS * 86400_000 } as StoredSession),
+    );
   } else {
     sessionStorage.setItem(SESSION_TOKEN_KEY, token);
   }

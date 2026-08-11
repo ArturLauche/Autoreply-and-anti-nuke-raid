@@ -1,54 +1,37 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Activity,
-  AlertTriangle,
+  ChevronRight,
   ExternalLink,
   Facebook,
+  LayoutDashboard,
+  Lock,
   MessageCircle,
   Moon,
   PanelRightOpen,
+  ShieldCheck,
   Sun,
   User,
   Wifi,
   WifiOff,
   X,
 } from "lucide-react";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { usePublicConfig } from "../lib/usePublicConfig";
 import { useBotStatus } from "../lib/useBotStatus";
+import { getSessionToken } from "../lib/discord";
 import { cn } from "../lib/utils";
-
-/** Điểm cuối Convex dùng để đo độ trễ thực (khớp URL backend production trong main.tsx). */
-const PING_URL = "https://accomplished-chipmunk-74.convex.cloud/api/query";
-
-const LATENCY_FAST = 300;
-const LATENCY_SLOW = 800;
-const INCIDENT_SLOW = 1200;
-
-interface Incident {
-  time: number;
-  text: string;
-}
 
 type ThemeMode = "light" | "dark";
 
-function latencyLabel(ms: number): { label: string; cls: string } {
-  if (ms < LATENCY_FAST) return { label: "Nhanh", cls: "text-emerald-500" };
-  if (ms < LATENCY_SLOW) return { label: "Trung bình", cls: "text-amber-500" };
-  return { label: "Chậm", cls: "text-red-500" };
-}
-
-async function pingBackend(): Promise<number> {
-  const t0 = performance.now();
-  const res = await fetch(PING_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path: "status:botStatus", format: "json", args: {} }),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  await res.json();
-  return Math.round(performance.now() - t0);
-}
-
+/**
+ * Taskbar — cửa sổ dọc bo tròn gắn sát mép trái trang web, bấm nút để bật/tắt.
+ * Chứa: chế độ tương phản sáng/tối, trạng thái nhanh của bot, nút đi tới trang
+ * Giám sát bot, Cửa sổ Admin (chỉ chủ sở hữu bot thấy), thông tin chủ bot và
+ * link Discord / Facebook.
+ */
 export default function Taskbar() {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -59,91 +42,49 @@ export default function Taskbar() {
       ? "dark"
       : "light";
   });
-  const [latency, setLatency] = useState<number | null>(null);
-  const [history, setHistory] = useState<number[]>([]);
-  const [incidents, setIncidents] = useState<Incident[]>([]);
-  const timerRef = useRef<number>(0);
 
   const status = useBotStatus();
   const { discordInvite, facebookUrl } = usePublicConfig();
+  const token = getSessionToken();
+  const isOwner = useQuery(api.status.isOwner, { token });
 
-  // Áp dụng chế độ tương phản (sáng/tối) toàn trang + lưu lựa chọn.
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
     window.localStorage.setItem("protogon-theme", theme);
   }, [theme]);
 
-  // Đo độ trễ backend định kỳ + ghi sự cố.
-  useEffect(() => {
-    let alive = true;
-    async function tick() {
-      try {
-        const ms = await pingBackend();
-        if (!alive) return;
-        setLatency(ms);
-        setHistory((h) => [...h.slice(-4), ms]);
-        if (ms > INCIDENT_SLOW) {
-          setIncidents((arr) =>
-            [
-              { time: Date.now(), text: `Độ trễ cao: ${ms} ms` },
-              ...arr,
-            ].slice(0, 10),
-          );
-        }
-      } catch {
-        if (!alive) return;
-        setLatency(null);
-        setIncidents((arr) =>
-          [{ time: Date.now(), text: "Mất kết nối tới máy chủ" }, ...arr].slice(
-            0,
-            10,
-          ),
-        );
-      }
-    }
-    void tick();
-    timerRef.current = window.setInterval(() => void tick(), 5000);
-    return () => {
-      alive = false;
-      window.clearInterval(timerRef.current);
-    };
-  }, []);
-
-  const avg =
-    history.length > 0
-      ? Math.round(history.reduce((a, b) => a + b, 0) / history.length)
-      : null;
-  const lat = latency ?? avg;
   const ownerName = status?.ownerName ?? "wiothemilo";
   const ownerAvatar = status?.ownerAvatarUrl ?? null;
+  const online = status?.online ?? false;
+  const onMonitorPage = window.location.pathname.startsWith("/monitor");
+  const onAdminPage = window.location.pathname.startsWith("/admin");
 
   return (
     <>
-      {/* Nút bật/tắt taskbar (góc trái dưới, tránh đè cửa sổ chat Haimiya) */}
+      {/* Nút bật/tắt — tab dọc bên trái trang web */}
       <button
         onClick={() => setOpen((o) => !o)}
-        aria-label="Mở taskbar"
+        aria-label={open ? "Đóng taskbar" : "Mở taskbar"}
         className={cn(
-          "group fixed bottom-5 left-5 z-50 flex items-center gap-2 rounded-full",
-          "border border-white/50 bg-gradient-to-br from-[#8fc8ff] to-[#f79fc6] p-0.5 pr-1",
-          "shadow-[0_8px_30px_-6px_hsl(205_90%_55%/0.5)] transition-transform hover:scale-105",
-          open && "pointer-events-none opacity-0",
+          "fixed left-0 top-1/2 z-50 flex -translate-y-1/2 items-center rounded-r-xl",
+          "border border-l-0 border-white/50 bg-gradient-to-b from-[#8fc8ff] via-[#f79fc6] to-[#ffb3d1] p-0.5 pr-1",
+          "shadow-[0_8px_30px_-6px_hsl(205_90%_55%/0.5)] transition-all hover:pr-1.5",
+          open ? "pointer-events-none translate-x-[-110%] opacity-0" : "",
         )}
       >
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/95 text-[#3d2a5c] shadow-inner ring-2 ring-white/60">
-          <PanelRightOpen className="h-6 w-6" />
+        <span className="flex h-12 w-8 items-center justify-center rounded-l-lg bg-white/95 text-[#3d2a5c] shadow-inner">
+          <PanelRightOpen className="h-5 w-5" />
         </span>
-        <span className="hidden pr-2 text-sm font-bold text-[#1d2f4d] sm:block">
-          Taskbar
-        </span>
+        <ChevronRight className="h-3.5 w-3.5 text-[#3d2a5c]" />
       </button>
 
+      {/* Cửa sổ dọc bo tròn gắn mép trái */}
       {open && (
         <div
           className={cn(
-            "fixed bottom-5 left-5 z-50 flex w-[min(92vw,20rem)] flex-col overflow-hidden rounded-2xl",
-            "border border-primary/30 bg-card/95 shadow-2xl backdrop-blur",
-            "animate-in fade-in-0 zoom-in-95 duration-200",
+            "fixed left-0 top-1/2 z-50 flex max-h-[92vh] w-[min(90vw,20rem)] -translate-y-1/2 flex-col overflow-hidden",
+            "rounded-r-2xl border border-primary/30 bg-card/95 shadow-2xl backdrop-blur",
+            "animate-in slide-in-from-left-4 fade-in-0 duration-200",
           )}
         >
           {/* Header */}
@@ -156,7 +97,7 @@ export default function Taskbar() {
                 Taskbar Protogon
               </p>
               <p className="text-[11px] font-medium text-[#3a4a66]">
-                Tương phản · Giám sát bot · Chủ sở hữu
+                Cửa sổ nhanh — bấm để bật/tắt
               </p>
             </div>
             <button
@@ -169,143 +110,101 @@ export default function Taskbar() {
           </div>
 
           <div className="max-h-[70vh] space-y-3 overflow-y-auto px-4 py-4">
-            {/* Chế độ tương phản sáng/tối */}
-            <div className="rounded-xl border border-border bg-secondary/40 p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  {theme === "dark" ? (
-                    <Moon className="h-4 w-4 text-primary" />
-                  ) : (
-                    <Sun className="h-4 w-4 text-primary" />
-                  )}
-                  Chế độ tương phản
-                </div>
-                <button
-                  onClick={() =>
-                    setTheme((t) => (t === "dark" ? "light" : "dark"))
-                  }
-                  className={cn(
-                    "relative h-6 w-11 shrink-0 rounded-full transition-colors",
-                    theme === "dark" ? "bg-primary" : "bg-muted-foreground/30",
-                  )}
-                  aria-label="Bật/tắt chế độ tối"
-                >
-                  <span
-                    className={cn(
-                      "absolute top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow transition-all",
-                      theme === "dark" ? "left-[22px]" : "left-0.5",
-                    )}
-                  >
-                    {theme === "dark" ? (
-                      <Moon className="h-3 w-3 text-[#5c3a8f]" />
-                    ) : (
-                      <Sun className="h-3 w-3 text-amber-500" />
-                    )}
-                  </span>
-                </button>
+            {/* Chế độ tương phản */}
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/40 p-3">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                {theme === "dark" ? (
+                  <Moon className="h-4 w-4 text-primary" />
+                ) : (
+                  <Sun className="h-4 w-4 text-primary" />
+                )}
+                Chế độ tương phản
               </div>
-              <p className="mt-1.5 text-[11px] text-muted-foreground">
-                {theme === "dark"
-                  ? "Đang dùng giao diện tối — nhẹ mắt hơn khi dùng ban đêm."
-                  : "Đang dùng giao diện sáng — anh đào xanh trời như mặc định."}
-              </p>
+              <button
+                onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+                className={cn(
+                  "relative h-6 w-11 shrink-0 rounded-full transition-colors",
+                  theme === "dark" ? "bg-primary" : "bg-muted-foreground/30",
+                )}
+                aria-label="Bật/tắt chế độ tối"
+              >
+                <span
+                  className={cn(
+                    "absolute top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow transition-all",
+                    theme === "dark" ? "left-[22px]" : "left-0.5",
+                  )}
+                >
+                  {theme === "dark" ? (
+                    <Moon className="h-3 w-3 text-[#5c3a8f]" />
+                  ) : (
+                    <Sun className="h-3 w-3 text-amber-500" />
+                  )}
+                </span>
+              </button>
             </div>
 
-            {/* Giám sát bot */}
-            <div className="rounded-xl border border-border bg-secondary/40 p-3">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <Activity className="h-4 w-4 text-primary" />
+            {/* Trạng thái nhanh bot */}
+            <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/40 px-3 py-2.5 text-xs">
+              <span className="flex items-center gap-1.5 font-semibold">
+                {online ? (
+                  <Wifi className="h-4 w-4 text-emerald-500" />
+                ) : (
+                  <WifiOff className="h-4 w-4 text-red-500" />
+                )}
+                Bot {online ? "Online" : "Offline"}
+              </span>
+              <span className="text-muted-foreground">
+                {status ? `${status.guildCount} server` : "đang tải…"}
+              </span>
+            </div>
+
+            {/* Điều hướng */}
+            <div className="space-y-2">
+              <Link
+                to="/monitor"
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors",
+                  onMonitorPage
+                    ? "border-primary/40 bg-primary/15 text-primary"
+                    : "border-border bg-secondary/40 hover:bg-primary/10",
+                )}
+              >
+                <Activity className="h-4 w-4" />
                 Giám sát bot
-                {status ? (
-                  status.online ? (
-                    <Wifi className="ml-auto h-4 w-4 text-emerald-500" />
-                  ) : (
-                    <WifiOff className="ml-auto h-4 w-4 text-red-500" />
-                  )
-                ) : null}
-              </div>
+                <span className="ml-auto text-[10px] text-muted-foreground">
+                  biểu đồ · độ trễ · server
+                </span>
+              </Link>
 
-              <div className="mt-2.5 grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-lg bg-background/60 p-2.5">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                    Độ trễ
-                  </p>
-                  <p className="mt-0.5 font-mono text-sm font-bold text-foreground">
-                    {lat !== null ? `${lat} ms` : "—"}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-background/60 p-2.5">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                    Tốc độ phản hồi
-                  </p>
-                  <p className="mt-0.5 text-sm font-bold">
-                    {lat !== null ? (
-                      <span className={latencyLabel(lat).cls}>
-                        {latencyLabel(lat).label}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">đang đo…</span>
-                    )}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-2 flex items-center justify-between rounded-lg bg-background/60 px-2.5 py-2 text-xs">
-                <span className="text-muted-foreground">Trạng thái bot</span>
-                {status ? (
-                  <span
-                    className={cn(
-                      "flex items-center gap-1.5 font-semibold",
-                      status.online ? "text-emerald-600" : "text-red-500",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "h-2 w-2 rounded-full",
-                        status.online ? "bg-emerald-500" : "bg-red-500",
-                      )}
-                    />
-                    {status.online ? "Online" : "Offline"} · {status.guildCount}{" "}
-                    server
+              {/* Cửa sổ Admin — chỉ chủ sở hữu bot nhìn thấy */}
+              {isOwner === true && (
+                <Link
+                  to="/admin"
+                  onClick={() => setOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors",
+                    onAdminPage
+                      ? "border-primary/40 bg-primary/15 text-primary"
+                      : "border-border bg-secondary/40 hover:bg-primary/10",
+                  )}
+                >
+                  <Lock className="h-4 w-4" />
+                  Cửa sổ Admin
+                  <span className="ml-auto rounded-md bg-danger/10 px-1.5 py-0.5 text-[10px] font-bold text-danger">
+                    ẨN
                   </span>
-                ) : (
-                  <span className="text-muted-foreground">đang tải…</span>
-                )}
-              </div>
+                </Link>
+              )}
 
-              {/* Sự cố */}
-              <div className="mt-2 rounded-lg bg-background/60 px-2.5 py-2">
-                <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                  <AlertTriangle className="h-3 w-3" />
-                  Sự cố ({incidents.length})
-                </p>
-                {incidents.length === 0 ? (
-                  <p className="mt-1 text-xs text-emerald-600">
-                    Không ghi nhận sự cố — hệ thống ổn định ✅
-                  </p>
-                ) : (
-                  <ul className="mt-1 space-y-1">
-                    {incidents.slice(0, 3).map((inc, i) => (
-                      <li
-                        key={`${inc.time}-${i}`}
-                        className="flex items-start gap-1.5 text-[11px] text-red-500"
-                      >
-                        <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
-                        <span>
-                          {inc.text}{" "}
-                          <span className="text-muted-foreground">
-                            ·{" "}
-                            {new Date(inc.time).toLocaleTimeString("vi-VN", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              <Link
+                to="/dashboard"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 rounded-xl border border-border bg-secondary/40 px-3 py-2.5 text-sm font-semibold transition-colors hover:bg-primary/10"
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                Bảng điều khiển
+              </Link>
             </div>
 
             {/* Chủ sở hữu */}
@@ -354,6 +253,12 @@ export default function Taskbar() {
                 <ExternalLink className="h-3 w-3 opacity-60" />
               </a>
             </div>
+          </div>
+
+          {/* Chân taskbar */}
+          <div className="flex items-center gap-2 border-t border-border/70 px-4 py-2.5 text-[10px] text-muted-foreground">
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+            Cửa sổ Admin chỉ hiển thị với chủ sở hữu bot
           </div>
         </div>
       )}

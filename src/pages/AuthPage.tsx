@@ -11,11 +11,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import {
   OAUTH_VERIFIER_KEY,
   OAUTH_STATE_KEY,
-  REMEMBER_LOGIN_KEY,
   buildAuthorizeUrl,
   generateChallenge,
   generateVerifier,
   randomState,
+  setRememberLogin,
 } from "../lib/discord";
 
 const DISCORD_LOGO = (
@@ -42,8 +42,8 @@ export default function AuthPage() {
       sessionStorage.setItem(OAUTH_VERIFIER_KEY, verifier);
       sessionStorage.setItem(OAUTH_STATE_KEY, state);
       sessionStorage.setItem("wio_oauth_return", returnTo);
-      // Lưu lựa chọn "lưu đăng nhập" để callback quyết định nơi lưu token.
-      sessionStorage.setItem(REMEMBER_LOGIN_KEY, remember ? "1" : "0");
+      // Lưu lựa chọn "lưu đăng nhập" để callback quyết định nơi lưu token (7 ngày).
+      setRememberLogin(remember);
       window.location.href = buildAuthorizeUrl(clientId, state, challenge);
     } catch {
       setLoading(false);
@@ -144,7 +144,8 @@ export default function AuthPage() {
                   </button>
                   {remember ? (
                     <span className="text-foreground/80">
-                      <b className="text-primary">Lưu đăng nhập</b> trên thiết bị này
+                      <b className="text-primary">Lưu đăng nhập</b> trên thiết bị này{" "}
+                      <b className="text-primary/70">(7 ngày)</b>
                     </span>
                   ) : (
                     <span>
