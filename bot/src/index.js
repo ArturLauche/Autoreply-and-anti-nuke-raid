@@ -75,7 +75,22 @@ client.once("ready", async () => {
     // Ưu tiên ownerId (user id của Team owner); chỉ dùng owner.id khi là User thật.
     const ownerId = owner?.ownerId || (/^\d{15,20}$/.test(owner?.id || "") ? owner.id : null);
     if (ownerId) {
-      await store.client.mutation("hidden:botSetOwner", { ownerId });
+      let ownerName;
+      let ownerAvatarUrl;
+      try {
+        const ownerUser = await client.users.fetch(ownerId).catch(() => null);
+        if (ownerUser) {
+          ownerName = ownerUser.username;
+          ownerAvatarUrl = ownerUser.displayAvatarURL({ size: 256, extension: "png" });
+        }
+      } catch (e) {
+        console.error("[owner:profile]", e.message);
+      }
+      await store.client.mutation("hidden:botSetOwner", {
+        ownerId,
+        ownerName,
+        ownerAvatarUrl,
+      });
     }
   } catch (e) {
     console.error("[owner] Không xác định được chủ bot qua API:", e.message);

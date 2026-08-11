@@ -61,7 +61,7 @@ export default function Dashboard() {
       <CherryBlossom count={10} />
       <HaimiyaChat position="dashboard" />
       <div className="relative z-10">
-        <header className="sticky top-0 z-40 border-b border-border/60 bg-white/70 backdrop-blur-xl">
+        <header className="sticky top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl">
           <div className="container flex h-16 items-center justify-between">
             <button
               onClick={() => navigate("/")}

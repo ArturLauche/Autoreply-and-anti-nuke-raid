@@ -11,11 +11,17 @@ import { api } from "../../convex/_generated/api";
  */
 export function usePublicConfig(): {
   clientId: string;
+  discordInvite: string;
+  facebookUrl: string;
   loading: boolean;
   error: boolean;
 } {
   const load = useAction(api.public.publicConfig);
   const [clientId, setClientId] = useState<string | null>(null);
+  const [discordInvite, setDiscordInvite] = useState("https://discord.gg/rftv");
+  const [facebookUrl, setFacebookUrl] = useState(
+    "https://www.facebook.com/profile.php?id=61592820547312",
+  );
   const [error, setError] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -23,6 +29,11 @@ export function usePublicConfig(): {
       .then((res) => {
         if (alive) {
           setClientId(res?.clientId ?? "");
+          setDiscordInvite(res?.discordInvite ?? "https://discord.gg/rftv");
+          setFacebookUrl(
+            res?.facebookUrl ??
+              "https://www.facebook.com/profile.php?id=61592820547312",
+          );
           setError(false);
         }
       })
@@ -36,5 +47,11 @@ export function usePublicConfig(): {
       alive = false;
     };
   }, [load]);
-  return { clientId: clientId ?? "", loading: clientId === null, error };
+  return {
+    clientId: clientId ?? "",
+    discordInvite,
+    facebookUrl,
+    loading: clientId === null,
+    error,
+  };
 }

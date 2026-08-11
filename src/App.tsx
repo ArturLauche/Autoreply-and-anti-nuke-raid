@@ -7,10 +7,12 @@ import Dashboard from "./pages/Dashboard";
 import GuildPage from "./pages/GuildPage";
 import GuildHistory from "./pages/GuildHistory";
 import RequireAuth from "./components/RequireAuth";
+import Taskbar from "./components/Taskbar";
 
 export default function App() {
   return (
     <>
+      <Taskbar />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/auth" element={<AuthPage />} />

@@ -229,5 +229,9 @@ export default defineSchema({
     botAvatarUrl: v.optional(v.string()),
     /** Avatar trợ lý AI Haimiya-senpai hiển thị trên web. */
     haimiyaAvatarUrl: v.optional(v.string()),
+    /** Tên chủ bot (bot tự lấy từ Discord mỗi lần sync — cập nhật 24/7). */
+    ownerName: v.optional(v.string()),
+    /** Avatar chủ bot (bot tự lấy từ Discord mỗi lần sync — cập nhật 24/7). */
+    ownerAvatarUrl: v.optional(v.string()),
   }).index("by_kind", ["kind"]),
 });

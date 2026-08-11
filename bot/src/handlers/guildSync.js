@@ -35,10 +35,30 @@ async function syncAll(client, store) {
     }
   }
   await store.client.mutation("guilds:botSyncGuilds", { guilds });
+
+  // Owner info 24/7: lấy tên + avatar mới nhất của chủ bot từ Discord mỗi lần sync.
+  let ownerName;
+  let ownerAvatarUrl;
+  try {
+    const app = await client.application.fetch();
+    const owner = app?.owner;
+    const ownerId = owner?.ownerId || (/^\d{15,20}$/.test(owner?.id || "") ? owner.id : null);
+    if (ownerId) {
+      const ownerUser = await client.users.fetch(ownerId).catch(() => null);
+      if (ownerUser) {
+        ownerName = ownerUser.username;
+        ownerAvatarUrl = ownerUser.displayAvatarURL({ size: 256, extension: "png" });
+      }
+    }
+  } catch (e) {
+    console.error("[owner:sync]", e.message);
+  }
   await store.client.mutation("guilds:botHeartbeat", {
     guildCount: guilds.length,
     memberCount,
     version: "1.0.0",
+    ownerName,
+    ownerAvatarUrl,
   });
 }
 

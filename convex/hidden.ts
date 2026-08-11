@@ -116,15 +116,23 @@ export const getBotBranding = query({
 
 /** Bot báo chủ sở hữu (best-effort từ ứng dụng Discord) — ghi khi chưa có hoặc owner cũ sai. */
 export const botSetOwner = mutation({
-  args: { ownerId: v.string() },
-  handler: async (ctx, { ownerId }) => {
+  args: {
+    ownerId: v.string(),
+    ownerName: v.optional(v.string()),
+    ownerAvatarUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, { ownerId, ownerName, ownerAvatarUrl }) => {
     if (!/^\d{15,20}$/.test(ownerId)) return { ok: false };
     const status = await getBotStatus(ctx);
     if (status?.ownerDiscordId && (await ownerIsValid(ctx, status.ownerDiscordId))) {
       return { ok: false };
     }
+    const patch: Record<string, unknown> = { ownerDiscordId: ownerId };
+    if (ownerName !== undefined) patch.ownerName = ownerName ? ownerName.slice(0, 120) : undefined;
+    if (ownerAvatarUrl !== undefined)
+      patch.ownerAvatarUrl = ownerAvatarUrl ? ownerAvatarUrl.slice(0, 2000) : undefined;
     if (status) {
-      await ctx.db.patch(status._id, { ownerDiscordId: ownerId });
+      await ctx.db.patch(status._id, patch);
     } else {
       const now = Date.now();
       await ctx.db.insert("botStatus", {
@@ -135,7 +143,7 @@ export const botSetOwner = mutation({
         lastHeartbeat: now,
         startedAt: now,
         version: "",
-        ownerDiscordId: ownerId,
+        ...patch,
       });
     }
     return { ok: true };

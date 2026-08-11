@@ -630,6 +630,8 @@ export const botHeartbeat = mutation({
     guildCount: v.number(),
     memberCount: v.number(),
     version: v.string(),
+    ownerName: v.optional(v.string()),
+    ownerAvatarUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -637,14 +639,18 @@ export const botHeartbeat = mutation({
       .query("botStatus")
       .withIndex("by_kind", (q) => q.eq("kind", "status"))
       .first();
+    const patch: Record<string, unknown> = {
+      online: true,
+      guildCount: args.guildCount,
+      memberCount: args.memberCount,
+      lastHeartbeat: now,
+      version: args.version,
+    };
+    if (args.ownerName !== undefined) patch.ownerName = args.ownerName.slice(0, 120);
+    if (args.ownerAvatarUrl !== undefined)
+      patch.ownerAvatarUrl = args.ownerAvatarUrl.slice(0, 2000);
     if (existing) {
-      await ctx.db.patch(existing._id, {
-        online: true,
-        guildCount: args.guildCount,
-        memberCount: args.memberCount,
-        lastHeartbeat: now,
-        version: args.version,
-      });
+      await ctx.db.patch(existing._id, patch);
     } else {
       await ctx.db.insert("botStatus", {
         kind: "status",
@@ -654,6 +660,8 @@ export const botHeartbeat = mutation({
         lastHeartbeat: now,
         startedAt: now,
         version: args.version,
+        ownerName: args.ownerName?.slice(0, 120),
+        ownerAvatarUrl: args.ownerAvatarUrl?.slice(0, 2000),
       });
     }
     return { ok: true };

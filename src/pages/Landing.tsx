@@ -5,6 +5,7 @@ import {
   Bot,
   Bug,
   Crown,
+  Facebook,
   Flame,
   Gavel,
   Gift,
@@ -19,6 +20,7 @@ import {
   ShieldCheck,
   Sparkles,
   Timer,
+  User,
   UserCheck,
   Zap,
 } from "lucide-react";
@@ -28,6 +30,8 @@ import CherryBlossom from "../components/CherryBlossom";
 import BotLogo from "../components/BotLogo";
 import HaimiyaChat, { HaimiyaAvatar } from "../components/HaimiyaChat";
 import { useBranding } from "../lib/useBranding";
+import { usePublicConfig } from "../lib/usePublicConfig";
+import { useBotStatus } from "../lib/useBotStatus";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -664,6 +668,10 @@ function CtaBanner() {
 
 export default function Landing() {
   const branding = useBranding();
+  const { discordInvite, facebookUrl } = usePublicConfig();
+  const botStatus = useBotStatus();
+  const ownerName = botStatus?.ownerName ?? "wiothemilo";
+  const ownerAvatar = botStatus?.ownerAvatarUrl ?? null;
   return (
     <div className="relative min-h-screen text-foreground">
       <CherryBlossom count={18} />
@@ -767,16 +775,59 @@ export default function Landing() {
           <CtaBanner />
         </main>
         <footer className="border-t border-border py-10">
-          <div className="container flex flex-col items-center justify-between gap-4 md:flex-row">
-            <div className="flex items-center gap-2">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
-                <HaimiyaAvatar className="h-8 w-8" src={branding?.haimiyaAvatarUrl ?? null} />
-              </span>
-              <span className="font-display font-semibold">Protogon Bot</span>
+          <div className="container">
+            <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
+              <div className="flex items-center gap-3">
+                <span className="rounded-xl bg-gradient-to-br from-white/95 via-white/45 to-white/0 p-[2px] drop-shadow-[0_0_10px_rgba(255,255,255,0.7)]">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] p-0.5">
+                    <HaimiyaAvatar className="h-full w-full" src={branding?.haimiyaAvatarUrl ?? null} />
+                  </span>
+                </span>
+                <div>
+                  <p className="font-display font-semibold">Protogon Bot</p>
+                  <p className="text-xs text-muted-foreground">
+                    Bot Discord bảo vệ server · trợ lý Haimiya 🌸
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <a href={discordInvite} target="_blank" rel="noreferrer">
+                  <Button variant="outline" size="sm">
+                    <MessageCircle className="h-4 w-4 text-indigo-500" />
+                    Discord server
+                  </Button>
+                </a>
+                <a href={facebookUrl} target="_blank" rel="noreferrer">
+                  <Button variant="outline" size="sm">
+                    <Facebook className="h-4 w-4 text-sky-500" />
+                    Fanpage Facebook
+                  </Button>
+                </a>
+              </div>
             </div>
-            <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Protogon Bot · Tự trả lời thông minh, nhiệt độ vi phạm, Join Gate & phòng thủ chống raid cho Discord 🌸
-            </p>
+            <div className="mt-6 flex flex-col items-center justify-between gap-3 border-t border-border/60 pt-6 md:flex-row">
+              <p className="text-center text-sm text-muted-foreground">
+                © {new Date().getFullYear()} Protogon Bot · Tự trả lời thông minh, nhiệt độ vi phạm, Join Gate & phòng thủ chống raid cho Discord
+              </p>
+              <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                {ownerAvatar ? (
+                  <img
+                    src={ownerAvatar}
+                    alt={ownerName}
+                    className="h-8 w-8 rounded-full object-cover ring-2 ring-white/70"
+                    draggable={false}
+                  />
+                ) : (
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#8fc8ff] to-[#f79fc6] text-white">
+                    <User className="h-4 w-4" />
+                  </span>
+                )}
+                <span>
+                  Chủ bot: <b className="text-foreground">{ownerName}</b>
+                  <span className="ml-1.5 hidden sm:inline">· cập nhật 24/7</span>
+                </span>
+              </div>
+            </div>
           </div>
         </footer>
       </div>

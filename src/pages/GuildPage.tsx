@@ -96,7 +96,7 @@ export default function GuildPage() {
       <CherryBlossom count={10} />
       <HaimiyaChat position="dashboard" />
       <div className="relative z-10">
-      <header className="border-b border-border/60 bg-white/60 backdrop-blur">
+      <header className="border-b border-border/60 bg-background/70 backdrop-blur">
         <div className="container py-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">

@@ -17,5 +17,9 @@ export const publicConfig = action({
   args: {},
   handler: () => ({
     clientId: process.env.DISCORD_CLIENT_ID ?? "",
+    discordInvite: process.env.DISCORD_INVITE ?? "https://discord.gg/rftv",
+    facebookUrl:
+      process.env.FACEBOOK_URL ??
+      "https://www.facebook.com/profile.php?id=61592820547312",
   }),
 });

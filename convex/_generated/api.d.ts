@@ -20,6 +20,7 @@ import type * as public_ from "../public.js";
 import type * as reports from "../reports.js";
 import type * as sessions from "../sessions.js";
 import type * as sha256 from "../sha256.js";
+import type * as status from "../status.js";
 
 import type {
   ApiFromModules,
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   reports: typeof reports;
   sessions: typeof sessions;
   sha256: typeof sha256;
+  status: typeof status;
 }>;
 
 /**
