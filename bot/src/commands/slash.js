@@ -251,13 +251,8 @@ const commands = [
         options: [
           { name: "channel", description: "Kênh gửi bảng", type: 7, required: true },
           { name: "label", description: "Tên bảng", type: 3, required: true },
+          { name: "pairs", description: "Cặp emoji:role, cách nhau khoảng trắng (VD: ✅:123 ⭐:456)", type: 3, required: true },
           { name: "description", description: "Nội dung / mô tả hiển thị trong embed", type: 3, required: false },
-          {
-            name: "pairs",
-            description: "Cặp emoji:role, cách nhau khoảng trắng (VD: ✅:123 ⭐:456)",
-            type: 3,
-            required: true,
-          },
           { name: "thumbnail", description: "URL ảnh thumbnail của bảng", type: 3, required: false },
         ],
       },
@@ -287,8 +282,8 @@ const commands = [
         options: [
           { name: "label", description: "Tên bảng hiện tại", type: 3, required: true },
           { name: "new_label", description: "Tên bảng mới", type: 3, required: false },
-          { name: "description", description: "Mô tả mới (dùng "-" để xóa)", type: 3, required: false },
-          { name: "thumbnail", description: "URL thumbnail mới (dùng "-" để xóa)", type: 3, required: false },
+          { name: "description", description: "Mô tả mới (dùng (-) để xóa)", type: 3, required: false },
+          { name: "thumbnail", description: "URL thumbnail mới (dùng (-) để xóa)", type: 3, required: false },
         ],
       },
       {
