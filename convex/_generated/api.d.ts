@@ -13,6 +13,7 @@ import type * as auth from "../auth.js";
 import type * as autoreplies from "../autoreplies.js";
 import type * as bot_writes from "../bot_writes.js";
 import type * as guilds from "../guilds.js";
+import type * as haimiya from "../haimiya.js";
 import type * as hidden from "../hidden.js";
 import type * as modules from "../modules.js";
 import type * as public_ from "../public.js";
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   autoreplies: typeof autoreplies;
   bot_writes: typeof bot_writes;
   guilds: typeof guilds;
+  haimiya: typeof haimiya;
   hidden: typeof hidden;
   modules: typeof modules;
   public: typeof public_;
