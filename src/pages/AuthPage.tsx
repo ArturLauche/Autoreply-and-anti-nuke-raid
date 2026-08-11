@@ -3,6 +3,8 @@ import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Bot, ExternalLink, KeyRound, ShieldCheck, Loader2 } from "lucide-react";
 import { Button } from "../components/ui/button";
+import CherryBlossom from "../components/CherryBlossom";
+import HaimiyaChat from "../components/HaimiyaChat";
 import { usePublicConfig } from "../lib/usePublicConfig";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import {
@@ -45,8 +47,11 @@ export default function AuthPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
+      <CherryBlossom count={12} />
       <div className="absolute inset-0 bg-grid opacity-40 [mask-image:radial-gradient(60%_60%_at_50%_40%,black,transparent)]" />
-      <div className="absolute inset-x-0 top-0 h-[360px] bg-glow-cyan" />
+      <div className="absolute inset-x-0 top-0 h-[360px] bg-glow-sakura" />
+      <div className="absolute inset-x-0 bottom-0 h-[300px] bg-glow-lavender" />
+      <HaimiyaChat position="dashboard" />
 
       <div className="relative grid w-full max-w-4xl gap-8 lg:grid-cols-2">
         <motion.div
@@ -56,20 +61,20 @@ export default function AuthPage() {
           className="hidden flex-col justify-center lg:flex"
         >
           <Link to="/" className="mb-8 flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-[0_0_20px_-4px_hsl(187_92%_55%/0.8)]">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] shadow-[0_0_20px_-4px_hsl(342_92%_66%/0.8)]">
               <Bot className="h-5 w-5" />
             </span>
             <span className="font-display text-xl font-bold">Protogon<span className="text-primary">.</span></span>
           </Link>
           <h1 className="font-display text-4xl font-bold leading-tight tracking-tight">
-            Quản lý bot Discord của bạn <span className="text-gradient-cyan">từ một nơi</span>
+            Quản lý bot Discord của bạn <span className="text-gradient-sakura">từ một nơi</span>
           </h1>
           <ul className="mt-8 space-y-4">
             {[
-              "Tự trả lời theo từ khóa & @mention",
-              "Chống nuke raid bật tắt từng phần",
-              "Prefix + slash command đầy đủ",
-              "Đồng bộ cấu hình real-time",
+              "Hệ thống nhiệt độ 4 giai đoạn + warn tích lũy",
+              "Join Gate chống selfbot khi vào server",
+              "Chặn link độc hại & file nguy hiểm",
+              "Chống nuke/raid + auto reply, đồng bộ 30 giây",
             ].map((t) => (
               <li key={t} className="flex items-center gap-3 text-muted-foreground">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-primary">

@@ -6,7 +6,9 @@ import {
   Bug,
   Crown,
   Flame,
+  Heart,
   LayoutDashboard,
+  MessageCircle,
   MessageSquareReply,
   ShieldAlert,
   ShieldCheck,
@@ -17,6 +19,8 @@ import {
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
+import CherryBlossom from "../components/CherryBlossom";
+import HaimiyaChat, { HaimiyaAvatar } from "../components/HaimiyaChat";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -33,16 +37,20 @@ function Nav() {
     <header className="fixed inset-x-0 top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl">
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-[0_0_20px_-4px_hsl(187_92%_55%/0.8)]">
-            <Bot className="h-5 w-5" />
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] shadow-[0_0_20px_-4px_hsl(342_92%_66%/0.9)]">
+            <HaimiyaAvatar className="h-7 w-7" />
           </span>
           <span className="font-display text-lg font-bold tracking-tight">
             Protogon<span className="text-primary">.</span>
+            <span className="ml-1.5 hidden align-middle text-xs font-semibold text-muted-foreground sm:inline">
+              🌸 bên Haimiya-senpai
+            </span>
           </span>
         </Link>
         <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
           <a href="#features" className="transition-colors hover:text-foreground">Tính năng</a>
           <a href="#antinuke" className="transition-colors hover:text-foreground">Bảo vệ server</a>
+          <a href="#haimiya" className="transition-colors hover:text-foreground">Haimiya-senpai</a>
           <a href="#how" className="transition-colors hover:text-foreground">Cách hoạt động</a>
         </nav>
         <Link to="/auth">
@@ -73,13 +81,13 @@ function HeroChatCard() {
       transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
       className="relative"
     >
-      <div className="absolute -inset-6 rounded-3xl bg-glow-cyan blur-2xl" />
-      <div className="relative rounded-2xl border border-border bg-[#1e1f22] shadow-2xl">
+      <div className="absolute -inset-6 rounded-3xl bg-glow-sakura blur-2xl" />
+      <div className="relative rounded-2xl border border-border bg-[#1e1a20] shadow-2xl">
         <div className="flex items-center gap-2 border-b border-black/40 px-4 py-3">
           <span className="h-3 w-3 rounded-full bg-[#f23f43]" />
           <span className="h-3 w-3 rounded-full bg-[#f0b232]" />
           <span className="h-3 w-3 rounded-full bg-[#23a55a]" />
-          <span className="ml-3 text-xs font-medium text-white/40"># general · Protogon Bot</span>
+          <span className="ml-3 text-xs font-medium text-white/40"># general · Protogon Bot 🌸</span>
         </div>
         <div className="space-y-4 p-5 font-sans">
           {/* Auto reply */}
@@ -88,12 +96,12 @@ function HeroChatCard() {
             <div className="max-w-[80%]">
               <p className="mb-1 text-xs font-semibold text-white">huy_nguyen <span className="ml-1 font-normal text-white/40">Hôm nay chơi gì @protogon?</span></p>
               <div className="rounded-lg rounded-bl-none bg-[#2b2d31] px-3 py-2 text-sm text-white/90">
-                Hôm nay chơi gì? <span className="font-semibold text-[#7289da]">@protogon</span>
+                Hôm nay chơi gì? <span className="font-semibold text-[#ff8fab]">@protogon</span>
               </div>
             </div>
           </div>
           <div className="flex items-end gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_0_16px_-2px_hsl(187_92%_55%/0.9)]">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] text-primary-foreground shadow-[0_0_16px_-2px_hsl(342_92%_66%/0.9)]">
               <Bot className="h-5 w-5" />
             </span>
             <div className="max-w-[80%]">
@@ -108,21 +116,21 @@ function HeroChatCard() {
           </div>
 
           {/* Cảnh báo nhiệt */}
-          <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2.5">
-            <div className="flex items-center gap-2 text-xs font-semibold text-orange-400">
+          <div className="rounded-lg border border-pink-400/30 bg-pink-500/10 px-3 py-2.5">
+            <div className="flex items-center gap-2 text-xs font-semibold text-pink-300">
               <Flame className="h-4 w-4" /> NHIỆT ĐỘ VI PHẠM — THÀNH VIÊN “dang_spam”
             </div>
             <div className="mt-2 flex items-center gap-2">
               <div className="flex-1">
-                <HeatBar value={55} color="bg-gradient-to-r from-amber-500 to-violet-500" />
+                <HeatBar value={55} color="bg-gradient-to-r from-amber-500 via-pink-500 to-red-500" />
                 <div className="mt-1 flex justify-between text-[10px] text-white/40">
                   <span>warn 25</span><span>tạm khóa 40</span><span>kick 70</span><span>ban 90</span>
                 </div>
               </div>
-              <span className="shrink-0 rounded-md bg-violet-500/20 px-1.5 py-0.5 font-mono text-[10px] font-bold text-violet-300">55/100</span>
+              <span className="shrink-0 rounded-md bg-pink-500/20 px-1.5 py-0.5 font-mono text-[10px] font-bold text-pink-300">55/100</span>
             </div>
             <p className="mt-1.5 text-[11px] text-white/60">
-              Tái phạm trong 30 phút → nhiệt <b className="text-orange-300">×2</b> · đã gửi DM cảnh báo ⚠️
+              Tái phạm trong 30 phút → nhiệt <b className="text-pink-300">×2</b> · đã gửi DM cảnh báo ⚠️
             </p>
           </div>
 
@@ -198,10 +206,10 @@ function Features() {
             <Badge className="mb-4"><Sparkles className="h-3.5 w-3.5" /> Mọi thứ trong một bot</Badge>
           </motion.div>
           <motion.h2 variants={fadeUp} className="font-display text-3xl font-bold tracking-tight md:text-5xl">
-            Bảo vệ toàn diện & <span className="text-gradient-cyan">giao tiếp</span> cho server của bạn
+            Bảo vệ toàn diện & <span className="text-gradient-sakura">giao tiếp</span> cho server của bạn
           </motion.h2>
           <motion.p variants={fadeUp} className="mt-4 text-muted-foreground">
-            Từ tự trả lời thông minh đến 14 module bảo vệ — Protogon canh server 24/7 và cấu hình mọi thứ qua dashboard trực quan.
+            Từ tự trả lời thông minh đến 14 module bảo vệ — Protogon canh server 24/7 và cấu hình mọi thứ qua dashboard trực quan, có Haimiya-senpai sẵn sàng giải đáp.
           </motion.p>
         </motion.div>
 
@@ -258,10 +266,10 @@ function Features() {
 /** Thang nhiệt 4 giai đoạn — trực quan + sinh động. */
 function HeatLadder() {
   const tiers = [
-    { label: "Cảnh báo", range: "25 → 39", color: "from-amber-500 to-yellow-400", text: "text-amber-400", bar: "bg-amber-500/60" },
-    { label: "Tạm khóa", range: "40 → 69", color: "from-violet-500 to-purple-400", text: "text-violet-400", bar: "bg-violet-500/60" },
-    { label: "Kick", range: "70 → 89", color: "from-orange-500 to-amber-400", text: "text-orange-400", bar: "bg-orange-500/60" },
-    { label: "Ban", range: "90 → 100", color: "from-red-500 to-rose-400", text: "text-red-400", bar: "bg-red-500/60" },
+    { label: "Cảnh báo", range: "25 → 39", color: "from-amber-400 to-yellow-300", text: "text-amber-400", bar: "bg-amber-500/70" },
+    { label: "Tạm khóa", range: "40 → 69", color: "from-pink-400 to-rose-300", text: "text-pink-400", bar: "bg-pink-500/70" },
+    { label: "Kick", range: "70 → 89", color: "from-orange-400 to-amber-300", text: "text-orange-400", bar: "bg-orange-500/70" },
+    { label: "Ban", range: "90 → 100", color: "from-red-400 to-rose-300", text: "text-red-400", bar: "bg-red-500/70" },
   ];
   return (
     <div className="rounded-xl border border-border bg-secondary/30 p-4">
@@ -289,7 +297,7 @@ function HeatLadder() {
         ))}
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        Vừa bị phạt mà tái phạm → nhiệt nhân <b className="text-orange-400">×2</b> trong 30 phút. Warn tích lũy chạy song song: đủ 3 lần warn → tự tăng cấp.
+        Vừa bị phạt mà tái phạm → nhiệt nhân <b className="text-pink-400">×2</b> trong 30 phút. Warn tích lũy chạy song song: đủ 3 lần warn → tự tăng cấp.
       </p>
     </div>
   );
@@ -319,7 +327,7 @@ function AntiNuke() {
             <Badge variant="danger" className="mb-4"><ShieldAlert className="h-3.5 w-3.5" /> Phòng thủ 14 module</Badge>
             <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
               Chặn đứng kẻ phá hoại <br />
-              trước khi <span className="text-gradient-cyan">server sụp đổ</span>
+              trước khi <span className="text-gradient-sakura">server sụp đổ</span>
             </h2>
             <p className="mt-4 max-w-lg text-muted-foreground">
               Hai lớp phòng thủ: <b className="text-foreground">Anti Nuke</b> canh cấu trúc server (ban/kick hàng loạt, phá kênh, phá role…) và{" "}
@@ -351,7 +359,7 @@ function AntiNuke() {
               <Badge variant="success">14/14 bật</Badge>
             </div>
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              🛡️ Anti Nuke / Raid
+              🛡️ Anti Nuke / Raid — phạt trực tiếp
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               {nukeModules.map((m) => (
@@ -364,7 +372,7 @@ function AntiNuke() {
               ))}
             </div>
             <p className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              🧹 Moderation nội dung
+              🧹 Moderation nội dung — cộng nhiệt + warn
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               {modModules.map((m) => (
@@ -378,6 +386,80 @@ function AntiNuke() {
             </div>
             <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-100/70">
               <span className="font-semibold text-amber-300">🔒 Khóa kênh khi raid:</span> vượt ngưỡng bất kỳ module nào → bot chặn thành viên gửi tin trong toàn server, tự mở lại sau vài phút hoặc khi mod dùng <code className="font-mono">/antinuke unlock</code>.
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Gặp gỡ Haimiya-senpai — trợ lý ảo. */
+function HaimiyaSection() {
+  return (
+    <section id="haimiya" className="relative overflow-hidden py-24">
+      <div className="absolute inset-x-0 bottom-0 h-[420px] bg-glow-lavender" />
+      <div className="container relative">
+        <div className="grid items-center gap-12 lg:grid-cols-2">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.6 }}
+            className="order-2 lg:order-1"
+          >
+            <div className="relative mx-auto w-fit">
+              <div className="absolute -inset-8 rounded-full bg-glow-sakura blur-2xl" />
+              <div className="relative animate-float">
+                <div className="flex h-56 w-56 items-center justify-center rounded-full border border-primary/30 bg-gradient-to-br from-[#2a1020] via-[#3d1a2f] to-[#2a1020] shadow-[0_20px_60px_-20px_hsl(342_92%_66%/0.5)]">
+                  <HaimiyaAvatar className="h-40 w-40" />
+                </div>
+                <span className="absolute -right-2 top-6 animate-float text-2xl" style={{ animationDelay: "0.6s" }}>🌸</span>
+                <span className="absolute -left-3 bottom-14 animate-float text-xl" style={{ animationDelay: "1.2s" }}>🎀</span>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 24 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="order-1 lg:order-2"
+          >
+            <Badge className="mb-4"><Heart className="h-3.5 w-3.5" /> Gặp gỡ trợ lý ảo</Badge>
+            <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
+              Haimiya-senpai — <span className="text-gradient-sakura">nhát nhưng rất quan tâm</span>
+            </h2>
+            <p className="mt-4 max-w-lg text-muted-foreground">
+              Lấy cảm hứng từ cô senpai "đáng sợ mà đáng yêu" — Haimiya-senpai là trợ lý ảo của Protogon,
+              luôn túc trực trên website và dashboard. Em giải đáp mọi thắc mắc về bot bằng tiếng Việt:
+              hệ thống nhiệt độ, warn tích lũy, Join Gate, chống nuke/raid, auto reply, cách host bot…
+            </p>
+            <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
+              {[
+                "Giải đáp tức thì, 24/7 — không cần chờ đợi",
+                "Biết rõ từng tính năng & cách cấu hình của Protogon",
+                "Luôn ở bên cạnh senpai — trên web lẫn trong dashboard",
+              ].map((t) => (
+                <li key={t} className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs text-primary">🌸</span>
+                  {t}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Button
+                size="lg"
+                onClick={() => window.dispatchEvent(new Event("haimiya-open"))}
+              >
+                <MessageCircle className="h-4 w-4" /> Hỏi thử Haimiya ngay
+              </Button>
+              <Link to="/auth">
+                <Button size="lg" variant="outline">
+                  Vào dashboard <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
             </div>
           </motion.div>
         </div>
@@ -421,7 +503,7 @@ function HowItWorks() {
             <Badge className="mb-4"><Zap className="h-3.5 w-3.5" /> Bắt đầu nhanh</Badge>
           </motion.div>
           <motion.h2 variants={fadeUp} className="font-display text-3xl font-bold tracking-tight md:text-4xl">
-            Hoạt động trong <span className="text-gradient-cyan">3 bước</span>
+            Hoạt động trong <span className="text-gradient-sakura">3 bước</span>
           </motion.h2>
         </motion.div>
         <div className="mt-14 grid gap-4 md:grid-cols-3">
@@ -459,13 +541,14 @@ function CtaBanner() {
           transition={{ duration: 0.5 }}
           className="relative overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-br from-primary/15 via-card to-card p-10 text-center md:p-16"
         >
-          <div className="absolute inset-0 bg-glow-cyan opacity-60" />
+          <div className="absolute inset-0 bg-glow-sakura opacity-70" />
           <div className="relative">
-            <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
-              Sẵn sàng bảo vệ server của bạn?
+            <HaimiyaAvatar className="mx-auto h-24 w-24 drop-shadow-[0_10px_30px_hsl(342_92%_66%/0.4)]" />
+            <h2 className="mt-4 font-display text-3xl font-bold tracking-tight md:text-5xl">
+              Sẵn sàng để Haimiya-senpai <br className="hidden md:block" /> chăm sóc server của bạn?
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-              Đăng nhập bằng Discord, mời Protogon vào server — nhiệt độ, Join Gate, lọc nội dung và chống nuke bật ngay lập tức. Miễn phí cho mọi server.
+              Đăng nhập bằng Discord, mời Protogon vào server — nhiệt độ, Join Gate, lọc nội dung, chống nuke và trợ lý ảo bật ngay lập tức. Miễn phí cho mọi server.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link to="/auth">
@@ -473,6 +556,9 @@ function CtaBanner() {
                   Bắt đầu ngay <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
+              <Button size="lg" variant="outline" onClick={() => window.dispatchEvent(new Event("haimiya-open"))}>
+                <MessageCircle className="h-4 w-4" /> Trò chuyện với Haimiya
+              </Button>
             </div>
           </div>
         </motion.div>
@@ -483,102 +569,116 @@ function CtaBanner() {
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Nav />
-      <main>
-        <section className="relative overflow-hidden pt-32 pb-20">
-          <div className="absolute inset-0 bg-grid opacity-50 [mask-image:radial-gradient(70%_60%_at_50%_30%,black,transparent)]" />
-          <div className="absolute inset-x-0 top-0 h-[420px] bg-glow-cyan" />
-          <div className="container relative grid items-center gap-14 lg:grid-cols-2">
-            <div>
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-              >
-                <Badge variant="secondary" className="mb-5 border border-primary/30">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
-                  </span>
-                  Discord Bot · Tự trả lời · Nhiệt độ · Join Gate
-                </Badge>
-              </motion.div>
-              <motion.h1
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.1 }}
-                className="font-display text-4xl font-bold leading-[1.1] tracking-tight md:text-6xl"
-              >
-                Bot Discord <span className="text-gradient-cyan">bảo vệ toàn diện</span>
-                <br />
-                tự trả lời & <span className="shimmer-text">chống raid</span>
-              </motion.h1>
-              <motion.p
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.2 }}
-                className="mt-5 max-w-lg text-lg text-muted-foreground"
-              >
-                Tag <span className="font-mono text-primary">@protogon</span> hoặc nhắc từ khóa — bot trả lời ngay. Hệ thống{" "}
-                <b className="text-foreground">nhiệt độ 4 giai đoạn</b>,{" "}
-                <b className="text-foreground">Join Gate chống selfbot</b> và{" "}
-                <b className="text-foreground">14 module bảo vệ</b> canh server 24/7.
-              </motion.p>
-              <motion.div
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.3 }}
-                className="mt-8 flex flex-wrap items-center gap-3"
-              >
-                <Link to="/auth">
-                  <Button size="lg">
-                    Mở dashboard <ArrowRight className="h-4 w-4" />
+    <div className="relative min-h-screen bg-background text-foreground">
+      <CherryBlossom count={18} />
+      <HaimiyaChat />
+      <div className="relative z-10">
+        <Nav />
+        <main>
+          <section className="relative overflow-hidden pt-32 pb-20">
+            <div className="absolute inset-0 bg-grid opacity-50 [mask-image:radial-gradient(70%_60%_at_50%_30%,black,transparent)]" />
+            <div className="absolute inset-x-0 top-0 h-[420px] bg-glow-sakura" />
+            <div className="absolute inset-x-0 bottom-0 h-[320px] bg-glow-lavender" />
+            <div className="container relative grid items-center gap-14 lg:grid-cols-2">
+              <div>
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <Badge variant="secondary" className="mb-5 border border-primary/30">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                    </span>
+                    Discord Bot · Nhiệt độ · Join Gate · Có Haimiya-senpai 🌸
+                  </Badge>
+                </motion.div>
+                <motion.h1
+                  initial={{ opacity: 0, y: 24 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.7, delay: 0.1 }}
+                  className="font-display text-4xl font-bold leading-[1.1] tracking-tight md:text-6xl"
+                >
+                  Bot Discord <span className="text-gradient-sakura">bảo vệ toàn diện</span>
+                  <br />
+                  tự trả lời & <span className="shimmer-text">chống raid</span>
+                </motion.h1>
+                <motion.p
+                  initial={{ opacity: 0, y: 24 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.7, delay: 0.2 }}
+                  className="mt-5 max-w-lg text-lg text-muted-foreground"
+                >
+                  Tag <span className="font-mono text-primary">@protogon</span> hoặc nhắc từ khóa — bot trả lời ngay. Hệ thống{" "}
+                  <b className="text-foreground">nhiệt độ 4 giai đoạn</b> kèm warn tích lũy,{" "}
+                  <b className="text-foreground">Join Gate chống selfbot</b>,{" "}
+                  <b className="text-foreground">chặn link độc hại & file nguy hiểm</b> và{" "}
+                  <b className="text-foreground">14 module bảo vệ</b> canh server 24/7.
+                </motion.p>
+                <motion.div
+                  initial={{ opacity: 0, y: 24 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.7, delay: 0.3 }}
+                  className="mt-8 flex flex-wrap items-center gap-3"
+                >
+                  <Link to="/auth">
+                    <Button size="lg">
+                      Mở dashboard <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={() => window.dispatchEvent(new Event("haimiya-open"))}
+                  >
+                    <HaimiyaAvatar className="h-5 w-5" /> Hỏi Haimiya-senpai
                   </Button>
-                </Link>
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.8, delay: 0.5 }}
-                className="mt-10 grid max-w-md grid-cols-3 gap-4 border-t border-border pt-6"
-              >
-                {[
-                  ["14", "Module bảo vệ"],
-                  ["4", "Giai đoạn nhiệt"],
-                  ["24/7", "Giám sát tự động"],
-                ].map(([v, l]) => (
-                  <div key={l}>
-                    <p className="font-display text-2xl font-bold text-primary">{v}</p>
-                    <p className="text-xs text-muted-foreground">{l}</p>
-                  </div>
-                ))}
-              </motion.div>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.8, delay: 0.5 }}
+                  className="mt-10 grid max-w-md grid-cols-3 gap-4 border-t border-border pt-6"
+                >
+                  {[
+                    ["14", "Module bảo vệ"],
+                    ["4", "Giai đoạn nhiệt"],
+                    ["24/7", "Giám sát tự động"],
+                  ].map(([v, l]) => (
+                    <div key={l}>
+                      <p className="font-display text-2xl font-bold text-primary">{v}</p>
+                      <p className="text-xs text-muted-foreground">{l}</p>
+                    </div>
+                  ))}
+                </motion.div>
+              </div>
+              <div className="hidden lg:block">
+                <HeroChatCard />
+              </div>
             </div>
-            <div className="hidden lg:block">
-              <HeroChatCard />
-            </div>
-          </div>
-        </section>
+          </section>
 
-        <Features />
-        <AntiNuke />
-        <HowItWorks />
-        <CtaBanner />
-      </main>
-      <footer className="border-t border-border py-10">
-        <div className="container flex flex-col items-center justify-between gap-4 md:flex-row">
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 text-primary">
-              <Bot className="h-4 w-4" />
-            </span>
-            <span className="font-display font-semibold">Protogon Bot</span>
+          <Features />
+          <AntiNuke />
+          <HaimiyaSection />
+          <HowItWorks />
+          <CtaBanner />
+        </main>
+        <footer className="border-t border-border py-10">
+          <div className="container flex flex-col items-center justify-between gap-4 md:flex-row">
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                <HaimiyaAvatar className="h-6 w-6" />
+              </span>
+              <span className="font-display font-semibold">Protogon Bot</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              © {new Date().getFullYear()} Protogon Bot · Tự trả lời thông minh, nhiệt độ vi phạm, Join Gate & phòng thủ chống raid cho Discord 🌸
+            </p>
           </div>
-          <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Protogon Bot · Tự trả lời thông minh, nhiệt độ vi phạm & phòng thủ chống raid cho Discord.
-          </p>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 }

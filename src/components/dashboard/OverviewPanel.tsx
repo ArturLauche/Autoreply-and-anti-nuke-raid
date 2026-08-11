@@ -156,9 +156,9 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
               Mức an toàn của server
             </h3>
             <p className="text-sm text-muted-foreground">
-              Dựa trên tổng nhiệt độ vi phạm của các thành viên. Vi phạm càng nhiều, nhiệt
-              càng cao và mức an toàn càng giảm — khi chạm ngưỡng, hình phạt tự tăng cấp
-              (tạm khóa → kick → ban).
+              Dựa trên tổng nhiệt độ & warn tích lũy của các thành viên. Vi phạm càng
+              nhiều, nhiệt càng cao và mức an toàn càng giảm — khi chạm ngưỡng, hình phạt
+              tự tăng cấp (cảnh báo → tạm khóa → kick → ban) và tái phạm sẽ bị nhân đôi nhiệt.
             </p>
             <SafetyBar data={data} />
           </div>
@@ -224,12 +224,24 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
 
       <Card>
         <CardContent className="p-5">
-          <h3 className="font-display font-semibold">Ghi chú nhanh</h3>
+          <h3 className="font-display font-semibold">Ghi chú nhanh 🌸</h3>
           <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
             <li className="flex gap-2">
               <span className="text-primary">•</span>
               Rule auto reply dùng placeholder <code className="font-mono text-xs">{"{user}"}</code> để
               tag người nhắn, <code className="font-mono text-xs">{"{username}"}</code> để lấy tên họ.
+            </li>
+            <li className="flex gap-2">
+              <span className="text-primary">•</span>
+              Bảng nhiệt & warn bên Moderation có nút xóa nhiệt từng người hoặc toàn bộ.
+            </li>
+            <li className="flex gap-2">
+              <span className="text-primary">•</span>
+              Join Gate (sidebar) chặn selfbot: tài khoản quá mới, thiếu avatar/huy hiệu.
+            </li>
+            <li className="flex gap-2">
+              <span className="text-primary">•</span>
+              Module "Chống link độc hại & file nguy hiểm" quét domain scam + file đuôi .exe/.scr…
             </li>
             <li className="flex gap-2">
               <span className="text-primary">•</span>

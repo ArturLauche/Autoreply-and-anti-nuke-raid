@@ -2,29 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes petal-fall {
+  0% {
+    transform: translate3d(0, -12vh, 0) rotate(0deg);
+    opacity: 0;
+  }
+  6% {
+    opacity: var(--petal-opacity, 0.8);
+  }
+  90% {
+    opacity: var(--petal-opacity, 0.8);
+  }
+  100% {
+    transform: translate3d(var(--petal-sway, 40px), 114vh, 0) rotate(360deg);
+    opacity: 0;
+  }
+}
+
 @layer base {
   :root {
-    --background: 222 47% 4%;
-    --foreground: 210 40% 96%;
-    --card: 222 35% 7%;
-    --card-foreground: 210 40% 96%;
-    --popover: 222 38% 8%;
-    --popover-foreground: 210 40% 96%;
-    --primary: 187 92% 55%;
-    --primary-foreground: 220 45% 8%;
-    --secondary: 217 22% 14%;
-    --secondary-foreground: 210 30% 90%;
-    --muted: 217 22% 12%;
-    --muted-foreground: 215 18% 64%;
-    --accent: 217 22% 16%;
-    --accent-foreground: 210 40% 96%;
+    --background: 262 38% 5%;
+    --foreground: 330 28% 96%;
+    --card: 262 32% 8%;
+    --card-foreground: 330 28% 96%;
+    --popover: 262 34% 9%;
+    --popover-foreground: 330 28% 96%;
+    --primary: 342 92% 66%;
+    --primary-foreground: 340 55% 9%;
+    --secondary: 262 22% 14%;
+    --secondary-foreground: 330 25% 90%;
+    --muted: 262 22% 12%;
+    --muted-foreground: 265 16% 64%;
+    --accent: 262 22% 16%;
+    --accent-foreground: 330 28% 96%;
     --destructive: 0 74% 58%;
     --destructive-foreground: 0 0% 100%;
     --danger: 0 74% 58%;
     --danger-foreground: 0 0% 100%;
-    --border: 216 22% 14%;
-    --input: 216 22% 16%;
-    --ring: 187 92% 55%;
+    --border: 262 22% 14%;
+    --input: 262 22% 16%;
+    --ring: 342 92% 66%;
     --radius: 0.75rem;
   }
 
@@ -42,8 +59,8 @@
   }
 
   ::selection {
-    background: hsl(187 92% 55% / 0.28);
-    color: hsl(210 40% 98%);
+    background: hsl(342 92% 66% / 0.3);
+    color: hsl(330 40% 98%);
   }
 
   ::-webkit-scrollbar {
@@ -54,13 +71,13 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(216 22% 18%);
+    background: hsl(262 22% 18%);
     border-radius: 8px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(216 22% 26%);
+    background: hsl(262 22% 26%);
     background-clip: content-box;
   }
 }
@@ -69,26 +86,34 @@
   .bg-grid {
     background-image: radial-gradient(
       circle at 1px 1px,
-      hsl(210 30% 22% / 0.5) 1px,
+      hsl(265 30% 26% / 0.5) 1px,
       transparent 0
     );
     background-size: 28px 28px;
   }
 
-  .bg-glow-cyan {
+  .bg-glow-sakura {
     background: radial-gradient(
-      42% 42% at 50% 0%,
-      hsl(187 92% 55% / 0.16) 0%,
+      46% 46% at 50% 0%,
+      hsl(342 92% 66% / 0.18) 0%,
       transparent 70%
     );
   }
 
-  .text-gradient-cyan {
+  .bg-glow-lavender {
+    background: radial-gradient(
+      46% 46% at 50% 100%,
+      hsl(262 84% 66% / 0.16) 0%,
+      transparent 70%
+    );
+  }
+
+  .text-gradient-sakura {
     background: linear-gradient(
       120deg,
-      hsl(187 92% 62%) 0%,
-      hsl(170 90% 55%) 50%,
-      hsl(199 95% 68%) 100%
+      hsl(342 92% 76%) 0%,
+      hsl(330 92% 70%) 45%,
+      hsl(262 88% 76%) 100%
     );
     -webkit-background-clip: text;
     background-clip: text;
@@ -100,20 +125,62 @@
   }
   .card-hover:hover {
     transform: translateY(-2px);
-    border-color: hsl(187 92% 55% / 0.35);
-    box-shadow: 0 8px 32px -12px hsl(187 92% 55% / 0.25);
+    border-color: hsl(342 92% 66% / 0.35);
+    box-shadow: 0 8px 32px -12px hsl(342 92% 66% / 0.28);
   }
 
   .shimmer-text {
     background: linear-gradient(
       100deg,
-      hsl(210 30% 60%) 20%,
-      hsl(210 40% 96%) 40%,
-      hsl(210 30% 60%) 60%
+      hsl(330 25% 62%) 20%,
+      hsl(330 40% 96%) 40%,
+      hsl(330 25% 62%) 60%
     );
     background-size: 200% 100%;
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+  }
+
+  /* Cánh hoa anh đào rơi */
+  .petal {
+    position: absolute;
+    top: -8vh;
+    border-radius: 80% 0 80% 0;
+    background: radial-gradient(
+      circle at 30% 30%,
+      hsl(340 95% 90%) 0%,
+      hsl(342 92% 72%) 55%,
+      hsl(342 85% 62%) 100%
+    );
+    box-shadow: 0 0 8px hsl(342 92% 70% / 0.4);
+    opacity: 0;
+    pointer-events: none;
+    animation-name: petal-fall;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    will-change: transform, opacity;
+  }
+
+  .chat-bubble-tail {
+    position: relative;
+  }
+  .chat-bubble-tail::before {
+    content: "";
+    position: absolute;
+    bottom: 8px;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+  .chat-bubble-tail.haimiya::before {
+    left: -4px;
+    background: hsl(262 30% 12%);
+    transform: rotate(45deg);
+  }
+  .chat-bubble-tail.user::before {
+    right: -4px;
+    background: hsl(342 92% 66%);
+    transform: rotate(45deg);
   }
 }

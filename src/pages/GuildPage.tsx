@@ -13,6 +13,8 @@ import {
   ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
+import CherryBlossom from "../components/CherryBlossom";
+import HaimiyaChat from "../components/HaimiyaChat";
 import { api } from "../../convex/_generated/api";
 import { Badge } from "../components/ui/badge";
 import { cn } from "../lib/utils";
@@ -74,7 +76,10 @@ export default function GuildPage() {
     Date.now() - data.guild.lastHeartbeat < 180_000;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="relative min-h-screen bg-background">
+      <CherryBlossom count={10} />
+      <HaimiyaChat position="dashboard" />
+      <div className="relative z-10">
       <header className="border-b border-border/60 bg-card/50 backdrop-blur">
         <div className="container py-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -146,10 +151,12 @@ export default function GuildPage() {
                 );
               })}
             </nav>
-            <div className="mt-4 hidden rounded-xl border border-border bg-card/50 p-4 text-xs text-muted-foreground lg:block">
-              <p className="mb-2 font-medium text-foreground">Mẹo nhanh</p>
-              <p>• Moderation = lọc tin nhắn, mention, từ xấu, ảnh/file, link mời.</p>
-              <p className="mt-1">• Chống nuke / raid = bảo vệ cấu trúc server.</p>
+            <div className="mt-4 hidden rounded-xl border border-primary/25 bg-gradient-to-b from-primary/10 to-transparent p-4 text-xs text-muted-foreground lg:block">
+              <p className="mb-2 font-medium text-foreground">🌸 Haimiya gợi ý</p>
+              <p>• Moderation = spam tin, mention, từ xấu, ảnh/file, link mời + link độc hại.</p>
+              <p className="mt-1">• Join Gate = chặn selfbot khi vào server.</p>
+              <p className="mt-1">• Nuke/raid phạt trực tiếp, không cộng nhiệt.</p>
+              <p className="mt-1">• Bảng nhiệt & warn có nút xóa từng người.</p>
               <p className="mt-1">• Thay đổi áp dụng trong ~30 giây.</p>
             </div>
           </aside>
@@ -176,6 +183,7 @@ export default function GuildPage() {
           </div>
         </div>
       </main>
+      </div>
     </div>
   );
 }
