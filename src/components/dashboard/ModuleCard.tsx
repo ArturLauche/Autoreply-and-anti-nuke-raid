@@ -10,6 +10,7 @@ import {
   ShieldAlert,
   ShieldPlus,
   ShieldX,
+  Trash2,
   UserX,
   Users,
   XSquare,
@@ -20,9 +21,15 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { MultiSelect } from "../ui/multi-select";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { ANTINUKE_MODULE_META, PUNISH_LABEL } from "../../lib/constants";
-import type { GuildData, ModuleConfig } from "../../lib/types";
+import { cn } from "../../lib/utils";
+import {
+  ACTION_LABEL,
+  ACTION_STRENGTH,
+  ANTINUKE_MODULE_META,
+  MODULE_ACTION_OPTIONS,
+  strongestPunish,
+} from "../../lib/constants";
+import type { GuildData, ModuleConfig, ModuleAction } from "../../lib/types";
 
 const MODULE_ICONS: Record<string, typeof Gavel> = {
   massBan: Gavel,
@@ -40,11 +47,13 @@ const MODULE_ICONS: Record<string, typeof Gavel> = {
   invite: Link2,
 };
 
-const PUNISH_STYLE: Record<string, string> = {
+const ACTION_STYLE: Record<string, string> = {
   warn: "bg-amber-500/15 text-amber-400",
   kick: "bg-orange-500/15 text-orange-400",
   ban: "bg-danger/15 text-danger",
   timeout: "bg-violet-500/15 text-violet-400",
+  deleteMessages: "bg-sky-500/15 text-sky-400",
+  purgeMessages: "bg-rose-500/15 text-rose-400",
 };
 
 function ModuleNumber({
@@ -109,6 +118,21 @@ export default function ModuleCard({
     .filter((r) => r.name !== "@everyone")
     .map((r) => ({ value: r.roleId, label: r.name }));
 
+  const actions: ModuleAction[] =
+    config.actions && config.actions.length > 0 ? config.actions : [config.punish];
+  const hasTimeout = actions.includes("timeout");
+  const hasMemberPunish = actions.some((a) => ACTION_STRENGTH[a] != null);
+
+  function toggleAction(action: ModuleAction) {
+    const next = actions.includes(action)
+      ? actions.filter((a) => a !== action)
+      : [...actions, action];
+    patchModule(module, {
+      actions: next,
+      punish: strongestPunish(next, config.punish),
+    });
+  }
+
   return (
     <Card className={config.enabled ? "" : "opacity-60"}>
       <CardHeader className="pb-3">
@@ -150,25 +174,83 @@ export default function ModuleCard({
             />
           </div>
         </div>
-        <div className={showHeat ? "grid grid-cols-3 gap-3" : "grid grid-cols-2 gap-3"}>
-          <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">Hình thức xử lý</Label>
-            <Select
-              value={config.punish}
-              onValueChange={(v) => patchModule(module, { punish: v as ModuleConfig["punish"] })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="warn">⚠️ Cảnh báo</SelectItem>
-                <SelectItem value="kick">👢 Kick</SelectItem>
-                <SelectItem value="ban">🚫 Ban</SelectItem>
-                <SelectItem value="timeout">⏸️ Tạm khóa (timeout)</SelectItem>
-              </SelectContent>
-            </Select>
+
+        <div className="grid gap-1.5">
+          <Label className="text-xs text-muted-foreground">
+            Hành động của bot <span className="text-primary/80">(chọn nhiều — kết hợp)</span>
+          </Label>
+          <div className="grid gap-1.5 sm:grid-cols-2">
+            {MODULE_ACTION_OPTIONS.map((opt) => {
+              const active = actions.includes(opt.value);
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => toggleAction(opt.value)}
+                  className={cn(
+                    "flex items-start gap-2.5 rounded-xl border px-3 py-2 text-left transition-colors",
+                    active
+                      ? "border-primary/60 bg-primary/10"
+                      : "border-border bg-card hover:border-primary/30 hover:bg-accent/40",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
+                      active ? "border-primary bg-primary text-primary-foreground" : "border-input",
+                    )}
+                  >
+                    {active && (
+                      <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M2.5 6.5l2.5 2.5 4.5-5.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </span>
+                  <span>
+                    <span
+                      className={cn(
+                        "block text-xs font-semibold",
+                        active ? "text-primary" : "text-foreground",
+                      )}
+                    >
+                      {opt.label}
+                    </span>
+                    <span className="block text-[11px] leading-snug text-muted-foreground">
+                      {opt.hint}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          {showHeat && (
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            💡 <b className="text-foreground">Xóa tin phát hiện</b> = xóa ngay tin nhắn vi phạm tại
+            thời điểm bot nhận ra · <b className="text-foreground">Purge</b> = xóa hàng loạt mọi tin
+            nhắn liên quan đến vụ vi phạm. Chọn nhiều hình phạt thành viên → bot dùng hình phạt{" "}
+            <b className="text-foreground">mạnh nhất</b> (ban &gt; kick &gt; tạm khóa &gt; cảnh báo).
+          </p>
+        </div>
+
+        {actions.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {actions.map((a) => (
+              <Badge key={a} className={cn("gap-1 px-2.5 py-1", ACTION_STYLE[a])}>
+                {a === "deleteMessages" || a === "purgeMessages" ? (
+                  <Trash2 className="h-3 w-3" />
+                ) : null}
+                {ACTION_LABEL[a]}
+              </Badge>
+            ))}
+            {!hasMemberPunish && (
+              <span className="text-[11px] text-muted-foreground">
+                (chỉ dọn tin nhắn — không phạt thành viên)
+              </span>
+            )}
+          </div>
+        )}
+
+        {showHeat && (
+          <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label className="text-xs text-orange-400/80">🔥 Nhiệt/vi phạm</Label>
               <ModuleNumber
@@ -178,14 +260,18 @@ export default function ModuleCard({
                 onCommit={(n) => patchModule(module, { heat: n })}
               />
             </div>
-          )}
-          <div className="flex items-end pb-1">
-            <Badge className={PUNISH_STYLE[config.punish]}>{PUNISH_LABEL[config.punish]}</Badge>
+            <div className="flex items-end pb-1">
+              <p className="text-[11px] text-muted-foreground">
+                Nhiệt tự giảm theo phút; đủ ngưỡng sẽ tự tăng cấp hình phạt.
+              </p>
+            </div>
           </div>
-        </div>
-        {config.punish === "timeout" && (
+        )}
+        {hasTimeout && (
           <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">Thời lượng tạm khóa (giây)</Label>
+            <Label className="text-xs text-muted-foreground">
+              Thời lượng tạm khóa (giây) — dùng khi chọn "Tạm khóa (timeout)"
+            </Label>
             <ModuleNumber
               value={config.timeoutSeconds ?? 300}
               min={1}
@@ -196,11 +282,13 @@ export default function ModuleCard({
         )}
         {!showHeat && (
           <p className="text-[11px] text-muted-foreground">
-            ⚡ Module chống nuke/raid phạt trực tiếp theo hình thức bên trên — không cộng nhiệt.
+            ⚡ Module chống nuke/raid phạt trực tiếp theo hành động đã chọn — không cộng nhiệt.
           </p>
         )}
         <div className="grid gap-1.5">
-          <Label className="text-xs text-muted-foreground">Role miễn trừ</Label>
+          <Label className="text-xs text-muted-foreground">
+            Role miễn trừ <span className="text-muted-foreground/70">(chỉ server này)</span>
+          </Label>
           <MultiSelect
             options={roleOptions}
             value={config.whitelistRoles}

@@ -2,6 +2,29 @@ import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { ANTI_NUKE_MODULES, isAntiNukeModule } from "./modules";
 
+const ALLOWED_ACTIONS = [
+  "warn",
+  "kick",
+  "ban",
+  "timeout",
+  "deleteMessages",
+  "purgeMessages",
+] as const;
+const ACTION_STRENGTH: Record<string, number> = { warn: 1, timeout: 2, kick: 3, ban: 4 };
+
+/** Lọc + chuẩn hóa danh sách hành động, trả về hình phạt mạnh nhất. */
+function normalizeActions(raw: string[] | undefined): {
+  actions: string[];
+  strongest: "warn" | "kick" | "ban" | "timeout";
+} {
+  const actions = [...new Set((raw ?? []).filter((a) => (ALLOWED_ACTIONS as readonly string[]).includes(a)))].slice(0, 6);
+  const member = actions
+    .filter((a) => ACTION_STRENGTH[a] != null)
+    .sort((a, b) => ACTION_STRENGTH[b] - ACTION_STRENGTH[a]);
+  const strongest = (member[0] ?? "warn") as "warn" | "kick" | "ban" | "timeout";
+  return { actions, strongest };
+}
+
 /**
  * These mutations are called by the Discord bot process itself. The bot
  * validates the executor's Discord permissions before calling them, and only
@@ -118,6 +141,7 @@ export const botModuleUpdate = mutation({
     punish: v.optional(
       v.union(v.literal("warn"), v.literal("kick"), v.literal("ban"), v.literal("timeout")),
     ),
+    actions: v.optional(v.array(v.string())),
     timeoutSeconds: v.optional(v.number()),
     whitelistRoles: v.optional(v.array(v.string())),
     heat: v.optional(v.number()),
@@ -134,20 +158,30 @@ export const botModuleUpdate = mutation({
     if (args.enabled !== undefined) patch.enabled = args.enabled;
     if (args.threshold !== undefined) patch.threshold = Math.max(1, args.threshold);
     if (args.windowSeconds !== undefined) patch.windowSeconds = Math.max(1, args.windowSeconds);
-    if (args.punish !== undefined) patch.punish = args.punish;
+    if (args.actions !== undefined) {
+      const { actions, strongest } = normalizeActions(args.actions);
+      patch.actions = actions;
+      patch.punish = strongest;
+    } else if (args.punish !== undefined) {
+      patch.punish = args.punish;
+      patch.actions = [args.punish];
+    }
     if (args.timeoutSeconds !== undefined) patch.timeoutSeconds = Math.max(1, args.timeoutSeconds);
     if (args.whitelistRoles !== undefined) patch.whitelistRoles = args.whitelistRoles;
     if (args.heat !== undefined) patch.heat = Math.max(1, Math.min(100, args.heat));
     if (mod) {
       await ctx.db.patch(mod._id, patch);
     } else {
+      const { actions, strongest } = normalizeActions(args.actions);
+      const punish = args.punish ?? strongest ?? "kick";
       await ctx.db.insert("antinukeModules", {
         guildId: args.guildId,
         module: args.module,
         enabled: args.enabled ?? true,
         threshold: args.threshold ?? 5,
         windowSeconds: args.windowSeconds ?? 10,
-        punish: args.punish ?? "kick",
+        punish,
+        actions: actions.length > 0 ? actions : [punish],
         timeoutSeconds: args.timeoutSeconds ?? 300,
         whitelistRoles: args.whitelistRoles ?? [],
         heat: args.heat ?? 10,

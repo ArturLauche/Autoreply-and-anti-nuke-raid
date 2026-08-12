@@ -1,4 +1,79 @@
+import type { ModuleAction } from "./types";
+
 export type TriggerType = "keyword" | "mention";
+
+/** Các hành động bot có thể thực thi cho một module (multi-select kết hợp). */
+export const MODULE_ACTION_OPTIONS: {
+  value: ModuleAction;
+  label: string;
+  hint: string;
+}[] = [
+  { value: "warn", label: "Cảnh báo (DM)", hint: "Gửi cảnh báo riêng cho thành viên" },
+  { value: "timeout", label: "Tạm khóa (timeout)", hint: "Khóa tạm thời (đặt thời lượng bên dưới)" },
+  { value: "kick", label: "Kick", hint: "Đuổi thành viên khỏi server" },
+  { value: "ban", label: "Ban", hint: "Cấm thành viên vĩnh viễn" },
+  {
+    value: "deleteMessages",
+    label: "Xóa tin phát hiện",
+    hint: "Xóa ngay tin nhắn vi phạm tại thời điểm bot nhận ra vi phạm",
+  },
+  {
+    value: "purgeMessages",
+    label: "Purge toàn bộ tin liên quan",
+    hint: "Xóa hàng loạt mọi tin nhắn liên quan đến vụ vi phạm (ví dụ: toàn bộ tin spam trong cửa sổ phát hiện)",
+  },
+];
+
+/** Độ mạnh của hình phạt thành viên (ban > kick > timeout > warn). */
+export const ACTION_STRENGTH: Record<string, number> = {
+  warn: 1,
+  timeout: 2,
+  kick: 3,
+  ban: 4,
+};
+
+/** Nhãn ngắn cho từng hành động. */
+export const ACTION_LABEL: Record<string, string> = {
+  warn: "Cảnh báo",
+  timeout: "Tạm khóa",
+  kick: "Kick",
+  ban: "Ban",
+  deleteMessages: "Xóa tin phát hiện",
+  purgeMessages: "Purge tin liên quan",
+};
+
+/** Lấy hình phạt thành viên mạnh nhất trong danh sách hành động. */
+export function strongestPunish(
+  actions: readonly string[],
+  fallback: "warn" | "kick" | "ban" | "timeout" = "warn",
+): "warn" | "kick" | "ban" | "timeout" {
+  const member = actions
+    .filter((a): a is "warn" | "kick" | "ban" | "timeout" => ACTION_STRENGTH[a] != null)
+    .sort((a, b) => ACTION_STRENGTH[b] - ACTION_STRENGTH[a]);
+  return member[0] ?? fallback;
+}
+
+/** Hành động mặc định cho từng module — giữ nguyên hành vi hiện tại của bot. */
+export const DEFAULT_MODULE_ACTIONS: Record<string, ModuleAction[]> = {
+  massBan: ["ban"],
+  massKick: ["kick"],
+  massJoin: ["kick"],
+  massChannelCreate: ["ban"],
+  massChannelDelete: ["ban"],
+  massRoleCreate: ["ban"],
+  massRoleDelete: ["ban"],
+  massMessageDelete: ["warn"],
+  massWebhookCreate: ["ban"],
+  massThreadCreate: ["ban"],
+  spam: ["timeout"],
+  massMessage: ["timeout", "deleteMessages"],
+  blankNoise: ["timeout", "deleteMessages"],
+  mention: ["timeout", "deleteMessages"],
+  badword: ["warn", "deleteMessages"],
+  attachment: ["timeout", "deleteMessages"],
+  invite: ["warn", "deleteMessages"],
+  malware: ["warn", "deleteMessages"],
+};
 
 export interface ModuleMeta {
   label: string;

@@ -36,12 +36,28 @@ export interface AutoReply {
   createdAt: number;
 }
 
+/** Hành động bot có thể thực thi khi một module phát hiện vi phạm (chọn nhiều). */
+export type ModuleAction =
+  | "warn"
+  | "kick"
+  | "ban"
+  | "timeout"
+  | "deleteMessages"
+  | "purgeMessages";
+
 export interface ModuleConfig {
   module: string;
   enabled: boolean;
   threshold: number;
   windowSeconds: number;
+  /** Hình thức xử lý chính (mạnh nhất trong actions) — giữ tương thích dữ liệu cũ. */
   punish: "warn" | "kick" | "ban" | "timeout";
+  /**
+   * Danh sách hành động kết hợp: hình phạt thành viên (warn/kick/ban/timeout)
+   * + dọn tin nhắn (deleteMessages = xóa ngay tin phát hiện, purgeMessages =
+   * xóa hàng loạt mọi tin liên quan vụ vi phạm).
+   */
+  actions?: ModuleAction[];
   timeoutSeconds?: number;
   whitelistRoles: string[];
   /** Điểm nhiệt cộng mỗi lần vi phạm (hệ thống nhiệt độ). */
@@ -92,9 +108,9 @@ export interface GuildData {
     logChannelId: string | null;
     /** Kênh log hành động mod (ban/timeout/kick/warn + ngược lại, xóa tin). */
     modLogChannelId: string | null;
-    /** Whitelist toàn cục — người dùng được miễn trừ moderation / anti-raid / nuke. */
+    /** Whitelist của riêng server này — người dùng được miễn trừ moderation / anti-raid / nuke (không chia sẻ sang server khác). */
     whitelistUsers: string[];
-    /** Whitelist toàn cục — role được miễn trừ moderation / anti-raid / nuke. */
+    /** Whitelist của riêng server này — role được miễn trừ moderation / anti-raid / nuke (không chia sẻ sang server khác). */
     whitelistRoles: string[];
     modRoles: string[];
     adminRoles: string[];

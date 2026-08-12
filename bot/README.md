@@ -182,6 +182,10 @@ Muốn đăng ký lại slash commands thủ công: `bun run register`.
 | `spam` | Spam tin nhắn | 6 tin/10s → tạm khóa 5 phút |
 
 - Thủ phạm được xác định qua **Audit Log**, ngưỡng + hình thức xử lý (cảnh báo/kick/ban/tạm khóa) chỉnh được trong dashboard hoặc lệnh bot.
+- **Hành động đa lựa chọn (dashboard → mỗi module)**: chọn cùng lúc hình phạt thành viên (warn/kick/ban/timeout — bot dùng hình phạt **mạnh nhất**) và hành động dọn tin nhắn:
+  - `deleteMessages` — xóa **ngay tin nhắn vi phạm tại thời điểm** bot nhận ra.
+  - `purgeMessages` — xóa **hàng loạt mọi tin nhắn liên quan** đến vụ vi phạm (ví dụ: toàn bộ tin spam trong cửa sổ phát hiện, hoặc tin của người bị ban trên các kênh văn bản).
+  - Ví dụ: chọn `ban + purgeMessages` = ban người vi phạm và quét sạch tin của họ; chọn `timeout + deleteMessages` = tạm khóa và xóa ngay tin vừa gửi.
 - **Khóa kênh khi raid**: khi vượt ngưỡng bất kỳ module nào, bot chặn thành viên gửi tin (và voice) qua overwrite của role @everyone, tự mở lại sau `lockdownMinutes` hoặc khi dùng `/antinuke unlock`. Bot cần quyền **Manage Channels**.
 - Chủ server, role có quyền **Administrator**, role **Mod/Admin** đã cấu hình và role nằm trong *whitelist* của module được miễn trừ.
 

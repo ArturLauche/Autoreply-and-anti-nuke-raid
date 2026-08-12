@@ -1,6 +1,7 @@
 const { Colors, PermissionFlagsBits } = require("discord.js");
 const { logEmbed, sendLog } = require("../util");
 const { heatSettings, punishMember, choosePunish, heatSummary } = require("../heat");
+const { actionsOf, cleanupMessages } = require("../moduleActions");
 
 const MODULE_LABELS = {
   badword: "Từ ngữ xấu",
@@ -55,7 +56,8 @@ function isExempt(member, config) {
   if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
   if ((config?.adminRoles || []).some((id) => member.roles.cache.has(id))) return true;
   if ((config?.modRoles || []).some((id) => member.roles.cache.has(id))) return true;
-  // Whitelist toàn cục: role/người dùng được miễn trừ khỏi moderation (và nuke/raid).
+  // Whitelist của RIÊNG server này: role/người dùng được miễn trừ khỏi moderation
+  // (và nuke/raid) — không chia sẻ sang server khác dùng chung bot.
   if ((config?.whitelistRoles || []).some((id) => member.roles.cache.has(id))) return true;
   if ((config?.whitelistUsers || []).includes(member.id)) return true;
   return false;
@@ -124,24 +126,35 @@ async function punishFlow(client, message, moduleCfg, config, heat, reason, deta
     moduleCfg.timeoutSeconds,
   );
 
-  await message.delete().catch(() => {});
+  // Dọn tin nhắn theo hành động đã chọn: deleteMessages (xóa ngay tin phát hiện)
+  // / purgeMessages (xóa hàng loạt mọi tin liên quan). Không chọn → không xóa.
+  const actions = actionsOf(moduleCfg);
+  const cleanup = await cleanupMessages({
+    guild: message.guild,
+    channel: message.channel,
+    userId: message.author.id,
+    actions,
+    triggerMessage: message,
+  });
 
   // Log xóa tin nhắn: ghi rõ bot đã xóa tin gì, của ai, tại kênh nào.
-  try {
-    const delEmbed = logEmbed({
-      title: "🗑️ Bot đã xóa tin nhắn",
-      description: `Đã xóa tin nhắn của <@${message.author.id}> tại ${message.channel}.`,
-      color: Colors.DarkerGrey,
-      fields: [
-        { name: "Tác giả", value: `<@${message.author.id}>`, inline: true },
-        { name: "Module", value: `\`${moduleCfg.module}\``, inline: true },
-        { name: "Nội dung", value: (message.content || "[ảnh/file]").slice(0, 1000) || "…", inline: false },
-      ],
-      footer: "Protogon · Log xóa tin",
-    });
-    await sendLog(message.guild, config, delEmbed);
-  } catch (e) {
-    console.error("[filters:delLog]", e.message);
+  if (cleanup) {
+    try {
+      const delEmbed = logEmbed({
+        title: "🗑️ Bot đã xóa tin nhắn",
+        description: `Đã ${cleanup} của <@${message.author.id}> tại ${message.channel}.`,
+        color: Colors.DarkerGrey,
+        fields: [
+          { name: "Tác giả", value: `<@${message.author.id}>`, inline: true },
+          { name: "Module", value: `\`${moduleCfg.module}\``, inline: true },
+          { name: "Nội dung", value: (message.content || "[ảnh/file]").slice(0, 1000) || "…", inline: false },
+        ],
+        footer: "Protogon · Log xóa tin",
+      });
+      await sendLog(message.guild, config, delEmbed);
+    } catch (e) {
+      console.error("[filters:delLog]", e.message);
+    }
   }
 
   try {
@@ -162,11 +175,11 @@ async function punishFlow(client, message, moduleCfg, config, heat, reason, deta
 
   const embed = logEmbed({
     title: `🚨 Cảnh báo: ${MODULE_LABELS[moduleCfg.module] || moduleCfg.module}`,
-    description: `${detail} — tin nhắn của <@${message.author.id}> đã bị xóa.`,
+    description: `${detail} — tin nhắn của <@${message.author.id}> ${cleanup ? `đã bị xử lý (${cleanup})` : "đã bị ghi nhận"}.`,
     color: Colors.Red,
     fields: [
       { name: "Thủ phạm", value: `<@${message.author.id}>`, inline: true },
-      { name: "Xử lý", value: (action + heatSummary(heatRes)).slice(0, 1000), inline: true },
+      { name: "Xử lý", value: (action + heatSummary(heatRes) + (cleanup ? ` · ${cleanup}` : "")).slice(0, 1000), inline: true },
       { name: "Module", value: `\`${moduleCfg.module}\``, inline: true },
     ],
     footer: "Protogon Moderation",

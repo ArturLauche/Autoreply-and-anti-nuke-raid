@@ -150,6 +150,8 @@ export default defineSchema({
       v.literal("ban"),
       v.literal("timeout"),
     ),
+    /** Hành động kết hợp: warn/kick/ban/timeout + deleteMessages/purgeMessages. */
+    actions: v.optional(v.array(v.string())),
     timeoutSeconds: v.optional(v.number()),
     whitelistRoles: v.array(v.string()),
     heat: v.optional(v.number()),

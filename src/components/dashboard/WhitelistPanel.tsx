@@ -13,8 +13,10 @@ import { getSessionToken } from "../../lib/discord";
 const TOKEN = () => getSessionToken();
 
 /**
- * Whitelist toàn cục — chọn người dùng (ID Discord) hoặc role để được MIỄN TRỪ
- * khỏi toàn bộ hệ thống: moderation (spam, từ xấu, link…), anti-raid và anti-nuke.
+ * Whitelist của RIÊNG server này — chọn người dùng (ID Discord) hoặc role để được
+ * MIỄN TRỪ khỏi moderation (spam, từ xấu, link…), anti-raid và anti-nuke.
+ * Danh sách chỉ có tác dụng tại server đang quản lý (local), không chia sẻ sang
+ * server khác dùng chung bot.
  */
 export default function WhitelistPanel({ data }: { data: GuildData }) {
   const updateSettings = useMutation(api.guilds.updateSettings);
@@ -66,10 +68,12 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-display text-lg font-semibold">Whitelist — miễn trừ</h2>
+          <h2 className="font-display text-lg font-semibold">Whitelist của server này</h2>
           <p className="text-sm text-muted-foreground">
             Người dùng / role trong danh sách này sẽ <b className="text-foreground">không bị</b>{" "}
-            moderation, anti-raid và anti-nuke xử lý (vẫn ưu tiên hơn cả hình phạt tự động).
+            moderation, anti-raid và anti-nuke xử lý — <b className="text-foreground">chỉ áp dụng cho{" "}
+            {data.guild.name}</b>. Mỗi server dùng bot có danh sách whitelist riêng (local), không
+            chia sẻ giữa các server.
           </p>
         </div>
         <Button onClick={handleSave} disabled={saving}>
@@ -85,7 +89,8 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
             </CardTitle>
             <CardDescription>
               Thành viên sở hữu role này được bỏ qua toàn bộ kiểm tra moderation, anti-raid
-              và anti-nuke (kể cả raid/nuke phát hiện qua AI).
+              và anti-nuke của <b className="text-foreground">server này</b> (kể cả raid/nuke phát
+              hiện qua AI). Role ở server khác không ảnh hưởng.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -110,7 +115,8 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
             </CardTitle>
             <CardDescription>
               Nhập <b>ID Discord</b> của người dùng (bật Chế độ nhà phát triển trong Discord →
-              chuột phải tên người dùng → Sao chép ID người dùng) để họ không bị hệ thống xử lý.
+              chuột phải tên người dùng → Sao chép ID người dùng) để họ không bị hệ thống xử lý{" "}
+              <b className="text-foreground">tại server này</b>.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -166,11 +172,12 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
           <div className="text-sm text-muted-foreground">
             <p className="font-semibold text-foreground">Nguyên tắc ưu tiên</p>
             <p className="mt-1">
-              Whitelist áp dụng cho <b className="text-foreground">toàn bộ module</b>: spam,
-              từ ngữ xấu, link mời, link độc hại, file nguy hiểm, raid thành viên, ban/kick
-              hàng loạt, tạo/xóa kênh &amp; role hàng loạt, webhook/thread hàng loạt… Người
-              dùng/role trong danh sách được bỏ qua hoàn toàn — không cộng nhiệt, không xóa
-              tin, không ban.
+              Danh sách áp dụng cho <b className="text-foreground">toàn bộ module của server{" "}
+              {data.guild.name}</b>: spam, từ ngữ xấu, link mời, link độc hại, file nguy hiểm,
+              raid thành viên, ban/kick hàng loạt, tạo/xóa kênh &amp; role hàng loạt,
+              webhook/thread hàng loạt… Người dùng/role trong danh sách được bỏ qua hoàn toàn —
+              không cộng nhiệt, không xóa tin, không ban. Danh sách này <b className="text-foreground">không
+              ảnh hưởng đến các server khác</b> đang dùng bot.
             </p>
             <p className="mt-1">
               Lưu ý: whitelist không miễn trừ Join Gate (chống selfbot khi vào server) — tính

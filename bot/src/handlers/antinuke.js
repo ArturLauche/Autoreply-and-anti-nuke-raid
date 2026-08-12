@@ -7,6 +7,7 @@ const {
   choosePunish,
   heatSummary,
 } = require("../heat");
+const { actionsOf, memberPunishOf, cleanupMessages } = require("../moduleActions");
 
 const MODULE_LABELS = {
   massBan: "Ban hàng loạt",
@@ -171,13 +172,22 @@ module.exports = function createAntiNuke(client, store, heat) {
   }
 
   /**
-   * Phạt một thành viên. Module nuke/raid: phạt trực tiếp theo cài đặt (không nhiệt).
-   * Module moderation: cộng nhiệt và tự tăng cấp nếu vượt ngưỡng.
+   * Phạt một thành viên theo danh sách hành động kết hợp của module (multi-select):
+   * dùng hình phạt thành viên MẠNH NHẤT (ban > kick > timeout > warn); nếu không
+   * chọn hình phạt nào thì chỉ dọn tin nhắn (delete/purge) mà không đụng thành viên.
+   * Module nuke/raid: phạt trực tiếp (không nhiệt). Module moderation: cộng nhiệt
+   * và tự tăng cấp nếu vượt ngưỡng.
    * Trả về mô tả hành động.
    */
   async function punishWithHeat(guild, member, moduleCfg, reason) {
+    const actions = actionsOf(moduleCfg);
+    const memberActions = actions.filter((a) => ["warn", "kick", "ban", "timeout"].includes(a));
+    if (memberActions.length === 0) {
+      return { action: "không phạt thành viên (chỉ dọn tin nhắn)", chosen: null, heatRes: null };
+    }
+    const base = memberPunishOf(actions, moduleCfg.punish || "warn");
     if (NUKE_MODULES.has(moduleCfg.module)) {
-      const chosen = moduleCfg.punish || "kick";
+      const chosen = base;
       const action = await punishMember(guild, member, chosen, reason, moduleCfg.timeoutSeconds, store);
       return { action, chosen, heatRes: null };
     }
@@ -189,7 +199,7 @@ module.exports = function createAntiNuke(client, store, heat) {
       moduleCfg.heat ?? 10,
       s,
     );
-    const chosen = choosePunish(moduleCfg.punish || "warn", heatRes);
+    const chosen = choosePunish(base, heatRes);
     const action = await punishMember(guild, member, chosen, reason, moduleCfg.timeoutSeconds, store);
     if (chosen !== "warn") heat.markPunished(guild.id, member.id);
     return { action: action + heatSummary(heatRes), chosen, heatRes };
@@ -225,13 +235,14 @@ module.exports = function createAntiNuke(client, store, heat) {
     if (!executor) return; // can't attribute, can't punish — stay quiet
 
     let action = "đã ghi nhận";
+    const actions = actionsOf(moduleCfg);
     try {
       const member = await guild.members.fetch(executor.id).catch(() => null);
       const reason = `[Protogon AntiNuke] ${MODULE_LABELS[module]}: ${count} lượt trong ${moduleCfg.windowSeconds}s (ngưỡng ${moduleCfg.threshold})`;
       if (member) {
         const res = await punishWithHeat(guild, member, moduleCfg, reason);
         action = res.action;
-      } else if (moduleCfg.punish === "ban") {
+      } else if (actions.includes("ban")) {
         try {
           await guild.members.ban(executor.id, { reason });
           action = "đã ban";
@@ -240,6 +251,17 @@ module.exports = function createAntiNuke(client, store, heat) {
         }
       }
       await maybeLockdown(guild, config);
+      // purgeMessages: xóa hàng loạt tin nhắn của thủ phạm trên toàn guild (giới hạn).
+      if (actions.includes("purgeMessages")) {
+        const cleanup = await cleanupMessages({
+          guild,
+          channel: null,
+          userId: executor.id,
+          actions: ["purgeMessages"],
+          triggerMessage: null,
+        });
+        if (cleanup) action = `${action} · ${cleanup}`;
+      }
     } catch {
       action = "không thể xử lý";
     }
@@ -287,11 +309,25 @@ module.exports = function createAntiNuke(client, store, heat) {
 
     const reason = `[Protogon AntiNuke] Raid thành viên: ${fresh.length} người tham gia trong ${moduleCfg.windowSeconds}s`;
     const results = [];
+    const actions = actionsOf(moduleCfg);
+    // purgeMessages: giới hạn chỉ purge vài tài khoản mới nhất để tránh quá tải.
+    let purgedCount = 0;
+    const purgeLimit = actions.includes("purgeMessages") ? 3 : 0;
     for (const j of fresh) {
       const m = await guild.members.fetch(j.id).catch(() => null);
       if (!m || isExempt(m, moduleCfg, config)) continue;
       const res = await punishWithHeat(guild, m, moduleCfg, reason);
       results.push(`<@${j.id}>: ${res.action}`);
+      if (purgedCount < purgeLimit) {
+        const cleanup = await cleanupMessages({
+          guild,
+          channel: null,
+          userId: j.id,
+          actions: ["purgeMessages"],
+          triggerMessage: null,
+        });
+        if (cleanup) purgedCount += 1;
+      }
     }
     await maybeLockdown(guild, config);
 
@@ -301,7 +337,7 @@ module.exports = function createAntiNuke(client, store, heat) {
       executorName: undefined,
       action:
         results.length > 0
-          ? `xử lý ${results.length} tài khoản (${moduleCfg.punish})`
+          ? `xử lý ${results.length} tài khoản (${moduleCfg.punish})${purgedCount > 0 ? ` · purge ${purgedCount} tài khoản` : ""}`
           : "không có tài khoản để xử lý",
       count: fresh.length,
       windowSeconds: moduleCfg.windowSeconds,
@@ -386,6 +422,7 @@ module.exports = function createAntiNuke(client, store, heat) {
       // AI xác định là dương tính giả → không phạt, chỉ ghi nhận.
       const isBenign = ai?.classification === "benign";
       const reason = `[Protogon] ${MODULE_LABELS[cfg.module]}: ${fresh.length} lần trong ${cfg.windowSeconds}s (ngưỡng ${cfg.threshold})${isRaid ? ` — AI: raid (${ai.reason ?? ""})` : ""}`;
+      const actions = actionsOf(cfg);
 
       let action;
       let chosen;
@@ -403,13 +440,16 @@ module.exports = function createAntiNuke(client, store, heat) {
         action = res.action;
         chosen = res.chosen;
       }
-      // Dương tính giả (benign): không xóa tin, không phạt.
+      // Dương tính giả (benign): không dọn tin, không phạt.
       if (!isBenign) {
-        try {
-          await message.delete().catch(() => {});
-        } catch {
-          // kênh không cho xóa — bỏ qua
-        }
+        const cleanup = await cleanupMessages({
+          guild: message.guild,
+          channel: message.channel,
+          userId: message.author.id,
+          actions,
+          triggerMessage: message,
+        });
+        if (cleanup) action = `${action} · ${cleanup}`;
       }
 
       await recordEvent(message.guild.id, {
@@ -420,12 +460,12 @@ module.exports = function createAntiNuke(client, store, heat) {
         count: fresh.length,
         windowSeconds: cfg.windowSeconds,
         threshold: cfg.threshold,
-        punish: chosen,
+        punish: chosen ?? "none",
       });
 
       const embed = logEmbed({
         title: `🚨 Cảnh báo: ${MODULE_LABELS[cfg.module]}`,
-        description: `<@${message.author.id}> đã gửi **${fresh.length} tin** thuộc mẫu \`${cfg.module}\` trong **${cfg.windowSeconds} giây** (ngưỡng ${cfg.threshold}). Tin nhắn đã bị xóa.`,
+        description: `<@${message.author.id}> đã gửi **${fresh.length} tin** thuộc mẫu \`${cfg.module}\` trong **${cfg.windowSeconds} giây** (ngưỡng ${cfg.threshold}). ${actions.includes("deleteMessages") || actions.includes("purgeMessages") ? "Tin nhắn liên quan đã được dọn theo cấu hình." : ""}`,
         color: isRaid ? Colors.Red : Colors.Orange,
         fields: [
           { name: "Thủ phạm", value: `<@${message.author.id}>`, inline: true },
@@ -475,6 +515,7 @@ module.exports = function createAntiNuke(client, store, heat) {
     const isBenign = ai?.classification === "benign";
     const reason = `[Protogon AntiNuke] Spam: ${fresh.length} tin nhắn trong ${moduleCfg.windowSeconds}s${isRaid ? ` — AI: raid (${ai.reason ?? ""})` : ""}`;
 
+    const actions = actionsOf(moduleCfg);
     let action;
     let chosen;
     if (isRaid) {
@@ -490,6 +531,18 @@ module.exports = function createAntiNuke(client, store, heat) {
       chosen = res.chosen;
     }
 
+    // Dọn tin nhắn theo hành động đã chọn (deleteMessages / purgeMessages).
+    if (!isBenign) {
+      const cleanup = await cleanupMessages({
+        guild: message.guild,
+        channel: message.channel,
+        userId: message.author.id,
+        actions,
+        triggerMessage: message,
+      });
+      if (cleanup) action = `${action} · ${cleanup}`;
+    }
+
     await recordEvent(message.guild.id, {
       module: "spam",
       executorId: message.author.id,
@@ -498,7 +551,7 @@ module.exports = function createAntiNuke(client, store, heat) {
       count: fresh.length,
       windowSeconds: moduleCfg.windowSeconds,
       threshold: moduleCfg.threshold,
-      punish: chosen,
+      punish: chosen ?? "none",
     });
 
     const embed = logEmbed({
@@ -589,13 +642,14 @@ module.exports = function createAntiNuke(client, store, heat) {
     if (!executor) return;
 
     let action = "đã ghi nhận";
+    const actions = actionsOf(moduleCfg);
     try {
       const member = await guild.members.fetch(executor.id).catch(() => null);
       const reason = `[Protogon AntiNuke] ${MODULE_LABELS[module]}: ${count} lượt trong ${moduleCfg.windowSeconds}s (ngưỡng ${moduleCfg.threshold})`;
       if (member) {
         const res = await punishWithHeat(guild, member, moduleCfg, reason);
         action = res.action;
-      } else if (moduleCfg.punish === "ban") {
+      } else if (actions.includes("ban")) {
         try {
           await guild.members.ban(executor.id, { reason });
           action = "đã ban";
@@ -604,6 +658,17 @@ module.exports = function createAntiNuke(client, store, heat) {
         }
       }
       await maybeLockdown(guild, config);
+      // purgeMessages: xóa hàng loạt tin nhắn của thủ phạm trên toàn guild (giới hạn).
+      if (actions.includes("purgeMessages")) {
+        const cleanup = await cleanupMessages({
+          guild,
+          channel: null,
+          userId: executor.id,
+          actions: ["purgeMessages"],
+          triggerMessage: null,
+        });
+        if (cleanup) action = `${action} · ${cleanup}`;
+      }
     } catch {
       action = "không thể xử lý";
     }

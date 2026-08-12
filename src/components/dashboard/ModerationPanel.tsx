@@ -11,6 +11,7 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import {
   ANTINUKE_MODULE_META,
+  DEFAULT_MODULE_ACTIONS,
   MODERATION_MODULES,
   WARN_STRIKE_DEFAULTS,
 } from "../../lib/constants";
@@ -89,6 +90,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
         threshold: meta.defaultThreshold,
         windowSeconds: meta.defaultWindowSeconds,
         punish: meta.defaultPunish,
+        actions: DEFAULT_MODULE_ACTIONS[module] ?? [meta.defaultPunish],
         timeoutSeconds: 300,
         whitelistRoles: [],
         heat: meta.defaultHeat,

@@ -9,7 +9,7 @@ import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { useEffect, useState } from "react";
-import { ANTINUKE_MODULE_META, NUKE_MODULES } from "../../lib/constants";
+import { ANTINUKE_MODULE_META, DEFAULT_MODULE_ACTIONS, NUKE_MODULES } from "../../lib/constants";
 import ModuleCard from "./ModuleCard";
 import type { GuildData, ModuleConfig } from "../../lib/types";
 import { getSessionToken } from "../../lib/discord";
@@ -68,6 +68,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
         threshold: meta.defaultThreshold,
         windowSeconds: meta.defaultWindowSeconds,
         punish: meta.defaultPunish,
+        actions: DEFAULT_MODULE_ACTIONS[module] ?? [meta.defaultPunish],
         timeoutSeconds: 300,
         whitelistRoles: [],
         heat: meta.defaultHeat,
