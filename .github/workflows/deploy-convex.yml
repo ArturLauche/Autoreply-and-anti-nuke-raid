@@ -1,0 +1,31 @@
+name: Deploy Convex backend
+
+# Tự động đẩy code backend (convex/) lên deployment production khi push lên main,
+# dùng CONVEX_DEPLOY_KEY (tạo trong Convex dashboard → Deployment settings →
+# Deploy keys → Generate → bật quyền deployment:deploy, rồi dán vào GitHub
+# Settings → Secrets and variables → Actions với tên CONVEX_DEPLOY_KEY).
+# Key tự "khoá" đúng deployment production, nên không cần chọn project.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "convex/**"
+  workflow_dispatch: # cho phép bấm nút "Run workflow" thủ công trên GitHub
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Deploy to Convex production
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: |
+          if [ -z "$CONVEX_DEPLOY_KEY" ]; then
+            echo "::error::Thiếu secret CONVEX_DEPLOY_KEY — vào GitHub repo → Settings → Secrets and variables → Actions → New repository secret → tên CONVEX_DEPLOY_KEY → dán key tạo ở Convex dashboard (Deployment settings → Deploy keys → Generate, bật deployment:deploy)."
+            exit 1
+          fi
+          npx convex deploy

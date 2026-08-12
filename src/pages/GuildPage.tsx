@@ -18,6 +18,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { DEFAULT_THEME, SERVER_THEMES } from "../lib/constants";
+import PanelErrorBoundary from "../components/PanelErrorBoundary";
 import CherryBlossom from "../components/CherryBlossom";
 import BotLogo from "../components/BotLogo";
 import HaimiyaChat from "../components/HaimiyaChat";
@@ -208,41 +209,43 @@ export default function GuildPage() {
             </div>
           </aside>
 
-          {/* Content */}
+          {/* Content — bọc trong error boundary để một panel lỗi không làm trắng cả trang */}
           <div>
-            {section === "overview" && <OverviewPanel data={data} />}
-            {section === "automod" && <AutoModPanel data={data} />}
-            {section === "moderation" && <ModerationPanel data={data} />}
-            {section === "joingate" && <JoinGatePanel data={data} />}
-            {section === "antinuke" && <AntiNukePanel data={data} />}
-            {section === "whitelist" && <WhitelistPanel data={data} />}
-            {section === "backup" && <BackupPanel data={data} />}
-            {section === "punishments" && <ModActionsPanel data={data} />}
-            {section === "settings" && <SettingsPanel data={data} />}
-            {section === "hidden" &&
-              (!data.guild.isBotOwner || (data.guild.hiddenPasswordSet && !hiddenUnlocked) ? (
-                <UnlockPanel
-                  data={data}
-                  onUnlocked={() => setHiddenUnlocked(true)}
-                />
-              ) : (
-                <>
-                  {data.guild.hiddenPasswordSet && (
-                    <div className="mb-4 flex justify-end">
-                      <button
-                        onClick={() => {
-                          sessionStorage.removeItem(hiddenUnlockKey(data.guild.discordId));
-                          setHiddenUnlocked(false);
-                        }}
-                        className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                      >
-                        <Lock className="h-3.5 w-3.5" /> Khóa lại
-                      </button>
-                    </div>
-                  )}
-                  <HiddenPanel data={data} />
-                </>
-              ))}
+            <PanelErrorBoundary key={section}>
+              {section === "overview" && <OverviewPanel data={data} />}
+              {section === "automod" && <AutoModPanel data={data} />}
+              {section === "moderation" && <ModerationPanel data={data} />}
+              {section === "joingate" && <JoinGatePanel data={data} />}
+              {section === "antinuke" && <AntiNukePanel data={data} />}
+              {section === "whitelist" && <WhitelistPanel data={data} />}
+              {section === "backup" && <BackupPanel data={data} />}
+              {section === "punishments" && <ModActionsPanel data={data} />}
+              {section === "settings" && <SettingsPanel data={data} />}
+              {section === "hidden" &&
+                (!data.guild.isBotOwner || (data.guild.hiddenPasswordSet && !hiddenUnlocked) ? (
+                  <UnlockPanel
+                    data={data}
+                    onUnlocked={() => setHiddenUnlocked(true)}
+                  />
+                ) : (
+                  <>
+                    {data.guild.hiddenPasswordSet && (
+                      <div className="mb-4 flex justify-end">
+                        <button
+                          onClick={() => {
+                            sessionStorage.removeItem(hiddenUnlockKey(data.guild.discordId));
+                            setHiddenUnlocked(false);
+                          }}
+                          className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        >
+                          <Lock className="h-3.5 w-3.5" /> Khóa lại
+                        </button>
+                      </div>
+                    )}
+                    <HiddenPanel data={data} />
+                  </>
+                ))}
+            </PanelErrorBoundary>
 
             <div className="mt-10 flex justify-center">
               <a

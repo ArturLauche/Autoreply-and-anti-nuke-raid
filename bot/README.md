@@ -93,6 +93,19 @@ Rồi bấm **Start** — bot sẽ kết nối Convex Cloud và đồng bộ v�
 
 Để dashboard web hiển thị đúng dữ liệu bot ghi (server, kênh, sự kiện…), dashboard cũng phải dùng **cùng URL Convex** này (biến `VITE_CONVEX_URL` cho bản production của Freebuff). Nếu không, dashboard và bot dùng 2 database riêng biệt.
 
+### Tự động deploy qua GitHub Actions (không cần gõ lệnh) 🔄
+
+Repository đã có sẵn workflow **`.github/workflows/deploy-convex.yml`**: mỗi lần code trong `convex/` được push lên nhánh `main`, GitHub tự chạy `npx convex deploy` — bạn không cần mở terminal.
+
+Chỉ cần làm 1 lần (tổng ~3 phút):
+
+1. **Convex dashboard** → chọn deployment `accomplished-chipmunk-74` → **Settings → Deploy Keys → Generate a deploy key** → đặt tên (VD `github-ci`) → bật quyền **`deployment:deploy`** → Generate → copy chuỗi key (dạng `prod:...|eyJ...`).
+2. **GitHub repo** → **Settings → Secrets and variables → Actions → New repository secret** → tên `CONVEX_DEPLOY_KEY` → dán key → Add secret.
+
+Xong! Từ đó push code lên `main` là backend tự cập nhật. Muốn deploy ngay không cần đổi code: vào tab **Actions** của repo → chọn workflow *Deploy Convex backend* → **Run workflow**.
+
+> Cách thủ công (máy có tài khoản Convex): `npx convex login` rồi `npx convex deploy` tại thư mục gốc dự án.
+
 ## Lưu ý khi deploy lại code
 
 - Sửa hàm Convex trong `convex/` xong → chạy lại `npx convex deploy` từ máy bạn để cập nhật lên cloud.
