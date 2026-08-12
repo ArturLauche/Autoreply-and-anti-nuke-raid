@@ -66,20 +66,49 @@ export default function Taskbar() {
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "Đóng taskbar" : "Mở taskbar"}
         className={cn(
-          "group fixed left-0 top-2 bottom-2 z-50 flex w-11 flex-col items-center",
-          "rounded-r-2xl border border-l-0 border-white/50 bg-gradient-to-b from-[#8fc8ff] via-[#f79fc6] to-[#ffb3d1]",
-          "shadow-[0_8px_30px_-6px_hsl(205_90%_55%/0.5)] transition-all hover:w-12",
+          "group fixed left-0 top-3 bottom-3 z-50 flex w-12 flex-col items-center",
+          "rounded-r-2xl bg-gradient-to-br from-white/95 via-white/40 to-white/0 p-[2px]",
+          "drop-shadow-[0_0_14px_rgba(255,255,255,0.55)]",
+          "shadow-[0_10px_40px_-10px_hsl(205_85%_55%/0.6)] transition-all duration-300",
+          "hover:shadow-[0_14px_50px_-10px_hsl(342_85%_60%/0.65)]",
           open ? "pointer-events-none translate-x-[-110%] opacity-0" : "",
         )}
       >
-        <span className="flex flex-1 flex-col items-center justify-center gap-3 text-[#3d2a5c]">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 shadow-inner transition-transform group-hover:scale-105">
-            <PanelRightOpen className="h-5 w-5" />
+        <span className="relative flex h-full w-full flex-col items-center overflow-hidden rounded-r-[14px] bg-gradient-to-b from-[#a3d2ff] via-[#f8a9cf] to-[#ffd6e7]">
+          {/* Ánh sáng mờ từ trên xuống */}
+          <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(130%_70%_at_50%_0%,rgba(255,255,255,0.6),transparent_55%)]" />
+          {/* Vệt sáng nghiêng chạy dọc */}
+          <span className="pointer-events-none absolute inset-y-0 left-1/2 w-1/3 -skew-x-12 bg-white/30 blur-md transition-transform duration-700 group-hover:translate-x-1" />
+
+          {/* Hoa anh đào trên đỉnh */}
+          <span className="relative mt-2 animate-float text-sm leading-none">🌸</span>
+
+          {/* Icon tròn phát sáng */}
+          <span className="relative mt-3 flex h-11 w-11 items-center justify-center">
+            <span className="absolute inset-0 animate-pulse-ring rounded-full bg-white/80" />
+            <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-[#4a2f66] shadow-[0_2px_14px_rgba(255,255,255,0.95)] transition-transform duration-300 group-hover:rotate-6 group-hover:scale-110">
+              <PanelRightOpen className="h-5 w-5" />
+            </span>
           </span>
-          <span className="[writing-mode:vertical-rl] rotate-180 font-display text-xs font-bold tracking-widest">
-            Taskbar Protogon
+
+          {/* Vạch chia mảnh */}
+          <span className="mt-3 h-px w-6 bg-[#4a2f66]/25" />
+
+          {/* Chữ dọc hai dòng */}
+          <span className="mt-3 flex flex-1 flex-col items-center gap-2 text-[#3d2a5c]">
+            <span className="[writing-mode:vertical-rl] rotate-180 font-display text-[11px] font-bold tracking-[0.35em]">
+              Taskbar
+            </span>
+            <span className="h-1 w-1 rounded-full bg-[#3d2a5c]/40" />
+            <span className="[writing-mode:vertical-rl] rotate-180 font-display text-[10px] font-semibold tracking-[0.2em] text-[#3d2a5c]/75">
+              Protogon
+            </span>
           </span>
-          <ChevronRight className="h-4 w-4 opacity-70" />
+
+          {/* Mũi tên dưới cùng */}
+          <span className="mb-3 flex h-6 w-6 items-center justify-center rounded-full bg-white/70 text-[#3d2a5c] shadow-inner transition-transform duration-300 group-hover:translate-x-0.5">
+            <ChevronRight className="h-3.5 w-3.5" />
+          </span>
         </span>
       </button>
 
