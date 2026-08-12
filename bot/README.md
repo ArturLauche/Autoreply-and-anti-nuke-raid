@@ -189,6 +189,23 @@ Muốn đăng ký lại slash commands thủ công: `bun run register`.
 - **Khóa kênh khi raid**: khi vượt ngưỡng bất kỳ module nào, bot chặn thành viên gửi tin (và voice) qua overwrite của role @everyone, tự mở lại sau `lockdownMinutes` hoặc khi dùng `/antinuke unlock`. Bot cần quyền **Manage Channels**.
 - Chủ server, role có quyền **Administrator**, role **Mod/Admin** đã cấu hình và role nằm trong *whitelist* của module được miễn trừ.
 
+## Backup server → đám mây GitHub
+
+- Dashboard → **Backup server** → bấm **Backup ngay** (tùy chọn đẩy lên GitHub).
+- Bot chụp toàn bộ **role** (tên, màu, hoist, mentionable, quyền), **kênh** (danh mục, văn bản, thoại… kèm quyền truy cập từng kênh) và cấu hình cơ bản (prefix, từ ngữ xấu, role mod/admin, kênh log).
+- Backup lưu vào Convex (giữ 3 bản mới nhất/server) và đẩy thành **Gist riêng tư** trên GitHub qua action `backup_github:githubPush` — cần biến `GITHUB_TOKEN` (quyền `gist`) trong **Keys** của Convex.
+- Khi server bị nuke/raid phá sập: mời bot vào **server phụ** → dashboard → **Backup** → bấm **Khôi phục vào server này**. Bot tạo lại role (quyền đã được giới hạn theo quyền hiện có của bot), danh mục, kênh + overwrite, rồi áp lại cấu hình với id mới. Các role/kênh có sẵn của server phụ được giữ nguyên.
+- Bot quét yêu cầu backup/khôi phục mỗi ~20 giây.
+
+## Moderation — thông báo sau khi phạt
+
+- Dashboard → **Moderation** (sidebar) để bật/tắt thông báo sau khi bot trừng phạt thành viên, riêng cho từng hành động **ban · timeout · warn · kick**:
+  - `none` — không gửi tin nhắn
+  - `action` — gửi tin nhắn server + hành động bot
+  - `reason` — thêm lý do vi phạm
+  - `full` — thêm moderator đã áp dụng (lệnh mod thủ công hiển thị tên mod; phạt tự động hiển thị “Bot tự động”)
+- Kênh nhận: `punishNoticeChannelId` → kênh log mod → kênh log chung.
+
 ## Kiến trúc đồng bộ
 
 - Bot gửi **heartbeat + danh sách server/kênh/role** lên Convex mỗi 60 giây (dashboard dùng để hiển thị).

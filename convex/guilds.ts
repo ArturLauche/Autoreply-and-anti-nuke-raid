@@ -115,6 +115,13 @@ export const getGuild = query({
         prefix: guild.prefix,
         logChannelId: guild.logChannelId ?? null,
         modLogChannelId: guild.modLogChannelId ?? null,
+        punishNoticeChannelId: guild.punishNoticeChannelId ?? null,
+        punishNotice: {
+          ban: guild.punishNotice?.ban ?? "none",
+          timeout: guild.punishNotice?.timeout ?? "none",
+          kick: guild.punishNotice?.kick ?? "none",
+          warn: guild.punishNotice?.warn ?? "none",
+        },
         whitelistUsers: guild.whitelistUsers ?? [],
         whitelistRoles: guild.whitelistRoles ?? [],
         hiddenPasswordSet: !!guild.hiddenPasswordHash,
@@ -264,6 +271,13 @@ export const getBotConfig = query({
       prefix: guild.prefix,
       logChannelId: guild.logChannelId ?? null,
       modLogChannelId: guild.modLogChannelId ?? null,
+      punishNoticeChannelId: guild.punishNoticeChannelId ?? null,
+      punishNotice: {
+        ban: guild.punishNotice?.ban ?? "none",
+        timeout: guild.punishNotice?.timeout ?? "none",
+        kick: guild.punishNotice?.kick ?? "none",
+        warn: guild.punishNotice?.warn ?? "none",
+      },
       whitelistUsers: guild.whitelistUsers ?? [],
       whitelistRoles: guild.whitelistRoles ?? [],
       modRoles: guild.modRoles,
@@ -330,6 +344,15 @@ export const updateSettings = mutation({
     prefix: v.optional(v.string()),
     logChannelId: v.optional(v.string()),
     modLogChannelId: v.optional(v.string()),
+    punishNoticeChannelId: v.optional(v.string()),
+    punishNotice: v.optional(
+      v.object({
+        ban: v.string(),
+        timeout: v.string(),
+        kick: v.string(),
+        warn: v.string(),
+      }),
+    ),
     whitelistUsers: v.optional(v.array(v.string())),
     whitelistRoles: v.optional(v.array(v.string())),
     modRoles: v.optional(v.array(v.string())),
@@ -381,6 +404,19 @@ export const updateSettings = mutation({
     if (args.logChannelId !== undefined) patch.logChannelId = args.logChannelId || undefined;
     if (args.modLogChannelId !== undefined)
       patch.modLogChannelId = args.modLogChannelId || undefined;
+    if (args.punishNoticeChannelId !== undefined) {
+      patch.punishNoticeChannelId = args.punishNoticeChannelId || undefined;
+    }
+    if (args.punishNotice !== undefined) {
+      const VALID = ["none", "action", "reason", "full"];
+      const next: Record<string, unknown> = {};
+      for (const k of ["ban", "timeout", "kick", "warn"] as const) {
+        const level = args.punishNotice[k];
+        if (!VALID.includes(level)) throw new Error(`Mức thông báo không hợp lệ (${k})`);
+        next[k] = level;
+      }
+      patch.punishNotice = next;
+    }
     if (args.whitelistUsers !== undefined) {
       const ids = args.whitelistUsers
         .map((id) => id.trim())

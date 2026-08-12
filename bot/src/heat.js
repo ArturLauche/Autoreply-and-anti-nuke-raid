@@ -12,6 +12,8 @@
  * Warn tích lũy (moderation): khi hình phạt là "warn", mỗi lần vi phạm đếm 1
  * strike; đủ warnStrikeLimit lần trong cửa sổ → tự tăng cấp thành warnStrikePunish.
  */
+const { sendPunishNotice } = require("./punishNotice");
+
 const TIER_STRENGTH = { warn: 1, timeout: 2, kick: 3, ban: 4 };
 const HEAT_MAX = 100;
 const MIN_MS = 60_000;
@@ -91,6 +93,22 @@ async function punishMember(guild, member, punishType, reason, timeoutSeconds = 
     } catch (e) {
       console.error(`[heat:record] ${guild.id}:`, e.message);
     }
+    // Thông báo Moderation sau khi phạt (ban/timeout/warn/kick) theo cấu hình.
+    try {
+      const cfg = await store.getConfig(guild.id).catch(() => null);
+      if (cfg) {
+        await sendPunishNotice({
+          guild,
+          guildConfig: cfg,
+          punishType,
+          target: member.user,
+          executor: null,
+          reason,
+        });
+      }
+    } catch (e) {
+      console.error(`[heat:notice] ${guild.id}:`, e.message);
+    }
   }
   return result;
 }
@@ -161,11 +179,11 @@ class HeatTracker {
       if (!member) return true;
       await member.send(
         `🔥 **Cảnh báo nhiệt độ từ Protogon**\n\n` +
-          `Bạn vừa đạt **${heat}/${HEAT_MAX}** điểm nhiệt vi phạm tại **${guild.name}**.\\n` +
-          `Tiếp tục vi phạm sẽ bị:\\n` +
-          `• Tạm khóa khi chạm **${s.timeoutAt}**\\n` +
-          `• Kick khi chạm **${s.kickAt}**\\n` +
-          `• Ban khi chạm **${s.banAt}**\\n\\n` +
+          `Bạn vừa đạt **${heat}/${HEAT_MAX}** điểm nhiệt vi phạm tại **${guild.name}**.\n` +
+          `Tiếp tục vi phạm sẽ bị:\n` +
+          `• Tạm khóa khi chạm **${s.timeoutAt}**\n` +
+          `• Kick khi chạm **${s.kickAt}**\n` +
+          `• Ban khi chạm **${s.banAt}**\n\n` +
           `Nhiệt độ tự giảm ${s.decayPerMin} điểm mỗi phút. Hãy dừng hành vi vi phạm!`,
       );
       return true;
@@ -371,6 +389,17 @@ class HeatTracker {
         });
       } catch (e) {
         console.error("[heat:flush]", e.message);
+      }
+      // Chống rò rỉ RAM: entry nhiệt = 0 và không còn trong cửa sổ tái phạm
+      // thì xóa khỏi bộ nhớ (bảng Convex đã được botRecordHeat dọn tương ứng).
+      if (heat <= 0 && strikes <= 0) {
+        const keepPunished =
+          !!entry?.lastPunishedAt &&
+          Date.now() - entry.lastPunishedAt < s.repeatWindowMin * MIN_MS;
+        if (!keepPunished) {
+          this.states.delete(key);
+          this.warned.delete(key);
+        }
       }
     }
   }

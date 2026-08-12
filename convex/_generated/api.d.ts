@@ -11,6 +11,8 @@
 import type * as antinuke from "../antinuke.js";
 import type * as auth from "../auth.js";
 import type * as autoreplies from "../autoreplies.js";
+import type * as backup from "../backup.js";
+import type * as backup_github from "../backup_github.js";
 import type * as bot_writes from "../bot_writes.js";
 import type * as guilds from "../guilds.js";
 import type * as haimiya from "../haimiya.js";
@@ -32,6 +34,8 @@ declare const fullApi: ApiFromModules<{
   antinuke: typeof antinuke;
   auth: typeof auth;
   autoreplies: typeof autoreplies;
+  backup: typeof backup;
+  backup_github: typeof backup_github;
   bot_writes: typeof bot_writes;
   guilds: typeof guilds;
   haimiya: typeof haimiya;

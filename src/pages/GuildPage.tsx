@@ -4,12 +4,14 @@ import { useQuery } from "convex/react";
 import {
   ArrowLeft,
   Bot,
+  CloudUpload,
   DoorOpen,
   ExternalLink,
   Gavel,
   LayoutDashboard,
   Loader2,
   Lock,
+  Megaphone,
   Settings,
   ShieldAlert,
   ShieldCheck,
@@ -30,20 +32,34 @@ import { timeAgo } from "../lib/utils";
 import type { GuildData } from "../lib/types";
 import OverviewPanel from "../components/dashboard/OverviewPanel";
 import AntiNukePanel from "../components/dashboard/AntiNukePanel";
+import AutoModPanel from "../components/dashboard/AutoModPanel";
 import ModerationPanel from "../components/dashboard/ModerationPanel";
+import BackupPanel from "../components/dashboard/BackupPanel";
 import ModActionsPanel from "../components/dashboard/ModActionsPanel";
 import JoinGatePanel from "../components/dashboard/JoinGatePanel";
 import SettingsPanel from "../components/dashboard/SettingsPanel";
 import WhitelistPanel from "../components/dashboard/WhitelistPanel";
 
-type SectionKey = "overview" | "moderation" | "joingate" | "antinuke" | "whitelist" | "punishments" | "hidden" | "settings";
+type SectionKey =
+  | "overview"
+  | "automod"
+  | "moderation"
+  | "joingate"
+  | "antinuke"
+  | "whitelist"
+  | "backup"
+  | "punishments"
+  | "hidden"
+  | "settings";
 
 const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "overview", label: "Tổng quan", icon: LayoutDashboard },
-  { key: "moderation", label: "Moderation", icon: ShieldCheck },
+  { key: "automod", label: "Auto-mod", icon: ShieldCheck },
+  { key: "moderation", label: "Moderation", icon: Megaphone },
   { key: "joingate", label: "Join Gate", icon: DoorOpen },
   { key: "antinuke", label: "Chống nuke / raid", icon: ShieldAlert },
   { key: "whitelist", label: "Whitelist", icon: UserCheck },
+  { key: "backup", label: "Backup server", icon: CloudUpload },
   { key: "punishments", label: "Hình phạt", icon: Gavel },
   { key: "hidden", label: "Tính năng ẩn 🔒", icon: Lock },
   { key: "settings", label: "Cài đặt", icon: Settings },
@@ -177,10 +193,12 @@ export default function GuildPage() {
             </nav>
             <div className="mt-4 hidden rounded-xl border border-primary/25 bg-gradient-to-b from-primary/10 to-transparent p-4 text-xs text-muted-foreground lg:block">
               <p className="mb-2 font-medium text-foreground">🌸 Haimiya gợi ý</p>
-              <p>• Moderation = spam tin, mention, từ xấu, ảnh/file, link mời + link độc hại.</p>
+              <p>• Auto-mod = spam tin, mention, từ xấu, ảnh/file, link mời + link độc hại.</p>
+              <p className="mt-1">• Moderation = thông báo sau khi bot phạt (ban · timeout · warn · kick) — chọn mức chi tiết riêng cho từng hành động.</p>
               <p className="mt-1">• Join Gate = chặn selfbot khi vào server.</p>
               <p className="mt-1">• Nuke/raid phạt trực tiếp, không cộng nhiệt.</p>
               <p className="mt-1">• ⭐ Whitelist = chọn người dùng/role miễn trừ moderation, anti-raid và nuke.</p>
+              <p className="mt-1">• 💾 Backup server = chụp role + kênh lên đám mây GitHub; khôi phục lại khi server bị nuke phá sập.</p>
               <p className="mt-1">• 🔒 Tính năng ẩn = reaction role, giveaway, gửi DM, auto reply, tùy chỉnh giao diện — chỉ chủ sở hữu bot.</p>
               <p className="mt-1">• 🛠️ Lệnh mod: /mod timeout · kick · ban · purge + !timeout !kick !ban !purge — mọi hình phạt hiện trong mục Hình phạt.</p>
               <p className="mt-1">• 🎭 Reaction role: /reactionrole create · add · remove · edit · delete (kèm !reactionrole) hoặc tạo ngay trên dashboard.</p>
@@ -193,10 +211,12 @@ export default function GuildPage() {
           {/* Content */}
           <div>
             {section === "overview" && <OverviewPanel data={data} />}
+            {section === "automod" && <AutoModPanel data={data} />}
             {section === "moderation" && <ModerationPanel data={data} />}
             {section === "joingate" && <JoinGatePanel data={data} />}
             {section === "antinuke" && <AntiNukePanel data={data} />}
             {section === "whitelist" && <WhitelistPanel data={data} />}
+            {section === "backup" && <BackupPanel data={data} />}
             {section === "punishments" && <ModActionsPanel data={data} />}
             {section === "settings" && <SettingsPanel data={data} />}
             {section === "hidden" &&

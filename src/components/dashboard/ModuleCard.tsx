@@ -26,7 +26,8 @@ import {
   ACTION_LABEL,
   ACTION_STRENGTH,
   ANTINUKE_MODULE_META,
-  MODULE_ACTION_OPTIONS,
+  MEMBER_PUNISH_OPTIONS,
+  MESSAGE_CLEAN_OPTIONS,
   strongestPunish,
 } from "../../lib/constants";
 import type { GuildData, ModuleConfig, ModuleAction } from "../../lib/types";
@@ -122,14 +123,29 @@ export default function ModuleCard({
     config.actions && config.actions.length > 0 ? config.actions : [config.punish];
   const hasTimeout = actions.includes("timeout");
   const hasMemberPunish = actions.some((a) => ACTION_STRENGTH[a] != null);
+  /** Hình phạt thành viên hiện tại — luôn là 1 trong warn/timeout/kick/ban. */
+  const memberPunish = actions.find((a) => ACTION_STRENGTH[a] != null) ?? config.punish;
+  /** Các hành động dọn tin nhắn (deleteMessages / purgeMessages). */
+  const messageActions = actions.filter((a) => ACTION_STRENGTH[a] == null);
 
-  function toggleAction(action: ModuleAction) {
-    const next = actions.includes(action)
-      ? actions.filter((a) => a !== action)
-      : [...actions, action];
+  /** Đổi hình phạt thành viên — thay thế hình phạt cũ, giữ nguyên dọn tin nhắn. */
+  function selectMemberPunish(action: ModuleAction) {
+    const next = [...messageActions, action];
     patchModule(module, {
       actions: next,
       punish: strongestPunish(next, config.punish),
+    });
+  }
+
+  /** Bật/tắt hành động dọn tin nhắn — chọn nhiều được, kết hợp với hình phạt. */
+  function toggleMessageAction(action: ModuleAction) {
+    const next = messageActions.includes(action)
+      ? messageActions.filter((a) => a !== action)
+      : [...messageActions, action];
+    const final = [memberPunish, ...next];
+    patchModule(module, {
+      actions: final,
+      punish: strongestPunish(final, config.punish),
     });
   }
 
@@ -175,59 +191,111 @@ export default function ModuleCard({
           </div>
         </div>
 
-        <div className="grid gap-1.5">
-          <Label className="text-xs text-muted-foreground">
-            Hành động của bot <span className="text-primary/80">(chọn nhiều — kết hợp)</span>
-          </Label>
-          <div className="grid gap-1.5 sm:grid-cols-2">
-            {MODULE_ACTION_OPTIONS.map((opt) => {
-              const active = actions.includes(opt.value);
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => toggleAction(opt.value)}
-                  className={cn(
-                    "flex items-start gap-2.5 rounded-xl border px-3 py-2 text-left transition-colors",
-                    active
-                      ? "border-primary/60 bg-primary/10"
-                      : "border-border bg-card hover:border-primary/30 hover:bg-accent/40",
-                  )}
-                >
-                  <span
+        <div className="grid gap-3">
+          {/* Nhóm 1 — hình phạt thành viên (chọn 1) */}
+          <div className="grid gap-1.5">
+            <Label className="text-xs text-muted-foreground">
+              Hình phạt thành viên{" "}
+              <span className="text-primary/80">(chọn 1 — tách riêng với dọn tin nhắn)</span>
+            </Label>
+            <div className="grid gap-1.5 sm:grid-cols-2">
+              {MEMBER_PUNISH_OPTIONS.map((opt) => {
+                const active = memberPunish === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => selectMemberPunish(opt.value)}
                     className={cn(
-                      "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-                      active ? "border-primary bg-primary text-primary-foreground" : "border-input",
+                      "flex items-start gap-2.5 rounded-xl border px-3 py-2 text-left transition-colors",
+                      active
+                        ? "border-primary/70 bg-primary/10 ring-1 ring-primary/30"
+                        : "border-border bg-card hover:border-primary/30 hover:bg-accent/40",
                     )}
                   >
-                    {active && (
-                      <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M2.5 6.5l2.5 2.5 4.5-5.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )}
-                  </span>
-                  <span>
                     <span
                       className={cn(
-                        "block text-xs font-semibold",
-                        active ? "text-primary" : "text-foreground",
+                        "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors",
+                        active ? "border-primary bg-primary text-primary-foreground" : "border-input",
                       )}
                     >
-                      {opt.label}
+                      {active && <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />}
                     </span>
-                    <span className="block text-[11px] leading-snug text-muted-foreground">
-                      {opt.hint}
+                    <span>
+                      <span
+                        className={cn(
+                          "block text-xs font-semibold",
+                          active ? "text-primary" : "text-foreground",
+                        )}
+                      >
+                        {opt.label}
+                      </span>
+                      <span className="block text-[11px] leading-snug text-muted-foreground">
+                        {opt.hint}
+                      </span>
                     </span>
-                  </span>
-                </button>
-              );
-            })}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Nhóm 2 — dọn tin nhắn (chọn nhiều) */}
+          <div className="grid gap-1.5">
+            <Label className="text-xs text-muted-foreground">
+              Dọn tin nhắn <span className="text-primary/80">(chọn nhiều — kết hợp)</span>
+            </Label>
+            <div className="grid gap-1.5 sm:grid-cols-2">
+              {MESSAGE_CLEAN_OPTIONS.map((opt) => {
+                const active = messageActions.includes(opt.value);
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => toggleMessageAction(opt.value)}
+                    className={cn(
+                      "flex items-start gap-2.5 rounded-xl border px-3 py-2 text-left transition-colors",
+                      active
+                        ? "border-primary/60 bg-primary/10"
+                        : "border-border bg-card hover:border-primary/30 hover:bg-accent/40",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
+                        active ? "border-primary bg-primary text-primary-foreground" : "border-input",
+                      )}
+                    >
+                      {active && (
+                        <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M2.5 6.5l2.5 2.5 4.5-5.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </span>
+                    <span>
+                      <span
+                        className={cn(
+                          "block text-xs font-semibold",
+                          active ? "text-primary" : "text-foreground",
+                        )}
+                      >
+                        {opt.label}
+                      </span>
+                      <span className="block text-[11px] leading-snug text-muted-foreground">
+                        {opt.hint}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             💡 <b className="text-foreground">Xóa tin phát hiện</b> = xóa ngay tin nhắn vi phạm tại
             thời điểm bot nhận ra · <b className="text-foreground">Purge</b> = xóa hàng loạt mọi tin
-            nhắn liên quan đến vụ vi phạm. Chọn nhiều hình phạt thành viên → bot dùng hình phạt{" "}
-            <b className="text-foreground">mạnh nhất</b> (ban &gt; kick &gt; tạm khóa &gt; cảnh báo).
+            nhắn liên quan đến vụ vi phạm. Hình phạt thành viên <b className="text-foreground">chỉ
+            chọn 1</b>; các hành động dọn tin nhắn chọn được <b className="text-foreground">nhiều</b>{" "}
+            và kết hợp với hình phạt (ví dụ: <b className="text-foreground">Ban + Purge tin liên quan</b>).
           </p>
         </div>
 

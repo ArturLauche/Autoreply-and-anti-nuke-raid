@@ -1,5 +1,6 @@
 const { EmbedBuilder, Colors, PermissionFlagsBits, time } = require("discord.js");
 const { canManageWithConfig, sendLog, sendModLog } = require("../util");
+const { sendPunishNotice } = require("../punishNotice");
 
 /** Phân tích chuỗi thời lượng: "10m", "2h", "1d", "30" (mặc định = phút). */
 function parseDuration(input) {
@@ -63,6 +64,15 @@ async function logModAction(guild, guildConfig, { action, color, target, executo
 
 async function timeoutMember({ guild, member, executor, minutes, reason, guildConfig, store }) {
   await member.timeout(minutes * 60_000, reason || undefined);
+  await sendPunishNotice({
+    guild,
+    guildConfig,
+    punishType: "timeout",
+    target: member.user,
+    executor,
+    reason,
+    extra: [{ name: "Thời lượng", value: formatDuration(minutes), inline: true }],
+  });
   await logModAction(
     guild,
     guildConfig,
@@ -84,6 +94,14 @@ async function timeoutMember({ guild, member, executor, minutes, reason, guildCo
 
 async function kickMember({ guild, member, executor, reason, guildConfig, store }) {
   await member.kick(reason || undefined);
+  await sendPunishNotice({
+    guild,
+    guildConfig,
+    punishType: "kick",
+    target: member.user,
+    executor,
+    reason,
+  });
   await logModAction(
     guild,
     guildConfig,
@@ -102,6 +120,15 @@ async function kickMember({ guild, member, executor, reason, guildConfig, store 
 
 async function banMember({ guild, member, executor, reason, deleteDays, guildConfig, store }) {
   await member.ban({ reason: reason || undefined, deleteMessageSeconds: (deleteDays || 0) * 86_400 });
+  await sendPunishNotice({
+    guild,
+    guildConfig,
+    punishType: "ban",
+    target: member.user,
+    executor,
+    reason,
+    extra: [{ name: "Xóa tin nhắn", value: deleteDays ? `${deleteDays} ngày` : "Không", inline: true }],
+  });
   await logModAction(
     guild,
     guildConfig,

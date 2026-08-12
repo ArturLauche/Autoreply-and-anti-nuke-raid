@@ -28,6 +28,23 @@ export default defineSchema({
     logChannelId: v.optional(v.string()),
     /** Kênh log hành động mod (ban/timeout/kick/warn + ngược lại, purge). */
     modLogChannelId: v.optional(v.string()),
+    /** Kênh gửi thông báo sau khi bot trừng phạt thành viên (Moderation). */
+    punishNoticeChannelId: v.optional(v.string()),
+    /** Mức chi tiết thông báo theo từng hành động ban/timeout/kick/warn. */
+    punishNotice: v.optional(
+      v.object({
+        ban: v.string(),
+        timeout: v.string(),
+        kick: v.string(),
+        warn: v.string(),
+      }),
+    ),
+    /** Backup server: cờ bot cần tạo backup. */
+    backupRequested: v.optional(v.boolean()),
+    backupPushToGithub: v.optional(v.boolean()),
+    /** Backup server: cờ bot cần khôi phục + id backup dùng để khôi phục. */
+    restoreRequested: v.optional(v.boolean()),
+    restoreBackupId: v.optional(v.id("guildBackups")),
     /** Whitelist toàn cục: user/role được miễn trừ khỏi moderation, anti-raid và nuke. */
     whitelistUsers: v.optional(v.array(v.string())),
     whitelistRoles: v.optional(v.array(v.string())),
@@ -200,6 +217,21 @@ export default defineSchema({
     executorName: v.optional(v.string()),
     reason: v.optional(v.string()),
     details: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_guildId", ["guildId"])
+    .index("by_guildId_createdAt", ["guildId", "createdAt"]),
+
+  guildBackups: defineTable({
+    guildId: v.string(),
+    guildName: v.string(),
+    /** JSON cấu trúc server: roles (tên/màu/quyền) + channels (kênh/quyền kênh). */
+    backupJson: v.string(),
+    roleCount: v.number(),
+    channelCount: v.number(),
+    /** URL gist GitHub nếu backup đã được đẩy lên đám mây. */
+    githubUrl: v.optional(v.string()),
+    pushedToGithub: v.boolean(),
     createdAt: v.number(),
   })
     .index("by_guildId", ["guildId"])

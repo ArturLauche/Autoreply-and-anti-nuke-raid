@@ -59,8 +59,9 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
         token: TOKEN(),
         guildId: data.guild.discordId,
         prefix,
-        logChannelId: logChannelId === "none" ? undefined : logChannelId,
-        modLogChannelId: modLogChannelId === "none" ? undefined : modLogChannelId,
+        // "" (chuỗi rỗng) để XÓA kênh đã đặt; undefined = không đổi.
+        logChannelId: logChannelId === "none" ? "" : logChannelId,
+        modLogChannelId: modLogChannelId === "none" ? "" : modLogChannelId,
         modRoles,
         adminRoles,
       });

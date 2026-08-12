@@ -265,6 +265,17 @@ export const botRecordAntinukeEvent = mutation({
       punish: args.punish,
       createdAt: Date.now(),
     });
+    // Chống phình DB: giữ tối đa 800 sự kiện/server — bảng này không giới hạn
+    // độ dài lịch sử trên dashboard (GuildHistory phân trang, cũ hơn 800 tự xóa).
+    const all = await ctx.db
+      .query("antinukeEvents")
+      .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", args.guildId))
+      .order("desc")
+      .collect();
+    if (all.length > 800) {
+      const drop = all.slice(800).map((r) => r._id);
+      for (const id of drop) await ctx.db.delete(id);
+    }
     return { ok: true };
   },
 });
@@ -394,6 +405,108 @@ export const botRecordHeat = mutation({
         warnStrikes: strikes,
       });
     }
+    return { ok: true };
+  },
+});
+
+
+/** Bot lưu một backup cấu trúc server vào bảng guildBackups (giữ tối đa 3 bản/server). */
+export const botStoreBackup = mutation({
+  args: {
+    guildId: v.string(),
+    guildName: v.string(),
+    backupJson: v.string(),
+    roleCount: v.number(),
+    channelCount: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const backupId = await ctx.db.insert("guildBackups", {
+      guildId: args.guildId,
+      guildName: args.guildName.slice(0, 120),
+      backupJson: args.backupJson,
+      roleCount: Math.max(0, Math.floor(args.roleCount)),
+      channelCount: Math.max(0, Math.floor(args.channelCount)),
+      pushedToGithub: false,
+      createdAt: Date.now(),
+    });
+    const all = await ctx.db
+      .query("guildBackups")
+      .withIndex("by_guildId", (q) => q.eq("guildId", args.guildId))
+      .collect();
+    const drop = all.sort((a, b) => b.createdAt - a.createdAt).slice(3).map((r) => r._id);
+    for (const id of drop) await ctx.db.delete(id);
+    return { ok: true, backupId };
+  },
+});
+
+/** Action backup:githubPush cập nhật URL gist sau khi đẩy thành công. */
+export const botSetBackupGithub = mutation({
+  args: { backupId: v.id("guildBackups"), url: v.string() },
+  handler: async (ctx, { backupId, url }) => {
+    const backup = await ctx.db.get(backupId);
+    if (!backup) return { ok: true };
+    await ctx.db.patch(backup._id, {
+      githubUrl: url.slice(0, 500),
+      pushedToGithub: true,
+    });
+    return { ok: true };
+  },
+});
+
+/** Bot xóa cờ yêu cầu backup/khôi phục sau khi đã xử lý xong. */
+export const botClearBackup = mutation({
+  args: {
+    guildId: v.string(),
+    kind: v.union(v.literal("backup"), v.literal("restore")),
+  },
+  handler: async (ctx, { guildId, kind }) => {
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) return { ok: true };
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (kind === "backup") {
+      patch.backupRequested = false;
+      patch.backupPushToGithub = false;
+    } else {
+      patch.restoreRequested = false;
+      patch.restoreBackupId = undefined;
+    }
+    await ctx.db.patch(guild._id, patch);
+    return { ok: true };
+  },
+});
+
+/** Bot ghi lại cấu hình cơ bản sau khi khôi phục backup (role/kênh đã map sang id mới). */
+export const botRestoreSettings = mutation({
+  args: {
+    guildId: v.string(),
+    prefix: v.optional(v.string()),
+    badWords: v.optional(v.array(v.string())),
+    whitelistRoles: v.optional(v.array(v.string())),
+    whitelistUsers: v.optional(v.array(v.string())),
+    modRoles: v.optional(v.array(v.string())),
+    adminRoles: v.optional(v.array(v.string())),
+    logChannelId: v.optional(v.union(v.string(), v.null())),
+    modLogChannelId: v.optional(v.union(v.string(), v.null())),
+  },
+  handler: async (ctx, args) => {
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", args.guildId))
+      .first();
+    if (!guild) throw new Error("Server chưa được đồng bộ");
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.prefix !== undefined) patch.prefix = args.prefix;
+    if (args.badWords !== undefined) patch.badWords = args.badWords.slice(0, 100);
+    if (args.whitelistRoles !== undefined) patch.whitelistRoles = args.whitelistRoles.slice(0, 100);
+    if (args.whitelistUsers !== undefined) patch.whitelistUsers = args.whitelistUsers.slice(0, 100);
+    if (args.modRoles !== undefined) patch.modRoles = args.modRoles.slice(0, 50);
+    if (args.adminRoles !== undefined) patch.adminRoles = args.adminRoles.slice(0, 50);
+    if (args.logChannelId !== undefined) patch.logChannelId = args.logChannelId ?? undefined;
+    if (args.modLogChannelId !== undefined) patch.modLogChannelId = args.modLogChannelId ?? undefined;
+    await ctx.db.patch(guild._id, patch);
     return { ok: true };
   },
 });

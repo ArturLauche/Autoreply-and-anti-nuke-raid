@@ -114,16 +114,37 @@ module.exports = function createAntiNuke(client, store, heat) {
       const guildId = key.split(":")[0];
       if (!live.has(guildId)) buckets.delete(key);
     }
-    for (const [guildId] of joiners) {
-      if (!live.has(guildId)) joiners.delete(guildId);
+    // Chống rò rỉ RAM: ngoài việc xóa guild đã rời, còn loại luôn entry cũ
+    // quá 10 phút của guild ĐANG hoạt động (trước đây cứ tích lại mãi).
+    const stale = now - 600_000;
+    for (const [guildId, arr] of joiners) {
+      if (!live.has(guildId)) {
+        joiners.delete(guildId);
+        continue;
+      }
+      const fresh = arr.filter((j) => j.ts >= stale);
+      if (fresh.length === 0) joiners.delete(guildId);
+      else joiners.set(guildId, fresh);
     }
-    for (const [key] of spamBuckets) {
+    for (const [key, arr] of spamBuckets) {
       const guildId = key.split(":")[0];
-      if (!live.has(guildId)) spamBuckets.delete(key);
+      if (!live.has(guildId)) {
+        spamBuckets.delete(key);
+        continue;
+      }
+      const fresh = arr.filter((t) => t >= stale);
+      if (fresh.length === 0) spamBuckets.delete(key);
+      else spamBuckets.set(key, fresh);
     }
-    for (const [key] of patternBuckets) {
+    for (const [key, arr] of patternBuckets) {
       const guildId = key.split(":")[0];
-      if (!live.has(guildId)) patternBuckets.delete(key);
+      if (!live.has(guildId)) {
+        patternBuckets.delete(key);
+        continue;
+      }
+      const fresh = arr.filter((t) => t >= stale);
+      if (fresh.length === 0) patternBuckets.delete(key);
+      else patternBuckets.set(key, fresh);
     }
     for (const [key, arr] of recentMessages) {
       const guildId = key.split(":")[0];

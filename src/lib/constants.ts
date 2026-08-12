@@ -1,17 +1,30 @@
-import type { ModuleAction } from "./types";
+import type { ModuleAction, PunishNoticeLevel } from "./types";
 
 export type TriggerType = "keyword" | "mention";
 
-/** Các hành động bot có thể thực thi cho một module (multi-select kết hợp). */
-export const MODULE_ACTION_OPTIONS: {
+/**
+ * Hình phạt thành viên — CHỌN 1 (bot dùng đúng hình phạt đã chọn).
+ * Tách riêng khỏi nhóm dọn tin nhắn để tránh nhầm lẫn chọn ban + kick cùng lúc.
+ */
+export const MEMBER_PUNISH_OPTIONS: {
   value: ModuleAction;
   label: string;
   hint: string;
 }[] = [
-  { value: "warn", label: "Cảnh báo (DM)", hint: "Gửi cảnh báo riêng cho thành viên" },
+  { value: "warn", label: "Warn", hint: "Gửi cảnh báo riêng (DM) cho thành viên" },
   { value: "timeout", label: "Tạm khóa (timeout)", hint: "Khóa tạm thời (đặt thời lượng bên dưới)" },
   { value: "kick", label: "Kick", hint: "Đuổi thành viên khỏi server" },
   { value: "ban", label: "Ban", hint: "Cấm thành viên vĩnh viễn" },
+];
+
+/**
+ * Hành động dọn tin nhắn — CHỌN NHIỀU (kết hợp được với nhau và với hình phạt).
+ */
+export const MESSAGE_CLEAN_OPTIONS: {
+  value: ModuleAction;
+  label: string;
+  hint: string;
+}[] = [
   {
     value: "deleteMessages",
     label: "Xóa tin phát hiện",
@@ -24,6 +37,9 @@ export const MODULE_ACTION_OPTIONS: {
   },
 ];
 
+/** Toàn bộ lựa chọn (hình phạt + dọn tin) — dùng để vẽ badge / kiểm tra nhanh. */
+export const MODULE_ACTION_OPTIONS = [...MEMBER_PUNISH_OPTIONS, ...MESSAGE_CLEAN_OPTIONS];
+
 /** Độ mạnh của hình phạt thành viên (ban > kick > timeout > warn). */
 export const ACTION_STRENGTH: Record<string, number> = {
   warn: 1,
@@ -34,7 +50,7 @@ export const ACTION_STRENGTH: Record<string, number> = {
 
 /** Nhãn ngắn cho từng hành động. */
 export const ACTION_LABEL: Record<string, string> = {
-  warn: "Cảnh báo",
+  warn: "Warn",
   timeout: "Tạm khóa",
   kick: "Kick",
   ban: "Ban",
@@ -281,10 +297,49 @@ export const MODERATION_MODULES = [
 ] as const;
 
 export const PUNISH_LABEL: Record<string, string> = {
-  warn: "Cảnh báo",
+  warn: "Warn",
   kick: "Kick",
   ban: "Ban",
   timeout: "Tạm khóa (timeout)",
+};
+
+/**
+ * Mức chi tiết thông báo sau khi bot trừng phạt thành viên (Moderation):
+ *  - none:   không gửi tin nhắn gì
+ *  - action: gửi tin nhắn server + hành động bot đã làm
+ *  - reason: thêm lý do vi phạm
+ *  - full:   thêm cả moderator đã áp dụng hình phạt
+ */
+export const PUNISH_NOTICE_LEVELS: {
+  value: PunishNoticeLevel;
+  label: string;
+  hint: string;
+}[] = [
+  { value: "none", label: "Không gửi tin nhắn", hint: "Bot im lặng sau khi trừng phạt" },
+  { value: "action", label: "Server + hành động bot", hint: "Ví dụ: 🚫 Đã ban @user" },
+  { value: "reason", label: "Server + hành động + lý do", hint: "Kèm lý do bot áp dụng hình phạt" },
+  {
+    value: "full",
+    label: "Server + hành động + lý do + moderator",
+    hint: "Kèm thêm người (moderator) đã áp dụng hình phạt",
+  },
+];
+
+/** Các hành động trừng phạt áp dụng cấu hình thông báo. */
+export const PUNISH_NOTICE_ACTIONS = ["ban", "timeout", "kick", "warn"] as const;
+
+export const PUNISH_NOTICE_ACTION_LABEL: Record<string, string> = {
+  ban: "🚫 Ban",
+  timeout: "⏱️ Timeout",
+  kick: "👢 Kick",
+  warn: "⚠️ Warn",
+};
+
+export const DEFAULT_PUNISH_NOTICE: Record<string, PunishNoticeLevel> = {
+  ban: "none",
+  timeout: "none",
+  kick: "none",
+  warn: "none",
 };
 
 /** Giá trị mặc định cho hệ thống nhiệt độ vi phạm. */

@@ -124,6 +124,7 @@ async function punishFlow(client, message, moduleCfg, config, heat, reason, deta
     chosen,
     reason + strikeTag,
     moduleCfg.timeoutSeconds,
+    heat.store, // ghi hình phạt + gửi thông báo Moderation theo cấu hình
   );
 
   // Dọn tin nhắn theo hành động đã chọn: deleteMessages (xóa ngay tin phát hiện)

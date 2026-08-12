@@ -19,6 +19,7 @@ const { HeatTracker } = require("./heat");
 const { runDailyReports } = require("./handlers/dailyReport");
 const { registerCommands } = require("./register-slash");
 const { setupHidden } = require("./handlers/hidden");
+const pollBackups = require("./handlers/backup");
 
 const client = new Client({
   partials: [
@@ -127,6 +128,10 @@ client.once("ready", async () => {
 
   // Flush pending heat states to Convex so the dashboard stays in sync.
   setInterval(() => heat.flushAll().catch((e) => console.error("[heat:flush]", e.message)), 30_000);
+
+  // Backup server → GitHub: quét yêu cầu từ dashboard mỗi 20 giây.
+  setTimeout(() => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)), 15_000);
+  setInterval(() => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)), 20_000);
 });
 
 client.on("messageCreate", (m) => onMessageCreate(client, m, store, heat).catch((e) => console.error("[messageCreate]", e.message)));

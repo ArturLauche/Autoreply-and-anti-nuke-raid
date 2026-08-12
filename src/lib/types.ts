@@ -45,6 +45,9 @@ export type ModuleAction =
   | "deleteMessages"
   | "purgeMessages";
 
+/** Mức chi tiết thông báo sau khi bot trừng phạt thành viên (Moderation). */
+export type PunishNoticeLevel = "none" | "action" | "reason" | "full";
+
 export interface ModuleConfig {
   module: string;
   enabled: boolean;
@@ -108,6 +111,10 @@ export interface GuildData {
     logChannelId: string | null;
     /** Kênh log hành động mod (ban/timeout/kick/warn + ngược lại, xóa tin). */
     modLogChannelId: string | null;
+    /** Kênh gửi thông báo sau khi bot trừng phạt thành viên (Moderation). */
+    punishNoticeChannelId: string | null;
+    /** Mức chi tiết thông báo theo từng hành động ban/timeout/kick/warn. */
+    punishNotice: Record<string, PunishNoticeLevel>;
     /** Whitelist của riêng server này — người dùng được miễn trừ moderation / anti-raid / nuke (không chia sẻ sang server khác). */
     whitelistUsers: string[];
     /** Whitelist của riêng server này — role được miễn trừ moderation / anti-raid / nuke (không chia sẻ sang server khác). */
@@ -185,6 +192,18 @@ export interface ModAction {
   reason: string | null;
   details: string | null;
   createdAt: number;
+}
+
+export interface BackupInfo {
+  _id: GenericId<"guildBackups">;
+  /** Discord ID của server gốc đã được backup. */
+  guildId: string;
+  guildName: string;
+  createdAt: number;
+  roleCount: number;
+  channelCount: number;
+  githubUrl: string | null;
+  pushedToGithub: boolean;
 }
 
 export interface Giveaway {
