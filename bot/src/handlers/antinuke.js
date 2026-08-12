@@ -377,7 +377,11 @@ module.exports = function createAntiNuke(client, store, heat) {
         cfg.threshold,
         samples,
       );
-      const isRaid = ai?.classification === "raid";
+      // Chỉ coi là raid/nuke khi AI phân loại là "raid" VÀ độ tin cậy đủ cao
+      // (>= 0.6) — tránh nhận diện nhầm gây ban nhầm + khóa kênh oan.
+      const isRaid = ai?.classification === "raid" && (ai?.confidence ?? 0) >= 0.6;
+      // AI xác định là dương tính giả → không phạt, chỉ ghi nhận.
+      const isBenign = ai?.classification === "benign";
       const reason = `[Protogon] ${MODULE_LABELS[cfg.module]}: ${fresh.length} lần trong ${cfg.windowSeconds}s (ngưỡng ${cfg.threshold})${isRaid ? ` — AI: raid (${ai.reason ?? ""})` : ""}`;
 
       let action;
@@ -387,15 +391,22 @@ module.exports = function createAntiNuke(client, store, heat) {
         chosen = "ban";
         action = await punishMember(message.guild, member, "ban", reason, 0, store);
         await maybeLockdown(message.guild, config);
+      } else if (isBenign) {
+        // Dương tính giả: chỉ xóa tin nhắn, không phạt, không cộng nhiệt.
+        action = "bỏ qua (AI: benign)";
+        chosen = "none";
       } else {
         const res = await punishWithHeat(message.guild, member, cfg, reason);
         action = res.action;
         chosen = res.chosen;
       }
-      try {
-        await message.delete().catch(() => {});
-      } catch {
-        // kênh không cho xóa — bỏ qua
+      // Dương tính giả (benign): không xóa tin, không phạt.
+      if (!isBenign) {
+        try {
+          await message.delete().catch(() => {});
+        } catch {
+          // kênh không cho xóa — bỏ qua
+        }
       }
 
       await recordEvent(message.guild.id, {
@@ -456,7 +467,9 @@ module.exports = function createAntiNuke(client, store, heat) {
       moduleCfg.threshold,
       samples,
     );
-    const isRaid = ai?.classification === "raid";
+    // Chỉ leo thang thành raid (ban + lockdown) khi AI tự tin >= 0.6.
+    const isRaid = ai?.classification === "raid" && (ai?.confidence ?? 0) >= 0.6;
+    const isBenign = ai?.classification === "benign";
     const reason = `[Protogon AntiNuke] Spam: ${fresh.length} tin nhắn trong ${moduleCfg.windowSeconds}s${isRaid ? ` — AI: raid (${ai.reason ?? ""})` : ""}`;
 
     let action;
@@ -465,6 +478,9 @@ module.exports = function createAntiNuke(client, store, heat) {
       chosen = "ban";
       action = await punishMember(message.guild, member, "ban", reason, 0, store);
       await maybeLockdown(message.guild, config);
+    } else if (isBenign) {
+      action = "bỏ qua (AI: benign)";
+      chosen = "none";
     } else {
       const res = await punishWithHeat(message.guild, member, moduleCfg, reason);
       action = res.action;
@@ -485,7 +501,7 @@ module.exports = function createAntiNuke(client, store, heat) {
     const embed = logEmbed({
       title: "🚨 Cảnh báo: Chống spam tin nhắn",
       description: `<@${message.author.id}> đã gửi **${fresh.length} tin nhắn** trong **${moduleCfg.windowSeconds} giây** (ngưỡng ${moduleCfg.threshold}).`,
-      color: isRaid ? Colors.Red : Colors.Red,
+      color: isRaid ? Colors.Red : Colors.Orange,
       fields: [
         { name: "Thủ phạm", value: `<@${message.author.id}>`, inline: true },
         { name: "Xử lý", value: (action + (ai ? ` · AI: ${ai.classification} (${ai.confidence})` : "")).slice(0, 1000), inline: true },
@@ -503,14 +519,20 @@ module.exports = function createAntiNuke(client, store, heat) {
       try {
         const config = await store.getConfig(guild.id);
         if (!config) continue;
+        const expired = config.lockdownUntil && config.lockdownUntil <= now;
         if (!isLocked(guild.id)) {
-          // Resume after restart: the server may still be locked from before.
-          if (config.lockdownUntil && config.lockdownUntil > now) {
+          if (expired) {
+            // Hết hạn sau khi bot restart: overwrite vẫn còn trên Discord
+            // nhưng bot không nhớ — phải markLocked rồi mở khóa để reset.
+            markLocked(guild.id);
+            await unlockGuild(client, guild, config, store);
+          } else if (config.lockdownUntil) {
+            // Vẫn đang trong thời gian khóa (restart giữa chừng): nhớ lại trạng thái.
             markLocked(guild.id);
           }
           continue;
         }
-        if (config.lockdownRequested || (config.lockdownUntil && config.lockdownUntil <= now)) {
+        if (config.lockdownRequested || expired) {
           await unlockGuild(client, guild, config, store);
         }
       } catch (err) {
