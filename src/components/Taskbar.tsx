@@ -61,21 +61,26 @@ export default function Taskbar() {
 
   return (
     <>
-      {/* Nút bật/tắt — tab dọc bên trái trang web */}
+      {/* Nút bật/tắt — thanh dọc dài bám sát mép trái trang chủ */}
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "Đóng taskbar" : "Mở taskbar"}
         className={cn(
-          "fixed left-0 top-1/2 z-50 flex -translate-y-1/2 items-center rounded-r-xl",
-          "border border-l-0 border-white/50 bg-gradient-to-b from-[#8fc8ff] via-[#f79fc6] to-[#ffb3d1] p-0.5 pr-1",
-          "shadow-[0_8px_30px_-6px_hsl(205_90%_55%/0.5)] transition-all hover:pr-1.5",
+          "group fixed left-0 top-2 bottom-2 z-50 flex w-11 flex-col items-center",
+          "rounded-r-2xl border border-l-0 border-white/50 bg-gradient-to-b from-[#8fc8ff] via-[#f79fc6] to-[#ffb3d1]",
+          "shadow-[0_8px_30px_-6px_hsl(205_90%_55%/0.5)] transition-all hover:w-12",
           open ? "pointer-events-none translate-x-[-110%] opacity-0" : "",
         )}
       >
-        <span className="flex h-12 w-8 items-center justify-center rounded-l-lg bg-white/95 text-[#3d2a5c] shadow-inner">
-          <PanelRightOpen className="h-5 w-5" />
+        <span className="flex flex-1 flex-col items-center justify-center gap-3 text-[#3d2a5c]">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 shadow-inner transition-transform group-hover:scale-105">
+            <PanelRightOpen className="h-5 w-5" />
+          </span>
+          <span className="[writing-mode:vertical-rl] rotate-180 font-display text-xs font-bold tracking-widest">
+            Taskbar Protogon
+          </span>
+          <ChevronRight className="h-4 w-4 opacity-70" />
         </span>
-        <ChevronRight className="h-3.5 w-3.5 text-[#3d2a5c]" />
       </button>
 
       {/* Thanh dọc bo tròn chạy dọc mép trái */}
