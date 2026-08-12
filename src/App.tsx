@@ -9,12 +9,10 @@ import GuildHistory from "./pages/GuildHistory";
 import Monitor from "./pages/Monitor";
 import Admin from "./pages/Admin";
 import RequireAuth from "./components/RequireAuth";
-import Taskbar from "./components/Taskbar";
 
 export default function App() {
   return (
     <>
-      <Taskbar />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/auth" element={<AuthPage />} />

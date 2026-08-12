@@ -17,7 +17,11 @@ const MODULE_LABELS = {
   massRoleCreate: "Tạo role hàng loạt",
   massRoleDelete: "Xóa role hàng loạt",
   massMessageDelete: "Xóa tin hàng loạt",
+  massWebhookCreate: "Tạo webhook hàng loạt",
+  massThreadCreate: "Tạo thread hàng loạt",
   spam: "Chống spam tin nhắn",
+  massMessage: "Spam tin dài / lặp nội dung",
+  blankNoise: "Tin giả blank gây nhiễu",
   badword: "Từ ngữ xấu",
   attachment: "Spam ảnh/file đính kèm",
   invite: "Link mời Discord",
@@ -34,7 +38,18 @@ const NUKE_MODULES = new Set([
   "massRoleCreate",
   "massRoleDelete",
   "massMessageDelete",
+  "massWebhookCreate",
+  "massThreadCreate",
 ]);
+
+// Tin nhắn "giả blank": chỉ gồm khoảng trắng / ký tự ẩn (zero-width) / xuống dòng.
+const BLANK_ONLY_RE = /^[\s\u200b-\u200d\u2060\ufeff\u00a0]+$/;
+// Ký tự ẩn thường dùng để gây nhiễu.
+const ZERO_WIDTH_RE = /[\u200b-\u200d\u2060\ufeff]/g;
+// Ngưỡng độ dài coi là "tin dài cực dài" (Discord giới hạn 2000 ký tự).
+const LONG_MSG_LEN = 300;
+// Kích thước tối đa của các bucket trong bộ nhớ (chống rò rỉ RAM).
+const BUCKET_MAX = 200;
 
 module.exports = function createAntiNuke(client, store, heat) {
   /** Persist a punished event for the daily report. Fire-and-forget. */
@@ -48,6 +63,9 @@ module.exports = function createAntiNuke(client, store, heat) {
   const buckets = new Map(); // `${guildId}:${module}` -> [timestamps]
   const joiners = new Map(); // guildId -> [{id, ts}]
   const spamBuckets = new Map(); // `${guildId}:${userId}` -> [timestamps]
+  const patternBuckets = new Map(); // `${guildId}:${userId}:${pattern}` -> [timestamps]
+  const recentMessages = new Map(); // `${guildId}:${userId}` -> [{content, ts}] (mẫu cho AI)
+  const lastConfigs = new Map(); // guildId -> config (đã đọc gần nhất)
 
   function record(guildId, module, cfg) {
     const key = `${guildId}:${module}`;
@@ -84,6 +102,71 @@ module.exports = function createAntiNuke(client, store, heat) {
     }
   }
 
+  /** Dọn bộ nhớ định kỳ: xóa entry cũ của guild đã rời / vượt cửa sổ. */
+  function sweepMemory() {
+    const now = Date.now();
+    const live = new Set(client.guilds.cache.keys());
+    for (const [key] of buckets) {
+      const guildId = key.split(":")[0];
+      if (!live.has(guildId)) buckets.delete(key);
+    }
+    for (const [guildId] of joiners) {
+      if (!live.has(guildId)) joiners.delete(guildId);
+    }
+    for (const [key] of spamBuckets) {
+      const guildId = key.split(":")[0];
+      if (!live.has(guildId)) spamBuckets.delete(key);
+    }
+    for (const [key] of patternBuckets) {
+      const guildId = key.split(":")[0];
+      if (!live.has(guildId)) patternBuckets.delete(key);
+    }
+    for (const [key, arr] of recentMessages) {
+      const guildId = key.split(":")[0];
+      if (!live.has(guildId)) {
+        recentMessages.delete(key);
+        continue;
+      }
+      const fresh = arr.filter((m) => now - m.ts < 60_000);
+      if (fresh.length === 0) recentMessages.delete(key);
+      else recentMessages.set(key, fresh);
+    }
+    for (const [guildId] of lastConfigs) {
+      if (!live.has(guildId)) lastConfigs.delete(guildId);
+    }
+    if (buckets.size > BUCKET_MAX) {
+      // Giữ lại 200 key gần nhất (chống phình vô hạn)
+      const keys = [...buckets.keys()].slice(0, buckets.size - BUCKET_MAX);
+      for (const k of keys) buckets.delete(k);
+    }
+  }
+
+  /** Gọi AI phân loại sự kiện raid vs cá nhân. Trả về null khi AI không có. */
+  async function aiClassify(guild, module, count, windowSeconds, threshold, samples) {
+    try {
+      const recentJoins = joiners.get(guild.id)?.length ?? 0;
+      const res = await Promise.race([
+        store.client.action("haimiya:classifyViolation", {
+          guildId: guild.id,
+          guildName: guild.name,
+          module,
+          count,
+          windowSeconds,
+          threshold,
+          sampleMessages: samples,
+          recentJoins,
+          memberCount: guild.memberCount ?? undefined,
+        }),
+        new Promise((r) => setTimeout(() => r(null), 6000)),
+      ]);
+      if (!res || res.offline) return null;
+      return res;
+    } catch (err) {
+      console.error("[ai:classify]", err.message);
+      return null;
+    }
+  }
+
   /**
    * Phạt một thành viên. Module nuke/raid: phạt trực tiếp theo cài đặt (không nhiệt).
    * Module moderation: cộng nhiệt và tự tăng cấp nếu vượt ngưỡng.
@@ -110,8 +193,6 @@ module.exports = function createAntiNuke(client, store, heat) {
   }
 
   // Lưu config đã đọc gần nhất để punishWithHeat tái sử dụng (tránh đọc lại DB).
-  const lastConfigs = new Map(); // guildId -> config
-
   function configOf(guildId) {
     return lastConfigs.get(guildId) ?? {};
   }
@@ -238,6 +319,112 @@ module.exports = function createAntiNuke(client, store, heat) {
     await sendLog(guild, config, embed);
   }
 
+  /**
+   * Phát hiện các mẫu tin nhắn gây nhiễu: tin dài cực dài / lặp nội dung và
+   * tin "giả blank" (chỉ khoảng trắng + ký tự ẩn). Dùng AI để phân biệt raid
+   * (leo thang phạt trực tiếp + lockdown) với vi phạm cá nhân (nhiệt bình thường).
+   */
+  async function handleMessagePatterns(message) {
+    if (!message.guild) return;
+    if (message.author.bot) return;
+    if (message.channel.isDMBased?.()) return;
+    const content = message.content || "";
+    const config = await store.getConfig(message.guild.id);
+    if (!config || !config.antinukeEnabled) return;
+    lastConfigs.set(message.guild.id, config);
+    const member = message.member;
+    if (!member || isExempt(member, {}, config)) return;
+
+    const userKey = `${message.guild.id}:${message.author.id}`;
+    const recents = recentMessages.get(userKey) ?? [];
+    recents.push({ content, ts: Date.now() });
+    const freshRecents = recents.filter((m) => Date.now() - m.ts < 30_000).slice(-8);
+    recentMessages.set(userKey, freshRecents);
+
+    const modules = config.modules || [];
+    const longCfg = modules.find((m) => m.module === "massMessage");
+    const blankCfg = modules.find((m) => m.module === "blankNoise");
+
+    const patterns = [];
+    if (longCfg?.enabled) {
+      // Tin dài cực dài hoặc lặp lại nội dung giống hệt nhiều lần.
+      const isLong = content.length > LONG_MSG_LEN;
+      const sameCount = freshRecents.filter((m) => m.content === content).length;
+      if (isLong || sameCount >= 2) patterns.push({ cfg: longCfg, key: `${userKey}:long` });
+    }
+    if (blankCfg?.enabled) {
+      const stripped = content.replace(ZERO_WIDTH_RE, "").trim();
+      const isBlankNoise = content.length > 0 && stripped.length === 0;
+      if (isBlankNoise) patterns.push({ cfg: blankCfg, key: `${userKey}:blank` });
+    }
+
+    for (const { cfg, key } of patterns) {
+      const now = Date.now();
+      const arr = patternBuckets.get(key) ?? [];
+      arr.push(now);
+      const cutoff = now - cfg.windowSeconds * 1000;
+      const fresh = arr.filter((t) => t >= cutoff);
+      patternBuckets.set(key, fresh);
+      if (fresh.length < cfg.threshold) continue;
+
+      patternBuckets.delete(key);
+      const samples = freshRecents.map((m) => m.content.slice(0, 200));
+      const ai = await aiClassify(
+        message.guild,
+        cfg.module,
+        fresh.length,
+        cfg.windowSeconds,
+        cfg.threshold,
+        samples,
+      );
+      const isRaid = ai?.classification === "raid";
+      const reason = `[Protogon] ${MODULE_LABELS[cfg.module]}: ${fresh.length} lần trong ${cfg.windowSeconds}s (ngưỡng ${cfg.threshold})${isRaid ? ` — AI: raid (${ai.reason ?? ""})` : ""}`;
+
+      let action;
+      let chosen;
+      if (isRaid) {
+        // Leo thang: phạt trực tiếp theo hình phạt nuke mặc định + lockdown.
+        chosen = "ban";
+        action = await punishMember(message.guild, member, "ban", reason, 0, store);
+        await maybeLockdown(message.guild, config);
+      } else {
+        const res = await punishWithHeat(message.guild, member, cfg, reason);
+        action = res.action;
+        chosen = res.chosen;
+      }
+      try {
+        await message.delete().catch(() => {});
+      } catch {
+        // kênh không cho xóa — bỏ qua
+      }
+
+      await recordEvent(message.guild.id, {
+        module: cfg.module,
+        executorId: message.author.id,
+        executorName: message.author.username,
+        action: `${action}${isRaid ? " (AI: raid)" : ""}`,
+        count: fresh.length,
+        windowSeconds: cfg.windowSeconds,
+        threshold: cfg.threshold,
+        punish: chosen,
+      });
+
+      const embed = logEmbed({
+        title: `🚨 Cảnh báo: ${MODULE_LABELS[cfg.module]}`,
+        description: `<@${message.author.id}> đã gửi **${fresh.length} tin** thuộc mẫu \`${cfg.module}\` trong **${cfg.windowSeconds} giây** (ngưỡng ${cfg.threshold}). Tin nhắn đã bị xóa.`,
+        color: isRaid ? Colors.Red : Colors.Orange,
+        fields: [
+          { name: "Thủ phạm", value: `<@${message.author.id}>`, inline: true },
+          { name: "Xử lý", value: (action + (ai ? ` · AI: ${ai.classification} (${ai.confidence})` : "")).slice(0, 1000), inline: true },
+          { name: "Module", value: `\`${cfg.module}\``, inline: true },
+        ],
+        footer: "Protogon Anti Nuke",
+      });
+      await sendLog(message.guild, config, embed);
+      return; // chỉ xử lý 1 pattern/tin nhắn
+    }
+  }
+
   async function handleSpam(message) {
     if (!message.guild) return;
     if (message.author.bot) return;
@@ -260,29 +447,48 @@ module.exports = function createAntiNuke(client, store, heat) {
     if (fresh.length < moduleCfg.threshold) return;
 
     spamBuckets.delete(key); // reset after punishing
-    const reason = `[Protogon AntiNuke] Spam: ${fresh.length} tin nhắn trong ${moduleCfg.windowSeconds}s`;
-    const res = await punishWithHeat(message.guild, member, moduleCfg, reason);
-    const action = res.action;
-    await maybeLockdown(message.guild, config);
+    const samples = (recentMessages.get(key) ?? []).map((m) => m.content.slice(0, 200));
+    const ai = await aiClassify(
+      message.guild,
+      "spam",
+      fresh.length,
+      moduleCfg.windowSeconds,
+      moduleCfg.threshold,
+      samples,
+    );
+    const isRaid = ai?.classification === "raid";
+    const reason = `[Protogon AntiNuke] Spam: ${fresh.length} tin nhắn trong ${moduleCfg.windowSeconds}s${isRaid ? ` — AI: raid (${ai.reason ?? ""})` : ""}`;
+
+    let action;
+    let chosen;
+    if (isRaid) {
+      chosen = "ban";
+      action = await punishMember(message.guild, member, "ban", reason, 0, store);
+      await maybeLockdown(message.guild, config);
+    } else {
+      const res = await punishWithHeat(message.guild, member, moduleCfg, reason);
+      action = res.action;
+      chosen = res.chosen;
+    }
 
     await recordEvent(message.guild.id, {
       module: "spam",
       executorId: message.author.id,
       executorName: message.author.username,
-      action,
+      action: `${action}${isRaid ? " (AI: raid)" : ""}`,
       count: fresh.length,
       windowSeconds: moduleCfg.windowSeconds,
       threshold: moduleCfg.threshold,
-      punish: moduleCfg.punish,
+      punish: chosen,
     });
 
     const embed = logEmbed({
       title: "🚨 Cảnh báo: Chống spam tin nhắn",
       description: `<@${message.author.id}> đã gửi **${fresh.length} tin nhắn** trong **${moduleCfg.windowSeconds} giây** (ngưỡng ${moduleCfg.threshold}).`,
-      color: Colors.Red,
+      color: isRaid ? Colors.Red : Colors.Red,
       fields: [
         { name: "Thủ phạm", value: `<@${message.author.id}>`, inline: true },
-        { name: "Xử lý", value: action.slice(0, 1000), inline: true },
+        { name: "Xử lý", value: (action + (ai ? ` · AI: ${ai.classification} (${ai.confidence})` : "")).slice(0, 1000), inline: true },
         { name: "Module", value: "`spam`", inline: true },
       ],
       footer: "Protogon Anti Nuke",
@@ -340,6 +546,67 @@ module.exports = function createAntiNuke(client, store, heat) {
       targetId: null,
       describeTarget: `Xóa ${messages.size} tin nhắn trong kênh <#${messages.first()?.channelId ?? "?"}>`,
     });
+  }
+
+  /** Xử lý sự kiện audit log: tạo webhook / thread hàng loạt (không cần fetch lại). */
+  async function handleAuditEntry(entry, guild, module, describeTarget) {
+    if (!guild || guild.available === false) return;
+    const config = await store.getConfig(guild.id);
+    if (!config || !config.antinukeEnabled) return;
+    lastConfigs.set(guild.id, config);
+    const moduleCfg = config.modules.find((m) => m.module === module);
+    if (!moduleCfg || !moduleCfg.enabled) return;
+    const executor = entry.executor;
+    if (executor && (executor.id === client.user.id || isExempt(executor, moduleCfg, config))) return;
+
+    const count = record(guild.id, module, moduleCfg);
+    if (executor && count < moduleCfg.threshold) return;
+    if (!executor) return;
+
+    let action = "đã ghi nhận";
+    try {
+      const member = await guild.members.fetch(executor.id).catch(() => null);
+      const reason = `[Protogon AntiNuke] ${MODULE_LABELS[module]}: ${count} lượt trong ${moduleCfg.windowSeconds}s (ngưỡng ${moduleCfg.threshold})`;
+      if (member) {
+        const res = await punishWithHeat(guild, member, moduleCfg, reason);
+        action = res.action;
+      } else if (moduleCfg.punish === "ban") {
+        try {
+          await guild.members.ban(executor.id, { reason });
+          action = "đã ban";
+        } catch {
+          action = "không thể ban";
+        }
+      }
+      await maybeLockdown(guild, config);
+    } catch {
+      action = "không thể xử lý";
+    }
+
+    await recordEvent(guild.id, {
+      module,
+      executorId: executor.id,
+      executorName: executor.username ?? undefined,
+      action,
+      count,
+      windowSeconds: moduleCfg.windowSeconds,
+      threshold: moduleCfg.threshold,
+      punish: moduleCfg.punish,
+    });
+
+    const embed = logEmbed({
+      title: `🚨 Cảnh báo: ${MODULE_LABELS[module]}`,
+      description: `Đã phát hiện **${count} lượt** trong **${moduleCfg.windowSeconds} giây** (ngưỡng ${moduleCfg.threshold}).`,
+      color: Colors.Red,
+      fields: [
+        { name: "Thủ phạm", value: `<@${executor.id}>`, inline: true },
+        { name: "Xử lý", value: action.slice(0, 1000), inline: true },
+        { name: "Module", value: `\`${module}\``, inline: true },
+        ...(describeTarget ? [{ name: "Đối tượng", value: describeTarget, inline: false }] : []),
+      ],
+      footer: "Protogon Anti Nuke",
+    });
+    await sendLog(guild, config, embed);
   }
 
   function attach() {
@@ -416,15 +683,32 @@ module.exports = function createAntiNuke(client, store, heat) {
 
     client.on("messageCreate", (message) => {
       void handleSpam(message).catch((e) => console.error("[antinuke:spam]", e.message));
+      void handleMessagePatterns(message).catch((e) => console.error("[antinuke:pattern]", e.message));
     });
+
+    // Sự kiện audit log mới (discord.js >= 14.10) — webhook & thread creation.
+    if (typeof client.on === "function" && AuditLogEvent.WebhookCreate !== undefined) {
+      client.on("guildAuditLogEntryCreate", (entry, guild) => {
+        if (entry.action === AuditLogEvent.WebhookCreate) {
+          void handleAuditEntry(entry, guild, "massWebhookCreate", `Webhook "${entry.target?.name ?? "?"}"`).catch((e) =>
+            console.error("[antinuke:webhookCreate]", e.message),
+          );
+        } else if (entry.action === AuditLogEvent.ThreadCreate) {
+          void handleAuditEntry(entry, guild, "massThreadCreate", `Thread "#${entry.target?.name ?? "?"}"`).catch((e) =>
+            console.error("[antinuke:threadCreate]", e.message),
+          );
+        }
+      });
+    }
 
     setInterval(() => {
       void tickUnlocks().catch((e) => console.error("[antinuke:tick]", e.message));
       void tickHeatResets().catch((e) => console.error("[heat:resetTick]", e.message));
+      sweepMemory();
     }, 20_000);
   }
 
-  return { attach };
+  return { attach, sweepMemory };
 };
 
 module.exports.MODULE_LABELS = MODULE_LABELS;

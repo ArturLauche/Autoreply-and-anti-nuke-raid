@@ -123,6 +123,24 @@ async function punishFlow(client, message, moduleCfg, config, heat, reason, deta
 
   await message.delete().catch(() => {});
 
+  // Log xóa tin nhắn: ghi rõ bot đã xóa tin gì, của ai, tại kênh nào.
+  try {
+    const delEmbed = logEmbed({
+      title: "🗑️ Bot đã xóa tin nhắn",
+      description: `Đã xóa tin nhắn của <@${message.author.id}> tại ${message.channel}.`,
+      color: Colors.DarkerGrey,
+      fields: [
+        { name: "Tác giả", value: `<@${message.author.id}>`, inline: true },
+        { name: "Module", value: `\`${moduleCfg.module}\``, inline: true },
+        { name: "Nội dung", value: (message.content || "[ảnh/file]").slice(0, 1000) || "…", inline: false },
+      ],
+      footer: "Protogon · Log xóa tin",
+    });
+    await sendLog(message.guild, config, delEmbed);
+  } catch (e) {
+    console.error("[filters:delLog]", e.message);
+  }
+
   try {
     await heat.store.client.mutation("bot_writes:botRecordAntinukeEvent", {
       guildId: message.guild.id,
@@ -278,6 +296,22 @@ async function scanMessage(client, message, store, heat) {
 const attachmentBuckets = new Map();
 // `${guildId}:${userId}` -> [timestamps của tin có mention]
 const mentionBuckets = new Map();
+
+/** Dọn bucket cũ định kỳ để RAM không tăng mãi (chạy mỗi 5 phút). */
+setInterval(() => {
+  const now = Date.now();
+  const cutoff = now - 600_000; // giữ tối đa 10 phút
+  for (const [k, arr] of attachmentBuckets) {
+    const fresh = arr.filter((t) => t >= cutoff);
+    if (fresh.length === 0) attachmentBuckets.delete(k);
+    else attachmentBuckets.set(k, fresh);
+  }
+  for (const [k, arr] of mentionBuckets) {
+    const fresh = arr.filter((t) => t >= cutoff);
+    if (fresh.length === 0) mentionBuckets.delete(k);
+    else mentionBuckets.set(k, fresh);
+  }
+}, 300_000);
 
 module.exports = scanMessage;
 module.exports.MODULE_LABELS = MODULE_LABELS;

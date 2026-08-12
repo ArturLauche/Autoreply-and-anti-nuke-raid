@@ -14,6 +14,9 @@ const {
   kickMember,
   banMember,
   purgeChannel,
+  untimeoutMember,
+  unbanMember,
+  unwarnMember,
 } = require("../handlers/modTools");
 
 const { isLocked, markLocked, unlockGuild } = require("../lockdown");
@@ -28,7 +31,11 @@ const MODULES = [
   "massRoleCreate",
   "massRoleDelete",
   "massMessageDelete",
+  "massWebhookCreate",
+  "massThreadCreate",
   "spam",
+  "massMessage",
+  "blankNoise",
   "mention",
   "badword",
   "attachment",
@@ -70,8 +77,11 @@ async function handleHelp(client, message) {
         "!badword list          - danh sách từ ngữ xấu",
         "!heat                  - xem mức nhiệt độ vi phạm",
         "!timeout @user 10m [lý do] - tạm khóa thành viên",
+        "!untimeout @user       - gỡ timeout",
         "!kick @user [lý do]    - kick thành viên",
         "!ban @user [lý do]     - ban thành viên (--days 7 xóa tin nhắn)",
+        "!unban @user            - gỡ ban",
+        "!unwarn @user           - gỡ toàn bộ warn tích lũy",
         "!purge <số>            - xóa hàng loạt tin nhắn",
         "!giveaway start <Tên> | <Giải thưởng> | <thời lượng>",
         "!giveaway list | end <tên>",
@@ -465,6 +475,67 @@ async function handleBan(client, message, args, config, store) {
   }
 }
 
+async function handleUntimeout(client, message, args, config, store) {
+  if (!canMod(message, config)) return needPerm(message.channel);
+  const member = message.mentions.members.first();
+  if (!member) return message.reply("Tag thành viên cần gỡ timeout: `!untimeout @user [lý do]`");
+  const reason = args.slice(1).join(" ").trim() || undefined;
+  try {
+    const out = await untimeoutMember({
+      guild: message.guild,
+      member,
+      executor: message.author,
+      reason,
+      guildConfig: config,
+      store,
+    });
+    return message.reply(`✅ ${out}`);
+  } catch (e) {
+    return message.reply(`❌ Không thể gỡ timeout: ${e.message}`);
+  }
+}
+
+async function handleUnban(client, message, args, config, store) {
+  if (!canMod(message, config)) return needPerm(message.channel);
+  const user = message.mentions.users.first();
+  if (!user) return message.reply("Tag thành viên cần gỡ ban: `!unban @user [lý do]`");
+  const reason = args.slice(1).join(" ").trim() || undefined;
+  try {
+    const out = await unbanMember({
+      guild: message.guild,
+      userId: user.id,
+      executor: message.author,
+      reason,
+      guildConfig: config,
+      store,
+    });
+    return message.reply(`✅ ${out}`);
+  } catch (e) {
+    return message.reply(`❌ Không thể gỡ ban: ${e.message}`);
+  }
+}
+
+async function handleUnwarn(client, message, args, config, store, heat) {
+  if (!canMod(message, config)) return needPerm(message.channel);
+  const user = message.mentions.users.first();
+  if (!user) return message.reply("Tag thành viên cần gỡ warn: `!unwarn @user [lý do]`");
+  const reason = args.slice(1).join(" ").trim() || undefined;
+  try {
+    const out = await unwarnMember({
+      guild: message.guild,
+      userId: user.id,
+      heat,
+      executor: message.author,
+      reason,
+      guildConfig: config,
+      store,
+    });
+    return message.reply(`✅ ${out}`);
+  } catch (e) {
+    return message.reply(`❌ Không thể gỡ warn: ${e.message}`);
+  }
+}
+
 async function handleGiveaway(client, message, args, config, store) {
   const sub = args[0]?.toLowerCase();
 
@@ -748,9 +819,12 @@ module.exports = {
   heat: handleHeat,
   setlog: handleSetlog,
   timeout: handleTimeout,
+  untimeout: handleUntimeout,
   purge: handlePurge,
   kick: handleKick,
   ban: handleBan,
+  unban: handleUnban,
+  unwarn: handleUnwarn,
   giveaway: handleGiveaway,
   reactionrole: handleReactionRole,
 };

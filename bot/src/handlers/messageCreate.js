@@ -36,7 +36,7 @@ async function handleAutoReply(client, message, config, store) {
   }
 }
 
-module.exports = async function onMessageCreate(client, message, store) {
+module.exports = async function onMessageCreate(client, message, store, heat) {
   if (message.author.bot) return;
   if (!message.guild || message.guild.available === false) return;
   if (message.channel.isDMBased?.()) return;
@@ -51,7 +51,7 @@ module.exports = async function onMessageCreate(client, message, store) {
     const handler = prefixCommands[cmd];
     if (handler) {
       try {
-        await handler(client, message, args, config, store);
+        await handler(client, message, args, config, store, heat);
       } catch (err) {
         console.error(`[cmd:${cmd}]`, err);
         message.reply("❌ Có lỗi khi thực hiện lệnh.").catch(() => {});

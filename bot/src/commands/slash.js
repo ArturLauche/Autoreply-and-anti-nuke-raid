@@ -189,6 +189,33 @@ const commands = [
           },
         ],
       },
+      {
+        name: "untimeout",
+        description: "Gỡ timeout (tạm khóa) cho thành viên",
+        type: 1,
+        options: [
+          { name: "user", description: "Thành viên cần gỡ timeout", type: 6, required: true },
+          { name: "reason", description: "Lý do", type: 3, required: false },
+        ],
+      },
+      {
+        name: "unban",
+        description: "Gỡ ban cho thành viên",
+        type: 1,
+        options: [
+          { name: "user", description: "Thành viên cần gỡ ban", type: 6, required: true },
+          { name: "reason", description: "Lý do", type: 3, required: false },
+        ],
+      },
+      {
+        name: "unwarn",
+        description: "Gỡ toàn bộ warn tích lũy của thành viên",
+        type: 1,
+        options: [
+          { name: "user", description: "Thành viên cần gỡ warn", type: 6, required: true },
+          { name: "reason", description: "Lý do", type: 3, required: false },
+        ],
+      },
     ],
   },
   {

@@ -92,3 +92,86 @@ export const ask = action({
     }
   },
 });
+
+/**
+ * AI Guard — phân loại một sự kiện vi phạm là raid/nuke hay chỉ là vi phạm cá
+ * nhân (moderation bình thường). Bot gọi action này khi vượt ngưỡng để quyết
+ * định có leo thang thành phản ứng chống raid (ban + lockdown) hay không.
+ * Trả về { classification: "raid" | "individual" | "benign", confidence,
+ * reason, suggestPunish, offline }.
+ */
+export const classifyViolation = action({
+  args: {
+    guildId: v.string(),
+    guildName: v.optional(v.string()),
+    module: v.string(),
+    count: v.number(),
+    windowSeconds: v.number(),
+    threshold: v.number(),
+    sampleMessages: v.array(v.string()),
+    recentJoins: v.optional(v.number()),
+    memberCount: v.optional(v.number()),
+  },
+  handler: async (_ctx, args) => {
+    const key =
+      process.env.SAMBANOVA_API_KEY ?? process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY;
+    if (!key) return { classification: "individual", confidence: 0.5, reason: "AI chưa cấu hình", suggestPunish: undefined, offline: true };
+    const baseUrl = process.env.AI_BASE_URL ??
+      (process.env.SAMBANOVA_API_KEY ? "https://api.sambanova.ai/v1" : "https://api.openai.com/v1");
+    const model =
+      process.env.AI_MODEL ??
+      process.env.OPENAI_MODEL ??
+      (process.env.SAMBANOVA_API_KEY ? "Meta-Llama-3.3-70B-Instruct" : "gpt-4o-mini");
+    const samples = (args.sampleMessages || []).slice(0, 6).map((s) => s.slice(0, 200));
+    const system = `Bạn là chuyên gia an ninh Discord. Phân loại một sự kiện vi phạm vừa xảy ra:
+- "raid": tấn công có tổ chức / tự động — bot-account, hàng loạt tài khoản cùng lúc, nội dung lặp lại giống hệt nhau, tin nhắn cực dài hoặc giả blank (chỉ khoảng trắng / ký tự ẩn) gây nhiễu loạn kênh, hoặc kết hợp với làn sóng thành viên mới vào.
+- "individual": chỉ một thành viên vi phạm nhẹ (spam bình thường, nói tục, gửi nhanh vài tin) — xử lý moderation thông thường.
+- "benign": có thể là dương tính giả, không cần phạt.
+Chỉ trả lời JSON thuần (không markdown) dạng: {"classification": "raid|individual|benign", "confidence": 0-1, "reason": "ngắn gọn tiếng Việt", "suggestPunish": "warn|timeout|kick|ban|null"}`;
+    const user = `Sự kiện: module \"${args.module}\" — ${args.count} lần trong ${args.windowSeconds}s (ngưỡng ${args.threshold}).
+Server: ${args.guildName ?? "?"} (${args.memberCount ?? "?"} thành viên).
+Thành viên mới gần đây: ${args.recentJoins ?? 0}.
+Mẫu tin nhắn:\n${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).join("\n") : "(không có)"}`;
+    try {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user },
+          ],
+          max_tokens: 200,
+          temperature: 0.2,
+        }),
+      });
+      if (!res.ok) {
+        return { classification: "individual", confidence: 0.5, reason: `AI lỗi (${res.status})`, suggestPunish: undefined, offline: true };
+      }
+      const data = (await res.json()) as {
+        choices?: { message?: { content?: string } }[];
+      };
+      const raw = data?.choices?.[0]?.message?.content ?? "";
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+      if (!parsed || !["raid", "individual", "benign"].includes(parsed.classification)) {
+        return { classification: "individual", confidence: 0.5, reason: "AI trả về không hợp lệ", suggestPunish: undefined, offline: true };
+      }
+      return {
+        classification: parsed.classification,
+        confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0.5)),
+        reason: String(parsed.reason || "").slice(0, 300),
+        suggestPunish: ["warn", "timeout", "kick", "ban", null].includes(parsed.suggestPunish)
+          ? parsed.suggestPunish
+          : undefined,
+        offline: false,
+      };
+    } catch {
+      return { classification: "individual", confidence: 0.5, reason: "AI không kết nối được", suggestPunish: undefined, offline: true };
+    }
+  },
+});

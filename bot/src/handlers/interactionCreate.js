@@ -9,6 +9,9 @@ const {
   kickMember,
   banMember,
   purgeChannel,
+  untimeoutMember,
+  unbanMember,
+  unwarnMember,
 } = require("./modTools");
 
 const MODULES = [
@@ -20,7 +23,11 @@ const MODULES = [
   "massRoleCreate",
   "massRoleDelete",
   "massMessageDelete",
+  "massWebhookCreate",
+  "massThreadCreate",
   "spam",
+  "massMessage",
+  "blankNoise",
   "mention",
   "badword",
   "attachment",
@@ -56,7 +63,7 @@ function parsePairs(pairsRaw, guild) {
   return entries.slice(0, 20);
 }
 
-module.exports = async function onInteractionCreate(client, interaction, store) {
+module.exports = async function onInteractionCreate(client, interaction, store, heat) {
   if (!interaction.isChatInputCommand()) return;
 
   const name = interaction.commandName;
@@ -80,7 +87,7 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
             "**Auto Reply** — `/autoreply add` tạo rule từ khóa hoặc @mention, `/autoreply list`, `/autoreply remove`",
             "**Chống nuke** — `/antinuke status`, `/antinuke on|off`, `/antinuke module`, `/antinuke unlock`, `/antinuke lockdown`",
             "**Lọc nội dung** — module \`badword\`, \`invite\`, \`attachment\`, \`mention\` (bật tắt trong `/antinuke module`) · `/badword add|remove|list` · `/heat status`",
-            "**Mod tools** — `/mod timeout @user 10m [lý do]`, `/mod kick`, `/mod ban`, `/mod purge` (ghi log lý do + người thực hiện)",
+            "**Mod tools** — `/mod timeout @user 10m [lý do]`, `/mod untimeout`, `/mod kick`, `/mod ban`, `/mod unban`, `/mod unwarn`, `/mod purge` (ghi log lý do + người thực hiện)",
             "**Giveaway** — `/giveaway start <tên> <giải thưởng> <thời lượng>`, `/giveaway list`, `/giveaway end`",
             "**Reaction Role** — `/reactionrole create <kênh> <tên> <cặp emoji:role>`, `/reactionrole add`, `/reactionrole edit`, `/reactionrole remove`, `/reactionrole delete`",
             "**Cấu hình** — `/setup log-channel`, `/setup mod-role`, `/setup admin-role`, `/prefix set`",
@@ -495,6 +502,70 @@ module.exports = async function onInteractionCreate(client, interaction, store) 
           return interaction.reply({ content: `✅ ${out}`, ephemeral: true });
         } catch (e) {
           return interaction.reply({ content: `❌ Không thể purge: ${e.message}`, ephemeral: true });
+        }
+      }
+
+      if (sub === "untimeout") {
+        const target = interaction.options.getMember("user");
+        const reason = interaction.options.getString("reason") || undefined;
+        if (!target) {
+          return interaction.reply({ content: "Không tìm thấy thành viên đó.", ephemeral: true });
+        }
+        try {
+          const out = await untimeoutMember({
+            guild,
+            member: target,
+            executor: interaction.user,
+            reason,
+            guildConfig: config,
+            store,
+          });
+          return interaction.reply({ content: `✅ ${out}`, ephemeral: true });
+        } catch (e) {
+          return interaction.reply({ content: `❌ Không thể gỡ timeout: ${e.message}`, ephemeral: true });
+        }
+      }
+
+      if (sub === "unban") {
+        const target = interaction.options.getUser("user");
+        const reason = interaction.options.getString("reason") || undefined;
+        if (!target) {
+          return interaction.reply({ content: "Không tìm thấy người dùng đó.", ephemeral: true });
+        }
+        try {
+          const out = await unbanMember({
+            guild,
+            userId: target.id,
+            executor: interaction.user,
+            reason,
+            guildConfig: config,
+            store,
+          });
+          return interaction.reply({ content: `✅ ${out}`, ephemeral: true });
+        } catch (e) {
+          return interaction.reply({ content: `❌ Không thể gỡ ban: ${e.message}`, ephemeral: true });
+        }
+      }
+
+      if (sub === "unwarn") {
+        const target = interaction.options.getUser("user");
+        const reason = interaction.options.getString("reason") || undefined;
+        if (!target) {
+          return interaction.reply({ content: "Không tìm thấy người dùng đó.", ephemeral: true });
+        }
+        try {
+          const out = await unwarnMember({
+            guild,
+            userId: target.id,
+            heat,
+            executor: interaction.user,
+            reason,
+            guildConfig: config,
+            store,
+          });
+          return interaction.reply({ content: `✅ ${out}`, ephemeral: true });
+        } catch (e) {
+          return interaction.reply({ content: `❌ Không thể gỡ warn: ${e.message}`, ephemeral: true });
         }
       }
       return;

@@ -120,6 +120,60 @@ async function banMember({ guild, member, executor, reason, deleteDays, guildCon
   return `Đã ban **${member.user.tag}**${reason ? ` — Lý do: ${reason}` : ""}`;
 }
 
+async function untimeoutMember({ guild, member, executor, reason, guildConfig, store }) {
+  await member.timeout(null, reason || undefined);
+  await logModAction(
+    guild,
+    guildConfig,
+    {
+      action: "🔓 Gỡ timeout",
+      color: Colors.Green,
+      target: member.user,
+      executor,
+      reason,
+      extra: [{ name: "Người thực hiện", value: `${executor} (\`${executor.id}\`)`, inline: true }],
+    },
+    store,
+  );
+  return `Đã gỡ timeout cho **${member.user.tag}**${reason ? ` — Lý do: ${reason}` : ""}`;
+}
+
+async function unbanMember({ guild, userId, executor, reason, guildConfig, store }) {
+  await guild.members.unban(userId, reason || undefined);
+  await logModAction(
+    guild,
+    guildConfig,
+    {
+      action: "🔓 Gỡ ban",
+      color: Colors.Green,
+      target: { id: userId, username: userId },
+      executor,
+      reason,
+      extra: [{ name: "Người thực hiện", value: `${executor} (\`${executor.id}\`)`, inline: true }],
+    },
+    store,
+  );
+  return `Đã gỡ ban cho **<@${userId}>**${reason ? ` — Lý do: ${reason}` : ""}`;
+}
+
+async function unwarnMember({ guild, userId, heat, executor, reason, guildConfig, store }) {
+  heat.clearStrikes(guild.id, userId);
+  await logModAction(
+    guild,
+    guildConfig,
+    {
+      action: "🧹 Gỡ warn",
+      color: Colors.Green,
+      target: { id: userId, username: userId },
+      executor,
+      reason,
+      extra: [{ name: "Người thực hiện", value: `${executor} (\`${executor.id}\`)`, inline: true }],
+    },
+    store,
+  );
+  return `Đã gỡ toàn bộ warn tích lũy của **<@${userId}>**${reason ? ` — Lý do: ${reason}` : ""}`;
+}
+
 async function purgeChannel(channel, count, executor, guildConfig, store) {
   const n = Math.max(1, Math.min(100, Math.floor(count)));
   const deleted = await channel.bulkDelete(n, true);
@@ -160,6 +214,9 @@ module.exports = {
   kickMember,
   banMember,
   purgeChannel,
+  untimeoutMember,
+  unbanMember,
+  unwarnMember,
   logModAction,
   PermissionFlagsBits,
 };

@@ -33,6 +33,7 @@ import { Badge } from "../components/ui/badge";
 import CherryBlossom from "../components/CherryBlossom";
 import BotLogo from "../components/BotLogo";
 import HaimiyaChat, { HaimiyaAvatar } from "../components/HaimiyaChat";
+import Taskbar from "../components/Taskbar";
 import { useBranding } from "../lib/useBranding";
 import { usePublicConfig } from "../lib/usePublicConfig";
 import { useBotStatus } from "../lib/useBotStatus";
@@ -168,6 +169,30 @@ function Nav() {
         )}
       </div>
     </header>
+  );
+}
+
+/**
+ * Nút mở dashboard thông minh: nếu đã đăng nhập → vào thẳng /dashboard,
+ * ngược lại → sang trang đăng nhập (kèm returnTo để quay lại sau khi đăng nhập).
+ */
+function DashboardCta({
+  children,
+  variant = "default",
+}: {
+  children: React.ReactNode;
+  variant?: "default" | "outline";
+}) {
+  const token = getSessionToken();
+  const me = useQuery(api.sessions.me, { token }) as MeData | null | undefined;
+  const loggedIn = token !== "" && me !== null;
+  const to = loggedIn ? "/dashboard" : "/auth?returnTo=/dashboard";
+  return (
+    <Link to={to}>
+      <Button size="lg" variant={variant}>
+        {children}
+      </Button>
+    </Link>
   );
 }
 
@@ -646,11 +671,9 @@ function HaimiyaSection() {
               >
                 <MessageCircle className="h-4 w-4" /> Hỏi thử Haimiya ngay
               </Button>
-              <Link to="/auth">
-                <Button size="lg" variant="outline">
-                  Vào dashboard <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
+              <DashboardCta variant="outline">
+                Vào dashboard <ArrowRight className="h-4 w-4" />
+              </DashboardCta>
             </div>
           </motion.div>
         </div>
@@ -747,11 +770,9 @@ function CtaBanner() {
               Đăng nhập bằng Discord, mời Protogon vào server — nhiệt độ, Join Gate, lọc nội dung, chống nuke và trợ lý ảo bật ngay lập tức. Miễn phí cho mọi server.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <Link to="/auth">
-                <Button size="lg">
-                  Bắt đầu ngay <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
+              <DashboardCta>
+                Bắt đầu ngay <ArrowRight className="h-4 w-4" />
+              </DashboardCta>
               <Button size="lg" variant="outline" onClick={() => window.dispatchEvent(new Event("haimiya-open"))}>
                 <MessageCircle className="h-4 w-4" /> Trò chuyện với Haimiya
               </Button>
@@ -773,6 +794,7 @@ export default function Landing() {
     <div className="relative min-h-screen text-foreground">
       <CherryBlossom count={18} />
       <HaimiyaChat />
+      <Taskbar />
       <div className="relative z-10">
         <Nav />
         <main>
@@ -827,11 +849,9 @@ export default function Landing() {
                   transition={{ duration: 0.7, delay: 0.3 }}
                   className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start"
                 >
-                  <Link to="/auth">
-                    <Button size="lg">
-                      Mở dashboard <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </Link>
+                  <DashboardCta>
+                    Mở dashboard <ArrowRight className="h-4 w-4" />
+                  </DashboardCta>
                   <Button
                     size="lg"
                     variant="outline"

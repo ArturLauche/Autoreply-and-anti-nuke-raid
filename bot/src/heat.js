@@ -241,6 +241,13 @@ class HeatTracker {
     return { escalated: false, punish: "warn", count };
   }
 
+  /** Xóa toàn bộ warn tích lũy của một thành viên (lệnh gỡ warn). */
+  clearStrikes(guildId, userId) {
+    const key = this._key(guildId, userId);
+    this.strikes.delete(key);
+    this._scheduleFlush(guildId);
+  }
+
   /** Số strike hiện tại của một thành viên (cho /heat status). */
   strikeCount(guildId, userId, s) {
     const hit = this.strikes.get(this._key(guildId, userId));

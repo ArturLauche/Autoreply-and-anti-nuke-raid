@@ -27,10 +27,10 @@ import { cn } from "../lib/utils";
 type ThemeMode = "light" | "dark";
 
 /**
- * Taskbar — cửa sổ dọc bo tròn gắn sát mép trái trang web, bấm nút để bật/tắt.
- * Chứa: chế độ tương phản sáng/tối, trạng thái nhanh của bot, nút đi tới trang
- * Giám sát bot, Cửa sổ Admin (chỉ chủ sở hữu bot thấy), thông tin chủ bot và
- * link Discord / Facebook.
+ * Taskbar — thanh dọc bo tròn chạy dọc sát mép trái trang web (chỉ hiển thị
+ * trên trang giao diện ban đầu), bấm nút để bật/tắt. Chứa: chế độ tương phản
+ * sáng/tối, trạng thái nhanh của bot, nút đi tới trang Giám sát bot, Cửa sổ
+ * Admin (chỉ chủ sở hữu bot thấy), thông tin chủ bot và link Discord / Facebook.
  */
 export default function Taskbar() {
   const [open, setOpen] = useState(false);
@@ -78,12 +78,12 @@ export default function Taskbar() {
         <ChevronRight className="h-3.5 w-3.5 text-[#3d2a5c]" />
       </button>
 
-      {/* Cửa sổ dọc bo tròn gắn mép trái */}
+      {/* Thanh dọc bo tròn chạy dọc mép trái */}
       {open && (
         <div
           className={cn(
-            "fixed left-0 top-1/2 z-50 flex max-h-[92vh] w-[min(90vw,20rem)] -translate-y-1/2 flex-col overflow-hidden",
-            "rounded-r-2xl border border-primary/30 bg-card/95 shadow-2xl backdrop-blur",
+            "fixed left-0 top-2 bottom-2 z-50 flex w-[min(90vw,20rem)] flex-col overflow-hidden",
+            "rounded-r-3xl border border-primary/30 bg-card/95 shadow-2xl backdrop-blur",
             "animate-in slide-in-from-left-4 fade-in-0 duration-200",
           )}
         >
@@ -109,7 +109,7 @@ export default function Taskbar() {
             </button>
           </div>
 
-          <div className="max-h-[70vh] space-y-3 overflow-y-auto px-4 py-4">
+          <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
             {/* Chế độ tương phản */}
             <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/40 p-3">
               <div className="flex items-center gap-2 text-sm font-semibold">

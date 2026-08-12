@@ -37,17 +37,26 @@ const client = new Client({
     GatewayIntentBits.GuildModeration,
   ],
   // ⚡ Tối ưu RAM: không giữ tin nhắn trong cache (chỉ 1 msg tối đa),
-  // giới hạn cache user/member, các cache khác giữ mặc định.
+  // giới hạn cache user/member/channel/role, các cache khác giữ tối thiểu.
   makeCache: (manager) => {
     if (manager.name === "MessageManager") return new LimitedCollection({ maxSize: 0 });
     if (manager.name === "UserManager" || manager.name === "GuildMemberManager") {
       return new LimitedCollection({ maxSize: 200 });
     }
+    if (manager.name === "PresenceManager" || manager.name === "VoiceStateManager") {
+      return new LimitedCollection({ maxSize: 0 });
+    }
+    if (manager.name === "ReactionManager") return new LimitedCollection({ maxSize: 0 });
+    if (manager.name === "GuildEmojiManager") return new LimitedCollection({ maxSize: 100 });
     return new Collection();
   },
   sweepers: {
     messages: { interval: 900, lifetime: 1800 },
     users: { interval: 900, filter: () => (user) => user.id !== client.user.id },
+    guildMembers: { interval: 900, filter: () => (member) => member.id !== member.guild.ownerId },
+    presences: { interval: 900, filter: () => () => true },
+    voiceStates: { interval: 900, filter: () => () => true },
+    reactions: { interval: 900, filter: () => () => true },
   },
 });
 
@@ -120,10 +129,10 @@ client.once("ready", async () => {
   setInterval(() => heat.flushAll().catch((e) => console.error("[heat:flush]", e.message)), 30_000);
 });
 
-client.on("messageCreate", (m) => onMessageCreate(client, m, store).catch((e) => console.error("[messageCreate]", e.message)));
+client.on("messageCreate", (m) => onMessageCreate(client, m, store, heat).catch((e) => console.error("[messageCreate]", e.message)));
 client.on("messageCreate", (m) => scanMessage(client, m, store, heat).catch((e) => console.error("[filters]", e.message)));
 client.on("interactionCreate", (i) =>
-  onInteractionCreate(client, i, store).catch((e) => {
+  onInteractionCreate(client, i, store, heat).catch((e) => {
     console.error("[interaction]", e?.message || e);
     if (e?.errors) console.error("[interaction] details:", JSON.stringify(e.errors).slice(0, 600));
   }),
