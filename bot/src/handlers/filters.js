@@ -55,6 +55,9 @@ function isExempt(member, config) {
   if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
   if ((config?.adminRoles || []).some((id) => member.roles.cache.has(id))) return true;
   if ((config?.modRoles || []).some((id) => member.roles.cache.has(id))) return true;
+  // Whitelist toàn cục: role/người dùng được miễn trừ khỏi moderation (và nuke/raid).
+  if ((config?.whitelistRoles || []).some((id) => member.roles.cache.has(id))) return true;
+  if ((config?.whitelistUsers || []).includes(member.id)) return true;
   return false;
 }
 

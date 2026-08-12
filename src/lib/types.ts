@@ -90,6 +90,12 @@ export interface GuildData {
     memberCount: number | null;
     prefix: string;
     logChannelId: string | null;
+    /** Kênh log hành động mod (ban/timeout/kick/warn + ngược lại, xóa tin). */
+    modLogChannelId: string | null;
+    /** Whitelist toàn cục — người dùng được miễn trừ moderation / anti-raid / nuke. */
+    whitelistUsers: string[];
+    /** Whitelist toàn cục — role được miễn trừ moderation / anti-raid / nuke. */
+    whitelistRoles: string[];
     modRoles: string[];
     adminRoles: string[];
     antinukeEnabled: boolean;

@@ -26,6 +26,11 @@ export default defineSchema({
     memberCount: v.optional(v.number()),
     prefix: v.string(),
     logChannelId: v.optional(v.string()),
+    /** Kênh log hành động mod (ban/timeout/kick/warn + ngược lại, purge). */
+    modLogChannelId: v.optional(v.string()),
+    /** Whitelist toàn cục: user/role được miễn trừ khỏi moderation, anti-raid và nuke. */
+    whitelistUsers: v.optional(v.array(v.string())),
+    whitelistRoles: v.optional(v.array(v.string())),
     modRoles: v.array(v.string()),
     adminRoles: v.array(v.string()),
     antinukeEnabled: v.boolean(),

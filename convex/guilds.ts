@@ -114,6 +114,9 @@ export const getGuild = query({
         memberCount: guild.memberCount ?? null,
         prefix: guild.prefix,
         logChannelId: guild.logChannelId ?? null,
+        modLogChannelId: guild.modLogChannelId ?? null,
+        whitelistUsers: guild.whitelistUsers ?? [],
+        whitelistRoles: guild.whitelistRoles ?? [],
         hiddenPasswordSet: !!guild.hiddenPasswordHash,
         isBotOwner,
         botOwnerSet: !!ownerDiscordId,
@@ -259,6 +262,9 @@ export const getBotConfig = query({
     return {
       prefix: guild.prefix,
       logChannelId: guild.logChannelId ?? null,
+      modLogChannelId: guild.modLogChannelId ?? null,
+      whitelistUsers: guild.whitelistUsers ?? [],
+      whitelistRoles: guild.whitelistRoles ?? [],
       modRoles: guild.modRoles,
       adminRoles: guild.adminRoles,
       antinukeEnabled: guild.antinukeEnabled,
@@ -321,6 +327,9 @@ export const updateSettings = mutation({
     guildId: v.string(),
     prefix: v.optional(v.string()),
     logChannelId: v.optional(v.string()),
+    modLogChannelId: v.optional(v.string()),
+    whitelistUsers: v.optional(v.array(v.string())),
+    whitelistRoles: v.optional(v.array(v.string())),
     modRoles: v.optional(v.array(v.string())),
     adminRoles: v.optional(v.array(v.string())),
     dailyReportEnabled: v.optional(v.boolean()),
@@ -368,6 +377,22 @@ export const updateSettings = mutation({
       patch.prefix = args.prefix;
     }
     if (args.logChannelId !== undefined) patch.logChannelId = args.logChannelId || undefined;
+    if (args.modLogChannelId !== undefined)
+      patch.modLogChannelId = args.modLogChannelId || undefined;
+    if (args.whitelistUsers !== undefined) {
+      const ids = args.whitelistUsers
+        .map((id) => id.trim())
+        .filter((id) => /^\d{15,20}$/.test(id))
+        .slice(0, 100);
+      patch.whitelistUsers = [...new Set(ids)];
+    }
+    if (args.whitelistRoles !== undefined) {
+      const ids = args.whitelistRoles
+        .map((id) => id.trim())
+        .filter((id) => /^\d{15,20}$/.test(id))
+        .slice(0, 100);
+      patch.whitelistRoles = [...new Set(ids)];
+    }
     if (args.modRoles !== undefined) patch.modRoles = args.modRoles;
     if (args.adminRoles !== undefined) patch.adminRoles = args.adminRoles;
     if (args.badWords !== undefined) {
@@ -562,6 +587,9 @@ export const botSyncGuilds = mutation({
           memberCount: g.memberCount,
           prefix: "!",
           logChannelId: undefined,
+          modLogChannelId: undefined,
+          whitelistUsers: [],
+          whitelistRoles: [],
           modRoles: [],
           adminRoles: [],
           antinukeEnabled: true,

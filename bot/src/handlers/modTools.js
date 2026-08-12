@@ -1,5 +1,5 @@
 const { EmbedBuilder, Colors, PermissionFlagsBits, time } = require("discord.js");
-const { canManageWithConfig, sendLog } = require("../util");
+const { canManageWithConfig, sendLog, sendModLog } = require("../util");
 
 /** Phân tích chuỗi thời lượng: "10m", "2h", "1d", "30" (mặc định = phút). */
 function parseDuration(input) {
@@ -40,7 +40,8 @@ async function logModAction(guild, guildConfig, { action, color, target, executo
       { name: "Lý do", value: reason || "Không có", inline: false },
     )
     .setFooter({ text: "Protogon · Công cụ Mod" });
-  await sendLog(guild, guildConfig, embed);
+  // Log hành động mod tới kênh modLogChannelId (hoặc kênh log chung nếu chưa đặt).
+  await sendModLog(guild, guildConfig, embed);
   // Ghi vào bảng hình phạt trên dashboard (nếu có store).
   if (store) {
     try {
@@ -187,7 +188,7 @@ async function purgeChannel(channel, count, executor, guildConfig, store) {
       { name: "Người thực hiện", value: `${executor} (\`${executor.id}\`)`, inline: true },
     )
     .setFooter({ text: "Protogon · Công cụ Mod" });
-  await sendLog(channel.guild, guildConfig, embed);
+  await sendModLog(channel.guild, guildConfig, embed);
   if (store) {
     try {
       await store.client.mutation("bot_writes:botRecordModAction", {

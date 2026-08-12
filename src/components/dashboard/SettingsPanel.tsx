@@ -24,6 +24,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
 
   const [prefix, setPrefix] = useState(data.guild.prefix);
   const [logChannelId, setLogChannelId] = useState(data.guild.logChannelId ?? "none");
+  const [modLogChannelId, setModLogChannelId] = useState(data.guild.modLogChannelId ?? "none");
   const [modRoles, setModRoles] = useState<string[]>(data.guild.modRoles);
   const [adminRoles, setAdminRoles] = useState<string[]>(data.guild.adminRoles);
   const [theme, setTheme] = useState(data.guild.theme || DEFAULT_THEME);
@@ -59,6 +60,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
         guildId: data.guild.discordId,
         prefix,
         logChannelId: logChannelId === "none" ? undefined : logChannelId,
+        modLogChannelId: modLogChannelId === "none" ? undefined : modLogChannelId,
         modRoles,
         adminRoles,
       });
@@ -116,24 +118,49 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
               <Hash className="h-4 w-4 text-primary" /> Kênh log
             </CardTitle>
             <CardDescription>
-              Cảnh báo chống nuke và sự kiện quan trọng sẽ được gửi vào kênh này.
+              Cảnh báo chống nuke, báo cáo hàng ngày và sự kiện quan trọng sẽ được gửi
+              vào kênh log chung dưới đây.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Select value={logChannelId} onValueChange={setLogChannelId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Chọn kênh" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">— Không dùng —</SelectItem>
-                {textChannels.map((c) => (
-                  <SelectItem key={c.channelId} value={c.channelId}>
-                    #{c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button className="mt-4 w-full" onClick={handleSave} disabled={saving}>
+          <CardContent className="space-y-3">
+            <div className="grid gap-1.5">
+              <Label className="text-xs text-muted-foreground">Kênh log chung</Label>
+              <Select value={logChannelId} onValueChange={setLogChannelId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn kênh" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Không dùng —</SelectItem>
+                  {textChannels.map((c) => (
+                    <SelectItem key={c.channelId} value={c.channelId}>
+                      #{c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-xs text-muted-foreground">
+                Kênh log hành động mod (ban · timeout · kick · warn · gỡ hình phạt · xóa tin)
+              </Label>
+              <Select value={modLogChannelId} onValueChange={setModLogChannelId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn kênh" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Dùng kênh log chung —</SelectItem>
+                  {textChannels.map((c) => (
+                    <SelectItem key={c.channelId} value={c.channelId}>
+                      #{c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Nếu chưa chọn kênh riêng, log hành động mod sẽ gửi vào kênh log chung.
+            </p>
+            <Button className="w-full" onClick={handleSave} disabled={saving}>
               <Save className="h-4 w-4" /> Lưu thay đổi
             </Button>
           </CardContent>

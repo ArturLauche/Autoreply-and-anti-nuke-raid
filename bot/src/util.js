@@ -54,6 +54,24 @@ async function sendLog(guild, guildConfig, embed) {
   }
 }
 
+/**
+ * Gửi log hành động mod (ban/timeout/kick/warn + gỡ hình phạt, purge) tới kênh
+ * modLogChannelId nếu đã đặt, ngược lại rơi về kênh log chung (logChannelId).
+ */
+async function sendModLog(guild, guildConfig, embed) {
+  if (!guildConfig) return;
+  const channelId = guildConfig.modLogChannelId || guildConfig.logChannelId;
+  if (!channelId) return;
+  try {
+    const channel = await guild.channels.fetch(channelId);
+    if (channel && channel.isTextBased()) {
+      await channel.send({ embeds: [embed] });
+    }
+  } catch {
+    // log channel unavailable — ignore
+  }
+}
+
 function mentionRoles(roleIds) {
   if (!roleIds || roleIds.length === 0) return "không có";
   return roleIds.map((id) => `<@&${id}>`).join(", ");
@@ -67,6 +85,7 @@ module.exports = {
   fillPlaceholders,
   logEmbed,
   sendLog,
+  sendModLog,
   mentionRoles,
   Colors,
 };

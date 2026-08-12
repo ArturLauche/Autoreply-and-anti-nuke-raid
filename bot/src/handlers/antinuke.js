@@ -84,6 +84,9 @@ module.exports = function createAntiNuke(client, store, heat) {
     if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
     if ((guildConfig?.adminRoles || []).some((id) => member.roles.cache.has(id))) return true;
     if ((guildConfig?.modRoles || []).some((id) => member.roles.cache.has(id))) return true;
+    // Whitelist toàn cục: role/người dùng được miễn trừ khỏi mọi module nuke/raid/moderation.
+    if ((guildConfig?.whitelistRoles || []).some((id) => member.roles.cache.has(id))) return true;
+    if ((guildConfig?.whitelistUsers || []).includes(member.id)) return true;
     if ((moduleCfg?.whitelistRoles || []).some((id) => member.roles.cache.has(id))) return true;
     return false;
   }
