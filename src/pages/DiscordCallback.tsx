@@ -8,9 +8,12 @@ import { usePublicConfig } from "../lib/usePublicConfig";
 import {
   OAUTH_STATE_KEY,
   OAUTH_VERIFIER_KEY,
+  SILENT_STATE_KEY,
+  SILENT_VERIFIER_KEY,
   exchangeCode,
   fetchDiscordGuilds,
   fetchDiscordUser,
+  getSessionToken,
   newSessionToken,
   setSessionToken,
   storeDiscordAccess,
@@ -20,6 +23,7 @@ export default function DiscordCallback() {
   const navigate = useNavigate();
   const { clientId, loading: configLoading, error: configError } = usePublicConfig();
   const login = useMutation(api.sessions.login);
+  const refreshGuilds = useMutation(api.sessions.refreshGuilds);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,6 +41,45 @@ export default function DiscordCallback() {
     const returnTo = sessionStorage.getItem("wio_oauth_return") ?? "/dashboard";
 
     async function run() {
+      // Luồng làm mới im lặng (dashboard chuyển hướng tới đây, không đăng nhập mới).
+      const silentState = sessionStorage.getItem(SILENT_STATE_KEY);
+      const isSilent = !!silentState && silentState === state;
+      if (isSilent) {
+        sessionStorage.removeItem(SILENT_STATE_KEY);
+        const silentVerifier = sessionStorage.getItem(SILENT_VERIFIER_KEY);
+        sessionStorage.removeItem(SILENT_VERIFIER_KEY);
+        const silentReturn = sessionStorage.getItem("wio_silent_return") ?? "/dashboard";
+        sessionStorage.removeItem("wio_silent_return");
+        async function runSilent() {
+          if (oauthError || !code || !clientId || !silentVerifier) {
+            window.location.replace(`${silentReturn}?silent=err`);
+            return;
+          }
+          try {
+            const oauth = await exchangeCode(clientId, code, silentVerifier);
+            storeDiscordAccess(oauth);
+            const sessToken = getSessionToken();
+            if (sessToken) {
+              const guilds = await fetchDiscordGuilds(oauth.access_token);
+              await refreshGuilds({
+                token: sessToken,
+                guilds: guilds.map((g) => ({
+                  id: g.id,
+                  name: g.name,
+                  icon: g.icon ?? undefined,
+                  permissions: g.permissions,
+                })),
+              });
+            }
+            window.location.replace(`${silentReturn}?silent=ok`);
+          } catch {
+            window.location.replace(`${silentReturn}?silent=err`);
+          }
+        }
+        void runSilent();
+        return;
+      }
+
       if (oauthError || !code) {
         setError(oauthError ?? "Thiếu mã xác nhận từ Discord.");
         return;

@@ -4,6 +4,11 @@ export const OAUTH_STATE_KEY = "wio_oauth_state";
 export const REMEMBER_LOGIN_KEY = "wio_remember_login";
 export const DISCORD_ACCESS_KEY = "wio_discord_access";
 
+/** Luồng làm mới im lặng: prompt=none, dùng chung redirect /discord/callback. */
+export const SILENT_VERIFIER_KEY = "wio_silent_verifier";
+export const SILENT_STATE_KEY = "wio_silent_state";
+export const SILENT_ATTEMPT_KEY = "wio_silent_last_attempt";
+
 /** Chỉ lưu đăng nhập tối đa 7 ngày khi bật "Lưu đăng nhập". */
 export const SESSION_EXPIRY_DAYS = 7;
 
@@ -119,6 +124,29 @@ export function buildAuthorizeUrl(
     code_challenge: challenge,
     code_challenge_method: "S256",
     prompt: "consent",
+  });
+  return `https://discord.com/oauth2/authorize?${params.toString()}`;
+}
+
+/**
+ * URL OAuth KHÔNG hiện màn hình xác nhận (prompt=none): dùng khi người dùng ĐÃ
+ * cấp quyền trước đó — Discord tự chuyển về /discord/callback với code ngay,
+ * giúp dashboard làm mới danh sách server mà không cần đăng nhập lại.
+ */
+export function buildSilentAuthorizeUrl(
+  clientId: string,
+  state: string,
+  challenge: string,
+): string {
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: "code",
+    redirect_uri: redirectUri(),
+    scope: "identify guilds",
+    state,
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+    prompt: "none",
   });
   return `https://discord.com/oauth2/authorize?${params.toString()}`;
 }

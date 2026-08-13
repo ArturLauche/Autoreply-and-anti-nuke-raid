@@ -19,14 +19,21 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
 import {
+  SILENT_ATTEMPT_KEY,
+  SILENT_STATE_KEY,
+  SILENT_VERIFIER_KEY,
   buildBotInviteUrl,
+  buildSilentAuthorizeUrl,
   clearDiscordAccess,
   clearSessionToken,
   discordAvatarUrl,
   discordGuildIconUrl,
   fetchDiscordGuilds,
+  generateChallenge,
+  generateVerifier,
   getDiscordAccessToken,
   getSessionToken,
+  randomState,
 } from "../lib/discord";
 import { usePublicConfig } from "../lib/usePublicConfig";
 import type { MeData } from "../lib/types";
@@ -62,11 +69,50 @@ export default function Dashboard() {
     }
   }
 
+  /**
+   * Làm mới im lặng: có token OAuth thì dùng thẳng; chưa có (phiên đăng nhập từ
+   * trước bản cập nhật) thì chuyển hướng qua Discord với prompt=none — người dùng
+   * đã cấp quyền trước đó nên Discord tự quay về ngay, không hiện màn hình xác
+   * nhận. force = bỏ qua cooldown (khi bấm nút Tải lại).
+   */
+  async function startSilentRefresh(force: boolean) {
+    if (!clientId || !token) return;
+    const stored = await getDiscordAccessToken(clientId);
+    if (stored) {
+      await refreshFromDiscord();
+      return;
+    }
+    const lastAttempt = Number(sessionStorage.getItem(SILENT_ATTEMPT_KEY) ?? 0);
+    if (!force && Date.now() - lastAttempt < 10 * 60_000) return;
+    sessionStorage.setItem(SILENT_ATTEMPT_KEY, String(Date.now()));
+    const verifier = generateVerifier();
+    const challenge = await generateChallenge(verifier);
+    const silentState = randomState();
+    sessionStorage.setItem(SILENT_VERIFIER_KEY, verifier);
+    sessionStorage.setItem(SILENT_STATE_KEY, silentState);
+    sessionStorage.setItem("wio_silent_return", window.location.pathname);
+    window.location.assign(buildSilentAuthorizeUrl(clientId, silentState, challenge));
+  }
+
   // Khi mở dashboard: tự làm mới một lần để server mới mời bot hiện ra ngay.
   useEffect(() => {
-    void refreshFromDiscord();
+    void startSilentRefresh(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId, token]);
+
+  // Xử lý kết quả quay về sau luồng làm mới im lặng.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const silent = params.get("silent");
+    if (silent) {
+      if (silent === "ok") {
+        toast.success("Đã làm mới danh sách server 🌸");
+      } else {
+        toast.error("Không thể làm mới tự động — hãy thử nút Tải lại hoặc Đăng nhập lại.");
+      }
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   if (me === undefined) {
     return (
@@ -86,7 +132,7 @@ export default function Dashboard() {
 
   async function handleRefresh() {
     setRefreshing(true);
-    await refreshFromDiscord();
+    await startSilentRefresh(true);
     setRefreshing(false);
   }
 
