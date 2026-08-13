@@ -90,6 +90,7 @@ export const DEFAULT_MODULE_ACTIONS: Record<string, ModuleAction[]> = {
   massNickname: ["kick"],
   massEmoji: ["ban"],
   massBotAdd: ["kick"],
+  externalAppRaid: ["kick"],
   massInviteCreate: ["ban"],
   guildTamper: ["ban"],
   spam: ["timeout"],
@@ -286,6 +287,16 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
     defaultPunish: "kick",
     defaultHeat: 20,
   },
+  externalAppRaid: {
+    label: "Raid bằng ứng dụng ngoài",
+    description:
+      "Loạt kết nối external app (ứng dụng mở rộng) — AI nhận diện người dùng app có đang raid không, raid → ban + khóa kênh",
+    group: "Thành viên & quyền",
+    defaultThreshold: 2,
+    defaultWindowSeconds: 15,
+    defaultPunish: "kick",
+    defaultHeat: 20,
+  },
   massInviteCreate: {
     label: "Tạo link mời hàng loạt",
     description: "Chuẩn bị raid — tạo nhiều link mời trước khi tràn vào",
@@ -399,6 +410,7 @@ export const ANTINUKE_ORDER = [
   "massNickname",
   "massEmoji",
   "massBotAdd",
+  "externalAppRaid",
   "massInviteCreate",
   "guildTamper",
   "spam",
@@ -432,6 +444,7 @@ export const NUKE_MODULES = [
   "massNickname",
   "massEmoji",
   "massBotAdd",
+  "externalAppRaid",
   "massInviteCreate",
   "guildTamper",
 ] as const;
@@ -452,7 +465,16 @@ export const MODERATION_MODULES = [
 export const NUKE_GROUPS: { label: string; modules: string[] }[] = [
   {
     label: "Thành viên & quyền",
-    modules: ["massBan", "massKick", "massJoin", "adminSelfGrant", "massRoleAssign", "massNickname", "massBotAdd"],
+    modules: [
+      "massBan",
+      "massKick",
+      "massJoin",
+      "adminSelfGrant",
+      "massRoleAssign",
+      "massNickname",
+      "massBotAdd",
+      "externalAppRaid",
+    ],
   },
   {
     label: "Kênh & thread",

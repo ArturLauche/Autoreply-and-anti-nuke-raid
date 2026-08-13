@@ -30,6 +30,7 @@ const MODULE_LABELS = {
   massNickname: "Đổi biệt danh hàng loạt",
   massEmoji: "Tạo emoji/sticker hàng loạt",
   massBotAdd: "Thêm bot hàng loạt",
+  externalAppRaid: "Raid bằng ứng dụng ngoài (External App)",
   massInviteCreate: "Tạo link mời hàng loạt",
   guildTamper: "Đổi cấu hình server",
   raidIntel: "Raid Intel — ban nguồn cơn",
@@ -63,6 +64,7 @@ const NUKE_MODULES = new Set([
   "massNickname",
   "massEmoji",
   "massBotAdd",
+  "externalAppRaid",
   "massInviteCreate",
   "guildTamper",
 ]);
@@ -91,6 +93,7 @@ const DEFAULT_MODULE_CFG = {
   massNickname: { threshold: 6, windowSeconds: 15, punish: "kick", timeoutSeconds: 600 },
   massEmoji: { threshold: 3, windowSeconds: 10, punish: "ban", timeoutSeconds: 600 },
   massBotAdd: { threshold: 3, windowSeconds: 10, punish: "kick", timeoutSeconds: 600 },
+  externalAppRaid: { threshold: 2, windowSeconds: 15, punish: "kick", timeoutSeconds: 600 },
   massInviteCreate: { threshold: 5, windowSeconds: 10, punish: "ban", timeoutSeconds: 600 },
   guildTamper: { threshold: 2, windowSeconds: 10, punish: "ban", timeoutSeconds: 600 },
 };
@@ -118,6 +121,7 @@ module.exports = function createAntiNuke(client, store, heat) {
   const spamBuckets = new Map(); // `${guildId}:${userId}` -> [timestamps]
   const patternBuckets = new Map(); // `${guildId}:${userId}:${pattern}` -> [timestamps]
   const recentMessages = new Map(); // `${guildId}:${userId}` -> [{content, ts}] (mẫu cho AI)
+  const appEvents = new Map(); // guildId -> [{ts, appName, executorId, executorName}] (external app)
   const lastConfigs = new Map(); // guildId -> config (đã đọc gần nhất)
 
   function record(guildId, module, cfg) {
@@ -208,6 +212,15 @@ module.exports = function createAntiNuke(client, store, heat) {
       if (fresh.length === 0) recentMessages.delete(key);
       else recentMessages.set(key, fresh);
     }
+    for (const [guildId, arr] of appEvents) {
+      if (!live.has(guildId)) {
+        appEvents.delete(guildId);
+        continue;
+      }
+      const fresh = arr.filter((e) => e.ts >= stale);
+      if (fresh.length === 0) appEvents.delete(guildId);
+      else appEvents.set(guildId, fresh);
+    }
     for (const [guildId] of lastConfigs) {
       if (!live.has(guildId)) lastConfigs.delete(guildId);
     }
@@ -268,6 +281,30 @@ module.exports = function createAntiNuke(client, store, heat) {
     }
   }
 
+  /** Gọi AI xác định chuỗi kết nối external app có phải raid không (best-effort, 6s timeout). */
+  async function aiAnalyzeExternalApp(guild, count, windowSeconds, threshold, appProfile, recentJoins) {
+    try {
+      const res = await Promise.race([
+        store.client.action("haimiya:analyzeExternalApp", {
+          guildId: guild.id,
+          guildName: guild.name,
+          count,
+          windowSeconds,
+          threshold,
+          appProfile: appProfile ? String(appProfile).slice(0, 1500) : undefined,
+          recentJoins: recentJoins ?? undefined,
+          memberCount: guild.memberCount ?? undefined,
+        }),
+        new Promise((r) => setTimeout(() => r(null), 6000)),
+      ]);
+      if (!res || res.offline) return null;
+      return res;
+    } catch (err) {
+      console.error("[ai:analyzeExternalApp]", err.message);
+      return null;
+    }
+  }
+
   /**
    * Hồ sơ cụm tài khoản raid → dữ liệu huấn luyện (số acc, tuổi acc trung bình,
    * số avatar trùng nhau, thời gian vào rải rác).
@@ -307,10 +344,15 @@ module.exports = function createAntiNuke(client, store, heat) {
    * Nghi phạm điểm >= 4 → ban (theo raidHuntBanSuspects) với lý do Raid Intel.
    */
   async function huntRaidSource(guild, config, cluster = [], extraExecutors = []) {
-    if (!guild) return null;
-    if (config?.raidHuntEnabled === false) return null;
+    // Lưu ý: KHÔNG trả null — mọi call site truyền kết quả thẳng vào
+    // botRecordRaidSample (validator Convex từ chối null). Trả object đầy đủ với
+    // banned=false, các field optional bỏ trống (undefined).
+    if (!guild) return { reason: "không có dữ liệu", banned: false, confidence: 0 };
+    if (config?.raidHuntEnabled === false) {
+      return { reason: "săn nguồn cơn đã tắt", banned: false, confidence: 0 };
+    }
     const hasData = (cluster && cluster.length > 0) || (extraExecutors && extraExecutors.length > 0);
-    if (!hasData) return null;
+    if (!hasData) return { reason: "chưa đủ tín hiệu", banned: false, confidence: 0 };
 
     const now = Date.now();
     const avatarGroups = new Map();
@@ -510,6 +552,146 @@ module.exports = function createAntiNuke(client, store, heat) {
     if (!config.lockdownEnabled) return;
     if (isLocked(guild.id)) return;
     await lockGuild(client, guild, config, store);
+  }
+
+  /**
+   * Raid bằng ỨNG DỤNG NGOÀI (External App) — phát hiện loạt kết nối integration
+   * (external app) trong cửa sổ thời gian. AI nhận diện xem NGƯỜI DÙNG của các
+   * app đó có đang raid không: AI khẳng định raid (độ tin cậy >= 0.6) → ban + khóa
+   * kênh; còn lại → phạt theo cấu hình (mặc định kick).
+   */
+  async function handleExternalApp(entry, guild) {
+    if (!guild || guild.available === false) return;
+    const config = await store.getConfig(guild.id);
+    if (!config || !config.antinukeEnabled) return;
+    lastConfigs.set(guild.id, config);
+    const moduleCfg = moduleCfgOf(config, "externalAppRaid");
+    if (!moduleCfg || !moduleCfg.enabled) return;
+
+    const executor = entry.executor;
+    if (executor) {
+      if (executor.id === client.user.id) return;
+      const em = await guild.members.fetch(executor.id).catch(() => null);
+      if (em && isExempt(em, moduleCfg, config)) return;
+    }
+    const target = entry.target;
+    const appName =
+      (target && (target.name || target.id)) ||
+      (entry.changes || []).find((c) => c.key === "name")?.new ||
+      "ứng dụng ngoài";
+
+    const arr = appEvents.get(guild.id) ?? [];
+    arr.push({
+      ts: Date.now(),
+      appName: String(appName).slice(0, 60),
+      executorId: executor?.id,
+      executorName: executor?.username,
+    });
+    const cutoff = Date.now() - moduleCfg.windowSeconds * 1000;
+    const fresh = arr.filter((e) => e.ts >= cutoff);
+    appEvents.set(guild.id, fresh);
+    const count = fresh.length;
+    if (count < moduleCfg.threshold) return;
+
+    // AI nhận diện: người dùng app ngoài có đang raid không?
+    const profile = fresh
+      .map(
+        (e, i) =>
+          `${i + 1}. ${e.appName}${e.executorName ? ` — bởi ${e.executorName}` : " — không xác định được người dùng"}`,
+      )
+      .join("\n");
+    const recentJoins = joiners.get(guild.id)?.length ?? 0;
+    const ai = await aiAnalyzeExternalApp(
+      guild,
+      count,
+      moduleCfg.windowSeconds,
+      moduleCfg.threshold,
+      profile,
+      recentJoins,
+    );
+    const isRaid = ai?.isRaid === true && (ai?.confidence ?? 0) >= 0.6;
+    const reason = `[Protogon AntiNuke] ${MODULE_LABELS.externalAppRaid}: ${count} app được kết nối trong ${moduleCfg.windowSeconds}s (ngưỡng ${moduleCfg.threshold})${isRaid ? ` — AI: raid (${ai?.reason ?? ""})` : ""}`;
+
+    // Những người dùng đã kết nối app trong cửa sổ (bỏ trùng, giới hạn 5).
+    const targets = [
+      ...new Map(fresh.filter((e) => e.executorId).map((e) => [e.executorId, e])).values(),
+    ].slice(0, 5);
+
+    const punished = [];
+    for (const t of targets) {
+      const member = await guild.members.fetch(t.executorId).catch(() => null);
+      if (!member || isExempt(member, moduleCfg, config)) continue;
+      if (isRaid) {
+        try {
+          await member.ban({ reason });
+          punished.push(`<@${t.executorId}>: 🚫 đã ban (AI: raid)`);
+        } catch {
+          punished.push(`<@${t.executorId}>: không thể ban`);
+        }
+      } else {
+        const res = await punishWithHeat(guild, member, moduleCfg, reason);
+        punished.push(`<@${t.executorId}>: ${res.action}`);
+      }
+    }
+    const action =
+      punished.length > 0 ? punished.slice(0, 6).join("\n") : "chưa xác định được người dùng — chỉ ghi nhận";
+    if (isRaid) await maybeLockdown(guild, config);
+
+    await recordEvent(guild.id, {
+      module: "externalAppRaid",
+      executorId: targets[0]?.executorId ?? undefined,
+      executorName: targets[0]?.executorName ?? undefined,
+      action: `${action}${isRaid ? " (AI: raid)" : ""}`,
+      count,
+      windowSeconds: moduleCfg.windowSeconds,
+      threshold: moduleCfg.threshold,
+      punish: isRaid ? "ban" : moduleCfg.punish,
+    });
+
+    // Raid Intel: mẫu huấn luyện kèm AI verdict + săn nguồn cơn.
+    try {
+      const sourceHunt = await huntRaidSource(
+        guild,
+        config,
+        [],
+        targets
+          .filter((t) => t.executorId)
+          .map((t) => ({ id: t.executorId, username: t.executorName })),
+      );
+      await recordRaidSample(guild, config, {
+        module: "externalAppRaid",
+        count,
+        windowSeconds: moduleCfg.windowSeconds,
+        threshold: moduleCfg.threshold,
+        action,
+        punish: isRaid ? "ban" : moduleCfg.punish,
+        aiClassification: ai ? (isRaid ? "raid" : "individual") : undefined,
+        aiConfidence: ai?.confidence,
+        aiReason: ai?.reason,
+        lockdownTriggered: isLocked(guild.id),
+        sourceHunt,
+      });
+    } catch (e) {
+      console.error("[antinuke:externalAppRaid:sample]", e.message);
+    }
+
+    const embed = logEmbed({
+      title: `🚨 Anti Nuke/Raid: ${MODULE_LABELS.externalAppRaid}`,
+      description: `**${count}** ứng dụng ngoài được kết nối trong **${moduleCfg.windowSeconds} giây** (ngưỡng ${moduleCfg.threshold}).${isRaid ? `\n🤖 **AI xác nhận: RAID** — ${ai?.reason ?? ""}` : ""}`,
+      color: Colors.Red,
+      fields: [
+        {
+          name: "Kết quả xử lý",
+          value: action.slice(0, 1000),
+          inline: true,
+        },
+        { name: "Ứng dụng", value: profile.slice(0, 1000), inline: true },
+        { name: "Nguồn", value: "🛡️ Bot tự động phát hiện (anti nuke/raid)", inline: true },
+        { name: "Module", value: "`externalAppRaid`", inline: true },
+      ],
+      footer: "Protogon · Anti Nuke/Raid",
+    });
+    await sendLog(guild, config, embed);
   }
 
   async function handleAttributeEvent({ guild, module, eventType, targetId, describeTarget }) {
@@ -1340,6 +1522,11 @@ module.exports = function createAntiNuke(client, store, heat) {
     if (typeof client.on === "function" && AuditLogEvent.WebhookCreate !== undefined) {
       client.on("guildAuditLogEntryCreate", (entry, guild) => {
         void (async () => {
+          // Raid bằng ứng dụng ngoài (external app): xử lý riêng có AI nhận diện.
+          if (entry.action === AuditLogEvent.IntegrationCreate) {
+            await handleExternalApp(entry, guild);
+            return;
+          }
           const routed = await routeAuditEntry(entry, guild);
           if (!routed) return;
           await handleAuditEntry(entry, guild, routed.module, routed.describeTarget);

@@ -42,6 +42,7 @@ const MODULES = [
   "massNickname",
   "massEmoji",
   "massBotAdd",
+  "externalAppRaid",
   "massInviteCreate",
   "guildTamper",
   "spam",

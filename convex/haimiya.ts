@@ -256,3 +256,81 @@ Chuỗi hành vi gần đây:\n${args.recentActions || "(không có)"}`;
     }
   },
 });
+
+/**
+ * External App Guard — AI xác định xem chuỗi kết nối ứng dụng ngoài (external
+ * app / integration) vừa xảy ra có phải RAID không, dựa trên hồ sơ app + người
+ * dùng kết nối + làn sóng thành viên mới vào. Bot gọi best-effort khi vượt ngưỡng
+ * module externalAppRaid; AI chưa cấu hình → bot tự xử lý theo mặc định.
+ * Trả về { isRaid, confidence, reason, offline }.
+ */
+export const analyzeExternalApp = action({
+  args: {
+    guildId: v.string(),
+    guildName: v.optional(v.string()),
+    count: v.number(),
+    windowSeconds: v.number(),
+    threshold: v.number(),
+    appProfile: v.optional(v.string()),
+    recentJoins: v.optional(v.number()),
+    memberCount: v.optional(v.number()),
+  },
+  handler: async (_ctx, args) => {
+    const key =
+      process.env.SAMBANOVA_API_KEY ?? process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY;
+    if (!key) {
+      return { isRaid: null, confidence: 0, reason: "AI chưa cấu hình", offline: true };
+    }
+    const baseUrl = process.env.AI_BASE_URL ??
+      (process.env.SAMBANOVA_API_KEY ? "https://api.sambanova.ai/v1" : "https://api.openai.com/v1");
+    const model =
+      process.env.AI_MODEL ??
+      process.env.OPENAI_MODEL ??
+      (process.env.SAMBANOVA_API_KEY ? "Meta-Llama-3.3-70B-Instruct" : "gpt-4o-mini");
+    const system = `Bạn là chuyên gia an ninh Discord. "External app" là ứng dụng ngoài (ứng dụng mở rộng / integration) được người dùng cài đặt và kết nối vào server. Phân tích chuỗi sự kiện kết nối ứng dụng ngoài vừa xảy ra và xác định NGUỜI DÙNG của các app đó có đang RAID không:
+- isRaid=true: dấu hiệu tấn công phối hợp — nhiều người (đặc biệt là tài khoản mới/nghi sockpuppet) cùng lúc kết nối cùng một app để khai thác, app lạ xuất hiện ồ ạt, hoặc kết hợp làn sóng thành viên mới vào server.
+- isRaid=false: chỉ một vài người dùng/ứng dụng bình thường kết nối (vd mod thử app mới, app quen thuộc).
+- Trả null nếu chưa đủ thông tin để kết luận.
+Chỉ trả lời JSON thuần (không markdown): {"isRaid": true|false|null, "confidence": 0-1, "reason": "ngắn gọn tiếng Việt"}`;
+    const user = `Vụ: ${args.count} kết nối app ngoài trong ${args.windowSeconds}s (ngưỡng ${args.threshold}). Server: ${args.guildName ?? "?"} (${args.memberCount ?? "?"} thành viên). Thành viên mới gần đây: ${args.recentJoins ?? 0}.
+Hồ sơ kết nối:\n${args.appProfile || "(không có)"}`;
+    try {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user },
+          ],
+          max_tokens: 250,
+          temperature: 0.2,
+        }),
+      });
+      if (!res.ok) {
+        return { isRaid: null, confidence: 0, reason: `AI lỗi (${res.status})`, offline: true };
+      }
+      const data = (await res.json()) as {
+        choices?: { message?: { content?: string } }[];
+      };
+      const raw = data?.choices?.[0]?.message?.content ?? "";
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+      if (!parsed || (typeof parsed.isRaid !== "boolean" && parsed.isRaid !== null)) {
+        return { isRaid: null, confidence: 0, reason: "AI trả về không hợp lệ", offline: true };
+      }
+      return {
+        isRaid: parsed.isRaid,
+        confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0.5)),
+        reason: String(parsed.reason || "").slice(0, 300),
+        offline: false,
+      };
+    } catch {
+      return { isRaid: null, confidence: 0, reason: "AI không kết nối được", offline: true };
+    }
+  },
+});

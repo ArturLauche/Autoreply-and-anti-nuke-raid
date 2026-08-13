@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  AppWindow,
   Bot,
   ChevronDown,
   Crown,
@@ -62,6 +63,7 @@ const MODULE_ICONS: Record<string, typeof Gavel> = {
   massNickname: UserCog,
   massEmoji: Smile,
   massBotAdd: Bot,
+  externalAppRaid: AppWindow,
   massInviteCreate: Link2,
   guildTamper: Settings2,
   spam: MessageSquare,

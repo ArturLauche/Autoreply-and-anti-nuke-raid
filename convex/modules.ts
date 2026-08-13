@@ -153,6 +153,14 @@ export const ANTI_NUKE_MODULES = [
     heat: 20,
   },
   {
+    module: "externalAppRaid",
+    label: "Chống raid bằng ứng dụng ngoài (external app)",
+    threshold: 2,
+    windowSeconds: 15,
+    punish: "kick",
+    heat: 20,
+  },
+  {
     module: "massInviteCreate",
     label: "Chống tạo link mời hàng loạt (chuẩn bị raid)",
     threshold: 5,
