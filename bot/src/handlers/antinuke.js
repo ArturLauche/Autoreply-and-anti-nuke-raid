@@ -107,6 +107,49 @@ function moduleCfgOf(config, module) {
   return { module, enabled: true, ...d, whitelistRoles: [], actions: [d.punish] };
 }
 
+/**
+ * Dấu vân tay nội dung tin nhắn (text + embed: title/description/footer/fields) —
+ * bắt cả spam chỉ gửi embed hoặc kèm thay đổi nhỏ (vd timestamp) mà text trống.
+ */
+function messageFingerprint(msg) {
+  return [
+    msg.content || "",
+    ...(msg.embeds || []).map((e) =>
+      [
+        e.title,
+        e.description,
+        e.footer?.text,
+        ...(e.fields || []).map((f) => `${f.name}: ${f.value}`),
+      ]
+        .filter(Boolean)
+        .join(" | "),
+    ),
+  ]
+    .join("\n")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 500);
+}
+
+/**
+ * Tín hiệu spam của ỨNG DỤNG NGOÀI trong cửa sổ module:
+ *  1) Nội dung lặp giống hệt (kể cả embed) >= 2 lần → spam rõ ràng.
+ *  2) Vượt ngưỡng KÈM link mời Discord → quảng cáo server kiểu raid.
+ *  3) App gửi >= max(ngưỡng, 4) tin → flood, không cần nội dung trùng nhau.
+ * Bot quen thuộc gửi vài tin khác nhau liên tiếp không bị phạt nhầm.
+ */
+function isExternalAppSpam({ samples, currentFingerprint, count, threshold, hay }) {
+  const sameFingerprint = samples.filter((e) => e.fp && e.fp === currentFingerprint).length;
+  const hasInvite = /(discord\.(gg|com\/invite|app\.com\/invite)|discordapp\.com\/invite)/i.test(hay);
+  const floodCount = Math.max(threshold, 4);
+  return {
+    triggered: sameFingerprint >= 2 || (count >= threshold && hasInvite) || count >= floodCount,
+    sameFingerprint,
+    hasInvite,
+    floodCount,
+  };
+}
+
 module.exports = function createAntiNuke(client, store, heat) {
   /** Persist a punished event for the daily report. Fire-and-forget. */
   async function recordEvent(guildId, payload) {
@@ -778,47 +821,23 @@ module.exports = function createAntiNuke(client, store, heat) {
       (message.webhookId ? "webhook" : null) ||
       appId;
 
-    // Dấu vân tay nội dung: text + embed (title/description/footer/fields) — bắt cả
-    // spam chỉ gửi embed hoặc kèm thay đổi nhỏ (vd timestamp) mà text trống.
-    const fingerprintOf = (msg) =>
-      [
-        msg.content || "",
-        ...(msg.embeds || []).map((e) =>
-          [
-            e.title,
-            e.description,
-            e.footer?.text,
-            ...(e.fields || []).map((f) => `${f.name}: ${f.value}`),
-          ]
-            .filter(Boolean)
-            .join(" | "),
-        ),
-      ]
-        .join("\n")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 500);
-
     const now = Date.now();
     const key = `${message.guild.id}:${appId}`;
     const arr = appMsgSamples.get(key) ?? [];
-    const fp = fingerprintOf(message);
+    const fp = messageFingerprint(message);
     arr.push({ fp, content: message.content || "", ts: now, id: message.id, channelId: message.channel.id });
     const cutoff = now - moduleCfg.windowSeconds * 1000;
     const fresh = arr.filter((e) => e.ts >= cutoff);
     appMsgSamples.set(key, fresh);
 
-    // Tín hiệu spam của app trong cửa sổ:
-    //  1) Nội dung lặp giống hệt (kể cả embed) >= 2 lần → spam rõ ràng.
-    //  2) Vượt ngưỡng KÈM link mời Discord → quảng cáo server kiểu raid.
-    //  3) App gửi >= max(ngưỡng, 4) tin → flood, không cần nội dung trùng nhau.
-    // Bot quen thuộc gửi vài tin khác nhau liên tiếp không bị phạt nhầm.
-    const sameFingerprint = fresh.filter((e) => e.fp && e.fp === fp).length;
-    const count = fresh.length;
     const hay = `${message.content || ""} ${(message.embeds || []).map((e) => e.title || e.description || "").join(" ")}`;
-    const hasInvite = /(discord\.(gg|com\/invite|app\.com\/invite)|discordapp\.com\/invite)/i.test(hay);
-    const floodCount = Math.max(moduleCfg.threshold, 4);
-    const triggered = sameFingerprint >= 2 || (count >= moduleCfg.threshold && hasInvite) || count >= floodCount;
+    const { triggered, sameFingerprint } = isExternalAppSpam({
+      samples: fresh,
+      currentFingerprint: fp,
+      count: fresh.length,
+      threshold: moduleCfg.threshold,
+      hay,
+    });
     if (!triggered) return;
 
     appMsgSamples.delete(key); // reset sau khi xử lý
@@ -1846,3 +1865,5 @@ module.exports = function createAntiNuke(client, store, heat) {
 };
 
 module.exports.MODULE_LABELS = MODULE_LABELS;
+module.exports.messageFingerprint = messageFingerprint;
+module.exports.isExternalAppSpam = isExternalAppSpam;
