@@ -829,6 +829,7 @@ module.exports = function createAntiNuke(client, store, heat) {
     const cutoff = now - moduleCfg.windowSeconds * 1000;
     const fresh = arr.filter((e) => e.ts >= cutoff);
     appMsgSamples.set(key, fresh);
+    const count = fresh.length;
 
     const hay = `${message.content || ""} ${(message.embeds || []).map((e) => e.title || e.description || "").join(" ")}`;
     const { triggered, sameFingerprint } = isExternalAppSpam({

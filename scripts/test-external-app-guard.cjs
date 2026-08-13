@@ -12,25 +12,30 @@ function check(name, cond, detail) {
   }
 }
 
-// Mô phỏng đúng cách bot tích lũy mẫu trong cửa sổ 15s (threshold mặc định = 2).
+// Mô phỏng ĐÚNG quy trình caller trong handleExternalAppMessage của bot:
+// tích lũy mẫu { fp, ts } theo appId trong cửa sổ 15s, tính count = fresh.length
+// (caller PHẢI khai báo `const count = fresh.length;` — thiếu là lỗi ReferenceError
+// khi bot sắp chặn app, vụ từng xảy ra), rồi mới gọi isExternalAppSpam.
 function simulate(messages, threshold = 2, windowSeconds = 15) {
-  const samples = [];
+  const appMsgSamples = []; // giống Map appMsgSamples.get(key) của bot
   let result = null;
+  let count = 0;
   for (const m of messages) {
-    samples.push({ fp: messageFingerprint(m) });
+    appMsgSamples.push({ fp: messageFingerprint(m), ts: Date.now() });
     const now = Date.now();
     const cutoff = now - windowSeconds * 1000;
-    const fresh = samples.filter((e) => e.ts === undefined || e.ts >= cutoff);
+    const fresh = appMsgSamples.filter((e) => e.ts >= cutoff);
+    count = fresh.length; // contract bắt buộc trong handleExternalAppMessage
     result = isExternalAppSpam({
       samples: fresh,
       currentFingerprint: messageFingerprint(m),
-      count: fresh.length,
+      count,
       threshold,
       hay: `${m.content || ""} ${(m.embeds || []).map((e) => e.title || e.description || "").join(" ")}`,
     });
     if (result.triggered) break;
   }
-  return result;
+  return { ...result, callerCount: count };
 }
 
 console.log("1) Spam nội dung khác nhau từng tin (không invite) — trước đây KHÔNG phát hiện:");
@@ -72,6 +77,11 @@ check("KHÔNG kích hoạt", r?.triggered === false, JSON.stringify(r));
 console.log("\n8) Ngưỡng mod đặt cao (vd 5) — flood 4 tin không đủ:");
 r = simulate([{ content: "a" }, { content: "b" }, { content: "c" }, { content: "d" }], 5);
 check("KHÔNG kích hoạt", r?.triggered === false, JSON.stringify(r));
+
+console.log("\n9) Caller contract — count phải khớp fresh.length (chống tái phát ReferenceError):");
+r = simulate([{ content: "X" }, { content: "X" }]);
+check("callerCount là số > 0, không phải undefined", typeof r?.callerCount === "number" && r.callerCount > 0, JSON.stringify(r));
+check("callerCount khớp số tin trong cửa sổ", r?.callerCount === 2, JSON.stringify(r));
 
 console.log(`\nKết quả: ${pass} đúng / ${fail} sai`);
 process.exit(fail > 0 ? 1 : 0);
