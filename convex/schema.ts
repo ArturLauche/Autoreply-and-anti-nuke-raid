@@ -42,9 +42,12 @@ export default defineSchema({
     /** Backup server: cờ bot cần tạo backup. */
     backupRequested: v.optional(v.boolean()),
     backupPushToGithub: v.optional(v.boolean()),
+    /** Khóa chống lặp: bot nào claim được thì mới được chạy (2 phút). */
+    backupClaimedAt: v.optional(v.number()),
     /** Backup server: cờ bot cần khôi phục + id backup dùng để khôi phục. */
     restoreRequested: v.optional(v.boolean()),
     restoreBackupId: v.optional(v.id("guildBackups")),
+    restoreClaimedAt: v.optional(v.number()),
     /** Tự động backup: số ngày giữa 2 lần (2-30, 0 = tắt). */
     backupAutoDays: v.optional(v.number()),
     /** Lần backup thành công gần nhất (dùng cho lịch tự động). */

@@ -89,6 +89,7 @@ export const requestBackup = mutation({
     await ctx.db.patch(guild._id, {
       backupRequested: true,
       backupPushToGithub: !!pushToGithub,
+      backupClaimedAt: undefined,
       updatedAt: Date.now(),
     });
     return { ok: true };
@@ -125,6 +126,7 @@ export const requestRestore = mutation({
     await ctx.db.patch(guild._id, {
       restoreRequested: true,
       restoreBackupId: backupId,
+      restoreClaimedAt: undefined,
       updatedAt: Date.now(),
     });
     return { ok: true };

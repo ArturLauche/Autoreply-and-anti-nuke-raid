@@ -494,6 +494,7 @@ export const botSetBackupRequest = mutation({
     await ctx.db.patch(guild._id, {
       backupRequested: true,
       backupPushToGithub: !!pushToGithub,
+      backupClaimedAt: undefined,
       updatedAt: Date.now(),
     });
     return { ok: true };
@@ -517,8 +518,49 @@ export const botSetRestoreRequest = mutation({
     await ctx.db.patch(guild._id, {
       restoreRequested: true,
       restoreBackupId: backupId,
+      restoreClaimedAt: undefined,
       updatedAt: Date.now(),
     });
+    return { ok: true };
+  },
+});
+
+/**
+ * Bot giành quyền xử lý một yêu cầu backup/khôi phục (chống lặp).
+ * Chỉ bot claim THÀNH CÔNG mới được chạy; lượt quét khác/instance khác
+ * gọi tới trong 2 phút sẽ bị từ chối và bỏ qua, không tạo backup trùng.
+ */
+export const botClaimBackup = mutation({
+  args: {
+    guildId: v.string(),
+    kind: v.union(v.literal("backup"), v.literal("restore")),
+  },
+  handler: async (ctx, { guildId, kind }) => {
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) return { ok: false, reason: "no_guild" };
+    const now = Date.now();
+    if (kind === "backup") {
+      if (!guild.backupRequested) return { ok: false, reason: "no_request" };
+      if (
+        guild.backupClaimedAt !== undefined &&
+        now - guild.backupClaimedAt < 120_000
+      ) {
+        return { ok: false, reason: "in_flight" };
+      }
+      await ctx.db.patch(guild._id, { backupClaimedAt: now, updatedAt: now });
+      return { ok: true };
+    }
+    if (!guild.restoreRequested) return { ok: false, reason: "no_request" };
+    if (
+      guild.restoreClaimedAt !== undefined &&
+      now - guild.restoreClaimedAt < 120_000
+    ) {
+      return { ok: false, reason: "in_flight" };
+    }
+    await ctx.db.patch(guild._id, { restoreClaimedAt: now, updatedAt: now });
     return { ok: true };
   },
 });
@@ -539,9 +581,11 @@ export const botClearBackup = mutation({
     if (kind === "backup") {
       patch.backupRequested = false;
       patch.backupPushToGithub = false;
+      patch.backupClaimedAt = undefined;
     } else {
       patch.restoreRequested = false;
       patch.restoreBackupId = undefined;
+      patch.restoreClaimedAt = undefined;
     }
     await ctx.db.patch(guild._id, patch);
     return { ok: true };

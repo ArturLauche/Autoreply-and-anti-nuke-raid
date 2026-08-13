@@ -316,6 +316,26 @@ async function runRestore(client, store, guildId, backupJson, backupName) {
   console.log(`[backup:restore] ${guildId}: ${roleMap.size} roles, ${channelMap.size} channels`);
 }
 
+/**
+ * Chống lặp backup ngay trong process: guild đang được xử lý sẽ bị bỏ qua ở
+ * lượt quét tiếp theo (kể cả khi lượt quét 20s bị chồng lấn do GitHub chậm).
+ */
+const inFlight = new Set();
+
+/** Giành quyền xử lý trên Convex — chỉ ai claim được mới được chạy (chống trùng khi chạy 2 bot). */
+async function claim(client, store, guildId, kind) {
+  try {
+    const res = await store.client.mutation("bot_writes:botClaimBackup", {
+      guildId,
+      kind,
+    });
+    return !!res?.ok;
+  } catch (e) {
+    console.error(`[backup:claim] ${guildId}:`, e.message);
+    return false;
+  }
+}
+
 /** Vòng quét định kỳ: nhận yêu cầu backup / khôi phục từ dashboard. */
 async function pollBackups(client, store) {
   let pending;
@@ -327,6 +347,12 @@ async function pollBackups(client, store) {
   }
   if (!pending || pending.length === 0) return;
   for (const item of pending) {
+    const key = `${item.guildId}:${item.kind}`;
+    if (inFlight.has(key)) continue; // lượt quét trước đang xử lý — bỏ qua.
+    // Giành quyền: nếu bot khác/lượt quét khác đã giành thì bỏ qua (không lặp).
+    const won = await claim(client, store, item.guildId, item.kind);
+    if (!won) continue;
+    inFlight.add(key);
     try {
       if (item.kind === "backup") {
         await runBackup(client, store, item.guildId, !!item.pushToGithub);
@@ -335,13 +361,15 @@ async function pollBackups(client, store) {
       }
     } catch (e) {
       console.error(`[backup:${item.kind}] ${item.guildId}:`, e.message);
-      // Xóa cờ để không kẹt lặp lại mãi.
+      // Xóa cờ để không kẹt lặp lại mãi (bot sẽ retry sau khi claim hết hạn).
       await store.client
         .mutation("bot_writes:botClearBackup", {
           guildId: item.guildId,
           kind: item.kind,
         })
         .catch(() => {});
+    } finally {
+      inFlight.delete(key);
     }
   }
 }
