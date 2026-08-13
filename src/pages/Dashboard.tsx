@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import {
@@ -5,6 +6,7 @@ import {
   Loader2,
   LogOut,
   Plus,
+  RefreshCw,
   Server,
   ShieldAlert,
   Users,
@@ -18,9 +20,12 @@ import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
 import {
   buildBotInviteUrl,
+  clearDiscordAccess,
   clearSessionToken,
   discordAvatarUrl,
   discordGuildIconUrl,
+  fetchDiscordGuilds,
+  getDiscordAccessToken,
   getSessionToken,
 } from "../lib/discord";
 import { usePublicConfig } from "../lib/usePublicConfig";
@@ -32,7 +37,36 @@ export default function Dashboard() {
   const token = getSessionToken();
   const me = useQuery(api.sessions.me, { token }) as MeData | null | undefined;
   const logout = useMutation(api.sessions.logout);
+  const refreshGuilds = useMutation(api.sessions.refreshGuilds);
   const { clientId } = usePublicConfig();
+  const [refreshing, setRefreshing] = useState(false);
+
+  /** Làm mới danh sách server từ Discord (không cần đăng nhập lại). */
+  async function refreshFromDiscord() {
+    if (!clientId || !token) return;
+    try {
+      const accessToken = await getDiscordAccessToken(clientId);
+      if (!accessToken) return;
+      const guilds = await fetchDiscordGuilds(accessToken);
+      await refreshGuilds({
+        token,
+        guilds: guilds.map((g) => ({
+          id: g.id,
+          name: g.name,
+          icon: g.icon ?? undefined,
+          permissions: g.permissions,
+        })),
+      });
+    } catch {
+      // Token hết hạn / mạng lỗi — bỏ qua, danh sách vẫn dùng dữ liệu đã lưu.
+    }
+  }
+
+  // Khi mở dashboard: tự làm mới một lần để server mới mời bot hiện ra ngay.
+  useEffect(() => {
+    void refreshFromDiscord();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId, token]);
 
   if (me === undefined) {
     return (
@@ -46,7 +80,14 @@ export default function Dashboard() {
   async function handleLogout() {
     await logout({ token });
     clearSessionToken();
+    clearDiscordAccess();
     navigate("/");
+  }
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await refreshFromDiscord();
+    setRefreshing(false);
   }
 
   const avatar = discordAvatarUrl({ id: me.user.discordId, avatar: me.user.avatar });
@@ -162,13 +203,25 @@ export default function Dashboard() {
             <>
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="font-display text-lg font-semibold">Server của bạn</h2>
-                {clientId && (
-                  <a href={buildBotInviteUrl(clientId)} target="_blank" rel="noreferrer">
-                    <Button variant="secondary" size="sm">
-                      <Plus className="h-4 w-4" /> Thêm server
-                    </Button>
-                  </a>
-                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    title="Tải lại danh sách server (server mới mời bot sẽ hiện ra)"
+                  >
+                    <RefreshCw className={refreshing ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
+                    Tải lại
+                  </Button>
+                  {clientId && (
+                    <a href={buildBotInviteUrl(clientId)} target="_blank" rel="noreferrer">
+                      <Button variant="secondary" size="sm">
+                        <Plus className="h-4 w-4" /> Thêm server
+                      </Button>
+                    </a>
+                  )}
+                </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {managed.map((guild) => {

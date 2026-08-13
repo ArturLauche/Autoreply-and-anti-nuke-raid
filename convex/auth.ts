@@ -17,10 +17,28 @@ export async function getUserByToken(
 /** MANAGE_GUILD permission bit (Discord). */
 export const PERM_MANAGE_GUILD = 0x20;
 
-export function canManageGuild(
-  user: { discordId: string } | null,
-  guild: { managers: string[] } | null | undefined,
+/**
+ * True khi người dùng có quyền quản lý guild này.
+ * Chấp nhận cả: (1) đã được ghi trong guild.managers, hoặc (2) guild nằm trong
+ * manageableGuildIds — danh sách server mà Discord xác nhận người dùng có quyền
+ * Manage Server tại lần đăng nhập / làm mới gần nhất.
+ * Nhờ đó server mới mời bot (được bot đồng bộ sau đó) vẫn hiện trên dashboard
+ * mà người dùng không cần đăng nhập lại.
+ */
+export function guildAccessibleBy(
+  user: { discordId: string; manageableGuildIds?: string[] } | null,
+  guild: { discordId?: string; managers?: string[] } | null | undefined,
 ) {
   if (!user || !guild) return false;
-  return guild.managers.includes(user.discordId);
+  return (
+    (guild.managers ?? []).includes(user.discordId) ||
+    (user.manageableGuildIds ?? []).includes(guild.discordId ?? "")
+  );
+}
+
+export function canManageGuild(
+  user: { discordId: string; manageableGuildIds?: string[] } | null,
+  guild: { managers: string[]; discordId?: string } | null | undefined,
+) {
+  return guildAccessibleBy(user, guild);
 }

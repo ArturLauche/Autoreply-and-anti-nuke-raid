@@ -2,6 +2,7 @@ export const SESSION_TOKEN_KEY = "wio_session_token";
 export const OAUTH_VERIFIER_KEY = "wio_oauth_verifier";
 export const OAUTH_STATE_KEY = "wio_oauth_state";
 export const REMEMBER_LOGIN_KEY = "wio_remember_login";
+export const DISCORD_ACCESS_KEY = "wio_discord_access";
 
 /** Chỉ lưu đăng nhập tối đa 7 ngày khi bật "Lưu đăng nhập". */
 export const SESSION_EXPIRY_DAYS = 7;
@@ -126,7 +127,7 @@ export async function exchangeCode(
   clientId: string,
   code: string,
   verifier: string,
-): Promise<{ access_token: string }> {
+): Promise<{ access_token: string; refresh_token?: string; expires_in?: number }> {
   const body = new URLSearchParams({
     client_id: clientId,
     grant_type: "authorization_code",
@@ -141,6 +142,71 @@ export async function exchangeCode(
   });
   if (!res.ok) throw new Error(`Lỗi trao đổi mã OAuth (${res.status})`);
   return res.json();
+}
+
+interface StoredDiscordAccess {
+  access_token: string;
+  refresh_token?: string;
+  expires_at: number; // ms
+}
+
+/** Lưu access token OAuth để dashboard tự làm mới danh sách server (không cần đăng nhập lại). */
+export function storeDiscordAccess(access: {
+  access_token: string;
+  refresh_token?: string | null;
+  expires_in?: number;
+}): void {
+  const item: StoredDiscordAccess = {
+    access_token: access.access_token,
+    refresh_token: access.refresh_token ?? undefined,
+    expires_at: Date.now() + (access.expires_in ? access.expires_in * 1000 : 7 * 86400_000),
+  };
+  localStorage.setItem(DISCORD_ACCESS_KEY, JSON.stringify(item));
+}
+
+export function clearDiscordAccess(): void {
+  localStorage.removeItem(DISCORD_ACCESS_KEY);
+}
+
+function readStoredDiscordAccess(): StoredDiscordAccess | null {
+  const raw = localStorage.getItem(DISCORD_ACCESS_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as StoredDiscordAccess;
+    if (parsed && typeof parsed.access_token === "string") return parsed;
+  } catch {
+    // dữ liệu cũ/hỏng — bỏ qua
+  }
+  return null;
+}
+
+/**
+ * Lấy access token Discord còn hạn; nếu hết hạn thì thử refresh bằng
+ * refresh_token. Trả về null khi không có token hợp lệ (cần đăng nhập lại).
+ */
+export async function getDiscordAccessToken(clientId: string): Promise<string | null> {
+  const stored = readStoredDiscordAccess();
+  if (!stored) return null;
+  if (Date.now() < stored.expires_at - 60_000) return stored.access_token;
+  if (!stored.refresh_token) return null;
+  const body = new URLSearchParams({
+    client_id: clientId,
+    grant_type: "refresh_token",
+    refresh_token: stored.refresh_token,
+    scope: "identify guilds",
+  });
+  const res = await fetch(`${DISCORD_API}/oauth2/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  if (!res.ok) {
+    clearDiscordAccess();
+    return null;
+  }
+  const data = await res.json();
+  storeDiscordAccess(data);
+  return data.access_token ?? null;
 }
 
 export interface DiscordUser {

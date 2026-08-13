@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v, type GenericId } from "convex/values";
-import { getUserByToken, PERM_MANAGE_GUILD } from "./auth";
+import { getUserByToken, PERM_MANAGE_GUILD, guildAccessibleBy } from "./auth";
 
 export const login = mutation({
   args: {
@@ -89,6 +89,51 @@ export const logout = mutation({
   },
 });
 
+/**
+ * Làm mới quyền quản lý server từ danh sách Discord mới nhất (gọi từ dashboard
+ * bằng access token OAuth đã lưu — không cần đăng nhập lại). Cập nhật
+ * manageableGuildIds của người dùng và ghi họ vào managers của các guild đã
+ * được bot đồng bộ, để server mới mời bot hiện ra ngay lập tức.
+ */
+export const refreshGuilds = mutation({
+  args: {
+    token: v.string(),
+    guilds: v.array(
+      v.object({
+        id: v.string(),
+        name: v.string(),
+        icon: v.optional(v.string()),
+        permissions: v.string(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const user = await getUserByToken(ctx, args.token);
+    if (!user) return { ok: false, reason: "not_logged_in" };
+
+    const manageable = args.guilds
+      .filter((g) => (BigInt(g.permissions) & BigInt(PERM_MANAGE_GUILD)) !== 0n)
+      .map((g) => g.id);
+
+    await ctx.db.patch(user._id, { manageableGuildIds: manageable });
+
+    // Ghi người dùng vào managers của mọi guild họ quản lý đã có trên Convex.
+    for (const guildId of manageable) {
+      const guild = await ctx.db
+        .query("guilds")
+        .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+        .first();
+      if (guild && !guild.managers.includes(user.discordId)) {
+        await ctx.db.patch(guild._id, {
+          managers: [...guild.managers, user.discordId],
+        });
+      }
+    }
+
+    return { ok: true, manageableCount: manageable.length };
+  },
+});
+
 export const me = query({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
@@ -96,7 +141,7 @@ export const me = query({
     if (!user) return null;
     const allGuilds = await ctx.db.query("guilds").collect();
     const guilds = allGuilds
-      .filter((g) => g.managers.includes(user.discordId))
+      .filter((g) => guildAccessibleBy(user, g))
       .map((g) => ({
         discordId: g.discordId,
         name: g.name,

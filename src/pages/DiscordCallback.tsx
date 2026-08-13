@@ -13,6 +13,7 @@ import {
   fetchDiscordUser,
   newSessionToken,
   setSessionToken,
+  storeDiscordAccess,
 } from "../lib/discord";
 
 export default function DiscordCallback() {
@@ -49,7 +50,10 @@ export default function DiscordCallback() {
         return;
       }
       try {
-        const { access_token } = await exchangeCode(clientId, code, verifier);
+        const oauth = await exchangeCode(clientId, code, verifier);
+        const { access_token } = oauth;
+        // Lưu access token để dashboard tự làm mới danh sách server sau này.
+        storeDiscordAccess(oauth);
         const [user, guilds] = await Promise.all([
           fetchDiscordUser(access_token),
           fetchDiscordGuilds(access_token),

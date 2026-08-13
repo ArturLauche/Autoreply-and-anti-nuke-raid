@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { getUserByToken, canManageGuild } from "./auth";
+import { getUserByToken, canManageGuild, guildAccessibleBy } from "./auth";
 import {
   ANTI_NUKE_MODULES,
   HEAT_DEFAULTS,
@@ -38,7 +38,7 @@ export const listMine = query({
     if (!user) return null;
     const all = await ctx.db.query("guilds").collect();
     return all
-      .filter((g) => g.managers.includes(user.discordId))
+      .filter((g) => guildAccessibleBy(user, g))
       .map((g) => ({
         discordId: g.discordId,
         name: g.name,
