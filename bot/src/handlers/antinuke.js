@@ -122,6 +122,7 @@ module.exports = function createAntiNuke(client, store, heat) {
   const patternBuckets = new Map(); // `${guildId}:${userId}:${pattern}` -> [timestamps]
   const recentMessages = new Map(); // `${guildId}:${userId}` -> [{content, ts}] (mẫu cho AI)
   const appEvents = new Map(); // guildId -> [{ts, appName, executorId, executorName}] (external app)
+  const appMsgSamples = new Map(); // `${guildId}:${appId}` -> [{content, ts, id, channelId}] (spam message từ app)
   const lastConfigs = new Map(); // guildId -> config (đã đọc gần nhất)
 
   function record(guildId, module, cfg) {
@@ -157,6 +158,17 @@ module.exports = function createAntiNuke(client, store, heat) {
       }
       const first = fetched.entries.first();
       return first ? first.executor : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Xác định người dùng đã TẠO webhook (audit log WebhookCreate) — để phạt đúng người kết nối app. */
+  async function webhookCreator(guild, webhookId) {
+    try {
+      const fetched = await guild.fetchAuditLogs({ type: AuditLogEvent.WebhookCreate, limit: 10 });
+      const entry = fetched.entries.find((e) => e.target?.id === webhookId);
+      return entry?.executor ?? null;
     } catch {
       return null;
     }
@@ -220,6 +232,16 @@ module.exports = function createAntiNuke(client, store, heat) {
       const fresh = arr.filter((e) => e.ts >= stale);
       if (fresh.length === 0) appEvents.delete(guildId);
       else appEvents.set(guildId, fresh);
+    }
+    for (const [key, arr] of appMsgSamples) {
+      const guildId = key.split(":")[0];
+      if (!live.has(guildId)) {
+        appMsgSamples.delete(key);
+        continue;
+      }
+      const fresh = arr.filter((e) => e.ts >= stale);
+      if (fresh.length === 0) appMsgSamples.delete(key);
+      else appMsgSamples.set(key, fresh);
     }
     for (const [guildId] of lastConfigs) {
       if (!live.has(guildId)) lastConfigs.delete(guildId);
@@ -678,9 +700,11 @@ module.exports = function createAntiNuke(client, store, heat) {
         guild,
         config,
         [],
-        targets
-          .filter((t) => t.executorId)
-          .map((t) => ({ id: t.executorId, username: t.executorName })),
+        // Chỉ săn nguồn cơn khi AI xác nhận raid — tránh ban nhầm người dùng
+        // kết nối app bình thường khi AI kết luận "individual".
+        isRaid
+          ? targets.filter((t) => t.executorId).map((t) => ({ id: t.executorId, username: t.executorName }))
+          : [],
       );
       await recordRaidSample(guild, config, {
         module: "externalAppRaid",
@@ -718,6 +742,251 @@ module.exports = function createAntiNuke(client, store, heat) {
       footer: "Protogon · Anti Nuke/Raid",
     });
     await sendLog(guild, config, embed);
+  }
+
+  /**
+   * External App Guard (tầng tin nhắn) — bắt SPAM do chính ứng dụng ngoài gửi vào
+   * server (bot lạ / app qua webhook), không cần chờ audit log IntegrationCreate.
+   * Phát hiện theo 3 tín hiệu: nội dung lặp giống hệt (kể cả chỉ gửi embed), số tin
+   * vượt ngưỡng KÈM link mời Discord, hoặc app gửi quá nhiều tin trong cửa sổ (flood).
+   * Xử lý: xóa tin + phạt bot user theo cấu hình / xóa webhook + truy tìm người tạo
+   * webhook (audit log) để phạt đúng người dùng đang raid + AI nhận diện raid (ban + lockdown).
+   */
+  async function handleExternalAppMessage(message) {
+    if (!message.guild || message.guild.available === false) return;
+    if (message.channel.isDMBased?.()) return;
+    const me = client.user?.id;
+    if (!me || message.author?.id === me) return;
+    // Chỉ xử lý tin đến từ ỨNG DỤNG ngoài: bot khác / webhook. Lệnh app do người
+    // dùng bấm có author là người thật → bỏ qua (module spam dành cho người dùng lo).
+    const isBot = message.author?.bot === true;
+    const isWebhook = !!message.webhookId;
+    if (!isBot && !isWebhook) return;
+
+    const config = await store.getConfig(message.guild.id);
+    if (!config || !config.antinukeEnabled) return;
+    lastConfigs.set(message.guild.id, config);
+    const moduleCfg = moduleCfgOf(config, "externalAppRaid");
+    if (!moduleCfg || !moduleCfg.enabled) return;
+
+    // Định danh app: ưu tiên applicationId (app) > webhookId (webhook) > bot user id.
+    const appId = message.applicationId || message.webhookId || message.author.id;
+    if ((config?.whitelistUsers || []).includes(appId)) return;
+    if ((config?.whitelistUsers || []).includes(message.author.id)) return;
+    const appName =
+      message.author?.username ||
+      (message.webhookId ? "webhook" : null) ||
+      appId;
+
+    // Dấu vân tay nội dung: text + embed (title/description/footer/fields) — bắt cả
+    // spam chỉ gửi embed hoặc kèm thay đổi nhỏ (vd timestamp) mà text trống.
+    const fingerprintOf = (msg) =>
+      [
+        msg.content || "",
+        ...(msg.embeds || []).map((e) =>
+          [
+            e.title,
+            e.description,
+            e.footer?.text,
+            ...(e.fields || []).map((f) => `${f.name}: ${f.value}`),
+          ]
+            .filter(Boolean)
+            .join(" | "),
+        ),
+      ]
+        .join("\n")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 500);
+
+    const now = Date.now();
+    const key = `${message.guild.id}:${appId}`;
+    const arr = appMsgSamples.get(key) ?? [];
+    const fp = fingerprintOf(message);
+    arr.push({ fp, content: message.content || "", ts: now, id: message.id, channelId: message.channel.id });
+    const cutoff = now - moduleCfg.windowSeconds * 1000;
+    const fresh = arr.filter((e) => e.ts >= cutoff);
+    appMsgSamples.set(key, fresh);
+
+    // Tín hiệu spam của app trong cửa sổ:
+    //  1) Nội dung lặp giống hệt (kể cả embed) >= 2 lần → spam rõ ràng.
+    //  2) Vượt ngưỡng KÈM link mời Discord → quảng cáo server kiểu raid.
+    //  3) App gửi >= max(ngưỡng, 4) tin → flood, không cần nội dung trùng nhau.
+    // Bot quen thuộc gửi vài tin khác nhau liên tiếp không bị phạt nhầm.
+    const sameFingerprint = fresh.filter((e) => e.fp && e.fp === fp).length;
+    const count = fresh.length;
+    const hay = `${message.content || ""} ${(message.embeds || []).map((e) => e.title || e.description || "").join(" ")}`;
+    const hasInvite = /(discord\.(gg|com\/invite|app\.com\/invite)|discordapp\.com\/invite)/i.test(hay);
+    const floodCount = Math.max(moduleCfg.threshold, 4);
+    const triggered = sameFingerprint >= 2 || (count >= moduleCfg.threshold && hasInvite) || count >= floodCount;
+    if (!triggered) return;
+
+    appMsgSamples.delete(key); // reset sau khi xử lý
+    const samples = fresh.slice(-8).map((e) => (e.fp || e.content || "").slice(0, 200));
+    const profile = `${appName}${isWebhook ? " (webhook)" : " (bot)"}:\n${samples.map((s, i) => `${i + 1}. ${s}`).join("\n")}`;
+    const ai = await aiAnalyzeExternalApp(
+      message.guild,
+      count,
+      moduleCfg.windowSeconds,
+      moduleCfg.threshold,
+      profile,
+      joiners.get(message.guild.id)?.length ?? 0,
+    );
+    const isRaid = ai?.isRaid === true && (ai?.confidence ?? 0) >= 0.6;
+    const reason = `[Protogon AntiNuke] ${MODULE_LABELS.externalAppRaid}: app "${appName}" gửi ${count} tin (${sameFingerprint} tin lặp nội dung) trong ${moduleCfg.windowSeconds}s (ngưỡng ${moduleCfg.threshold})${isRaid ? ` — AI: raid (${ai?.reason ?? ""})` : ""}`;
+
+    let action = "đã ghi nhận";
+    const punished = [];
+    const punishedUsers = [];
+    const apps = [{ appName: String(appName).slice(0, 60), executorName: undefined, executorId: appId }];
+
+    // 1) Dọn tin nhắn của app trong kênh này (xóa tin phát hiện + purge theo author).
+    const cleanup = await cleanupMessages({
+      guild: message.guild,
+      channel: message.channel,
+      userId: message.author.id,
+      actions: ["deleteMessages", "purgeMessages"],
+      triggerMessage: message,
+    });
+    if (cleanup) action = cleanup;
+
+    let responsibleId;
+    let responsibleName;
+    // 2) Nếu app là BOT user trong server → phạt theo cấu hình (kick mặc định; AI raid → ban).
+    const member = isBot ? await message.guild.members.fetch(message.author.id).catch(() => null) : null;
+    if (member && !isExempt(member, moduleCfg, config)) {
+      let outcome;
+      let actionLabel;
+      if (isRaid) {
+        try {
+          await member.ban({ reason });
+          outcome = "🚫 đã ban (AI: raid)";
+          actionLabel = "ban";
+        } catch {
+          outcome = "không thể ban";
+          actionLabel = "ban thất bại";
+        }
+      } else {
+        const res = await punishWithHeat(message.guild, member, moduleCfg, reason);
+        outcome = res.action;
+        actionLabel = res.chosen ?? "xử lý";
+      }
+      punished.push(`<@${member.id}>: ${outcome}`);
+      punishedUsers.push({
+        userId: member.id,
+        username: member.user?.username ?? undefined,
+        action: String(actionLabel).slice(0, 40),
+      });
+      action = punished.join("\n");
+    } else if (isWebhook) {
+      // 3) App chỉ qua webhook (không có bot user) → xóa webhook để chặn app, rồi
+      //    truy tìm người tạo webhook (audit log) để phạt đúng người dùng đang raid.
+      try {
+        const wh = await message.channel.fetchWebhooks();
+        const target = wh.find((w) => w.id === message.webhookId);
+        if (target) {
+          await target.delete(reason);
+          action = `${action} · đã xóa webhook của app`;
+        }
+        const creator = await webhookCreator(message.guild, message.webhookId);
+        if (creator && creator.id !== me) {
+          responsibleId = creator.id;
+          responsibleName = creator.username;
+          const cm = await message.guild.members.fetch(creator.id).catch(() => null);
+          if (cm && !isExempt(cm, moduleCfg, config)) {
+            let outcome;
+            let actionLabel;
+            if (isRaid) {
+              try {
+                await cm.ban({ reason });
+                outcome = "🚫 đã ban người dùng kết nối app (AI: raid)";
+                actionLabel = "ban";
+              } catch {
+                outcome = "không thể ban người dùng kết nối app";
+                actionLabel = "ban thất bại";
+              }
+            } else {
+              const res = await punishWithHeat(message.guild, cm, moduleCfg, reason);
+              outcome = res.action;
+              actionLabel = res.chosen ?? "xử lý";
+            }
+            punished.push(`<@${cm.id}> (người dùng app): ${outcome}`);
+            punishedUsers.push({
+              userId: cm.id,
+              username: cm.user?.username ?? undefined,
+              action: String(actionLabel).slice(0, 40),
+            });
+            action = punished.join("\n");
+          }
+        }
+      } catch {
+        // thiếu quyền Manage Webhooks — bỏ qua
+      }
+    }
+    if (isRaid) await maybeLockdown(message.guild, config);
+
+    await recordEvent(message.guild.id, {
+      module: "externalAppRaid",
+      executorId: responsibleId ?? appId,
+      executorName: responsibleName ?? appName,
+      action: `${action}${isRaid ? " (AI: raid)" : ""}`.slice(0, 900),
+      count,
+      windowSeconds: moduleCfg.windowSeconds,
+      threshold: moduleCfg.threshold,
+      punish: isRaid ? "ban" : moduleCfg.punish,
+    });
+
+    // Raid Intel: mẫu huấn luyện kèm AI verdict + săn nguồn cơn.
+    try {
+      const sourceHunt = await huntRaidSource(
+        message.guild,
+        config,
+        [],
+        // Chỉ săn nguồn cơn khi AI xác nhận raid — tránh ban nhầm người dùng
+        // app bình thường khi AI kết luận "individual".
+        isRaid && responsibleId
+          ? [{ id: responsibleId, username: responsibleName }]
+          : isRaid && isBot && member
+            ? [{ id: member.id, username: member.user?.username }]
+            : [],
+      );
+      await recordRaidSample(message.guild, config, {
+        module: "externalAppRaid",
+        count,
+        windowSeconds: moduleCfg.windowSeconds,
+        threshold: moduleCfg.threshold,
+        action,
+        punish: isRaid ? "ban" : moduleCfg.punish,
+        aiClassification: ai ? (isRaid ? "raid" : "individual") : undefined,
+        aiConfidence: ai?.confidence,
+        aiReason: ai?.reason,
+        lockdownTriggered: isLocked(message.guild.id),
+        sourceHunt,
+        apps,
+        punished: punishedUsers,
+      });
+    } catch (e) {
+      console.error("[antinuke:externalAppRaid:msg:sample]", e.message);
+    }
+
+    const embed = logEmbed({
+      title: `🚨 Anti Nuke/Raid: ${MODULE_LABELS.externalAppRaid}`,
+      description: `Ứng dụng ngoài **${appName}** gửi **${count} tin** (${sameFingerprint} tin lặp nội dung) trong **${moduleCfg.windowSeconds} giây** (ngưỡng ${moduleCfg.threshold}).${isRaid ? `\n🤖 **AI xác nhận: RAID** — ${ai?.reason ?? ""}` : ""}`,
+      color: Colors.Red,
+      fields: [
+        {
+          name: "Kết quả xử lý",
+          value: (action || "đã ghi nhận").slice(0, 1000),
+          inline: true,
+        },
+        { name: "Ứng dụng", value: `${appName} (\`${appId}\`)`, inline: true },
+        { name: "Kênh", value: `<#${message.channel.id}>`, inline: true },
+        { name: "Nguồn", value: "🛡️ Bot tự động phát hiện (anti nuke/raid)", inline: true },
+        { name: "Module", value: "`externalAppRaid`", inline: true },
+      ],
+      footer: "Protogon · Anti Nuke/Raid",
+    });
+    await sendLog(message.guild, config, embed);
   }
 
   async function handleAttributeEvent({ guild, module, eventType, targetId, describeTarget }) {
@@ -917,6 +1186,12 @@ module.exports = function createAntiNuke(client, store, heat) {
    */
   async function handleMessagePatterns(message) {
     if (!message.guild) return;
+    // External App Guard (tầng tin nhắn): tin từ bot lạ / webhook / app command
+    // không lọt vào các module spam dành cho người dùng → xử lý riêng.
+    if (message.author?.bot || message.webhookId || message.applicationId) {
+      await handleExternalAppMessage(message);
+      return;
+    }
     if (message.author.bot) return;
     if (message.channel.isDMBased?.()) return;
     const content = message.content || "";
