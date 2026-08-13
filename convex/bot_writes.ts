@@ -604,7 +604,6 @@ export const botRestoreSettings = mutation({
     adminRoles: v.optional(v.array(v.string())),
     logChannelId: v.optional(v.union(v.string(), v.null())),
     modLogChannelId: v.optional(v.union(v.string(), v.null())),
-    autoModLogChannelId: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const guild = await ctx.db
@@ -621,8 +620,6 @@ export const botRestoreSettings = mutation({
     if (args.adminRoles !== undefined) patch.adminRoles = args.adminRoles.slice(0, 50);
     if (args.logChannelId !== undefined) patch.logChannelId = args.logChannelId ?? undefined;
     if (args.modLogChannelId !== undefined) patch.modLogChannelId = args.modLogChannelId ?? undefined;
-    if (args.autoModLogChannelId !== undefined)
-      patch.autoModLogChannelId = args.autoModLogChannelId ?? undefined;
     await ctx.db.patch(guild._id, patch);
     return { ok: true };
   },
@@ -642,6 +639,23 @@ export const botRecordModAction = mutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
+    // Số case tăng dần của server (kiểu Carl-bot): bắt đầu từ số case đã có nếu chưa ghi.
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", args.guildId))
+      .first();
+    let counter = guild?.modCaseCounter ?? 0;
+    if (guild?.modCaseCounter === undefined) {
+      const existing = await ctx.db
+        .query("modActions")
+        .withIndex("by_guildId", (q) => q.eq("guildId", args.guildId))
+        .collect();
+      counter = existing.length;
+    }
+    const caseNumber = counter + 1;
+    if (guild) {
+      await ctx.db.patch(guild._id, { modCaseCounter: caseNumber, updatedAt: now });
+    }
     await ctx.db.insert("modActions", {
       guildId: args.guildId,
       action: args.action.slice(0, 30),
@@ -651,6 +665,7 @@ export const botRecordModAction = mutation({
       executorName: args.executorName ? args.executorName.slice(0, 80) : undefined,
       reason: args.reason ? args.reason.slice(0, 500) : undefined,
       details: args.details ? args.details.slice(0, 200) : undefined,
+      caseNumber,
       createdAt: now,
     });
     const extras = await ctx.db
@@ -662,6 +677,6 @@ export const botRecordModAction = mutation({
       .slice(100)
       .map((r) => r._id);
     for (const id of drop) await ctx.db.delete(id);
-    return { ok: true };
+    return { ok: true, caseNumber };
   },
 });

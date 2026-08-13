@@ -109,10 +109,8 @@ export interface GuildData {
     memberCount: number | null;
     prefix: string;
     logChannelId: string | null;
-    /** Kênh log hành động mod (ban/timeout/kick/warn + ngược lại, xóa tin). */
+    /** Kênh log moderation — GỘP CHUNG auto-mod + lệnh mod thủ công (kiểu Carl-bot: Offender / Reason / Responsible moderator). */
     modLogChannelId: string | null;
-    /** Kênh log auto-mod nội dung (badword, invite, malware, mention, attachment, spam, massMessage, blankNoise). */
-    autoModLogChannelId: string | null;
     /** Kênh gửi thông báo sau khi bot trừng phạt thành viên (Moderation). */
     punishNoticeChannelId: string | null;
     /** Mức chi tiết thông báo theo từng hành động ban/timeout/kick/warn. */
@@ -197,6 +195,8 @@ export interface ModAction {
   executorName: string | null;
   reason: string | null;
   details: string | null;
+  /** Số case tăng dần của server (kiểu Carl-bot, ví dụ "warn | case 30"). */
+  caseNumber: number | null;
   createdAt: number;
 }
 

@@ -1,6 +1,7 @@
-const { EmbedBuilder, Colors, PermissionFlagsBits, time } = require("discord.js");
-const { canManageWithConfig, sendLog, sendModLog } = require("../util");
+const { PermissionFlagsBits } = require("discord.js");
+const { canManageWithConfig } = require("../util");
 const { sendPunishNotice } = require("../punishNotice");
+const { sendCaseLog, CASE_LABEL } = require("../caseLog");
 
 /** Phân tích chuỗi thời lượng: "10m", "2h", "1d", "30" (mặc định = phút). */
 function parseDuration(input) {
@@ -30,36 +31,23 @@ function needPerm(channel) {
 }
 
 /**
- * Lệnh thủ công có bắt buộc lý do hay không — theo cấu hình Moderation trên web:
- * mức "reason" (Server + hành động + lý do) hoặc "full" (… + moderator) thì mod
- * PHẢI ghi lý do khi dùng lệnh ban/timeout/kick/warn.
+ * Ghi log hành động mod THỦ CÔNG (ban/timeout/kick/warn + gỡ hình phạt) kiểu
+ * Carl-bot vào kênh log moderation (modLogChannelId, mặc định kênh log chung):
+ * ghi bảng hình phạt TRƯỚC để lấy số case, rồi gửi embed
+ * "⏱️ Timeout | case N" với Offender / Reason / Responsible moderator.
  */
-function reasonRequired(guildConfig, punishType) {
-  const level = guildConfig?.punishNotice?.[punishType] ?? "none";
-  return level === "reason" || level === "full";
-}
-
-/** Ghi log hành động mod vào kênh log (kèm lý do + người thực hiện). */
-async function logModAction(guild, guildConfig, { action, color, target, executor, reason, extra = [] }, store) {
-  const embed = new EmbedBuilder()
-    .setColor(color)
-    .setTitle(action)
-    .setTimestamp()
-    .addFields(
-      { name: "Thành viên", value: target ? `${target} (\`${target.id}\`)` : "—", inline: true },
-      { name: "Nguồn", value: "🛠️ Lệnh thủ công (mod/owner)", inline: true },
-      ...extra,
-      { name: "Lý do", value: reason || "Không có", inline: false },
-    )
-    .setFooter({ text: "Protogon · Lệnh Mod" });
-  // Log hành động mod tới kênh modLogChannelId (hoặc kênh log chung nếu chưa đặt).
-  await sendModLog(guild, guildConfig, embed);
-  // Ghi vào bảng hình phạt trên dashboard (nếu có store).
+async function logModAction(guild, guildConfig, { actionKey, target, executor, reason, extra = [] }, store) {
+  // Ghi vào bảng hình phạt trên dashboard (nếu có store) → lấy số case.
+  let caseNumber;
   if (store) {
     try {
-      await store.client.mutation("bot_writes:botRecordModAction", {
+      const rec = await store.client.mutation("bot_writes:botRecordModAction", {
         guildId: guild.id,
-        action: action.replace(/[^\p{L}\p{N}\s]/gu, "").trim().slice(0, 20) || action,
+        action:
+          (CASE_LABEL[actionKey] || actionKey)
+            .replace(/[^\p{L}\p{N}\s]/gu, "")
+            .trim()
+            .slice(0, 20) || actionKey,
         targetId: target?.id ?? undefined,
         targetName: target?.username ?? undefined,
         executorId: executor?.id ?? undefined,
@@ -67,9 +55,24 @@ async function logModAction(guild, guildConfig, { action, color, target, executo
         reason: reason || undefined,
         details: extra.map((f) => `${f.name}: ${f.value}`).join(" · ").slice(0, 200) || undefined,
       });
+      caseNumber = rec?.caseNumber;
     } catch (e) {
       console.error(`[modTools:record] ${guild.id}:`, e.message);
     }
+  }
+  try {
+    await sendCaseLog({
+      guild,
+      guildConfig,
+      action: actionKey,
+      caseNumber,
+      offender: target,
+      reason,
+      executor,
+      extraDescription: extra.map((f) => `**${f.name}:** ${f.value}`),
+    });
+  } catch (e) {
+    console.error(`[modTools:log] ${guild.id}:`, e.message);
   }
 }
 
@@ -88,15 +91,11 @@ async function timeoutMember({ guild, member, executor, minutes, reason, guildCo
     guild,
     guildConfig,
     {
-      action: "⏱️ Timeout",
-      color: Colors.Orange,
+      actionKey: "timeout",
       target: member.user,
       executor,
       reason,
-      extra: [
-        { name: "Thời lượng", value: formatDuration(minutes), inline: true },
-        { name: "Người thực hiện", value: `${executor} (\`${executor.id}\`)`, inline: true },
-      ],
+      extra: [{ name: "Thời lượng", value: formatDuration(minutes) }],
     },
     store,
   );
@@ -117,12 +116,10 @@ async function kickMember({ guild, member, executor, reason, guildConfig, store 
     guild,
     guildConfig,
     {
-      action: "👢 Kick",
-      color: Colors.Red,
+      actionKey: "kick",
       target: member.user,
       executor,
       reason,
-      extra: [{ name: "Người thực hiện", value: `${executor} (\`${executor.id}\`)`, inline: true }],
     },
     store,
   );
@@ -144,15 +141,11 @@ async function banMember({ guild, member, executor, reason, deleteDays, guildCon
     guild,
     guildConfig,
     {
-      action: "🚫 Ban",
-      color: Colors.Red,
+      actionKey: "ban",
       target: member.user,
       executor,
       reason,
-      extra: [
-        { name: "Xóa tin nhắn", value: deleteDays ? `${deleteDays} ngày` : "Không", inline: true },
-        { name: "Người thực hiện", value: `${executor} (\`${executor.id}\`)`, inline: true },
-      ],
+      extra: [{ name: "Xóa tin nhắn", value: deleteDays ? `${deleteDays} ngày` : "Không" }],
     },
     store,
   );
@@ -165,12 +158,10 @@ async function untimeoutMember({ guild, member, executor, reason, guildConfig, s
     guild,
     guildConfig,
     {
-      action: "🔓 Gỡ timeout",
-      color: Colors.Green,
+      actionKey: "untimeout",
       target: member.user,
       executor,
       reason,
-      extra: [{ name: "Người thực hiện", value: `${executor} (\`${executor.id}\`)`, inline: true }],
     },
     store,
   );
@@ -183,12 +174,10 @@ async function unbanMember({ guild, userId, executor, reason, guildConfig, store
     guild,
     guildConfig,
     {
-      action: "🔓 Gỡ ban",
-      color: Colors.Green,
+      actionKey: "unban",
       target: { id: userId, username: userId },
       executor,
       reason,
-      extra: [{ name: "Người thực hiện", value: `${executor} (\`${executor.id}\`)`, inline: true }],
     },
     store,
   );
@@ -201,12 +190,10 @@ async function unwarnMember({ guild, userId, heat, executor, reason, guildConfig
     guild,
     guildConfig,
     {
-      action: "🧹 Gỡ warn",
-      color: Colors.Green,
+      actionKey: "unwarn",
       target: { id: userId, username: userId },
       executor,
       reason,
-      extra: [{ name: "Người thực hiện", value: `${executor} (\`${executor.id}\`)`, inline: true }],
     },
     store,
   );
@@ -216,21 +203,11 @@ async function unwarnMember({ guild, userId, heat, executor, reason, guildConfig
 async function purgeChannel(channel, count, executor, guildConfig, store) {
   const n = Math.max(1, Math.min(100, Math.floor(count)));
   const deleted = await channel.bulkDelete(n, true);
-  const embed = new EmbedBuilder()
-    .setColor(Colors.Blue)
-    .setTitle("🧹 Purge")
-    .setTimestamp()
-    .addFields(
-      { name: "Kênh", value: `${channel} (\`${channel.id}\`)`, inline: true },
-      { name: "Số tin nhắn", value: `${deleted.size}`, inline: true },
-      { name: "Nguồn", value: "🛠️ Lệnh thủ công (mod/owner)", inline: true },
-      { name: "Người thực hiện", value: `${executor} (\`${executor.id}\`)`, inline: true },
-    )
-    .setFooter({ text: "Protogon · Lệnh Mod" });
-  await sendModLog(channel.guild, guildConfig, embed);
+  // Ghi bảng hình phạt trước để lấy số case.
+  let caseNumber;
   if (store) {
     try {
-      await store.client.mutation("bot_writes:botRecordModAction", {
+      const rec = await store.client.mutation("bot_writes:botRecordModAction", {
         guildId: channel.guild.id,
         action: "Purge",
         executorId: executor.id,
@@ -238,9 +215,24 @@ async function purgeChannel(channel, count, executor, guildConfig, store) {
         reason: undefined,
         details: `Xóa ${deleted.size} tin nhắn tại #${channel.name}`,
       });
+      caseNumber = rec?.caseNumber;
     } catch (e) {
       console.error(`[modTools:record] ${channel.guild.id}:`, e.message);
     }
+  }
+  try {
+    await sendCaseLog({
+      guild: channel.guild,
+      guildConfig,
+      action: "purge",
+      caseNumber,
+      offender: null,
+      reason: `Xóa ${deleted.size} tin nhắn tại #${channel.name}`,
+      executor,
+      extraDescription: [`**Kênh:** ${channel} (\`${channel.id}\`)`],
+    });
+  } catch (e) {
+    console.error(`[modTools:purge:log] ${channel.guild.id}:`, e.message);
   }
   return `Đã xóa **${deleted.size}** tin nhắn trong ${channel}`;
 }
@@ -250,7 +242,6 @@ module.exports = {
   formatDuration,
   canMod,
   needPerm,
-  reasonRequired,
   timeoutMember,
   kickMember,
   banMember,

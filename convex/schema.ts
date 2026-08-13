@@ -26,10 +26,10 @@ export default defineSchema({
     memberCount: v.optional(v.number()),
     prefix: v.string(),
     logChannelId: v.optional(v.string()),
-    /** Kênh log hành động mod (ban/timeout/kick/warn + ngược lại, purge). */
+    /** Kênh log moderation: auto-mod + lệnh mod thủ công (ban/timeout/kick/warn + ngược lại, purge) kiểu Carl-bot. */
     modLogChannelId: v.optional(v.string()),
-    /** Kênh log auto-mod nội dung (badword, invite, malware, mention, attachment, spam, massMessage, blankNoise). */
-    autoModLogChannelId: v.optional(v.string()),
+    /** Số case moderation đã tăng dần của server (hiển thị "case N" trong log kiểu Carl-bot). */
+    modCaseCounter: v.optional(v.number()),
     /** Kênh gửi thông báo sau khi bot trừng phạt thành viên (Moderation). */
     punishNoticeChannelId: v.optional(v.string()),
     /** Mức chi tiết thông báo theo từng hành động ban/timeout/kick/warn. */
@@ -226,6 +226,8 @@ export default defineSchema({
     executorName: v.optional(v.string()),
     reason: v.optional(v.string()),
     details: v.optional(v.string()),
+    /** Số case tăng dần của server (kiểu Carl-bot). */
+    caseNumber: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_guildId", ["guildId"])

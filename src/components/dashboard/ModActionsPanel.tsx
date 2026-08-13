@@ -40,8 +40,9 @@ export default function ModActionsPanel({ data }: { data: GuildData }) {
               <Gavel className="h-4 w-4 text-primary" /> Bảng hình phạt
             </h3>
             <p className="text-sm text-muted-foreground">
-              Timeout · kick · ban · warn · purge — ghi kèm lý do, người thực hiện và phân biệt
-              rõ nguồn: <b className="text-sky-400">🛠️ lệnh thủ công của mod</b> vs{" "}
+              Timeout · kick · ban · warn · purge — ghi kèm <b>case N</b> (kiểu Carl-bot), lý do,
+              người thực hiện và phân biệt rõ nguồn:{" "}
+              <b className="text-sky-400">🛠️ lệnh thủ công của mod</b> vs{" "}
               <b className="text-emerald-400">⚡ bot tự động</b> (auto-mod / anti nuke).
             </p>
           </div>
@@ -78,7 +79,10 @@ export default function ModActionsPanel({ data }: { data: GuildData }) {
                       })}
                     </td>
                     <td className="py-2.5 pr-3">
-                      <Badge className={styleFor(a.action)}>{labelFor(a.action)}</Badge>
+                      <Badge className={styleFor(a.action)}>
+                        {labelFor(a.action)}
+                        {a.caseNumber ? ` · case ${a.caseNumber}` : ""}
+                      </Badge>
                     </td>
                     <td className="py-2.5 pr-3">
                       <Badge

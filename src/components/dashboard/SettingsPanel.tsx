@@ -25,9 +25,6 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
   const [prefix, setPrefix] = useState(data.guild.prefix);
   const [logChannelId, setLogChannelId] = useState(data.guild.logChannelId ?? "none");
   const [modLogChannelId, setModLogChannelId] = useState(data.guild.modLogChannelId ?? "none");
-  const [autoModLogChannelId, setAutoModLogChannelId] = useState(
-    data.guild.autoModLogChannelId ?? "none",
-  );
   const [modRoles, setModRoles] = useState<string[]>(data.guild.modRoles);
   const [adminRoles, setAdminRoles] = useState<string[]>(data.guild.adminRoles);
   const [theme, setTheme] = useState(data.guild.theme || DEFAULT_THEME);
@@ -65,7 +62,6 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
         // "" (chuỗi rỗng) để XÓA kênh đã đặt; undefined = không đổi.
         logChannelId: logChannelId === "none" ? "" : logChannelId,
         modLogChannelId: modLogChannelId === "none" ? "" : modLogChannelId,
-        autoModLogChannelId: autoModLogChannelId === "none" ? "" : autoModLogChannelId,
         modRoles,
         adminRoles,
       });
@@ -123,8 +119,9 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
               <Hash className="h-4 w-4 text-primary" /> Kênh log
             </CardTitle>
             <CardDescription>
-              Cảnh báo chống nuke, báo cáo hàng ngày và sự kiện quan trọng sẽ được gửi
-              vào kênh log chung dưới đây.
+              Chống nuke/raid, báo cáo hàng ngày và sự kiện quan trọng sẽ gửi vào kênh log
+              chung. Auto-mod + lệnh mod thủ công (ban · timeout · kick · warn · gỡ hình phạt
+              · purge · xóa tin) gộp chung vào kênh log hành động mod, định dạng kiểu Carl-bot.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -146,7 +143,8 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
             </div>
             <div className="grid gap-1.5">
               <Label className="text-xs text-muted-foreground">
-                Kênh log hành động mod thủ công (ban · timeout · kick · warn · gỡ hình phạt · purge)
+                Kênh log hành động mod — gộp chung auto-mod + lệnh thủ công (ban · timeout · kick ·
+                warn · gỡ hình phạt · purge · xóa tin), kiểu Carl-bot
               </Label>
               <Select value={modLogChannelId} onValueChange={setModLogChannelId}>
                 <SelectTrigger>
@@ -162,27 +160,11 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-1.5">
-              <Label className="text-xs text-muted-foreground">
-                Kênh log auto-mod nội dung (từ ngữ xấu · link mời · link độc hại · spam · mention · ảnh/file)
-              </Label>
-              <Select value={autoModLogChannelId} onValueChange={setAutoModLogChannelId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn kênh" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— Dùng kênh log chung —</SelectItem>
-                  {textChannels.map((c) => (
-                    <SelectItem key={c.channelId} value={c.channelId}>
-                      #{c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
             <p className="text-xs text-muted-foreground">
-              Nếu chưa chọn kênh riêng, log auto-mod và log hành động mod sẽ gửi vào kênh log
-              chung. Chống nuke/raid luôn gửi vào kênh log chung.
+              Mỗi embed log moderation hiển thị <b>Offender</b> / <b>Reason</b> /{" "}
+              <b>Responsible moderator</b>: bot tự động để tên bot, mod dùng lệnh để tên mod.
+              Lý do để trống → ghi "không có lý do". Nếu chưa chọn kênh riêng, log moderation
+              gửi vào kênh log chung.
             </p>
             <Button className="w-full" onClick={handleSave} disabled={saving}>
               <Save className="h-4 w-4" /> Lưu thay đổi

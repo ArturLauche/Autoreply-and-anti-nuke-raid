@@ -216,17 +216,21 @@ Muốn đăng ký lại slash commands thủ công: `bun run register`.
 - Khi server bị nuke/raid phá sập: mời bot vào **server phụ** → dashboard → **Backup** → bấm **Khôi phục vào server này** (hoặc `!backup restore <số>` trong server phụ). Bot tạo lại role (quyền đã được giới hạn theo quyền hiện có của bot), danh mục, kênh + overwrite, rồi áp lại cấu hình với id mới. Các role/kênh có sẵn của server phụ được giữ nguyên.
 - Bot quét yêu cầu backup/khôi phục mỗi ~20 giây.
 
-## Hệ thống log — tách bạch 3 luồng
+## Hệ thống log — gộp chung kiểu Carl-bot
 
-Log trong Discord được chia **3 kênh riêng biệt** để không lộn xộn giữa các nguồn (chọn kênh ở dashboard → **Cài đặt → Kênh log**):
+Log trong Discord chia **2 kênh** (chọn ở dashboard → **Cài đặt → Kênh log**):
 
-| Luồng | Kênh nhận | Nhãn trên embed |
+| Luồng | Kênh nhận | Định dạng |
 | --- | --- | --- |
-| 🛡️ **Anti nuke/raid** (ban/kick/join hàng loạt, tạo/xóa kênh/role hàng loạt, webhook/thread, xóa tin hàng loạt) | Kênh log chung (`logChannelId`) | `Protogon · Anti Nuke/Raid` · Nguồn: *🛡️ Bot tự động phát hiện* |
-| ⚙️ **Auto-mod nội dung** (từ ngữ xấu, link mời, link độc hại/file nguy hiểm, spam mention, spam ảnh/file, spam tin nhắn, tin dài/blank) | Kênh log auto-mod (`autoModLogChannelId`, chưa đặt → kênh log chung) | `Protogon · Auto Mod` · Nguồn: *⚙️ Bot tự động* |
-| 🛠️ **Lệnh thủ công của mod/owner** (ban · timeout · kick · warn · gỡ hình phạt · purge) | Kênh log hành động mod (`modLogChannelId`, chưa đặt → kênh log chung) | `Protogon · Lệnh Mod` · Nguồn: *🛠️ Lệnh thủ công (mod/owner)* |
+| 🛡️ **Anti nuke/raid** (ban/kick/join hàng loạt, tạo/xóa kênh/role hàng loạt, webhook/thread, xóa tin hàng loạt) | Kênh log chung (`logChannelId`) | Embed cảnh báo `Protogon · Anti Nuke/Raid` |
+| ⚙️ **Auto-mod + lệnh mod thủ công** (từ ngữ xấu, link mời, link độc hại/file nguy hiểm, spam mention, spam ảnh/file, spam tin nhắn, tin dài/blank · ban · timeout · kick · warn · gỡ hình phạt · purge · bot xóa tin) | **Gộp chung 1 kênh** — kênh log hành động mod (`modLogChannelId`; chưa đặt → kênh log chung) | Embed kiểu **Carl-bot**: tiêu đề `⏱️ Timeout | case 30`, dòng `Offender` / `Reason` / `Responsible moderator` + footer `ID: … • 00:49 2/8/26` |
 
-> Chưa chọn kênh riêng cho auto-mod / hành động mod thì cả 2 vẫn gửi vào kênh log chung (không mất log). Bot backup cũng gửi thông báo vào kênh hệ thống của server.
+Quy tắc hiển thị trên mỗi embed moderation:
+- **Responsible moderator**: bot tự động (auto-mod/anti nuke phạt) → tên bot; mod/owner dùng lệnh thủ công → **tên người dùng lệnh**.
+- **Reason**: auto-mod ghi lý do vi phạm cụ thể (vd “sử dụng từ ngữ xấu (giết)”); lệnh thủ công bỏ trống lý do → ghi **“không có lý do”** (không từ chối lệnh).
+- **case N**: số case tăng dần của server, hiển thị cả trên embed log lẫn dashboard (Bảng hình phạt).
+
+> Chưa chọn kênh log hành động mod thì toàn bộ log moderation vẫn gửi vào kênh log chung (không mất log). Bot backup gửi thông báo vào kênh hệ thống của server.
 
 ## Moderation — thông báo sau khi phạt
 
@@ -236,7 +240,7 @@ Log trong Discord được chia **3 kênh riêng biệt** để không lộn x�
   - `reason` — thêm lý do vi phạm
   - `full` — thêm moderator đã áp dụng (lệnh mod thủ công hiển thị tên mod; phạt tự động hiển thị “Bot tự động”)
 - Kênh nhận: `punishNoticeChannelId` → kênh log mod → kênh log chung.
-- **Liên kết với lệnh thủ công**: khi mức thông báo của một hành động (ban/timeout/kick/warn) chọn **có lý do** (`reason` hoặc `full`), lệnh thủ công tương ứng (`/mod timeout|kick|ban` và `!timeout|!kick|!ban`) sẽ **bắt buộc mod ghi lý do** — thiếu lý do là bot từ chối thực thi. Bản ghi trên dashboard (Bảng hình phạt) hiển thị rõ **🛠️ Lệnh mod** (tên mod) hay **⚡ Bot tự động** (auto-mod / anti nuke).
+- **Liên kết với lệnh thủ công**: lệnh thủ công (`/mod timeout|kick|ban` và `!timeout|!kick|!ban`) luôn cho phép ghi lý do — **bỏ trống thì log ghi “không có lý do”**, không bị từ chối. Cả log Discord lẫn dashboard (Bảng hình phạt) hiển thị rõ **🛠️ Lệnh mod** (tên mod) hay **⚡ Bot tự động** (auto-mod / anti nuke) kèm **case N**.
 
 ## Kiến trúc đồng bộ
 

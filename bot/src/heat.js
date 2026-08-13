@@ -45,7 +45,9 @@ function tierFor(heat, s) {
 }
 
 /**
- * Thực thi một hình phạt đơn. Trả về mô tả hành động đã làm.
+ * Thực thi một hình phạt đơn. Trả về { action, caseNumber }:
+ *  - action: mô tả hành động đã làm (string).
+ *  - caseNumber: số case moderation của server (kiểu Carl-bot) hoặc undefined.
  * Nếu truyền `store`, ghi luôn vào bảng hình phạt trên dashboard.
  */
 async function punishMember(guild, member, punishType, reason, timeoutSeconds = 300, store) {
@@ -80,9 +82,10 @@ async function punishMember(guild, member, punishType, reason, timeoutSeconds = 
       result = "không thể xử lý (thiếu quyền)";
     }
   }
+  let caseNumber;
   if (store) {
     try {
-      await store.client.mutation("bot_writes:botRecordModAction", {
+      const rec = await store.client.mutation("bot_writes:botRecordModAction", {
         guildId: guild.id,
         action: `Tự động: ${punishType}`,
         targetId: member.id,
@@ -90,6 +93,7 @@ async function punishMember(guild, member, punishType, reason, timeoutSeconds = 
         reason: reason || undefined,
         details: result,
       });
+      caseNumber = rec?.caseNumber;
     } catch (e) {
       console.error(`[heat:record] ${guild.id}:`, e.message);
     }
@@ -110,7 +114,7 @@ async function punishMember(guild, member, punishType, reason, timeoutSeconds = 
       console.error(`[heat:notice] ${guild.id}:`, e.message);
     }
   }
-  return result;
+  return { action: result, caseNumber };
 }
 
 /**

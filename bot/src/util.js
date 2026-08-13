@@ -64,19 +64,9 @@ async function sendLog(guild, guildConfig, embed) {
 }
 
 /**
- * Log AUTO-MOD nội dung (badword, invite, malware, mention, attachment, spam,
- * massMessage, blankNoise) — gửi tới autoModLogChannelId nếu đã đặt, ngược lại
- * rơi về kênh log chung (logChannelId).
- */
-async function sendAutoModLog(guild, guildConfig, embed) {
-  if (!guildConfig) return;
-  const channelId = guildConfig.autoModLogChannelId || guildConfig.logChannelId;
-  await sendToChannel(guild, channelId, embed);
-}
-
-/**
- * Log hành động mod THỦ CÔNG (ban/timeout/kick/warn + gỡ hình phạt, purge) tới
- * kênh modLogChannelId nếu đã đặt, ngược lại rơi về kênh log chung (logChannelId).
+ * Log MODERATION (auto-mod + lệnh mod thủ công: ban/timeout/kick/warn + gỡ hình
+ * phạt, purge, bot xóa tin nhắn) — GỘP CHUNG một kênh, kiểu Carl-bot. Gửi tới
+ * modLogChannelId nếu đã đặt, ngược lại rơi về kênh log chung (logChannelId).
  */
 async function sendModLog(guild, guildConfig, embed) {
   if (!guildConfig) return;
@@ -97,7 +87,6 @@ module.exports = {
   fillPlaceholders,
   logEmbed,
   sendLog,
-  sendAutoModLog,
   sendModLog,
   mentionRoles,
   Colors,

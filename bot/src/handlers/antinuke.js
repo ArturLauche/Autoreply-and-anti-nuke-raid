@@ -1,5 +1,6 @@
 const { AuditLogEvent, PermissionFlagsBits, Colors } = require("discord.js");
-const { logEmbed, sendLog, sendAutoModLog } = require("../util");
+const { logEmbed, sendLog } = require("../util");
+const { sendCaseLog } = require("../caseLog");
 const { isLocked, markLocked, lockGuild, unlockGuild } = require("../lockdown");
 const {
   heatSettings,
@@ -204,13 +205,18 @@ module.exports = function createAntiNuke(client, store, heat) {
     const actions = actionsOf(moduleCfg);
     const memberActions = actions.filter((a) => ["warn", "kick", "ban", "timeout"].includes(a));
     if (memberActions.length === 0) {
-      return { action: "không phạt thành viên (chỉ dọn tin nhắn)", chosen: null, heatRes: null };
+      return {
+        action: "không phạt thành viên (chỉ dọn tin nhắn)",
+        caseNumber: undefined,
+        chosen: null,
+        heatRes: null,
+      };
     }
     const base = memberPunishOf(actions, moduleCfg.punish || "warn");
     if (NUKE_MODULES.has(moduleCfg.module)) {
       const chosen = base;
-      const action = await punishMember(guild, member, chosen, reason, moduleCfg.timeoutSeconds, store);
-      return { action, chosen, heatRes: null };
+      const res = await punishMember(guild, member, chosen, reason, moduleCfg.timeoutSeconds, store);
+      return { action: res.action, caseNumber: res.caseNumber, chosen, heatRes: null };
     }
     const s = heatSettings(configOf(guild.id));
     const heatRes = await heat.add(
@@ -221,9 +227,14 @@ module.exports = function createAntiNuke(client, store, heat) {
       s,
     );
     const chosen = choosePunish(base, heatRes);
-    const action = await punishMember(guild, member, chosen, reason, moduleCfg.timeoutSeconds, store);
+    const res = await punishMember(guild, member, chosen, reason, moduleCfg.timeoutSeconds, store);
     if (chosen !== "warn") heat.markPunished(guild.id, member.id);
-    return { action: action + heatSummary(heatRes), chosen, heatRes };
+    return {
+      action: res.action + heatSummary(heatRes),
+      caseNumber: res.caseNumber,
+      chosen,
+      heatRes,
+    };
   }
 
   // Lưu config đã đọc gần nhất để punishWithHeat tái sử dụng (tránh đọc lại DB).
@@ -450,10 +461,13 @@ module.exports = function createAntiNuke(client, store, heat) {
 
       let action;
       let chosen;
+      let caseNumber;
       if (isRaid) {
         // Leo thang: phạt trực tiếp theo hình phạt nuke mặc định + lockdown.
         chosen = "ban";
-        action = await punishMember(message.guild, member, "ban", reason, 0, store);
+        const res = await punishMember(message.guild, member, "ban", reason, 0, store);
+        action = res.action;
+        caseNumber = res.caseNumber;
         await maybeLockdown(message.guild, config);
       } else if (isBenign) {
         // Dương tính giả: chỉ xóa tin nhắn, không phạt, không cộng nhiệt.
@@ -462,11 +476,13 @@ module.exports = function createAntiNuke(client, store, heat) {
       } else {
         const res = await punishWithHeat(message.guild, member, cfg, reason);
         action = res.action;
+        caseNumber = res.caseNumber;
         chosen = res.chosen;
       }
       // Dương tính giả (benign): không dọn tin, không phạt.
+      let cleanup = "";
       if (!isBenign) {
-        const cleanup = await cleanupMessages({
+        cleanup = await cleanupMessages({
           guild: message.guild,
           channel: message.channel,
           userId: message.author.id,
@@ -487,19 +503,38 @@ module.exports = function createAntiNuke(client, store, heat) {
         punish: chosen ?? "none",
       });
 
-      const embed = logEmbed({
-        title: `🚨 Auto Mod: ${MODULE_LABELS[cfg.module]}`,
-        description: `<@${message.author.id}> đã gửi **${fresh.length} tin** thuộc mẫu \`${cfg.module}\` trong **${cfg.windowSeconds} giây** (ngưỡng ${cfg.threshold}). ${actions.includes("deleteMessages") || actions.includes("purgeMessages") ? "Tin nhắn liên quan đã được dọn theo cấu hình." : ""}`,
-        color: isRaid ? Colors.Red : Colors.Orange,
-        fields: [
-          { name: "Thủ phạm", value: `<@${message.author.id}>`, inline: true },
-          { name: "Xử lý", value: (action + (ai ? ` · AI: ${ai.classification} (${ai.confidence})` : "")).slice(0, 1000), inline: true },
-          { name: "Nguồn", value: "⚙️ Bot tự động (auto-mod)", inline: true },
-          { name: "Module", value: `\`${cfg.module}\``, inline: true },
-        ],
-        footer: "Protogon · Auto Mod",
-      });
-      await sendAutoModLog(message.guild, config, embed);
+      const offender = { id: message.author.id, username: message.author.username };
+      // Log xóa tin nhắn kiểu Carl-bot ("Message deleted") vào kênh log moderation.
+      if (cleanup) {
+        try {
+          await sendCaseLog({
+            guild: message.guild,
+            guildConfig: config,
+            action: "delete",
+            offender,
+            reason: `Bot tự động xóa tin nhắn vì ${MODULE_LABELS[cfg.module]} (${fresh.length} tin trong ${cfg.windowSeconds}s)`,
+            executor: null,
+          });
+        } catch (e) {
+          console.error("[antinuke:pattern:delLog]", e.message);
+        }
+      }
+      // Embed case kiểu Carl-bot cho phạt tự động (responsible moderator = tên bot).
+      if (!isBenign) {
+        try {
+          await sendCaseLog({
+            guild: message.guild,
+            guildConfig: config,
+            action: chosen === "none" ? "warn" : chosen,
+            caseNumber,
+            offender,
+            reason: `Tự động xử lý vì ${MODULE_LABELS[cfg.module]}: ${fresh.length} lần trong ${cfg.windowSeconds}s${isRaid ? ` — AI xác nhận raid (${ai?.reason ?? ""})` : ""}${cleanup ? ` · đã ${cleanup}` : ""}`.slice(0, 1000),
+            executor: null,
+          });
+        } catch (e) {
+          console.error("[antinuke:pattern:case]", e.message);
+        }
+      }
       return; // chỉ xử lý 1 pattern/tin nhắn
     }
   }
@@ -543,9 +578,12 @@ module.exports = function createAntiNuke(client, store, heat) {
     const actions = actionsOf(moduleCfg);
     let action;
     let chosen;
+    let caseNumber;
     if (isRaid) {
       chosen = "ban";
-      action = await punishMember(message.guild, member, "ban", reason, 0, store);
+      const res = await punishMember(message.guild, member, "ban", reason, 0, store);
+      action = res.action;
+      caseNumber = res.caseNumber;
       await maybeLockdown(message.guild, config);
     } else if (isBenign) {
       action = "bỏ qua (AI: benign)";
@@ -553,12 +591,14 @@ module.exports = function createAntiNuke(client, store, heat) {
     } else {
       const res = await punishWithHeat(message.guild, member, moduleCfg, reason);
       action = res.action;
+      caseNumber = res.caseNumber;
       chosen = res.chosen;
     }
 
     // Dọn tin nhắn theo hành động đã chọn (deleteMessages / purgeMessages).
+    let cleanup = "";
     if (!isBenign) {
-      const cleanup = await cleanupMessages({
+      cleanup = await cleanupMessages({
         guild: message.guild,
         channel: message.channel,
         userId: message.author.id,
@@ -579,19 +619,38 @@ module.exports = function createAntiNuke(client, store, heat) {
       punish: chosen ?? "none",
     });
 
-    const embed = logEmbed({
-      title: "🚨 Auto Mod: Chống spam tin nhắn",
-      description: `<@${message.author.id}> đã gửi **${fresh.length} tin nhắn** trong **${moduleCfg.windowSeconds} giây** (ngưỡng ${moduleCfg.threshold}).`,
-      color: isRaid ? Colors.Red : Colors.Orange,
-      fields: [
-        { name: "Thủ phạm", value: `<@${message.author.id}>`, inline: true },
-        { name: "Xử lý", value: (action + (ai ? ` · AI: ${ai.classification} (${ai.confidence})` : "")).slice(0, 1000), inline: true },
-        { name: "Nguồn", value: "⚙️ Bot tự động (auto-mod)", inline: true },
-        { name: "Module", value: "`spam`", inline: true },
-      ],
-      footer: "Protogon · Auto Mod",
-    });
-    await sendAutoModLog(message.guild, config, embed);
+    const offender = { id: message.author.id, username: message.author.username };
+    // Log xóa tin nhắn kiểu Carl-bot ("Message deleted") vào kênh log moderation.
+    if (cleanup) {
+      try {
+        await sendCaseLog({
+          guild: message.guild,
+          guildConfig: config,
+          action: "delete",
+          offender,
+          reason: `Bot tự động xóa tin nhắn vì spam (${fresh.length} tin trong ${moduleCfg.windowSeconds}s)`,
+          executor: null,
+        });
+      } catch (e) {
+        console.error("[antinuke:spam:delLog]", e.message);
+      }
+    }
+    // Embed case kiểu Carl-bot cho phạt tự động (responsible moderator = tên bot).
+    if (!isBenign) {
+      try {
+        await sendCaseLog({
+          guild: message.guild,
+          guildConfig: config,
+          action: chosen === "none" ? "warn" : chosen,
+          caseNumber,
+          offender,
+          reason: `Tự động xử lý vì spam tin nhắn: ${fresh.length} tin trong ${moduleCfg.windowSeconds}s${isRaid ? ` — AI xác nhận raid (${ai?.reason ?? ""})` : ""}${cleanup ? ` · đã ${cleanup}` : ""}`.slice(0, 1000),
+          executor: null,
+        });
+      } catch (e) {
+        console.error("[antinuke:spam:case]", e.message);
+      }
+    }
   }
 
   /** Periodically unlock guilds whose lockdown expired or was requested. */

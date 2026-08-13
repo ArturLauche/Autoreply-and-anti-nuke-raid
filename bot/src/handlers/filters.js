@@ -1,6 +1,6 @@
-const { Colors, PermissionFlagsBits } = require("discord.js");
-const { logEmbed, sendAutoModLog } = require("../util");
-const { heatSettings, punishMember, choosePunish, heatSummary } = require("../heat");
+const { PermissionFlagsBits } = require("discord.js");
+const { sendCaseLog } = require("../caseLog");
+const { heatSettings, punishMember, choosePunish } = require("../heat");
 const { actionsOf, cleanupMessages } = require("../moduleActions");
 
 const MODULE_LABELS = {
@@ -118,7 +118,7 @@ async function punishFlow(client, message, moduleCfg, config, heat, reason, deta
     }
   }
   if (chosen !== "warn") heat.markPunished(message.guild.id, message.author.id);
-  const action = await punishMember(
+  const res = await punishMember(
     message.guild,
     member,
     chosen,
@@ -126,6 +126,8 @@ async function punishFlow(client, message, moduleCfg, config, heat, reason, deta
     moduleCfg.timeoutSeconds,
     heat.store, // ghi hình phạt + gửi thông báo Moderation theo cấu hình
   );
+  const action = res.action;
+  const caseNumber = res.caseNumber;
 
   // Dọn tin nhắn theo hành động đã chọn: deleteMessages (xóa ngay tin phát hiện)
   // / purgeMessages (xóa hàng loạt mọi tin liên quan). Không chọn → không xóa.
@@ -138,22 +140,19 @@ async function punishFlow(client, message, moduleCfg, config, heat, reason, deta
     triggerMessage: message,
   });
 
-  // Log xóa tin nhắn: ghi rõ bot đã xóa tin gì, của ai, tại kênh nào.
+  const offender = { id: message.author.id, username: message.author.username };
+
+  // Log xóa tin nhắn kiểu Carl-bot ("Message deleted") vào kênh log moderation.
   if (cleanup) {
     try {
-      const delEmbed = logEmbed({
-        title: "🗑️ Bot đã xóa tin nhắn",
-        description: `Đã ${cleanup} của <@${message.author.id}> tại ${message.channel}.`,
-        color: Colors.DarkerGrey,
-        fields: [
-          { name: "Tác giả", value: `<@${message.author.id}>`, inline: true },
-          { name: "Nguồn", value: "⚙️ Bot tự động (auto-mod)", inline: true },
-          { name: "Module", value: `\`${moduleCfg.module}\``, inline: true },
-          { name: "Nội dung", value: (message.content || "[ảnh/file]").slice(0, 1000) || "…", inline: false },
-        ],
-        footer: "Protogon · Auto Mod",
+      await sendCaseLog({
+        guild: message.guild,
+        guildConfig: config,
+        action: "delete",
+        offender,
+        reason: `Bot tự động xóa tin nhắn vì ${MODULE_LABELS[moduleCfg.module]}: ${(message.content || "[ảnh/file]").slice(0, 300)}`,
+        executor: null,
       });
-      await sendAutoModLog(message.guild, config, delEmbed);
     } catch (e) {
       console.error("[filters:delLog]", e.message);
     }
@@ -175,19 +174,20 @@ async function punishFlow(client, message, moduleCfg, config, heat, reason, deta
     console.error("[filters:record]", e.message);
   }
 
-  const embed = logEmbed({
-    title: `🚨 Auto Mod: ${MODULE_LABELS[moduleCfg.module] || moduleCfg.module}`,
-    description: `${detail} — tin nhắn của <@${message.author.id}> ${cleanup ? `đã bị xử lý (${cleanup})` : "đã bị ghi nhận"}.`,
-    color: Colors.Red,
-    fields: [
-      { name: "Thủ phạm", value: `<@${message.author.id}>`, inline: true },
-      { name: "Xử lý", value: (action + heatSummary(heatRes) + (cleanup ? ` · ${cleanup}` : "")).slice(0, 1000), inline: true },
-      { name: "Nguồn", value: "⚙️ Bot tự động (auto-mod)", inline: true },
-      { name: "Module", value: `\`${moduleCfg.module}\``, inline: true },
-    ],
-    footer: "Protogon · Auto Mod",
-  });
-  await sendAutoModLog(message.guild, config, embed);
+  // Embed case kiểu Carl-bot cho phạt tự động (responsible moderator = tên bot).
+  try {
+    await sendCaseLog({
+      guild: message.guild,
+      guildConfig: config,
+      action: chosen,
+      caseNumber,
+      offender,
+      reason: `Tự động xử lý vì ${MODULE_LABELS[moduleCfg.module]}: ${detail}${strikeTag ? ` (${strikeTag.trim()})` : ""}${cleanup ? ` · đã ${cleanup}` : ""} · ${action}`.slice(0, 1000),
+      executor: null,
+    });
+  } catch (e) {
+    console.error("[filters:case]", e.message);
+  }
 }
 
 /**
