@@ -37,8 +37,9 @@ export const listMine = query({
     const user = await getUserByToken(ctx, token);
     if (!user) return null;
     const all = await ctx.db.query("guilds").collect();
+    // Chỉ hiện server bot đang đứng trong (server đã xóa/kick bot sẽ tự biến mất).
     return all
-      .filter((g) => guildAccessibleBy(user, g))
+      .filter((g) => g.botInGuild && guildAccessibleBy(user, g))
       .map((g) => ({
         discordId: g.discordId,
         name: g.name,

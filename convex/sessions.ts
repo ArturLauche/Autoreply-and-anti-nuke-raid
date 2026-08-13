@@ -140,8 +140,10 @@ export const me = query({
     const user = await getUserByToken(ctx, token);
     if (!user) return null;
     const allGuilds = await ctx.db.query("guilds").collect();
+    // Chỉ hiện server BOT ĐANG Ở TRONG (server đã xóa/kick bot sẽ tự biến mất
+    // sau lượt đồng bộ, thay vì nằm mãi trên dashboard như trước).
     const guilds = allGuilds
-      .filter((g) => guildAccessibleBy(user, g))
+      .filter((g) => g.botInGuild && guildAccessibleBy(user, g))
       .map((g) => ({
         discordId: g.discordId,
         name: g.name,
