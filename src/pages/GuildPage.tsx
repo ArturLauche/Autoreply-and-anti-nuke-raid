@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "convex/react";
 import {
+  AppWindow,
   ArrowLeft,
   Bot,
   CloudUpload,
@@ -33,6 +34,7 @@ import { timeAgo } from "../lib/utils";
 import type { GuildData } from "../lib/types";
 import OverviewPanel from "../components/dashboard/OverviewPanel";
 import AntiNukePanel from "../components/dashboard/AntiNukePanel";
+import ExternalAppRaidsPanel from "../components/dashboard/ExternalAppRaidsPanel";
 import AutoModPanel from "../components/dashboard/AutoModPanel";
 import ModerationPanel from "../components/dashboard/ModerationPanel";
 import BackupPanel from "../components/dashboard/BackupPanel";
@@ -47,6 +49,7 @@ type SectionKey =
   | "moderation"
   | "joingate"
   | "antinuke"
+  | "externalapp"
   | "whitelist"
   | "backup"
   | "punishments"
@@ -59,6 +62,7 @@ const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof LayoutDashboard 
   { key: "moderation", label: "Moderation", icon: Megaphone },
   { key: "joingate", label: "Join Gate", icon: DoorOpen },
   { key: "antinuke", label: "Chống nuke / raid", icon: ShieldAlert },
+  { key: "externalapp", label: "Raid external app", icon: AppWindow },
   { key: "whitelist", label: "Whitelist", icon: UserCheck },
   { key: "backup", label: "Backup server", icon: CloudUpload },
   { key: "punishments", label: "Hình phạt", icon: Gavel },
@@ -217,6 +221,7 @@ export default function GuildPage() {
               {section === "moderation" && <ModerationPanel data={data} />}
               {section === "joingate" && <JoinGatePanel data={data} />}
               {section === "antinuke" && <AntiNukePanel data={data} />}
+              {section === "externalapp" && <ExternalAppRaidsPanel data={data} />}
               {section === "whitelist" && <WhitelistPanel data={data} />}
               {section === "backup" && <BackupPanel data={data} />}
               {section === "punishments" && <ModActionsPanel data={data} />}

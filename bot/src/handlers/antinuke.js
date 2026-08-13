@@ -617,21 +617,45 @@ module.exports = function createAntiNuke(client, store, heat) {
       ...new Map(fresh.filter((e) => e.executorId).map((e) => [e.executorId, e])).values(),
     ].slice(0, 5);
 
+    // Danh sách app được kết nối trong cửa sổ (bỏ trùng, giới hạn 10) — hiển thị trên dashboard.
+    const apps = [];
+    for (const e of fresh) {
+      if (apps.some((a) => a.appName.toLowerCase() === e.appName.toLowerCase())) continue;
+      apps.push({
+        appName: e.appName,
+        executorName: e.executorName ?? undefined,
+        executorId: e.executorId ?? undefined,
+      });
+      if (apps.length >= 10) break;
+    }
+
     const punished = [];
+    const punishedUsers = [];
     for (const t of targets) {
       const member = await guild.members.fetch(t.executorId).catch(() => null);
       if (!member || isExempt(member, moduleCfg, config)) continue;
+      let outcome;
+      let actionLabel;
       if (isRaid) {
         try {
           await member.ban({ reason });
-          punished.push(`<@${t.executorId}>: 🚫 đã ban (AI: raid)`);
+          outcome = "🚫 đã ban (AI: raid)";
+          actionLabel = "ban";
         } catch {
-          punished.push(`<@${t.executorId}>: không thể ban`);
+          outcome = "không thể ban";
+          actionLabel = "ban thất bại";
         }
       } else {
         const res = await punishWithHeat(guild, member, moduleCfg, reason);
-        punished.push(`<@${t.executorId}>: ${res.action}`);
+        outcome = res.action;
+        actionLabel = res.chosen ?? "xử lý";
       }
+      punished.push(`<@${t.executorId}>: ${outcome}`);
+      punishedUsers.push({
+        userId: t.executorId,
+        username: t.executorName ?? undefined,
+        action: String(actionLabel).slice(0, 40),
+      });
     }
     const action =
       punished.length > 0 ? punished.slice(0, 6).join("\n") : "chưa xác định được người dùng — chỉ ghi nhận";
@@ -670,6 +694,8 @@ module.exports = function createAntiNuke(client, store, heat) {
         aiReason: ai?.reason,
         lockdownTriggered: isLocked(guild.id),
         sourceHunt,
+        apps,
+        punished: punishedUsers,
       });
     } catch (e) {
       console.error("[antinuke:externalAppRaid:sample]", e.message);

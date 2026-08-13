@@ -295,6 +295,26 @@ export default defineSchema({
     clusterAvgAccountAgeDays: v.optional(v.number()),
     clusterSharedAvatarCount: v.optional(v.number()),
     clusterJoinBurstSeconds: v.optional(v.number()),
+    /** External App Guard: danh sách app được kết nối trong vụ (tên app + người kết nối). */
+    apps: v.optional(
+      v.array(
+        v.object({
+          appName: v.optional(v.string()),
+          executorName: v.optional(v.string()),
+          executorId: v.optional(v.string()),
+        }),
+      ),
+    ),
+    /** External App Guard: người dùng đã bị xử lý trong vụ (ban/kick/warn…). */
+    punished: v.optional(
+      v.array(
+        v.object({
+          userId: v.optional(v.string()),
+          username: v.optional(v.string()),
+          action: v.optional(v.string()),
+        }),
+      ),
+    ),
     /** Kết quả săn lùng nguồn cơn raid. */
     sourceHunt: v.optional(
       v.object({

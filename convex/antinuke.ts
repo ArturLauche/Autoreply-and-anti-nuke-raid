@@ -148,3 +148,56 @@ export const raidIntel = query({
     };
   },
 });
+
+/**
+ * Lịch sử raid bằng ứng dụng ngoài (External App Guard) — danh sách các vụ bot
+ * đã chặn: AI (người dùng bị xử lý), app gì (ứng dụng ngoài được kết nối), lúc
+ * nào (thời điểm). Bot ghi mỗi mẫu khi vượt ngưỡng module externalAppRaid, kèm
+ * AI verdict + săn nguồn cơn.
+ */
+export const externalAppRaids = query({
+  args: {
+    token: v.string(),
+    guildId: v.string(),
+    refresh: v.optional(v.number()),
+  },
+  handler: async (ctx, { token, guildId }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild)) return null;
+    const rows = await ctx.db
+      .query("raidSamples")
+      .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId))
+      .order("desc")
+      .filter((q) => q.eq(q.field("module"), "externalAppRaid"))
+      .take(25);
+    return rows.map((s) => ({
+      createdAt: s.createdAt,
+      count: s.count,
+      windowSeconds: s.windowSeconds,
+      threshold: s.threshold,
+      action: s.action ?? null,
+      punish: s.punish ?? null,
+      aiClassification: s.aiClassification ?? null,
+      aiConfidence: s.aiConfidence ?? null,
+      aiReason: s.aiReason ?? null,
+      lockdownTriggered: s.lockdownTriggered ?? false,
+      apps: (s.apps ?? []).map((a) => ({
+        appName: a.appName ?? null,
+        executorName: a.executorName ?? null,
+        executorId: a.executorId ?? null,
+      })),
+      punished: (s.punished ?? []).map((p) => ({
+        userId: p.userId ?? null,
+        username: p.username ?? null,
+        action: p.action ?? null,
+      })),
+      suspectedSourceName: s.sourceHunt?.suspectedSourceName ?? null,
+      banned: s.sourceHunt?.banned ?? false,
+      reason: s.sourceHunt?.reason ?? null,
+    }));
+  },
+});

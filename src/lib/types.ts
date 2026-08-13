@@ -239,6 +239,27 @@ export interface RaidIntel {
   }[];
 }
 
+/** Một vụ raid bằng ứng dụng ngoài (External App Guard) đã bị bot chặn. */
+export interface ExternalAppRaidIncident {
+  createdAt: number;
+  count: number;
+  windowSeconds: number;
+  threshold: number;
+  action: string | null;
+  punish: string | null;
+  aiClassification: string | null;
+  aiConfidence: number | null;
+  aiReason: string | null;
+  lockdownTriggered: boolean;
+  /** Các app ngoài được kết nối trong vụ (app gì + ai kết nối). */
+  apps: { appName: string | null; executorName: string | null; executorId: string | null }[];
+  /** Người dùng đã bị xử lý trong vụ (ai + hình thức xử lý). */
+  punished: { userId: string | null; username: string | null; action: string | null }[];
+  suspectedSourceName: string | null;
+  banned: boolean;
+  reason: string | null;
+}
+
 export interface Giveaway {
   _id: GenericId<"giveaways">;
   channelId: string;
