@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { getUserByToken, canManageGuild } from "./auth";
+import { getUserByToken, canManageGuild, guildAccessibleBy } from "./auth";
 
 /**
  * Backup server → đám mây GitHub.
@@ -22,7 +22,7 @@ export const listMine = query({
     const user = await getUserByToken(ctx, token);
     if (!user) return [];
     const all = await ctx.db.query("guilds").collect();
-    const mine = all.filter((g) => g.managers.includes(user.discordId));
+    const mine = all.filter((g) => guildAccessibleBy(user, g));
     const out = [];
     for (const g of mine) {
       const backups = await ctx.db
