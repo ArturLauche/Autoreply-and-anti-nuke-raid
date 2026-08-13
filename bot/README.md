@@ -197,6 +197,19 @@ Muốn đăng ký lại slash commands thủ công: `bun run register`.
 | `massRoleCreate` | Tạo role spam | 3 lượt/10s → ban |
 | `massRoleDelete` | Xóa role hàng loạt | 3 lượt/10s → ban |
 | `massMessageDelete` | Xóa tin hàng loạt | 3 lượt/10s → cảnh báo |
+| `massWebhookCreate` | Tạo webhook spam | 3 lượt/10s → ban |
+| `massThreadCreate` | Tạo thread spam | 3 lượt/10s → ban |
+| `massThreadDelete` | Xóa thread hàng loạt | 3 lượt/10s → ban |
+| `massChannelRename` | Sửa/đổi tên kênh hàng loạt | 3 lượt/10s → ban |
+| `massChannelOverwrite` | Thay đổi quyền kênh hàng loạt (permission bombing) | 3 lượt/10s → ban |
+| `massRoleEdit` | Sửa role hàng loạt (tên/màu/quyền) | 3 lượt/10s → ban |
+| `adminSelfGrant` | Tự cấp quyền quản trị (leo thang đặc quyền) | 1 lượt → ban |
+| `massRoleAssign` | Gán/gỡ role hàng loạt | 6 lượt/15s → kick |
+| `massNickname` | Đổi biệt danh hàng loạt | 6 lượt/15s → kick |
+| `massEmoji` | Tạo emoji/sticker hàng loạt | 3 lượt/10s → ban |
+| `massBotAdd` | Thêm bot hàng loạt | 3 lượt/10s → kick |
+| `massInviteCreate` | Tạo link mời hàng loạt (chuẩn bị raid) | 5 lượt/10s → ban |
+| `guildTamper` | Đổi cấu hình server (tên/icon/MFA/verification) | 2 lượt/10s → ban |
 | `spam` | Spam tin nhắn | 6 tin/10s → tạm khóa 5 phút |
 
 - Thủ phạm được xác định qua **Audit Log**, ngưỡng + hình thức xử lý (cảnh báo/kick/ban/tạm khóa) chỉnh được trong dashboard hoặc lệnh bot.
@@ -205,7 +218,13 @@ Muốn đăng ký lại slash commands thủ công: `bun run register`.
   - `purgeMessages` — xóa **hàng loạt mọi tin nhắn liên quan** đến vụ vi phạm (ví dụ: toàn bộ tin spam trong cửa sổ phát hiện, hoặc tin của người bị ban trên các kênh văn bản).
   - Ví dụ: chọn `ban + purgeMessages` = ban người vi phạm và quét sạch tin của họ; chọn `timeout + deleteMessages` = tạm khóa và xóa ngay tin vừa gửi.
 - **Khóa kênh khi raid**: khi vượt ngưỡng bất kỳ module nào, bot chặn thành viên gửi tin (và voice) qua overwrite của role @everyone, tự mở lại sau `lockdownMinutes` hoặc khi dùng `/antinuke unlock`. Bot cần quyền **Manage Channels**.
-- Chủ server, role có quyền **Administrator**, role **Mod/Admin** đã cấu hình và role nằm trong *whitelist* của module được miễn trừ.
+- Chủ server, role có quyền **Administrator**, role **Mod/Admin** đã cấu hình và role nằm trong *whitelist* của module được miễn trừ. Riêng module **`adminSelfGrant`** chỉ miễn trừ owner / Administrator / role Admin — kẻ leo thang đặc quyền thường đang là mod nên KHÔNG được miễn.
+
+## Raid Intel — thu thập dữ liệu + săn lùng nguồn cơn raid 🎯
+
+- **Tự thu thập dữ liệu huấn luyện**: mỗi vụ raid/nuke được xử lý, bot ghi một **mẫu có cấu trúc** lên Convex (`raidSamples` — giữ 500 mẫu/server): module, số lượt, cửa sổ, ngưỡng, AI verdict (raid/individual/benign + độ tin cậy), hồ sơ cụm tài khoản (số acc, tuổi acc trung bình, avatar trùng nhau, thời gian vào rải rác), kết quả săn nguồn cơn. Dashboard → **Chống nuke/raid → Raid Intel** hiển thị số mẫu + các vụ gần đây.
+- **Săn lùng NGUỒN CƠN raid**: khi raid xảy ra (raid thành viên hoặc vụ phá hoại cấu trúc), bot + AI phân tích để tìm **kẻ đứng sau**: acc chủ mưu (acc cũ trong cụm), avatar/username trùng nhau (cùng bộ tài nguyên), vào cùng nhịp, người tạo invite, kẻ thực hiện hành vi phá hoại trong audit log — rồi **tự ban nghi phạm** (điểm nghi vấn >= 4). Bật/tắt + chọn có tự ban hay không trong **Raid Intel** (mặc định bật cả hai).
+- **AI phân tích cụm** (`haimiya:analyzeRaid`): AI xác nhận vụ có phải tấn công phối hợp không và gợi ý nghi phạm nguồn cơn — chạy best-effort (có `SAMBANOVA_API_KEY`/`AI_API_KEY`/`OPENAI_API_KEY` thì dùng, chưa có thì bot vẫn chạy theo điểm nghi vấn deterministic).
 
 ## Backup server → đám mây GitHub
 

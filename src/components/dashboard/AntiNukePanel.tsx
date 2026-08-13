@@ -1,6 +1,6 @@
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
-import { Lock, ShieldAlert, Unlock } from "lucide-react";
+import { Crosshair, Database, Lock, ShieldAlert, Unlock } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { Card, CardContent } from "../ui/card";
 import { Switch } from "../ui/switch";
@@ -11,8 +11,9 @@ import { Button } from "../ui/button";
 import { useEffect, useState } from "react";
 import { ANTINUKE_MODULE_META, DEFAULT_MODULE_ACTIONS, NUKE_MODULES } from "../../lib/constants";
 import ModuleCard from "./ModuleCard";
-import type { GuildData, ModuleConfig } from "../../lib/types";
+import type { GuildData, ModuleConfig, RaidIntel } from "../../lib/types";
 import { getSessionToken } from "../../lib/discord";
+import { timeAgo } from "../../lib/utils";
 
 const TOKEN = () => getSessionToken();
 
@@ -57,6 +58,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
   const setGlobal = useMutation(api.guilds.setAntinukeGlobal);
   const updateLockdown = useMutation(api.guilds.updateLockdown);
   const requestUnlock = useMutation(api.guilds.requestUnlock);
+  const updateSettings = useMutation(api.guilds.updateSettings);
 
   function configFor(module: string): ModuleConfig {
     const found = data.modules.find((m) => m.module === module);
@@ -115,6 +117,20 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
       toast.error(e instanceof Error ? e.message : "Thất bại");
     }
   }
+
+  async function setRaidHunt(patch: { raidHuntEnabled?: boolean; raidHuntBanSuspects?: boolean }) {
+    try {
+      await updateSettings({ token: TOKEN(), guildId: data.guild.discordId, ...patch });
+      toast.success("Đã lưu cài đặt Raid Intel — bot áp dụng trong ~30 giây");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+    }
+  }
+
+  const raidIntel = useQuery(api.antinuke.raidIntel, {
+    token: TOKEN(),
+    guildId: data.guild.discordId,
+  }) as RaidIntel | null | undefined;
 
   const enabledCount = NUKE_MODULES.filter((m) => configFor(m).enabled).length;
   const g = data.guild;
@@ -206,6 +222,105 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
               )}
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Raid Intel — thu thập dữ liệu + săn nguồn cơn raid */}
+      <Card className="border-violet-500/30 bg-violet-500/5">
+        <CardContent className="p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 text-violet-400">
+                <Crosshair className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="font-display font-semibold">Raid Intel — săn lùng nguồn cơn raid 🎯</p>
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                  Mỗi vụ raid/nuke bot xử lý đều được <b className="text-foreground">thu thập thành mẫu
+                  dữ liệu huấn luyện</b> (module, cụm tài khoản, AI verdict). Bot + AI phân tích để
+                  tìm <b className="text-foreground">kẻ đứng sau raid</b> — acc chủ mưu, avatar/username
+                  trùng nhau, người tạo invite, kẻ phá hoại trong audit log — rồi tự ban.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-1.5">
+              <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
+                <Database className="h-3.5 w-3.5" />
+                {raidIntel ? `${raidIntel.count} mẫu dữ liệu đã thu thập` : "đang tải…"}
+              </Badge>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="flex items-start justify-between gap-3 rounded-lg bg-secondary/40 p-3">
+              <div>
+                <p className="text-sm font-semibold">Săn lùng nguồn cơn raid</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Phân tích cụm tài khoản + audit log để tìm kẻ chủ mưu sau mỗi vụ.
+                </p>
+              </div>
+              <Switch
+                checked={g.raidHuntEnabled}
+                onCheckedChange={(v) => setRaidHunt({ raidHuntEnabled: v })}
+              />
+            </div>
+            <div className="flex items-start justify-between gap-3 rounded-lg bg-secondary/40 p-3">
+              <div>
+                <p className="text-sm font-semibold">Tự ban nghi phạm nguồn cơn</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Tự ban tài khoản đủ điểm nghi vấn (chủ mưu, acc trùng avatar…).
+                </p>
+              </div>
+              <Switch
+                checked={g.raidHuntBanSuspects}
+                onCheckedChange={(v) => setRaidHunt({ raidHuntBanSuspects: v })}
+              />
+            </div>
+          </div>
+
+          {raidIntel && raidIntel.recent.length > 0 && (
+            <div className="mt-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Vụ gần đây ({raidIntel.recent.length})
+              </p>
+              <ul className="space-y-1.5">
+                {raidIntel.recent.map((s, i) => (
+                  <li
+                    key={`${s.createdAt}-${i}`}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-secondary/30 px-3 py-2 text-xs"
+                  >
+                    <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                      {s.module}
+                    </code>
+                    <span className="text-muted-foreground">
+                      {s.count} lượt{s.clusterMemberCount ? ` · ${s.clusterMemberCount} acc` : ""} ·{" "}
+                      {timeAgo(s.createdAt)}
+                    </span>
+                    {s.aiClassification && (
+                      <Badge
+                        variant="secondary"
+                        className={
+                          s.aiClassification === "raid"
+                            ? "bg-red-500/15 text-red-400"
+                            : s.aiClassification === "benign"
+                              ? "bg-emerald-500/15 text-emerald-400"
+                              : "bg-sky-500/15 text-sky-400"
+                        }
+                      >
+                        AI: {s.aiClassification}
+                        {s.aiConfidence != null ? ` ${Math.round(s.aiConfidence * 100)}%` : ""}
+                      </Badge>
+                    )}
+                    {s.suspectedSourceName && (
+                      <span className={s.banned ? "text-red-400" : "text-amber-400"}>
+                        {s.banned ? `🎯 đã ban nguồn cơn: ${s.suspectedSourceName}` : `nghi: ${s.suspectedSourceName}`}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </CardContent>
       </Card>
 

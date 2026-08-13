@@ -161,6 +161,10 @@ export interface GuildData {
     backupAutoDays: number;
     /** Lần backup thành công gần nhất (ms epoch) hoặc null. */
     lastBackupAt: number | null;
+    /** Raid Intel: bật săn lùng nguồn cơn raid (phân tích cụm + audit log). */
+    raidHuntEnabled: boolean;
+    /** Raid Intel: tự ban tài khoản nghi là nguồn cơn raid khi đủ tín hiệu. */
+    raidHuntBanSuspects: boolean;
   };
   heatStates: HeatState[];
   autoReplies: AutoReply[];
@@ -210,6 +214,29 @@ export interface BackupInfo {
   channelCount: number;
   githubUrl: string | null;
   pushedToGithub: boolean;
+}
+
+/** Raid Intel — dữ liệu thu thập + kết quả săn nguồn cơn raid của một server. */
+export interface RaidIntel {
+  huntEnabled: boolean;
+  banSuspects: boolean;
+  /** Tổng số mẫu raid/nuke đã thu thập (dữ liệu huấn luyện). */
+  count: number;
+  recent: {
+    module: string;
+    createdAt: number;
+    count: number;
+    action: string | null;
+    aiClassification: string | null;
+    aiConfidence: number | null;
+    aiReason: string | null;
+    punishedCount: number | null;
+    lockdownTriggered: boolean;
+    clusterMemberCount: number | null;
+    suspectedSourceName: string | null;
+    banned: boolean;
+    reason: string | null;
+  }[];
 }
 
 export interface Giveaway {

@@ -175,3 +175,84 @@ Mẫu tin nhắn:\n${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).jo
     }
   },
 });
+
+/**
+ * Raid Intel — AI phân tích cụm tài khoản + chuỗi hành vi phá hoại để xác định
+ * một vụ raid/nuke có phải tấn công phối hợp không và ai là nghi phạm NGUỒN CƠN
+ * (tài khoản chủ mưu — acc cũ trong cụm, người tạo invite, kẻ thực hiện hành vi
+ * phá hoại trong audit log). Bot gọi best-effort khi săn nguồn cơn raid; nếu AI
+ * chưa cấu hình thì bot vẫn chạy theo điểm nghi vấn deterministic.
+ * Trả về { coordinated, confidence, reasoning, sourceHint, offline }.
+ */
+export const analyzeRaid = action({
+  args: {
+    guildId: v.string(),
+    guildName: v.optional(v.string()),
+    module: v.string(),
+    count: v.number(),
+    windowSeconds: v.number(),
+    threshold: v.number(),
+    clusterProfile: v.optional(v.string()),
+    recentActions: v.optional(v.string()),
+  },
+  handler: async (_ctx, args) => {
+    const key =
+      process.env.SAMBANOVA_API_KEY ?? process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY;
+    if (!key) {
+      return { coordinated: null, confidence: 0, reasoning: "AI chưa cấu hình", sourceHint: null, offline: true };
+    }
+    const baseUrl = process.env.AI_BASE_URL ??
+      (process.env.SAMBANOVA_API_KEY ? "https://api.sambanova.ai/v1" : "https://api.openai.com/v1");
+    const model =
+      process.env.AI_MODEL ??
+      process.env.OPENAI_MODEL ??
+      (process.env.SAMBANOVA_API_KEY ? "Meta-Llama-3.3-70B-Instruct" : "gpt-4o-mini");
+    const system = `Bạn là chuyên gia an ninh Discord chuyên điều tra RAID/NUKE.
+Phân tích dữ liệu một vụ tấn công server vừa xảy ra và trả lời:
+- "coordinated": vụ này có phải tấn công PHỐI HỢP (raid/nuke) hay chỉ là cá nhân vi phạm.
+- "sourceHint": ai là nghi phạm NGUỒN CƠN đứng sau (tài khoản chủ mưu)? Gợi ý: acc cũ nhất trong cụm, người có avatar/username giống các tài khoản khác, người tạo invite, kẻ thực hiện hành vi phá hoại trong audit log. Trả null nếu chưa đủ tín hiệu.
+- Chỉ trả lời JSON thuần (không markdown): {"coordinated": true|false|null, "confidence": 0-1, "reasoning": "ngắn gọn tiếng Việt", "sourceHint": "username hoặc null"}`;
+    const user = `Vụ: module \"${args.module}\" — ${args.count} lần trong ${args.windowSeconds}s (ngưỡng ${args.threshold}). Server: ${args.guildName ?? "?"}.
+Hồ sơ cụm tài khoản:\n${args.clusterProfile || "(không có)"}
+Chuỗi hành vi gần đây:\n${args.recentActions || "(không có)"}`;
+    try {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user },
+          ],
+          max_tokens: 250,
+          temperature: 0.2,
+        }),
+      });
+      if (!res.ok) {
+        return { coordinated: null, confidence: 0, reasoning: `AI lỗi (${res.status})`, sourceHint: null, offline: true };
+      }
+      const data = (await res.json()) as {
+        choices?: { message?: { content?: string } }[];
+      };
+      const raw = data?.choices?.[0]?.message?.content ?? "";
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+      if (!parsed || typeof parsed.coordinated !== "boolean") {
+        return { coordinated: null, confidence: 0, reasoning: "AI trả về không hợp lệ", sourceHint: null, offline: true };
+      }
+      return {
+        coordinated: parsed.coordinated,
+        confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0.5)),
+        reasoning: String(parsed.reasoning || "").slice(0, 400),
+        sourceHint: parsed.sourceHint ? String(parsed.sourceHint).slice(0, 80) : null,
+        offline: false,
+      };
+    } catch {
+      return { coordinated: null, confidence: 0, reasoning: "AI không kết nối được", sourceHint: null, offline: true };
+    }
+  },
+});

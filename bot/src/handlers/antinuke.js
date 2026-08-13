@@ -21,6 +21,18 @@ const MODULE_LABELS = {
   massMessageDelete: "Xóa tin hàng loạt",
   massWebhookCreate: "Tạo webhook hàng loạt",
   massThreadCreate: "Tạo thread hàng loạt",
+  massThreadDelete: "Xóa thread hàng loạt",
+  massChannelRename: "Sửa/đổi tên kênh hàng loạt",
+  massChannelOverwrite: "Thay đổi quyền kênh hàng loạt",
+  massRoleEdit: "Sửa role hàng loạt",
+  adminSelfGrant: "Tự cấp quyền quản trị",
+  massRoleAssign: "Gán/gỡ role hàng loạt",
+  massNickname: "Đổi biệt danh hàng loạt",
+  massEmoji: "Tạo emoji/sticker hàng loạt",
+  massBotAdd: "Thêm bot hàng loạt",
+  massInviteCreate: "Tạo link mời hàng loạt",
+  guildTamper: "Đổi cấu hình server",
+  raidIntel: "Raid Intel — ban nguồn cơn",
   spam: "Chống spam tin nhắn",
   massMessage: "Spam tin dài / lặp nội dung",
   blankNoise: "Tin giả blank gây nhiễu",
@@ -42,6 +54,17 @@ const NUKE_MODULES = new Set([
   "massMessageDelete",
   "massWebhookCreate",
   "massThreadCreate",
+  "massThreadDelete",
+  "massChannelRename",
+  "massChannelOverwrite",
+  "massRoleEdit",
+  "adminSelfGrant",
+  "massRoleAssign",
+  "massNickname",
+  "massEmoji",
+  "massBotAdd",
+  "massInviteCreate",
+  "guildTamper",
 ]);
 
 // Tin nhắn "giả blank": chỉ gồm khoảng trắng / ký tự ẩn (zero-width) / xuống dòng.
@@ -52,6 +75,34 @@ const ZERO_WIDTH_RE = /[\u200b-\u200d\u2060\ufeff]/g;
 const LONG_MSG_LEN = 300;
 // Kích thước tối đa của các bucket trong bộ nhớ (chống rò rỉ RAM).
 const BUCKET_MAX = 200;
+
+/**
+ * Cấu hình mặc định cho các module MỚI — server cũ chưa có dòng antinukeModules
+ * (chưa được seed) vẫn bật module với ngưỡng mặc định, giống hành vi web
+ * (AntiNukePanel configFor fallback). Khi mod lưu từ dashboard, dòng sẽ được tạo.
+ */
+const DEFAULT_MODULE_CFG = {
+  massThreadDelete: { threshold: 3, windowSeconds: 10, punish: "ban", timeoutSeconds: 600 },
+  massChannelRename: { threshold: 3, windowSeconds: 10, punish: "ban", timeoutSeconds: 600 },
+  massChannelOverwrite: { threshold: 3, windowSeconds: 10, punish: "ban", timeoutSeconds: 600 },
+  massRoleEdit: { threshold: 3, windowSeconds: 10, punish: "ban", timeoutSeconds: 600 },
+  adminSelfGrant: { threshold: 1, windowSeconds: 10, punish: "ban", timeoutSeconds: 600 },
+  massRoleAssign: { threshold: 6, windowSeconds: 15, punish: "kick", timeoutSeconds: 600 },
+  massNickname: { threshold: 6, windowSeconds: 15, punish: "kick", timeoutSeconds: 600 },
+  massEmoji: { threshold: 3, windowSeconds: 10, punish: "ban", timeoutSeconds: 600 },
+  massBotAdd: { threshold: 3, windowSeconds: 10, punish: "kick", timeoutSeconds: 600 },
+  massInviteCreate: { threshold: 5, windowSeconds: 10, punish: "ban", timeoutSeconds: 600 },
+  guildTamper: { threshold: 2, windowSeconds: 10, punish: "ban", timeoutSeconds: 600 },
+};
+
+/** Lấy cấu hình module (đã seed) hoặc mặc định cho module mới chưa được seed. */
+function moduleCfgOf(config, module) {
+  const found = (config?.modules || []).find((m) => m.module === module);
+  if (found) return found;
+  const d = DEFAULT_MODULE_CFG[module];
+  if (!d) return null;
+  return { module, enabled: true, ...d, whitelistRoles: [], actions: [d.punish] };
+}
 
 module.exports = function createAntiNuke(client, store, heat) {
   /** Persist a punished event for the daily report. Fire-and-forget. */
@@ -193,6 +244,217 @@ module.exports = function createAntiNuke(client, store, heat) {
     }
   }
 
+  /** Gọi AI phân tích cụm raid (best-effort, 6s timeout). Trả null khi AI offline. */
+  async function aiAnalyzeRaid(guild, module, count, windowSeconds, threshold, clusterProfile, recentActions) {
+    try {
+      const res = await Promise.race([
+        store.client.action("haimiya:analyzeRaid", {
+          guildId: guild.id,
+          guildName: guild.name,
+          module,
+          count,
+          windowSeconds,
+          threshold,
+          clusterProfile: clusterProfile ? String(clusterProfile).slice(0, 1500) : undefined,
+          recentActions: recentActions ? String(recentActions).slice(0, 1500) : undefined,
+        }),
+        new Promise((r) => setTimeout(() => r(null), 6000)),
+      ]);
+      if (!res || res.offline) return null;
+      return res;
+    } catch (err) {
+      console.error("[ai:analyzeRaid]", err.message);
+      return null;
+    }
+  }
+
+  /**
+   * Hồ sơ cụm tài khoản raid → dữ liệu huấn luyện (số acc, tuổi acc trung bình,
+   * số avatar trùng nhau, thời gian vào rải rác).
+   */
+  function clusterStats(cluster) {
+    if (!cluster || cluster.length === 0) return {};
+    const now = Date.now();
+    const ages = cluster.filter((m) => m.createdAt).map((m) => (now - m.createdAt) / 86_400_000);
+    const avatarCounts = new Map();
+    for (const m of cluster) {
+      if (!m.avatar) continue;
+      avatarCounts.set(m.avatar, (avatarCounts.get(m.avatar) ?? 0) + 1);
+    }
+    const shared = [...avatarCounts.values()].filter((c) => c >= 2).length;
+    const sortedTs = cluster.map((m) => m.joinedAt || now).sort((a, b) => a - b);
+    const burst = sortedTs.length > 1 ? (sortedTs[sortedTs.length - 1] - sortedTs[0]) / 1000 : 0;
+    return {
+      clusterMemberCount: cluster.length,
+      clusterAvgAccountAgeDays: ages.length ? Math.round(ages.reduce((a, b) => a + b, 0) / ages.length) : undefined,
+      clusterSharedAvatarCount: shared,
+      clusterJoinBurstSeconds: Math.round(burst),
+    };
+  }
+
+  /**
+   * Raid Intel — săn lùng NGUỒN CƠN raid rồi ban nghi phạm.
+   *
+   * cluster: [{ id, username, avatar, createdAt, joinedAt }] — cụm tài khoản trong vụ.
+   * extraExecutors: [User] — kẻ thực hiện hành vi phá hoại (audit log) gần đây.
+   *
+   * Điểm nghi vấn deterministic (chạy được cả khi AI offline):
+   *   +5  kẻ thực hiện hành vi phá hoại (audit log) / tạo invite
+   *   +3  avatar trùng với >= 1 acc khác trong cụm (cùng bộ tài nguyên)
+   *   +2  acc mới < 7 ngày (sockpuppet) HOẶC acc cũ >= 180 ngày (nghi chủ acc chính)
+   *   +1  username dạng máy (chữ + đuôi số) / vào cùng nhịp 3 giây
+   * AI phân tích thêm (best-effort): nếu AI khẳng định "coordinated", điểm tăng.
+   * Nghi phạm điểm >= 4 → ban (theo raidHuntBanSuspects) với lý do Raid Intel.
+   */
+  async function huntRaidSource(guild, config, cluster = [], extraExecutors = []) {
+    if (!guild) return null;
+    if (config?.raidHuntEnabled === false) return null;
+    const hasData = (cluster && cluster.length > 0) || (extraExecutors && extraExecutors.length > 0);
+    if (!hasData) return null;
+
+    const now = Date.now();
+    const avatarGroups = new Map();
+    for (const m of cluster) {
+      if (!m?.avatar) continue;
+      avatarGroups.set(m.avatar, (avatarGroups.get(m.avatar) ?? 0) + 1);
+    }
+    const burstGroups = new Map();
+    for (const m of cluster) {
+      const key = Math.round((m.joinedAt || now) / 3000);
+      burstGroups.set(key, (burstGroups.get(key) ?? 0) + 1);
+    }
+
+    const scored = [];
+    const push = (id, username, score, parts) => {
+      if (!id) return;
+      const existing = scored.find((s) => s.id === id);
+      if (existing) existing.score += score;
+      else scored.push({ id, username: username || id, score, parts: [...parts] });
+    };
+
+    for (const m of cluster) {
+      if (!m?.id) continue;
+      let score = 0;
+      const parts = [];
+      const ageDays = m.createdAt ? (now - m.createdAt) / 86_400_000 : NaN;
+      if (m.avatar && (avatarGroups.get(m.avatar) ?? 0) >= 2) {
+        score += 3;
+        parts.push("avatar trùng nhau");
+      }
+      if (Number.isFinite(ageDays)) {
+        if (ageDays < 7) {
+          score += 2;
+          parts.push("acc mới <7 ngày");
+        } else if (ageDays >= 180) {
+          score += 2;
+          parts.push("acc cũ (nghi chủ acc chính)");
+        }
+      }
+      if (/^[A-Za-z][A-Za-z0-9_]*\d{3,}$/.test(m.username || "")) {
+        score += 1;
+        parts.push("username dạng máy");
+      }
+      if ((burstGroups.get(Math.round((m.joinedAt || now) / 3000)) ?? 0) >= 2) {
+        score += 1;
+        parts.push("vào cùng nhịp");
+      }
+      push(m.id, m.username, score, parts);
+    }
+
+    // Kẻ thực hiện hành vi phá hoại / tạo invite gần đây (audit log) — tín hiệu mạnh nhất.
+    const auditExecutors = [];
+    try {
+      const entries = await guild.fetchAuditLogs({ limit: 25 });
+      const relevant = [
+        AuditLogEvent.InviteCreate,
+        AuditLogEvent.MemberBanAdd,
+        AuditLogEvent.MemberKick,
+        AuditLogEvent.ChannelDelete,
+        AuditLogEvent.ChannelCreate,
+        AuditLogEvent.RoleDelete,
+        AuditLogEvent.RoleCreate,
+        AuditLogEvent.WebhookCreate,
+        AuditLogEvent.ThreadDelete,
+      ];
+      for (const e of entries.entries.values()) {
+        if (!e.executor || e.executor.id === client.user.id) continue;
+        if (!relevant.includes(e.action)) continue;
+        if (now - e.createdTimestamp > 30 * 60_000) continue; // chỉ 30 phút gần nhất
+        auditExecutors.push(e.executor);
+      }
+    } catch {
+      // không đọc được audit log — bỏ qua
+    }
+    for (const ex of [...auditExecutors, ...extraExecutors]) {
+      push(ex.id, ex.username, 5, ["thực hiện hành vi phá hoại (audit log)"]);
+    }
+
+    scored.sort((a, b) => b.score - a.score);
+    const suspects = scored.filter((s) => s.score >= 4).slice(0, 4);
+    if (suspects.length === 0) {
+      return { suspectedSourceId: null, suspectedSourceName: null, reason: "chưa đủ tín hiệu", banned: false, confidence: 0 };
+    }
+
+    // AI phân tích (best-effort): xác nhận phối hợp → tăng điểm nghi phạm hàng đầu.
+    let aiBoost = 0;
+    const ai = await aiAnalyzeRaid(
+      guild,
+      "source-hunt",
+      cluster.length || 1,
+      config?.modules?.find((m) => m.module === "massJoin")?.windowSeconds ?? 10,
+      1,
+      cluster
+        .slice(0, 12)
+        .map((m, i) => `${i + 1}. ${m.username || "?"} (acc ${m.createdAt ? Math.round((now - m.createdAt) / 86_400_000) : "?"} ngày, avatar ${m.avatar ? "có" : "không"})`)
+        .join("\n"),
+      auditExecutors.length
+        ? `Người thực hiện phá hoại gần đây: ${auditExecutors.map((e) => e.username).join(", ")}`
+        : undefined,
+    );
+    if (ai?.coordinated) {
+      aiBoost = 2;
+      scored.sort((a, b) => b.score - a.score);
+    }
+
+    const top = suspects[0];
+    const confidence = Math.min(0.97, 0.5 + (top.score + aiBoost) / 12);
+    const bannedNames = [];
+    if (config?.raidHuntBanSuspects !== false) {
+      for (const s of suspects) {
+        try {
+          const member = await guild.members.fetch(s.id).catch(() => null);
+          if (member && isExempt(member, {}, config)) continue;
+          await guild.members.ban(s.id, {
+            reason: `🚨 Protogon Raid Intel: nghi ngờ nguồn cơn raid (${(s.parts || []).join(", ")})`,
+          });
+          bannedNames.push(s.username || s.id);
+        } catch {
+          // thiếu quyền hoặc không fetch được — bỏ qua
+        }
+      }
+    }
+    return {
+      suspectedSourceId: top.id ?? null,
+      suspectedSourceName: top.username ?? null,
+      reason: `điểm ${top.score} (${(top.parts || []).join(", ")})${ai?.reasoning ? ` · AI: ${ai.reasoning}` : ""}${bannedNames.length ? ` · đã ban: ${bannedNames.join(", ")}` : ""}`.slice(0, 500),
+      banned: bannedNames.length > 0,
+      confidence: Math.round(confidence * 100) / 100,
+    };
+  }
+
+  /** Ghi mẫu dữ liệu huấn luyện raid/nuke lên Convex (fire-and-forget). */
+  async function recordRaidSample(guild, config, payload) {
+    try {
+      await store.client.mutation("bot_writes:botRecordRaidSample", {
+        guildId: guild.id,
+        guildName: guild.name,
+        ...payload,
+      });
+    } catch (err) {
+      console.error("[antinuke:sample]", err.message);
+    }
+  }
+
   /**
    * Phạt một thành viên theo danh sách hành động kết hợp của module (multi-select):
    * dùng hình phạt thành viên MẠNH NHẤT (ban > kick > timeout > warn); nếu không
@@ -309,6 +571,13 @@ module.exports = function createAntiNuke(client, store, heat) {
       punish: moduleCfg.punish,
     });
 
+    // Raid Intel: săn nguồn cơn (kẻ chủ mưu) + ghi mẫu dữ liệu huấn luyện.
+    try {
+      await afterStructuralEvent(guild, config, executor, moduleCfg, { count, action });
+    } catch (e) {
+      console.error(`[antinuke:${module}:sample]`, e.message);
+    }
+
     const embed = logEmbed({
       title: `🚨 Anti Nuke/Raid: ${MODULE_LABELS[module]}`,
       description: `Đã phát hiện **${count} lượt** trong **${moduleCfg.windowSeconds} giây** (ngưỡng ${moduleCfg.threshold}).`,
@@ -342,6 +611,7 @@ module.exports = function createAntiNuke(client, store, heat) {
 
     const reason = `[Protogon AntiNuke] Raid thành viên: ${fresh.length} người tham gia trong ${moduleCfg.windowSeconds}s`;
     const results = [];
+    const profiles = []; // hồ sơ cụm tài khoản raid → Raid Intel
     const actions = actionsOf(moduleCfg);
     // purgeMessages: giới hạn chỉ purge vài tài khoản mới nhất để tránh quá tải.
     let purgedCount = 0;
@@ -349,6 +619,13 @@ module.exports = function createAntiNuke(client, store, heat) {
     for (const j of fresh) {
       const m = await guild.members.fetch(j.id).catch(() => null);
       if (!m || isExempt(m, moduleCfg, config)) continue;
+      profiles.push({
+        id: m.id,
+        username: m.user?.username,
+        avatar: m.user?.avatar,
+        createdAt: m.user?.createdTimestamp,
+        joinedAt: j.ts,
+      });
       const res = await punishWithHeat(guild, m, moduleCfg, reason);
       results.push(`<@${j.id}>: ${res.action}`);
       if (purgedCount < purgeLimit) {
@@ -378,6 +655,34 @@ module.exports = function createAntiNuke(client, store, heat) {
       punish: moduleCfg.punish,
     });
 
+    // Raid Intel: săn NGUỒN CƠN raid trong cụm tài khoản vừa vào + ghi mẫu huấn luyện.
+    const sourceHunt = await huntRaidSource(guild, config, profiles);
+    await recordRaidSample(guild, config, {
+      module: "massJoin",
+      count: fresh.length,
+      windowSeconds: moduleCfg.windowSeconds,
+      threshold: moduleCfg.threshold,
+      action: results.length ? `xử lý ${results.length} tài khoản (${moduleCfg.punish})` : "không có tài khoản để xử lý",
+      punish: moduleCfg.punish,
+      lockdownTriggered: isLocked(guild.id),
+      punishedCount: results.length,
+      ...clusterStats(profiles),
+      sourceHunt,
+    });
+    if (sourceHunt?.banned) {
+      // Ghi lại vụ ban nguồn cơn vào sự kiện để báo cáo hàng ngày + dashboard thấy.
+      await recordEvent(guild.id, {
+        module: "raidIntel",
+        executorId: sourceHunt.suspectedSourceId ?? undefined,
+        executorName: sourceHunt.suspectedSourceName ?? undefined,
+        action: `Raid Intel: ban nguồn cơn (${sourceHunt.reason})`,
+        count: fresh.length,
+        windowSeconds: moduleCfg.windowSeconds,
+        threshold: moduleCfg.threshold,
+        punish: "ban",
+      }).catch(() => {});
+    }
+
     const embed = logEmbed({
       title: `🚨 Anti Nuke/Raid: Raid thành viên!`,
       description: `**${fresh.length}** thành viên tham gia trong **${moduleCfg.windowSeconds} giây** (ngưỡng ${moduleCfg.threshold}). Đã xử lý ${results.length} tài khoản.`,
@@ -387,6 +692,9 @@ module.exports = function createAntiNuke(client, store, heat) {
           ? [{ name: "Kết quả xử lý", value: results.slice(0, 10).join("\n").slice(0, 1000) }]
           : []),
         { name: "Nguồn", value: "🛡️ Bot tự động phát hiện (anti nuke/raid)", inline: true },
+        ...(sourceHunt && sourceHunt.banned
+          ? [{ name: "Raid Intel", value: `🎯 Đã ban nguồn cơn nghi ngờ: **${sourceHunt.suspectedSourceName ?? "?"}** — ${sourceHunt.reason}` }]
+          : []),
       ],
       footer: "Protogon · Anti Nuke/Raid",
     });
@@ -535,6 +843,21 @@ module.exports = function createAntiNuke(client, store, heat) {
           console.error("[antinuke:pattern:case]", e.message);
         }
       }
+      // Raid Intel: ghi mẫu huấn luyện kèm AI verdict (raid/individual/benign).
+      if (!isBenign) {
+        await recordRaidSample(guild, config, {
+          module: cfg.module,
+          count: fresh.length,
+          windowSeconds: cfg.windowSeconds,
+          threshold: cfg.threshold,
+          action,
+          punish: chosen ?? "none",
+          aiClassification: ai?.classification,
+          aiConfidence: ai?.confidence,
+          aiReason: ai?.reason,
+          lockdownTriggered: isLocked(guild.id),
+        });
+      }
       return; // chỉ xử lý 1 pattern/tin nhắn
     }
   }
@@ -651,6 +974,21 @@ module.exports = function createAntiNuke(client, store, heat) {
         console.error("[antinuke:spam:case]", e.message);
       }
     }
+    // Raid Intel: ghi mẫu huấn luyện kèm AI verdict (raid/individual/benign).
+    if (!isBenign) {
+      await recordRaidSample(guild, config, {
+        module: moduleCfg.module,
+        count: fresh.length,
+        windowSeconds: moduleCfg.windowSeconds,
+        threshold: moduleCfg.threshold,
+        action,
+        punish: chosen ?? "none",
+        aiClassification: ai?.classification,
+        aiConfidence: ai?.confidence,
+        aiReason: ai?.reason,
+        lockdownTriggered: isLocked(guild.id),
+      });
+    }
   }
 
   /** Periodically unlock guilds whose lockdown expired or was requested. */
@@ -717,10 +1055,31 @@ module.exports = function createAntiNuke(client, store, heat) {
     const config = await store.getConfig(guild.id);
     if (!config || !config.antinukeEnabled) return;
     lastConfigs.set(guild.id, config);
-    const moduleCfg = config.modules.find((m) => m.module === module);
+    const moduleCfg = moduleCfgOf(config, module);
     if (!moduleCfg || !moduleCfg.enabled) return;
     const executor = entry.executor;
-    if (executor && (executor.id === client.user.id || isExempt(executor, moduleCfg, config))) return;
+    // adminSelfGrant: chỉ owner / Administrator / adminRoles được miễn — kẻ leo
+    // thang đặc quyền thường ĐANG là mod (có quyền Manage Roles) nên không cho
+    // modRoles được miễn module này.
+    let exempt = false;
+    if (executor) {
+      if (executor.id === client.user.id) {
+        exempt = true;
+      } else {
+        const em = await guild.members.fetch(executor.id).catch(() => null);
+        if (em) {
+          if (module === "adminSelfGrant") {
+            exempt =
+              em.id === guild.ownerId ||
+              em.permissions.has(PermissionFlagsBits.Administrator) ||
+              (config?.adminRoles || []).some((id) => em.roles.cache.has(id));
+          } else {
+            exempt = isExempt(em, moduleCfg, config);
+          }
+        }
+      }
+    }
+    if (exempt) return;
 
     const count = record(guild.id, module, moduleCfg);
     if (executor && count < moduleCfg.threshold) return;
@@ -769,6 +1128,13 @@ module.exports = function createAntiNuke(client, store, heat) {
       punish: moduleCfg.punish,
     });
 
+    // Raid Intel: săn nguồn cơn (kẻ chủ mưu) + ghi mẫu dữ liệu huấn luyện.
+    try {
+      await afterStructuralEvent(guild, config, executor, moduleCfg, { count, action });
+    } catch (e) {
+      console.error(`[antinuke:${module}:sample]`, e.message);
+    }
+
     const embed = logEmbed({
       title: `🚨 Anti Nuke/Raid: ${MODULE_LABELS[module]}`,
       description: `Đã phát hiện **${count} lượt** trong **${moduleCfg.windowSeconds} giây** (ngưỡng ${moduleCfg.threshold}).`,
@@ -783,6 +1149,110 @@ module.exports = function createAntiNuke(client, store, heat) {
       footer: "Protogon · Anti Nuke/Raid",
     });
     await sendLog(guild, config, embed);
+  }
+
+  /**
+   * Raid Intel — ghi mẫu huấn luyện + săn nguồn cơn raid sau khi xử lý một vụ
+   * phá hoại cấu trúc (audit log). Executor là nghi phạm hàng đầu, gộp cùng cụm
+   * tài khoản vào gần đây để tìm acc chủ mưu có liên quan.
+   */
+  async function afterStructuralEvent(guild, config, executor, moduleCfg, payload) {
+    const recentCluster = (joiners.get(guild.id) ?? []).slice(-12).map((j) => ({ id: j.id, joinedAt: j.ts }));
+    const sourceHunt = await huntRaidSource(guild, config, recentCluster, executor ? [executor] : []);
+    await recordRaidSample(guild, config, {
+      module: moduleCfg.module,
+      count: payload.count,
+      windowSeconds: moduleCfg.windowSeconds,
+      threshold: moduleCfg.threshold,
+      action: payload.action,
+      punish: moduleCfg.punish,
+      lockdownTriggered: isLocked(guild.id),
+      ...clusterStats(recentCluster),
+      sourceHunt,
+    });
+  }
+
+  /**
+   * Định tuyến sự kiện audit log mới → module chống nuke/raid. Trả về
+   * { module, describeTarget } hoặc null nếu không phải sự kiện cần xử lý.
+   */
+  async function routeAuditEntry(entry, guild) {
+    const t = entry.target;
+    const changes = (entry.changes || []).map((c) => c.key);
+    switch (entry.action) {
+      case AuditLogEvent.WebhookCreate:
+        return { module: "massWebhookCreate", describeTarget: `Webhook "${t?.name ?? "?"}"` };
+      case AuditLogEvent.ThreadCreate:
+        return { module: "massThreadCreate", describeTarget: `Thread "#${t?.name ?? "?"}"` };
+      case AuditLogEvent.ThreadDelete:
+        return { module: "massThreadDelete", describeTarget: `Xóa thread "#${t?.name ?? "?"}"` };
+      case AuditLogEvent.ChannelUpdate: {
+        if (changes.includes("permission_overwrites")) {
+          return { module: "massChannelOverwrite", describeTarget: `#${t?.name ?? "?"} — quyền kênh bị thay đổi` };
+        }
+        if (changes.some((k) => ["name", "position", "topic", "rate_limit_per_user"].includes(k))) {
+          return { module: "massChannelRename", describeTarget: `#${t?.name ?? "?"} bị sửa` };
+        }
+        return null;
+      }
+      case AuditLogEvent.RoleUpdate:
+        return { module: "massRoleEdit", describeTarget: `Role "${t?.name ?? "?"}" bị sửa` };
+      case AuditLogEvent.MemberUpdate: {
+        if (changes.includes("nick")) {
+          return { module: "massNickname", describeTarget: `Biệt danh của <@${t?.id}> bị đổi` };
+        }
+        return null;
+      }
+      case AuditLogEvent.MemberRoleUpdate: {
+        const addedRoles = (entry.changes || [])
+          .filter((c) => c.key === "$add")
+          .flatMap((c) => (Array.isArray(c.new) ? c.new.map((r) => r && r.id) : []))
+          .filter(Boolean);
+        let grantedAdmin = false;
+        let adminRoleName = "";
+        for (const rid of addedRoles) {
+          const role = guild.roles.cache.get(rid) ?? (await guild.roles.fetch(rid).catch(() => null));
+          if (
+            role &&
+            (role.permissions.has(PermissionFlagsBits.Administrator) ||
+              role.permissions.has(PermissionFlagsBits.ManageGuild) ||
+              role.permissions.has(PermissionFlagsBits.ManageRoles))
+          ) {
+            grantedAdmin = true;
+            adminRoleName = role.name;
+            break;
+          }
+        }
+        if (grantedAdmin) {
+          return {
+            module: "adminSelfGrant",
+            describeTarget: `Cấp quyền quản trị (role "${adminRoleName}") cho <@${t?.id}>`,
+          };
+        }
+        return { module: "massRoleAssign", describeTarget: `Đổi role của <@${t?.id}>` };
+      }
+      case AuditLogEvent.EmojiCreate:
+      case AuditLogEvent.StickerCreate:
+        return {
+          module: "massEmoji",
+          describeTarget: `Tạo ${entry.action === AuditLogEvent.EmojiCreate ? "emoji" : "sticker"} "${t?.name ?? "?"}"`,
+        };
+      case AuditLogEvent.BotAdd:
+        return { module: "massBotAdd", describeTarget: `Thêm bot ${t?.username ?? "?"}` };
+      case AuditLogEvent.InviteCreate:
+        return { module: "massInviteCreate", describeTarget: "Tạo link mời mới" };
+      case AuditLogEvent.GuildUpdate: {
+        const tampered = changes.filter((k) =>
+          ["name", "icon_hash", "mfa_level", "verification_level", "region", "splash_hash"].includes(k),
+        );
+        if (tampered.length > 0) {
+          return { module: "guildTamper", describeTarget: `Đổi cấu hình server (${tampered.join(", ")})` };
+        }
+        return null;
+      }
+      default:
+        return null;
+    }
   }
 
   function attach() {
@@ -862,18 +1332,17 @@ module.exports = function createAntiNuke(client, store, heat) {
       void handleMessagePatterns(message).catch((e) => console.error("[antinuke:pattern]", e.message));
     });
 
-    // Sự kiện audit log mới (discord.js >= 14.10) — webhook & thread creation.
+    // Sự kiện audit log mới (discord.js >= 14.10) — định tuyến tất cả biến thể
+    // nuke/raid: webhook/thread create+delete, sửa/đổi quyền kênh, sửa role,
+    // tự cấp quyền quản trị, gán role/nickname hàng loạt, emoji/sticker, bot add,
+    // invite create, đổi cấu hình server.
     if (typeof client.on === "function" && AuditLogEvent.WebhookCreate !== undefined) {
       client.on("guildAuditLogEntryCreate", (entry, guild) => {
-        if (entry.action === AuditLogEvent.WebhookCreate) {
-          void handleAuditEntry(entry, guild, "massWebhookCreate", `Webhook "${entry.target?.name ?? "?"}"`).catch((e) =>
-            console.error("[antinuke:webhookCreate]", e.message),
-          );
-        } else if (entry.action === AuditLogEvent.ThreadCreate) {
-          void handleAuditEntry(entry, guild, "massThreadCreate", `Thread "#${entry.target?.name ?? "?"}"`).catch((e) =>
-            console.error("[antinuke:threadCreate]", e.message),
-          );
-        }
+        void (async () => {
+          const routed = await routeAuditEntry(entry, guild);
+          if (!routed) return;
+          await handleAuditEntry(entry, guild, routed.module, routed.describeTarget);
+        })().catch((e) => console.error("[antinuke:auditEntry]", e.message));
       });
     }
 

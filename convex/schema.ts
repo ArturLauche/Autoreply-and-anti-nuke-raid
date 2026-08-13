@@ -54,6 +54,10 @@ export default defineSchema({
     backupAutoDays: v.optional(v.number()),
     /** Lần backup thành công gần nhất (dùng cho lịch tự động). */
     lastBackupAt: v.optional(v.number()),
+    /** Raid Intel: bật săn lùng nguồn cơn raid (phân tích cụm tài khoản + audit log). */
+    raidHuntEnabled: v.optional(v.boolean()),
+    /** Raid Intel: tự ban tài khoản nghi là nguồn cơn raid khi đủ tín hiệu. */
+    raidHuntBanSuspects: v.optional(v.boolean()),
     /** Whitelist toàn cục: user/role được miễn trừ khỏi moderation, anti-raid và nuke. */
     whitelistUsers: v.optional(v.array(v.string())),
     whitelistRoles: v.optional(v.array(v.string())),
@@ -259,6 +263,48 @@ export default defineSchema({
     windowSeconds: v.number(),
     threshold: v.number(),
     punish: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_guildId", ["guildId"])
+    .index("by_guildId_createdAt", ["guildId", "createdAt"])
+    .index("by_createdAt", ["createdAt"]),
+
+  /**
+   * Raid Intel — dữ liệu huấn luyện bot + AI: mỗi vụ raid/nuke được xử lý
+   * ghi lại một mẫu có cấu trúc (module, ngưỡng, cụm tài khoản, AI verdict,
+   * kết quả săn nguồn cơn raid). Bot dùng để tự học nhận diện biến thể mới.
+   */
+  raidSamples: defineTable({
+    guildId: v.string(),
+    guildName: v.optional(v.string()),
+    /** Module chính kích hoạt (massJoin, massBan, spam…). */
+    module: v.string(),
+    count: v.number(),
+    windowSeconds: v.number(),
+    threshold: v.number(),
+    action: v.optional(v.string()),
+    punish: v.optional(v.string()),
+    /** AI Guard: classification (raid/individual/benign) + độ tin cậy + lý do. */
+    aiClassification: v.optional(v.string()),
+    aiConfidence: v.optional(v.number()),
+    aiReason: v.optional(v.string()),
+    lockdownTriggered: v.optional(v.boolean()),
+    punishedCount: v.optional(v.number()),
+    /** Hồ sơ cụm tài khoản trong vụ raid (dùng để huấn luyện nhận diện nguồn cơn). */
+    clusterMemberCount: v.optional(v.number()),
+    clusterAvgAccountAgeDays: v.optional(v.number()),
+    clusterSharedAvatarCount: v.optional(v.number()),
+    clusterJoinBurstSeconds: v.optional(v.number()),
+    /** Kết quả săn lùng nguồn cơn raid. */
+    sourceHunt: v.optional(
+      v.object({
+        suspectedSourceId: v.optional(v.string()),
+        suspectedSourceName: v.optional(v.string()),
+        reason: v.string(),
+        banned: v.boolean(),
+        confidence: v.number(),
+      }),
+    ),
     createdAt: v.number(),
   })
     .index("by_guildId", ["guildId"])

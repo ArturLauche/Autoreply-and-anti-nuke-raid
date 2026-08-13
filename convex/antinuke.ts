@@ -1,4 +1,4 @@
-import { mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild } from "./auth";
 import { isAntiNukeModule } from "./modules";
@@ -100,5 +100,51 @@ export const updateModule = mutation({
       });
     }
     return { ok: true };
+  },
+});
+
+/**
+ * Raid Intel — tổng quan dữ liệu thu thập + săn nguồn cơn raid của một server:
+ * số mẫu huấn luyện đã ghi, cài đặt săn nguồn cơn, và các vụ gần đây (AI verdict
+ * + nghi phạm nguồn cơn bị ban). Dùng cho panel Chống nuke/raid trên web.
+ */
+export const raidIntel = query({
+  args: { token: v.string(), guildId: v.string() },
+  handler: async (ctx, { token, guildId }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild)) return null;
+    const samples = await ctx.db
+      .query("raidSamples")
+      .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId))
+      .order("desc")
+      .take(12);
+    const all = await ctx.db
+      .query("raidSamples")
+      .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
+      .collect();
+    return {
+      huntEnabled: guild.raidHuntEnabled ?? true,
+      banSuspects: guild.raidHuntBanSuspects ?? true,
+      count: all.length,
+      recent: samples.map((s) => ({
+        module: s.module,
+        createdAt: s.createdAt,
+        count: s.count,
+        action: s.action ?? null,
+        aiClassification: s.aiClassification ?? null,
+        aiConfidence: s.aiConfidence ?? null,
+        aiReason: s.aiReason ?? null,
+        punishedCount: s.punishedCount ?? null,
+        lockdownTriggered: s.lockdownTriggered ?? false,
+        clusterMemberCount: s.clusterMemberCount ?? null,
+        suspectedSourceName: s.sourceHunt?.suspectedSourceName ?? null,
+        banned: s.sourceHunt?.banned ?? false,
+        reason: s.sourceHunt?.reason ?? null,
+      })),
+    };
   },
 });

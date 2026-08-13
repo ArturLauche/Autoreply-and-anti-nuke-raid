@@ -680,3 +680,71 @@ export const botRecordModAction = mutation({
     return { ok: true, caseNumber };
   },
 });
+
+
+/** Bot ghi một mẫu dữ liệu raid/nuke (Raid Intel — dữ liệu huấn luyện). */
+export const botRecordRaidSample = mutation({
+  args: {
+    guildId: v.string(),
+    guildName: v.optional(v.string()),
+    module: v.string(),
+    count: v.number(),
+    windowSeconds: v.number(),
+    threshold: v.number(),
+    action: v.optional(v.string()),
+    punish: v.optional(v.string()),
+    aiClassification: v.optional(v.string()),
+    aiConfidence: v.optional(v.number()),
+    aiReason: v.optional(v.string()),
+    lockdownTriggered: v.optional(v.boolean()),
+    punishedCount: v.optional(v.number()),
+    clusterMemberCount: v.optional(v.number()),
+    clusterAvgAccountAgeDays: v.optional(v.number()),
+    clusterSharedAvatarCount: v.optional(v.number()),
+    clusterJoinBurstSeconds: v.optional(v.number()),
+    sourceHunt: v.optional(
+      v.object({
+        suspectedSourceId: v.optional(v.string()),
+        suspectedSourceName: v.optional(v.string()),
+        reason: v.string(),
+        banned: v.boolean(),
+        confidence: v.number(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("raidSamples", {
+      guildId: args.guildId,
+      guildName: args.guildName,
+      module: args.module,
+      count: args.count,
+      windowSeconds: args.windowSeconds,
+      threshold: args.threshold,
+      action: args.action,
+      punish: args.punish,
+      aiClassification: args.aiClassification,
+      aiConfidence: args.aiConfidence,
+      aiReason: args.aiReason,
+      lockdownTriggered: args.lockdownTriggered,
+      punishedCount: args.punishedCount,
+      clusterMemberCount: args.clusterMemberCount,
+      clusterAvgAccountAgeDays: args.clusterAvgAccountAgeDays,
+      clusterSharedAvatarCount: args.clusterSharedAvatarCount,
+      clusterJoinBurstSeconds: args.clusterJoinBurstSeconds,
+      sourceHunt: args.sourceHunt,
+      createdAt: Date.now(),
+    });
+    // Chống phình DB: giữ tối đa 500 mẫu/server — đủ làm bộ dữ liệu huấn luyện
+    // mà không làm chậm dashboard.
+    const all = await ctx.db
+      .query("raidSamples")
+      .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", args.guildId))
+      .order("desc")
+      .collect();
+    if (all.length > 500) {
+      const drop = all.slice(500).map((r) => r._id);
+      for (const id of drop) await ctx.db.delete(id);
+    }
+    return { ok: true };
+  },
+});

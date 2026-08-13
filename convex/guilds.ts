@@ -131,6 +131,8 @@ export const getGuild = query({
         theme: guild.theme ?? "pink",
         backupAutoDays: guild.backupAutoDays ?? 0,
         lastBackupAt: guild.lastBackupAt ?? null,
+        raidHuntEnabled: guild.raidHuntEnabled ?? true,
+        raidHuntBanSuspects: guild.raidHuntBanSuspects ?? true,
         modRoles: guild.modRoles,
         adminRoles: guild.adminRoles,
         antinukeEnabled: guild.antinukeEnabled,
@@ -293,6 +295,8 @@ export const getBotConfig = query({
       lockdownRequested: guild.lockdownRequested ?? false,
       dailyReportEnabled: guild.dailyReportEnabled ?? true,
       lastReportAt: guild.lastReportAt ?? null,
+      raidHuntEnabled: guild.raidHuntEnabled ?? true,
+      raidHuntBanSuspects: guild.raidHuntBanSuspects ?? true,
       badWords: guild.badWords ?? [],
       heatEnabled: guild.heatEnabled ?? HEAT_DEFAULTS.enabled,
       heatDecayPerMin: decayPerMin,
@@ -384,6 +388,8 @@ export const updateSettings = mutation({
     warnStrikePunish: v.optional(
       v.union(v.literal("timeout"), v.literal("kick"), v.literal("ban")),
     ),
+    raidHuntEnabled: v.optional(v.boolean()),
+    raidHuntBanSuspects: v.optional(v.boolean()),
     theme: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -400,6 +406,8 @@ export const updateSettings = mutation({
       patch.theme = args.theme;
     }
     if (args.dailyReportEnabled !== undefined) patch.dailyReportEnabled = args.dailyReportEnabled;
+    if (args.raidHuntEnabled !== undefined) patch.raidHuntEnabled = args.raidHuntEnabled;
+    if (args.raidHuntBanSuspects !== undefined) patch.raidHuntBanSuspects = args.raidHuntBanSuspects;
     if (args.prefix !== undefined) {
       if (!/^[!^$#&%]{1,3}$/.test(args.prefix)) {
         throw new Error("Prefix phải là 1-3 ký tự đặc biệt (ví dụ: !, ^, !! )");
@@ -664,6 +672,9 @@ export const botSyncGuilds = mutation({
           managers: [],
           // Tự động backup mặc định mỗi 7 ngày (0 = tắt — chỉnh trong Backup server).
           backupAutoDays: 7,
+          // Raid Intel: bật săn nguồn cơn raid + tự ban nghi phạm theo mặc định.
+          raidHuntEnabled: true,
+          raidHuntBanSuspects: true,
           botInGuild: true,
           lastHeartbeat: now,
           createdAt: now,
