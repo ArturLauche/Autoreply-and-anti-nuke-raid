@@ -42,12 +42,14 @@ async function sendPunishNotice({ guild, guildConfig, punishType, target, execut
     const channel = await guild.channels.fetch(channelId).catch(() => null);
     if (!channel || !channel.isTextBased()) return false;
 
+    const isManual = !!executor;
     const fields = [];
     if (target) {
       fields.push({ name: "Thành viên", value: `${target} (${target.id})`, inline: true });
     }
     fields.push({
-      name: "Hành động của bot",
+      // Phân biệt rõ nguồn: lệnh thủ công của mod vs bot tự động (auto-mod / anti nuke).
+      name: isManual ? "Hành động (mod)" : "Hành động của bot",
       value: ACTION_PAST[punishType] || punishType,
       inline: true,
     });
@@ -70,7 +72,11 @@ async function sendPunishNotice({ guild, guildConfig, punishType, target, execut
     const embed = new EmbedBuilder()
       .setColor(ACTION_COLOR[punishType] || Colors.Red)
       .setTitle(`🛡️ ${ACTION_LABEL[punishType] || punishType}`)
-      .setDescription(`Protogon vừa xử lý một vi phạm trên server.`)
+      .setDescription(
+        isManual
+          ? "🛠️ Một moderator đã áp dụng hình phạt thủ công trên server."
+          : "⚡ Bot tự động phát hiện và xử lý vi phạm.",
+      )
       .addFields(fields)
       .setTimestamp()
       .setFooter({ text: "Protogon · Moderation" });

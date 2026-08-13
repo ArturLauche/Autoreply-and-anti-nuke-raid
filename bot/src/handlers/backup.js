@@ -91,6 +91,7 @@ async function snapshotWithSettings(client, store, guildId) {
       whitelistUsers: cfg.whitelistUsers ?? [],
       logChannelId: cfg.logChannelId ?? null,
       modLogChannelId: cfg.modLogChannelId ?? null,
+      autoModLogChannelId: cfg.autoModLogChannelId ?? null,
     };
   }
   return { snapshot, guild };
@@ -289,6 +290,7 @@ async function runRestore(client, store, guildId, backupJson, backupName) {
       adminRoles: (s.adminRoles || []).map((id) => roleMap.get(id)).filter(Boolean),
       logChannelId: mapId(s.logChannelId, channelMap) ?? null,
       modLogChannelId: mapId(s.modLogChannelId, channelMap) ?? null,
+      autoModLogChannelId: mapId(s.autoModLogChannelId, channelMap) ?? null,
     })
     .catch((e) => console.error(`[backup:settings] ${guildId}:`, e.message));
 

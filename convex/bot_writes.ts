@@ -604,6 +604,7 @@ export const botRestoreSettings = mutation({
     adminRoles: v.optional(v.array(v.string())),
     logChannelId: v.optional(v.union(v.string(), v.null())),
     modLogChannelId: v.optional(v.union(v.string(), v.null())),
+    autoModLogChannelId: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const guild = await ctx.db
@@ -620,6 +621,8 @@ export const botRestoreSettings = mutation({
     if (args.adminRoles !== undefined) patch.adminRoles = args.adminRoles.slice(0, 50);
     if (args.logChannelId !== undefined) patch.logChannelId = args.logChannelId ?? undefined;
     if (args.modLogChannelId !== undefined) patch.modLogChannelId = args.modLogChannelId ?? undefined;
+    if (args.autoModLogChannelId !== undefined)
+      patch.autoModLogChannelId = args.autoModLogChannelId ?? undefined;
     await ctx.db.patch(guild._id, patch);
     return { ok: true };
   },

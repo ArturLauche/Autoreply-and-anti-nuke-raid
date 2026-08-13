@@ -42,10 +42,10 @@ function logEmbed({ title, description, color = Colors.Red, fields = [], footer 
   return embed;
 }
 
-async function sendLog(guild, guildConfig, embed) {
-  if (!guildConfig || !guildConfig.logChannelId) return;
+async function sendToChannel(guild, channelId, embed) {
+  if (!guild || !channelId) return;
   try {
-    const channel = await guild.channels.fetch(guildConfig.logChannelId);
+    const channel = await guild.channels.fetch(channelId);
     if (channel && channel.isTextBased()) {
       await channel.send({ embeds: [embed] });
     }
@@ -55,21 +55,33 @@ async function sendLog(guild, guildConfig, embed) {
 }
 
 /**
- * Gửi log hành động mod (ban/timeout/kick/warn + gỡ hình phạt, purge) tới kênh
- * modLogChannelId nếu đã đặt, ngược lại rơi về kênh log chung (logChannelId).
+ * Log chung — dành cho cảnh báo ANTI NUKE / RAID và sự kiện quan trọng.
+ * Gửi tới logChannelId.
+ */
+async function sendLog(guild, guildConfig, embed) {
+  if (!guildConfig || !guildConfig.logChannelId) return;
+  await sendToChannel(guild, guildConfig.logChannelId, embed);
+}
+
+/**
+ * Log AUTO-MOD nội dung (badword, invite, malware, mention, attachment, spam,
+ * massMessage, blankNoise) — gửi tới autoModLogChannelId nếu đã đặt, ngược lại
+ * rơi về kênh log chung (logChannelId).
+ */
+async function sendAutoModLog(guild, guildConfig, embed) {
+  if (!guildConfig) return;
+  const channelId = guildConfig.autoModLogChannelId || guildConfig.logChannelId;
+  await sendToChannel(guild, channelId, embed);
+}
+
+/**
+ * Log hành động mod THỦ CÔNG (ban/timeout/kick/warn + gỡ hình phạt, purge) tới
+ * kênh modLogChannelId nếu đã đặt, ngược lại rơi về kênh log chung (logChannelId).
  */
 async function sendModLog(guild, guildConfig, embed) {
   if (!guildConfig) return;
   const channelId = guildConfig.modLogChannelId || guildConfig.logChannelId;
-  if (!channelId) return;
-  try {
-    const channel = await guild.channels.fetch(channelId);
-    if (channel && channel.isTextBased()) {
-      await channel.send({ embeds: [embed] });
-    }
-  } catch {
-    // log channel unavailable — ignore
-  }
+  await sendToChannel(guild, channelId, embed);
 }
 
 function mentionRoles(roleIds) {
@@ -85,6 +97,7 @@ module.exports = {
   fillPlaceholders,
   logEmbed,
   sendLog,
+  sendAutoModLog,
   sendModLog,
   mentionRoles,
   Colors,

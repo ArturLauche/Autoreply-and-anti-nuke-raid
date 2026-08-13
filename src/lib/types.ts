@@ -111,6 +111,8 @@ export interface GuildData {
     logChannelId: string | null;
     /** Kênh log hành động mod (ban/timeout/kick/warn + ngược lại, xóa tin). */
     modLogChannelId: string | null;
+    /** Kênh log auto-mod nội dung (badword, invite, malware, mention, attachment, spam, massMessage, blankNoise). */
+    autoModLogChannelId: string | null;
     /** Kênh gửi thông báo sau khi bot trừng phạt thành viên (Moderation). */
     punishNoticeChannelId: string | null;
     /** Mức chi tiết thông báo theo từng hành động ban/timeout/kick/warn. */

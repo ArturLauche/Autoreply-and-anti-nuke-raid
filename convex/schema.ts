@@ -28,6 +28,8 @@ export default defineSchema({
     logChannelId: v.optional(v.string()),
     /** Kênh log hành động mod (ban/timeout/kick/warn + ngược lại, purge). */
     modLogChannelId: v.optional(v.string()),
+    /** Kênh log auto-mod nội dung (badword, invite, malware, mention, attachment, spam, massMessage, blankNoise). */
+    autoModLogChannelId: v.optional(v.string()),
     /** Kênh gửi thông báo sau khi bot trừng phạt thành viên (Moderation). */
     punishNoticeChannelId: v.optional(v.string()),
     /** Mức chi tiết thông báo theo từng hành động ban/timeout/kick/warn. */

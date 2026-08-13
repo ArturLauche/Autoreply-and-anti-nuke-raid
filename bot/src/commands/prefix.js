@@ -10,6 +10,7 @@ const {
   parseDuration,
   canMod,
   needPerm,
+  reasonRequired,
   timeoutMember,
   kickMember,
   banMember,
@@ -404,6 +405,10 @@ async function handleTimeout(client, message, args, config, store) {
     return message.reply("Thời lượng không hợp lệ (ví dụ: `10m`, `2h`, `1d`, hoặc số phút). Tối đa 7 ngày.");
   }
   const reason = args.slice(2).join(" ").trim() || undefined;
+  // Moderation trên web đang cấu hình thông báo CÓ lý do → mod phải ghi lý do.
+  if (reasonRequired(config, "timeout") && !reason) {
+    return message.reply("❌ Server đang cấu hình thông báo Timeout **có lý do** (Moderation) — bạn phải ghi lý do: `!timeout @user 10m <lý do>`");
+  }
   try {
     const out = await timeoutMember({
       guild: message.guild,
@@ -440,6 +445,10 @@ async function handleKick(client, message, args, config, store) {
   const member = message.mentions.members.first();
   if (!member) return message.reply("Tag thành viên cần kick: `!kick @user [lý do]`");
   const reason = args.slice(1).join(" ").trim() || undefined;
+  // Moderation trên web đang cấu hình thông báo CÓ lý do → mod phải ghi lý do.
+  if (reasonRequired(config, "kick") && !reason) {
+    return message.reply("❌ Server đang cấu hình thông báo Kick **có lý do** (Moderation) — bạn phải ghi lý do: `!kick @user <lý do>`");
+  }
   try {
     const out = await kickMember({
       guild: message.guild,
@@ -463,6 +472,10 @@ async function handleBan(client, message, args, config, store) {
   const daysMatch = /--days (\d+)/.exec(rest);
   const deleteDays = daysMatch ? Math.max(0, Math.min(7, parseInt(daysMatch[1], 10))) : 0;
   const reason = rest.replace(/--days \d+/, "").trim() || undefined;
+  // Moderation trên web đang cấu hình thông báo CÓ lý do → mod phải ghi lý do.
+  if (reasonRequired(config, "ban") && !reason) {
+    return message.reply("❌ Server đang cấu hình thông báo Ban **có lý do** (Moderation) — bạn phải ghi lý do: `!ban @user <lý do>` (thêm `--days 7` để xóa tin nhắn)");
+  }
   try {
     const out = await banMember({
       guild: message.guild,

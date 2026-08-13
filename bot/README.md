@@ -174,7 +174,7 @@ Muốn đăng ký lại slash commands thủ công: `bun run register`.
 | `!antinuke module <tên> <on\|off>` | Bật tắt từng module |
 | `!antinuke unlock` | Mở khóa kênh ngay lập tức |
 | `!lockdown on \| off` | Bật/tắt khóa kênh tự động khi raid |
-| `!setlog #kênh` | Đặt kênh log |
+| `!setlog #kênh` | Đặt kênh log chung (anti nuke/raid) |
 | `!backup` \| `!backup now` | Tạo backup server (đẩy lên GitHub của chủ bot) |
 | `!backup local` | Tạo backup chỉ lưu trên Convex (không đẩy GitHub) |
 | `!backup list` \| `!backuplist` | Danh sách backup của server |
@@ -216,14 +216,27 @@ Muốn đăng ký lại slash commands thủ công: `bun run register`.
 - Khi server bị nuke/raid phá sập: mời bot vào **server phụ** → dashboard → **Backup** → bấm **Khôi phục vào server này** (hoặc `!backup restore <số>` trong server phụ). Bot tạo lại role (quyền đã được giới hạn theo quyền hiện có của bot), danh mục, kênh + overwrite, rồi áp lại cấu hình với id mới. Các role/kênh có sẵn của server phụ được giữ nguyên.
 - Bot quét yêu cầu backup/khôi phục mỗi ~20 giây.
 
+## Hệ thống log — tách bạch 3 luồng
+
+Log trong Discord được chia **3 kênh riêng biệt** để không lộn xộn giữa các nguồn (chọn kênh ở dashboard → **Cài đặt → Kênh log**):
+
+| Luồng | Kênh nhận | Nhãn trên embed |
+| --- | --- | --- |
+| 🛡️ **Anti nuke/raid** (ban/kick/join hàng loạt, tạo/xóa kênh/role hàng loạt, webhook/thread, xóa tin hàng loạt) | Kênh log chung (`logChannelId`) | `Protogon · Anti Nuke/Raid` · Nguồn: *🛡️ Bot tự động phát hiện* |
+| ⚙️ **Auto-mod nội dung** (từ ngữ xấu, link mời, link độc hại/file nguy hiểm, spam mention, spam ảnh/file, spam tin nhắn, tin dài/blank) | Kênh log auto-mod (`autoModLogChannelId`, chưa đặt → kênh log chung) | `Protogon · Auto Mod` · Nguồn: *⚙️ Bot tự động* |
+| 🛠️ **Lệnh thủ công của mod/owner** (ban · timeout · kick · warn · gỡ hình phạt · purge) | Kênh log hành động mod (`modLogChannelId`, chưa đặt → kênh log chung) | `Protogon · Lệnh Mod` · Nguồn: *🛠️ Lệnh thủ công (mod/owner)* |
+
+> Chưa chọn kênh riêng cho auto-mod / hành động mod thì cả 2 vẫn gửi vào kênh log chung (không mất log). Bot backup cũng gửi thông báo vào kênh hệ thống của server.
+
 ## Moderation — thông báo sau khi phạt
 
 - Dashboard → **Moderation** (sidebar) để bật/tắt thông báo sau khi bot trừng phạt thành viên, riêng cho từng hành động **ban · timeout · warn · kick**:
   - `none` — không gửi tin nhắn
-  - `action` — gửi tin nhắn server + hành động bot
+  - `action` — gửi tin nhắn server + hành động
   - `reason` — thêm lý do vi phạm
   - `full` — thêm moderator đã áp dụng (lệnh mod thủ công hiển thị tên mod; phạt tự động hiển thị “Bot tự động”)
 - Kênh nhận: `punishNoticeChannelId` → kênh log mod → kênh log chung.
+- **Liên kết với lệnh thủ công**: khi mức thông báo của một hành động (ban/timeout/kick/warn) chọn **có lý do** (`reason` hoặc `full`), lệnh thủ công tương ứng (`/mod timeout|kick|ban` và `!timeout|!kick|!ban`) sẽ **bắt buộc mod ghi lý do** — thiếu lý do là bot từ chối thực thi. Bản ghi trên dashboard (Bảng hình phạt) hiển thị rõ **🛠️ Lệnh mod** (tên mod) hay **⚡ Bot tự động** (auto-mod / anti nuke).
 
 ## Kiến trúc đồng bộ
 

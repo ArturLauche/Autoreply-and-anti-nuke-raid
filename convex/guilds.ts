@@ -116,6 +116,7 @@ export const getGuild = query({
         prefix: guild.prefix,
         logChannelId: guild.logChannelId ?? null,
         modLogChannelId: guild.modLogChannelId ?? null,
+        autoModLogChannelId: guild.autoModLogChannelId ?? null,
         punishNoticeChannelId: guild.punishNoticeChannelId ?? null,
         punishNotice: {
           ban: guild.punishNotice?.ban ?? "none",
@@ -274,6 +275,7 @@ export const getBotConfig = query({
       prefix: guild.prefix,
       logChannelId: guild.logChannelId ?? null,
       modLogChannelId: guild.modLogChannelId ?? null,
+      autoModLogChannelId: guild.autoModLogChannelId ?? null,
       punishNoticeChannelId: guild.punishNoticeChannelId ?? null,
       punishNotice: {
         ban: guild.punishNotice?.ban ?? "none",
@@ -348,6 +350,7 @@ export const updateSettings = mutation({
     prefix: v.optional(v.string()),
     logChannelId: v.optional(v.string()),
     modLogChannelId: v.optional(v.string()),
+    autoModLogChannelId: v.optional(v.string()),
     punishNoticeChannelId: v.optional(v.string()),
     punishNotice: v.optional(
       v.object({
@@ -408,6 +411,8 @@ export const updateSettings = mutation({
     if (args.logChannelId !== undefined) patch.logChannelId = args.logChannelId || undefined;
     if (args.modLogChannelId !== undefined)
       patch.modLogChannelId = args.modLogChannelId || undefined;
+    if (args.autoModLogChannelId !== undefined)
+      patch.autoModLogChannelId = args.autoModLogChannelId || undefined;
     if (args.punishNoticeChannelId !== undefined) {
       patch.punishNoticeChannelId = args.punishNoticeChannelId || undefined;
     }
@@ -630,6 +635,7 @@ export const botSyncGuilds = mutation({
           prefix: "!",
           logChannelId: undefined,
           modLogChannelId: undefined,
+          autoModLogChannelId: undefined,
           whitelistUsers: [],
           whitelistRoles: [],
           modRoles: [],

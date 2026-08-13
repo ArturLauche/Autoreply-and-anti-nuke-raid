@@ -1,5 +1,5 @@
 const { AuditLogEvent, PermissionFlagsBits, Colors } = require("discord.js");
-const { logEmbed, sendLog } = require("../util");
+const { logEmbed, sendLog, sendAutoModLog } = require("../util");
 const { isLocked, markLocked, lockGuild, unlockGuild } = require("../lockdown");
 const {
   heatSettings,
@@ -299,16 +299,17 @@ module.exports = function createAntiNuke(client, store, heat) {
     });
 
     const embed = logEmbed({
-      title: `🚨 Cảnh báo: ${MODULE_LABELS[module]}`,
+      title: `🚨 Anti Nuke/Raid: ${MODULE_LABELS[module]}`,
       description: `Đã phát hiện **${count} lượt** trong **${moduleCfg.windowSeconds} giây** (ngưỡng ${moduleCfg.threshold}).`,
       color: Colors.Red,
       fields: [
         { name: "Thủ phạm", value: `<@${executor.id}>`, inline: true },
         { name: "Xử lý", value: action.slice(0, 1000), inline: true },
+        { name: "Nguồn", value: "🛡️ Bot tự động phát hiện (anti nuke/raid)", inline: true },
         { name: "Module", value: `\`${module}\``, inline: true },
         ...(describeTarget ? [{ name: "Đối tượng", value: describeTarget, inline: false }] : []),
       ],
-      footer: "Protogon Anti Nuke",
+      footer: "Protogon · Anti Nuke/Raid",
     });
     await sendLog(guild, config, embed);
   }
@@ -367,14 +368,16 @@ module.exports = function createAntiNuke(client, store, heat) {
     });
 
     const embed = logEmbed({
-      title: `🚨 Raid thành viên!`,
+      title: `🚨 Anti Nuke/Raid: Raid thành viên!`,
       description: `**${fresh.length}** thành viên tham gia trong **${moduleCfg.windowSeconds} giây** (ngưỡng ${moduleCfg.threshold}). Đã xử lý ${results.length} tài khoản.`,
       color: Colors.Red,
-      fields:
-        results.length > 0
+      fields: [
+        ...(results.length > 0
           ? [{ name: "Kết quả xử lý", value: results.slice(0, 10).join("\n").slice(0, 1000) }]
-          : [],
-      footer: "Protogon Anti Nuke",
+          : []),
+        { name: "Nguồn", value: "🛡️ Bot tự động phát hiện (anti nuke/raid)", inline: true },
+      ],
+      footer: "Protogon · Anti Nuke/Raid",
     });
     await sendLog(guild, config, embed);
   }
@@ -485,17 +488,18 @@ module.exports = function createAntiNuke(client, store, heat) {
       });
 
       const embed = logEmbed({
-        title: `🚨 Cảnh báo: ${MODULE_LABELS[cfg.module]}`,
+        title: `🚨 Auto Mod: ${MODULE_LABELS[cfg.module]}`,
         description: `<@${message.author.id}> đã gửi **${fresh.length} tin** thuộc mẫu \`${cfg.module}\` trong **${cfg.windowSeconds} giây** (ngưỡng ${cfg.threshold}). ${actions.includes("deleteMessages") || actions.includes("purgeMessages") ? "Tin nhắn liên quan đã được dọn theo cấu hình." : ""}`,
         color: isRaid ? Colors.Red : Colors.Orange,
         fields: [
           { name: "Thủ phạm", value: `<@${message.author.id}>`, inline: true },
           { name: "Xử lý", value: (action + (ai ? ` · AI: ${ai.classification} (${ai.confidence})` : "")).slice(0, 1000), inline: true },
+          { name: "Nguồn", value: "⚙️ Bot tự động (auto-mod)", inline: true },
           { name: "Module", value: `\`${cfg.module}\``, inline: true },
         ],
-        footer: "Protogon Anti Nuke",
+        footer: "Protogon · Auto Mod",
       });
-      await sendLog(message.guild, config, embed);
+      await sendAutoModLog(message.guild, config, embed);
       return; // chỉ xử lý 1 pattern/tin nhắn
     }
   }
@@ -576,17 +580,18 @@ module.exports = function createAntiNuke(client, store, heat) {
     });
 
     const embed = logEmbed({
-      title: "🚨 Cảnh báo: Chống spam tin nhắn",
+      title: "🚨 Auto Mod: Chống spam tin nhắn",
       description: `<@${message.author.id}> đã gửi **${fresh.length} tin nhắn** trong **${moduleCfg.windowSeconds} giây** (ngưỡng ${moduleCfg.threshold}).`,
       color: isRaid ? Colors.Red : Colors.Orange,
       fields: [
         { name: "Thủ phạm", value: `<@${message.author.id}>`, inline: true },
         { name: "Xử lý", value: (action + (ai ? ` · AI: ${ai.classification} (${ai.confidence})` : "")).slice(0, 1000), inline: true },
+        { name: "Nguồn", value: "⚙️ Bot tự động (auto-mod)", inline: true },
         { name: "Module", value: "`spam`", inline: true },
       ],
-      footer: "Protogon Anti Nuke",
+      footer: "Protogon · Auto Mod",
     });
-    await sendLog(message.guild, config, embed);
+    await sendAutoModLog(message.guild, config, embed);
   }
 
   /** Periodically unlock guilds whose lockdown expired or was requested. */
@@ -706,16 +711,17 @@ module.exports = function createAntiNuke(client, store, heat) {
     });
 
     const embed = logEmbed({
-      title: `🚨 Cảnh báo: ${MODULE_LABELS[module]}`,
+      title: `🚨 Anti Nuke/Raid: ${MODULE_LABELS[module]}`,
       description: `Đã phát hiện **${count} lượt** trong **${moduleCfg.windowSeconds} giây** (ngưỡng ${moduleCfg.threshold}).`,
       color: Colors.Red,
       fields: [
         { name: "Thủ phạm", value: `<@${executor.id}>`, inline: true },
         { name: "Xử lý", value: action.slice(0, 1000), inline: true },
+        { name: "Nguồn", value: "🛡️ Bot tự động phát hiện (anti nuke/raid)", inline: true },
         { name: "Module", value: `\`${module}\``, inline: true },
         ...(describeTarget ? [{ name: "Đối tượng", value: describeTarget, inline: false }] : []),
       ],
-      footer: "Protogon Anti Nuke",
+      footer: "Protogon · Anti Nuke/Raid",
     });
     await sendLog(guild, config, embed);
   }

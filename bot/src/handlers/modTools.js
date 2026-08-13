@@ -29,6 +29,16 @@ function needPerm(channel) {
   return channel.send("❌ Bạn cần quyền **Quản lý server** hoặc role **Mod/Admin** được cấu hình để dùng lệnh này.");
 }
 
+/**
+ * Lệnh thủ công có bắt buộc lý do hay không — theo cấu hình Moderation trên web:
+ * mức "reason" (Server + hành động + lý do) hoặc "full" (… + moderator) thì mod
+ * PHẢI ghi lý do khi dùng lệnh ban/timeout/kick/warn.
+ */
+function reasonRequired(guildConfig, punishType) {
+  const level = guildConfig?.punishNotice?.[punishType] ?? "none";
+  return level === "reason" || level === "full";
+}
+
 /** Ghi log hành động mod vào kênh log (kèm lý do + người thực hiện). */
 async function logModAction(guild, guildConfig, { action, color, target, executor, reason, extra = [] }, store) {
   const embed = new EmbedBuilder()
@@ -37,10 +47,11 @@ async function logModAction(guild, guildConfig, { action, color, target, executo
     .setTimestamp()
     .addFields(
       { name: "Thành viên", value: target ? `${target} (\`${target.id}\`)` : "—", inline: true },
+      { name: "Nguồn", value: "🛠️ Lệnh thủ công (mod/owner)", inline: true },
       ...extra,
       { name: "Lý do", value: reason || "Không có", inline: false },
     )
-    .setFooter({ text: "Protogon · Công cụ Mod" });
+    .setFooter({ text: "Protogon · Lệnh Mod" });
   // Log hành động mod tới kênh modLogChannelId (hoặc kênh log chung nếu chưa đặt).
   await sendModLog(guild, guildConfig, embed);
   // Ghi vào bảng hình phạt trên dashboard (nếu có store).
@@ -212,9 +223,10 @@ async function purgeChannel(channel, count, executor, guildConfig, store) {
     .addFields(
       { name: "Kênh", value: `${channel} (\`${channel.id}\`)`, inline: true },
       { name: "Số tin nhắn", value: `${deleted.size}`, inline: true },
+      { name: "Nguồn", value: "🛠️ Lệnh thủ công (mod/owner)", inline: true },
       { name: "Người thực hiện", value: `${executor} (\`${executor.id}\`)`, inline: true },
     )
-    .setFooter({ text: "Protogon · Công cụ Mod" });
+    .setFooter({ text: "Protogon · Lệnh Mod" });
   await sendModLog(channel.guild, guildConfig, embed);
   if (store) {
     try {
@@ -238,6 +250,7 @@ module.exports = {
   formatDuration,
   canMod,
   needPerm,
+  reasonRequired,
   timeoutMember,
   kickMember,
   banMember,

@@ -72,6 +72,7 @@ Bot tự đăng ký slash commands và đồng bộ server/kênh/role lên Conve
 
 - 🤖 **Auto reply**: kích hoạt bằng từ khóa hoặc tag bot; placeholder `{user}` (tag người nhắn), `{username}`; cooldown chống spam; giới hạn theo kênh.
 - 🛡️ **Chống nuke/raid**: 9 module (ban/kick/join/channel/role/message/spam), phát hiện qua audit log, xử lý cảnh báo → tạm khóa → kick → ban, **tự động khóa kênh khi raid**, cảnh báo real-time tới kênh log, role Mod/Admin + whitelist được miễn trừ. Kèm **báo cáo hoạt động chống nuke hàng ngày** gửi vào kênh log.
+- 📒 **Log tách bạch 3 luồng** (Cài đặt → Kênh log): 🛡️ **Anti nuke/raid** → kênh log chung · ⚙️ **Auto-mod nội dung** → kênh log auto-mod riêng (mặc định kênh log chung) · 🛠️ **Lệnh thủ công của mod/owner** (ban/timeout/kick/warn/gỡ hình phạt/purge) → kênh log hành động mod. Thông báo Moderation hiển thị rõ nguồn “🛠️ Lệnh mod” (tên mod) hay “⚡ Bot tự động”; khi web chọn mức thông báo **có lý do**, lệnh thủ công tương ứng **bắt buộc phải ghi lý do**.
 - ⌨️ **Prefix + slash**: `!help !ping !prefix !autoreply !antinuke !setlog !backup` và tương đương `/…` (kèm `/backup now|list|restore|auto` để tạo/liệt kê/khôi phục + tự động backup định kỳ server ngay trong Discord).
 - 🖥️ **Dashboard**: server list, tổng quan, quản lý rule, chống nuke, cài đặt — áp dụng tự động sau ~30 giây.
 

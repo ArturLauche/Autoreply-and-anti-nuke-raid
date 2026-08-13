@@ -5,6 +5,7 @@ const { emojiKeyOf } = require("./hidden");
 const {
   parseDuration,
   canMod,
+  reasonRequired,
   timeoutMember,
   kickMember,
   banMember,
@@ -436,6 +437,13 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
             ephemeral: true,
           });
         }
+        // Moderation trên web đang cấu hình thông báo CÓ lý do → mod phải ghi lý do.
+        if (reasonRequired(config, "timeout") && !reason) {
+          return interaction.reply({
+            content: "❌ Server đang cấu hình thông báo Timeout **có lý do** (Moderation) — bạn phải ghi lý do: `/mod timeout @user <thời lượng> <lý do>`.",
+            ephemeral: true,
+          });
+        }
         try {
           const out = await timeoutMember({
             guild,
@@ -458,6 +466,13 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         if (!target) {
           return interaction.reply({ content: "Không tìm thấy thành viên đó.", ephemeral: true });
         }
+        // Moderation trên web đang cấu hình thông báo CÓ lý do → mod phải ghi lý do.
+        if (reasonRequired(config, "kick") && !reason) {
+          return interaction.reply({
+            content: "❌ Server đang cấu hình thông báo Kick **có lý do** (Moderation) — bạn phải ghi lý do: `/mod kick @user <lý do>`.",
+            ephemeral: true,
+          });
+        }
         try {
           const out = await kickMember({
             guild,
@@ -479,6 +494,13 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         const deleteDays = Math.max(0, Math.min(7, interaction.options.getInteger("delete_days") ?? 0));
         if (!target) {
           return interaction.reply({ content: "Không tìm thấy thành viên đó.", ephemeral: true });
+        }
+        // Moderation trên web đang cấu hình thông báo CÓ lý do → mod phải ghi lý do.
+        if (reasonRequired(config, "ban") && !reason) {
+          return interaction.reply({
+            content: "❌ Server đang cấu hình thông báo Ban **có lý do** (Moderation) — bạn phải ghi lý do: `/mod ban @user <lý do>`.",
+            ephemeral: true,
+          });
         }
         try {
           const out = await banMember({

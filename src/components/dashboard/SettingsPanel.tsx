@@ -25,6 +25,9 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
   const [prefix, setPrefix] = useState(data.guild.prefix);
   const [logChannelId, setLogChannelId] = useState(data.guild.logChannelId ?? "none");
   const [modLogChannelId, setModLogChannelId] = useState(data.guild.modLogChannelId ?? "none");
+  const [autoModLogChannelId, setAutoModLogChannelId] = useState(
+    data.guild.autoModLogChannelId ?? "none",
+  );
   const [modRoles, setModRoles] = useState<string[]>(data.guild.modRoles);
   const [adminRoles, setAdminRoles] = useState<string[]>(data.guild.adminRoles);
   const [theme, setTheme] = useState(data.guild.theme || DEFAULT_THEME);
@@ -62,6 +65,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
         // "" (chuỗi rỗng) để XÓA kênh đã đặt; undefined = không đổi.
         logChannelId: logChannelId === "none" ? "" : logChannelId,
         modLogChannelId: modLogChannelId === "none" ? "" : modLogChannelId,
+        autoModLogChannelId: autoModLogChannelId === "none" ? "" : autoModLogChannelId,
         modRoles,
         adminRoles,
       });
@@ -142,7 +146,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
             </div>
             <div className="grid gap-1.5">
               <Label className="text-xs text-muted-foreground">
-                Kênh log hành động mod (ban · timeout · kick · warn · gỡ hình phạt · xóa tin)
+                Kênh log hành động mod thủ công (ban · timeout · kick · warn · gỡ hình phạt · purge)
               </Label>
               <Select value={modLogChannelId} onValueChange={setModLogChannelId}>
                 <SelectTrigger>
@@ -158,8 +162,27 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                 </SelectContent>
               </Select>
             </div>
+            <div className="grid gap-1.5">
+              <Label className="text-xs text-muted-foreground">
+                Kênh log auto-mod nội dung (từ ngữ xấu · link mời · link độc hại · spam · mention · ảnh/file)
+              </Label>
+              <Select value={autoModLogChannelId} onValueChange={setAutoModLogChannelId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn kênh" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Dùng kênh log chung —</SelectItem>
+                  {textChannels.map((c) => (
+                    <SelectItem key={c.channelId} value={c.channelId}>
+                      #{c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <p className="text-xs text-muted-foreground">
-              Nếu chưa chọn kênh riêng, log hành động mod sẽ gửi vào kênh log chung.
+              Nếu chưa chọn kênh riêng, log auto-mod và log hành động mod sẽ gửi vào kênh log
+              chung. Chống nuke/raid luôn gửi vào kênh log chung.
             </p>
             <Button className="w-full" onClick={handleSave} disabled={saving}>
               <Save className="h-4 w-4" /> Lưu thay đổi

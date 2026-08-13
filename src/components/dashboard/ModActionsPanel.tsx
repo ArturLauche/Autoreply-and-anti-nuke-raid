@@ -20,7 +20,12 @@ function styleFor(action: string): string {
 
 function labelFor(action: string): string {
   if (action.includes("Tự động")) return `⚡ ${action.replace("Tự động: ", "")}`;
-  return action;
+  return `🛠️ ${action}`;
+}
+
+/** Nguồn của hành động: bot tự động (không có executor) hay lệnh thủ công của mod. */
+function sourceOf(a: { executorId: string | null; executorName: string | null }) {
+  return a.executorId || a.executorName ? "Lệnh mod" : "Bot tự động";
 }
 
 export default function ModActionsPanel({ data }: { data: GuildData }) {
@@ -35,8 +40,9 @@ export default function ModActionsPanel({ data }: { data: GuildData }) {
               <Gavel className="h-4 w-4 text-primary" /> Bảng hình phạt
             </h3>
             <p className="text-sm text-muted-foreground">
-              Timeout · kick · ban · purge — ghi tự động kèm lý do và người thực hiện
-              (cả hình phạt tự động từ hệ thống chống nuke).
+              Timeout · kick · ban · warn · purge — ghi kèm lý do, người thực hiện và phân biệt
+              rõ nguồn: <b className="text-sky-400">🛠️ lệnh thủ công của mod</b> vs{" "}
+              <b className="text-emerald-400">⚡ bot tự động</b> (auto-mod / anti nuke).
             </p>
           </div>
           <Badge variant="secondary">{actions.length} hành động gần nhất</Badge>
@@ -49,11 +55,12 @@ export default function ModActionsPanel({ data }: { data: GuildData }) {
           </div>
         ) : (
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[720px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
                   <th className="py-2 pr-3 font-medium">Thời gian</th>
                   <th className="py-2 pr-3 font-medium">Hình phạt</th>
+                  <th className="py-2 pr-3 font-medium">Nguồn</th>
                   <th className="py-2 pr-3 font-medium">Thành viên</th>
                   <th className="py-2 pr-3 font-medium">Người thực hiện</th>
                   <th className="py-2 pr-3 font-medium">Lý do</th>
@@ -74,13 +81,24 @@ export default function ModActionsPanel({ data }: { data: GuildData }) {
                       <Badge className={styleFor(a.action)}>{labelFor(a.action)}</Badge>
                     </td>
                     <td className="py-2.5 pr-3">
+                      <Badge
+                        className={
+                          sourceOf(a) === "Lệnh mod"
+                            ? "gap-1 bg-sky-500/15 text-sky-400"
+                            : "gap-1 bg-emerald-500/15 text-emerald-400"
+                        }
+                      >
+                        {sourceOf(a) === "Lệnh mod" ? "🛠️ Lệnh mod" : "⚡ Bot tự động"}
+                      </Badge>
+                    </td>
+                    <td className="py-2.5 pr-3">
                       <p className="font-medium">{a.targetName || a.targetId || "—"}</p>
                       {a.targetId && (
                         <p className="font-mono text-[10px] text-muted-foreground">{a.targetId}</p>
                       )}
                     </td>
                     <td className="py-2.5 pr-3">
-                      <p className="text-muted-foreground">{a.executorName || a.executorId || "Bot tự động"}</p>
+                      <p className="text-muted-foreground">{a.executorName || a.executorId || "—"}</p>
                     </td>
                     <td className="py-2.5 pr-3 text-muted-foreground">
                       <p>{a.reason || a.details || "Không có"}</p>

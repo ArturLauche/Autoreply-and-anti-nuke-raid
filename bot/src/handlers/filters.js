@@ -1,5 +1,5 @@
 const { Colors, PermissionFlagsBits } = require("discord.js");
-const { logEmbed, sendLog } = require("../util");
+const { logEmbed, sendAutoModLog } = require("../util");
 const { heatSettings, punishMember, choosePunish, heatSummary } = require("../heat");
 const { actionsOf, cleanupMessages } = require("../moduleActions");
 
@@ -147,12 +147,13 @@ async function punishFlow(client, message, moduleCfg, config, heat, reason, deta
         color: Colors.DarkerGrey,
         fields: [
           { name: "Tác giả", value: `<@${message.author.id}>`, inline: true },
+          { name: "Nguồn", value: "⚙️ Bot tự động (auto-mod)", inline: true },
           { name: "Module", value: `\`${moduleCfg.module}\``, inline: true },
           { name: "Nội dung", value: (message.content || "[ảnh/file]").slice(0, 1000) || "…", inline: false },
         ],
-        footer: "Protogon · Log xóa tin",
+        footer: "Protogon · Auto Mod",
       });
-      await sendLog(message.guild, config, delEmbed);
+      await sendAutoModLog(message.guild, config, delEmbed);
     } catch (e) {
       console.error("[filters:delLog]", e.message);
     }
@@ -175,17 +176,18 @@ async function punishFlow(client, message, moduleCfg, config, heat, reason, deta
   }
 
   const embed = logEmbed({
-    title: `🚨 Cảnh báo: ${MODULE_LABELS[moduleCfg.module] || moduleCfg.module}`,
+    title: `🚨 Auto Mod: ${MODULE_LABELS[moduleCfg.module] || moduleCfg.module}`,
     description: `${detail} — tin nhắn của <@${message.author.id}> ${cleanup ? `đã bị xử lý (${cleanup})` : "đã bị ghi nhận"}.`,
     color: Colors.Red,
     fields: [
       { name: "Thủ phạm", value: `<@${message.author.id}>`, inline: true },
       { name: "Xử lý", value: (action + heatSummary(heatRes) + (cleanup ? ` · ${cleanup}` : "")).slice(0, 1000), inline: true },
+      { name: "Nguồn", value: "⚙️ Bot tự động (auto-mod)", inline: true },
       { name: "Module", value: `\`${moduleCfg.module}\``, inline: true },
     ],
-    footer: "Protogon Moderation",
+    footer: "Protogon · Auto Mod",
   });
-  await sendLog(message.guild, config, embed);
+  await sendAutoModLog(message.guild, config, embed);
 }
 
 /**
