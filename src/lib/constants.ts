@@ -105,6 +105,8 @@ export const DEFAULT_MODULE_ACTIONS: Record<string, ModuleAction[]> = {
 export interface ModuleMeta {
   label: string;
   description: string;
+  /** Nhóm hiển thị trên web (Chống nuke / Auto-mod). */
+  group: string;
   defaultThreshold: number;
   defaultWindowSeconds: number;
   defaultPunish: "warn" | "kick" | "ban" | "timeout";
@@ -116,6 +118,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massBan: {
     label: "Ban hàng loạt",
     description: "Phát hiện nhiều lượt ban trong thời gian ngắn",
+    group: "Thành viên & quyền",
     defaultThreshold: 5,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
@@ -124,6 +127,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massKick: {
     label: "Kick hàng loạt",
     description: "Phát hiện nhiều lượt kick thành viên",
+    group: "Thành viên & quyền",
     defaultThreshold: 5,
     defaultWindowSeconds: 10,
     defaultPunish: "kick",
@@ -132,6 +136,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massJoin: {
     label: "Raid thành viên",
     description: "Phát hiện làn sóng thành viên giả mạo tham gia ồ ạt",
+    group: "Thành viên & quyền",
     defaultThreshold: 8,
     defaultWindowSeconds: 10,
     defaultPunish: "kick",
@@ -140,6 +145,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massChannelCreate: {
     label: "Tạo kênh hàng loạt",
     description: "Phát hiện spam tạo kênh mới",
+    group: "Kênh & thread",
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
@@ -148,6 +154,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massChannelDelete: {
     label: "Xóa kênh hàng loạt",
     description: "Phát hiện spam xóa kênh",
+    group: "Kênh & thread",
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
@@ -156,6 +163,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massRoleCreate: {
     label: "Tạo role hàng loạt",
     description: "Phát hiện spam tạo role mới",
+    group: "Role · Emoji · Server",
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
@@ -164,6 +172,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massRoleDelete: {
     label: "Xóa role hàng loạt",
     description: "Phát hiện spam xóa role",
+    group: "Role · Emoji · Server",
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
@@ -172,6 +181,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massMessageDelete: {
     label: "Xóa tin nhắn hàng loạt",
     description: "Phát hiện quét sạch kênh (bulk delete / nuke channel)",
+    group: "Kênh & thread",
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "warn",
@@ -180,6 +190,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massWebhookCreate: {
     label: "Tạo webhook hàng loạt",
     description: "Phát hiện spam tạo webhook (kênh đăng webhook giả để phá server)",
+    group: "Kênh & thread",
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
@@ -188,6 +199,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massThreadCreate: {
     label: "Tạo thread hàng loạt",
     description: "Phát hiện spam tạo thread (forum/thread nhiễu loạn)",
+    group: "Kênh & thread",
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
@@ -196,6 +208,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massThreadDelete: {
     label: "Xóa thread hàng loạt",
     description: "Phát hiện spam xóa thread (quét sạch diễn đàn/thread)",
+    group: "Kênh & thread",
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
@@ -204,6 +217,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massChannelRename: {
     label: "Sửa/đổi tên kênh hàng loạt",
     description: "Phát hiện spam đổi tên/chủ đề/vị trí kênh (phá hoại giao diện)",
+    group: "Kênh & thread",
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
@@ -212,6 +226,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massChannelOverwrite: {
     label: "Thay đổi quyền kênh hàng loạt",
     description: "Permission bombing — sửa overwrite nhiều kênh để khóa mọi người hoặc mở toang",
+    group: "Kênh & thread",
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
@@ -220,6 +235,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massRoleEdit: {
     label: "Sửa role hàng loạt",
     description: "Phát hiện sửa tên/màu/quyền nhiều role (role tampering)",
+    group: "Role · Emoji · Server",
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
@@ -228,6 +244,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   adminSelfGrant: {
     label: "Tự cấp quyền quản trị",
     description: "Leo thang đặc quyền — ai đó tự gán role Admin/ManageGuild/ManageRoles",
+    group: "Thành viên & quyền",
     defaultThreshold: 1,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
@@ -236,6 +253,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massRoleAssign: {
     label: "Gán/gỡ role hàng loạt",
     description: "Role bombing — gán/gỡ role cho nhiều thành viên cùng lúc",
+    group: "Thành viên & quyền",
     defaultThreshold: 6,
     defaultWindowSeconds: 15,
     defaultPunish: "kick",
@@ -244,6 +262,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massNickname: {
     label: "Đổi biệt danh hàng loạt",
     description: "Rename raid — đổi nickname của nhiều thành viên",
+    group: "Thành viên & quyền",
     defaultThreshold: 6,
     defaultWindowSeconds: 15,
     defaultPunish: "kick",
@@ -252,6 +271,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massEmoji: {
     label: "Tạo emoji/sticker hàng loạt",
     description: "Spam tạo emoji/sticker để lấp đầy slot hoặc chèn ảnh phá hoại",
+    group: "Role · Emoji · Server",
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
@@ -260,6 +280,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massBotAdd: {
     label: "Thêm bot hàng loạt",
     description: "Bot raid — mời nhiều bot vào server cùng lúc",
+    group: "Thành viên & quyền",
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "kick",
@@ -268,6 +289,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massInviteCreate: {
     label: "Tạo link mời hàng loạt",
     description: "Chuẩn bị raid — tạo nhiều link mời trước khi tràn vào",
+    group: "Role · Emoji · Server",
     defaultThreshold: 5,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
@@ -276,6 +298,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   guildTamper: {
     label: "Đổi cấu hình server",
     description: "Phá hoại cấp server — đổi tên/icon/bật MFA/giảm verification…",
+    group: "Role · Emoji · Server",
     defaultThreshold: 2,
     defaultWindowSeconds: 10,
     defaultPunish: "ban",
@@ -284,6 +307,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   massMessage: {
     label: "Spam tin dài / lặp nội dung",
     description: "Phát hiện spam tin nhắn cực dài hoặc lặp lại nội dung giống hệt — AI phân biệt raid hay cá nhân",
+    group: "Spam & nhiễu kênh",
     defaultThreshold: 4,
     defaultWindowSeconds: 15,
     defaultPunish: "timeout",
@@ -292,6 +316,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   blankNoise: {
     label: "Tin giả blank gây nhiễu",
     description: "Phát hiện tin nhắn chỉ gồm khoảng trắng / ký tự ẩn (zero-width) gây nhiễu kênh",
+    group: "Spam & nhiễu kênh",
     defaultThreshold: 3,
     defaultWindowSeconds: 10,
     defaultPunish: "timeout",
@@ -300,6 +325,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   spam: {
     label: "Chống spam tin nhắn",
     description: "Phát hiện thành viên gửi quá nhiều tin nhắn trong thời gian ngắn",
+    group: "Spam & nhiễu kênh",
     defaultThreshold: 6,
     defaultWindowSeconds: 10,
     defaultPunish: "timeout",
@@ -308,6 +334,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   mention: {
     label: "Chống spam mention",
     description: "Phát hiện spam tag người/role/kênh liên tục trong thời gian ngắn",
+    group: "Spam & nhiễu kênh",
     defaultThreshold: 10,
     defaultWindowSeconds: 10,
     defaultPunish: "timeout",
@@ -316,6 +343,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   badword: {
     label: "Lọc từ ngữ xấu",
     description: "Tự động xóa tin nhắn chứa từ trong danh sách từ ngữ xấu của server",
+    group: "Nội dung nguy hiểm",
     defaultThreshold: 1,
     defaultWindowSeconds: 10,
     defaultPunish: "warn",
@@ -324,6 +352,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   attachment: {
     label: "Chống spam ảnh & file",
     description: "Phát hiện spam ảnh, file đính kèm liên tục trong thời gian ngắn",
+    group: "Spam & nhiễu kênh",
     defaultThreshold: 5,
     defaultWindowSeconds: 10,
     defaultPunish: "timeout",
@@ -332,6 +361,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   invite: {
     label: "Chặn link mời Discord",
     description: "Xóa tin nhắn chứa link mời discord.gg / discord.com/invite",
+    group: "Nội dung nguy hiểm",
     defaultThreshold: 1,
     defaultWindowSeconds: 10,
     defaultPunish: "warn",
@@ -341,6 +371,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
     label: "Chống link độc hại & file nguy hiểm",
     description:
       "Chặn domain lừa đảo (nitro giả, gift giả…), link IP và file đuôi nguy hiểm (.exe, .scr, .bat…)",
+    group: "Nội dung nguy hiểm",
     defaultThreshold: 1,
     defaultWindowSeconds: 10,
     defaultPunish: "warn",
@@ -416,6 +447,43 @@ export const MODERATION_MODULES = [
   "invite",
   "malware",
 ] as const;
+
+/** Nhóm hiển thị cho phần Chống nuke / raid — thứ tự nhóm + module. */
+export const NUKE_GROUPS: { label: string; modules: string[] }[] = [
+  {
+    label: "Thành viên & quyền",
+    modules: ["massBan", "massKick", "massJoin", "adminSelfGrant", "massRoleAssign", "massNickname", "massBotAdd"],
+  },
+  {
+    label: "Kênh & thread",
+    modules: [
+      "massChannelCreate",
+      "massChannelDelete",
+      "massChannelRename",
+      "massChannelOverwrite",
+      "massThreadCreate",
+      "massThreadDelete",
+      "massWebhookCreate",
+      "massMessageDelete",
+    ],
+  },
+  {
+    label: "Role · Emoji · Server",
+    modules: ["massRoleCreate", "massRoleDelete", "massRoleEdit", "massEmoji", "massInviteCreate", "guildTamper"],
+  },
+];
+
+/** Nhóm hiển thị cho phần Auto-mod nội dung. */
+export const MODERATION_GROUPS: { label: string; modules: string[] }[] = [
+  {
+    label: "Spam & nhiễu kênh",
+    modules: ["spam", "massMessage", "blankNoise", "mention", "attachment"],
+  },
+  {
+    label: "Nội dung nguy hiểm",
+    modules: ["badword", "invite", "malware"],
+  },
+];
 
 export const PUNISH_LABEL: Record<string, string> = {
   warn: "Warn",

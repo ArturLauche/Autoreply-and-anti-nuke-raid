@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Bot,
+  ChevronDown,
   Crown,
   Edit3,
   FolderPlus,
@@ -19,13 +20,12 @@ import {
   SlidersHorizontal,
   Smile,
   Tags,
-  Trash2,
   UserCog,
   UserX,
   Users,
   XSquare,
 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { Card, CardContent } from "../ui/card";
 import { Switch } from "../ui/switch";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -88,11 +88,13 @@ function ModuleNumber({
   min,
   max,
   onCommit,
+  className,
 }: {
   value: number;
   min: number;
   max?: number;
   onCommit: (n: number) => void;
+  className?: string;
 }) {
   const [v, setV] = useState(String(value));
   const [focused, setFocused] = useState(false);
@@ -105,6 +107,7 @@ function ModuleNumber({
       min={min}
       max={max}
       value={v}
+      className={className}
       onFocus={() => setFocused(true)}
       onChange={(e) => setV(e.target.value)}
       onBlur={() => {
@@ -139,6 +142,7 @@ export default function ModuleCard({
   /** Module nuke/raid phạt trực tiếp — không hiển thị ô nhiệt. */
   showHeat?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
   const meta = ANTINUKE_MODULE_META[module];
   const Icon = MODULE_ICONS[module] ?? ShieldAlert;
   const roleOptions = data.roles
@@ -176,222 +180,212 @@ export default function ModuleCard({
   }
 
   return (
-    <Card className={config.enabled ? "" : "opacity-60"}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Icon className="h-5 w-5" />
-            </span>
-            <div>
-              <CardTitle className="text-base">{meta.label}</CardTitle>
-              <CardDescription>{meta.description}</CardDescription>
-            </div>
+    <Card className={cn("overflow-hidden", !config.enabled && "opacity-60")}>
+      {/* Header — 1 dòng tóm tắt, bấm để mở cấu hình */}
+      <div
+        className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/40"
+        onClick={() => setOpen((o) => !o)}
+        role="button"
+        aria-expanded={open}
+      >
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-2 truncate text-sm font-semibold">
+            {meta.label}
+            {!config.enabled && (
+              <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px]">
+                tắt
+              </Badge>
+            )}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">{meta.description}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="hidden items-center gap-1.5 md:flex">
+            <Badge variant="secondary" className="px-2 py-0.5 text-[10px]">
+              ≥{config.threshold}/{config.windowSeconds}s
+            </Badge>
+            {actions.map((a) => (
+              <Badge key={a} className={cn("px-2 py-0.5 text-[10px]", ACTION_STYLE[a])}>
+                {ACTION_LABEL[a]}
+              </Badge>
+            ))}
+            {!hasMemberPunish && (
+              <Badge variant="secondary" className="px-2 py-0.5 text-[10px]">
+                chỉ dọn tin
+              </Badge>
+            )}
           </div>
           <Switch
             checked={config.enabled}
             onCheckedChange={(v) => patchModule(module, { enabled: v })}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-muted-foreground transition-transform",
+              open && "rotate-180",
+            )}
           />
         </div>
-      </CardHeader>
-      <CardContent className="grid gap-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">
-              Ngưỡng ({unit} trong {config.windowSeconds}s)
-            </Label>
-            <ModuleNumber
-              value={config.threshold}
-              min={1}
-              onCommit={(n) => patchModule(module, { threshold: n })}
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">Cửa sổ (giây)</Label>
-            <ModuleNumber
-              value={config.windowSeconds}
-              min={1}
-              max={3600}
-              onCommit={(n) => patchModule(module, { windowSeconds: n })}
-            />
-          </div>
-        </div>
+      </div>
 
-        <div className="grid gap-3">
-          {/* Nhóm 1 — hình phạt thành viên (chọn 1) */}
-          <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">
-              Hình phạt thành viên{" "}
-              <span className="text-primary/80">(chọn 1 — tách riêng với dọn tin nhắn)</span>
+      {/* Cấu hình mở rộng */}
+      {open && (
+        <CardContent className="grid gap-3 border-t border-border/60 px-4 py-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid gap-1">
+              <Label className="text-[11px] text-muted-foreground">
+                Ngưỡng ({unit})
+              </Label>
+              <ModuleNumber
+                value={config.threshold}
+                min={1}
+                onCommit={(n) => patchModule(module, { threshold: n })}
+                className="h-8 text-sm"
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[11px] text-muted-foreground">Cửa sổ (giây)</Label>
+              <ModuleNumber
+                value={config.windowSeconds}
+                min={1}
+                max={3600}
+                onCommit={(n) => patchModule(module, { windowSeconds: n })}
+                className="h-8 text-sm"
+              />
+            </div>
+            {showHeat && (
+              <div className="grid gap-1">
+                <Label className="text-[11px] text-orange-400/80">🔥 Nhiệt/vi phạm</Label>
+                <ModuleNumber
+                  value={config.heat}
+                  min={1}
+                  max={100}
+                  onCommit={(n) => patchModule(module, { heat: n })}
+                  className="h-8 text-sm"
+                />
+              </div>
+            )}
+            {hasTimeout && (
+              <div className="grid gap-1">
+                <Label className="text-[11px] text-muted-foreground">Tạm khóa (giây)</Label>
+                <ModuleNumber
+                  value={config.timeoutSeconds ?? 300}
+                  min={1}
+                  max={86400}
+                  onCommit={(n) => patchModule(module, { timeoutSeconds: n })}
+                  className="h-8 text-sm"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Hình phạt thành viên — chọn 1 */}
+          <div className="grid gap-1">
+            <Label className="text-[11px] text-muted-foreground">
+              Hình phạt thành viên <span className="text-primary/80">· chọn 1</span>
             </Label>
-            <div className="grid gap-1.5 sm:grid-cols-2">
+            <div className="flex flex-wrap gap-1.5">
               {MEMBER_PUNISH_OPTIONS.map((opt) => {
                 const active = memberPunish === opt.value;
                 return (
                   <button
                     key={opt.value}
                     type="button"
+                    title={opt.hint}
                     onClick={() => selectMemberPunish(opt.value)}
                     className={cn(
-                      "flex items-start gap-2.5 rounded-xl border px-3 py-2 text-left transition-colors",
+                      "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
                       active
-                        ? "border-primary/70 bg-primary/10 ring-1 ring-primary/30"
+                        ? "border-primary/70 bg-primary/15 text-primary"
                         : "border-border bg-card hover:border-primary/30 hover:bg-accent/40",
                     )}
                   >
                     <span
                       className={cn(
-                        "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors",
-                        active ? "border-primary bg-primary text-primary-foreground" : "border-input",
+                        "flex h-3 w-3 items-center justify-center rounded-full border",
+                        active ? "border-primary bg-primary" : "border-input",
                       )}
                     >
-                      {active && <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />}
+                      {active && <span className="h-1 w-1 rounded-full bg-primary-foreground" />}
                     </span>
-                    <span>
-                      <span
-                        className={cn(
-                          "block text-xs font-semibold",
-                          active ? "text-primary" : "text-foreground",
-                        )}
-                      >
-                        {opt.label}
-                      </span>
-                      <span className="block text-[11px] leading-snug text-muted-foreground">
-                        {opt.hint}
-                      </span>
-                    </span>
+                    {opt.label}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Nhóm 2 — dọn tin nhắn (chọn nhiều) */}
-          <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">
-              Dọn tin nhắn <span className="text-primary/80">(chọn nhiều — kết hợp)</span>
+          {/* Dọn tin nhắn — chọn nhiều */}
+          <div className="grid gap-1">
+            <Label className="text-[11px] text-muted-foreground">
+              Dọn tin nhắn <span className="text-primary/80">· chọn nhiều, kết hợp được</span>
             </Label>
-            <div className="grid gap-1.5 sm:grid-cols-2">
+            <div className="flex flex-wrap gap-1.5">
               {MESSAGE_CLEAN_OPTIONS.map((opt) => {
                 const active = messageActions.includes(opt.value);
                 return (
                   <button
                     key={opt.value}
                     type="button"
+                    title={opt.hint}
                     onClick={() => toggleMessageAction(opt.value)}
                     className={cn(
-                      "flex items-start gap-2.5 rounded-xl border px-3 py-2 text-left transition-colors",
+                      "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
                       active
-                        ? "border-primary/60 bg-primary/10"
+                        ? "border-primary/60 bg-primary/15 text-primary"
                         : "border-border bg-card hover:border-primary/30 hover:bg-accent/40",
                     )}
                   >
                     <span
                       className={cn(
-                        "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-                        active ? "border-primary bg-primary text-primary-foreground" : "border-input",
+                        "flex h-3 w-3 items-center justify-center rounded border",
+                        active ? "border-primary bg-primary" : "border-input",
                       )}
                     >
                       {active && (
-                        <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
+                        <svg viewBox="0 0 12 12" className="h-2 w-2" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <path d="M2.5 6.5l2.5 2.5 4.5-5.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       )}
                     </span>
-                    <span>
-                      <span
-                        className={cn(
-                          "block text-xs font-semibold",
-                          active ? "text-primary" : "text-foreground",
-                        )}
-                      >
-                        {opt.label}
-                      </span>
-                      <span className="block text-[11px] leading-snug text-muted-foreground">
-                        {opt.hint}
-                      </span>
-                    </span>
+                    {opt.label}
                   </button>
                 );
               })}
             </div>
           </div>
+
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            💡 <b className="text-foreground">Xóa tin phát hiện</b> = xóa ngay tin nhắn vi phạm tại
-            thời điểm bot nhận ra · <b className="text-foreground">Purge</b> = xóa hàng loạt mọi tin
-            nhắn liên quan đến vụ vi phạm. Hình phạt thành viên <b className="text-foreground">chỉ
-            chọn 1</b>; các hành động dọn tin nhắn chọn được <b className="text-foreground">nhiều</b>{" "}
-            và kết hợp với hình phạt (ví dụ: <b className="text-foreground">Ban + Purge tin liên quan</b>).
-          </p>
-        </div>
-
-        {actions.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {actions.map((a) => (
-              <Badge key={a} className={cn("gap-1 px-2.5 py-1", ACTION_STYLE[a])}>
-                {a === "deleteMessages" || a === "purgeMessages" ? (
-                  <Trash2 className="h-3 w-3" />
-                ) : null}
-                {ACTION_LABEL[a]}
-              </Badge>
-            ))}
-            {!hasMemberPunish && (
-              <span className="text-[11px] text-muted-foreground">
-                (chỉ dọn tin nhắn — không phạt thành viên)
-              </span>
+            💡 <b className="text-foreground">Xóa tin phát hiện</b> = xóa ngay tin vi phạm ·{" "}
+            <b className="text-foreground">Purge</b> = xóa hàng loạt tin liên quan vụ vi phạm.
+            {showHeat ? (
+              <>
+                {" "}
+                Nhiệt tự giảm theo phút — đủ ngưỡng sẽ tự tăng cấp hình phạt.
+              </>
+            ) : (
+              <> ⚡ Phạt trực tiếp theo hành động đã chọn — không cộng nhiệt.</>
             )}
-          </div>
-        )}
+          </p>
 
-        {showHeat && (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label className="text-xs text-orange-400/80">🔥 Nhiệt/vi phạm</Label>
-              <ModuleNumber
-                value={config.heat}
-                min={1}
-                max={100}
-                onCommit={(n) => patchModule(module, { heat: n })}
-              />
-            </div>
-            <div className="flex items-end pb-1">
-              <p className="text-[11px] text-muted-foreground">
-                Nhiệt tự giảm theo phút; đủ ngưỡng sẽ tự tăng cấp hình phạt.
-              </p>
-            </div>
-          </div>
-        )}
-        {hasTimeout && (
-          <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">
-              Thời lượng tạm khóa (giây) — dùng khi chọn "Tạm khóa (timeout)"
+          <div className="grid gap-1">
+            <Label className="text-[11px] text-muted-foreground">
+              Role miễn trừ <span className="text-muted-foreground/70">(chỉ server này)</span>
             </Label>
-            <ModuleNumber
-              value={config.timeoutSeconds ?? 300}
-              min={1}
-              max={86400}
-              onCommit={(n) => patchModule(module, { timeoutSeconds: n })}
+            <MultiSelect
+              options={roleOptions}
+              value={config.whitelistRoles}
+              onChange={(v) => patchModule(module, { whitelistRoles: v })}
+              placeholder="Không có — tất cả role đều bị kiểm tra"
+              emptyLabel="Chưa có role được đồng bộ"
             />
           </div>
-        )}
-        {!showHeat && (
-          <p className="text-[11px] text-muted-foreground">
-            ⚡ Module chống nuke/raid phạt trực tiếp theo hành động đã chọn — không cộng nhiệt.
-          </p>
-        )}
-        <div className="grid gap-1.5">
-          <Label className="text-xs text-muted-foreground">
-            Role miễn trừ <span className="text-muted-foreground/70">(chỉ server này)</span>
-          </Label>
-          <MultiSelect
-            options={roleOptions}
-            value={config.whitelistRoles}
-            onChange={(v) => patchModule(module, { whitelistRoles: v })}
-            placeholder="Không có — tất cả role đều bị kiểm tra"
-            emptyLabel="Chưa có role được đồng bộ"
-          />
-        </div>
-      </CardContent>
+        </CardContent>
+      )}
     </Card>
   );
 }

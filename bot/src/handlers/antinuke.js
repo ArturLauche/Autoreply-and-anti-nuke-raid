@@ -392,7 +392,8 @@ module.exports = function createAntiNuke(client, store, heat) {
     scored.sort((a, b) => b.score - a.score);
     const suspects = scored.filter((s) => s.score >= 4).slice(0, 4);
     if (suspects.length === 0) {
-      return { suspectedSourceId: null, suspectedSourceName: null, reason: "chưa đủ tín hiệu", banned: false, confidence: 0 };
+      // Lưu ý: dùng undefined (không dùng null) — validator Convex v.optional() chỉ chấp nhận thiếu/undefined.
+      return { reason: "chưa đủ tín hiệu", banned: false, confidence: 0 };
     }
 
     // AI phân tích (best-effort): xác nhận phối hợp → tăng điểm nghi phạm hàng đầu.
@@ -434,8 +435,8 @@ module.exports = function createAntiNuke(client, store, heat) {
       }
     }
     return {
-      suspectedSourceId: top.id ?? null,
-      suspectedSourceName: top.username ?? null,
+      suspectedSourceId: top.id ?? undefined,
+      suspectedSourceName: top.username ?? undefined,
       reason: `điểm ${top.score} (${(top.parts || []).join(", ")})${ai?.reasoning ? ` · AI: ${ai.reasoning}` : ""}${bannedNames.length ? ` · đã ban: ${bannedNames.join(", ")}` : ""}`.slice(0, 500),
       banned: bannedNames.length > 0,
       confidence: Math.round(confidence * 100) / 100,
@@ -845,7 +846,7 @@ module.exports = function createAntiNuke(client, store, heat) {
       }
       // Raid Intel: ghi mẫu huấn luyện kèm AI verdict (raid/individual/benign).
       if (!isBenign) {
-        await recordRaidSample(guild, config, {
+        await recordRaidSample(message.guild, config, {
           module: cfg.module,
           count: fresh.length,
           windowSeconds: cfg.windowSeconds,
@@ -855,7 +856,7 @@ module.exports = function createAntiNuke(client, store, heat) {
           aiClassification: ai?.classification,
           aiConfidence: ai?.confidence,
           aiReason: ai?.reason,
-          lockdownTriggered: isLocked(guild.id),
+          lockdownTriggered: isLocked(message.guild.id),
         });
       }
       return; // chỉ xử lý 1 pattern/tin nhắn
@@ -976,7 +977,7 @@ module.exports = function createAntiNuke(client, store, heat) {
     }
     // Raid Intel: ghi mẫu huấn luyện kèm AI verdict (raid/individual/benign).
     if (!isBenign) {
-      await recordRaidSample(guild, config, {
+      await recordRaidSample(message.guild, config, {
         module: moduleCfg.module,
         count: fresh.length,
         windowSeconds: moduleCfg.windowSeconds,
@@ -986,7 +987,7 @@ module.exports = function createAntiNuke(client, store, heat) {
         aiClassification: ai?.classification,
         aiConfidence: ai?.confidence,
         aiReason: ai?.reason,
-        lockdownTriggered: isLocked(guild.id),
+        lockdownTriggered: isLocked(message.guild.id),
       });
     }
   }

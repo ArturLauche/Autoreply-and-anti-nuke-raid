@@ -9,7 +9,12 @@ import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { useEffect, useState } from "react";
-import { ANTINUKE_MODULE_META, DEFAULT_MODULE_ACTIONS, NUKE_MODULES } from "../../lib/constants";
+import {
+  ANTINUKE_MODULE_META,
+  DEFAULT_MODULE_ACTIONS,
+  NUKE_GROUPS,
+  NUKE_MODULES,
+} from "../../lib/constants";
 import ModuleCard from "./ModuleCard";
 import type { GuildData, ModuleConfig, RaidIntel } from "../../lib/types";
 import { getSessionToken } from "../../lib/discord";
@@ -122,6 +127,20 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
     try {
       await updateSettings({ token: TOKEN(), guildId: data.guild.discordId, ...patch });
       toast.success("Đã lưu cài đặt Raid Intel — bot áp dụng trong ~30 giây");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+    }
+  }
+
+  /** Bật/tắt toàn bộ module trong một nhóm hiển thị. */
+  async function toggleGroup(modules: string[], enabled: boolean) {
+    try {
+      await Promise.all(
+        modules.map((m) =>
+          updateModule({ token: TOKEN(), guildId: data.guild.discordId, module: m, enabled }),
+        ),
+      );
+      toast.success(enabled ? `Đã bật nhóm (${modules.length} module)` : `Đã tắt nhóm (${modules.length} module)`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Lưu thất bại");
     }
@@ -324,18 +343,45 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {NUKE_MODULES.map((key) => (
-          <ModuleCard
-            key={key}
-            data={data}
-            module={key}
-            config={configFor(key)}
-            patchModule={patchModule}
-            unit="vi phạm"
-            showHeat={false}
-          />
-        ))}
+      {/* Module chống nuke — chia nhóm gọn gàng */}
+      <div className="space-y-5">
+        {NUKE_GROUPS.map((group) => {
+          const on = group.modules.filter((m) => configFor(m).enabled).length;
+          const allOn = on === group.modules.length;
+          return (
+            <div key={group.label}>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-display text-sm font-semibold">{group.label}</h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {on}/{group.modules.length} bật
+                  </span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="h-7 px-2.5 text-xs"
+                    onClick={() => toggleGroup(group.modules, !allOn)}
+                  >
+                    {allOn ? "Tắt tất cả" : "Bật tất cả"}
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {group.modules.map((key) => (
+                  <ModuleCard
+                    key={key}
+                    data={data}
+                    module={key}
+                    config={configFor(key)}
+                    patchModule={patchModule}
+                    unit="vi phạm"
+                    showHeat={false}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import { Button } from "../ui/button";
 import {
   ANTINUKE_MODULE_META,
   DEFAULT_MODULE_ACTIONS,
+  MODERATION_GROUPS,
   MODERATION_MODULES,
   WARN_STRIKE_DEFAULTS,
 } from "../../lib/constants";
@@ -208,6 +209,20 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
       toast.success(`Đã xóa "${word}"`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Thất bại");
+    }
+  }
+
+  /** Bật/tắt toàn bộ module trong một nhóm hiển thị. */
+  async function toggleGroup(modules: string[], enabled: boolean) {
+    try {
+      await Promise.all(
+        modules.map((m) =>
+          updateModule({ token: TOKEN(), guildId: data.guild.discordId, module: m, enabled }),
+        ),
+      );
+      toast.success(enabled ? `Đã bật nhóm (${modules.length} module)` : `Đã tắt nhóm (${modules.length} module)`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
     }
   }
 
@@ -472,25 +487,52 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {MODERATION_MODULES.map((key) => (
-          <ModuleCard
-            key={key}
-            data={data}
-            module={key}
-            config={configFor(key)}
-            patchModule={patchModule}
-            unit={
-              key === "spam"
-                ? "tin nhắn"
-                : key === "mention"
-                  ? "tin có mention"
-                  : key === "attachment"
-                    ? "tin có ảnh/file"
-                    : "vi phạm"
-            }
-          />
-        ))}
+      {/* Module auto-mod — chia nhóm gọn gàng */}
+      <div className="space-y-5">
+        {MODERATION_GROUPS.map((group) => {
+          const on = group.modules.filter((m) => configFor(m).enabled).length;
+          const allOn = on === group.modules.length;
+          return (
+            <div key={group.label}>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-display text-sm font-semibold">{group.label}</h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {on}/{group.modules.length} bật
+                  </span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="h-7 px-2.5 text-xs"
+                    onClick={() => toggleGroup(group.modules, !allOn)}
+                  >
+                    {allOn ? "Tắt tất cả" : "Bật tất cả"}
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {group.modules.map((key) => (
+                  <ModuleCard
+                    key={key}
+                    data={data}
+                    module={key}
+                    config={configFor(key)}
+                    patchModule={patchModule}
+                    unit={
+                      key === "spam"
+                        ? "tin nhắn"
+                        : key === "mention"
+                          ? "tin có mention"
+                          : key === "attachment"
+                            ? "tin có ảnh/file"
+                            : "vi phạm"
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
