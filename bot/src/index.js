@@ -132,6 +132,10 @@ client.once("ready", async () => {
   // Backup server → GitHub: quét yêu cầu từ dashboard mỗi 20 giây.
   setTimeout(() => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)), 15_000);
   setInterval(() => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)), 20_000);
+
+  // Tự động backup định kỳ (2-30 ngày theo cấu hình từng server): quét mỗi giờ.
+  setTimeout(() => pollBackups.autoBackupSweep(client, store).catch((e) => console.error("[backup:auto]", e.message)), 60_000);
+  setInterval(() => pollBackups.autoBackupSweep(client, store).catch((e) => console.error("[backup:auto]", e.message)), 60 * 60 * 1000);
 });
 
 client.on("messageCreate", (m) => onMessageCreate(client, m, store, heat).catch((e) => console.error("[messageCreate]", e.message)));

@@ -175,8 +175,13 @@ Muốn đăng ký lại slash commands thủ công: `bun run register`.
 | `!antinuke unlock` | Mở khóa kênh ngay lập tức |
 | `!lockdown on \| off` | Bật/tắt khóa kênh tự động khi raid |
 | `!setlog #kênh` | Đặt kênh log |
+| `!backup` \| `!backup now` | Tạo backup server (đẩy lên GitHub của chủ bot) |
+| `!backup local` | Tạo backup chỉ lưu trên Convex (không đẩy GitHub) |
+| `!backup list` \| `!backuplist` | Danh sách backup của server |
+| `!backup restore <số>` \| `!restore <số>` | Khôi phục cấu trúc server từ backup |
+| `!backup auto <2-30> \| off` | Bật/tắt tự động backup mỗi N ngày (tối thiểu 2, tối đa 30) |
 
-**Slash commands:** `/help`, `/ping`, `/prefix set`, `/autoreply add|edit|list|remove`, `/antinuke status|on|off|module|unlock|lockdown`, `/setup log-channel|mod-role|admin-role`.
+**Slash commands:** `/help`, `/ping`, `/prefix set`, `/autoreply add|edit|list|remove`, `/antinuke status|on|off|module|unlock|lockdown`, `/backup now|list|restore|auto`, `/setup log-channel|mod-role|admin-role`.
 
 > **Ai được tạo/sửa auto reply?** — Mod (quyền Manage Guild), Administrator, **hoặc** người có role **Mod/Admin** được cấu hình qua `/setup mod-role` / `/setup admin-role`. Chạy `/autoreply add` với tên rule đã tồn tại = cập nhật lại rule đó.
 
@@ -204,10 +209,11 @@ Muốn đăng ký lại slash commands thủ công: `bun run register`.
 
 ## Backup server → đám mây GitHub
 
-- Dashboard → **Backup server** → bấm **Backup ngay** (tùy chọn đẩy lên GitHub).
+- Dashboard → **Backup server** → bấm **Backup ngay** (tùy chọn đẩy lên GitHub), hoặc dùng lệnh trong Discord: `!backup` / `/backup now`, `!backup list` / `/backup list`, `!backup restore <số>` / `/backup restore <số>`.
 - Bot chụp toàn bộ **role** (tên, màu, hoist, mentionable, quyền), **kênh** (danh mục, văn bản, thoại… kèm quyền truy cập từng kênh) và cấu hình cơ bản (prefix, từ ngữ xấu, role mod/admin, kênh log).
-- Backup lưu vào Convex (giữ 3 bản mới nhất/server) và đẩy thành **Gist riêng tư** trên GitHub qua action `backup_github:githubPush` — cần biến `GITHUB_TOKEN` (quyền `gist`) trong **Keys** của Convex.
-- Khi server bị nuke/raid phá sập: mời bot vào **server phụ** → dashboard → **Backup** → bấm **Khôi phục vào server này**. Bot tạo lại role (quyền đã được giới hạn theo quyền hiện có của bot), danh mục, kênh + overwrite, rồi áp lại cấu hình với id mới. Các role/kênh có sẵn của server phụ được giữ nguyên.
+- Backup lưu vào Convex (giữ 3 bản mới nhất/server — bản cũ hơn tự bị xóa) và đẩy thành **Gist riêng tư** trên GitHub qua action `backup_github:githubPush` — cần biến `GITHUB_TOKEN` (quyền `gist`) của **chủ sở hữu bot** trong **Keys** của Convex. **Token này dùng chung cho MỌI server** — các owner server khác không cần dán token riêng.
+- **Tự động backup định kỳ** (mặc định mỗi 7 ngày khi server mới thêm bot): bật/tắt + chỉnh số ngày (2–30) trong dashboard **Backup server**, hoặc lệnh `!backup auto <2-30|off>` / `/backup auto <số ngày>`. Bot quét mỗi giờ, đã đến hạn thì tự chụp + đẩy lên GitHub của chủ bot.
+- Khi server bị nuke/raid phá sập: mời bot vào **server phụ** → dashboard → **Backup** → bấm **Khôi phục vào server này** (hoặc `!backup restore <số>` trong server phụ). Bot tạo lại role (quyền đã được giới hạn theo quyền hiện có của bot), danh mục, kênh + overwrite, rồi áp lại cấu hình với id mới. Các role/kênh có sẵn của server phụ được giữ nguyên.
 - Bot quét yêu cầu backup/khôi phục mỗi ~20 giây.
 
 ## Moderation — thông báo sau khi phạt

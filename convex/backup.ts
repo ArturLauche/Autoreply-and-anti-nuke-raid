@@ -47,6 +47,28 @@ export const listMine = query({
   },
 });
 
+/** Bot (lệnh !backup / /backup) liệt kê backup của 1 server — chỉ cần guildId. */
+export const listGuild = query({
+  args: { guildId: v.string() },
+  handler: async (ctx, { guildId }) => {
+    const backups = await ctx.db
+      .query("guildBackups")
+      .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId))
+      .order("desc")
+      .take(3);
+    return backups.map((b) => ({
+      _id: b._id,
+      guildId: b.guildId,
+      guildName: b.guildName,
+      createdAt: b.createdAt,
+      roleCount: b.roleCount,
+      channelCount: b.channelCount,
+      githubUrl: b.githubUrl ?? null,
+      pushedToGithub: b.pushedToGithub,
+    }));
+  },
+});
+
 /** Dashboard yêu cầu bot tạo backup cho server hiện tại. */
 export const requestBackup = mutation({
   args: {
@@ -109,6 +131,49 @@ export const requestRestore = mutation({
   },
 });
 
+/** Dashboard bật/tắt tự động backup theo số ngày (2-30; 0 = tắt). */
+export const setAutoBackup = mutation({
+  args: { token: v.string(), guildId: v.string(), days: v.number() },
+  handler: async (ctx, { token, guildId, days }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild)) {
+      throw new Error("Không có quyền quản lý server này");
+    }
+    if (!guild.botInGuild) throw new Error("Bot chưa có trong server này");
+    const next = days <= 0 ? 0 : Math.max(2, Math.min(30, Math.floor(days)));
+    await ctx.db.patch(guild._id, {
+      backupAutoDays: next,
+      updatedAt: Date.now(),
+    });
+    return { ok: true, days: next };
+  },
+});
+
+/**
+ * Bot quét mỗi giờ để tìm server đã đến hạn tự động backup
+ * (bật lịch 2-30 ngày, chưa có yêu cầu đang chờ, chưa backup trong khoảng thời gian đó).
+ */
+export const botGetDueAuto = query({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const all = await ctx.db.query("guilds").collect();
+    const due: { guildId: string; days: number }[] = [];
+    for (const g of all) {
+      const days = g.backupAutoDays ?? 0;
+      if (days <= 0 || !g.botInGuild || g.backupRequested) continue;
+      if (g.lastBackupAt === undefined || now - g.lastBackupAt >= days * 86_400_000) {
+        due.push({ guildId: g.discordId, days });
+      }
+    }
+    return due;
+  },
+});
+
 /** Bot quét mỗi ~20s để nhận yêu cầu tạo backup / khôi phục đang chờ. */
 export const botGetPending = query({
   args: {},
@@ -140,5 +205,3 @@ export const botGetPending = query({
     return out;
   },
 });
-
-

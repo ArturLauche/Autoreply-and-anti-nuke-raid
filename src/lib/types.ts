@@ -157,6 +157,10 @@ export interface GuildData {
     botOwnerSet: boolean;
     /** Chủ đề màu riêng của server (key trong SERVER_THEMES). */
     theme: string;
+    /** Tự động backup: số ngày giữa 2 lần (0 = tắt, 2-30 = bật). */
+    backupAutoDays: number;
+    /** Lần backup thành công gần nhất (ms epoch) hoặc null. */
+    lastBackupAt: number | null;
   };
   heatStates: HeatState[];
   autoReplies: AutoReply[];

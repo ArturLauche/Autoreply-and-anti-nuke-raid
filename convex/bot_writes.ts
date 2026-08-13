@@ -420,6 +420,7 @@ export const botStoreBackup = mutation({
     channelCount: v.number(),
   },
   handler: async (ctx, args) => {
+    const now = Date.now();
     const backupId = await ctx.db.insert("guildBackups", {
       guildId: args.guildId,
       guildName: args.guildName.slice(0, 120),
@@ -427,8 +428,17 @@ export const botStoreBackup = mutation({
       roleCount: Math.max(0, Math.floor(args.roleCount)),
       channelCount: Math.max(0, Math.floor(args.channelCount)),
       pushedToGithub: false,
-      createdAt: Date.now(),
+      createdAt: now,
     });
+    // Đánh dấu lần backup gần nhất — lịch tự động tính từ đây.
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", args.guildId))
+      .first();
+    if (guild) {
+      await ctx.db.patch(guild._id, { lastBackupAt: now, updatedAt: now });
+    }
+    // Tự dọn dẹp backup tồn dư: chỉ giữ 3 bản mới nhất mỗi server (bản cũ hơn bị xóa).
     const all = await ctx.db
       .query("guildBackups")
       .withIndex("by_guildId", (q) => q.eq("guildId", args.guildId))
@@ -448,6 +458,66 @@ export const botSetBackupGithub = mutation({
     await ctx.db.patch(backup._id, {
       githubUrl: url.slice(0, 500),
       pushedToGithub: true,
+    });
+    return { ok: true };
+  },
+});
+
+/** Bot (lệnh !backup auto / /backup auto) bật/tắt tự động backup theo số ngày (2-30, 0 = tắt). */
+export const botSetAutoBackup = mutation({
+  args: { guildId: v.string(), days: v.number() },
+  handler: async (ctx, { guildId, days }) => {
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) throw new Error("Server chưa được đồng bộ");
+    const next = days <= 0 ? 0 : Math.max(2, Math.min(30, Math.floor(days)));
+    await ctx.db.patch(guild._id, {
+      backupAutoDays: next,
+      updatedAt: Date.now(),
+    });
+    return { ok: true, days: next };
+  },
+});
+
+/** Bot (lệnh !backup / /backup) đặt cờ yêu cầu tạo backup — vòng quét 20s sẽ thực hiện. */
+export const botSetBackupRequest = mutation({
+  args: { guildId: v.string(), pushToGithub: v.optional(v.boolean()) },
+  handler: async (ctx, { guildId, pushToGithub }) => {
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) throw new Error("Server chưa được đồng bộ");
+    if (!guild.botInGuild) throw new Error("Bot chưa có trong server này");
+    await ctx.db.patch(guild._id, {
+      backupRequested: true,
+      backupPushToGithub: !!pushToGithub,
+      updatedAt: Date.now(),
+    });
+    return { ok: true };
+  },
+});
+
+/** Bot (lệnh !backup restore / /backup restore) đặt cờ khôi phục cho một backup của đúng guild đó. */
+export const botSetRestoreRequest = mutation({
+  args: { guildId: v.string(), backupId: v.id("guildBackups") },
+  handler: async (ctx, { guildId, backupId }) => {
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) throw new Error("Server chưa được đồng bộ");
+    if (!guild.botInGuild) throw new Error("Bot chưa có trong server này");
+    const backup = await ctx.db.get(backupId);
+    if (!backup || backup.guildId !== guildId) {
+      throw new Error("Backup không tồn tại hoặc không thuộc server này");
+    }
+    await ctx.db.patch(guild._id, {
+      restoreRequested: true,
+      restoreBackupId: backupId,
+      updatedAt: Date.now(),
     });
     return { ok: true };
   },

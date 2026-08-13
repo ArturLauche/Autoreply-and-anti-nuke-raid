@@ -65,13 +65,14 @@ Bot tự đăng ký slash commands và đồng bộ server/kênh/role lên Conve
 - Vào server → tab **Auto Reply**: tạo rule từ khóa / @mention với nội dung tùy chỉnh, cooldown, giới hạn kênh.
 - Tab **Anti Nuke**: bật tắt toàn bộ hoặc từng module, chỉnh ngưỡng & hình thức xử lý, role miễn trừ.
 - Tab **Cài đặt**: prefix, kênh log, role Mod/Admin.
-- Hoặc quản lý trực tiếp trong Discord bằng `!autoreply`, `!antinuke`, `/setup`…
+- Tab **Backup server**: bấm **Backup ngay** hoặc bật **tự động backup định kỳ** (2–30 ngày) — bot đẩy backup lên GitHub của chủ bot, chỉ giữ 3 bản mới nhất trong bot.
+- Hoặc quản lý trực tiếp trong Discord bằng `!autoreply`, `!antinuke`, `!backup`, `/setup`…
 
 ## Tính năng chính
 
 - 🤖 **Auto reply**: kích hoạt bằng từ khóa hoặc tag bot; placeholder `{user}` (tag người nhắn), `{username}`; cooldown chống spam; giới hạn theo kênh.
 - 🛡️ **Chống nuke/raid**: 9 module (ban/kick/join/channel/role/message/spam), phát hiện qua audit log, xử lý cảnh báo → tạm khóa → kick → ban, **tự động khóa kênh khi raid**, cảnh báo real-time tới kênh log, role Mod/Admin + whitelist được miễn trừ. Kèm **báo cáo hoạt động chống nuke hàng ngày** gửi vào kênh log.
-- ⌨️ **Prefix + slash**: `!help !ping !prefix !autoreply !antinuke !setlog` và tương đương `/…`.
+- ⌨️ **Prefix + slash**: `!help !ping !prefix !autoreply !antinuke !setlog !backup` và tương đương `/…` (kèm `/backup now|list|restore|auto` để tạo/liệt kê/khôi phục + tự động backup định kỳ server ngay trong Discord).
 - 🖥️ **Dashboard**: server list, tổng quan, quản lý rule, chống nuke, cài đặt — áp dụng tự động sau ~30 giây.
 
 ## Phát triển

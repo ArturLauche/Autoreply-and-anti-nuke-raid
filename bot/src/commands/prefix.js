@@ -92,6 +92,10 @@ async function handleHelp(client, message) {
         "!reactionrole remove <Tên> <emoji>",
         "!reactionrole delete <Tên>",
         "!setlog #kênh          - đặt kênh log",
+        "!backup now            - tạo backup server (đẩy lên GitHub chủ bot)",
+        "!backup list           - danh sách backup của server",
+        "!backup restore <số>   - khôi phục cấu trúc server từ backup",
+        "!backup auto <2-30|off> - tự động backup mỗi N ngày",
         "```",
       ].join("\n"),
     )
@@ -778,6 +782,130 @@ async function handleReactionRole(client, message, args, config, store) {
   return message.reply(REACTION_ROLE_HELP);
 }
 
+async function handleBackup(client, message, args, config, store) {
+  const sub = (args[0] || "").toLowerCase();
+  const guildId = message.guild.id;
+
+  // !backup list — danh sách backup của server này
+  if (sub === "list") {
+    const list = await store.client
+      .query("backup:listGuild", { guildId })
+      .catch(() => null);
+    if (!list || list.length === 0) {
+      return message.reply(
+        "Chưa có backup nào của server này — dùng `!backup now` để tạo bản đầu tiên.",
+      );
+    }
+    const lines = list.map(
+      (b, i) =>
+        `${i + 1}. **${b.guildName}** — ${new Date(b.createdAt).toLocaleString("vi-VN")} — ${b.roleCount} role · ${b.channelCount} kênh${b.pushedToGithub ? " · ☁️ GitHub" : ""}`,
+    );
+    const embed = new EmbedBuilder()
+      .setColor(Colors.Blurple)
+      .setTitle(`💾 Backup của server (${list.length})`)
+      .setDescription(lines.join("\n"))
+      .setFooter({ text: "Khôi phục: !backup restore <số thứ tự>" });
+    return message.reply({ embeds: [embed] });
+  }
+
+  // !backup restore <số thứ tự trong list | id backup>
+  if (sub === "restore") {
+    if (!canManageGuild(message.member)) return noPerm(message);
+    const target = (args[1] || "").trim();
+    if (!target) {
+      return message.reply(
+        "Cú pháp: `!backup restore <số thứ tự trong !backup list>` (1 = bản mới nhất)",
+      );
+    }
+    const list = await store.client
+      .query("backup:listGuild", { guildId })
+      .catch(() => null);
+    if (!list || list.length === 0) {
+      return message.reply("Chưa có backup nào của server này.");
+    }
+    let backup;
+    if (/^\d+$/.test(target)) {
+      backup = list[parseInt(target, 10) - 1];
+    } else {
+      backup = list.find((b) => String(b._id) === target);
+    }
+    if (!backup) {
+      return message.reply(
+        `Không tìm thấy backup \`${target}\` — xem danh sách bằng \`!backup list\`.`,
+      );
+    }
+    try {
+      await store.client.mutation("bot_writes:botSetRestoreRequest", {
+        guildId,
+        backupId: backup._id,
+      });
+      store.invalidate(guildId);
+      return message.reply(
+        `✅ Đã yêu cầu khôi phục backup của **${backup.guildName}** (${backup.roleCount} role · ${backup.channelCount} kênh) — bot tạo lại cấu trúc trong ~30 giây.`,
+      );
+    } catch (e) {
+      return message.reply(`❌ ${e.message}`);
+    }
+  }
+
+  // !backup auto <số ngày 2-30> | off — bật/tắt tự động backup định kỳ
+  if (sub === "auto") {
+    if (!canManageGuild(message.member)) return noPerm(message);
+    const val = (args[1] || "").toLowerCase();
+    const current = config.backupAutoDays ?? 0;
+    if (!val) {
+      return message.reply(
+        current > 0
+          ? `⏰ Tự động backup đang **bật** — mỗi **${current} ngày** (đẩy lên GitHub của chủ bot). Cú pháp đổi: \`!backup auto <2-30>\` · tắt: \`!backup auto off\``
+          : "⏰ Tự động backup đang **tắt**. Cú pháp bật: `!backup auto <2-30>` (tối thiểu 2, tối đa 30 ngày).",
+      );
+    }
+    let days;
+    if (val === "off" || val === "0") {
+      days = 0;
+    } else {
+      days = parseInt(val, 10);
+      if (!Number.isFinite(days) || days < 2 || days > 30) {
+        return message.reply("Số ngày phải từ **2 đến 30** (hoặc `off` để tắt).");
+      }
+    }
+    try {
+      await store.client.mutation("bot_writes:botSetAutoBackup", { guildId, days });
+      store.invalidate(guildId);
+      return message.reply(
+        days > 0
+          ? `✅ Tự động backup mỗi **${days} ngày** — bot tự chụp + đẩy lên GitHub của chủ bot. Xem danh sách: \`!backup list\``
+          : "✅ Đã tắt tự động backup — bot chỉ backup khi bạn dùng lệnh hoặc trên dashboard.",
+      );
+    } catch (e) {
+      return message.reply(`❌ ${e.message}`);
+    }
+  }
+
+  // !backup / !backup now → tạo backup; !backup local → chỉ lưu Convex (không đẩy GitHub)
+  if (sub !== "" && sub !== "now" && sub !== "local") {
+    return message.reply(
+      "Cú pháp: `!backup` (tạo ngay) · `!backup local` (không đẩy GitHub) · `!backup list` · `!backup restore <số>` · `!backup auto <2-30|off>`",
+    );
+  }
+  if (!canManageGuild(message.member)) return noPerm(message);
+  const push = sub !== "local";
+  try {
+    await store.client.mutation("bot_writes:botSetBackupRequest", {
+      guildId,
+      pushToGithub: push,
+    });
+    store.invalidate(guildId);
+    return message.reply(
+      push
+        ? "✅ Đã yêu cầu tạo backup (đẩy lên GitHub của chủ bot) — bot thực hiện trong ~20 giây. Xem kết quả: `!backup list`"
+        : "✅ Đã yêu cầu tạo backup (chỉ lưu trên Convex) — bot thực hiện trong ~20 giây. Xem kết quả: `!backup list`",
+    );
+  } catch (e) {
+    return message.reply(`❌ ${e.message}`);
+  }
+}
+
 const REACTION_ROLE_HELP =
   "Cú pháp reaction role:\n" +
   "`!reactionrole list`\n" +
@@ -827,4 +955,9 @@ module.exports = {
   unwarn: handleUnwarn,
   giveaway: handleGiveaway,
   reactionrole: handleReactionRole,
+  backup: handleBackup,
+  backuplist: (client, message, args, config, store) =>
+    handleBackup(client, message, ["list"], config, store),
+  restore: (client, message, args, config, store) =>
+    handleBackup(client, message, ["restore", ...args], config, store),
 };

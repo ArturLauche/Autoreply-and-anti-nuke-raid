@@ -322,6 +322,56 @@ const commands = [
     ],
   },
   {
+    name: "backup",
+    description: "Backup server lên đám mây GitHub & khôi phục khi bị nuke phá sập",
+    options: [
+      {
+        name: "now",
+        description: "Tạo backup ngay (mặc định đẩy lên GitHub của chủ bot)",
+        type: 1,
+        options: [
+          {
+            name: "github",
+            description: "Đẩy lên GitHub (bật mặc định) — tắt để chỉ lưu trên Convex",
+            type: 5,
+            required: false,
+          },
+        ],
+      },
+      {
+        name: "list",
+        description: "Xem danh sách backup của server này",
+        type: 1,
+      },
+      {
+        name: "restore",
+        description: "Khôi phục cấu trúc server từ một backup",
+        type: 1,
+        options: [
+          {
+            name: "index",
+            description: "Số thứ tự trong /backup list (1 = bản mới nhất)",
+            type: 4,
+            required: true,
+          },
+        ],
+      },
+      {
+        name: "auto",
+        description: "Bật/tắt tự động backup định kỳ (2-30 ngày, 0 = tắt)",
+        type: 1,
+        options: [
+          {
+            name: "days",
+            description: "Số ngày giữa 2 lần backup (2-30; 0 = tắt)",
+            type: 4,
+            required: true,
+          },
+        ],
+      },
+    ],
+  },
+  {
     name: "setup",
     description: "Cấu hình nhanh bot cho server",
     options: [

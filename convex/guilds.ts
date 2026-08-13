@@ -128,6 +128,8 @@ export const getGuild = query({
         isBotOwner,
         botOwnerSet: !!ownerDiscordId,
         theme: guild.theme ?? "pink",
+        backupAutoDays: guild.backupAutoDays ?? 0,
+        lastBackupAt: guild.lastBackupAt ?? null,
         modRoles: guild.modRoles,
         adminRoles: guild.adminRoles,
         antinukeEnabled: guild.antinukeEnabled,
@@ -315,6 +317,7 @@ export const getBotConfig = query({
       dmTargetUserId: guild.dmTargetUserId ?? null,
       dmTargetUsername: guild.dmTargetUsername ?? null,
       dmMessage: guild.dmMessage ?? null,
+      backupAutoDays: guild.backupAutoDays ?? 0,
       heatStates,
       autoReplies,
       giveaways: giveaways.map((g) => ({
@@ -657,6 +660,8 @@ export const botSyncGuilds = mutation({
           warnStrikeWindowMin: WARN_STRIKE_DEFAULTS.windowMin,
           warnStrikePunish: WARN_STRIKE_DEFAULTS.punish as "timeout" | "kick" | "ban",
           managers: [],
+          // Tự động backup mặc định mỗi 7 ngày (0 = tắt — chỉnh trong Backup server).
+          backupAutoDays: 7,
           botInGuild: true,
           lastHeartbeat: now,
           createdAt: now,

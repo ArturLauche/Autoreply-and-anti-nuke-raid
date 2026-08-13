@@ -90,6 +90,7 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
             "**Mod tools** — `/mod timeout @user 10m [lý do]`, `/mod untimeout`, `/mod kick`, `/mod ban`, `/mod unban`, `/mod unwarn`, `/mod purge` (ghi log lý do + người thực hiện)",
             "**Giveaway** — `/giveaway start <tên> <giải thưởng> <thời lượng>`, `/giveaway list`, `/giveaway end`",
             "**Reaction Role** — `/reactionrole create <kênh> <tên> <cặp emoji:role>`, `/reactionrole add`, `/reactionrole edit`, `/reactionrole remove`, `/reactionrole delete`",
+            "**Backup server** — `/backup now` (tạo + đẩy GitHub chủ bot), `/backup list`, `/backup restore <số>`, `/backup auto <2-30>` (tự động định kỳ) — phòng khi server bị nuke phá sập",
             "**Cấu hình** — `/setup log-channel`, `/setup mod-role`, `/setup admin-role`, `/prefix set`",
             "**Khác** — `/ping`",
           ].join("\n"),
@@ -823,6 +824,104 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         }
       }
       return;
+    }
+
+    case "backup": {
+      const sub = interaction.options.getSubcommand();
+      const guildId = guild.id;
+
+      if (sub === "list") {
+        const list = await store.client
+          .query("backup:listGuild", { guildId })
+          .catch(() => null);
+        if (!list || list.length === 0) {
+          return interaction.reply({
+            content: "Chưa có backup nào của server này — dùng `/backup now` để tạo bản đầu tiên.",
+            ephemeral: true,
+          });
+        }
+        const lines = list.map(
+          (b, i) =>
+            `${i + 1}. **${b.guildName}** — ${new Date(b.createdAt).toLocaleString("vi-VN")} — ${b.roleCount} role · ${b.channelCount} kênh${b.pushedToGithub ? " · ☁️ GitHub" : ""}`,
+        );
+        const embed = new EmbedBuilder()
+          .setColor(Colors.Blurple)
+          .setTitle(`💾 Backup của server (${list.length})`)
+          .setDescription(lines.join("\n"))
+          .setFooter({ text: "Khôi phục: /backup restore <số thứ tự>" });
+        return interaction.reply({ embeds: [embed], ephemeral: true });
+      }
+
+      if (sub === "restore") {
+        if (!canManageGuild(interaction.member)) return needPerm(interaction);
+        const idx = interaction.options.getInteger("index", true);
+        const list = await store.client
+          .query("backup:listGuild", { guildId })
+          .catch(() => null);
+        const backup = list && list[idx - 1];
+        if (!backup) {
+          return interaction.reply({
+            content: `Không tìm thấy backup số ${idx} — chạy /backup list để xem danh sách.`,
+            ephemeral: true,
+          });
+        }
+        try {
+          await store.client.mutation("bot_writes:botSetRestoreRequest", {
+            guildId,
+            backupId: backup._id,
+          });
+          store.invalidate(guildId);
+          return interaction.reply({
+            content: `✅ Đã yêu cầu khôi phục backup của **${backup.guildName}** (${backup.roleCount} role · ${backup.channelCount} kênh) — bot tạo lại cấu trúc trong ~30 giây.`,
+            ephemeral: true,
+          });
+        } catch (e) {
+          return interaction.reply({ content: `❌ ${e.message}`, ephemeral: true });
+        }
+      }
+
+      if (sub === "auto") {
+        if (!canManageGuild(interaction.member)) return needPerm(interaction);
+        const days = interaction.options.getInteger("days", true);
+        if (days !== 0 && (days < 2 || days > 30)) {
+          return interaction.reply({
+            content: "Số ngày phải từ 2 đến 30 (0 = tắt).",
+            ephemeral: true,
+          });
+        }
+        try {
+          await store.client.mutation("bot_writes:botSetAutoBackup", { guildId, days });
+          store.invalidate(guildId);
+          return interaction.reply({
+            content:
+              days > 0
+                ? `✅ Tự động backup mỗi **${days} ngày** — bot tự chụp + đẩy lên GitHub của chủ bot. Xem kết quả: /backup list`
+                : "✅ Đã tắt tự động backup — bot chỉ backup khi bạn dùng lệnh hoặc trên dashboard.",
+            ephemeral: true,
+          });
+        } catch (e) {
+          return interaction.reply({ content: `❌ ${e.message}`, ephemeral: true });
+        }
+      }
+
+      // /backup now — mặc định đẩy lên GitHub (token của chủ bot, dùng chung mọi server)
+      if (!canManageGuild(interaction.member)) return needPerm(interaction);
+      const github = interaction.options.getBoolean("github") ?? true;
+      try {
+        await store.client.mutation("bot_writes:botSetBackupRequest", {
+          guildId,
+          pushToGithub: github,
+        });
+        store.invalidate(guildId);
+        return interaction.reply({
+          content: github
+            ? "✅ Đã yêu cầu tạo backup (đẩy lên GitHub của chủ bot) — bot thực hiện trong ~20 giây. Xem kết quả: `/backup list`"
+            : "✅ Đã yêu cầu tạo backup (chỉ lưu trên Convex) — bot thực hiện trong ~20 giây. Xem kết quả: `/backup list`",
+          ephemeral: true,
+        });
+      } catch (e) {
+        return interaction.reply({ content: `❌ ${e.message}`, ephemeral: true });
+      }
     }
 
     case "setup": {

@@ -346,6 +346,33 @@ async function pollBackups(client, store) {
   }
 }
 
+/**
+ * Quét định kỳ (mỗi giờ): tìm server đã bật lịch tự động backup (2-30 ngày)
+ * và đã đến hạn → đặt cờ yêu cầu để vòng quét 20s thực hiện (đẩy lên GitHub chủ bot).
+ */
+async function autoBackupSweep(client, store) {
+  let due;
+  try {
+    due = await store.client.query("backup:botGetDueAuto", {});
+  } catch (e) {
+    console.error(`[backup:auto]`, e.message);
+    return;
+  }
+  if (!due || due.length === 0) return;
+  for (const item of due) {
+    try {
+      await store.client.mutation("bot_writes:botSetBackupRequest", {
+        guildId: item.guildId,
+        pushToGithub: true,
+      });
+      console.log(`[backup:auto] ${item.guildId}: lịch mỗi ${item.days} ngày → đã đặt yêu cầu backup`);
+    } catch (e) {
+      console.error(`[backup:auto] ${item.guildId}:`, e.message);
+    }
+  }
+}
+
 module.exports = pollBackups;
 module.exports.runBackup = runBackup;
 module.exports.runRestore = runRestore;
+module.exports.autoBackupSweep = autoBackupSweep;

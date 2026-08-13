@@ -45,6 +45,10 @@ export default defineSchema({
     /** Backup server: cờ bot cần khôi phục + id backup dùng để khôi phục. */
     restoreRequested: v.optional(v.boolean()),
     restoreBackupId: v.optional(v.id("guildBackups")),
+    /** Tự động backup: số ngày giữa 2 lần (2-30, 0 = tắt). */
+    backupAutoDays: v.optional(v.number()),
+    /** Lần backup thành công gần nhất (dùng cho lịch tự động). */
+    lastBackupAt: v.optional(v.number()),
     /** Whitelist toàn cục: user/role được miễn trừ khỏi moderation, anti-raid và nuke. */
     whitelistUsers: v.optional(v.array(v.string())),
     whitelistRoles: v.optional(v.array(v.string())),
