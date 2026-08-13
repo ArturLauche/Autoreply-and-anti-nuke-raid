@@ -68,9 +68,9 @@ async function sendLog(guild, guildConfig, embed) {
  * phạt, purge, bot xóa tin nhắn) — GỘP CHUNG một kênh, kiểu Carl-bot. Gửi tới
  * modLogChannelId nếu đã đặt, ngược lại rơi về kênh log chung (logChannelId).
  */
-async function sendModLog(guild, guildConfig, embed) {
+async function sendModLog(guild, guildConfig, embed, preferChannelId) {
   if (!guildConfig) return;
-  const channelId = guildConfig.modLogChannelId || guildConfig.logChannelId;
+  const channelId = preferChannelId || guildConfig.modLogChannelId || guildConfig.logChannelId;
   await sendToChannel(guild, channelId, embed);
 }
 

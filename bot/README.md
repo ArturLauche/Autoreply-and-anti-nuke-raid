@@ -234,12 +234,13 @@ Quy tắc hiển thị trên mỗi embed moderation:
 
 ## Moderation — thông báo sau khi phạt
 
-- Dashboard → **Moderation** (sidebar) để bật/tắt thông báo sau khi bot trừng phạt thành viên, riêng cho từng hành động **ban · timeout · warn · kick**:
-  - `none` — không gửi tin nhắn
-  - `action` — gửi tin nhắn server + hành động
-  - `reason` — thêm lý do vi phạm
-  - `full` — thêm moderator đã áp dụng (lệnh mod thủ công hiển thị tên mod; phạt tự động hiển thị “Bot tự động”)
+- Dashboard → **Moderation** (sidebar) để chỉnh **mức chi tiết embed kiểu Carl-bot** bot gửi sau khi trừng phạt thành viên, riêng cho từng hành động **ban · timeout · warn · kick** — phần xem trước trên web chính là đúng embed bot gửi:
+  - `none` — không gửi embed (dashboard vẫn ghi nhận case)
+  - `action` — embed chỉ hiển thị `Offender`
+  - `reason` — thêm dòng `Reason` (trống → ghi “không có lý do”)
+  - `full` — thêm dòng `Responsible moderator` (lệnh mod thủ công hiển thị tên mod; phạt tự động hiển thị tên bot)
 - Kênh nhận: `punishNoticeChannelId` → kênh log mod → kênh log chung.
+- **Đây là embed duy nhất bot gửi sau khi phạt** — áp dụng cho cả **tự động** (chống nuke / auto-mod) lẫn **thủ công** từ lệnh mod. Purge / xóa tin / gỡ hình phạt luôn hiển thị đầy đủ.
 - **Liên kết với lệnh thủ công**: lệnh thủ công (`/mod timeout|kick|ban` và `!timeout|!kick|!ban`) luôn cho phép ghi lý do — **bỏ trống thì log ghi “không có lý do”**, không bị từ chối. Cả log Discord lẫn dashboard (Bảng hình phạt) hiển thị rõ **🛠️ Lệnh mod** (tên mod) hay **⚡ Bot tự động** (auto-mod / anti nuke) kèm **case N**.
 
 ## Kiến trúc đồng bộ

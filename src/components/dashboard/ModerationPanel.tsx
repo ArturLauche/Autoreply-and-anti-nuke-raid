@@ -33,18 +33,18 @@ const LEVEL_BADGE: Record<string, string> = {
   full: "bg-emerald-500/15 text-emerald-400",
 };
 
-/** Xem trước nội dung thông báo bot sẽ gửi theo mức đã chọn. */
+/** Xem trước embed moderation kiểu Carl-bot bot sẽ gửi theo mức đã chọn. */
 function previewFor(action: string, level: PunishNoticeLevel): string {
   const label = PUNISH_NOTICE_ACTION_LABEL[action] ?? action;
   switch (level) {
     case "none":
-      return "Bot không gửi tin nhắn nào sau khi trừng phạt.";
+      return "Bot không gửi embed nào sau khi trừng phạt (dashboard vẫn ghi nhận case).";
     case "action":
-      return `🛡️ ${label} — @thànhviên · hành động: đã xử lý theo cấu hình`;
+      return `${label} | case N — Offender: @thànhviên`;
     case "reason":
-      return `🛡️ ${label} — @thànhviên · hành động: đã xử lý · lý do: <lý do vi phạm>`;
+      return `${label} | case N — Offender: @thànhviên · Reason: <lý do vi phạm>`;
     case "full":
-      return `🛡️ ${label} — @thànhviên · hành động: đã xử lý · lý do: <lý do> · moderator: @người áp dụng`;
+      return `${label} | case N — Offender: @thànhviên · Reason: <lý do> · Responsible moderator: @người áp dụng`;
   }
 }
 
@@ -84,8 +84,9 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
             <Megaphone className="h-5 w-5 text-primary" /> Moderation — thông báo sau khi phạt
           </h2>
           <p className="text-sm text-muted-foreground">
-            Tùy chỉnh cách bot <b className="text-foreground">ghi lại / thông báo</b> sau khi đã
-            trừng phạt thành viên vi phạm, theo từng hành động ban · timeout · warn · kick.
+            Tùy chỉnh <b className="text-foreground">embed moderation kiểu Carl-bot</b> bot gửi sau
+            khi đã trừng phạt thành viên vi phạm — đồng bộ cả kênh lẫn mức chi tiết, theo từng
+            hành động ban · timeout · warn · kick (cả tự động lẫn lệnh thủ công).
           </p>
         </div>
         <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
@@ -199,11 +200,12 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
       </div>
 
       <p className="text-xs leading-relaxed text-muted-foreground">
-        💡 Áp dụng cho cả hình phạt <b className="text-foreground">tự động</b> (chống nuke /
-        auto-mod — moderator hiển thị là “Bot tự động”) lẫn hình phạt{" "}
-        <b className="text-foreground">thủ công</b> từ lệnh <code className="font-mono">/mod</code>{" "}
-        (moderator hiển thị tên người thực hiện). Mức chi tiết tăng dần: hành động → thêm lý do →
-        thêm moderator.
+        💡 Đây chính là embed <b className="text-foreground">duy nhất</b> bot gửi sau khi phạt — kể
+        cả <b className="text-foreground">tự động</b> (chống nuke / auto-mod — Responsible
+        moderator hiển thị là “Bot tự động”) lẫn <b className="text-foreground">thủ công</b> từ
+        lệnh <code className="font-mono">/mod</code> (hiển thị tên người thực hiện). Lý do để trống
+        → ghi “không có lý do”. Chọn <b>Không gửi tin nhắn</b> → bot không gửi embed nhưng dashboard
+        vẫn ghi nhận case. Embed xóa tin / purge luôn đầy đủ.
       </p>
     </div>
   );

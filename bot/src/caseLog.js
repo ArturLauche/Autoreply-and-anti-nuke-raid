@@ -1,6 +1,11 @@
 const { EmbedBuilder, Colors } = require("discord.js");
 const { sendModLog } = require("./util");
 
+/** Các hành động có mức chi tiết cấu hình được trên web (phần Moderation). */
+const NOTICE_ACTIONS = ["ban", "timeout", "kick", "warn"];
+/** Thứ tự mức chi tiết: none (0) → action (1) → reason (2) → full (3). */
+const LEVEL_ORDER = { none: 0, action: 1, reason: 2, full: 3 };
+
 /** Màu của từng hành động (cũng là thanh accent bên trái embed, kiểu Carl-bot). */
 const CASE_COLOR = {
   ban: Colors.Red,
@@ -62,6 +67,19 @@ async function sendCaseLog({
 }) {
   if (!guild || !guildConfig) return null;
   const label = CASE_LABEL[action] || action;
+
+  // ĐỒNG BỘ VỚI PHẦN MODERATION TRÊN WEB: mức chi tiết theo từng hành động
+  // (none/action/reason/full) + kênh gửi (punishNoticeChannelId → mod log → log chung).
+  //  - none   → không gửi embed (dashboard vẫn ghi nhận hình phạt)
+  //  - action → Offender
+  //  - reason → thêm Reason (trống → "không có lý do")
+  //  - full   → thêm Responsible moderator (bot tự động = tên bot, mod lệnh = tên người dùng)
+  // purge / delete (không nằm trong bảng cấu hình) luôn hiển thị đầy đủ.
+  const level = NOTICE_ACTIONS.includes(action)
+    ? guildConfig.punishNotice?.[action] || "full"
+    : "full";
+  if ((LEVEL_ORDER[level] ?? 3) === 0) return null;
+
   const botUser = guild.client?.user;
   const responsible = executor
     ? executor.username || executor.tag || "mod"
@@ -71,12 +89,14 @@ async function sendCaseLog({
 
   const lines = [];
   if (offender && offender.id) {
-    lines.push(
-      `**Offender:** ${offender.username || offender.id} <@${offender.id}>`,
-    );
+    lines.push(`**Offender:** ${offender.username || offender.id} <@${offender.id}>`);
   }
-  lines.push(`**Reason:** ${reason || "không có lý do"}`);
-  lines.push(`**Responsible moderator:** ${responsible}`);
+  if ((LEVEL_ORDER[level] ?? 3) >= 2) {
+    lines.push(`**Reason:** ${reason || "không có lý do"}`);
+  }
+  if ((LEVEL_ORDER[level] ?? 3) >= 3) {
+    lines.push(`**Responsible moderator:** ${responsible}`);
+  }
   for (const line of extraDescription) lines.push(String(line));
 
   const embed = new EmbedBuilder()
@@ -88,8 +108,9 @@ async function sendCaseLog({
     text: offender && offender.id ? `ID: ${offender.id} • ${fmtTimestamp()}` : fmtTimestamp(),
   });
 
-  await sendModLog(guild, guildConfig, embed);
+  // Kênh gửi ưu tiên kênh thông báo hình phạt (Moderation trên web), rồi log mod, rồi log chung.
+  await sendModLog(guild, guildConfig, embed, guildConfig.punishNoticeChannelId);
   return embed;
 }
 
-module.exports = { sendCaseLog, fmtTimestamp, CASE_COLOR, CASE_LABEL };
+module.exports = { sendCaseLog, fmtTimestamp, CASE_COLOR, CASE_LABEL, NOTICE_ACTIONS, LEVEL_ORDER };

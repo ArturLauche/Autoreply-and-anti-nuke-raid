@@ -304,24 +304,29 @@ export const PUNISH_LABEL: Record<string, string> = {
 };
 
 /**
- * Mức chi tiết thông báo sau khi bot trừng phạt thành viên (Moderation):
- *  - none:   không gửi tin nhắn gì
- *  - action: gửi tin nhắn server + hành động bot đã làm
- *  - reason: thêm lý do vi phạm
- *  - full:   thêm cả moderator đã áp dụng hình phạt
+ * Mức chi tiết của embed moderation kiểu Carl-bot sau khi bot trừng phạt thành viên
+ * (phần Moderation — áp dụng cho cả tự động lẫn lệnh thủ công):
+ *  - none:   không gửi embed (dashboard vẫn ghi nhận)
+ *  - action: Offender
+ *  - reason: thêm Reason (trống → "không có lý do")
+ *  - full:   thêm Responsible moderator (bot tự động = tên bot, mod lệnh = tên người dùng)
  */
 export const PUNISH_NOTICE_LEVELS: {
   value: PunishNoticeLevel;
   label: string;
   hint: string;
 }[] = [
-  { value: "none", label: "Không gửi tin nhắn", hint: "Bot im lặng sau khi trừng phạt" },
-  { value: "action", label: "Server + hành động bot", hint: "Ví dụ: 🚫 Đã ban @user" },
-  { value: "reason", label: "Server + hành động + lý do", hint: "Kèm lý do bot áp dụng hình phạt" },
+  { value: "none", label: "Không gửi tin nhắn", hint: "Bot im lặng sau khi trừng phạt (dashboard vẫn ghi nhận case)" },
+  { value: "action", label: "Offender", hint: "Embed chỉ hiển thị Offender + hành động" },
+  {
+    value: "reason",
+    label: "Offender + lý do",
+    hint: "Thêm dòng Reason (để trống → ghi \"không có lý do\")",
+  },
   {
     value: "full",
-    label: "Server + hành động + lý do + moderator",
-    hint: "Kèm thêm người (moderator) đã áp dụng hình phạt",
+    label: "Offender + lý do + moderator",
+    hint: "Thêm dòng Responsible moderator (bot tự động = tên bot · mod lệnh = tên người dùng)",
   },
 ];
 
@@ -336,10 +341,10 @@ export const PUNISH_NOTICE_ACTION_LABEL: Record<string, string> = {
 };
 
 export const DEFAULT_PUNISH_NOTICE: Record<string, PunishNoticeLevel> = {
-  ban: "none",
-  timeout: "none",
-  kick: "none",
-  warn: "none",
+  ban: "full",
+  timeout: "full",
+  kick: "full",
+  warn: "full",
 };
 
 /** Giá trị mặc định cho hệ thống nhiệt độ vi phạm. */

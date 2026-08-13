@@ -12,8 +12,6 @@
  * Warn tích lũy (moderation): khi hình phạt là "warn", mỗi lần vi phạm đếm 1
  * strike; đủ warnStrikeLimit lần trong cửa sổ → tự tăng cấp thành warnStrikePunish.
  */
-const { sendPunishNotice } = require("./punishNotice");
-
 const TIER_STRENGTH = { warn: 1, timeout: 2, kick: 3, ban: 4 };
 const HEAT_MAX = 100;
 const MIN_MS = 60_000;
@@ -97,22 +95,8 @@ async function punishMember(guild, member, punishType, reason, timeoutSeconds = 
     } catch (e) {
       console.error(`[heat:record] ${guild.id}:`, e.message);
     }
-    // Thông báo Moderation sau khi phạt (ban/timeout/warn/kick) theo cấu hình.
-    try {
-      const cfg = await store.getConfig(guild.id).catch(() => null);
-      if (cfg) {
-        await sendPunishNotice({
-          guild,
-          guildConfig: cfg,
-          punishType,
-          target: member.user,
-          executor: null,
-          reason,
-        });
-      }
-    } catch (e) {
-      console.error(`[heat:notice] ${guild.id}:`, e.message);
-    }
+    // Lưu ý: thông báo cho người dùng sẽ do embed case (sendCaseLog) ở nơi gọi
+    // (filters.js / antinuke.js) gửi — đồng bộ với phần Moderation trên web.
   }
   return { action: result, caseNumber };
 }
