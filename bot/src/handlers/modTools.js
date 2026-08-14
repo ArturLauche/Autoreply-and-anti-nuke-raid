@@ -1,6 +1,7 @@
 const { PermissionFlagsBits } = require("discord.js");
 const { canManageWithConfig } = require("../util");
 const { sendCaseLog, CASE_LABEL } = require("../caseLog");
+const timeoutWatch = require("../timeoutWatch");
 
 /** Phân tích chuỗi thời lượng: "10m", "2h", "1d", "30" (mặc định = phút). */
 function parseDuration(input) {
@@ -77,6 +78,8 @@ async function logModAction(guild, guildConfig, { actionKey, target, executor, r
 
 async function timeoutMember({ guild, member, executor, minutes, reason, guildConfig, store }) {
   await member.timeout(minutes * 60_000, reason || undefined);
+  // Ghi nhận để log khi timeout hết hạn tự nhiên.
+  timeoutWatch.track(guild.id, member.id, Date.now() + minutes * 60_000);
   // Thông báo Moderation thủ công đã gộp vào embed case kiểu Carl-bot (sendCaseLog bên dưới) — không gửi embed thứ hai.
   await logModAction(
     guild,
@@ -130,6 +133,8 @@ async function banMember({ guild, member, executor, reason, deleteDays, guildCon
 
 async function untimeoutMember({ guild, member, executor, reason, guildConfig, store }) {
   await member.timeout(null, reason || undefined);
+  // Gỡ chủ động → bỏ theo dõi để không log nhầm "timeout hết hạn" sau này.
+  timeoutWatch.forget(guild.id, member.id);
   await logModAction(
     guild,
     guildConfig,

@@ -151,6 +151,8 @@ client.on("guildCreate", () => guildSync.syncAll(client, store).catch(() => {}))
 client.on("guildDelete", () => guildSync.syncAll(client, store).catch(() => {}));
 
 antinuke.attach();
+// Log embed "⏱️ Timeout hết hạn" khi thành viên hết timeout tự nhiên.
+require("./timeoutWatch").attach(client, store);
 setupHidden(client, store);
 
 client.login(process.env.DISCORD_TOKEN).catch((err) => {

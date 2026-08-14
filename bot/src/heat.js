@@ -12,6 +12,8 @@
  * Warn tích lũy (moderation): khi hình phạt là "warn", mỗi lần vi phạm đếm 1
  * strike; đủ warnStrikeLimit lần trong cửa sổ → tự tăng cấp thành warnStrikePunish.
  */
+const timeoutWatch = require("./timeoutWatch");
+
 const TIER_STRENGTH = { warn: 1, timeout: 2, kick: 3, ban: 4 };
 const HEAT_MAX = 100;
 const MIN_MS = 60_000;
@@ -54,6 +56,8 @@ async function punishMember(guild, member, punishType, reason, timeoutSeconds = 
     const seconds = Math.max(1, Math.min(86400, Math.floor(timeoutSeconds || 300)));
     try {
       await member.timeout(seconds * 1000, reason);
+      // Ghi nhận để log khi timeout hết hạn tự nhiên.
+      timeoutWatch.track(guild.id, member.id, Date.now() + seconds * 1000);
       result = `đã tạm khóa ${Math.round(seconds / 60)} phút`;
     } catch {
       result = "không thể tạm khóa (thiếu quyền)";
