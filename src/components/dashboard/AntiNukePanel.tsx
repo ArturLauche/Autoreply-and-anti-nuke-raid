@@ -364,7 +364,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                   </Button>
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="grid gap-2 xl:grid-cols-2">
                 {group.modules.map((key) => (
                   <ModuleCard
                     key={key}
@@ -374,6 +374,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                     patchModule={patchModule}
                     unit="vi phạm"
                     showHeat={false}
+                    compact
                   />
                 ))}
               </div>

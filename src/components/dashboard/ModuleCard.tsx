@@ -131,6 +131,7 @@ export default function ModuleCard({
   patchModule,
   unit,
   showHeat = true,
+  compact = false,
 }: {
   data: GuildData;
   module: string;
@@ -143,6 +144,8 @@ export default function ModuleCard({
   unit: string;
   /** Module nuke/raid phạt trực tiếp — không hiển thị ô nhiệt. */
   showHeat?: boolean;
+  /** Card nằm trong lưới 2 cột (mục Chống nuke) — config xếp gọn 2 cột, không giãn ngang. */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const meta = ANTINUKE_MODULE_META[module];
@@ -237,7 +240,7 @@ export default function ModuleCard({
       {/* Cấu hình mở rộng */}
       {open && (
         <CardContent className="grid gap-3 border-t border-border/60 px-4 py-3">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className={cn("grid gap-3", compact ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-4")}>
             <div className="grid gap-1">
               <Label className="text-[11px] text-muted-foreground">
                 Ngưỡng ({unit})
