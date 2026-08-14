@@ -1,0 +1,271 @@
+import { useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import { useQuery } from "convex/react";
+import {
+  AppWindow,
+  ArrowLeft,
+  Bot,
+  CloudUpload,
+  DoorOpen,
+  ExternalLink,
+  Gavel,
+  LayoutDashboard,
+  Loader2,
+  Lock,
+  Megaphone,
+  Settings,
+  ShieldAlert,
+  ShieldCheck,
+  UserCheck,
+} from "lucide-react";
+import { DEFAULT_THEME, SERVER_THEMES } from "../lib/constants";
+import PanelErrorBoundary from "../components/PanelErrorBoundary";
+import CherryBlossom from "../components/CherryBlossom";
+import BotLogo from "../components/BotLogo";
+import HaimiyaChat from "../components/HaimiyaChat";
+import HiddenPanel from "../components/dashboard/HiddenPanel";
+import UnlockPanel, { hiddenUnlockKey } from "../components/dashboard/UnlockPanel";
+import { api } from "../../convex/_generated/api";
+import { Badge } from "../components/ui/badge";
+import { cn } from "../lib/utils";
+import { buildBotInviteUrl, discordGuildIconUrl, getSessionToken } from "../lib/discord";
+import { usePublicConfig } from "../lib/usePublicConfig";
+import { timeAgo } from "../lib/utils";
+import type { GuildData } from "../lib/types";
+import OverviewPanel from "../components/dashboard/OverviewPanel";
+import AntiNukePanel from "../components/dashboard/AntiNukePanel";
+import ExternalAppRaidsPanel from "../components/dashboard/ExternalAppRaidsPanel";
+import AutoModPanel from "../components/dashboard/AutoModPanel";
+import ModerationPanel from "../components/dashboard/ModerationPanel";
+import BackupPanel from "../components/dashboard/BackupPanel";
+import ModActionsPanel from "../components/dashboard/ModActionsPanel";
+import JoinGatePanel from "../components/dashboard/JoinGatePanel";
+import SettingsPanel from "../components/dashboard/SettingsPanel";
+import WhitelistPanel from "../components/dashboard/WhitelistPanel";
+
+type SectionKey =
+  | "overview"
+  | "automod"
+  | "moderation"
+  | "joingate"
+  | "antinuke"
+  | "externalapp"
+  | "whitelist"
+  | "backup"
+  | "punishments"
+  | "hidden"
+  | "settings";
+
+const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof LayoutDashboard }[] = [
+  { key: "overview", label: "Tổng quan", icon: LayoutDashboard },
+  { key: "automod", label: "Auto-mod", icon: ShieldCheck },
+  { key: "moderation", label: "Moderation", icon: Megaphone },
+  { key: "joingate", label: "Join Gate", icon: DoorOpen },
+  { key: "antinuke", label: "Chống nuke / raid", icon: ShieldAlert },
+  { key: "externalapp", label: "Raid external app", icon: AppWindow },
+  { key: "whitelist", label: "Whitelist", icon: UserCheck },
+  { key: "backup", label: "Backup server", icon: CloudUpload },
+  { key: "punishments", label: "Hình phạt", icon: Gavel },
+  { key: "hidden", label: "Tính năng ẩn 🔒", icon: Lock },
+  { key: "settings", label: "Cài đặt", icon: Settings },
+];
+
+export default function GuildPage() {
+  const { guildId = "" } = useParams();
+  const [section, setSection] = useState<SectionKey>("overview");
+  const [hiddenUnlocked, setHiddenUnlocked] = useState(
+    () => sessionStorage.getItem(hiddenUnlockKey(guildId)) === "1",
+  );
+  const token = getSessionToken();
+  const data = useQuery(api.guilds.getGuild, { token, guildId }) as GuildData | null | undefined;
+  const { clientId } = usePublicConfig();
+
+  if (data === undefined) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (data === null) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
+        <p className="font-display text-lg font-semibold">Không thể truy cập server này</p>
+        <p className="text-sm text-muted-foreground">
+          Bạn không có quyền quản lý, hoặc bot chưa đồng bộ server này.
+        </p>
+        <Link to="/dashboard" className="text-sm text-primary hover:underline">
+          ← Về danh sách server
+        </Link>
+      </div>
+    );
+  }
+
+  const icon = discordGuildIconUrl({ id: data.guild.discordId, icon: data.guild.icon });
+  const online =
+    data.guild.botInGuild &&
+    data.guild.lastHeartbeat !== null &&
+    Date.now() - data.guild.lastHeartbeat < 180_000;
+
+  // Chủ đề màu riêng của server — ghi đè CSS var trong phạm vi trang này.
+  const theme = SERVER_THEMES[data.guild.theme] ?? SERVER_THEMES[DEFAULT_THEME];
+  const themeVars = {
+    "--primary": theme.primary,
+    "--ring": theme.ring,
+  } as React.CSSProperties;
+
+  return (
+    <div className="relative min-h-screen overflow-x-clip" style={themeVars}>
+      <CherryBlossom count={10} />
+      <HaimiyaChat position="dashboard" />
+      <div className="relative z-10">
+      <header className="border-b border-border/60 bg-background/70 backdrop-blur">
+        <div className="container py-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <Link
+                to="/dashboard"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+              {icon ? (
+                <img src={icon} alt="" className="h-12 w-12 rounded-2xl" />
+              ) : (
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary font-display text-lg font-bold text-muted-foreground">
+                  {data.guild.name.slice(0, 2).toUpperCase()}
+                </span>
+              )}
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <span className="rounded-xl bg-gradient-to-br from-white/95 via-white/45 to-white/0 p-[2px] drop-shadow-[0_0_10px_rgba(255,255,255,0.7)]">
+                    <BotLogo className="h-10 w-10 ring-2 ring-primary/25" fallbackClassName="h-6 w-6" />
+                  </span>
+                  <h1 className="font-display text-2xl font-bold tracking-tight">{data.guild.name}</h1>
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className="font-mono">{data.guild.prefix} prefix</Badge>
+                  <Badge variant="secondary">
+                    {data.guild.memberCount?.toLocaleString("vi-VN") ?? "?"} thành viên
+                  </Badge>
+                  <Badge variant={data.guild.antinukeEnabled ? "default" : "secondary"}>
+                    <ShieldAlert className="h-3 w-3" />
+                    {data.guild.antinukeEnabled ? "Chống nuke bật" : "Chống nuke tắt"}
+                  </Badge>
+                  <Badge variant={online ? "success" : "secondary"}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-muted-foreground"}`} />
+                    Bot {online ? "online" : "offline"} · {timeAgo(data.guild.lastHeartbeat)}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+            {clientId && (
+              <a href={buildBotInviteUrl(clientId)} target="_blank" rel="noreferrer">
+                <Badge variant="secondary" className="cursor-pointer px-3 py-1.5">
+                  <Bot className="h-3.5 w-3.5" /> Mời thêm
+                </Badge>
+              </a>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main className="container py-8">
+        <div className="grid gap-6 lg:grid-cols-[230px_1fr]">
+          {/* Sidebar */}
+          <aside className="h-fit lg:sticky lg:top-6">
+            <nav className="flex gap-1 overflow-x-auto rounded-xl border border-border bg-card/50 p-1.5 lg:flex-col lg:overflow-visible">
+              {NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const active = section === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => setSection(item.key)}
+                    className={cn(
+                      "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </nav>
+            <div className="mt-4 hidden rounded-xl border border-primary/25 bg-gradient-to-b from-primary/10 to-transparent p-4 text-xs text-muted-foreground lg:block">
+              <p className="mb-2 font-medium text-foreground">🌸 Haimiya gợi ý</p>
+              <p>• Auto-mod = spam tin, mention, từ xấu, ảnh/file, link mời + link độc hại.</p>
+              <p className="mt-1">• Moderation = thông báo sau khi bot phạt (ban · timeout · warn · kick) — chọn mức chi tiết riêng cho từng hành động.</p>
+              <p className="mt-1">• Join Gate = chặn selfbot khi vào server.</p>
+              <p className="mt-1">• Nuke/raid phạt trực tiếp, không cộng nhiệt.</p>
+              <p className="mt-1">• ⭐ Whitelist = chọn người dùng/role miễn trừ moderation, anti-raid và nuke.</p>
+              <p className="mt-1">• 💾 Backup server = chụp role + kênh lên đám mây GitHub; khôi phục lại khi server bị nuke phá sập.</p>
+              <p className="mt-1">• 🔒 Tính năng ẩn = reaction role, giveaway, gửi DM, auto reply, tùy chỉnh giao diện — chỉ chủ sở hữu bot.</p>
+              <p className="mt-1">• 🛠️ Lệnh mod: /mod timeout · kick · ban · purge + !timeout !kick !ban !purge — mọi hình phạt hiện trong mục Hình phạt.</p>
+              <p className="mt-1">• 🎭 Reaction role: /reactionrole create · add · remove · edit · delete (kèm !reactionrole) hoặc tạo ngay trên dashboard.</p>
+              <p className="mt-1">• 🎨 Mỗi server có chủ đề màu riêng trong Cài đặt.</p>
+              <p className="mt-1">• 🎉 Lệnh giveaway: /giveaway start + !giveaway start.</p>
+              <p className="mt-1">• Thay đổi áp dụng trong ~30 giây.</p>
+            </div>
+          </aside>
+
+          {/* Content — bọc trong error boundary để một panel lỗi không làm trắng cả trang */}
+          <div>
+            <PanelErrorBoundary key={section}>
+              {section === "overview" && <OverviewPanel data={data} />}
+              {section === "automod" && <AutoModPanel data={data} />}
+              {section === "moderation" && <ModerationPanel data={data} />}
+              {section === "joingate" && <JoinGatePanel data={data} />}
+              {section === "antinuke" && <AntiNukePanel data={data} />}
+              {section === "externalapp" && <ExternalAppRaidsPanel data={data} />}
+              {section === "whitelist" && <WhitelistPanel data={data} />}
+              {section === "backup" && <BackupPanel data={data} />}
+              {section === "punishments" && <ModActionsPanel data={data} />}
+              {section === "settings" && <SettingsPanel data={data} />}
+              {section === "hidden" &&
+                (!data.guild.isBotOwner || (data.guild.hiddenPasswordSet && !hiddenUnlocked) ? (
+                  <UnlockPanel
+                    data={data}
+                    onUnlocked={() => setHiddenUnlocked(true)}
+                  />
+                ) : (
+                  <>
+                    {data.guild.hiddenPasswordSet && (
+                      <div className="mb-4 flex justify-end">
+                        <button
+                          onClick={() => {
+                            sessionStorage.removeItem(hiddenUnlockKey(data.guild.discordId));
+                            setHiddenUnlocked(false);
+                          }}
+                          className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        >
+                          <Lock className="h-3.5 w-3.5" /> Khóa lại
+                        </button>
+                      </div>
+                    )}
+                    <HiddenPanel data={data} />
+                  </>
+                ))}
+            </PanelErrorBoundary>
+
+            <div className="mt-10 flex justify-center">
+              <a
+                href={`https://discord.com/channels/${data.guild.discordId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-primary"
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> Mở Discord server
+              </a>
+            </div>
+          </div>
+        </div>
+      </main>
+      </div>
+    </div>
+  );
+}

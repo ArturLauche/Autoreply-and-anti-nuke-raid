@@ -1,0 +1,21 @@
+{
+  "name": "protogon-bot",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Protogon Discord bot — auto reply, prefix + slash commands, anti-nuke raid protection",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "register": "node src/register-slash.js",
+    "deploy:commands": "node src/register-slash.js",
+    "pack:host": "node scripts/pack-host.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "convex": "^1.17.4",
+    "discord.js": "^14.16.3"
+  }
+}

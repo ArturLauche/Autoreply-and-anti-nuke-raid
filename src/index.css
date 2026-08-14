@@ -1,0 +1,264 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes petal-fall {
+  0% {
+    transform: translate3d(0, -12vh, 0) rotate(0deg);
+    opacity: 0;
+  }
+  6% {
+    opacity: var(--petal-opacity, 0.8);
+  }
+  90% {
+    opacity: var(--petal-opacity, 0.8);
+  }
+  100% {
+    transform: translate3d(var(--petal-sway, 40px), 114vh, 0) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 340 90% 98%;
+    --foreground: 265 32% 16%;
+    --card: 340 70% 99%;
+    --card-foreground: 265 32% 16%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 265 32% 16%;
+    --primary: 342 92% 60%;
+    --primary-foreground: 340 60% 10%;
+    --secondary: 340 45% 95%;
+    --secondary-foreground: 265 30% 20%;
+    --muted: 340 40% 94%;
+    --muted-foreground: 265 18% 42%;
+    --accent: 340 45% 93%;
+    --accent-foreground: 265 30% 18%;
+    --destructive: 0 74% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --danger: 0 74% 52%;
+    --danger-foreground: 0 0% 100%;
+    --border: 340 40% 88%;
+    --input: 340 40% 86%;
+    --ring: 342 92% 62%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 265 32% 11%;
+    --foreground: 340 80% 95%;
+    --card: 265 30% 14%;
+    --card-foreground: 340 80% 95%;
+    --popover: 265 30% 13%;
+    --popover-foreground: 340 80% 95%;
+    --primary: 342 92% 62%;
+    --primary-foreground: 340 60% 10%;
+    --secondary: 265 26% 20%;
+    --secondary-foreground: 340 60% 92%;
+    --muted: 265 26% 19%;
+    --muted-foreground: 265 16% 72%;
+    --accent: 265 26% 22%;
+    --accent-foreground: 340 60% 94%;
+    --destructive: 0 74% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --danger: 0 74% 60%;
+    --danger-foreground: 0 0% 100%;
+    --border: 265 25% 24%;
+    --input: 265 25% 26%;
+    --ring: 342 92% 64%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  html.dark body {
+    background: linear-gradient(
+      160deg,
+      hsl(270 32% 12%) 0%,
+      hsl(272 28% 15%) 45%,
+      hsl(215 30% 14%) 75%,
+      hsl(210 34% 12%) 100%
+    ) fixed;
+  }
+
+  /* Khóa tràn ngang toàn trang: không bao giờ có thanh cuộn ngang,
+     kể cả khi phần tử trang trí vượt quá viewport. */
+  #root {
+    overflow-x: clip;
+  }
+
+  body {
+    @apply text-foreground antialiased;
+    /* Nền mix: hồng anh đào chuyển dần sang xanh trời (tương phản rõ hơn) */
+    background: linear-gradient(
+      160deg,
+      hsl(342 100% 87%) 0%,
+      hsl(341 100% 92%) 20%,
+      hsl(218 100% 93%) 52%,
+      hsl(204 95% 81%) 100%
+    ) fixed;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  ::selection {
+    background: hsl(342 92% 66% / 0.35);
+    color: hsl(340 50% 10%);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(340 30% 82%);
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(340 30% 72%);
+    background-clip: content-box;
+  }
+}
+
+@layer utilities {
+  .bg-grid {
+    background-image: radial-gradient(
+      circle at 1px 1px,
+      hsl(342 70% 78% / 0.55) 1px,
+      transparent 0
+    );
+    background-size: 28px 28px;
+  }
+
+  .bg-glow-sakura {
+    background: radial-gradient(
+      46% 46% at 50% 0%,
+      hsl(342 95% 62% / 0.32) 0%,
+      transparent 70%
+    );
+  }
+
+  .bg-glow-sky {
+    background: radial-gradient(
+      46% 46% at 50% 100%,
+      hsl(205 100% 60% / 0.36) 0%,
+      transparent 70%
+    );
+  }
+
+  .text-gradient-sakura {
+    background: linear-gradient(
+      120deg,
+      hsl(342 92% 55%) 0%,
+      hsl(330 90% 50%) 45%,
+      hsl(215 95% 52%) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .card-hover {
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    border-color: hsl(342 92% 66% / 0.45);
+    box-shadow: 0 10px 34px -14px hsl(342 60% 60% / 0.4);
+  }
+
+  .shimmer-text {
+    background: linear-gradient(
+      100deg,
+      hsl(265 25% 45%) 20%,
+      hsl(265 30% 20%) 40%,
+      hsl(265 25% 45%) 60%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Cánh hoa anh đào rơi */
+  .petal {
+    position: absolute;
+    top: -8vh;
+    border-radius: 80% 0 80% 0;
+    background: radial-gradient(
+      circle at 30% 30%,
+      hsl(340 95% 92%) 0%,
+      hsl(342 92% 74%) 55%,
+      hsl(342 85% 64%) 100%
+    );
+    box-shadow: 0 0 8px hsl(342 92% 70% / 0.5);
+    opacity: 0;
+    pointer-events: none;
+    animation-name: petal-fall;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    will-change: transform, opacity;
+  }
+
+  /* Thanh nhiệt xoáy: xanh → vàng → đỏ chảy liên tục */
+  @keyframes heat-flow {
+    0% {
+      background-position: 0% 0;
+    }
+    100% {
+      background-position: 220% 0;
+    }
+  }
+
+  .heat-swirl {
+    background: linear-gradient(
+      90deg,
+      #3b82f6,
+      #06b6d4,
+      #22c55e,
+      #eab308,
+      #f97316,
+      #ef4444,
+      #3b82f6
+    );
+    background-size: 220% 100%;
+    animation: heat-flow 2.6s linear infinite;
+    box-shadow: 0 0 10px -2px hsl(45 100% 50% / 0.55);
+  }
+
+  .chat-bubble-tail {
+    position: relative;
+  }
+  .chat-bubble-tail::before {
+    content: "";
+    position: absolute;
+    bottom: 8px;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+  .chat-bubble-tail.haimiya::before {
+    left: -4px;
+    background: hsl(340 45% 94%);
+    transform: rotate(45deg);
+  }
+  .chat-bubble-tail.user::before {
+    right: -4px;
+    background: hsl(342 92% 60%);
+    transform: rotate(45deg);
+  }
+}
