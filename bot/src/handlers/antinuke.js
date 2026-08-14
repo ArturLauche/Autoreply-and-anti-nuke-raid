@@ -599,7 +599,7 @@ module.exports = function createAntiNuke(client, store, heat) {
    * và tự tăng cấp nếu vượt ngưỡng.
    * Trả về mô tả hành động.
    */
-  async function punishWithHeat(guild, member, moduleCfg, reason) {
+  async function punishWithHeat(guild, member, moduleCfg, reason, opts = {}) {
     const actions = actionsOf(moduleCfg);
     const memberActions = actions.filter((a) => ["warn", "kick", "ban", "timeout"].includes(a));
     if (memberActions.length === 0) {
@@ -611,7 +611,10 @@ module.exports = function createAntiNuke(client, store, heat) {
       };
     }
     const base = memberPunishOf(actions, moduleCfg.punish || "warn");
-    if (NUKE_MODULES.has(moduleCfg.module)) {
+    // Nuke module: phạt trực tiếp theo cấu hình. BOT (thành viên là bot user) trigger
+    // module chống nuke/raid: cũng phạt THẲNG TAY theo cấu hình — bot không cần cộng
+    // nhiệt như người dùng (không "học" sau nhiều lần nhắc nhở). opts.direct tương tự.
+    if (NUKE_MODULES.has(moduleCfg.module) || opts.direct || member?.user?.bot === true) {
       const chosen = base;
       const res = await punishMember(guild, member, chosen, reason, moduleCfg.timeoutSeconds, store);
       return { action: res.action, caseNumber: res.caseNumber, chosen, heatRes: null };
@@ -1489,13 +1492,14 @@ module.exports = function createAntiNuke(client, store, heat) {
    */
   async function handleMessagePatterns(message) {
     if (!message.guild) return;
-    // External App Guard (tầng tin nhắn): tin từ bot lạ / webhook / app command
-    // không lọt vào các module spam dành cho người dùng → xử lý riêng.
-    if (message.author?.bot || message.webhookId || message.applicationId) {
+    // Tin qua WEBHOOK = EXTERNAL APP (app kết nối từ ngoài, KHÔNG phải thành viên
+    // server) → xử lý riêng ở External App Guard. BOT ĐƯỢC MỜI vào server (author bot,
+    // là thành viên) vẫn bị soi các module chống nuke như thành viên thường — bot mà
+    // trigger module (spam dài/lặp, blank...) sẽ bị phạt THẲNG TAY theo cấu hình.
+    if (message.webhookId) {
       await handleExternalAppMessage(message);
       return;
     }
-    if (message.author.bot) return;
     if (message.channel.isDMBased?.()) return;
     const content = message.content || "";
     const config = await store.getConfig(message.guild.id);
@@ -1651,7 +1655,9 @@ module.exports = function createAntiNuke(client, store, heat) {
 
   async function handleSpam(message) {
     if (!message.guild) return;
-    if (message.author.bot) return;
+    // Bot ĐƯỢC MỜI vào server cũng bị soi chống spam như thành viên thường — bot mà
+    // trigger module sẽ bị phạt thẳng tay theo cấu hình (webhook thì message.member
+    // là null nên tự bỏ qua ở đây — webhook do External App Guard xử lý).
     if (message.channel.isDMBased?.()) return;
     const config = await store.getConfig(message.guild.id);
     if (!config || !config.antinukeEnabled) return;
