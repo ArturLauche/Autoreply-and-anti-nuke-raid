@@ -1,4 +1,4 @@
-const { AuditLogEvent, PermissionFlagsBits, Colors } = require("discord.js");
+const { AuditLogEvent, PermissionFlagsBits, Colors, UserFlags } = require("discord.js");
 const { logEmbed, sendLog } = require("../util");
 const { sendCaseLog } = require("../caseLog");
 const { isLocked, markLocked, lockGuild, unlockGuild } = require("../lockdown");
@@ -14,6 +14,9 @@ const {
   isExternalAppSpam,
   appNameSuspicion,
   normalizeFuzzy,
+  isExternalAppTarget,
+  componentText,
+  buttonRaidSignal,
 } = require("../externalAppGuard");
 
 const MODULE_LABELS = {
@@ -132,6 +135,7 @@ module.exports = function createAntiNuke(client, store, heat) {
   const recentMessages = new Map(); // `${guildId}:${userId}` -> [{content, ts}] (mẫu cho AI)
   const appEvents = new Map(); // guildId -> [{ts, appName, executorId, executorName}] (external app)
   const appMsgSamples = new Map(); // `${guildId}:${appId}` -> [{content, ts, id, channelId}] (spam message từ app)
+  const buttonClickEvents = new Map(); // `${guildId}:${messageId}` -> {appId, channelId, clicks:[{userId, ts}]} (raid nút bấm)
   const lastConfigs = new Map(); // guildId -> config (đã đọc gần nhất)
   // Chống log "chồng chặp" (trùng lặp):
   //  - appUserHandledAt: người dùng app vừa bị xử lý bởi 1 tầng (audit IntegrationCreate
@@ -280,6 +284,16 @@ module.exports = function createAntiNuke(client, store, heat) {
       const fresh = arr.filter((e) => e.ts >= stale);
       if (fresh.length === 0) appMsgSamples.delete(key);
       else appMsgSamples.set(key, fresh);
+    }
+    for (const [key, bucket] of buttonClickEvents) {
+      const guildId = key.split(":")[0];
+      if (!live.has(guildId)) {
+        buttonClickEvents.delete(key);
+        continue;
+      }
+      const fresh = bucket.clicks.filter((c) => c.ts >= stale);
+      if (fresh.length === 0) buttonClickEvents.delete(key);
+      else buttonClickEvents.set(key, { ...bucket, clicks: fresh });
     }
     for (const [guildId] of lastConfigs) {
       if (!live.has(guildId)) lastConfigs.delete(guildId);
@@ -661,6 +675,28 @@ module.exports = function createAntiNuke(client, store, heat) {
       }
     }
     const target = entry.target;
+    // Phân biệt BOT ĐƯỢC MỜI CHÍNH THỨC với EXTERNAL APP: bỏ qua nếu đây là
+    //   - kết nối tài khoản thường (twitch/youtube) — không phải đường raid app;
+    //   - app có bot user LÀ thành viên server (đã được mời chính thức, kể cả qua
+    //     App Directory) — vụ này thuộc module massBotAdd, không phải external app;
+    //   - bot xác minh (có tick) — bot hợp lệ của Discord.
+    // External app = ứng dụng Discord được kết nối từ ngoài mà KHÔNG có bot user
+    // trong server (chỉ có webhook/command) — đúng đường raid "cài app không cần mời bot".
+    if (target) {
+      const integrationType = target.type;
+      const appId = target.application?.id || (target.type === "discord" ? target.id : null);
+      let isGuildMember = false;
+      let hasVerifiedTick = false;
+      if (appId) {
+        const m = await guild.members.fetch(appId).catch(() => null);
+        isGuildMember = !!m;
+        if (!isGuildMember) {
+          const u = await guild.client?.users?.fetch(appId).catch(() => null);
+          hasVerifiedTick = !!u && u.bot === true && u.flags?.has(UserFlags.VerifiedBot) === true;
+        }
+      }
+      if (!isExternalAppTarget({ integrationType, isGuildMember, hasVerifiedTick })) return;
+    }
     const appName =
       (target && (target.name || target.id)) ||
       (entry.changes || []).find((c) => c.key === "name")?.new ||
@@ -850,6 +886,11 @@ module.exports = function createAntiNuke(client, store, heat) {
     const isBot = message.author?.bot === true;
     const isWebhook = !!message.webhookId;
     if (!isBot && !isWebhook) return;
+    // BOT USER = bot đã được mời vào server (phải là thành viên mới gửi được tin, kể cả
+    // bot có tick xác minh, slash-command response, bot nhạc/leveling...). External app
+    // KHÔNG phải thành viên — nó gửi tin qua WEBHOOK. Bỏ qua bot user để không phạt nhầm
+    // bot quen thuộc; tầng audit (IntegrationCreate) đã xử lý app kết nối ngoài.
+    if (!isExternalAppTarget({ isBot, isWebhook })) return;
 
     const config = await store.getConfig(message.guild.id);
     if (!config || !config.antinukeEnabled) return;
@@ -883,7 +924,7 @@ module.exports = function createAntiNuke(client, store, heat) {
     appMsgSamples.set(key, fresh);
     const count = fresh.length;
 
-    const hay = `${message.content || ""} ${(message.embeds || []).map((e) => e.title || e.description || "").join(" ")}`;
+    const hay = `${message.content || ""} ${(message.embeds || []).map((e) => e.title || e.description || "").join(" ")} ${componentText(message)}`;
     const { triggered, sameFingerprint, similar, hasInvite, hasShortlink, hasEveryone, scamHits, urlCount } =
       isExternalAppSpam({
         samples: fresh,
@@ -898,10 +939,12 @@ module.exports = function createAntiNuke(client, store, heat) {
     const samples = fresh.slice(-8).map((e) => (e.fp || e.content || "").slice(0, 200));
     // Đưa cả tín hiệu nội dung cho AI học hỏi: lặp gần giống, @everyone, link mời,
     // link rút gọn, từ khóa scam, số URL — để AI nhận diện đúng biến thể raid app.
+    const hasButtons = (message.components || []).some((row) => (row.components || []).length > 0);
     const signalLine =
       `Tín hiệu nội dung: lặp giống hệt=${sameFingerprint}, lặp gần giống=${similar}, ` +
       `@everyone/@here=${hasEveryone ? "có" : "không"}, link mời Discord=${hasInvite ? "có" : "không"}, ` +
-      `link rút gọn=${hasShortlink ? "có" : "không"}, từ khóa scam=${scamHits}, số URL=${urlCount}`;
+      `link rút gọn=${hasShortlink ? "có" : "không"}, từ khóa scam=${scamHits}, số URL=${urlCount}, ` +
+      `nút bấm/menu=${hasButtons ? "có" : "không"}`;
     const profile =
       `${appName}${isWebhook ? " (webhook)" : " (bot)"}:\n${samples.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n${signalLine}`;
     const ai = await aiAnalyzeExternalApp(
@@ -920,6 +963,8 @@ module.exports = function createAntiNuke(client, store, heat) {
     if (scamHits >= 2) contentScore += 2;
     if (hasInvite || hasShortlink) contentScore += 2;
     if (urlCount >= 3) contentScore += 1;
+    // Tin app đăng kèm NÚT BẤM = "mồi" raid (lừa bấm) — tăng nghi vấn.
+    if (hasButtons) contentScore += 2;
     const isRaid =
       (ai?.isRaid === true && (ai?.confidence ?? 0) >= 0.6) || (aiOffline && contentScore >= 6);
     const reason = `[Protogon AntiNuke] ${MODULE_LABELS.externalAppRaid}: app "${appName}" gửi ${count} tin (${sameFingerprint} tin lặp nội dung) trong ${moduleCfg.windowSeconds}s (ngưỡng ${moduleCfg.threshold})${raidNote(ai, isRaid)}`;
@@ -1100,6 +1145,152 @@ module.exports = function createAntiNuke(client, store, heat) {
     });
     await sendLog(message.guild, config, embed);
   }
+
+  /**
+   * Chống raid bằng NÚT BẤM (button spam) của app ngoài: app được kết nối từ ngoài
+   * (gửi tin qua WEBHOOK, không cần mời bot vào server) đăng tin có nút bấm làm
+   * "mồi"; kẻ raid spam bấm nút để kích hoạt hành động của app (spam tin, gán role,
+   * mời, DM...), hoặc một làn sóng người bấm cùng 1 tin app trong cửa sổ. Phát hiện:
+   *   - spamClicker: CÙNG 1 người bấm >= 4 lần trong cửa sổ → phạt kẻ spam bấm;
+   *   - clickFlood: tổng lượt bấm >= ngưỡng trong cửa sổ → xóa tin mồi + khóa kênh.
+   * Mọi trường hợp đều xóa tin mồi chứa nút bấm + ghi sự kiện externalAppRaid.
+   */
+  async function handleButtonRaid(interaction) {
+    if (!interaction.isMessageComponent?.()) return;
+    if (!interaction.inGuild?.() || !interaction.guild || interaction.guild.available === false) return;
+    const msg = interaction.message;
+    if (!msg || !msg.components || msg.components.length === 0) return;
+    // Chỉ quan tâm tin của APP NGOÀI thực sự: tin qua WEBHOOK (app kết nối từ ngoài,
+    // KHÔNG có bot user là thành viên — đúng đường raid "cài app không cần mời bot").
+    // Nút bấm của BOT đã được mời vào server (role picker, mini-game...) là hợp lệ,
+    // không soi — tránh phạt nhầm như fix phân biệt bot mời chính thức trước đó.
+    if (!msg.webhookId) return;
+
+    const config = await store.getConfig(interaction.guild.id);
+    if (!config || !config.antinukeEnabled) return;
+    lastConfigs.set(interaction.guild.id, config);
+    const moduleCfg = moduleCfgOf(config, "externalAppRaid");
+    if (!moduleCfg || !moduleCfg.enabled) return;
+
+    const appId = msg.webhookId;
+    if ((config?.whitelistUsers || []).includes(appId)) return;
+
+    const now = Date.now();
+    const key = `${interaction.guild.id}:${msg.id}`;
+    const bucket = buttonClickEvents.get(key) ?? {
+      appId,
+      channelId: msg.channel?.id,
+      clicks: [],
+    };
+    bucket.clicks.push({ userId: interaction.user.id, ts: now });
+    const cutoff = now - moduleCfg.windowSeconds * 1000;
+    const fresh = bucket.clicks.filter((c) => c.ts >= cutoff);
+    bucket.clicks = fresh;
+    buttonClickEvents.set(key, bucket);
+
+    const totalClicks = fresh.length;
+    const sameUserClicks = fresh.filter((c) => c.userId === interaction.user.id).length;
+    const signal = buttonRaidSignal({ totalClicks, sameUserClicks, threshold: moduleCfg.threshold });
+    if (!signal.triggered) return;
+    buttonClickEvents.delete(key); // reset sau khi xử lý
+
+    const appName = msg.author?.username || (msg.webhookId ? "webhook" : null) || appId;
+    const reason = `[Protogon AntiNuke] ${MODULE_LABELS.externalAppRaid}: nút bấm spam trên tin app "${appName}" (${totalClicks} lượt bấm trong ${moduleCfg.windowSeconds}s, ${sameUserClicks} lượt cùng người)`;
+
+    let action = "đã ghi nhận";
+    // 1) Xóa tin mồi chứa nút bấm — chặn làn sóng bấm tiếp.
+    if (msg.deletable) {
+      try {
+        await msg.delete(reason);
+        action = "đã xóa tin mồi (nút bấm)";
+      } catch {
+        action = "không xóa được tin mồi";
+      }
+    }
+
+    const punished = [];
+    const punishedUsers = [];
+    // 2) Kẻ spam bấm (cùng 1 người bấm liên tục) → phạt theo cấu hình (kick mặc định).
+    if (signal.spamClicker) {
+      const clicker = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+      if (
+        clicker &&
+        !isExempt(clicker, moduleCfg, config) &&
+        !appUserHandledRecently(interaction.guild.id, clicker.id, moduleCfg.windowSeconds * 1000)
+      ) {
+        markAppUserHandled(interaction.guild.id, clicker.id);
+        const res = await punishWithHeat(interaction.guild, clicker, moduleCfg, reason);
+        punished.push(`<@${clicker.id}> (spam bấm nút): ${res.action}`);
+        punishedUsers.push({
+          userId: clicker.id,
+          username: clicker.user?.username ?? undefined,
+          action: String(res.chosen ?? "xử lý").slice(0, 40),
+        });
+        action = punished.join("\n");
+      }
+    }
+    // 3) Làn sóng bấm (nhiều người bấm cùng 1 tin app) → khóa kênh nếu bật lockdown.
+    if (signal.clickFlood) {
+      await maybeLockdown(interaction.guild, config);
+      action = `${action} · làn sóng bấm nút (${totalClicks} lượt)`;
+    }
+    if (punished.length === 0 && !signal.clickFlood) return;
+
+    await recordEvent(interaction.guild.id, {
+      module: "externalAppRaid",
+      executorId: signal.spamClicker ? interaction.user.id : undefined,
+      executorName: signal.spamClicker ? interaction.user.username : undefined,
+      action: action.slice(0, 900),
+      count: totalClicks,
+      windowSeconds: moduleCfg.windowSeconds,
+      threshold: moduleCfg.threshold,
+      punish: signal.spamClicker ? moduleCfg.punish : "none",
+    });
+
+    // Raid Intel: ghi mẫu huấn luyện (raider = người spam bấm, nếu xác định được).
+    try {
+      await recordRaidSample(interaction.guild, config, {
+        module: "externalAppRaid",
+        count: totalClicks,
+        windowSeconds: moduleCfg.windowSeconds,
+        threshold: moduleCfg.threshold,
+        action,
+        punish: signal.spamClicker ? moduleCfg.punish : "none",
+        aiClassification: signal.clickFlood ? "raid" : undefined,
+        lockdownTriggered: isLocked(interaction.guild.id),
+        apps: [{ appName: String(appName).slice(0, 60), executorName: undefined, executorId: appId }],
+        punished: punishedUsers,
+      });
+    } catch (e) {
+      console.error("[antinuke:externalAppRaid:btn:sample]", e.message);
+    }
+
+    const embed = logEmbed({
+      title: `🚨 Anti Nuke/Raid: ${MODULE_LABELS.externalAppRaid}`,
+      description: `Phát hiện **nút bấm spam** trên tin của ứng dụng ngoài **${appName}**: **${totalClicks} lượt bấm** (${sameUserClicks} lượt cùng người) trong **${moduleCfg.windowSeconds} giây**.`,
+      color: Colors.Red,
+      fields: [
+        {
+          name: "Kết quả xử lý",
+          value: action.slice(0, 1000),
+          inline: true,
+        },
+        { name: "Ứng dụng", value: `${appName} (\`${appId}\`)`, inline: true },
+        { name: "Kênh", value: `<#${msg.channel?.id ?? "?"}>`, inline: true },
+        { name: "Nguồn", value: "🛡️ Bot tự động phát hiện (anti nuke/raid)", inline: true },
+        { name: "Module", value: "`externalAppRaid`", inline: true },
+      ],
+      footer: "Protogon · Anti Nuke/Raid",
+    });
+    await sendLog(interaction.guild, config, embed);
+  }
+
+  // Raid bằng NÚT BẤM: kẻ raid spam bấm nút của app ngoài (tin mồi) để kích hoạt
+  // hành động của app, hoặc làn sóng người bấm cùng 1 tin app. Đăng ký listener ngay
+  // khi module khởi tạo (factory chạy 1 lần) — không cần sửa hàm attach().
+  client.on("interactionCreate", (interaction) => {
+    void handleButtonRaid(interaction).catch((e) => console.error("[antinuke:buttonRaid]", e.message));
+  });
 
   async function handleAttributeEvent({ guild, module, eventType, targetId, describeTarget }) {
     if (!guild || guild.available === false) return;

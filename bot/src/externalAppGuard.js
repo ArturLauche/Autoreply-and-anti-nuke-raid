@@ -20,9 +20,35 @@ const IMPERSONATED_APPS = [
   "welcome", "captcha", "verify", "nitro", "giveaway",
 ];
 
+// Loại component (discord.js ComponentType): Button=2, SelectMenu=3. Dùng số trực tiếp
+// để giữ module thuần (không phụ thuộc discord.js).
+const COMP_BUTTON = 2;
+const COMP_SELECT = 3;
+
 /**
- * Dấu vân tay nội dung tin nhắn (text + embed: title/description/footer/fields) —
- * bắt cả spam chỉ gửi embed hoặc kèm thay đổi nhỏ (vd timestamp) mà text trống.
+ * Trích nội dung COMPONENT (nút bấm / menu) của tin nhắn app — nhãn nút, customId,
+ * URL nút link, placeholder + option của menu. Dùng để đưa vào fingerprint (bắt flood
+ * tin app có nút bấm) và vào tín hiệu AI.
+ */
+function componentText(msg) {
+  const parts = [];
+  for (const row of msg.components || []) {
+    for (const comp of row.components || []) {
+      if (comp.type === COMP_BUTTON) {
+        parts.push(`[btn ${comp.label || ""} ${comp.customId || comp.url || ""}]`);
+      } else if (comp.type === COMP_SELECT) {
+        const opts = (comp.options || []).map((o) => o.label || o.value || "").join(",");
+        parts.push(`[select ${comp.placeholder || ""} ${opts}]`);
+      }
+    }
+  }
+  return parts.join(" ");
+}
+
+/**
+ * Dấu vân tay nội dung tin nhắn (text + embed: title/description/footer/fields +
+ * component nút bấm/menu) — bắt cả spam chỉ gửi embed, kèm thay đổi nhỏ (vd timestamp),
+ * hoặc flood tin app đăng nút bấm làm "mồi" (nhãn nút / customId đổi theo lần).
  */
 function messageFingerprint(msg) {
   return [
@@ -37,6 +63,7 @@ function messageFingerprint(msg) {
         .filter(Boolean)
         .join(" | "),
     ),
+    componentText(msg),
   ]
     .join("\n")
     .replace(/\s+/g, " ")
@@ -86,6 +113,28 @@ function isNearDuplicate(a, b) {
   for (const t of sa) if (sb.has(t)) inter++;
   const overlap = inter / (sa.size + sb.size - inter);
   return overlap >= 0.8 && inter >= 4;
+}
+
+/**
+ * Tín hiệu raid bằng NÚT BẤM (button spam) của app ngoài: app được kết nối từ ngoài
+ * (webhook/application) đăng tin có nút bấm làm "mồi"; kẻ raid spam bấm nút để kích
+ * hoạt hành động của app (spam tin, gán role, mời, DM...), hoặc một làn sóng người
+ * bấm cùng 1 tin app trong cửa sổ.
+ *   - spamClicker: CÙNG 1 người bấm >= 4 lần trong cửa sổ → kẻ đang lạm dụng nút.
+ *   - clickFlood: tổng lượt bấm >= max(ngưỡng, 6) trong cửa sổ → làn sóng bấm.
+ */
+function buttonRaidSignal({ totalClicks, sameUserClicks, threshold } = {}) {
+  const flood = Math.max(threshold || 2, 6);
+  const spamClicker = (sameUserClicks || 0) >= 4;
+  const clickFlood = (totalClicks || 0) >= flood;
+  return {
+    triggered: spamClicker || clickFlood,
+    spamClicker,
+    clickFlood,
+    totalClicks: totalClicks || 0,
+    sameUserClicks: sameUserClicks || 0,
+    flood,
+  };
 }
 
 /**
@@ -164,15 +213,36 @@ function isExternalAppSpam({ samples, currentFingerprint, count, threshold, hay 
   };
 }
 
+/**
+ * Phân biệt ỨNG DỤNG NGOÀI (external app — đường raid) với BOT ĐƯỢC MỜI CHÍNH THỨC.
+ * Bot có tick xác minh (verified) hoặc là thành viên server = bot hợp lệ đã được mời
+ * vào server → KHÔNG phải external app. External app = ứng dụng được kết nối từ ngoài
+ * (IntegrationCreate) mà KHÔNG có bot user là thành viên, hoặc gửi tin qua WEBHOOK
+ * (không cần mời bot vào server). Integration kiểu kết nối tài khoản (twitch/youtube)
+ * cũng không phải đường raid app.
+ * Trả true khi nên xử lý như external app.
+ */
+function isExternalAppTarget({ isBot, isWebhook, isGuildMember, hasVerifiedTick, integrationType } = {}) {
+  if (isWebhook) return true; // app gửi tin qua webhook — không cần bot thành viên
+  if (isBot) return false; // bot user phải LÀ thành viên mới gửi được tin → đã được mời
+  if (integrationType === "twitch" || integrationType === "youtube") return false; // kết nối tài khoản thường
+  if (isGuildMember) return false; // bot có mặt trong server = được mời chính thức
+  if (hasVerifiedTick) return false; // bot xác minh (tick) = bot hợp lệ của Discord
+  return true; // IntegrationCreate Discord app không có bot thành viên → external app
+}
+
 module.exports = {
   SCAM_WORD_RE,
   INVITE_RE,
   SHORTLINK_RE,
   IMPERSONATED_APPS,
+  componentText,
   messageFingerprint,
   normalizeFuzzy,
   tokenOverlap,
   isNearDuplicate,
   appNameSuspicion,
   isExternalAppSpam,
+  isExternalAppTarget,
+  buttonRaidSignal,
 };

@@ -1,5 +1,5 @@
 const { messageFingerprint, isExternalAppSpam } = require("../bot/src/handlers/antinuke.js");
-const { appNameSuspicion } = require("../bot/src/externalAppGuard");
+const { appNameSuspicion, isExternalAppTarget, buttonRaidSignal } = require("../bot/src/externalAppGuard");
 
 let pass = 0;
 let fail = 0;
@@ -124,6 +124,81 @@ check("\"App 48291375\" → tên dạng máy", a.score >= 1, JSON.stringify(a));
 console.log("\n15) Flood không nội dung trùng (bot bị lợi dụng gửi nhiều tin khác nhau):");
 r = simulate([{ content: "a" }, { content: "b" }, { content: "c" }, { content: "d" }]);
 check("flood 4 tin khác nhau → vẫn kích hoạt (xóa tin, không ban nhầm)", r?.triggered === true, JSON.stringify(r));
+
+console.log("\n16) Phân biệt bot được mời chính thức vs EXTERNAL APP (không cần mời bot vào server):");
+// Tầng tin nhắn: bot user gửi tin (phải là thành viên) / webhook
+check(
+  "Bot có tick (verified) là thành viên gửi tin → KHÔNG phải external app",
+  isExternalAppTarget({ isBot: true, isWebhook: false }) === false,
+  JSON.stringify(isExternalAppTarget({ isBot: true, isWebhook: false })),
+);
+check(
+  "Bot thường (không tick) là thành viên gửi tin → KHÔNG phải external app",
+  isExternalAppTarget({ isBot: true, isWebhook: false }) === false,
+  JSON.stringify(isExternalAppTarget({ isBot: true, isWebhook: false })),
+);
+check(
+  "App gửi tin qua WEBHOOK → external app (không cần bot thành viên)",
+  isExternalAppTarget({ isWebhook: true }) === true,
+  JSON.stringify(isExternalAppTarget({ isWebhook: true })),
+);
+// Tầng audit IntegrationCreate
+check(
+  "Kết nối tài khoản Twitch → KHÔNG phải external app",
+  isExternalAppTarget({ integrationType: "twitch" }) === false,
+  JSON.stringify(isExternalAppTarget({ integrationType: "twitch" })),
+);
+check(
+  "Kết nối tài khoản YouTube → KHÔNG phải external app",
+  isExternalAppTarget({ integrationType: "youtube" }) === false,
+  JSON.stringify(isExternalAppTarget({ integrationType: "youtube" })),
+);
+check(
+  "App có bot user LÀ thành viên server (được mời chính thức) → KHÔNG phải external app",
+  isExternalAppTarget({ integrationType: "discord", isGuildMember: true }) === false,
+  JSON.stringify(isExternalAppTarget({ integrationType: "discord", isGuildMember: true })),
+);
+check(
+  "App có tick xác minh (verified bot) nhưng không fetch được thành viên → KHÔNG phải external app",
+  isExternalAppTarget({ integrationType: "discord", isGuildMember: false, hasVerifiedTick: true }) === false,
+  JSON.stringify(isExternalAppTarget({ integrationType: "discord", isGuildMember: false, hasVerifiedTick: true })),
+);
+check(
+  "App Discord kết nối từ ngoài, KHÔNG có bot thành viên, KHÔNG tick → external app",
+  isExternalAppTarget({ integrationType: "discord", isGuildMember: false, hasVerifiedTick: false }) === true,
+  JSON.stringify(isExternalAppTarget({ integrationType: "discord", isGuildMember: false, hasVerifiedTick: false })),
+);
+
+console.log("\n17) Raid bằng NÚT BẤM (button spam) — tin app có component:");
+// Fingerprint phải bao gồm nút bấm để bắt flood tin app đăng nút làm mồi.
+const btnMsg1 = { content: "claim now", components: [{ components: [{ type: 2, label: "Claim", customId: "c1" }] }] };
+const btnMsg2 = { content: "claim now", components: [{ components: [{ type: 2, label: "Claim", customId: "c2" }] }] };
+check(
+  "Fingerprint khác nhau khi customId nút khác nhau (bắt flood đổi nút né filter)",
+  messageFingerprint(btnMsg1) !== messageFingerprint(btnMsg2),
+  JSON.stringify({ a: messageFingerprint(btnMsg1), b: messageFingerprint(btnMsg2) }),
+);
+check(
+  "Fingerprint giống nhau khi cùng nội dung + cùng nút",
+  messageFingerprint(btnMsg1) === messageFingerprint({ ...btnMsg1, components: [...btnMsg1.components] }),
+  JSON.stringify(messageFingerprint(btnMsg1)),
+);
+r = simulate([
+  { content: "claim now", components: [{ components: [{ type: 2, label: "Claim", customId: "c1" }] }] },
+  { content: "claim now", components: [{ components: [{ type: 2, label: "Claim", customId: "c1" }] }] },
+]);
+check("2 tin app có nút bấm trùng nội dung → kích hoạt", r?.triggered === true, JSON.stringify(r));
+// Tín hiệu bấm nút: 1 người spam bấm / làn sóng nhiều người bấm.
+let b = buttonRaidSignal({ totalClicks: 2, sameUserClicks: 2, threshold: 2 });
+check("2 lượt bấm (chưa đủ flood 6, chưa đủ 4 cùng người) → KHÔNG kích hoạt", b.triggered === false, JSON.stringify(b));
+b = buttonRaidSignal({ totalClicks: 4, sameUserClicks: 4, threshold: 2 });
+check("1 người bấm 4 lần → spamClicker (kẻ spam bấm)", b.triggered === true && b.spamClicker === true, JSON.stringify(b));
+b = buttonRaidSignal({ totalClicks: 5, sameUserClicks: 5, threshold: 2 });
+check("5 lần cùng 1 người → vẫn spamClicker dù chưa đủ flood", b.triggered === true && b.spamClicker === true, JSON.stringify(b));
+b = buttonRaidSignal({ totalClicks: 6, sameUserClicks: 1, threshold: 2 });
+check("6 lượt bấm khác người → clickFlood (làn sóng bấm)", b.triggered === true && b.clickFlood === true, JSON.stringify(b));
+b = buttonRaidSignal({ totalClicks: 8, sameUserClicks: 3, threshold: 5 });
+check("ngưỡng 5: 8 lượt bấm → clickFlood", b.triggered === true && b.clickFlood === true, JSON.stringify(b));
 
 console.log(`\nKết quả: ${pass} đúng / ${fail} sai`);
 process.exit(fail > 0 ? 1 : 0);
