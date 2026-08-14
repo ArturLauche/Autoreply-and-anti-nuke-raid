@@ -133,6 +133,16 @@ module.exports = function createAntiNuke(client, store, heat) {
   const appEvents = new Map(); // guildId -> [{ts, appName, executorId, executorName}] (external app)
   const appMsgSamples = new Map(); // `${guildId}:${appId}` -> [{content, ts, id, channelId}] (spam message từ app)
   const lastConfigs = new Map(); // guildId -> config (đã đọc gần nhất)
+  // Chống log "chồng chặp" (trùng lặp):
+  //  - appUserHandledAt: người dùng app vừa bị xử lý bởi 1 tầng (audit IntegrationCreate
+  //    hoặc tầng tin nhắn app) trong cửa sổ → tầng còn lại bỏ qua, không phạt/log trùng.
+  //  - lastExtAppProcessedAt: guild vừa xử lý 1 đợt kết nối app → IntegrationCreate kế tiếp
+  //    trong cùng cửa sổ không log thành vụ mới (1 làn sóng = 1 sự kiện).
+  //  - patternPunishedAt: vừa phạt pattern (tin dài/lặp/blank) → cooldown 1 cửa sổ, không
+  //    re-trigger để khỏi ghi liên tiếp nhiều vụ cùng 1 người spam liên tục.
+  const appUserHandledAt = new Map(); // `${guildId}:${userId}` -> ts
+  const lastExtAppProcessedAt = new Map(); // guildId -> ts
+  const patternPunishedAt = new Map(); // `${guildId}:${userId}:${module}` -> ts
 
   function record(guildId, module, cfg) {
     const key = `${guildId}:${module}`;
@@ -143,6 +153,18 @@ module.exports = function createAntiNuke(client, store, heat) {
     const pruned = arr.filter((t) => t >= cutoff);
     buckets.set(key, pruned);
     return pruned.length;
+  }
+
+  /** Người dùng app vừa bị xử lý ở tầng khác trong cửa sổ? (chống log trùng) */
+  function appUserHandledRecently(guildId, userId, windowMs) {
+    if (!userId) return false;
+    const ts = appUserHandledAt.get(`${guildId}:${userId}`);
+    return !!ts && Date.now() - ts < windowMs;
+  }
+
+  function markAppUserHandled(guildId, userId) {
+    if (!userId) return;
+    appUserHandledAt.set(`${guildId}:${userId}`, Date.now());
   }
 
   /** Số thành viên mới vào server trong cửa sổ (đo làn sóng raid đang diễn ra). */
@@ -261,6 +283,17 @@ module.exports = function createAntiNuke(client, store, heat) {
     }
     for (const [guildId] of lastConfigs) {
       if (!live.has(guildId)) lastConfigs.delete(guildId);
+    }
+    for (const [key, ts] of appUserHandledAt) {
+      const guildId = key.split(":")[0];
+      if (!live.has(guildId) || now - ts >= stale) appUserHandledAt.delete(key);
+    }
+    for (const [guildId, ts] of lastExtAppProcessedAt) {
+      if (!live.has(guildId) || now - ts >= stale) lastExtAppProcessedAt.delete(guildId);
+    }
+    for (const [key, ts] of patternPunishedAt) {
+      const guildId = key.split(":")[0];
+      if (!live.has(guildId) || now - ts >= stale) patternPunishedAt.delete(key);
     }
     if (buckets.size > BUCKET_MAX) {
       // Giữ lại 200 key gần nhất (chống phình vô hạn)
@@ -681,6 +714,18 @@ module.exports = function createAntiNuke(client, store, heat) {
     const targets = [
       ...new Map(fresh.filter((e) => e.executorId).map((e) => [e.executorId, e])).values(),
     ].slice(0, 5);
+    // Chống log chồng chặp: đợt kết nối app vừa được xử lý trong cùng cửa sổ → bỏ qua
+    // (1 làn sóng kết nối app = 1 vụ; IntegrationCreate kế tiếp không ghi vụ mới).
+    const lastProc = lastExtAppProcessedAt.get(guild.id);
+    if (lastProc && Date.now() - lastProc < moduleCfg.windowSeconds * 1000) return;
+    // Bỏ người dùng đã bị tầng khác (audit / tin nhắn app) xử lý trong cửa sổ → không
+    // phạt + log trùng; đánh dấu NGAY để tầng còn lại không xử lý tiếp cùng người này.
+    const freshTargets = targets.filter(
+      (t) => !appUserHandledRecently(guild.id, t.executorId, moduleCfg.windowSeconds * 1000),
+    );
+    if (freshTargets.length === 0) return;
+    lastExtAppProcessedAt.set(guild.id, Date.now());
+    for (const t of freshTargets) markAppUserHandled(guild.id, t.executorId);
 
     // Danh sách app được kết nối trong cửa sổ (bỏ trùng, giới hạn 10) — hiển thị trên dashboard.
     const apps = [];
@@ -696,7 +741,7 @@ module.exports = function createAntiNuke(client, store, heat) {
 
     const punished = [];
     const punishedUsers = [];
-    for (const t of targets) {
+    for (const t of freshTargets) {
       const member = await guild.members.fetch(t.executorId).catch(() => null);
       if (!member || isExempt(member, moduleCfg, config)) continue;
       let outcome;
@@ -728,8 +773,8 @@ module.exports = function createAntiNuke(client, store, heat) {
 
     await recordEvent(guild.id, {
       module: "externalAppRaid",
-      executorId: targets[0]?.executorId ?? undefined,
-      executorName: targets[0]?.executorName ?? undefined,
+      executorId: freshTargets[0]?.executorId ?? targets[0]?.executorId ?? undefined,
+      executorName: freshTargets[0]?.executorName ?? targets[0]?.executorName ?? undefined,
       action: `${action}${isRaid ? " (raid)" : ""}`,
       count,
       windowSeconds: moduleCfg.windowSeconds,
@@ -746,7 +791,7 @@ module.exports = function createAntiNuke(client, store, heat) {
         // Chỉ săn nguồn cơn khi AI xác nhận raid — tránh ban nhầm người dùng
         // kết nối app bình thường khi AI kết luận "individual".
         isRaid
-          ? targets.filter((t) => t.executorId).map((t) => ({ id: t.executorId, username: t.executorName }))
+          ? freshTargets.filter((t) => t.executorId).map((t) => ({ id: t.executorId, username: t.executorName }))
           : [],
       );
       await recordRaidSample(guild, config, {
@@ -896,9 +941,18 @@ module.exports = function createAntiNuke(client, store, heat) {
 
     let responsibleId;
     let responsibleName;
+    // Chống log chồng chặp: người dùng app vừa bị tầng audit (IntegrationCreate) xử lý trong
+    // cửa sổ → tầng tin nhắn chỉ dọn tin/webhook, không phạt + ghi sự kiện/embed trùng.
+    const userHandledWindow = moduleCfg.windowSeconds * 1000;
     // 2) Nếu app là BOT user trong server → phạt theo cấu hình (kick mặc định; AI raid → ban).
     const member = isBot ? await message.guild.members.fetch(message.author.id).catch(() => null) : null;
-    if (member && !isExempt(member, moduleCfg, config)) {
+    const memberAlreadyHandled = appUserHandledRecently(
+      message.guild.id,
+      member?.id,
+      userHandledWindow,
+    );
+    if (member && !isExempt(member, moduleCfg, config) && !memberAlreadyHandled) {
+      markAppUserHandled(message.guild.id, member.id);
       let outcome;
       let actionLabel;
       if (isRaid) {
@@ -937,7 +991,12 @@ module.exports = function createAntiNuke(client, store, heat) {
           responsibleId = creator.id;
           responsibleName = creator.username;
           const cm = await message.guild.members.fetch(creator.id).catch(() => null);
-          if (cm && !isExempt(cm, moduleCfg, config)) {
+          if (
+            cm &&
+            !isExempt(cm, moduleCfg, config) &&
+            !appUserHandledRecently(message.guild.id, cm.id, userHandledWindow)
+          ) {
+            markAppUserHandled(message.guild.id, cm.id);
             let outcome;
             let actionLabel;
             if (isRaid) {
@@ -970,6 +1029,13 @@ module.exports = function createAntiNuke(client, store, heat) {
       }
     }
     if (isRaid) await maybeLockdown(message.guild, config);
+
+    // Người dùng app đã bị tầng kia xử lý trong cửa sổ → tầng này chỉ dọn tin/webhook,
+    // không ghi sự kiện + embed trùng (vụ đã được log ở tầng trước).
+    const alreadyHandled =
+      (member && appUserHandledRecently(message.guild.id, member.id, userHandledWindow)) ||
+      (responsibleId && appUserHandledRecently(message.guild.id, responsibleId, userHandledWindow));
+    if (punished.length === 0 && alreadyHandled) return;
 
     await recordEvent(message.guild.id, {
       module: "externalAppRaid",

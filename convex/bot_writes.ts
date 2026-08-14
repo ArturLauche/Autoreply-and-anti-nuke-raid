@@ -252,6 +252,24 @@ export const botRecordAntinukeEvent = mutation({
     punish: v.string(),
   },
   handler: async (ctx, args) => {
+    // Chống log "chồng chặp" trên dashboard: bot có thể kích hoạt 2 tầng cho cùng 1 vụ
+    // (vd tầng audit IntegrationCreate + tầng tin nhắn app, hoặc pattern spam lặp lại trong
+    // cửa sổ). Cùng guild + module + thủ phạm + count + ngưỡng ghi lại trong 5 giây
+    // → coi là cùng 1 vụ, bỏ qua để feed "Hoạt động chống nuke" / "Lịch sử" không hiện trùng.
+    const recent = await ctx.db
+      .query("antinukeEvents")
+      .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", args.guildId))
+      .order("desc")
+      .take(10);
+    const dup = recent.find(
+      (r) =>
+        Date.now() - r.createdAt < 5000 &&
+        r.module === args.module &&
+        r.executorId === args.executorId &&
+        r.count === args.count &&
+        r.threshold === args.threshold,
+    );
+    if (dup) return { ok: true, deduped: true };
     await ctx.db.insert("antinukeEvents", {
       guildId: args.guildId,
       module: args.module,
@@ -733,6 +751,21 @@ export const botRecordRaidSample = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    // Chống log "chồng chặp" trên tab Raid external app / Raid Intel: cùng guild + module +
+    // count + ngưỡng ghi lại trong 5 giây → cùng 1 vụ (bot kích hoạt 2 tầng), bỏ qua.
+    const recent = await ctx.db
+      .query("raidSamples")
+      .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", args.guildId))
+      .order("desc")
+      .take(10);
+    const dup = recent.find(
+      (r) =>
+        Date.now() - r.createdAt < 5000 &&
+        r.module === args.module &&
+        r.count === args.count &&
+        r.threshold === args.threshold,
+    );
+    if (dup) return { ok: true, deduped: true };
     await ctx.db.insert("raidSamples", {
       guildId: args.guildId,
       guildName: args.guildName,
