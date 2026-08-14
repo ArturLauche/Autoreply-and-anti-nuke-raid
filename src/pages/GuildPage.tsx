@@ -116,7 +116,7 @@ export default function GuildPage() {
   } as React.CSSProperties;
 
   return (
-    <div className="relative min-h-screen" style={themeVars}>
+    <div className="relative min-h-screen overflow-x-clip" style={themeVars}>
       <CherryBlossom count={10} />
       <HaimiyaChat position="dashboard" />
       <div className="relative z-10">

@@ -194,11 +194,11 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
         <Card className="border-amber-500/30 bg-amber-500/5">
           <CardContent className="p-5">
             <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
+              <div className="flex min-w-0 items-start gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400">
                   <Lock className="h-5 w-5" />
                 </span>
-                <div>
+                <div className="min-w-0">
                   <p className="font-display font-semibold">Khóa kênh khi bị raid</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Tự chặn gửi tin nhắn & voice khi phát hiện raid, mở lại sau khi hết giờ
@@ -249,11 +249,11 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
         <Card className="border-violet-500/30 bg-violet-500/5">
           <CardContent className="p-5">
             <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
+              <div className="flex min-w-0 items-start gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 text-violet-400">
                   <Crosshair className="h-5 w-5" />
                 </span>
-                <div>
+                <div className="min-w-0">
                   <p className="font-display font-semibold">Raid Intel — săn nguồn cơn raid 🎯</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Thu thập mẫu raid + AI phân tích để tìm <b className="text-foreground">kẻ chủ mưu</b>{" "}

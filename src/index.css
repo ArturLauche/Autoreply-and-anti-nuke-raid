@@ -91,6 +91,12 @@
     ) fixed;
   }
 
+  /* Khóa tràn ngang toàn trang: không bao giờ có thanh cuộn ngang,
+     kể cả khi phần tử trang trí vượt quá viewport. */
+  #root {
+    overflow-x: clip;
+  }
+
   body {
     @apply text-foreground antialiased;
     /* Nền mix: hồng anh đào chuyển dần sang xanh trời (tương phản rõ hơn) */
