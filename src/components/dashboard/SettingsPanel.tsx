@@ -1,15 +1,27 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
-import { BarChart3, Command, Hash, KeyRound, Palette, Save, ShieldHalf, Shield, Trash2 } from "lucide-react";
+import {
+  BarChart3,
+  Command,
+  Hash,
+  KeyRound,
+  Palette,
+  Save,
+  Shield,
+  ShieldHalf,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { api } from "../../../convex/_generated/api";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
 import { MultiSelect } from "../ui/multi-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { DEFAULT_THEME, SERVER_THEMES } from "../../lib/constants";
 import type { GuildData } from "../../lib/types";
 import { getSessionToken } from "../../lib/discord";
@@ -78,319 +90,319 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
       <div>
         <h2 className="font-display text-lg font-semibold">Cài đặt server</h2>
         <p className="text-sm text-muted-foreground">
-          Prefix, kênh log và phân quyền mod/admin
+          Prefix · kênh log · phân quyền · bảo mật · giao diện
         </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Command className="h-4 w-4 text-primary" /> Prefix lệnh
-            </CardTitle>
-            <CardDescription>
-              Dùng cho lệnh text, ví dụ <code className="font-mono text-xs">!help</code>. Slash command hoạt động độc lập.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-end gap-3">
-              <div className="grid flex-1 gap-1.5">
-                <Label>Prefix</Label>
-                <Input value={prefix} onChange={(e) => setPrefix(e.target.value)} maxLength={3} />
+      <Tabs defaultValue="basic">
+        <TabsList className="w-full justify-start overflow-x-auto lg:w-auto">
+          <TabsTrigger value="basic">
+            <Command className="h-4 w-4" /> Cơ bản
+          </TabsTrigger>
+          <TabsTrigger value="roles">
+            <Users className="h-4 w-4" /> Phân quyền
+          </TabsTrigger>
+          <TabsTrigger value="security">
+            <KeyRound className="h-4 w-4" /> Bảo mật
+          </TabsTrigger>
+          <TabsTrigger value="appearance">
+            <Palette className="h-4 w-4" /> Giao diện
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ── Cơ bản: prefix + kênh log + báo cáo ─────────────────────── */}
+        <TabsContent value="basic">
+          <Card>
+            <CardContent className="space-y-4 p-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label>Prefix lệnh</Label>
+                  <Input
+                    value={prefix}
+                    onChange={(e) => setPrefix(e.target.value)}
+                    maxLength={3}
+                    placeholder="!"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    1–3 ký tự đặc biệt — lệnh text như{" "}
+                    <code className="font-mono text-primary">{prefix}help</code>. Slash command
+                    hoạt động độc lập.
+                  </p>
+                </div>
+
+                <div className="grid gap-1.5">
+                  <Label>Kênh log chung</Label>
+                  <Select value={logChannelId} onValueChange={setLogChannelId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn kênh" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Không dùng —</SelectItem>
+                      {textChannels.map((c) => (
+                        <SelectItem key={c.channelId} value={c.channelId}>
+                          #{c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">
+                    Chống nuke/raid, báo cáo hàng ngày và sự kiện quan trọng gửi vào đây.
+                  </p>
+                </div>
               </div>
-              <Button onClick={handleSave} disabled={saving}>
-                {saving ? "Đang lưu…" : "Lưu"}
-              </Button>
-            </div>
-            <p className="mt-3 rounded-lg bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-              Lệnh hiện có: <code className="font-mono text-primary">{prefix}help</code>,{" "}
-              <code className="font-mono text-primary">{prefix}ping</code>,{" "}
-              <code className="font-mono text-primary">{prefix}prefix</code>,{" "}
-              <code className="font-mono text-primary">{prefix}autoreply</code>,{" "}
-              <code className="font-mono text-primary">{prefix}antinuke</code>,{" "}
-              <code className="font-mono text-primary">{prefix}setlog</code>
-            </p>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Hash className="h-4 w-4 text-primary" /> Kênh log
-            </CardTitle>
-            <CardDescription>
-              Chống nuke/raid, báo cáo hàng ngày và sự kiện quan trọng sẽ gửi vào kênh log
-              chung. Auto-mod + lệnh mod thủ công (ban · timeout · kick · warn · gỡ hình phạt
-              · purge · xóa tin) gộp chung vào kênh log hành động mod, định dạng kiểu Carl-bot.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid gap-1.5">
-              <Label className="text-xs text-muted-foreground">Kênh log chung</Label>
-              <Select value={logChannelId} onValueChange={setLogChannelId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn kênh" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— Không dùng —</SelectItem>
-                  {textChannels.map((c) => (
-                    <SelectItem key={c.channelId} value={c.channelId}>
-                      #{c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-1.5">
-              <Label className="text-xs text-muted-foreground">
-                Kênh log hành động mod — gộp chung auto-mod + lệnh thủ công (ban · timeout · kick ·
-                warn · gỡ hình phạt · purge · xóa tin), kiểu Carl-bot
-              </Label>
-              <Select value={modLogChannelId} onValueChange={setModLogChannelId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn kênh" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— Dùng kênh log chung —</SelectItem>
-                  {textChannels.map((c) => (
-                    <SelectItem key={c.channelId} value={c.channelId}>
-                      #{c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Mỗi embed log moderation hiển thị <b>Offender</b> / <b>Reason</b> /{" "}
-              <b>Responsible moderator</b>: bot tự động để tên bot, mod dùng lệnh để tên mod.
-              Lý do để trống → ghi "không có lý do". Nếu chưa chọn kênh riêng, log moderation
-              gửi vào kênh log chung.
-            </p>
-            <Button className="w-full" onClick={handleSave} disabled={saving}>
-              <Save className="h-4 w-4" /> Lưu thay đổi
-            </Button>
-          </CardContent>
-        </Card>
+              <div className="grid gap-1.5">
+                <Label>
+                  <Hash className="mr-1 inline h-3.5 w-3.5" />
+                  Kênh log hành động mod (auto-mod + lệnh thủ công, kiểu Carl-bot)
+                </Label>
+                <Select value={modLogChannelId} onValueChange={setModLogChannelId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn kênh" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— Dùng kênh log chung —</SelectItem>
+                    {textChannels.map((c) => (
+                      <SelectItem key={c.channelId} value={c.channelId}>
+                        #{c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Embed moderation hiển thị <b>Offender</b> / <b>Reason</b> /{" "}
+                  <b>Responsible moderator</b>. Lý do trống → ghi "không có lý do".
+                </p>
+              </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <BarChart3 className="h-4 w-4 text-primary" /> Báo cáo chống nuke hàng ngày
-            </CardTitle>
-            <CardDescription>
-              Bot gửi bản tóm tắt sự kiện chống nuke vào kênh log ~00:00 UTC mỗi ngày
-              (cần đặt kênh log phía trên).
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex items-center justify-between gap-4">
-            <div className="text-sm">
-              {data.guild.dailyReportEnabled ? (
-                <span className="text-emerald-400">Đang bật — báo cáo được gửi tự động.</span>
-              ) : (
-                <span className="text-muted-foreground">Đang tắt.</span>
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-secondary/30 px-3 py-2.5">
+                <div>
+                  <p className="text-sm font-medium">
+                    <BarChart3 className="mr-1.5 inline h-4 w-4 text-primary" />
+                    Báo cáo chống nuke hàng ngày
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Tóm tắt sự kiện chống nuke gửi vào kênh log lúc ~00:00 UTC mỗi ngày
+                  </p>
+                </div>
+                <Switch
+                  checked={data.guild.dailyReportEnabled}
+                  onCheckedChange={toggleDailyReport}
+                />
+              </div>
+
+              <div className="flex justify-end">
+                <Button onClick={handleSave} disabled={saving}>
+                  <Save className="h-4 w-4" /> {saving ? "Đang lưu…" : "Lưu cài đặt"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Phân quyền: role mod + admin ─────────────────────────────── */}
+        <TabsContent value="roles">
+          <Card>
+            <CardContent className="space-y-4 p-5">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label className="flex items-center gap-1.5">
+                    <ShieldHalf className="h-4 w-4 text-primary" /> Role Mod
+                  </Label>
+                  <MultiSelect
+                    options={roleOptions}
+                    value={modRoles}
+                    onChange={setModRoles}
+                    placeholder="Chọn role mod…"
+                    emptyLabel="Chưa có role được đồng bộ"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Miễn trừ chống nuke và quản lý rule auto reply trong Discord.
+                  </p>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="flex items-center gap-1.5">
+                    <Shield className="h-4 w-4 text-primary" /> Role Admin
+                  </Label>
+                  <MultiSelect
+                    options={roleOptions}
+                    value={adminRoles}
+                    onChange={setAdminRoles}
+                    placeholder="Chọn role admin…"
+                    emptyLabel="Chưa có role được đồng bộ"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Miễn trừ hoàn toàn khỏi mọi module chống nuke.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button onClick={handleSave} disabled={saving}>
+                  <Save className="h-4 w-4" /> {saving ? "Đang lưu…" : "Lưu phân quyền"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Bảo mật: mật khẩu tính năng ẩn ───────────────────────────── */}
+        <TabsContent value="security">
+          <Card>
+            <CardContent className="space-y-3 p-5">
+              <div>
+                <p className="flex items-center gap-1.5 font-medium">
+                  <KeyRound className="h-4 w-4 text-primary" /> Mật khẩu tính năng ẩn 🔒
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Dùng để mở khóa tính năng riêng của admin: reaction role, giveaway, gửi DM,
+                  auto reply, tùy chỉnh giao diện. Chỉ <b>admin sở hữu bot</b> được đặt.
+                </p>
+              </div>
+
+              {!data.guild.isBotOwner && (
+                <p className="rounded-lg bg-amber-500/10 px-3 py-2.5 text-xs text-amber-700">
+                  🔒 Bạn không phải admin sở hữu bot — chỉ chủ sở hữu bot mới được đặt / đổi /
+                  xóa mật khẩu này.
+                </p>
               )}
-            </div>
-            <Switch
-              checked={data.guild.dailyReportEnabled}
-              onCheckedChange={toggleDailyReport}
-            />
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <ShieldHalf className="h-4 w-4 text-primary" /> Role Mod
-            </CardTitle>
-            <CardDescription>
-              Mod được miễn trừ khỏi chống nuke và có thể quản lý rule auto reply trong Discord.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <MultiSelect
-              options={roleOptions}
-              value={modRoles}
-              onChange={setModRoles}
-              placeholder="Chọn role mod…"
-              emptyLabel="Chưa có role được đồng bộ"
-            />
-          </CardContent>
-        </Card>
+              <div className={data.guild.isBotOwner ? "space-y-3" : "pointer-events-none opacity-50"}>
+                <div className="grid gap-1.5">
+                  <Label>Mật khẩu mới</Label>
+                  <Input
+                    type="password"
+                    value={hiddenPassword}
+                    onChange={(e) => setHiddenPasswordInput(e.target.value)}
+                    placeholder={
+                      data.guild.hiddenPasswordSet
+                        ? "Nhập mật khẩu mới để thay đổi…"
+                        : "Nhập mật khẩu (4–64 ký tự)…"
+                    }
+                    maxLength={64}
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    disabled={hiddenSaving || hiddenPassword.length < 4}
+                    onClick={async () => {
+                      setHiddenSaving(true);
+                      try {
+                        await setHiddenPassword({
+                          token: TOKEN(),
+                          guildId: data.guild.discordId,
+                          password: hiddenPassword,
+                        });
+                        toast.success("Đã đặt mật khẩu tính năng ẩn");
+                        setHiddenPasswordInput("");
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+                      } finally {
+                        setHiddenSaving(false);
+                      }
+                    }}
+                  >
+                    <KeyRound className="h-4 w-4" />
+                    {data.guild.hiddenPasswordSet ? "Đổi mật khẩu" : "Đặt mật khẩu"}
+                  </Button>
+                  {data.guild.hiddenPasswordSet && (
+                    <Button
+                      variant="outline"
+                      disabled={hiddenSaving}
+                      onClick={async () => {
+                        setHiddenSaving(true);
+                        try {
+                          await setHiddenPassword({
+                            token: TOKEN(),
+                            guildId: data.guild.discordId,
+                            password: "",
+                          });
+                          toast.success("Đã xóa mật khẩu tính năng ẩn");
+                        } catch (e) {
+                          toast.error(e instanceof Error ? e.message : "Xóa thất bại");
+                        } finally {
+                          setHiddenSaving(false);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" /> Xóa mật khẩu
+                    </Button>
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    Trạng thái:{" "}
+                    {data.guild.hiddenPasswordSet ? (
+                      <span className="font-medium text-emerald-400">Đã đặt mật khẩu</span>
+                    ) : (
+                      <span className="font-medium text-amber-400">Chưa đặt mật khẩu</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Shield className="h-4 w-4 text-primary" /> Role Admin
-            </CardTitle>
-            <CardDescription>
-              Admin được miễn trừ hoàn toàn khỏi mọi module chống nuke.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <MultiSelect
-              options={roleOptions}
-              value={adminRoles}
-              onChange={setAdminRoles}
-              placeholder="Chọn role admin…"
-              emptyLabel="Chưa có role được đồng bộ"
-            />
-            <Button className="mt-4 w-full" onClick={handleSave} disabled={saving}>
-              <Save className="h-4 w-4" /> Lưu thay đổi
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="border-primary/25">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <KeyRound className="h-4 w-4 text-primary" /> Mật khẩu tính năng ẩn 🔒
-            </CardTitle>
-            <CardDescription>
-              Đặt mật khẩu để mở khóa các tính năng dành riêng cho admin: reaction role,
-              giveaway, gửi DM trực tiếp, auto reply và tùy chỉnh giao diện. Chỉ <b>admin sở
-              hữu bot</b> được phép đặt mật khẩu này.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {!data.guild.isBotOwner && (
-              <p className="rounded-lg bg-amber-500/10 px-3 py-2.5 text-xs text-amber-700">
-                🔒 Bạn không phải admin sở hữu bot — không được phép tương tác mật khẩu tính
-                năng ẩn. Chỉ chủ sở hữu bot (tài khoản Discord đã tạo bot) mới được đặt / đổi
-                / xóa mật khẩu này.
+        {/* ── Giao diện: chủ đề màu server ─────────────────────────────── */}
+        <TabsContent value="appearance">
+          <Card>
+            <CardContent className="p-5">
+              <p className="text-sm font-medium">Chủ đề màu của server 🎨</p>
+              <p className="mb-3 text-[11px] text-muted-foreground">
+                Áp dụng cho toàn bộ trang quản lý server này (nút, thẻ, sidebar) ngay lập tức.
               </p>
-            )}
-            <div className={data.guild.isBotOwner ? "space-y-3" : "pointer-events-none opacity-50"}>
-            <div className="grid flex-1 gap-1.5">
-              <Label>Mật khẩu mới</Label>
-              <Input
-                type="password"
-                value={hiddenPassword}
-                onChange={(e) => setHiddenPasswordInput(e.target.value)}
-                placeholder={
-                  data.guild.hiddenPasswordSet
-                    ? "Nhập mật khẩu mới để thay đổi…"
-                    : "Nhập mật khẩu (4–64 ký tự)…"
-                }
-                maxLength={64}
-              />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                disabled={hiddenSaving || hiddenPassword.length < 4}
-                onClick={async () => {
-                  setHiddenSaving(true);
-                  try {
-                    await setHiddenPassword({
-                      token: TOKEN(),
-                      guildId: data.guild.discordId,
-                      password: hiddenPassword,
-                    });
-                    toast.success("Đã đặt mật khẩu tính năng ẩn");
-                    setHiddenPasswordInput("");
-                  } catch (e) {
-                    toast.error(e instanceof Error ? e.message : "Lưu thất bại");
-                  } finally {
-                    setHiddenSaving(false);
-                  }
-                }}
-              >
-                <KeyRound className="h-4 w-4" /> {data.guild.hiddenPasswordSet ? "Đổi mật khẩu" : "Đặt mật khẩu"}
-              </Button>
-              {data.guild.hiddenPasswordSet && (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {Object.entries(SERVER_THEMES).map(([key, t]) => (
+                  <button
+                    key={key}
+                    onClick={() => setTheme(key)}
+                    className={`flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-all ${
+                      theme === key
+                        ? "border-primary ring-2 ring-primary/40"
+                        : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <span
+                      className="h-8 w-full rounded-lg"
+                      style={{ background: `linear-gradient(135deg, ${t.swatch}, ${t.swatch2})` }}
+                    />
+                    <span className="text-xs font-medium">{t.label}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-secondary/30 px-3 py-2">
+                <p className="text-xs text-muted-foreground">
+                  Đang chọn:{" "}
+                  <span className="font-medium text-foreground">
+                    {SERVER_THEMES[theme]?.label ?? "—"}
+                  </span>{" "}
+                  — {SERVER_THEMES[theme]?.desc}
+                </p>
                 <Button
-                  variant="outline"
-                  disabled={hiddenSaving}
+                  size="sm"
+                  disabled={themeSaving || theme === (data.guild.theme || DEFAULT_THEME)}
                   onClick={async () => {
-                    setHiddenSaving(true);
+                    setThemeSaving(true);
                     try {
-                      await setHiddenPassword({
+                      await updateSettings({
                         token: TOKEN(),
                         guildId: data.guild.discordId,
-                        password: "",
+                        theme,
                       });
-                      toast.success("Đã xóa mật khẩu tính năng ẩn");
+                      toast.success("Đã áp dụng chủ đề màu mới 🎨");
                     } catch (e) {
-                      toast.error(e instanceof Error ? e.message : "Xóa thất bại");
+                      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
                     } finally {
-                      setHiddenSaving(false);
+                      setThemeSaving(false);
                     }
                   }}
                 >
-                  <Trash2 className="h-4 w-4" /> Xóa mật khẩu
+                  <Palette className="h-4 w-4" /> {themeSaving ? "Đang lưu…" : "Áp dụng"}
                 </Button>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Trạng thái:{" "}
-              {data.guild.hiddenPasswordSet ? (
-                <span className="font-medium text-emerald-400">Đã đặt mật khẩu</span>
-              ) : (
-                <span className="font-medium text-amber-400">Chưa đặt mật khẩu</span>
-              )}
-            </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Palette className="h-4 w-4 text-primary" /> Chủ đề màu của server 🎨
-            </CardTitle>
-            <CardDescription>
-              Mỗi server chọn một màu riêng — áp dụng cho toàn bộ trang quản lý server này
-              (nút bấm, thẻ, thanh sidebar) ngay lập tức.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {Object.entries(SERVER_THEMES).map(([key, t]) => (
-                <button
-                  key={key}
-                  onClick={() => setTheme(key)}
-                  className={`flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-all ${
-                    theme === key
-                      ? "border-primary ring-2 ring-primary/40"
-                      : "border-border hover:border-primary/40"
-                  }`}
-                >
-                  <span
-                    className="h-8 w-full rounded-lg"
-                    style={{ background: `linear-gradient(135deg, ${t.swatch}, ${t.swatch2})` }}
-                  />
-                  <span className="text-xs font-medium">{t.label}</span>
-                </button>
-              ))}
-            </div>
-            <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-border bg-secondary/30 px-3 py-2">
-              <p className="text-xs text-muted-foreground">
-                Đang chọn:{" "}
-                <span className="font-medium text-foreground">
-                  {SERVER_THEMES[theme]?.label ?? "—"}
-                </span>{" "}
-                — {SERVER_THEMES[theme]?.desc}
-              </p>
-              <Button
-                size="sm"
-                disabled={themeSaving || theme === (data.guild.theme || DEFAULT_THEME)}
-                onClick={async () => {
-                  setThemeSaving(true);
-                  try {
-                    await updateSettings({ token: TOKEN(), guildId: data.guild.discordId, theme });
-                    toast.success("Đã áp dụng chủ đề màu mới 🎨");
-                  } catch (e) {
-                    toast.error(e instanceof Error ? e.message : "Lưu thất bại");
-                  } finally {
-                    setThemeSaving(false);
-                  }
-                }}
-              >
-                <Palette className="h-4 w-4" /> {themeSaving ? "Đang lưu…" : "Áp dụng"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
