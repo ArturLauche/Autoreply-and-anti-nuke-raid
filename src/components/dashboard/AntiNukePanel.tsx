@@ -151,6 +151,14 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
     guildId: data.guild.discordId,
   }) as RaidIntel | null | undefined;
 
+  // Phân trang kiểu web truyện cho "Vụ gần đây" — mỗi trang 3 vụ, bấm ‹ › lật qua lại.
+  const [raidPage, setRaidPage] = useState(1);
+  const PAGE_SIZE = 3;
+  const recentList = raidIntel?.recent ?? [];
+  const totalPages = Math.max(1, Math.ceil(recentList.length / PAGE_SIZE));
+  const page = Math.min(raidPage, totalPages);
+  const pageItems = recentList.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   const enabledCount = NUKE_MODULES.filter((m) => configFor(m).enabled).length;
   const g = data.guild;
   const locked = g.lockdownUntil !== null && g.lockdownUntil > Date.now();
@@ -296,11 +304,38 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
 
             {raidIntel && raidIntel.recent.length > 0 && (
               <div className="mt-4">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Vụ gần đây ({raidIntel.recent.length})
-                </p>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Vụ gần đây ({raidIntel.recent.length})
+                  </p>
+                  {totalPages > 1 && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={page <= 1}
+                        onClick={() => setRaidPage(page - 1)}
+                        aria-label="Trang trước"
+                        className="flex h-6 w-6 items-center justify-center rounded-md border border-border bg-card text-sm leading-none text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40 disabled:hover:bg-card"
+                      >
+                        ‹
+                      </button>
+                      <span className="min-w-10 px-1 text-center font-mono text-[11px] text-muted-foreground">
+                        {page}/{totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={page >= totalPages}
+                        onClick={() => setRaidPage(page + 1)}
+                        aria-label="Trang sau"
+                        className="flex h-6 w-6 items-center justify-center rounded-md border border-border bg-card text-sm leading-none text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40 disabled:hover:bg-card"
+                      >
+                        ›
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <ul className="space-y-1.5">
-                  {raidIntel.recent.map((s, i) => (
+                  {pageItems.map((s, i) => (
                     <li
                       key={`${s.createdAt}-${i}`}
                       className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-secondary/30 px-3 py-2 text-xs"
