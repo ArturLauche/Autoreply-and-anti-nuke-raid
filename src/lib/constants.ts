@@ -290,7 +290,7 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   externalAppRaid: {
     label: "Raid bằng ứng dụng ngoài",
     description:
-      "Loạt kết nối external app (ứng dụng mở rộng) — AI nhận diện người dùng app có đang raid không, raid → ban + khóa kênh",
+      "Chống raid bằng external app (ứng dụng mở rộng): AI học hỏi các dạng tấn công app ngoài (sockpuppet cài app ồ ạt, app giả mạo/tên scam, spam @everyone/link lừa đảo, webhook spam) và chặn cả biến thể tương tự — raid → ban + khóa kênh",
     group: "Thành viên & quyền",
     defaultThreshold: 2,
     defaultWindowSeconds: 15,

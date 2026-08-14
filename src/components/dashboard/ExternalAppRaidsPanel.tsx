@@ -70,8 +70,10 @@ function IncidentList({ guildId }: { guildId: string }) {
         <p className="mt-3 text-sm font-medium">Chưa có vụ raid external app nào bị chặn</p>
         <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
           Khi bot phát hiện loạt kết nối ứng dụng ngoài vượt ngưỡng module{" "}
-          <code className="font-mono text-[10px]">Raid bằng ứng dụng ngoài</code>, vụ đó sẽ xuất
-          hiện ở đây kèm AI verdict, ứng dụng và người dùng đã bị xử lý.
+          <code className="font-mono text-[10px]">Raid bằng ứng dụng ngoài</code> (hoặc một app
+          đáng ngờ: giả mạo app nổi tiếng / tên scam / do acc mới kết nối / app spam
+          @everyone + link lừa đảo), vụ đó sẽ xuất hiện ở đây kèm AI verdict, ứng dụng và
+          người dùng đã bị xử lý.
         </p>
       </div>
     );
@@ -249,8 +251,11 @@ export default function ExternalAppRaidsPanel({ data }: { data: GuildData }) {
           <h2 className="font-display text-lg font-semibold">Raid bằng ứng dụng ngoài</h2>
           <p className="max-w-2xl text-sm text-muted-foreground">
             Danh sách các vụ bot đã chặn khi loạt <b className="text-foreground">external app</b>{" "}
-            (ứng dụng mở rộng) được kết nối ồ ạt — kèm <b className="text-foreground">AI nhận diện</b>{" "}
-            người dùng app có đang raid không, ứng dụng nào được kết nối và ai đã bị xử lý.
+            (ứng dụng mở rộng) được kết nối ồ ạt hoặc app spam vào server — kèm{" "}
+            <b className="text-foreground">AI nhận diện</b> người dùng app có đang raid không. AI học hỏi
+            các dạng raid app ngoài (sockpuppet cài app, app giả mạo/tên scam, spam
+            @everyone/link lừa đảo, webhook spam) để chặn cả biến thể tương tự: app nào
+            được kết nối, ai đã bị xử lý.
           </p>
         </div>
         <Button variant="secondary" size="sm" onClick={refresh} className="gap-1.5">

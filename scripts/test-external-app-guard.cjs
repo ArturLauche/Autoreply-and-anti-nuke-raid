@@ -1,4 +1,5 @@
 const { messageFingerprint, isExternalAppSpam } = require("../bot/src/handlers/antinuke.js");
+const { appNameSuspicion } = require("../bot/src/externalAppGuard");
 
 let pass = 0;
 let fail = 0;
@@ -82,6 +83,47 @@ console.log("\n9) Caller contract — count phải khớp fresh.length (chống 
 r = simulate([{ content: "X" }, { content: "X" }]);
 check("callerCount là số > 0, không phải undefined", typeof r?.callerCount === "number" && r.callerCount > 0, JSON.stringify(r));
 check("callerCount khớp số tin trong cửa sổ", r?.callerCount === 2, JSON.stringify(r));
+
+console.log("\n10) Biến thể lặp GẦN GIỐNG (đổi số/emoji/URL mỗi tin để né filter) — trước đây KHÔNG phát hiện:");
+r = simulate([
+  { content: "FREE NITRO GIVEAWAY claim now 1" },
+  { content: "FREE NITRO GIVEAWAY claim now 2" },
+  { content: "FREE NITRO GIVEAWAY claim now 3" },
+]);
+check("3 tin gần giống → kích hoạt", r?.triggered === true, JSON.stringify(r));
+check("similar >= 2 được báo", r?.similar >= 2, JSON.stringify(r));
+
+console.log("\n11) App spam @everyone/@here kèm quảng cáo:");
+r = simulate([{ content: "@everyone join my server now" }, { content: "@here free nitro giveaway" }]);
+check("2 tin có mention vượt ngưỡng → kích hoạt", r?.triggered === true, JSON.stringify(r));
+check("hasEveryone được báo", r?.hasEveryone === true, JSON.stringify(r));
+
+console.log("\n12) Từ khóa scam + link rút gọn (bit.ly/t.me...) — biến thể link lừa đảo:");
+r = simulate([{ content: "free nitro here https://bit.ly/abc" }, { content: "claim your reward now https://t.me/xyz" }]);
+check("2 tin scam + shortlink → kích hoạt", r?.triggered === true, JSON.stringify(r));
+check("hasShortlink được báo", r?.hasShortlink === true, JSON.stringify(r));
+check("scamHits >= 2 được báo", r?.scamHits >= 2, JSON.stringify(r));
+
+console.log("\n13) Embed gần giống (chỉ đổi số ở footer/field mỗi tin) — né fingerprint cũ:");
+r = simulate([
+  { content: "", embeds: [{ title: "🔥 LIMITED OFFER", description: "discord nitro gift", fields: [{ name: "Code", value: "A1" }] }] },
+  { content: "", embeds: [{ title: "🔥 LIMITED OFFER", description: "discord nitro gift", fields: [{ name: "Code", value: "B2" }] }] },
+]);
+check("2 embed gần giống → kích hoạt", r?.triggered === true, JSON.stringify(r));
+
+console.log("\n14) Tên app đáng ngờ (giả mạo / scam / dạng máy) — dùng cho phát hiện trước ngưỡng:");
+let a = appNameSuspicion("MEE6 Pro");
+check("\"MEE6 Pro\" → giả mạo app nổi tiếng", a.score >= 3 && a.parts.some((p) => p.includes("giả mạo")), JSON.stringify(a));
+a = appNameSuspicion("Free Nitro Giveaway");
+check("\"Free Nitro Giveaway\" → từ khóa scam", a.score >= 3 && a.parts.some((p) => p.includes("scam")), JSON.stringify(a));
+a = appNameSuspicion("MEE6");
+check("\"MEE6\" (app thật) → KHÔNG nghi", a.score === 0, JSON.stringify(a));
+a = appNameSuspicion("App 48291375");
+check("\"App 48291375\" → tên dạng máy", a.score >= 1, JSON.stringify(a));
+
+console.log("\n15) Flood không nội dung trùng (bot bị lợi dụng gửi nhiều tin khác nhau):");
+r = simulate([{ content: "a" }, { content: "b" }, { content: "c" }, { content: "d" }]);
+check("flood 4 tin khác nhau → vẫn kích hoạt (xóa tin, không ban nhầm)", r?.triggered === true, JSON.stringify(r));
 
 console.log(`\nKết quả: ${pass} đúng / ${fail} sai`);
 process.exit(fail > 0 ? 1 : 0);

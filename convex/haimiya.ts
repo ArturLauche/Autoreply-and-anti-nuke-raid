@@ -287,13 +287,25 @@ export const analyzeExternalApp = action({
       process.env.AI_MODEL ??
       process.env.OPENAI_MODEL ??
       (process.env.SAMBANOVA_API_KEY ? "Meta-Llama-3.3-70B-Instruct" : "gpt-4o-mini");
-    const system = `Bạn là chuyên gia an ninh Discord. "External app" là ứng dụng ngoài (ứng dụng mở rộng / integration) được người dùng cài đặt và kết nối vào server. Phân tích chuỗi sự kiện kết nối ứng dụng ngoài vừa xảy ra và xác định NGUỜI DÙNG của các app đó có đang RAID không:
-- isRaid=true: dấu hiệu tấn công phối hợp — nhiều người (đặc biệt là tài khoản mới/nghi sockpuppet) cùng lúc kết nối cùng một app để khai thác, app lạ xuất hiện ồ ạt, hoặc kết hợp làn sóng thành viên mới vào server.
-- isRaid=false: chỉ một vài người dùng/ứng dụng bình thường kết nối (vd mod thử app mới, app quen thuộc).
+    const system = `Bạn là chuyên gia an ninh Discord chuyên điều tra RAID bằng ỨNG DỤNG NGOÀI (external app / integration).
+
+"External app raid" là kỹ thuật tấn công server dùng ứng dụng Discord thay vì bot thành viên:
+- Kẻ tấn công tạo hàng loạt tài khoản mới (sockpuppet), mỗi acc CÀI/KẾT NỐI cùng một app vào server trong khoảng thời gian ngắn (thường < 1 phút).
+- App sau khi kết nối thường spam @everyone/@here, gửi link lừa đảo hoặc link mời, tạo webhook để tràn tin, tự cấp role hoặc ban thành viên, đổi cấu hình server, rồi xóa dấu vết.
+- App thường được đặt tên giả mạo app quen thuộc (MEE6, Dyno, Carl-bot, ProBot, Wumpus...) kèm từ phụ (pro/premium/verify/free/hack/beta) hoặc tên mời gọi scam (Free Nitro, Giveaway, Boost, Verify, Crypto, Airdrop, Claim) để lừa chủ server cài.
+
+PHÂN TÍCH hồ sơ kết nối app / tin nhắn app vừa xảy ra và xác định NGUỜI DÙNG app có đang RAID không:
+- isRaid=true (tấn công phối hợp):
+  1) Nhiều tài khoản (đặc biệt mới tạo, nghi sockpuppet) cùng lúc kết nối app — cùng app hoặc loạt app giống nhau.
+  2) App lạ xuất hiện ồ ạt; tên app giả mạo app nổi tiếng hoặc chứa từ khóa scam (nitro, giveaway, boost, free, claim, reward, crypto, airdrop, verify).
+  3) Làn sóng thành viên mới vào server ngay trước/trong lúc kết nối app (raid chuẩn bị hoặc đang diễn ra).
+  4) App gửi tin spam: lặp nội dung giống hệt hoặc gần giống (đổi số/emoji/URL mỗi tin để né filter), @everyone/@here, link mời Discord, link rút gọn (bit.ly, t.me, tinyurl, rb.gy...), từ khóa quà tặng/lừa đảo, hoặc tràn nhiều URL khác nhau.
+  5) App tạo webhook để spam rồi xóa webhook ngay (xóa dấu vết).
+- isRaid=false: chỉ một vài người dùng/ứng dụng bình thường kết nối (vd mod thử app mới, app quen thuộc) hoặc app gửi tin hoạt động hợp lệ (nhạc, leveling, thông báo — không có tín hiệu spam ở trên).
 - Trả null nếu chưa đủ thông tin để kết luận.
 Chỉ trả lời JSON thuần (không markdown): {"isRaid": true|false|null, "confidence": 0-1, "reason": "ngắn gọn tiếng Việt"}`;
     const user = `Vụ: ${args.count} kết nối app ngoài trong ${args.windowSeconds}s (ngưỡng ${args.threshold}). Server: ${args.guildName ?? "?"} (${args.memberCount ?? "?"} thành viên). Thành viên mới gần đây: ${args.recentJoins ?? 0}.
-Hồ sơ kết nối:\n${args.appProfile || "(không có)"}`;
+Hồ sơ kết nối / tin nhắn app:\n${args.appProfile || "(không có)"}`;
     try {
       const res = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",

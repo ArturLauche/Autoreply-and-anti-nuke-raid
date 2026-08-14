@@ -9,6 +9,12 @@ const {
   heatSummary,
 } = require("../heat");
 const { actionsOf, memberPunishOf, cleanupMessages } = require("../moduleActions");
+const {
+  messageFingerprint,
+  isExternalAppSpam,
+  appNameSuspicion,
+  normalizeFuzzy,
+} = require("../externalAppGuard");
 
 const MODULE_LABELS = {
   massBan: "Ban hàng loạt",
@@ -107,48 +113,8 @@ function moduleCfgOf(config, module) {
   return { module, enabled: true, ...d, whitelistRoles: [], actions: [d.punish] };
 }
 
-/**
- * Dấu vân tay nội dung tin nhắn (text + embed: title/description/footer/fields) —
- * bắt cả spam chỉ gửi embed hoặc kèm thay đổi nhỏ (vd timestamp) mà text trống.
- */
-function messageFingerprint(msg) {
-  return [
-    msg.content || "",
-    ...(msg.embeds || []).map((e) =>
-      [
-        e.title,
-        e.description,
-        e.footer?.text,
-        ...(e.fields || []).map((f) => `${f.name}: ${f.value}`),
-      ]
-        .filter(Boolean)
-        .join(" | "),
-    ),
-  ]
-    .join("\n")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 500);
-}
-
-/**
- * Tín hiệu spam của ỨNG DỤNG NGOÀI trong cửa sổ module:
- *  1) Nội dung lặp giống hệt (kể cả embed) >= 2 lần → spam rõ ràng.
- *  2) Vượt ngưỡng KÈM link mời Discord → quảng cáo server kiểu raid.
- *  3) App gửi >= max(ngưỡng, 4) tin → flood, không cần nội dung trùng nhau.
- * Bot quen thuộc gửi vài tin khác nhau liên tiếp không bị phạt nhầm.
- */
-function isExternalAppSpam({ samples, currentFingerprint, count, threshold, hay }) {
-  const sameFingerprint = samples.filter((e) => e.fp && e.fp === currentFingerprint).length;
-  const hasInvite = /(discord\.(gg|com\/invite|app\.com\/invite)|discordapp\.com\/invite)/i.test(hay);
-  const floodCount = Math.max(threshold, 4);
-  return {
-    triggered: sameFingerprint >= 2 || (count >= threshold && hasInvite) || count >= floodCount,
-    sameFingerprint,
-    hasInvite,
-    floodCount,
-  };
-}
+// Các hàm thuần (messageFingerprint, isExternalAppSpam, appNameSuspicion, normalizeFuzzy)
+// được tách sang ../externalAppGuard để test trực tiếp — xem require ở đầu file.
 
 module.exports = function createAntiNuke(client, store, heat) {
   /** Persist a punished event for the daily report. Fire-and-forget. */
@@ -177,6 +143,13 @@ module.exports = function createAntiNuke(client, store, heat) {
     const pruned = arr.filter((t) => t >= cutoff);
     buckets.set(key, pruned);
     return pruned.length;
+  }
+
+  /** Số thành viên mới vào server trong cửa sổ (đo làn sóng raid đang diễn ra). */
+  function recentJoinCount(guildId, windowMs) {
+    const arr = joiners.get(guildId) ?? [];
+    const cutoff = Date.now() - windowMs;
+    return arr.filter((j) => j.ts >= cutoff).length;
   }
 
   function isExempt(member, moduleCfg, guildConfig) {
@@ -368,6 +341,14 @@ module.exports = function createAntiNuke(client, store, heat) {
       console.error("[ai:analyzeExternalApp]", err.message);
       return null;
     }
+  }
+
+  /** Nhãn nguồn phát hiện raid: AI xác nhận hay tín hiệu deterministic (AI offline). */
+  function raidNote(ai, isRaid) {
+    if (!isRaid) return "";
+    return ai && ai.offline !== true
+      ? ` — AI xác nhận RAID (${ai?.reason || "phối hợp"})`
+      : " — phát hiện RAID (nghi vấn cao)";
   }
 
   /**
@@ -634,16 +615,30 @@ module.exports = function createAntiNuke(client, store, heat) {
     if (!moduleCfg || !moduleCfg.enabled) return;
 
     const executor = entry.executor;
+    let executorFresh = false;
     if (executor) {
       if (executor.id === client.user.id) return;
       const em = await guild.members.fetch(executor.id).catch(() => null);
-      if (em && isExempt(em, moduleCfg, config)) return;
+      if (em) {
+        if (isExempt(em, moduleCfg, config)) return;
+        // Acc mới < 7 ngày kết nối app = sockpuppet nghi vấn cao (đội quân cài app).
+        if (em.user?.createdTimestamp && Date.now() - em.user.createdTimestamp < 7 * 86_400_000) {
+          executorFresh = true;
+        }
+      }
     }
     const target = entry.target;
     const appName =
       (target && (target.name || target.id)) ||
       (entry.changes || []).find((c) => c.key === "name")?.new ||
       "ứng dụng ngoài";
+
+    // Điểm nghi vấn deterministic (chạy ngay cả khi AI offline): tên app đáng ngờ
+    // (giả mạo app nổi tiếng / từ khóa scam) + acc kết nối mới + làn sóng thành viên.
+    const appSus = appNameSuspicion(appName);
+    const joins5m = recentJoinCount(guild.id, 5 * 60_000);
+    let suspectScore = appSus.score + (executorFresh ? 3 : 0);
+    if (joins5m >= 5) suspectScore += 2;
 
     const arr = appEvents.get(guild.id) ?? [];
     arr.push({
@@ -656,15 +651,17 @@ module.exports = function createAntiNuke(client, store, heat) {
     const fresh = arr.filter((e) => e.ts >= cutoff);
     appEvents.set(guild.id, fresh);
     const count = fresh.length;
-    if (count < moduleCfg.threshold) return;
+    // Xử lý khi: vượt ngưỡng kết nối HOẶC 1 kết nối đủ nghi vấn
+    // (vd acc mới cài app giả mạo — biến thể raid "1 app độc cài rải rác").
+    if (count < moduleCfg.threshold && suspectScore < 4) return;
 
-    // AI nhận diện: người dùng app ngoài có đang raid không?
-    const profile = fresh
+    // AI nhận diện: người dùng app ngoài có đang raid không? (kèm tín hiệu deterministic)
+    const profile = `${fresh
       .map(
         (e, i) =>
           `${i + 1}. ${e.appName}${e.executorName ? ` — bởi ${e.executorName}` : " — không xác định được người dùng"}`,
       )
-      .join("\n");
+      .join("\n")}\nTín hiệu: tên app đáng ngờ=${appSus.score} (${appSus.parts.join(", ") || "không"}), acc kết nối mới <7 ngày=${executorFresh ? "có" : "không"}, thành viên mới 5 phút gần nhất=${joins5m}, nghi vấn tổng=${suspectScore}`;
     const recentJoins = joiners.get(guild.id)?.length ?? 0;
     const ai = await aiAnalyzeExternalApp(
       guild,
@@ -674,8 +671,11 @@ module.exports = function createAntiNuke(client, store, heat) {
       profile,
       recentJoins,
     );
-    const isRaid = ai?.isRaid === true && (ai?.confidence ?? 0) >= 0.6;
-    const reason = `[Protogon AntiNuke] ${MODULE_LABELS.externalAppRaid}: ${count} app được kết nối trong ${moduleCfg.windowSeconds}s (ngưỡng ${moduleCfg.threshold})${isRaid ? ` — AI: raid (${ai?.reason ?? ""})` : ""}`;
+    // AI khẳng định raid (confidence >= 0.6) HOẶC AI offline mà nghi vấn rất cao → raid.
+    const aiOffline = !ai || ai.offline === true;
+    const isRaid =
+      (ai?.isRaid === true && (ai?.confidence ?? 0) >= 0.6) || (aiOffline && suspectScore >= 6);
+    const reason = `[Protogon AntiNuke] ${MODULE_LABELS.externalAppRaid}: ${count} app được kết nối trong ${moduleCfg.windowSeconds}s (ngưỡng ${moduleCfg.threshold})${raidNote(ai, isRaid)}`;
 
     // Những người dùng đã kết nối app trong cửa sổ (bỏ trùng, giới hạn 5).
     const targets = [
@@ -704,7 +704,7 @@ module.exports = function createAntiNuke(client, store, heat) {
       if (isRaid) {
         try {
           await member.ban({ reason });
-          outcome = "🚫 đã ban (AI: raid)";
+          outcome = ai && ai.offline !== true ? "🚫 đã ban (AI: raid)" : "🚫 đã ban (nghi vấn raid)";
           actionLabel = "ban";
         } catch {
           outcome = "không thể ban";
@@ -730,7 +730,7 @@ module.exports = function createAntiNuke(client, store, heat) {
       module: "externalAppRaid",
       executorId: targets[0]?.executorId ?? undefined,
       executorName: targets[0]?.executorName ?? undefined,
-      action: `${action}${isRaid ? " (AI: raid)" : ""}`,
+      action: `${action}${isRaid ? " (raid)" : ""}`,
       count,
       windowSeconds: moduleCfg.windowSeconds,
       threshold: moduleCfg.threshold,
@@ -770,7 +770,7 @@ module.exports = function createAntiNuke(client, store, heat) {
 
     const embed = logEmbed({
       title: `🚨 Anti Nuke/Raid: ${MODULE_LABELS.externalAppRaid}`,
-      description: `**${count}** ứng dụng ngoài được kết nối trong **${moduleCfg.windowSeconds} giây** (ngưỡng ${moduleCfg.threshold}).${isRaid ? `\n🤖 **AI xác nhận: RAID** — ${ai?.reason ?? ""}` : ""}`,
+      description: `**${count}** ứng dụng ngoài được kết nối trong **${moduleCfg.windowSeconds} giây** (ngưỡng ${moduleCfg.threshold}).${raidNote(ai, isRaid)}`,
       color: Colors.Red,
       fields: [
         {
@@ -825,25 +825,40 @@ module.exports = function createAntiNuke(client, store, heat) {
     const key = `${message.guild.id}:${appId}`;
     const arr = appMsgSamples.get(key) ?? [];
     const fp = messageFingerprint(message);
-    arr.push({ fp, content: message.content || "", ts: now, id: message.id, channelId: message.channel.id });
+    arr.push({
+      fp,
+      norm: normalizeFuzzy(fp),
+      content: message.content || "",
+      ts: now,
+      id: message.id,
+      channelId: message.channel.id,
+    });
     const cutoff = now - moduleCfg.windowSeconds * 1000;
     const fresh = arr.filter((e) => e.ts >= cutoff);
     appMsgSamples.set(key, fresh);
     const count = fresh.length;
 
     const hay = `${message.content || ""} ${(message.embeds || []).map((e) => e.title || e.description || "").join(" ")}`;
-    const { triggered, sameFingerprint } = isExternalAppSpam({
-      samples: fresh,
-      currentFingerprint: fp,
-      count: fresh.length,
-      threshold: moduleCfg.threshold,
-      hay,
-    });
+    const { triggered, sameFingerprint, similar, hasInvite, hasShortlink, hasEveryone, scamHits, urlCount } =
+      isExternalAppSpam({
+        samples: fresh,
+        currentFingerprint: fp,
+        count: fresh.length,
+        threshold: moduleCfg.threshold,
+        hay,
+      });
     if (!triggered) return;
 
     appMsgSamples.delete(key); // reset sau khi xử lý
     const samples = fresh.slice(-8).map((e) => (e.fp || e.content || "").slice(0, 200));
-    const profile = `${appName}${isWebhook ? " (webhook)" : " (bot)"}:\n${samples.map((s, i) => `${i + 1}. ${s}`).join("\n")}`;
+    // Đưa cả tín hiệu nội dung cho AI học hỏi: lặp gần giống, @everyone, link mời,
+    // link rút gọn, từ khóa scam, số URL — để AI nhận diện đúng biến thể raid app.
+    const signalLine =
+      `Tín hiệu nội dung: lặp giống hệt=${sameFingerprint}, lặp gần giống=${similar}, ` +
+      `@everyone/@here=${hasEveryone ? "có" : "không"}, link mời Discord=${hasInvite ? "có" : "không"}, ` +
+      `link rút gọn=${hasShortlink ? "có" : "không"}, từ khóa scam=${scamHits}, số URL=${urlCount}`;
+    const profile =
+      `${appName}${isWebhook ? " (webhook)" : " (bot)"}:\n${samples.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n${signalLine}`;
     const ai = await aiAnalyzeExternalApp(
       message.guild,
       count,
@@ -852,8 +867,17 @@ module.exports = function createAntiNuke(client, store, heat) {
       profile,
       joiners.get(message.guild.id)?.length ?? 0,
     );
-    const isRaid = ai?.isRaid === true && (ai?.confidence ?? 0) >= 0.6;
-    const reason = `[Protogon AntiNuke] ${MODULE_LABELS.externalAppRaid}: app "${appName}" gửi ${count} tin (${sameFingerprint} tin lặp nội dung) trong ${moduleCfg.windowSeconds}s (ngưỡng ${moduleCfg.threshold})${isRaid ? ` — AI: raid (${ai?.reason ?? ""})` : ""}`;
+    // AI khẳng định raid (confidence >= 0.6) HOẶC AI offline mà tín hiệu nội dung quá rõ → raid.
+    const aiOffline = !ai || ai.offline === true;
+    let contentScore = 0;
+    if (similar >= 2) contentScore += 3;
+    if (hasEveryone) contentScore += 2;
+    if (scamHits >= 2) contentScore += 2;
+    if (hasInvite || hasShortlink) contentScore += 2;
+    if (urlCount >= 3) contentScore += 1;
+    const isRaid =
+      (ai?.isRaid === true && (ai?.confidence ?? 0) >= 0.6) || (aiOffline && contentScore >= 6);
+    const reason = `[Protogon AntiNuke] ${MODULE_LABELS.externalAppRaid}: app "${appName}" gửi ${count} tin (${sameFingerprint} tin lặp nội dung) trong ${moduleCfg.windowSeconds}s (ngưỡng ${moduleCfg.threshold})${raidNote(ai, isRaid)}`;
 
     let action = "đã ghi nhận";
     const punished = [];
@@ -880,7 +904,7 @@ module.exports = function createAntiNuke(client, store, heat) {
       if (isRaid) {
         try {
           await member.ban({ reason });
-          outcome = "🚫 đã ban (AI: raid)";
+          outcome = ai && ai.offline !== true ? "🚫 đã ban (AI: raid)" : "🚫 đã ban (nghi vấn raid)";
           actionLabel = "ban";
         } catch {
           outcome = "không thể ban";
@@ -919,7 +943,9 @@ module.exports = function createAntiNuke(client, store, heat) {
             if (isRaid) {
               try {
                 await cm.ban({ reason });
-                outcome = "🚫 đã ban người dùng kết nối app (AI: raid)";
+                outcome = ai && ai.offline !== true
+                  ? "🚫 đã ban người dùng kết nối app (AI: raid)"
+                  : "🚫 đã ban người dùng kết nối app (nghi vấn raid)";
                 actionLabel = "ban";
               } catch {
                 outcome = "không thể ban người dùng kết nối app";
@@ -949,7 +975,7 @@ module.exports = function createAntiNuke(client, store, heat) {
       module: "externalAppRaid",
       executorId: responsibleId ?? appId,
       executorName: responsibleName ?? appName,
-      action: `${action}${isRaid ? " (AI: raid)" : ""}`.slice(0, 900),
+      action: `${action}${isRaid ? " (raid)" : ""}`.slice(0, 900),
       count,
       windowSeconds: moduleCfg.windowSeconds,
       threshold: moduleCfg.threshold,
@@ -991,7 +1017,7 @@ module.exports = function createAntiNuke(client, store, heat) {
 
     const embed = logEmbed({
       title: `🚨 Anti Nuke/Raid: ${MODULE_LABELS.externalAppRaid}`,
-      description: `Ứng dụng ngoài **${appName}** gửi **${count} tin** (${sameFingerprint} tin lặp nội dung) trong **${moduleCfg.windowSeconds} giây** (ngưỡng ${moduleCfg.threshold}).${isRaid ? `\n🤖 **AI xác nhận: RAID** — ${ai?.reason ?? ""}` : ""}`,
+      description: `Ứng dụng ngoài **${appName}** gửi **${count} tin** (${sameFingerprint} tin lặp nội dung) trong **${moduleCfg.windowSeconds} giây** (ngưỡng ${moduleCfg.threshold}).${raidNote(ai, isRaid)}`,
       color: Colors.Red,
       fields: [
         {
