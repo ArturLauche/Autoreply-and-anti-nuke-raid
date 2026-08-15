@@ -81,7 +81,9 @@ async function syncAll(client, store) {
   await store.client.mutation("guilds:botHeartbeat", {
     guildCount: count,
     memberCount,
-    version: "1.0.0",
+    // Bản bot đang chạy — web dùng để báo "bot trên host đang chạy bản cũ, cần cập nhật".
+    // Nhớ nâng cùng số zip khi đóng gói bản mới (v47, v48…).
+    version: "v47",
     ownerName,
     ownerAvatarUrl,
   });

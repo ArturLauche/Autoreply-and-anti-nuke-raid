@@ -1,5 +1,11 @@
 import type { ModuleAction, PunishNoticeLevel } from "./types";
 
+/**
+ * Bản bot tối thiểu hỗ trợ khôi phục file backup + báo kết quả lên dashboard.
+ * Bot heartbeat ghi version ("v47", "v48"…) — bản cũ ghi "1.0.0" → coi là cũ.
+ */
+export const MIN_IMPORT_BOT_VERSION = 47;
+
 export type TriggerType = "keyword" | "mention";
 
 /**

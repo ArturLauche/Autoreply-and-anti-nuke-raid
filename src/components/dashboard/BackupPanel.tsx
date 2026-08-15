@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
   CalendarClock,
   CloudUpload,
   DatabaseBackup,
@@ -24,9 +25,17 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Switch } from "../ui/switch";
 import type { GuildData, BackupInfo } from "../../lib/types";
+import { MIN_IMPORT_BOT_VERSION } from "../../lib/constants";
 import { getSessionToken } from "../../lib/discord";
 
 const TOKEN = () => getSessionToken();
+
+/** "v47" → 47; "1.0.0"/khác → 0 (coi là bản cũ). */
+function parseBotVersion(v: string | null): number {
+  if (!v) return 0;
+  const m = String(v).match(/^v?(\d+)/i);
+  return m ? parseInt(m[1], 10) : 0;
+}
 
 export default function BackupPanel({ data }: { data: GuildData }) {
   const [pushGithub, setPushGithub] = useState(true);
@@ -48,19 +57,27 @@ export default function BackupPanel({ data }: { data: GuildData }) {
   const generateUploadUrl = useMutation(api.backup.generateImportUploadUrl);
   const requestImportRestore = useMutation(api.backup.requestImportRestore);
   const setAutoBackup = useMutation(api.backup.setAutoBackup);
-  const importStatus = useQuery(
-    api.backup.importStatus,
-    importWatch
-      ? { token: TOKEN(), guildId: data.guild.discordId, refresh: importWatch.startedAt }
-      : "skip",
-  ) as
-    | { requested: boolean; fileName: string | null; error: string | null; errorAt: number | null }
+  // Luôn theo dõi trạng thái import (reactive): hiện lỗi lần trước + chẩn đoán bot online/bản cũ.
+  const importStatus = useQuery(api.backup.importStatus, {
+    token: TOKEN(),
+    guildId: data.guild.discordId,
+  }) as
+    | {
+        requested: boolean;
+        fileName: string | null;
+        error: string | null;
+        errorAt: number | null;
+        botOnline: boolean;
+        botVersion: string | null;
+        botGuildCount: number;
+        lastHeartbeat: number | null;
+      }
     | null
     | undefined;
 
   const refresh = () => setRefreshAt((n) => n + 1);
 
-  // Bot báo lỗi xử lý file import → hiện ngay lý do; xử lý xong → báo thành công.
+  // Bot báo lỗi xử lý file import → hiện ngay lý do; xử lý xong → báo kết quả.
   useEffect(() => {
     if (!importWatch || importStatus === undefined || importStatus === null) return;
     if (importStatus.error) {
@@ -69,9 +86,17 @@ export default function BackupPanel({ data }: { data: GuildData }) {
       });
       setImportWatch(null);
     } else if (!importStatus.requested) {
-      toast.success("Bot đã khôi phục xong backup từ file", {
-        description: "Role, kênh, tin nhắn + media và emoji/sticker đã được tạo lại trên server.",
-      });
+      // Bot bản mới (v47+) xác nhận kết quả chính xác; bản cũ xóa cờ im lặng → chỉ nhắc kiểm tra.
+      const fresh = parseBotVersion(importStatus.botVersion) >= MIN_IMPORT_BOT_VERSION;
+      if (fresh) {
+        toast.success("Bot đã khôi phục xong backup từ file", {
+          description: "Role, kênh, tin nhắn + media và emoji/sticker đã được tạo lại trên server.",
+        });
+      } else {
+        toast.info("Yêu cầu đã được xử lý xong", {
+          description: `Bot đang chạy bản cũ (${importStatus.botVersion || "không rõ"}) nên không xác nhận được kết quả — hãy kiểm tra server trực tiếp và cập nhật bot lên bản mới nhất (v${MIN_IMPORT_BOT_VERSION}+) để nhận báo cáo chính xác.`,
+        });
+      }
       setImportWatch(null);
       window.setTimeout(refresh, 2500);
     }
@@ -82,15 +107,18 @@ export default function BackupPanel({ data }: { data: GuildData }) {
     if (!importWatch) return;
     const timer = window.setTimeout(() => {
       if (Date.now() - importWatch.startedAt > 180_000) {
-        toast.warning("Bot vẫn chưa xử lý file backup", {
-          description:
-            "Kiểm tra bot có online không; nếu bot offline hãy khởi động lại bot rồi tải lại file.",
-        });
+        const hint =
+          importStatus?.botOnline === false
+            ? "Bot đang OFFLINE (không nhận được heartbeat) — hãy khởi động bot trên host rồi tải lại file."
+            : importStatus?.botOnline === true
+              ? "Bot online nhưng chưa xử lý — có thể bot đang chạy bản cũ, hãy cập nhật bot lên bản mới nhất rồi thử lại."
+              : "Không xác định được trạng thái bot — hãy kiểm tra bot có online không (tab Giám sát bot).";
+        toast.warning("Bot vẫn chưa xử lý file backup", { description: hint });
         setImportWatch(null);
       }
     }, 180_000);
     return () => window.clearTimeout(timer);
-  }, [importWatch]);
+  }, [importWatch, importStatus]);
 
   async function createBackup() {
     setBusy("backup");
@@ -323,10 +351,35 @@ export default function BackupPanel({ data }: { data: GuildData }) {
             </Button>
           </div>
           {importWatch && (
-            <p className="flex items-center gap-2 text-xs text-amber-400">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Đang chờ bot xử lý file — bot quét mỗi ~20 giây, server lớn có thể mất 1-2 phút.
-              Lỗi (nếu có) sẽ hiện tại đây.
+            <div className="space-y-1.5 text-xs">
+              <p className="flex items-center gap-2 text-amber-400">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Đang chờ bot xử lý file — bot quét mỗi ~20 giây, server lớn có thể mất 1-2 phút.
+                Lỗi (nếu có) sẽ hiện ngay tại đây.
+              </p>
+              {importStatus?.botOnline === false && (
+                <p className="flex items-center gap-2 text-red-400">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  Bot đang OFFLINE — hãy khởi động bot trên host (Wispbyte…) rồi tải lại file.
+                </p>
+              )}
+              {importStatus?.botOnline === true &&
+                parseBotVersion(importStatus.botVersion) < MIN_IMPORT_BOT_VERSION && (
+                  <p className="flex items-center gap-2 text-amber-400">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                    Bot đang chạy bản cũ ({importStatus.botVersion ?? "không rõ"}) — cần cập nhật bot
+                    lên bản mới nhất (v{MIN_IMPORT_BOT_VERSION}+) để khôi phục và báo kết quả chính
+                    xác.
+                  </p>
+                )}
+            </div>
+          )}
+          {importStatus && importStatus.error && !importWatch && (
+            <p className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                Lần thử trước <b>thất bại</b>: {importStatus.error} — kiểm tra lại file rồi tải lên.
+              </span>
             </p>
           )}
           <p className="text-[11px] text-muted-foreground">

@@ -248,12 +248,23 @@ export const importStatus = query({
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
       .first();
     if (!guild || !canManageGuild(user, guild)) return null;
+    // Trạng thái bot (heartbeat mỗi 60s) để web tự chẩn đoán: bot offline / bản cũ
+    // không xử lý được import là 2 lý do phổ biến nhất khi "không có gì xảy ra".
+    const status = await ctx.db
+      .query("botStatus")
+      .withIndex("by_kind", (q) => q.eq("kind", "status"))
+      .first();
+    const botOnline = !!status?.online && Date.now() - (status.lastHeartbeat ?? 0) < 180_000;
     return {
       requested: !!guild.importRestoreRequested,
       fileName: guild.importFileName ?? null,
       error: guild.importError ?? null,
       errorAt: guild.importErrorAt ?? null,
       updatedAt: guild.updatedAt,
+      botOnline,
+      botVersion: status?.version ?? null,
+      botGuildCount: status?.guildCount ?? 0,
+      lastHeartbeat: status?.lastHeartbeat ?? null,
     };
   },
 });
