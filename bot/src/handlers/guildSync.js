@@ -9,9 +9,24 @@ const SYNC_CHANNEL_TYPES = [
   ChannelType.GuildForum,
 ];
 
+// Trạng thái trong process — bảo vệ chống "server biến mất":
+//  - firstRun: lần sync đầu tiên sau khi bot khởi động KHÔNG BAO GIỜ được phép
+//    sweep (cache guild chưa chắc đã lấp đầy — GUILD_CREATE đến rải rác sau READY).
+//  - lastTrustedCount: số guild ở lần sync tin cậy gần nhất. Nếu lần này ít hơn
+//    >10% (và >50 guild) → cache đang thiếu → coi là KHÔNG tin cậy → không sweep.
+//  - runCounter: giãn syncChannels/syncRoles xuống mỗi 5 phút (dashboard không cần
+//    danh sách kênh/role tươi từng phút; ở 2k+ server, 2 mutation/guild/phút là
+//    hàng nghìn mutation mỗi lần và làm chồng lấn vòng sync).
+let firstRun = true;
+let lastTrustedCount = 0;
+let runCounter = 0;
+
 async function syncAll(client, store) {
   const guilds = [];
   let memberCount = 0;
+  const fullChannelRole = runCounter % 5 === 0; // kênh/role: mỗi 5 lượt (~5 phút)
+  runCounter++;
+
   for (const g of client.guilds.cache.values()) {
     guilds.push({
       id: g.id,
@@ -20,6 +35,7 @@ async function syncAll(client, store) {
       memberCount: g.memberCount ?? undefined,
     });
     memberCount += g.memberCount ?? 0;
+    if (!fullChannelRole) continue;
     try {
       const channels = g.channels.cache
         .filter((c) => SYNC_CHANNEL_TYPES.includes(c.type))
@@ -34,7 +50,16 @@ async function syncAll(client, store) {
       console.error(`[sync] ${g.id}:`, err.message);
     }
   }
-  await store.client.mutation("guilds:botSyncGuilds", { guilds });
+
+  const count = guilds.length;
+  const droppedSharply =
+    lastTrustedCount > 0 && count < lastTrustedCount - Math.max(50, Math.round(lastTrustedCount * 0.1));
+  // Lần đầu tiên của process: không bao giờ sweep (cache chưa chắc đầy).
+  const trustedFullList = !firstRun && !droppedSharply;
+  firstRun = false;
+  if (trustedFullList) lastTrustedCount = count;
+
+  await store.client.mutation("guilds:botSyncGuilds", { guilds, trustedFullList });
 
   // Owner info 24/7: lấy tên + avatar mới nhất của chủ bot từ Discord mỗi lần sync.
   let ownerName;
@@ -54,12 +79,43 @@ async function syncAll(client, store) {
     console.error("[owner:sync]", e.message);
   }
   await store.client.mutation("guilds:botHeartbeat", {
-    guildCount: guilds.length,
+    guildCount: count,
     memberCount,
     version: "1.0.0",
     ownerName,
     ownerAvatarUrl,
   });
+  return { count, trustedFullList };
+}
+
+/** Upsert nhanh 1 guild vừa mời bot (không chạm các guild khác, không bao giờ sweep). */
+async function syncOne(client, store, guildId) {
+  const g = client.guilds.cache.get(guildId);
+  if (!g) return;
+  try {
+    await store.client.mutation("guilds:botSyncGuilds", {
+      guilds: [
+        {
+          id: g.id,
+          name: g.name,
+          icon: g.icon ?? undefined,
+          memberCount: g.memberCount ?? undefined,
+        },
+      ],
+      trustedFullList: false,
+    });
+  } catch (err) {
+    console.error(`[sync:one] ${guildId}:`, err.message);
+  }
+}
+
+/** Bot bị kick khỏi guild → đánh dấu đúng guild đó (không kéo theo sync toàn bộ). */
+async function markGone(client, store, guildId) {
+  try {
+    await store.client.mutation("guilds:botGuildGone", { guildId });
+  } catch (err) {
+    console.error(`[sync:gone] ${guildId}:`, err.message);
+  }
 }
 
 /** Đảm bảo mọi guild đều có đủ các module mặc định (kể cả module mới thêm). */
@@ -73,4 +129,4 @@ async function ensureModules(client, store) {
   }
 }
 
-module.exports = { syncAll, ensureModules };
+module.exports = { syncAll, syncOne, markGone, ensureModules };

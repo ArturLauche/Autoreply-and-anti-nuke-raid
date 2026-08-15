@@ -612,8 +612,16 @@ export const botSyncGuilds = mutation({
         memberCount: v.optional(v.number()),
       }),
     ),
+    /**
+     * Chỉ sweep (đánh dấu botInGuild=false) khi bot XÁC NHẬN danh sách guild đầy đủ.
+     * Mặc định false: nếu cache guild bị thiếu (restart, gateway lấp dần, reconnect)
+     * mà vẫn sweep thì hàng nghìn server bị đánh dấu "bot đã rời" và biến mất khỏi
+     * dashboard — đã từng xảy ra với bot 2k+ server. Sweep thêm điều kiện guild vắng
+     * mặt quá 10 phút (không phải lỗi thoáng qua).
+     */
+    trustedFullList: v.optional(v.boolean()),
   },
-  handler: async (ctx, { guilds }) => {
+  handler: async (ctx, { guilds, trustedFullList }) => {
     const now = Date.now();
     const present = new Set(guilds.map((g) => g.id));
     for (const g of guilds) {
@@ -698,14 +706,62 @@ export const botSyncGuilds = mutation({
         void id;
       }
     }
-    // Guilds the bot left are no longer synced.
-    const all = await ctx.db.query("guilds").collect();
-    for (const guild of all) {
-      if (guild.botInGuild && !present.has(guild.discordId)) {
+    // Guilds the bot left are no longer synced — CHỈ khi danh sách được xác nhận đầy
+    // đủ (trustedFullList === true) và guild vắng mặt quá 10 phút.
+    if (trustedFullList === true) {
+      const all = await ctx.db.query("guilds").collect();
+      for (const guild of all) {
+        if (!guild.botInGuild) continue;
+        if (present.has(guild.discordId)) continue;
+        if (now - (guild.lastHeartbeat ?? 0) < 10 * 60_000) continue;
         await ctx.db.patch(guild._id, { botInGuild: false, updatedAt: now });
       }
     }
     return { ok: true };
+  },
+});
+
+/** Bot bị kick khỏi guild → đánh dấu đúng guild đó (sự kiện guildDelete, không sweep toàn bộ). */
+export const botGuildGone = mutation({
+  args: { guildId: v.string() },
+  handler: async (ctx, { guildId }) => {
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) return { ok: true };
+    await ctx.db.patch(guild._id, { botInGuild: false, updatedAt: Date.now() });
+    return { ok: true };
+  },
+});
+
+/** Chẩn đoán sức khỏe sync: số guild đang hiển thị / đã ẩn / heartbeat cũ (không lộ id). */
+export const botGuildStats = query({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("guilds").collect();
+    const now = Date.now();
+    let inGuild = 0;
+    let gone = 0;
+    let staleInGuild = 0;
+    let oldestHeartbeat = now;
+    for (const g of all) {
+      if (g.botInGuild) {
+        inGuild++;
+        if (now - (g.lastHeartbeat ?? 0) > 15 * 60_000) staleInGuild++;
+        oldestHeartbeat = Math.min(oldestHeartbeat, g.lastHeartbeat ?? now);
+      } else {
+        gone++;
+      }
+    }
+    return {
+      total: all.length,
+      inGuild,
+      gone,
+      staleInGuild,
+      now,
+      oldestHeartbeat,
+    };
   },
 });
 

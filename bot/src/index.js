@@ -106,9 +106,32 @@ client.once("ready", async () => {
     console.error("[owner] Không xác định được chủ bot qua API:", e.message);
   }
 
-  await guildSync.syncAll(client, store);
-  await guildSync.ensureModules(client, store);
-  setInterval(() => guildSync.syncAll(client, store), 60_000);
+  // Đồng bộ guild an toàn cho bot nhiều server:
+  //  - sync lần đầu SAU 15s (cache guild lấp đầy qua GUILD_CREATE sau READY — nếu
+  //    sync sớm với cache thiếu, hàng nghìn server bị đánh dấu "bot đã rời").
+  //  - vòng lặp TUẦN TỰ (sync xong mới hẹn lượt tiếp) — không chồng lấn như setInterval
+  //    khi một lượt sync 2k+ server mất nhiều phút.
+  const runSyncLoop = () => {
+    void (async () => {
+      try {
+        const res = await guildSync.syncAll(client, store);
+        console.log(`[sync] ${res?.count ?? "?"} server${res?.trustedFullList === false ? " (cache thiếu — chưa sweep)" : ""}`);
+      } catch (e) {
+        console.error("[sync]", e.message);
+      }
+      setTimeout(runSyncLoop, 60_000);
+    })();
+  };
+  setTimeout(() => {
+    void (async () => {
+      try {
+        await guildSync.ensureModules(client, store);
+      } catch (e) {
+        console.error("[sync:ensure]", e.message);
+      }
+      runSyncLoop();
+    })();
+  }, 15_000);
 
   setInterval(() => {
     client.user.setPresence({
@@ -147,8 +170,10 @@ client.on("interactionCreate", (i) =>
   }),
 );
 client.on("guildMemberAdd", (m) => joinGate(client, m, store).catch((e) => console.error("[joinGate]", e.message)));
-client.on("guildCreate", () => guildSync.syncAll(client, store).catch(() => {}));
-client.on("guildDelete", () => guildSync.syncAll(client, store).catch(() => {}));
+// Sự kiện guild thêm/xóa: xử lý ĐÚNG guild đó thôi — không kéo theo sync toàn bộ
+// (tránh chồng lấn + tránh sweep nhầm khi cache đang lấp dần).
+client.on("guildCreate", (guild) => guildSync.syncOne(client, store, guild.id).catch(() => {}));
+client.on("guildDelete", (guild) => guildSync.markGone(client, store, guild.id).catch(() => {}));
 
 antinuke.attach();
 // Log embed "⏱️ Timeout hết hạn" khi thành viên hết timeout tự nhiên.
