@@ -618,8 +618,16 @@ export const botClearBackup = mutation({
     } else if (kind === "import") {
       patch.importRestoreRequested = false;
       patch.importFileName = undefined;
-      patch.importFileContent = undefined;
+      patch.importStorageId = undefined;
       patch.restoreClaimedAt = undefined;
+      // Xóa luôn file backup đã tải lên (Convex file storage) — không để rác.
+      if (guild.importStorageId) {
+        try {
+          await ctx.storage.delete(guild.importStorageId);
+        } catch (e) {
+          console.error(`[backup:clear:storage] ${guildId}:`, e instanceof Error ? e.message : e);
+        }
+      }
     } else {
       patch.restoreRequested = false;
       patch.restoreBackupId = undefined;

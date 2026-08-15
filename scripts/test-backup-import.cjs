@@ -8,6 +8,8 @@ const {
   sortedRoles,
   sortedChannels,
   countMessages,
+  resolveAttachment,
+  nameFromUrl,
 } = require("../bot/src/handlers/backup.js");
 
 let pass = 0;
@@ -152,5 +154,70 @@ b = normalizeBackupFile(
 const names = sortedRoles(b).map((r) => r.name).join(",");
 check("position ưu tiên, thiếu thì theo thứ tự file (B,D,A,C)", names === "B,D,A,C", names);
 
-console.log(`\nKết quả: ${pass} đúng / ${fail} sai`);
-if (fail > 0) process.exit(1);
+console.log("\n9) Media — giữ nguyên khi import (URL + data URI base64) và tải về được:");
+b = normalizeBackupFile(
+  JSON.stringify({
+    guildName: "Server E",
+    roles: [],
+    channels: [
+      {
+        name: "general",
+        type: 0,
+        position: 0,
+        messages: [
+          {
+            content: "ảnh đây",
+            author: "A",
+            attachments: ["data:image/png;base64,iVBORw0KGgo="],
+          },
+          {
+            content: "link",
+            author: "B",
+            attachments: [
+              "https://cdn.discordapp.com/attachments/1/2/hinh%20x.png?ex=1&is=2",
+            ],
+          },
+        ],
+      },
+    ],
+  }),
+);
+check(
+  "giữ data URI trong attachments",
+  b.channels[0].messages[0].attachments[0].startsWith("data:image/png;base64,"),
+  b.channels[0].messages[0].attachments[0],
+);
+check(
+  "giữ URL attachment (kèm query CDN)",
+  b.channels[0].messages[1].attachments[0] ===
+    "https://cdn.discordapp.com/attachments/1/2/hinh%20x.png?ex=1&is=2",
+  b.channels[0].messages[1].attachments[0],
+);
+check(
+  "nameFromUrl bỏ query, giải mã %20 → tên sạch",
+  nameFromUrl("https://cdn.discordapp.com/attachments/1/2/hinh%20x.png?ex=1&is=2") ===
+    "hinh_x.png",
+  nameFromUrl("https://cdn.discordapp.com/attachments/1/2/hinh%20x.png?ex=1&is=2"),
+);
+
+(async () => {
+  const f = await resolveAttachment("data:image/png;base64,iVBORw0KGgo=", 0);
+  check(
+    "giải mã data URI → buffer + tên .png",
+    !!f && Buffer.isBuffer(f.attachment) && f.attachment.length > 0 && f.name.endsWith(".png"),
+    JSON.stringify(f?.name),
+  );
+  const f2 = await resolveAttachment("data:text/plain;base64,SGVsbG8=", 1);
+  check(
+    "data URI text/plain → nội dung đúng + tên .txt",
+    !!f2 && f2.attachment.toString("utf8") === "Hello" && f2.name.endsWith(".txt"),
+    JSON.stringify(f2?.attachment?.toString("utf8")),
+  );
+  const f3 = await resolveAttachment("", 0);
+  check("attachment rỗng → null", f3 === null);
+  const f4 = await resolveAttachment("không phải url", 0);
+  check("attachment không hợp lệ → null (không treo)", f4 === null);
+
+  console.log(`\nKết quả: ${pass} đúng / ${fail} sai`);
+  if (fail > 0) process.exit(1);
+})();

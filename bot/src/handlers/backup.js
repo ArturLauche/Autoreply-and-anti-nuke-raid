@@ -10,11 +10,93 @@ const { logEmbed } = require("../util");
  *    đẩy lên GitHub Gist nếu được yêu cầu.
  *  - kind "restore": đọc JSON backup, tạo lại role, danh mục, kênh + overwrite,
  *    SẮP XẾP LẠI đúng thứ tự role/kênh như trong file, phục hồi tin nhắn qua webhook
- *    (đúng thứ tự thời gian), rồi áp lại cấu hình với id mới.
- *  - kind "import": tải file backup .msc/.json từ bot nuke khác lên dashboard →
- *    bot nhận diện định dạng (JSON/base64/có wrapper), chuẩn hóa, rồi khôi phục
- *    đúng thứ tự role/kênh/tin nhắn có trong file.
+ *    (đúng thứ tự thời gian) KÈM MEDIA (ảnh/video tải về đăng lại thật), rồi áp lại
+ *    cấu hình với id mới.
+ *  - kind "import": file backup .msc/.json (bot nuke khác) được tải lên dashboard →
+ *    giữ trong Convex file storage (tối đa 8 MB) → bot tải về, nhận diện định dạng
+ *    (JSON/base64/có wrapper), chuẩn hóa, rồi khôi phục đúng thứ tự role/kênh/tin
+ *    nhắn + media có trong file.
  */
+
+/** Mỗi file media phục hồi tối đa 8 MB (an toàn dưới giới hạn upload của Discord). */
+const MAX_MEDIA_BYTES = 8 * 1024 * 1024;
+/** Chờ tối đa khi tải 1 file media từ URL (ms). */
+const MEDIA_FETCH_TIMEOUT_MS = 15_000;
+
+/** Đuôi file theo MIME — dùng khi giải mã data URI trong file backup bot nuke. */
+const MIME_EXT = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/gif": "gif",
+  "image/webp": "webp",
+  "image/avif": "avif",
+  "image/bmp": "bmp",
+  "image/svg+xml": "svg",
+  "video/mp4": "mp4",
+  "video/webm": "webm",
+  "video/quicktime": "mov",
+  "audio/mpeg": "mp3",
+  "audio/ogg": "ogg",
+  "audio/wav": "wav",
+  "text/plain": "txt",
+  "text/html": "html",
+  "application/json": "json",
+  "application/pdf": "pdf",
+  "application/zip": "zip",
+};
+
+function extFromMime(mime) {
+  const key = String(mime || "").toLowerCase().split(";")[0].trim();
+  return MIME_EXT[key] || "bin";
+}
+
+/** Lấy tên file từ URL (bỏ query ?ex=... của CDN Discord), null nếu không có. */
+function nameFromUrl(url) {
+  try {
+    const u = new URL(String(url));
+    const base = decodeURIComponent(u.pathname.split("/").filter(Boolean).pop() || "");
+    const cleaned = base.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80);
+    return cleaned || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Tải 1 attachment (URL Discord CDN / URL bất kỳ hoặc data URI base64 nhúng
+ * trong file backup của bot nuke) về buffer để đính trực tiếp vào tin khôi phục.
+ * Trả { attachment: Buffer, name } hoặc null nếu không tải được / quá nặng.
+ */
+async function resolveAttachment(att, index) {
+  const s = String(att || "").trim();
+  if (!s) return null;
+  try {
+    if (s.startsWith("data:")) {
+      const m = s.match(/^data:([^;,]+)?(;base64)?,(.*)$/s);
+      if (!m) return null;
+      const mime = m[1] || "";
+      const buf = Buffer.from((m[3] || "").replace(/\s+/g, ""), "base64");
+      if (!buf.length || buf.length > MAX_MEDIA_BYTES) return null;
+      return { attachment: buf, name: `media-${index}.${extFromMime(mime)}` };
+    }
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), MEDIA_FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(s, { signal: ctrl.signal, redirect: "follow" });
+      if (!res.ok) return null;
+      const len = Number(res.headers.get("content-length") || 0);
+      if (len > MAX_MEDIA_BYTES) return null;
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (!buf.length || buf.length > MAX_MEDIA_BYTES) return null;
+      return { attachment: buf, name: nameFromUrl(s) || `media-${index}.bin` };
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch {
+    return null;
+  }
+}
 
 const CHANNEL_TYPES = [
   ChannelType.GuildText,
@@ -367,7 +449,9 @@ async function createChannels(guild, backup, roleMap) {
 /**
  * Phục hồi tin nhắn đã backup vào kênh mới — qua WEBHOOK (giữ tên người gửi),
  * gửi theo đúng THỨ TỰ THỜI GIAN trong file (tăng dần), tối đa
- * MAX_REPLAY_PER_CHANNEL tin/kênh. Trả về số tin đã phục hồi.
+ * MAX_REPLAY_PER_CHANNEL tin/kênh. Media (ảnh/video…) của từng tin được tải về
+ * (URL hoặc data URI base64 trong file bot nuke) và đăng LẠI THẬT vào tin khôi
+ * phục — chỉ những file không tải được mới hiện dạng link 📎. Trả số tin đã phục hồi.
  */
 async function replayMessages(guild, backup, channelMap) {
   let sent = 0;
@@ -393,21 +477,35 @@ async function replayMessages(guild, backup, channelMap) {
     }
 
     for (const m of msgs) {
+      // Tải media (tối đa 3 file/tin, mỗi file ≤ 8 MB) — file lỗi thì hiện link.
+      const files = [];
+      const failedLines = [];
+      const atts = (m.attachments || []).slice(0, 3);
+      for (let i = 0; i < atts.length; i++) {
+        const f = await resolveAttachment(atts[i], i);
+        if (f) files.push(f);
+        else failedLines.push(String(atts[i]));
+      }
+      const attachLine = failedLines.map((u) => `\n📎 ${u}`).join("");
       const content = m.content || "";
-      const attachLine = (m.attachments || []).slice(0, 2).map((u) => `\n📎 ${u}`).join("");
-      const body = content ? `${content}${attachLine}` : (attachLine || "(tin không có nội dung)");
+      const body = content ? `${content}${attachLine}` : attachLine || (files.length > 0 ? "" : "(tin không có nội dung)");
       try {
         if (webhook) {
-          await webhook.send({
-            content: body.slice(0, 2000),
+          const payload = {
             username: String(m.authorName || "?").slice(0, 32) || "?",
-          });
+          };
+          if (body.trim()) payload.content = body.slice(0, 2000);
+          if (files.length > 0) payload.files = files;
+          await webhook.send(payload);
         } else {
-          await channel.send(`**${m.authorName || "?"}:** ${body.slice(0, 1900)}`);
+          const payload = {};
+          if (body.trim()) payload.content = `**${m.authorName || "?"}:** ${body.slice(0, 1900)}`;
+          if (files.length > 0) payload.files = files;
+          await channel.send(payload);
         }
         sent++;
       } catch {
-        // bỏ qua tin lỗi, tiếp tục
+        // bỏ qua tin lỗi (vd media vượt giới hạn server), tiếp tục
       }
       await sleep(REPLAY_DELAY_MS);
     }
@@ -680,6 +778,25 @@ async function runRestore(client, store, guildId, backupJson, backupName) {
   return restoreCore(client, store, guildId, backup, { backupName, source: "restore" });
 }
 
+/** Tải nội dung file import từ Convex file storage (URL botGetPending trả về). */
+async function readImportContent(item) {
+  if (item.importFileUrl) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 60_000);
+    try {
+      const res = await fetch(item.importFileUrl, { signal: ctrl.signal });
+      if (res.ok) return await res.text();
+      console.error(`[backup:import:fetch] ${item.guildId}: HTTP ${res.status}`);
+    } catch (e) {
+      console.error(`[backup:import:fetch] ${item.guildId}:`, e?.message ?? e);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  // Fallback cho yêu cầu cũ còn lưu nội dung trực tiếp (trước bản nâng cấp file storage).
+  return item.fileContent || "";
+}
+
 /** Khôi phục từ file backup .msc/.json tải lên (bot nuke khác). */
 async function runImportRestore(client, store, guildId, fileContent, fileName) {
   const backup = normalizeBackupFile(fileContent);
@@ -752,7 +869,8 @@ async function pollBackups(client, store) {
       } else if (item.kind === "restore") {
         await runRestore(client, store, item.guildId, item.backupJson, item.guildName);
       } else if (item.kind === "import") {
-        await runImportRestore(client, store, item.guildId, item.fileContent, item.fileName);
+        const content = await readImportContent(item);
+        await runImportRestore(client, store, item.guildId, content, item.fileName);
       }
     } catch (e) {
       console.error(`[backup:${item.kind}] ${item.guildId}:`, e.message);
@@ -804,4 +922,6 @@ module.exports.normalizeBackupFile = normalizeBackupFile;
 module.exports.sortedRoles = sortedRoles;
 module.exports.sortedChannels = sortedChannels;
 module.exports.countMessages = countMessages;
+module.exports.resolveAttachment = resolveAttachment;
+module.exports.nameFromUrl = nameFromUrl;
 module.exports.MAX_REPLAY_PER_CHANNEL = MAX_REPLAY_PER_CHANNEL;

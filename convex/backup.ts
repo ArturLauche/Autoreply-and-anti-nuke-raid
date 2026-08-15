@@ -15,6 +15,14 @@ import { getUserByToken, canManageGuild, guildAccessibleBy } from "./auth";
  *     role (tên/màu/quyền), danh mục, kênh + quyền truy cập, và cấu hình cơ bản.
  */
 
+/**
+ * Giới hạn file backup .msc/.json tải lên: 8 MB — đủ cho backup có kèm media
+ * (ảnh/video dạng data URI base64 trong file của bot nuke). File được giữ trong
+ * Convex file storage (không giới hạn kích thước) chứ không nhét vào document
+ * (document chỉ chứa tối đa 1 MB).
+ */
+const MAX_IMPORT_FILE_BYTES = 8_000_000;
+
 /** Liệt kê các backup mà người dùng có quyền truy cập (từ mọi server họ quản lý). */
 export const listMine = query({
   args: { token: v.string() },
@@ -141,17 +149,38 @@ export const requestRestore = mutation({
 });
 
 /**
+ * Dashboard xin URL upload file backup .msc/.json (bot nuke) — file được POST
+ * thẳng lên Convex file storage (không giới hạn kích thước, POST có timeout 2
+ * phút) rồi chỉ lưu mã file vào document.
+ */
+export const generateImportUploadUrl = mutation({
+  args: { token: v.string(), guildId: v.string() },
+  handler: async (ctx, { token, guildId }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild)) {
+      throw new Error("Không có quyền quản lý server này");
+    }
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
  * Dashboard tải file backup .msc/.json (từ bot nuke khác) lên để bot khôi phục
- * server hiện tại theo đúng thứ tự role/kênh/tin nhắn có trong file.
+ * server hiện tại theo đúng thứ tự role/kênh/tin nhắn có trong file. File đã nằm
+ * trong Convex file storage — chỉ cần lưu mã file (storageId) vào guild.
  */
 export const requestImportRestore = mutation({
   args: {
     token: v.string(),
     guildId: v.string(),
     fileName: v.string(),
-    fileContent: v.string(),
+    storageId: v.id("_storage"),
   },
-  handler: async (ctx, { token, guildId, fileName, fileContent }) => {
+  handler: async (ctx, { token, guildId, fileName, storageId }) => {
     const user = await getUserByToken(ctx, token);
     const guild = await ctx.db
       .query("guilds")
@@ -161,16 +190,24 @@ export const requestImportRestore = mutation({
       throw new Error("Không có quyền quản lý server này");
     }
     if (!guild.botInGuild) throw new Error("Bot chưa có trong server này");
-    if (!fileContent || fileContent.trim().length < 8) {
-      throw new Error("File rỗng hoặc quá nhỏ để là backup hợp lệ");
+    const meta = await ctx.storage.getMetadata(storageId);
+    if (!meta) {
+      throw new Error("File không tồn tại hoặc đã bị xóa — hãy chọn lại file");
     }
-    if (fileContent.length > 600_000) {
-      throw new Error("File quá lớn (tối đa ~600 KB) — hãy dùng file backup cấu trúc, không kèm media");
+    if (meta.size > MAX_IMPORT_FILE_BYTES) {
+      await ctx.storage.delete(storageId);
+      throw new Error(
+        `File quá lớn (tối đa ${MAX_IMPORT_FILE_BYTES / 1_000_000} MB — file này ${(meta.size / 1_000_000).toFixed(1)} MB). Hãy nén hoặc bỏ bớt media nặng rồi thử lại.`,
+      );
+    }
+    // Dọn file import cũ chưa xử lý (nếu có) để không rác storage.
+    if (guild.importStorageId && guild.importStorageId !== storageId) {
+      await ctx.storage.delete(guild.importStorageId).catch(() => {});
     }
     await ctx.db.patch(guild._id, {
       importRestoreRequested: true,
       importFileName: String(fileName || "backup.msc").slice(0, 120),
-      importFileContent: fileContent,
+      importStorageId: storageId,
       restoreClaimedAt: undefined,
       updatedAt: Date.now(),
     });
@@ -234,7 +271,8 @@ export const botGetPending = query({
       backupJson?: string;
       guildName?: string;
       fileName?: string;
-      fileContent?: string;
+      importStorageId?: string;
+      importFileUrl?: string;
     }[] = [];
     const all = await ctx.db.query("guilds").collect();
     for (const g of all) {
@@ -259,12 +297,14 @@ export const botGetPending = query({
           });
         }
       }
-      if (g.importRestoreRequested && g.importFileContent) {
+      if (g.importRestoreRequested && g.importStorageId) {
+        const importFileUrl = await ctx.storage.getUrl(g.importStorageId).catch(() => null);
         out.push({
           kind: "import",
           guildId: g.discordId,
           fileName: g.importFileName ?? "backup.msc",
-          fileContent: g.importFileContent,
+          importStorageId: g.importStorageId,
+          importFileUrl: importFileUrl ?? undefined,
           guildName: g.name,
         });
       }

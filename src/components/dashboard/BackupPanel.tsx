@@ -16,6 +16,7 @@ import {
   Users,
 } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -40,6 +41,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
   const [autoBusy, setAutoBusy] = useState(false);
   const requestBackup = useMutation(api.backup.requestBackup);
   const requestRestore = useMutation(api.backup.requestRestore);
+  const generateUploadUrl = useMutation(api.backup.generateImportUploadUrl);
   const requestImportRestore = useMutation(api.backup.requestImportRestore);
   const setAutoBackup = useMutation(api.backup.setAutoBackup);
 
@@ -94,25 +96,35 @@ export default function BackupPanel({ data }: { data: GuildData }) {
 
   async function importFile(file: File) {
     if (!file) return;
-    if (file.size > 600_000) {
-      toast.error("File quá lớn (tối đa ~600 KB) — chỉ cấu trúc + tin nhắn, không kèm media");
+    if (file.size > 8_000_000) {
+      toast.error("File quá lớn (tối đa 8 MB) — hãy nén backup hoặc bỏ bớt media nặng rồi thử lại");
       return;
     }
     setImportBusy(true);
     try {
-      const content = await file.text();
-      if (!content || content.trim().length < 8) {
-        throw new Error("File rỗng hoặc không phải backup hợp lệ");
-      }
+      // 1) Xin URL upload → 2) POST file thẳng lên Convex file storage (chấp nhận
+      // file lớn hơn giới hạn document) → 3) chỉ lưu mã file + đặt yêu cầu khôi phục.
+      const postUrl = await generateUploadUrl({
+        token: TOKEN(),
+        guildId: data.guild.discordId,
+      });
+      const res = await fetch(postUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      if (!res.ok) throw new Error("Không tải file lên được — thử lại");
+      const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
+      if (!storageId) throw new Error("Không nhận được mã file — thử lại");
       await requestImportRestore({
         token: TOKEN(),
         guildId: data.guild.discordId,
         fileName: file.name,
-        fileContent: content,
+        storageId,
       });
       toast.success(`Đã tải "${file.name}" lên — bot khôi phục trong ~30 giây`, {
         description:
-          "Bot nhận diện định dạng (JSON thường / base64 / có lớp bọc), tạo lại role + kênh đúng thứ tự trong file và phục hồi tin nhắn nếu file có lưu.",
+          "Bot nhận diện định dạng (JSON thường / base64 / có lớp bọc), tạo lại role + kênh đúng thứ tự trong file, phục hồi tin nhắn và đăng lại media (ảnh/video…) nếu file có lưu.",
       });
       if (fileRef.current) fileRef.current.value = "";
       setImportFileName("");
@@ -125,7 +137,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
   }
 
   async function restore(backup: BackupInfo) {
-    if (!window.confirm(`Khôi phục backup của "${backup.guildName}" vào server hiện tại?\n\nBot sẽ tạo lại role (tên, màu, quyền) và kênh theo backup, sắp xếp lại đúng thứ tự, và phục hồi tin nhắn nếu backup có. Các role/kênh đang có của server này được giữ nguyên.`)) {
+    if (!window.confirm(`Khôi phục backup của "${backup.guildName}" vào server hiện tại?\n\nBot sẽ tạo lại role (tên, màu, quyền) và kênh theo backup, sắp xếp lại đúng thứ tự, phục hồi tin nhắn kèm media (ảnh/video…) nếu backup có. Các role/kênh đang có của server này được giữ nguyên.`)) {
       return;
     }
     setBusy(backup._id);
@@ -188,7 +200,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
               <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-2.5">
                 <span className="flex items-center gap-2 text-sm">
                   <MessageSquare className="h-4 w-4" />
-                  Kèm tin nhắn (tối đa 50 tin/kênh)
+                  Kèm tin nhắn + media (tối đa 50 tin/kênh)
                 </span>
                 <Switch checked={includeMessages} onCheckedChange={setIncludeMessages} />
               </label>
@@ -232,8 +244,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                 Nếu server bị một con <b className="text-foreground">bot nuke</b> phá sập mà bạn giữ được file backup của
                 nó (định dạng <code className="font-mono">.msc</code> hoặc <code className="font-mono">.json</code>), tải
                 file lên đây — bot sẽ <b className="text-foreground">nhận diện định dạng</b> (JSON thường / base64 / có lớp
-                bọc), tạo lại <b className="text-foreground">role + kênh đúng thứ tự</b> như trong file và phục hồi{" "}
-                <b className="text-foreground">tin nhắn</b> nếu file có lưu.
+                bọc), tạo lại <b className="text-foreground">role + kênh đúng thứ tự</b> như trong file, phục hồi{" "}
+                <b className="text-foreground">tin nhắn</b> và <b className="text-foreground">đăng lại media</b>{" "}
+                (ảnh/video…) nếu file có lưu.
               </p>
             </div>
           </div>
@@ -264,8 +277,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
             </Button>
           </div>
           <p className="text-[11px] text-muted-foreground">
-            Giới hạn file ~600 KB (chỉ cấu trúc + tin nhắn, không kèm media). Bot giữ nguyên role/kênh có sẵn của server
-            hiện tại — chỉ thêm mới theo file, không xóa gì.
+            Giới hạn file <b className="text-foreground">8 MB</b> (gồm cả media — file được giữ trong đám mây, không
+            nhét vào bộ nhớ bot). Bot giữ nguyên role/kênh có sẵn của server hiện tại — chỉ thêm mới theo file, không
+            xóa gì.
           </p>
         </CardContent>
       </Card>

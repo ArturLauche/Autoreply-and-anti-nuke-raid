@@ -49,7 +49,8 @@ export default defineSchema({
     /** Khôi phục từ file backup .msc/.json tải lên web (bot nuke khác). */
     importRestoreRequested: v.optional(v.boolean()),
     importFileName: v.optional(v.string()),
-    importFileContent: v.optional(v.string()),
+    /** File backup tải lên được giữ trong Convex file storage (tối đa 8 MB — chấp nhận cả media). */
+    importStorageId: v.optional(v.id("_storage")),
     /** Khóa chống lặp: bot nào claim được thì mới được chạy (2 phút). */
     backupClaimedAt: v.optional(v.number()),
     /** Backup server: cờ bot cần khôi phục + id backup dùng để khôi phục. */
