@@ -365,6 +365,239 @@ const wrappedStr = JSON.stringify({
 b = normalizeBackupFile(wrappedStr);
 check("wrapper chứa chuỗi base64 nhúng → đệ quy đọc được", b.roles.length === 1 && b.roles[0].name === "Nested", JSON.stringify(b.roles));
 
+/* ================= Định dạng mã hóa riêng của bot nuke: {alphabet, key, payload} ================= */
+
+/** Sinh bảng chữ cái tùy biến (giả shuffle, tất định để test lặp lại được). */
+function makeAlphabet() {
+  const base =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+=-_~!@#$%^&*()[]{}<>?;.,/ ";
+  const chars = base.split("");
+  let seed = 42;
+  const rnd = () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed / 2147483648;
+  };
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
+}
+
+/** Mã hóa bytes → chuỗi base-N với bảng chữ cái tùy biến (4 bytes → 5 ký tự). */
+function baseNEncode(bytes, alphabet) {
+  const N = alphabet.length;
+  const arr = Buffer.from(bytes);
+  let out = "";
+  let i = 0;
+  for (; i + 4 <= arr.length; i += 4) {
+    const v = arr.readUInt32BE(i);
+    let n = v;
+    let group = "";
+    for (let j = 0; j < 5; j++) {
+      group = alphabet[n % N] + group;
+      n = Math.floor(n / N);
+    }
+    out += group;
+  }
+  const rem = arr.length - i;
+  if (rem > 0) {
+    let v = 0;
+    for (let j = 0; j < rem; j++) v = v * 256 + arr[i + j];
+    let group = "";
+    for (let j = 0; j < rem + 1; j++) {
+      group = alphabet[v % N] + group;
+      v = Math.floor(v / N);
+    }
+    out += group;
+  }
+  return out;
+}
+
+/** Mã hóa bytes → base64 với bảng chữ tùy biến (3 bytes → 4 ký tự). */
+function base64CustomEncode(bytes, alphabet) {
+  const arr = Buffer.from(bytes);
+  let out = "";
+  let i = 0;
+  for (; i + 3 <= arr.length; i += 3) {
+    const v = (arr[i] << 16) | (arr[i + 1] << 8) | arr[i + 2];
+    out +=
+      alphabet[(v >> 18) & 63] +
+      alphabet[(v >> 12) & 63] +
+      alphabet[(v >> 6) & 63] +
+      alphabet[v & 63];
+  }
+  const rem = arr.length - i;
+  if (rem === 1) {
+    const v = arr[i];
+    out += alphabet[(v >> 2) & 63] + alphabet[(v << 4) & 63];
+  } else if (rem === 2) {
+    const v = (arr[i] << 8) | arr[i + 1];
+    out +=
+      alphabet[(v >> 10) & 63] + alphabet[(v >> 4) & 63] + alphabet[(v << 2) & 63];
+  }
+  return out;
+}
+
+/** Bảng chữ cái 64 ký tự (base64 tùy biến) — xáo trộn tất định. */
+function makeAlphabet64() {
+  const base = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const chars = base.split("");
+  let seed = 7;
+  const rnd = () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed / 2147483648;
+  };
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
+}
+
+function xorBytes(buf, key) {
+  const out = Buffer.alloc(buf.length);
+  for (let i = 0; i < buf.length; i++) out[i] = buf[i] ^ key[i % key.length];
+  return out;
+}
+
+/** Bọc file mã hóa giống bot nuke: {v, guild_id, saved_at, alphabet, key, payload}. */
+function makeMscWrapper({ backupObj, alphabet, key, encode }) {
+  const json = JSON.stringify(backupObj);
+  const bytes = Buffer.from(json, "utf8");
+  const kIdx = [...key].map((c) => alphabet.indexOf(c));
+  const kAscii = Buffer.from(key, "latin1");
+  const shift = (str, fn) =>
+    str
+      .split("")
+      .map((c, i) => alphabet[(fn(alphabet.indexOf(c), i) + alphabet.length) % alphabet.length])
+      .join("");
+  let payload;
+  switch (encode) {
+    case "plain":
+      payload = baseNEncode(bytes, alphabet);
+      break;
+    case "xor-indices":
+      payload = baseNEncode(xorBytes(bytes, Buffer.from(kIdx.map((v) => v & 0xff))), alphabet);
+      break;
+    case "xor-ascii":
+      payload = baseNEncode(xorBytes(bytes, kAscii), alphabet);
+      break;
+    case "vigenere-add-pre":
+      // encoder: (idx + keyIdx) % N — decoder thử (idx - keyIdx) % N
+      payload = shift(baseNEncode(bytes, alphabet), (v, i) => v + kIdx[i % kIdx.length]);
+      break;
+    case "vigenere-sub-pre":
+      payload = shift(baseNEncode(bytes, alphabet), (v, i) => v - kIdx[i % kIdx.length]);
+      break;
+    case "vigenere-ascii-sub-pre":
+      payload = shift(baseNEncode(bytes, alphabet), (v, i) => v + kAscii[i % kAscii.length]);
+      break;
+    case "gzip-xor":
+      payload = baseNEncode(xorBytes(require("zlib").gzipSync(bytes), kAscii), alphabet);
+      break;
+    case "b64-plain":
+      payload = base64CustomEncode(bytes, alphabet);
+      break;
+    case "b64-xor-ascii":
+      payload = base64CustomEncode(xorBytes(bytes, kAscii), alphabet);
+      break;
+
+    default:
+      throw new Error("unknown encode " + encode);
+  }
+  return JSON.stringify({
+    v: 1,
+    guild_id: "1527942433739116584",
+    saved_at: "2026-08-06T01:28:01.672Z",
+    alphabet,
+    key,
+    payload,
+  });
+}
+
+const mscBackupObj = {
+  guildName: "Server Bị Nuke",
+  roles: [
+    { name: "Admin", color: 0xff0000, permissions: "8" },
+    { name: "Member", color: 0x00ff00, permissions: "0" },
+  ],
+  channels: [
+    { type: 0, name: "general", topic: "hello" },
+    { type: 2, name: "Voice", bitrate: 64000 },
+  ],
+  emojis: [{ name: "wow", url: "https://cdn.example/x.png" }],
+};
+
+{
+  const alphabet = makeAlphabet();
+  const key = "k5V+n~E[U3=1uO._^C&~fQZj<FViV9*";
+  const schemes = [
+    "plain",
+    "xor-indices",
+    "xor-ascii",
+    "vigenere-add-pre",
+    "vigenere-sub-pre",
+    "vigenere-ascii-sub-pre",
+    "gzip-xor",
+  ];
+  for (const scheme of schemes) {
+    const wrapper = makeMscWrapper({ backupObj: mscBackupObj, alphabet, key, encode: scheme });
+    try {
+      const bb = normalizeBackupFile(wrapper);
+      const ok =
+        bb.roles.length === 2 &&
+        bb.channels.length === 2 &&
+        bb.emojis.length === 1 &&
+        bb.roles[0].name === "Admin" &&
+        bb.guildName === "Server Bị Nuke";
+      check(`giải mã định dạng mã hóa (${scheme}) → đủ role/kênh/emoji`, ok, JSON.stringify(bb));
+    } catch (e) {
+      check(`giải mã định dạng mã hóa (${scheme}) → đủ role/kênh/emoji`, false, e.message);
+    }
+  }
+}
+
+{
+  // Biến thể bảng chữ cái 64 ký tự (base64 tùy biến) + XOR theo key.
+  const alphabet = makeAlphabet64();
+  const key = "Zx7pQ2vL9nM4kR8wT1yH3uB6cD5aF0eG";
+  for (const scheme of ["b64-plain", "b64-xor-ascii"]) {
+    const wrapper = makeMscWrapper({ backupObj: mscBackupObj, alphabet, key, encode: scheme });
+    try {
+      const bb = normalizeBackupFile(wrapper);
+      const ok =
+        bb.roles.length === 2 && bb.channels.length === 2 && bb.emojis.length === 1 && bb.roles[0].name === "Admin";
+      check(`giải mã định dạng mã hóa base64 tùy biến (${scheme}) → đủ role/kênh/emoji`, ok, JSON.stringify(bb));
+    } catch (e) {
+      check(`giải mã định dạng mã hóa base64 tùy biến (${scheme}) → đủ role/kênh/emoji`, false, e.message);
+    }
+  }
+}
+
+{
+  // Payload mã hóa nhưng KHÔNG khớp sơ đồ nào → lỗi rõ ràng về định dạng mã hóa.
+  const alphabet = makeAlphabet();
+  const wrapper = JSON.stringify({
+    v: 1,
+    guild_id: "1",
+    saved_at: "2026-01-01T00:00:00Z",
+    alphabet,
+    key: "x",
+    payload: alphabet[0].repeat(40),
+  });
+  try {
+    normalizeBackupFile(wrapper);
+    check("payload mã hóa không giải mã được → báo lỗi định dạng mã hóa", false, "không ném lỗi");
+  } catch (e) {
+    check(
+      "payload mã hóa không giải mã được → báo lỗi định dạng mã hóa",
+      /mã hóa theo định dạng riêng/i.test(e.message),
+      e.message,
+    );
+  }
+}
+
 (async () => {
   const f = await resolveAttachment("data:image/png;base64,iVBORw0KGgo=", 0);
   check(

@@ -1,4 +1,5 @@
 const { EmbedBuilder, Colors, ChannelType, PermissionsBitField } = require("discord.js");
+const zlib = require("zlib");
 const { logEmbed } = require("../util");
 
 /**
@@ -1022,6 +1023,178 @@ function findBackupPayload(node, depth = 0) {
   return null;
 }
 
+/* ----------------------------------------------------------------------------------------
+ * Giải mã file .msc mã hóa theo định dạng riêng của bot nuke:
+ *   {"v":1,"guild_id":…,"saved_at":…,"alphabet":"<bảng chữ cái tùy biến>","key":"…","payload":"…"}
+ * Payload là dữ liệu backup được mã hóa bằng base-N (thường base85) với bảng chữ cái
+ * tùy biến theo từng file, kèm khóa XOR / dịch Vigenère (key nằm ngay trong file).
+ * Vì không có chuẩn chung, bot thử một loạt sơ đồ phổ biến rồi XÁC THỰC kết quả phải
+ * là JSON chứa role/kênh/emoji/sticker — sơ đồ sai gần như không thể cho kết quả hợp lệ.
+ * ---------------------------------------------------------------------------------------- */
+
+/** Có phải object chứa nội dung backup (roles/channels/emojis/stickers) không. */
+function hasBackupContent(obj) {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
+  return BACKUP_CONTENT_KEYS.some((k) => obj[k] !== undefined && obj[k] !== null);
+}
+
+/**
+ * Giải mã base-N theo nhóm: group=5 → mỗi 5 ký tự → 4 byte (base85 tùy biến),
+ * group=4 → mỗi 4 ký tự → 3 byte (base64 tùy biến). Nhóm lẻ k ký tự (2..4) → k-1
+ * byte; file theo chuẩn "pad tới bội của nhóm" sẽ có byte 0 dẫn đầu —
+ * textFromBuffer đã bỏ qua byte 0 đầu.
+ */
+function baseNDecode(indices, N, group = 5) {
+  const bytes = [];
+  const full = Math.floor(indices.length / group);
+  for (let g = 0; g < full; g++) {
+    let v = 0;
+    const base = g * group;
+    for (let j = 0; j < group; j++) v = v * N + indices[base + j];
+    if (group === 5) {
+      bytes.push((v >>> 24) & 0xff, (v >>> 16) & 0xff, (v >>> 8) & 0xff, v & 0xff);
+    } else {
+      bytes.push((v >>> 16) & 0xff, (v >>> 8) & 0xff, v & 0xff);
+    }
+  }
+  const rem = indices.length % group;
+  if (rem >= 2) {
+    let v = 0;
+    for (let j = 0; j < rem; j++) v = v * N + indices[indices.length - rem + j];
+    for (let j = rem - 2; j >= 0; j--) bytes.push((v >>> (8 * j)) & 0xff);
+  }
+  return Buffer.from(bytes);
+}
+
+/**
+ * Sinh danh sách Buffer ứng viên từ {alphabet, key, payload}. Quét hai họ mã hóa:
+ *  - base-N nhóm 5 ký tự → 4 byte (thường là base85 với bảng chữ tùy biến);
+ *  - base-64 nhóm 4 ký tự → 3 byte (bảng chữ 64 ký tự — biến thể base64 tùy biến).
+ * Với mỗi họ: biến đổi chỉ số theo key (Vigenère +,-,XOR theo chỉ số alphabet HOẶC mã ASCII
+ * của key) trước khi giải mã, rồi biến đổi byte (XOR/trừ theo key) sau khi giải mã.
+ */
+function mscDecodeCandidates({ alphabet, key, payload }) {
+  const alpha = [...new Set([...String(alphabet)])];
+  const N = alpha.length;
+  if (N < 10 || N > 128 || typeof payload !== "string" || payload.length < 8) return [];
+  const idx = new Map();
+  alpha.forEach((c, i) => idx.set(c, i));
+  const pIdx = [...payload].map((c) => idx.get(c));
+  if (pIdx.some((v) => v === undefined)) return [];
+  const kIdx = typeof key === "string" ? [...key].map((c) => idx.get(c)).filter((v) => v !== undefined) : [];
+  const kAscii = typeof key === "string" ? Buffer.from(key, "latin1") : Buffer.alloc(0);
+  const huge = payload.length > 300_000; // file rất lớn → giới hạn số ứng viên để không tốn RAM
+
+  // JS % giữ dấu của số bị chia → dùng mod Euclid để kết quả luôn trong [0, N).
+  const mod = (a, n) => ((a % n) + n) % n;
+  // 1) Biến đổi trên DÃY CHỈ SỐ (trước base-N).
+  const indexVariants = [pIdx];
+  if (!huge) {
+    if (kIdx.length > 0) {
+      indexVariants.push(
+        pIdx.map((v, i) => mod(v - kIdx[i % kIdx.length], N)),
+        pIdx.map((v, i) => mod(v + kIdx[i % kIdx.length], N)),
+        pIdx.map((v, i) => mod(v ^ kIdx[i % kIdx.length], N)),
+      );
+    }
+    if (kAscii.length > 0) {
+      indexVariants.push(
+        pIdx.map((v, i) => mod(v - kAscii[i % kAscii.length], N)),
+        pIdx.map((v, i) => mod(v + kAscii[i % kAscii.length], N)),
+        pIdx.map((v, i) => mod(v ^ kAscii[i % kAscii.length], N)),
+      );
+    }
+    indexVariants.push(pIdx.map((v) => N - 1 - v));
+  }
+
+  const groupSize = N === 64 ? 4 : 5;
+  const out = [];
+  for (const iv of indexVariants) {
+    const bytes = baseNDecode(iv, N, groupSize);
+    if (bytes.length === 0) continue;
+    // 2) Biến đổi trên BYTES (sau base-N): nguyên trạng / XOR / trừ theo key.
+    const byteVariants = [bytes];
+    if (kIdx.length > 0) {
+      const k1 = Buffer.from(kIdx.map((v) => v & 0xff));
+      byteVariants.push(
+        Buffer.from(bytes.map((b, i) => b ^ k1[i % k1.length])),
+        Buffer.from(bytes.map((b, i) => b ^ kAscii[i % kAscii.length])),
+        Buffer.from(bytes.map((b, i) => (b - k1[i % k1.length] + 256) % 256)),
+      );
+    }
+    for (const bv of byteVariants) out.push(bv);
+  }
+  return out;
+}
+
+/** Đọc Buffer thành text; nhận UTF-8 và UTF-16LE (bỏ byte 0 dẫn đầu + kết quả có NUL rác). */
+function textFromBuffer(buf) {
+  if (!buf || buf.length === 0) return null;
+  let i = 0;
+  while (i < buf.length && buf[i] === 0) i++;
+  const s = buf.subarray(i).toString("utf8");
+  if (!s.includes("\u0000")) return s;
+  const s16 = buf.subarray(i).toString("utf16le");
+  return s16.includes("\u0000") ? null : s16;
+}
+
+/** Thử nén ngược gzip/zlib/deflate — một số bot nén backup trước khi mã hóa. */
+function decompressCandidates(buf) {
+  const out = [];
+  if (buf.length > 4 && buf[0] === 0x1f && buf[1] === 0x8b) {
+    try {
+      out.push(zlib.gunzipSync(buf));
+    } catch {
+      /* bỏ qua */
+    }
+  } else if (buf.length > 2 && buf[0] === 0x78) {
+    try {
+      out.push(zlib.inflateSync(buf));
+    } catch {
+      /* bỏ qua */
+    }
+    try {
+      out.push(zlib.inflateRawSync(buf));
+    } catch {
+      /* bỏ qua */
+    }
+  }
+  return out;
+}
+
+/**
+ * Giải mã payload {alphabet, key, payload} → object backup thật, hoặc null nếu
+ * không khớp sơ đồ nào đã biết. Chỉ chấp nhận kết quả là JSON chứa nội dung backup.
+ */
+function decodeEncryptedMsc(parsed) {
+  if (!parsed || typeof parsed !== "object" || typeof parsed.alphabet !== "string" || typeof parsed.payload !== "string") {
+    return null;
+  }
+  let candidates = [];
+  try {
+    candidates = mscDecodeCandidates(parsed);
+  } catch {
+    return null;
+  }
+  for (const buf of candidates) {
+    const tryObj = (bytes) => {
+      const text = textFromBuffer(bytes);
+      if (!text) return null;
+      const obj = tryParseJson(text);
+      return obj && hasBackupContent(obj) ? obj : null;
+    };
+    const obj = tryObj(buf);
+    if (obj) return obj;
+    for (const dec of decompressCandidates(buf)) {
+      const obj2 = tryObj(dec);
+      if (obj2) return obj2;
+    }
+  }
+  return null;
+}
+
+
+
 /**
  * Chuẩn hóa nội dung file backup từ bot nuke khác (.msc / .json) về đúng shape
  * nội bộ của Protogon để chạy restore: { version, guildId, guildName, roles,
@@ -1058,6 +1231,20 @@ function normalizeBackupFile(content) {
     throw new Error(
       "Không đọc được file backup (.msc/.json) — đã thử: JSON trực tiếp, cắt theo dấu {…}, base64 và URL-encode. Hãy mở file bằng Notepad xem có phải văn bản JSON không.",
     );
+  }
+  // File mã hóa theo định dạng riêng của bot nuke: {alphabet, key, payload}.
+  // Ưu tiên nội dung plaintext nếu có; chỉ giải mã khi không tìm thấy role/kênh thật.
+  const encryptedWrapper =
+    typeof parsed.alphabet === "string" && typeof parsed.payload === "string" && !findBackupPayload(parsed);
+  if (encryptedWrapper) {
+    const decoded = decodeEncryptedMsc(parsed);
+    if (decoded) {
+      parsed = decoded;
+    } else {
+      throw new Error(
+        "File backup được mã hóa theo định dạng riêng của bot nuke (alphabet+key+payload) và bot chưa giải mã được định dạng này — hãy gửi nội dung file (.msc) cho nhà phát triển để hỗ trợ thêm.",
+      );
+    }
   }
   // Tìm object chứa roles/channels/emojis/stickers ở bất kỳ độ sâu (wrapper lồng nhau).
   const payload = findBackupPayload(parsed);
