@@ -212,6 +212,10 @@ export interface BackupInfo {
   createdAt: number;
   roleCount: number;
   channelCount: number;
+  /** Số emoji đã backup (khôi phục lại được khi restore). */
+  emojiCount?: number;
+  /** Số sticker đã backup (khôi phục lại được khi restore). */
+  stickerCount?: number;
   /** Số tin nhắn đã backup (0 = không kèm tin). */
   messageCount?: number;
   /** Nguồn backup: "backup" (bot tự chụp) | "import" (tải file .msc/.json lên). */

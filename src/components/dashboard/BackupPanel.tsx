@@ -13,6 +13,8 @@ import {
   MessageSquare,
   RefreshCw,
   ShieldCheck,
+  Smile,
+  Sticker,
   Users,
 } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
@@ -124,7 +126,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
       });
       toast.success(`Đã tải "${file.name}" lên — bot khôi phục trong ~30 giây`, {
         description:
-          "Bot nhận diện định dạng (JSON thường / base64 / có lớp bọc), tạo lại role + kênh đúng thứ tự trong file, phục hồi tin nhắn và đăng lại media (ảnh/video…) nếu file có lưu.",
+          "Bot nhận diện định dạng (JSON thường / base64 / có lớp bọc), tạo lại role + kênh đúng thứ tự trong file, phục hồi tin nhắn, đăng lại media (ảnh/video…) và tạo lại emoji/sticker nếu file có lưu.",
       });
       if (fileRef.current) fileRef.current.value = "";
       setImportFileName("");
@@ -137,7 +139,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
   }
 
   async function restore(backup: BackupInfo) {
-    if (!window.confirm(`Khôi phục backup của "${backup.guildName}" vào server hiện tại?\n\nBot sẽ tạo lại role (tên, màu, quyền) và kênh theo backup, sắp xếp lại đúng thứ tự, phục hồi tin nhắn kèm media (ảnh/video…) nếu backup có. Các role/kênh đang có của server này được giữ nguyên.`)) {
+    if (!window.confirm(`Khôi phục backup của "${backup.guildName}" vào server hiện tại?\n\nBot sẽ tạo lại role (tên, màu, quyền), kênh theo backup, sắp xếp lại đúng thứ tự, phục hồi tin nhắn kèm media (ảnh/video…) cùng emoji/sticker nếu backup có. Các role/kênh đang có của server này được giữ nguyên.`)) {
       return;
     }
     setBusy(backup._id);
@@ -184,8 +186,8 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                 <p className="mt-1 max-w-xl text-sm text-muted-foreground">
                   Bot chụp toàn bộ <b className="text-foreground">role</b> (tên, màu, hoist,
                   mentionable, quyền), <b className="text-foreground">kênh</b> (danh mục, văn bản,
-                  thoại…) kèm quyền truy cập từng kênh, và cấu hình cơ bản (prefix, từ ngữ xấu,
-                  role mod/admin, kênh log).
+                  thoại…) kèm quyền truy cập từng kênh, cùng <b className="text-foreground">emoji +
+                  sticker</b> và cấu hình cơ bản (prefix, từ ngữ xấu, role mod/admin, kênh log).
                 </p>
               </div>
             </div>
@@ -245,8 +247,8 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                 nó (định dạng <code className="font-mono">.msc</code> hoặc <code className="font-mono">.json</code>), tải
                 file lên đây — bot sẽ <b className="text-foreground">nhận diện định dạng</b> (JSON thường / base64 / có lớp
                 bọc), tạo lại <b className="text-foreground">role + kênh đúng thứ tự</b> như trong file, phục hồi{" "}
-                <b className="text-foreground">tin nhắn</b> và <b className="text-foreground">đăng lại media</b>{" "}
-                (ảnh/video…) nếu file có lưu.
+                <b className="text-foreground">tin nhắn</b>, <b className="text-foreground">đăng lại media</b>{" "}
+                (ảnh/video…) và <b className="text-foreground">tạo lại emoji/sticker</b> nếu file có lưu.
               </p>
             </div>
           </div>
@@ -478,6 +480,16 @@ function BackupListCard({
                     {b.source === "import" && (
                       <Badge className="gap-1 bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-400">
                         <FileUp className="h-3 w-3" /> Từ file
+                      </Badge>
+                    )}
+                    {(b.emojiCount ?? 0) > 0 && (
+                      <Badge className="gap-1 bg-pink-500/15 px-2 py-0.5 text-[10px] text-pink-400">
+                        <Smile className="h-3 w-3" /> {b.emojiCount} emoji
+                      </Badge>
+                    )}
+                    {(b.stickerCount ?? 0) > 0 && (
+                      <Badge className="gap-1 bg-violet-500/15 px-2 py-0.5 text-[10px] text-violet-400">
+                        <Sticker className="h-3 w-3" /> {b.stickerCount} sticker
                       </Badge>
                     )}
                     {(b.messageCount ?? 0) > 0 && (

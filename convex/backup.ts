@@ -46,6 +46,8 @@ export const listMine = query({
           createdAt: b.createdAt,
           roleCount: b.roleCount,
           channelCount: b.channelCount,
+          emojiCount: b.emojiCount ?? 0,
+          stickerCount: b.stickerCount ?? 0,
           messageCount: b.messageCount ?? 0,
           source: b.source ?? "backup",
           githubUrl: b.githubUrl ?? null,
@@ -73,6 +75,8 @@ export const listGuild = query({
       createdAt: b.createdAt,
       roleCount: b.roleCount,
       channelCount: b.channelCount,
+      emojiCount: b.emojiCount ?? 0,
+      stickerCount: b.stickerCount ?? 0,
       messageCount: b.messageCount ?? 0,
       source: b.source ?? "backup",
       githubUrl: b.githubUrl ?? null,
@@ -164,6 +168,7 @@ export const generateImportUploadUrl = mutation({
     if (!guild || !canManageGuild(user, guild)) {
       throw new Error("Không có quyền quản lý server này");
     }
+    if (!guild.botInGuild) throw new Error("Bot chưa có trong server này — hãy mời bot vào trước khi tải file khôi phục");
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -186,32 +191,44 @@ export const requestImportRestore = mutation({
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
       .first();
-    if (!guild || !canManageGuild(user, guild)) {
-      throw new Error("Không có quyền quản lý server này");
+    // Xóa file đã upload nếu có lỗi bất kỳ xảy ra sau khi tải lên (tránh rác storage).
+    const cleanupUploaded = async () => {
+      try {
+        await ctx.storage.delete(storageId);
+      } catch {
+        // đã xóa / không tồn tại — bỏ qua
+      }
+    };
+    try {
+      if (!guild || !canManageGuild(user, guild)) {
+        throw new Error("Không có quyền quản lý server này");
+      }
+      if (!guild.botInGuild) throw new Error("Bot chưa có trong server này");
+      const meta = await ctx.storage.getMetadata(storageId);
+      if (!meta) {
+        throw new Error("File không tồn tại hoặc đã bị xóa — hãy chọn lại file");
+      }
+      if (meta.size > MAX_IMPORT_FILE_BYTES) {
+        throw new Error(
+          `File quá lớn (tối đa ${MAX_IMPORT_FILE_BYTES / 1_000_000} MB — file này ${(meta.size / 1_000_000).toFixed(1)} MB). Hãy nén hoặc bỏ bớt media nặng rồi thử lại.`,
+        );
+      }
+      // Dọn file import cũ chưa xử lý (nếu có) để không rác storage.
+      if (guild.importStorageId && guild.importStorageId !== storageId) {
+        await ctx.storage.delete(guild.importStorageId).catch(() => {});
+      }
+      await ctx.db.patch(guild._id, {
+        importRestoreRequested: true,
+        importFileName: String(fileName || "backup.msc").slice(0, 120),
+        importStorageId: storageId,
+        restoreClaimedAt: undefined,
+        updatedAt: Date.now(),
+      });
+      return { ok: true };
+    } catch (e) {
+      await cleanupUploaded();
+      throw e;
     }
-    if (!guild.botInGuild) throw new Error("Bot chưa có trong server này");
-    const meta = await ctx.storage.getMetadata(storageId);
-    if (!meta) {
-      throw new Error("File không tồn tại hoặc đã bị xóa — hãy chọn lại file");
-    }
-    if (meta.size > MAX_IMPORT_FILE_BYTES) {
-      await ctx.storage.delete(storageId);
-      throw new Error(
-        `File quá lớn (tối đa ${MAX_IMPORT_FILE_BYTES / 1_000_000} MB — file này ${(meta.size / 1_000_000).toFixed(1)} MB). Hãy nén hoặc bỏ bớt media nặng rồi thử lại.`,
-      );
-    }
-    // Dọn file import cũ chưa xử lý (nếu có) để không rác storage.
-    if (guild.importStorageId && guild.importStorageId !== storageId) {
-      await ctx.storage.delete(guild.importStorageId).catch(() => {});
-    }
-    await ctx.db.patch(guild._id, {
-      importRestoreRequested: true,
-      importFileName: String(fileName || "backup.msc").slice(0, 120),
-      importStorageId: storageId,
-      restoreClaimedAt: undefined,
-      updatedAt: Date.now(),
-    });
-    return { ok: true };
   },
 });
 

@@ -810,7 +810,7 @@ async function handleBackup(client, message, args, config, store) {
     }
     const lines = list.map(
       (b, i) =>
-        `${i + 1}. **${b.guildName}** — ${new Date(b.createdAt).toLocaleString("vi-VN")} — ${b.roleCount} role · ${b.channelCount} kênh${b.pushedToGithub ? " · ☁️ GitHub" : ""}`,
+        `${i + 1}. **${b.guildName}** — ${new Date(b.createdAt).toLocaleString("vi-VN")} — ${b.roleCount} role · ${b.channelCount} kênh${(b.emojiCount ?? 0) > 0 ? ` · ${b.emojiCount} emoji` : ""}${(b.stickerCount ?? 0) > 0 ? ` · ${b.stickerCount} sticker` : ""}${b.pushedToGithub ? " · ☁️ GitHub" : ""}`,
     );
     const embed = new EmbedBuilder()
       .setColor(Colors.Blurple)

@@ -251,6 +251,10 @@ export default defineSchema({
     backupJson: v.string(),
     roleCount: v.number(),
     channelCount: v.number(),
+    /** Số emoji đã backup (khôi phục lại được khi restore). */
+    emojiCount: v.optional(v.number()),
+    /** Số sticker đã backup (khôi phục lại được khi restore). */
+    stickerCount: v.optional(v.number()),
     /** Số tin nhắn đã backup (0 = không kèm tin). */
     messageCount: v.optional(v.number()),
     /** Nguồn backup: "backup" (bot tự chụp) | "import" (tải file .msc/.json lên). */

@@ -10,6 +10,10 @@ const {
   countMessages,
   resolveAttachment,
   nameFromUrl,
+  normalizeEmoji,
+  normalizeSticker,
+  sanitizeEmojiName,
+  slimBackupForStore,
 } = require("../bot/src/handlers/backup.js");
 
 let pass = 0;
@@ -136,7 +140,7 @@ try {
   normalizeBackupFile(JSON.stringify({ hello: "world" }));
 } catch (e) {
   threw = true;
-  check("báo lỗi thiếu cấu trúc", /role hoặc kênh/i.test(e.message), e.message);
+  check("báo lỗi thiếu cấu trúc", /role.*kênh|kênh.*role/i.test(e.message), e.message);
 }
 check("thiếu roles/channels → ném lỗi", threw);
 
@@ -198,6 +202,90 @@ check(
   nameFromUrl("https://cdn.discordapp.com/attachments/1/2/hinh%20x.png?ex=1&is=2") ===
     "hinh_x.png",
   nameFromUrl("https://cdn.discordapp.com/attachments/1/2/hinh%20x.png?ex=1&is=2"),
+);
+
+console.log("\n10) Emoji từ file bot nuke (chuỗi `<:name:id>` / `<a:...>` / object có url/raw):");
+let e = normalizeEmoji("<:pepe:123>", 0);
+check("chuỗi <:name:id> → name/id", e && e.name === "pepe" && e.id === "123", JSON.stringify(e));
+e = normalizeEmoji("<a:boing:456>", 0);
+check("chuỗi <a:name:id> → animated", e && e.name === "boing" && e.animated === true, JSON.stringify(e));
+e = normalizeEmoji("vip:789", 0);
+check("chuỗi name:id → name/id", e && e.name === "vip" && e.id === "789", JSON.stringify(e));
+e = normalizeEmoji({ name: "happy", url: "https://cdn.discordapp.com/emojis/1.png", animated: false }, 0);
+check("object có url → giữ url", e && e.name === "happy" && e.url === "https://cdn.discordapp.com/emojis/1.png", JSON.stringify(e));
+e = normalizeEmoji({ emojiName: "wow", image: "data:image/png;base64,AAAA" }, 0);
+check("object có raw base64 (image) → raw", e && e.name === "wow" && e.raw === "data:image/png;base64,AAAA", JSON.stringify(e));
+check("emoji rỗng/null → null", normalizeEmoji("", 0) === null && normalizeEmoji(null, 0) === null);
+
+console.log("\n11) Sticker từ file bot nuke (URL chuỗi / object có tags + url):");
+let s = normalizeSticker("https://cdn.discordapp.com/stickers/1.png", 0);
+check("sticker URL chuỗi → url", s && s.url === "https://cdn.discordapp.com/stickers/1.png", JSON.stringify(s));
+s = normalizeSticker(
+  { name: "cat", tags: "😀", url: "https://cdn.discordapp.com/stickers/2.png", formatType: 1 },
+  0,
+);
+check("sticker object → name/tags/url/formatType", s && s.name === "cat" && s.tags === "😀" && s.formatType === 1, JSON.stringify(s));
+s = normalizeSticker({ name: "dog", asset: "abc123" }, 0);
+check("sticker asset → url null (không chết)", s && s.url === null && s.name === "dog", JSON.stringify(s));
+
+console.log("\n12) normalizeBackupFile đọc emoji/sticker từ file nuke (nhiều tên trường):");
+b = normalizeBackupFile(
+  JSON.stringify({
+    guildName: "Server F",
+    roles: [],
+    channels: [],
+    emojis: ["<:pepe:111>", { name: "happy", url: "https://cdn.discordapp.com/emojis/9.png" }],
+    stickers: [{ name: "cat", tags: "😀", url: "https://cdn.discordapp.com/stickers/2.png" }],
+  }),
+);
+check(
+  "đọc 2 emoji + 1 sticker + đếm đúng",
+  b.emojis.length === 2 && b.stickers.length === 1 && b.emojiCount === 2 && b.stickerCount === 1,
+  JSON.stringify({ e: b.emojis, s: b.stickers }),
+);
+check("file chỉ có emoji/sticker vẫn chấp nhận", b.roles.length === 0 && b.channels.length === 0);
+
+console.log("\n13) sanitizeEmojiName (Discord: 2-32 ký tự, chữ thường + _):");
+check("viết hoa + ký tự lạ → thường + _", sanitizeEmojiName("Pepe Hand") === "pepe_hand", sanitizeEmojiName("Pepe Hand"));
+check("tên 1 ký tự → ít nhất 2 ký tự", sanitizeEmojiName("x").length >= 2, sanitizeEmojiName("x"));
+check("tên > 32 ký tự → cắt về 32", sanitizeEmojiName("a".repeat(40)).length === 32);
+
+console.log("\n14) slimBackupForStore — bỏ base64 nặng khi lưu bản import (chống vượt 1 MB Convex):");
+const big = {
+  guildName: "Server G",
+  roles: [],
+  channels: [
+    {
+      name: "general",
+      type: 0,
+      messages: [
+        {
+          content: "a",
+          author: "A",
+          attachments: [
+            "data:image/png;base64,AAA",
+            "https://cdn.discordapp.com/attachments/1/2/x.png",
+          ],
+        },
+      ],
+    },
+  ],
+  emojis: [{ name: "wow", raw: "data:image/png;base64,BBB" }],
+  stickers: [{ name: "cat", raw: "data:image/png;base64,CCC", url: "https://cdn.discordapp.com/stickers/2.png" }],
+};
+const slim = slimBackupForStore(big);
+check(
+  "bỏ data URI trong attachment, giữ URL",
+  slim.channels[0].messages[0].attachments.length === 1 &&
+    slim.channels[0].messages[0].attachments[0].startsWith("https://"),
+  JSON.stringify(slim.channels[0].messages[0].attachments),
+);
+check("bỏ raw emoji", slim.emojis[0].raw === undefined, JSON.stringify(slim.emojis[0]));
+check("bỏ raw sticker, giữ url", slim.stickers[0].raw === undefined && slim.stickers[0].url !== null, JSON.stringify(slim.stickers[0]));
+check(
+  "bản gốc KHÔNG bị sửa đổi (vẫn dùng để đăng media thật)",
+  big.channels[0].messages[0].attachments[0].startsWith("data:") && big.emojis[0].raw !== undefined,
+  JSON.stringify(big.emojis[0]),
 );
 
 (async () => {

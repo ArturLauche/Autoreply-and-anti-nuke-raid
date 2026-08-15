@@ -167,6 +167,25 @@ async function snapshotGuild(guild, { includeMessages = false } = {}) {
       unicodeEmoji: r.unicodeEmoji ?? null,
     }));
 
+  const emojis = [...guild.emojis.cache.values()]
+    .filter((e) => e.name && e.available !== false)
+    .map((e) => ({
+      id: e.id,
+      name: e.name,
+      animated: !!e.animated,
+      url: e.imageURL({ size: 128, extension: e.animated ? "gif" : "png" }) ?? null,
+    }));
+  const stickers = [...guild.stickers.cache.values()]
+    .map((s) => ({
+      id: s.id,
+      name: s.name,
+      description: s.description ?? null,
+      tags: s.tags ?? null,
+      formatType: s.format ?? null,
+      url: s.url ?? null,
+    }))
+    .filter((s) => s.name && s.url);
+
   const channels = [];
   let messageTotal = 0;
   for (const c of [...guild.channels.cache.values()].sort((a, b) => a.position - b.position)) {
@@ -206,12 +225,16 @@ async function snapshotGuild(guild, { includeMessages = false } = {}) {
   }
 
   return {
-    version: 3,
+    version: 4,
     guildId: guild.id,
     guildName: guild.name,
     createdAt: Date.now(),
     roles,
     channels,
+    emojis,
+    stickers,
+    emojiCount: emojis.length,
+    stickerCount: stickers.length,
     messageCount: messageTotal,
   };
 }
@@ -265,6 +288,8 @@ async function runBackup(client, store, guildId, opts = {}) {
       backupJson: json,
       roleCount: snapshot.roles.length,
       channelCount: snapshot.channels.length,
+      emojiCount: snapshot.emojis?.length ?? 0,
+      stickerCount: snapshot.stickers?.length ?? 0,
       messageCount: snapshot.messageCount ?? 0,
       source: "backup",
     });
@@ -296,6 +321,12 @@ async function runBackup(client, store, guildId, opts = {}) {
     { name: "Role", value: `${snapshot.roles.length}`, inline: true },
     { name: "Kênh", value: `${snapshot.channels.length}`, inline: true },
   ];
+  if ((snapshot.emojis?.length ?? 0) > 0) {
+    fields.push({ name: "Emoji", value: `${snapshot.emojis.length}`, inline: true });
+  }
+  if ((snapshot.stickers?.length ?? 0) > 0) {
+    fields.push({ name: "Sticker", value: `${snapshot.stickers.length}`, inline: true });
+  }
   if ((snapshot.messageCount ?? 0) > 0) {
     fields.push({ name: "Tin nhắn", value: `${snapshot.messageCount}`, inline: true });
   }
@@ -303,13 +334,13 @@ async function runBackup(client, store, guildId, opts = {}) {
 
   const embed = logEmbed({
     title: "💾 Đã tạo backup server",
-    description: `Đã chụp **${snapshot.roles.length} role** + **${snapshot.channels.length} kênh**${(snapshot.messageCount ?? 0) > 0 ? ` + **${snapshot.messageCount} tin nhắn**` : ""} của **${snapshot.guildName}** và lưu lên cloud.`,
+    description: `Đã chụp **${snapshot.roles.length} role** + **${snapshot.channels.length} kênh**${(snapshot.emojis?.length ?? 0) > 0 ? ` + **${snapshot.emojis.length} emoji**` : ""}${(snapshot.stickers?.length ?? 0) > 0 ? ` + **${snapshot.stickers.length} sticker**` : ""}${(snapshot.messageCount ?? 0) > 0 ? ` + **${snapshot.messageCount} tin nhắn**` : ""} của **${snapshot.guildName}** và lưu lên cloud.`,
     color: Colors.Blurple,
     fields,
     footer: "Protogon · Backup",
   });
   await sendToLog(guild, embed);
-  console.log(`[backup] ${guildId}: xong (${snapshot.roles.length} roles, ${snapshot.channels.length} channels, ${snapshot.messageCount ?? 0} messages) — ${githubLine}`);
+  console.log(`[backup] ${guildId}: xong (${snapshot.roles.length} roles, ${snapshot.channels.length} channels, ${snapshot.emojis?.length ?? 0} emojis, ${snapshot.stickers?.length ?? 0} stickers, ${snapshot.messageCount ?? 0} messages) — ${githubLine}`);
 }
 
 /** Gửi embed tới kênh hệ thống của guild (best-effort). */
@@ -444,6 +475,96 @@ async function createChannels(guild, backup, roleMap) {
     }
   }
   return map;
+}
+
+/** Chuẩn hóa tên emoji (Discord: 2-32 ký tự, chữ thường + số + gạch dưới). */
+function sanitizeEmojiName(name) {
+  let n = String(name || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  if (n.length < 2) n = `${n}emj`.slice(0, 32);
+  return n.slice(0, 32) || "emoji";
+}
+
+/**
+ * Tạo lại emoji từ backup (URL CDN hoặc raw base64 nhúng trong file bot nuke).
+ * Tên được chuẩn hóa theo quy tắc Discord; mỗi emoji lỗi chỉ bỏ qua riêng lẻ.
+ */
+async function restoreEmojis(guild, backup) {
+  let created = 0;
+  const list = backup.emojis || [];
+  for (let i = 0; i < list.length; i++) {
+    const e = list[i];
+    if (!e || !e.name) continue;
+    const name = sanitizeEmojiName(e.name);
+    try {
+      const source = e.raw || e.url;
+      const f = source ? await resolveAttachment(source, i) : null;
+      if (!f) {
+        console.error(`[backup:emoji] ${e.name}: không tải được ảnh`);
+        continue;
+      }
+      await guild.emojis.create({ attachment: f.attachment, name });
+      created++;
+    } catch (err) {
+      console.error(`[backup:emoji] ${e.name}:`, err.message);
+    }
+  }
+  return created;
+}
+
+/** Tên sticker: 2-30 ký tự (Discord). */
+function sanitizeStickerName(name) {
+  const n = String(name || "").trim().slice(0, 30);
+  if (n.length < 2) return `${n}_`.slice(0, 30);
+  return n;
+}
+
+/** Sticker PNG/APNG/Lottie ≤ 512 KB — lớn hơn là Discord từ chối, bỏ qua sớm. */
+const MAX_STICKER_BYTES = 512 * 1024;
+
+/**
+ * Tạo lại sticker từ backup (URL CDN hoặc raw base64 nhúng trong file bot nuke).
+ * tags là emoji unicode đại diện (Discord bắt buộc với PNG/APNG) — mặc định 😀.
+ */
+async function restoreStickers(guild, backup) {
+  let created = 0;
+  const list = backup.stickers || [];
+  for (let i = 0; i < list.length; i++) {
+    const s = list[i];
+    if (!s || !s.name) continue;
+    const name = sanitizeStickerName(s.name);
+    try {
+      const source = s.raw || s.url;
+      const f = source ? await resolveAttachment(source, i) : null;
+      if (!f || f.attachment.length > MAX_STICKER_BYTES) {
+        console.error(`[backup:sticker] ${s.name}: không tải được file (hoặc quá 512 KB)`);
+        continue;
+      }
+      const tags = String(s.tags || "😀").slice(0, 8) || "😀";
+      try {
+        await guild.stickers.create({
+          file: f.attachment,
+          name,
+          tags,
+          description: s.description ? String(s.description).slice(0, 100) : undefined,
+        });
+      } catch (err) {
+        // Lottie đôi khi không nhận tags → thử lại không tags.
+        await guild.stickers.create({
+          file: f.attachment,
+          name,
+          description: s.description ? String(s.description).slice(0, 100) : undefined,
+        });
+      }
+      created++;
+    } catch (err) {
+      console.error(`[backup:sticker] ${s.name}:`, err.message);
+    }
+  }
+  return created;
 }
 
 /**
@@ -649,6 +770,105 @@ function normalizeChannel(c, index) {
 }
 
 /**
+ * Chuẩn hóa 1 emoji từ file bot nuke khác: chuỗi `<:name:id>` / `<a:name:id>` /
+ * `name:id` / tên trần, hoặc object có { name, url/imageUrl, raw base64 }.
+ */
+function normalizeEmoji(e, index) {
+  if (e === null || e === undefined) return null;
+  if (typeof e === "string") {
+    const s = e.trim();
+    if (!s) return null;
+    let name = "";
+    let id = "";
+    const m = s.match(/^<a?:([a-zA-Z0-9_]+):(\d+)>$/);
+    if (m) {
+      name = m[1];
+      id = m[2];
+    } else {
+      const parts = s.split(":");
+      name = parts[0];
+      id = parts[1] ?? "";
+    }
+    if (!name) return null;
+    return {
+      id: id || `emoji-${index}`,
+      name: name.slice(0, 32),
+      animated: s.startsWith("<a:"),
+      url: null,
+      raw: null,
+    };
+  }
+  if (typeof e === "object") {
+    const name = str(e.name ?? e.emojiName ?? e.emoji_name ?? "", "");
+    if (!name) return null;
+    const urlRaw = str(e.url ?? e.imageUrl ?? e.image_url ?? e.assetUrl ?? "", null);
+    // data URI nhét trong trường url → chuyển sang raw (không lưu blob vào bản gọn).
+    const url = urlRaw && urlRaw.startsWith("http") ? urlRaw : null;
+    const raw =
+      typeof e.raw === "string" && e.raw.startsWith("data:")
+        ? e.raw
+        : typeof e.image === "string" && e.image.startsWith("data:")
+          ? e.image
+          : urlRaw && urlRaw.startsWith("data:")
+            ? urlRaw
+            : null;
+    return {
+      id: str(e.id ?? e.emojiId ?? e.emoji_id ?? `emoji-${index}`, ""),
+      name: name.slice(0, 32),
+      animated: !!e.animated,
+      url,
+      raw,
+    };
+  }
+  return null;
+}
+
+/**
+ * Chuẩn hóa 1 sticker từ file bot nuke khác: chuỗi (URL/data URI) hoặc object
+ * có { name, tags, description, url/assetUrl, raw base64 }.
+ */
+function normalizeSticker(s, index) {
+  if (s === null || s === undefined) return null;
+  if (typeof s === "string") {
+    const v = s.trim();
+    if (!v) return null;
+    return {
+      id: `sticker-${index}`,
+      name: `sticker_${index}`,
+      description: null,
+      tags: null,
+      formatType: null,
+      url: v.startsWith("http") ? v : null,
+      raw: v.startsWith("data:") ? v : null,
+    };
+  }
+  if (typeof s === "object") {
+    const name = str(s.name ?? s.stickerName ?? s.sticker_name ?? "", "");
+    if (!name) return null;
+    // asset là hash của Discord chứ không phải URL — chỉ nhận khi là link đầy đủ;
+    // data URI nhét trong trường url/asset → chuyển sang raw.
+    const urlRaw = str(s.url ?? s.assetUrl ?? s.asset ?? "", null);
+    const url = urlRaw && urlRaw.startsWith("http") ? urlRaw : null;
+    const raw =
+      typeof s.raw === "string" && s.raw.startsWith("data:")
+        ? s.raw
+        : urlRaw && urlRaw.startsWith("data:")
+          ? urlRaw
+          : null;
+    return {
+      id: str(s.id ?? s.stickerId ?? s.sticker_id ?? `sticker-${index}`, ""),
+      name: name.slice(0, 30),
+      description: s.description === null || s.description === undefined ? null : String(s.description).slice(0, 100),
+      tags: s.tags ?? s.tag ?? null,
+      formatType: s.formatType ?? s.format_type ?? s.format ?? null,
+      url,
+      raw,
+    };
+  }
+  return null;
+}
+
+/**
  * Chuẩn hóa nội dung file backup từ bot nuke khác (.msc / .json) về đúng shape
  * nội bộ của Protogon để chạy restore: { version, guildId, guildName, roles,
  * channels, settings, messageCount }. Nhận diện:
@@ -695,16 +915,30 @@ function normalizeBackupFile(content) {
         .map(normalizeChannel)
         .filter(Boolean)
     : [];
-  if (roles.length === 0 && channels.length === 0) {
-    throw new Error("File backup không chứa role hoặc kênh nào để khôi phục");
+  const emojis = Array.isArray(pickFirst(parsed, ["emojis", "guildEmojis", "emojiData", "emojisData", "customEmojis", "emojiList"]))
+    ? pickFirst(parsed, ["emojis", "guildEmojis", "emojiData", "emojisData", "customEmojis", "emojiList"])
+        .map(normalizeEmoji)
+        .filter(Boolean)
+    : [];
+  const stickers = Array.isArray(pickFirst(parsed, ["stickers", "guildStickers", "stickerData", "stickersData", "stickerList"]))
+    ? pickFirst(parsed, ["stickers", "guildStickers", "stickerData", "stickersData", "stickerList"])
+        .map(normalizeSticker)
+        .filter(Boolean)
+    : [];
+  if (roles.length === 0 && channels.length === 0 && emojis.length === 0 && stickers.length === 0) {
+    throw new Error("File backup không chứa role, kênh, emoji hoặc sticker nào để khôi phục");
   }
   const settings = pickFirst(parsed, ["settings", "config", "guildSettings", "botSettings"]) ?? {};
   return {
-    version: 3,
+    version: 4,
     guildId: str(parsed.guildId ?? parsed.id ?? parsed.serverId ?? parsed.guild_id ?? "", null),
     guildName: str(parsed.guildName ?? parsed.guild_name ?? parsed.name ?? parsed.serverName ?? parsed.server_name ?? "", "server từ file backup"),
     roles,
     channels,
+    emojis,
+    stickers,
+    emojiCount: emojis.length,
+    stickerCount: stickers.length,
     settings: settings && typeof settings === "object" ? settings : {},
     messageCount: countMessages({ channels }),
     source: "import",
@@ -720,6 +954,9 @@ async function restoreCore(client, store, guildId, backup, { backupName, source 
   const roleMap = await createRoles(guild, backup);
   const channelMap = await createChannels(guild, backup, roleMap);
   const replayed = await replayMessages(guild, backup, channelMap);
+  // Emoji + sticker: tải ảnh/file về và tạo lại thật (best-effort, lỗi từng cái bỏ qua).
+  const emojisCreated = await restoreEmojis(guild, backup);
+  const stickersCreated = await restoreStickers(guild, backup);
 
   // Áp lại cấu hình cơ bản với id mới (role/kênh đã được map sang server này).
   const s = backup.settings || {};
@@ -746,6 +983,12 @@ async function restoreCore(client, store, guildId, backup, { backupName, source 
     { name: "Role đã tạo", value: `${roleMap.size}`, inline: true },
     { name: "Kênh đã tạo", value: `${channelMap.size}`, inline: true },
   ];
+  if (emojisCreated > 0) {
+    fields.push({ name: "Emoji đã tạo", value: `${emojisCreated}`, inline: true });
+  }
+  if (stickersCreated > 0) {
+    fields.push({ name: "Sticker đã tạo", value: `${stickersCreated}`, inline: true });
+  }
   if (replayed > 0) {
     fields.push({ name: "Tin nhắn đã phục hồi", value: `${replayed}`, inline: true });
   }
@@ -758,14 +1001,20 @@ async function restoreCore(client, store, guildId, backup, { backupName, source 
 
   const embed = logEmbed({
     title: "♻️ Đã khôi phục server từ backup",
-    description: `Đã tạo lại cấu trúc của **${backupName || "server đã backup"}** trên **${guild.name}**${replayed > 0 ? ` — phục hồi **${replayed} tin nhắn** theo đúng thứ tự thời gian.` : "."}`,
+    description: `Đã tạo lại cấu trúc của **${backupName || "server đã backup"}** trên **${guild.name}**${replayed > 0 ? ` — phục hồi **${replayed} tin nhắn** theo đúng thứ tự thời gian` : ""}${emojisCreated > 0 ? ` + **${emojisCreated} emoji**` : ""}${stickersCreated > 0 ? ` + **${stickersCreated} sticker**` : ""}.`,
     color: Colors.Green,
     fields,
     footer: "Protogon · Backup",
   });
   await sendToLog(guild, embed);
-  console.log(`[backup:restore] ${guildId}: ${roleMap.size} roles, ${channelMap.size} channels, ${replayed} messages (${source})`);
-  return { roleCount: roleMap.size, channelCount: channelMap.size, messageCount: replayed };
+  console.log(`[backup:restore] ${guildId}: ${roleMap.size} roles, ${channelMap.size} channels, ${replayed} messages, ${emojisCreated} emojis, ${stickersCreated} stickers (${source})`);
+  return {
+    roleCount: roleMap.size,
+    channelCount: channelMap.size,
+    messageCount: replayed,
+    emojiCount: emojisCreated,
+    stickerCount: stickersCreated,
+  };
 }
 
 async function runRestore(client, store, guildId, backupJson, backupName) {
@@ -797,20 +1046,46 @@ async function readImportContent(item) {
   return item.fileContent || "";
 }
 
+/**
+ * Làm gọn bản backup lưu lại trong guildBackups: bỏ blob base64 nặng (media
+ * trong tin nhắn + raw emoji/sticker) — chỉ giữ URL/link. Bản lưu này chỉ để
+ * xem lại / khôi phục lần sau, còn việc đăng lại media thật dùng bản đầy đủ
+ * trong bộ nhớ. Chống vượt giới hạn 1 MB của document Convex (file import lên
+ * tới 8 MB có thể nhét nhiều base64).
+ */
+function slimBackupForStore(backup) {
+  const clone = JSON.parse(JSON.stringify(backup));
+  for (const ch of clone.channels || []) {
+    for (const m of ch.messages || []) {
+      if (Array.isArray(m.attachments)) {
+        m.attachments = m.attachments
+          .map((a) => (typeof a === "string" && a.startsWith("data:") ? null : a))
+          .filter(Boolean);
+      }
+    }
+  }
+  for (const e of clone.emojis || []) delete e.raw;
+  for (const s of clone.stickers || []) delete s.raw;
+  return clone;
+}
+
 /** Khôi phục từ file backup .msc/.json tải lên (bot nuke khác). */
 async function runImportRestore(client, store, guildId, fileContent, fileName) {
   const backup = normalizeBackupFile(fileContent);
   if (!backup.guildName || backup.guildName === "server từ file backup") {
     backup.guildName = String(fileName || "backup.msc").replace(/\.(msc|json)$/i, "").slice(0, 100) || "server từ file backup";
   }
-  // Lưu bản đã chuẩn hóa vào guildBackups để xem lại / không mất dữ liệu.
+  // Lưu bản đã chuẩn hóa (đã làm gọn blob base64) vào guildBackups để xem lại /
+  // không mất dữ liệu — không nhét media nặng vào document (giới hạn 1 MB).
   try {
     await store.client.mutation("bot_writes:botStoreBackup", {
       guildId,
       guildName: backup.guildName,
-      backupJson: JSON.stringify(backup),
+      backupJson: JSON.stringify(slimBackupForStore(backup)),
       roleCount: backup.roles.length,
       channelCount: backup.channels.length,
+      emojiCount: backup.emojis?.length ?? 0,
+      stickerCount: backup.stickers?.length ?? 0,
       messageCount: backup.messageCount ?? 0,
       source: "import",
     });
@@ -924,4 +1199,8 @@ module.exports.sortedChannels = sortedChannels;
 module.exports.countMessages = countMessages;
 module.exports.resolveAttachment = resolveAttachment;
 module.exports.nameFromUrl = nameFromUrl;
+module.exports.normalizeEmoji = normalizeEmoji;
+module.exports.normalizeSticker = normalizeSticker;
+module.exports.sanitizeEmojiName = sanitizeEmojiName;
+module.exports.slimBackupForStore = slimBackupForStore;
 module.exports.MAX_REPLAY_PER_CHANNEL = MAX_REPLAY_PER_CHANNEL;
