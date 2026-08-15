@@ -1035,15 +1035,20 @@ async function readImportContent(item) {
     try {
       const res = await fetch(item.importFileUrl, { signal: ctrl.signal });
       if (res.ok) return await res.text();
-      console.error(`[backup:import:fetch] ${item.guildId}: HTTP ${res.status}`);
+      throw new Error(
+        `Không tải được file backup từ đám mây (HTTP ${res.status}) — hãy thử tải lại file`,
+      );
     } catch (e) {
-      console.error(`[backup:import:fetch] ${item.guildId}:`, e?.message ?? e);
+      if (e?.name === "AbortError" || e?.code === "ABORT_ERR") {
+        throw new Error("Tải file backup từ đám mây quá lâu (> 60 giây) — hãy thử lại");
+      }
+      throw e;
     } finally {
       clearTimeout(timer);
     }
   }
-  // Fallback cho yêu cầu cũ còn lưu nội dung trực tiếp (trước bản nâng cấp file storage).
-  return item.fileContent || "";
+  if (item.fileContent) return item.fileContent; // fallback yêu cầu cũ lưu nội dung trực tiếp
+  throw new Error("Không lấy được file backup từ đám mây — hãy thử tải lại file");
 }
 
 /**
@@ -1149,11 +1154,15 @@ async function pollBackups(client, store) {
       }
     } catch (e) {
       console.error(`[backup:${item.kind}] ${item.guildId}:`, e.message);
-      // Xóa cờ để không kẹt lặp lại mãi (bot sẽ retry sau khi claim hết hạn).
+      // Import (.msc/.json): BÁO LỖI lên dashboard để người dùng thấy lý do
+      // (bot xóa cờ + file, giữ lại importError — web đọc qua backup:importStatus).
+      // Backup/khôi phục backup có sẵn: xóa cờ như cũ (không có màn hình chờ).
+      const reportKind =
+        item.kind === "import" ? "bot_writes:botReportImportError" : "bot_writes:botClearBackup";
       await store.client
-        .mutation("bot_writes:botClearBackup", {
+        .mutation(reportKind, {
           guildId: item.guildId,
-          kind: item.kind,
+          ...(item.kind === "import" ? { error: String(e?.message || "Lỗi không xác định").slice(0, 300) } : { kind: item.kind }),
         })
         .catch(() => {});
     } finally {

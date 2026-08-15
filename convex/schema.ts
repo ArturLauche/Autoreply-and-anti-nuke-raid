@@ -51,6 +51,9 @@ export default defineSchema({
     importFileName: v.optional(v.string()),
     /** File backup tải lên được giữ trong Convex file storage (tối đa 8 MB — chấp nhận cả media). */
     importStorageId: v.optional(v.id("_storage")),
+    /** Lỗi xử lý file import gần nhất (bot báo lại — dashboard hiển thị thay vì im lặng). */
+    importError: v.optional(v.string()),
+    importErrorAt: v.optional(v.number()),
     /** Khóa chống lặp: bot nào claim được thì mới được chạy (2 phút). */
     backupClaimedAt: v.optional(v.number()),
     /** Backup server: cờ bot cần khôi phục + id backup dùng để khôi phục. */

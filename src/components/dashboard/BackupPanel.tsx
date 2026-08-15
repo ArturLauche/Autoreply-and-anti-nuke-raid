@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import {
@@ -41,13 +41,56 @@ export default function BackupPanel({ data }: { data: GuildData }) {
     Math.max(2, Math.min(30, data.guild.backupAutoDays ?? 7)),
   );
   const [autoBusy, setAutoBusy] = useState(false);
+  /** Theo dõi trạng thái xử lý file import: null = không chờ, active = đang chờ bot. */
+  const [importWatch, setImportWatch] = useState<null | { startedAt: number }>(null);
   const requestBackup = useMutation(api.backup.requestBackup);
   const requestRestore = useMutation(api.backup.requestRestore);
   const generateUploadUrl = useMutation(api.backup.generateImportUploadUrl);
   const requestImportRestore = useMutation(api.backup.requestImportRestore);
   const setAutoBackup = useMutation(api.backup.setAutoBackup);
+  const importStatus = useQuery(
+    api.backup.importStatus,
+    importWatch
+      ? { token: TOKEN(), guildId: data.guild.discordId, refresh: importWatch.startedAt }
+      : "skip",
+  ) as
+    | { requested: boolean; fileName: string | null; error: string | null; errorAt: number | null }
+    | null
+    | undefined;
 
   const refresh = () => setRefreshAt((n) => n + 1);
+
+  // Bot báo lỗi xử lý file import → hiện ngay lý do; xử lý xong → báo thành công.
+  useEffect(() => {
+    if (!importWatch || importStatus === undefined || importStatus === null) return;
+    if (importStatus.error) {
+      toast.error(`Khôi phục từ file thất bại: ${importStatus.error}`, {
+        description: "Hãy kiểm tra lại file backup hoặc tải lại file khác.",
+      });
+      setImportWatch(null);
+    } else if (!importStatus.requested) {
+      toast.success("Bot đã khôi phục xong backup từ file", {
+        description: "Role, kênh, tin nhắn + media và emoji/sticker đã được tạo lại trên server.",
+      });
+      setImportWatch(null);
+      window.setTimeout(refresh, 2500);
+    }
+  }, [importWatch, importStatus]);
+
+  // Chờ quá 3 phút mà bot chưa xử lý → nhắc kiểm tra bot (không treo vô thời hạn).
+  useEffect(() => {
+    if (!importWatch) return;
+    const timer = window.setTimeout(() => {
+      if (Date.now() - importWatch.startedAt > 180_000) {
+        toast.warning("Bot vẫn chưa xử lý file backup", {
+          description:
+            "Kiểm tra bot có online không; nếu bot offline hãy khởi động lại bot rồi tải lại file.",
+        });
+        setImportWatch(null);
+      }
+    }, 180_000);
+    return () => window.clearTimeout(timer);
+  }, [importWatch]);
 
   async function createBackup() {
     setBusy("backup");
@@ -124,13 +167,14 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         fileName: file.name,
         storageId,
       });
-      toast.success(`Đã tải "${file.name}" lên — bot khôi phục trong ~30 giây`, {
+      toast.success(`Đã tải "${file.name}" lên — bot đang xử lý`, {
         description:
-          "Bot nhận diện định dạng (JSON thường / base64 / có lớp bọc), tạo lại role + kênh đúng thứ tự trong file, phục hồi tin nhắn, đăng lại media (ảnh/video…) và tạo lại emoji/sticker nếu file có lưu.",
+          "Bot nhận diện định dạng (JSON thường / base64 / có lớp bọc), tạo lại role + kênh đúng thứ tự trong file, phục hồi tin nhắn, đăng lại media (ảnh/video…) và tạo lại emoji/sticker nếu file có lưu. Lỗi (nếu có) sẽ hiện ngay khi bot báo lại.",
       });
       if (fileRef.current) fileRef.current.value = "";
       setImportFileName("");
-      window.setTimeout(refresh, 30000);
+      // Bắt đầu theo dõi: bot quét mỗi ~20s, server lớn có thể mất 1-2 phút.
+      setImportWatch({ startedAt: Date.now() });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Tải file thất bại");
     } finally {
@@ -278,6 +322,13 @@ export default function BackupPanel({ data }: { data: GuildData }) {
               )}
             </Button>
           </div>
+          {importWatch && (
+            <p className="flex items-center gap-2 text-xs text-amber-400">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Đang chờ bot xử lý file — bot quét mỗi ~20 giây, server lớn có thể mất 1-2 phút.
+              Lỗi (nếu có) sẽ hiện tại đây.
+            </p>
+          )}
           <p className="text-[11px] text-muted-foreground">
             Giới hạn file <b className="text-foreground">8 MB</b> (gồm cả media — file được giữ trong đám mây, không
             nhét vào bộ nhớ bot). Bot giữ nguyên role/kênh có sẵn của server hiện tại — chỉ thêm mới theo file, không

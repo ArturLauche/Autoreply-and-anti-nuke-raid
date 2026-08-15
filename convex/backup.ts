@@ -221,6 +221,8 @@ export const requestImportRestore = mutation({
         importRestoreRequested: true,
         importFileName: String(fileName || "backup.msc").slice(0, 120),
         importStorageId: storageId,
+        importError: undefined,
+        importErrorAt: undefined,
         restoreClaimedAt: undefined,
         updatedAt: Date.now(),
       });
@@ -229,6 +231,30 @@ export const requestImportRestore = mutation({
       await cleanupUploaded();
       throw e;
     }
+  },
+});
+
+/**
+ * Dashboard theo dõi trạng thái xử lý file import (.msc/.json): bot đã nhận chưa,
+ * có lỗi gì không. Trả { requested, fileName, error, errorAt }: error != null là
+ * bot đã xử lý và thất bại (kèm lý do); requested = false && error = null là xong.
+ */
+export const importStatus = query({
+  args: { token: v.string(), guildId: v.string(), refresh: v.optional(v.number()) },
+  handler: async (ctx, { token, guildId }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild)) return null;
+    return {
+      requested: !!guild.importRestoreRequested,
+      fileName: guild.importFileName ?? null,
+      error: guild.importError ?? null,
+      errorAt: guild.importErrorAt ?? null,
+      updatedAt: guild.updatedAt,
+    };
   },
 });
 

@@ -623,6 +623,8 @@ export const botClearBackup = mutation({
       patch.importRestoreRequested = false;
       patch.importFileName = undefined;
       patch.importStorageId = undefined;
+      patch.importError = undefined;
+      patch.importErrorAt = undefined;
       patch.restoreClaimedAt = undefined;
       // Xóa luôn file backup đã tải lên (Convex file storage) — không để rác.
       if (guild.importStorageId) {
@@ -638,6 +640,40 @@ export const botClearBackup = mutation({
       patch.restoreClaimedAt = undefined;
     }
     await ctx.db.patch(guild._id, patch);
+    return { ok: true };
+  },
+});
+
+/**
+ * Bot báo lỗi xử lý file import (.msc/.json) — dashboard hiển thị lý do thay vì
+ * im lặng. Xóa cờ + file (người dùng tải lại file khác), nhưng GIỮ lại lỗi để
+ * web đọc qua backup:importStatus.
+ */
+export const botReportImportError = mutation({
+  args: { guildId: v.string(), error: v.string() },
+  handler: async (ctx, { guildId, error }) => {
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) return { ok: true };
+    await ctx.db.patch(guild._id, {
+      importRestoreRequested: false,
+      importFileName: undefined,
+      importStorageId: undefined,
+      importError: String(error || "Lỗi không xác định").slice(0, 300),
+      importErrorAt: Date.now(),
+      restoreClaimedAt: undefined,
+      updatedAt: Date.now(),
+    });
+    // Xóa file backup đã tải lên — không để rác storage (người dùng sẽ tải lại).
+    if (guild.importStorageId) {
+      try {
+        await ctx.storage.delete(guild.importStorageId);
+      } catch (e) {
+        console.error(`[backup:import:error:storage] ${guildId}:`, e instanceof Error ? e.message : e);
+      }
+    }
     return { ok: true };
   },
 });
