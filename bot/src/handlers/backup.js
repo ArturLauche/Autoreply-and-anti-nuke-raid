@@ -5,10 +5,15 @@ const { logEmbed } = require("../util");
  * Backup server → đám mây GitHub + khôi phục khi server bị nuke/raid phá sập.
  *
  * Bot quét backup:botGetPending mỗi ~20 giây:
- *  - kind "backup": chụp role (tên/màu/quyền) + kênh (kênh/quyền truy cập) + cấu hình,
- *    lưu vào bảng guildBackups, đẩy lên GitHub Gist nếu được yêu cầu.
+ *  - kind "backup": chụp role (tên/màu/quyền) + kênh (kênh/quyền truy cập) + cấu hình
+ *    + TIN NHẮN (tối đa 50 tin/kênh, kèm thứ tự thời gian), lưu vào bảng guildBackups,
+ *    đẩy lên GitHub Gist nếu được yêu cầu.
  *  - kind "restore": đọc JSON backup, tạo lại role, danh mục, kênh + overwrite,
- *    rồi áp lại cấu hình (prefix, từ ngữ xấu, role mod/admin, kênh log) với id mới.
+ *    SẮP XẾP LẠI đúng thứ tự role/kênh như trong file, phục hồi tin nhắn qua webhook
+ *    (đúng thứ tự thời gian), rồi áp lại cấu hình với id mới.
+ *  - kind "import": tải file backup .msc/.json từ bot nuke khác lên dashboard →
+ *    bot nhận diện định dạng (JSON/base64/có wrapper), chuẩn hóa, rồi khôi phục
+ *    đúng thứ tự role/kênh/tin nhắn có trong file.
  */
 
 const CHANNEL_TYPES = [
@@ -20,13 +25,49 @@ const CHANNEL_TYPES = [
   ChannelType.GuildForum,
 ];
 
+/** Số tin nhắn tối đa chụp mỗi kênh văn bản khi backup kèm tin nhắn. */
+const MAX_MESSAGES_PER_CHANNEL = 50;
+/** Tổng tin nhắn tối đa của một backup (chống phình JSON). */
+const TOTAL_MESSAGE_CAP = 3000;
+/** Số tin nhắn tối đa phục hồi lại mỗi kênh khi restore (giới hạn thời gian chạy). */
+const MAX_REPLAY_PER_CHANNEL = 50;
+/** Chờ giữa 2 tin phục hồi (ms) — dưới giới hạn rate limit webhook (~30/phút). */
+const REPLAY_DELAY_MS = 1_100;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /** Lấy bitfield quyền hiệu dụng của bot (dùng để không cấp quyền vượt quá bot). */
 function myPermissionBits(guild) {
   return guild.members.me?.permissions?.bitfield ?? 0n;
 }
 
-/** Chụp toàn bộ cấu trúc server thành object JSON. */
-function snapshotGuild(guild) {
+/** Đọc tin nhắn của một kênh văn bản (mới nhất, sắp tăng dần theo thời gian). */
+async function captureChannelMessages(channel, limit) {
+  const out = [];
+  try {
+    const fetched = await channel.messages.fetch({ limit });
+    const list = [...fetched.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+    for (const m of list) {
+      const attachments = (m.attachments?.size ?? 0) > 0 ? m.attachments.map((a) => a.url).slice(0, 3) : [];
+      out.push({
+        id: m.id,
+        authorId: m.author?.id ?? null,
+        authorName: m.author?.username ?? "?",
+        timestamp: m.createdTimestamp,
+        content: (m.content || "").slice(0, 2000),
+        attachments,
+      });
+    }
+  } catch (e) {
+    console.error(`[backup:messages] #${channel.name}:`, e.message);
+  }
+  return out;
+}
+
+/** Chụp toàn bộ cấu trúc server thành object JSON (kèm tin nhắn nếu được yêu cầu). */
+async function snapshotGuild(guild, { includeMessages = false } = {}) {
   const everyoneId = guild.id;
   const myBits = myPermissionBits(guild);
   const roles = [...guild.roles.cache.values()]
@@ -44,9 +85,11 @@ function snapshotGuild(guild) {
       unicodeEmoji: r.unicodeEmoji ?? null,
     }));
 
-  const channels = [...guild.channels.cache.values()]
-    .filter((c) => CHANNEL_TYPES.includes(c.type))
-    .map((c) => ({
+  const channels = [];
+  let messageTotal = 0;
+  for (const c of [...guild.channels.cache.values()].sort((a, b) => a.position - b.position)) {
+    if (!CHANNEL_TYPES.includes(c.type)) continue;
+    const entry = {
       id: c.id,
       name: c.name,
       type: c.type,
@@ -62,24 +105,41 @@ function snapshotGuild(guild) {
         allow: (BigInt(o.allow.bitfield) & myBits).toString(),
         deny: o.deny.bitfield.toString(),
       })),
-    }));
+    };
+    if (
+      includeMessages &&
+      (c.type === ChannelType.GuildText || c.type === ChannelType.GuildAnnouncement) &&
+      typeof c.messages?.fetch === "function"
+    ) {
+      const left = TOTAL_MESSAGE_CAP - messageTotal;
+      if (left > 0) {
+        const msgs = await captureChannelMessages(c, Math.min(MAX_MESSAGES_PER_CHANNEL, left));
+        if (msgs.length > 0) {
+          entry.messages = msgs;
+          messageTotal += msgs.length;
+        }
+      }
+    }
+    channels.push(entry);
+  }
 
   return {
-    version: 2,
+    version: 3,
     guildId: guild.id,
     guildName: guild.name,
     createdAt: Date.now(),
     roles,
     channels,
+    messageCount: messageTotal,
   };
 }
 
-async function snapshotWithSettings(client, store, guildId) {
+async function snapshotWithSettings(client, store, guildId, includeMessages) {
   const guild = client.guilds.cache.get(guildId);
   if (!guild || guild.available === false) {
     throw new Error("Bot không còn trong server hoặc server không sẵn sàng");
   }
-  const snapshot = snapshotGuild(guild);
+  const snapshot = await snapshotGuild(guild, { includeMessages });
   const cfg = await store.getConfig(guildId).catch(() => null);
   if (cfg) {
     snapshot.settings = {
@@ -111,8 +171,9 @@ async function pushToGithub(store, { guildId, backupId, backupJson, guildName })
   }
 }
 
-async function runBackup(client, store, guildId, pushToGithub) {
-  const { snapshot, guild } = await snapshotWithSettings(client, store, guildId);
+async function runBackup(client, store, guildId, opts = {}) {
+  const { pushToGithub = false, includeMessages = false } = opts;
+  const { snapshot, guild } = await snapshotWithSettings(client, store, guildId, includeMessages);
   const json = JSON.stringify(snapshot);
   let backupId;
   try {
@@ -122,6 +183,8 @@ async function runBackup(client, store, guildId, pushToGithub) {
       backupJson: json,
       roleCount: snapshot.roles.length,
       channelCount: snapshot.channels.length,
+      messageCount: snapshot.messageCount ?? 0,
+      source: "backup",
     });
     backupId = stored?.backupId;
   } catch (e) {
@@ -147,19 +210,24 @@ async function runBackup(client, store, guildId, pushToGithub) {
     .mutation("bot_writes:botClearBackup", { guildId, kind: "backup" })
     .catch((e) => console.error("[backup:clear]", e.message));
 
+  const fields = [
+    { name: "Role", value: `${snapshot.roles.length}`, inline: true },
+    { name: "Kênh", value: `${snapshot.channels.length}`, inline: true },
+  ];
+  if ((snapshot.messageCount ?? 0) > 0) {
+    fields.push({ name: "Tin nhắn", value: `${snapshot.messageCount}`, inline: true });
+  }
+  fields.push({ name: "GitHub", value: githubLine.slice(0, 200), inline: false });
+
   const embed = logEmbed({
     title: "💾 Đã tạo backup server",
-    description: `Đã chụp **${snapshot.roles.length} role** + **${snapshot.channels.length} kênh** của **${snapshot.guildName}** và lưu lên cloud.`,
+    description: `Đã chụp **${snapshot.roles.length} role** + **${snapshot.channels.length} kênh**${(snapshot.messageCount ?? 0) > 0 ? ` + **${snapshot.messageCount} tin nhắn**` : ""} của **${snapshot.guildName}** và lưu lên cloud.`,
     color: Colors.Blurple,
-    fields: [
-      { name: "Role", value: `${snapshot.roles.length}`, inline: true },
-      { name: "Kênh", value: `${snapshot.channels.length}`, inline: true },
-      { name: "GitHub", value: githubLine.slice(0, 200), inline: false },
-    ],
+    fields,
     footer: "Protogon · Backup",
   });
   await sendToLog(guild, embed);
-  console.log(`[backup] ${guildId}: xong (${snapshot.roles.length} roles, ${snapshot.channels.length} channels) — ${githubLine}`);
+  console.log(`[backup] ${guildId}: xong (${snapshot.roles.length} roles, ${snapshot.channels.length} channels, ${snapshot.messageCount ?? 0} messages) — ${githubLine}`);
 }
 
 /** Gửi embed tới kênh hệ thống của guild (best-effort). */
@@ -172,10 +240,21 @@ async function sendToLog(guild, embed) {
   }
 }
 
-/** Tạo lại role từ backup; trả về Map oldId -> newId. */
+/** Role theo đúng thứ tự vị trí trong backup (ổn định với role thiếu position). */
+function sortedRoles(backup) {
+  return (backup.roles || []).map((r, i) => ({ ...r, _i: i })).sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a._i - b._i);
+}
+
+/** Kênh theo đúng thứ tự vị trí trong backup (ổn định với kênh thiếu position). */
+function sortedChannels(backup) {
+  return (backup.channels || []).map((c, i) => ({ ...c, _i: i })).sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a._i - b._i);
+}
+
+/** Tạo lại role từ backup theo đúng thứ tự; trả về Map oldId -> newId. */
 async function createRoles(guild, backup) {
   const map = new Map();
-  for (const r of backup.roles || []) {
+  const sorted = sortedRoles(backup);
+  for (const r of sorted) {
     if (!r.name) continue;
     try {
       const opts = {
@@ -200,14 +279,27 @@ async function createRoles(guild, backup) {
       console.error(`[backup:role] ${r.name}:`, e.message);
     }
   }
+  // Sắp xếp lại vị trí role đúng như thứ tự trong file (best-effort — cao hơn = trên).
+  try {
+    const createdSorted = sorted.map((r) => map.get(r.id)).filter(Boolean);
+    for (let i = 0; i < createdSorted.length; i++) {
+      try {
+        await createdSorted[i].setPosition(i);
+      } catch {
+        // thiếu quyền / giới hạn — bỏ qua role này
+      }
+    }
+  } catch (e) {
+    console.error(`[backup:role:positions] ${guild.id}:`, e.message);
+  }
   return map;
 }
 
-/** Tạo lại kênh từ backup; trả về Map oldId -> newId. */
+/** Tạo lại kênh từ backup theo đúng thứ tự + vị trí; trả về Map oldId -> newId. */
 async function createChannels(guild, backup, roleMap) {
   const map = new Map();
   const channels = backup.channels || [];
-  const byId = new Map(channels.map((c) => [c.id, c]));
+  const sorted = sortedChannels(backup);
 
   const buildOpts = (ch) => {
     const overwrites = (ch.overwrites || [])
@@ -235,14 +327,25 @@ async function createChannels(guild, backup, roleMap) {
     return opts;
   };
 
+  const setPosition = async (ch, newId) => {
+    try {
+      const created = guild.channels.cache.get(newId) ?? (await guild.channels.fetch(newId).catch(() => null));
+      if (created && Number.isFinite(ch.position)) {
+        await created.setPosition(Math.max(0, Math.min(250, ch.position)));
+      }
+    } catch {
+      // best-effort — thứ tự tạo đã gần đúng thứ tự file
+    }
+  };
+
   // Tạo danh mục trước (theo thứ tự vị trí), rồi kênh con.
-  const sorted = [...channels].sort((a, b) => a.position - b.position);
   for (const ch of sorted) {
     if (ch.type !== ChannelType.GuildCategory) continue;
     if (map.has(ch.id)) continue;
     try {
       const c = await guild.channels.create(buildOpts(ch));
       map.set(ch.id, c.id);
+      await setPosition(ch, c.id);
     } catch (e) {
       console.error(`[backup:category] ${ch.name}:`, e.message);
     }
@@ -253,6 +356,7 @@ async function createChannels(guild, backup, roleMap) {
     try {
       const c = await guild.channels.create(buildOpts(ch));
       map.set(ch.id, c.id);
+      await setPosition(ch, c.id);
     } catch (e) {
       console.error(`[backup:channel] ${ch.name}:`, e.message);
     }
@@ -260,20 +364,264 @@ async function createChannels(guild, backup, roleMap) {
   return map;
 }
 
-async function runRestore(client, store, guildId, backupJson, backupName) {
+/**
+ * Phục hồi tin nhắn đã backup vào kênh mới — qua WEBHOOK (giữ tên người gửi),
+ * gửi theo đúng THỨ TỰ THỜI GIAN trong file (tăng dần), tối đa
+ * MAX_REPLAY_PER_CHANNEL tin/kênh. Trả về số tin đã phục hồi.
+ */
+async function replayMessages(guild, backup, channelMap) {
+  let sent = 0;
+  for (const ch of backup.channels || []) {
+    const msgs = (ch.messages || [])
+      .slice()
+      .sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
+      .slice(-MAX_REPLAY_PER_CHANNEL);
+    if (msgs.length === 0) continue;
+    const newId = channelMap.get(ch.id);
+    if (!newId) continue;
+    const channel = guild.channels.cache.get(newId) ?? (await guild.channels.fetch(newId).catch(() => null));
+    if (!channel || !channel.isTextBased?.()) continue;
+
+    let webhook = null;
+    try {
+      webhook = await channel.createWebhook({
+        name: String(backup.guildName || "Protogon Restore").slice(0, 30) || "Protogon Restore",
+        avatar: guild.iconURL({ size: 128 }) ?? undefined,
+      });
+    } catch (e) {
+      console.error(`[backup:replay:webhook] #${ch.name}:`, e.message);
+    }
+
+    for (const m of msgs) {
+      const content = m.content || "";
+      const attachLine = (m.attachments || []).slice(0, 2).map((u) => `\n📎 ${u}`).join("");
+      const body = content ? `${content}${attachLine}` : (attachLine || "(tin không có nội dung)");
+      try {
+        if (webhook) {
+          await webhook.send({
+            content: body.slice(0, 2000),
+            username: String(m.authorName || "?").slice(0, 32) || "?",
+          });
+        } else {
+          await channel.send(`**${m.authorName || "?"}:** ${body.slice(0, 1900)}`);
+        }
+        sent++;
+      } catch {
+        // bỏ qua tin lỗi, tiếp tục
+      }
+      await sleep(REPLAY_DELAY_MS);
+    }
+
+    if (webhook) webhook.delete().catch(() => {});
+  }
+  return sent;
+}
+
+/** Đếm tổng tin nhắn có trong backup. */
+function countMessages(backup) {
+  return (backup.channels || []).reduce((n, c) => n + (Array.isArray(c.messages) ? c.messages.length : 0), 0);
+}
+
+/* ------------------------- Nhập file backup .msc (bot nuke) ------------------------- */
+
+const CHANNEL_TYPE_BY_NAME = {
+  text: ChannelType.GuildText,
+  voice: ChannelType.GuildVoice,
+  category: ChannelType.GuildCategory,
+  announcement: ChannelType.GuildAnnouncement,
+  news: ChannelType.GuildAnnouncement,
+  stage: ChannelType.GuildStageVoice,
+  stagevoice: ChannelType.GuildStageVoice,
+  forum: ChannelType.GuildForum,
+};
+
+function pickFirst(obj, keys) {
+  for (const k of keys) {
+    if (obj && obj[k] !== undefined && obj[k] !== null) return obj[k];
+  }
+  return undefined;
+}
+
+function parseColor(c) {
+  if (c === undefined || c === null) return 0;
+  if (typeof c === "number") return Math.max(0, Math.min(0xffffff, Math.floor(c)));
+  const s = String(c).trim();
+  const hex = s.replace(/^#/, "");
+  if (/^[0-9a-fA-F]{6}$/.test(hex)) return parseInt(hex, 16);
+  if (/^0x[0-9a-fA-F]{1,6}$/i.test(s)) return parseInt(s.slice(2), 16);
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) ? Math.max(0, Math.min(0xffffff, n)) : 0;
+}
+
+function num(v, fallback = 0) {
+  const n = typeof v === "number" ? v : parseInt(v, 10);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function str(v, fallback = "") {
+  if (v === undefined || v === null) return fallback;
+  return String(v);
+}
+
+function normalizeType(v, fallback = ChannelType.GuildText) {
+  if (typeof v === "number") return v;
+  if (typeof v === "string") {
+    const key = v.toLowerCase().replace(/[^a-z]/g, "");
+    if (CHANNEL_TYPE_BY_NAME[key] !== undefined) return CHANNEL_TYPE_BY_NAME[key];
+    const n = parseInt(v, 10);
+    if (Number.isFinite(n)) return n;
+  }
+  return fallback;
+}
+
+function normalizeOverwrite(o) {
+  if (!o || typeof o !== "object") return null;
+  const type = o.type === 1 || o.type === "member" ? 1 : 0;
+  return {
+    id: str(o.id ?? o.roleId ?? o.userId ?? o.targetId, ""),
+    type,
+    allow: str(o.allow ?? o.allowNew ?? "0", "0"),
+    deny: str(o.deny ?? o.denyNew ?? "0", "0"),
+  };
+}
+
+function normalizeMessage(m) {
+  if (m === null || typeof m !== "object") return null;
+  let ts = pickFirst(m, ["timestamp", "createdAt", "created_at", "date", "time"]);
+  if (typeof ts === "string") ts = Date.parse(ts);
+  ts = Number.isFinite(ts) ? ts : 0;
+  const author =
+    m.author && typeof m.author === "object"
+      ? str(m.author.username ?? m.author.name ?? m.author.id, "?")
+      : str(m.author ?? m.username ?? m.user ?? "?", "?");
+  return {
+    id: str(m.id ?? "", ""),
+    authorId: str(m.author?.id ?? m.userId ?? "", ""),
+    authorName: author.slice(0, 32) || "?",
+    timestamp: ts,
+    content: str(m.content ?? m.text ?? m.message ?? "", "").slice(0, 2000),
+    attachments: Array.isArray(m.attachments)
+      ? m.attachments.map((a) => (typeof a === "string" ? a : str(a?.url ?? a?.proxyUrl ?? "", ""))).filter(Boolean).slice(0, 3)
+      : [],
+  };
+}
+
+function normalizeRole(r, index) {
+  if (!r || typeof r !== "object") return null;
+  const name = str(r.name ?? r.roleName ?? r.role_name ?? "", "");
+  if (!name) return null;
+  return {
+    id: str(r.id ?? r.roleId ?? r.role_id ?? `role-${index}`, ""),
+    name: name.slice(0, 100),
+    color: parseColor(r.color ?? r.colour),
+    hoist: !!r.hoist,
+    mentionable: !!r.mentionable,
+    permissions: str(r.permissions ?? r.permissionBits ?? "0", "0"),
+    position: num(r.position, index),
+    icon: str(r.icon ?? r.iconUrl ?? "", null),
+    unicodeEmoji: r.unicodeEmoji ?? r.emoji ?? null,
+  };
+}
+
+function normalizeChannel(c, index) {
+  if (!c || typeof c !== "object") return null;
+  const name = str(c.name ?? c.channelName ?? c.channel_name ?? "", "");
+  if (!name) return null;
+  const overwrites = Array.isArray(c.overwrites ?? c.permissionOverwrites ?? c.permission_overwrites ?? c.permissionOverwritesRaw ?? c.rolePermissions)
+    ? (c.overwrites ?? c.permissionOverwrites ?? c.permission_overwrites ?? c.permissionOverwritesRaw ?? c.rolePermissions)
+        .map(normalizeOverwrite)
+        .filter(Boolean)
+    : [];
+  const messages = Array.isArray(c.messages ?? c.messageData ?? c.msgs)
+    ? (c.messages ?? c.messageData ?? c.msgs).map(normalizeMessage).filter(Boolean)
+    : [];
+  return {
+    id: str(c.id ?? c.channelId ?? c.channel_id ?? `ch-${index}`, ""),
+    name: name.slice(0, 100),
+    type: normalizeType(c.type ?? c.channelType ?? c.channel_type),
+    topic: str(c.topic ?? c.topicText ?? "", null),
+    nsfw: !!c.nsfw,
+    bitrate: c.bitrate ? num(c.bitrate, null) : null,
+    userLimit: c.userLimit ? num(c.userLimit, null) : null,
+    position: num(c.position, index),
+    parentId: str(c.parentId ?? c.parent ?? c.parent_id ?? c.categoryId ?? c.category ?? c.parentChannelId ?? "", null),
+    overwrites,
+    messages,
+  };
+}
+
+/**
+ * Chuẩn hóa nội dung file backup từ bot nuke khác (.msc / .json) về đúng shape
+ * nội bộ của Protogon để chạy restore: { version, guildId, guildName, roles,
+ * channels, settings, messageCount }. Nhận diện:
+ *  - JSON trực tiếp, hoặc JSON bọc base64;
+ *  - có wrapper ngoài (data / guild / server / backup / snapshot / result);
+ *  - tên trường đa dạng (guildRoles, channelData, permission_overwrites…);
+ *  - màu dạng số / hex "#RRGGBB" / "0x…"; type kênh dạng số hoặc chuỗi.
+ * Ném Error kèm lý do nếu không đọc được.
+ */
+function normalizeBackupFile(content) {
+  let text = String(content || "").replace(/^\uFEFF/, "").trim();
+  let parsed = null;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    try {
+      parsed = JSON.parse(Buffer.from(text, "base64").toString("utf8"));
+    } catch {
+      throw new Error("File không phải JSON hợp lệ (đã thử cả base64) — hãy kiểm tra lại file backup");
+    }
+  }
+  // Gỡ wrapper ngoài (tối đa 3 lớp) nếu bên trong có dấu hiệu chứa roles/channels.
+  for (let i = 0; i < 3; i++) {
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) break;
+    const inner = pickFirst(parsed, ["data", "guild", "server", "backup", "snapshot", "result"]);
+    if (!inner || typeof inner !== "object" || Array.isArray(inner)) break;
+    const looksLikeBackup = ["roles", "guildRoles", "rolesData", "channels", "guildChannels", "channelsData"].some(
+      (k) => Array.isArray(inner[k]),
+    );
+    if (!looksLikeBackup) break;
+    parsed = inner;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("File backup không có cấu trúc roles/channels để khôi phục");
+  }
+
+  const roles = Array.isArray(pickFirst(parsed, ["roles", "guildRoles", "rolesData", "roleData"]))
+    ? pickFirst(parsed, ["roles", "guildRoles", "rolesData", "roleData"])
+        .map(normalizeRole)
+        .filter(Boolean)
+    : [];
+  const channels = Array.isArray(pickFirst(parsed, ["channels", "guildChannels", "channelsData", "channelData", "guildChannelsData"]))
+    ? pickFirst(parsed, ["channels", "guildChannels", "channelsData", "channelData", "guildChannelsData"])
+        .map(normalizeChannel)
+        .filter(Boolean)
+    : [];
+  if (roles.length === 0 && channels.length === 0) {
+    throw new Error("File backup không chứa role hoặc kênh nào để khôi phục");
+  }
+  const settings = pickFirst(parsed, ["settings", "config", "guildSettings", "botSettings"]) ?? {};
+  return {
+    version: 3,
+    guildId: str(parsed.guildId ?? parsed.id ?? parsed.serverId ?? parsed.guild_id ?? "", null),
+    guildName: str(parsed.guildName ?? parsed.guild_name ?? parsed.name ?? parsed.serverName ?? parsed.server_name ?? "", "server từ file backup"),
+    roles,
+    channels,
+    settings: settings && typeof settings === "object" ? settings : {},
+    messageCount: countMessages({ channels }),
+    source: "import",
+  };
+}
+
+/** Tạo lại role/kênh + phục hồi tin nhắn + áp cấu hình — dùng chung cho restore mọi nguồn. */
+async function restoreCore(client, store, guildId, backup, { backupName, source = "restore" }) {
   const guild = client.guilds.cache.get(guildId);
   if (!guild || guild.available === false) {
     throw new Error("Bot không còn trong server cần khôi phục");
   }
-  let backup;
-  try {
-    backup = JSON.parse(backupJson);
-  } catch {
-    throw new Error("Backup bị hỏng (không đọc được JSON)");
-  }
-
   const roleMap = await createRoles(guild, backup);
   const channelMap = await createChannels(guild, backup, roleMap);
+  const replayed = await replayMessages(guild, backup, channelMap);
 
   // Áp lại cấu hình cơ bản với id mới (role/kênh đã được map sang server này).
   const s = backup.settings || {};
@@ -293,27 +641,69 @@ async function runRestore(client, store, guildId, backupJson, backupName) {
     .catch((e) => console.error(`[backup:settings] ${guildId}:`, e.message));
 
   await store.client
-    .mutation("bot_writes:botClearBackup", { guildId, kind: "restore" })
+    .mutation("bot_writes:botClearBackup", { guildId, kind: source === "import" ? "import" : "restore" })
     .catch((e) => console.error("[backup:clear]", e.message));
+
+  const fields = [
+    { name: "Role đã tạo", value: `${roleMap.size}`, inline: true },
+    { name: "Kênh đã tạo", value: `${channelMap.size}`, inline: true },
+  ];
+  if (replayed > 0) {
+    fields.push({ name: "Tin nhắn đã phục hồi", value: `${replayed}`, inline: true });
+  }
+  fields.push({
+    name: "Lưu ý",
+    value:
+      "Các role/kênh có sẵn của server này được giữ nguyên. Role và kênh đã được sắp xếp lại đúng thứ tự trong file backup. Hãy kiểm tra lại quyền theo ý muốn.",
+    inline: false,
+  });
 
   const embed = logEmbed({
     title: "♻️ Đã khôi phục server từ backup",
-    description: `Đã tạo lại cấu trúc của **${backupName || "server đã backup"}** trên **${guild.name}**.`,
+    description: `Đã tạo lại cấu trúc của **${backupName || "server đã backup"}** trên **${guild.name}**${replayed > 0 ? ` — phục hồi **${replayed} tin nhắn** theo đúng thứ tự thời gian.` : "."}`,
     color: Colors.Green,
-    fields: [
-      { name: "Role đã tạo", value: `${roleMap.size}`, inline: true },
-      { name: "Kênh đã tạo", value: `${channelMap.size}`, inline: true },
-      {
-        name: "Lưu ý",
-        value:
-          "Các role/kênh có sẵn của server này được giữ nguyên. Hãy kiểm tra lại vị trí role (kéo role của bot lên cao nhất) và quyền theo ý muốn.",
-        inline: false,
-      },
-    ],
+    fields,
     footer: "Protogon · Backup",
   });
   await sendToLog(guild, embed);
-  console.log(`[backup:restore] ${guildId}: ${roleMap.size} roles, ${channelMap.size} channels`);
+  console.log(`[backup:restore] ${guildId}: ${roleMap.size} roles, ${channelMap.size} channels, ${replayed} messages (${source})`);
+  return { roleCount: roleMap.size, channelCount: channelMap.size, messageCount: replayed };
+}
+
+async function runRestore(client, store, guildId, backupJson, backupName) {
+  let backup;
+  try {
+    backup = JSON.parse(backupJson);
+  } catch {
+    throw new Error("Backup bị hỏng (không đọc được JSON)");
+  }
+  return restoreCore(client, store, guildId, backup, { backupName, source: "restore" });
+}
+
+/** Khôi phục từ file backup .msc/.json tải lên (bot nuke khác). */
+async function runImportRestore(client, store, guildId, fileContent, fileName) {
+  const backup = normalizeBackupFile(fileContent);
+  if (!backup.guildName || backup.guildName === "server từ file backup") {
+    backup.guildName = String(fileName || "backup.msc").replace(/\.(msc|json)$/i, "").slice(0, 100) || "server từ file backup";
+  }
+  // Lưu bản đã chuẩn hóa vào guildBackups để xem lại / không mất dữ liệu.
+  try {
+    await store.client.mutation("bot_writes:botStoreBackup", {
+      guildId,
+      guildName: backup.guildName,
+      backupJson: JSON.stringify(backup),
+      roleCount: backup.roles.length,
+      channelCount: backup.channels.length,
+      messageCount: backup.messageCount ?? 0,
+      source: "import",
+    });
+  } catch (e) {
+    console.error(`[backup:import:store] ${guildId}:`, e.message);
+  }
+  return restoreCore(client, store, guildId, backup, {
+    backupName: backup.guildName,
+    source: "import",
+  });
 }
 
 /**
@@ -336,7 +726,7 @@ async function claim(client, store, guildId, kind) {
   }
 }
 
-/** Vòng quét định kỳ: nhận yêu cầu backup / khôi phục từ dashboard. */
+/** Vòng quét định kỳ: nhận yêu cầu backup / khôi phục / import từ dashboard. */
 async function pollBackups(client, store) {
   let pending;
   try {
@@ -355,9 +745,14 @@ async function pollBackups(client, store) {
     inFlight.add(key);
     try {
       if (item.kind === "backup") {
-        await runBackup(client, store, item.guildId, !!item.pushToGithub);
+        await runBackup(client, store, item.guildId, {
+          pushToGithub: !!item.pushToGithub,
+          includeMessages: !!item.includeMessages,
+        });
       } else if (item.kind === "restore") {
         await runRestore(client, store, item.guildId, item.backupJson, item.guildName);
+      } else if (item.kind === "import") {
+        await runImportRestore(client, store, item.guildId, item.fileContent, item.fileName);
       }
     } catch (e) {
       console.error(`[backup:${item.kind}] ${item.guildId}:`, e.message);
@@ -403,4 +798,10 @@ async function autoBackupSweep(client, store) {
 module.exports = pollBackups;
 module.exports.runBackup = runBackup;
 module.exports.runRestore = runRestore;
+module.exports.runImportRestore = runImportRestore;
 module.exports.autoBackupSweep = autoBackupSweep;
+module.exports.normalizeBackupFile = normalizeBackupFile;
+module.exports.sortedRoles = sortedRoles;
+module.exports.sortedChannels = sortedChannels;
+module.exports.countMessages = countMessages;
+module.exports.MAX_REPLAY_PER_CHANNEL = MAX_REPLAY_PER_CHANNEL;

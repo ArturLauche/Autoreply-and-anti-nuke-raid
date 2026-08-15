@@ -212,6 +212,10 @@ export interface BackupInfo {
   createdAt: number;
   roleCount: number;
   channelCount: number;
+  /** Số tin nhắn đã backup (0 = không kèm tin). */
+  messageCount?: number;
+  /** Nguồn backup: "backup" (bot tự chụp) | "import" (tải file .msc/.json lên). */
+  source?: string;
   githubUrl: string | null;
   pushedToGithub: boolean;
 }

@@ -436,6 +436,8 @@ export const botStoreBackup = mutation({
     backupJson: v.string(),
     roleCount: v.number(),
     channelCount: v.number(),
+    messageCount: v.optional(v.number()),
+    source: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -445,6 +447,8 @@ export const botStoreBackup = mutation({
       backupJson: args.backupJson,
       roleCount: Math.max(0, Math.floor(args.roleCount)),
       channelCount: Math.max(0, Math.floor(args.channelCount)),
+      messageCount: args.messageCount === undefined ? undefined : Math.max(0, Math.floor(args.messageCount)),
+      source: args.source ?? undefined,
       pushedToGithub: false,
       createdAt: now,
     });
@@ -551,7 +555,7 @@ export const botSetRestoreRequest = mutation({
 export const botClaimBackup = mutation({
   args: {
     guildId: v.string(),
-    kind: v.union(v.literal("backup"), v.literal("restore")),
+    kind: v.union(v.literal("backup"), v.literal("restore"), v.literal("import")),
   },
   handler: async (ctx, { guildId, kind }) => {
     const guild = await ctx.db
@@ -571,6 +575,17 @@ export const botClaimBackup = mutation({
       await ctx.db.patch(guild._id, { backupClaimedAt: now, updatedAt: now });
       return { ok: true };
     }
+    if (kind === "import") {
+      if (!guild.importRestoreRequested) return { ok: false, reason: "no_request" };
+      if (
+        guild.restoreClaimedAt !== undefined &&
+        now - guild.restoreClaimedAt < 120_000
+      ) {
+        return { ok: false, reason: "in_flight" };
+      }
+      await ctx.db.patch(guild._id, { restoreClaimedAt: now, updatedAt: now });
+      return { ok: true };
+    }
     if (!guild.restoreRequested) return { ok: false, reason: "no_request" };
     if (
       guild.restoreClaimedAt !== undefined &&
@@ -587,7 +602,7 @@ export const botClaimBackup = mutation({
 export const botClearBackup = mutation({
   args: {
     guildId: v.string(),
-    kind: v.union(v.literal("backup"), v.literal("restore")),
+    kind: v.union(v.literal("backup"), v.literal("restore"), v.literal("import")),
   },
   handler: async (ctx, { guildId, kind }) => {
     const guild = await ctx.db
@@ -600,6 +615,11 @@ export const botClearBackup = mutation({
       patch.backupRequested = false;
       patch.backupPushToGithub = false;
       patch.backupClaimedAt = undefined;
+    } else if (kind === "import") {
+      patch.importRestoreRequested = false;
+      patch.importFileName = undefined;
+      patch.importFileContent = undefined;
+      patch.restoreClaimedAt = undefined;
     } else {
       patch.restoreRequested = false;
       patch.restoreBackupId = undefined;

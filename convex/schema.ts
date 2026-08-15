@@ -44,6 +44,12 @@ export default defineSchema({
     /** Backup server: cờ bot cần tạo backup. */
     backupRequested: v.optional(v.boolean()),
     backupPushToGithub: v.optional(v.boolean()),
+    /** Backup server: có kèm tin nhắn hay không (tối đa 50 tin/kênh). */
+    backupIncludeMessages: v.optional(v.boolean()),
+    /** Khôi phục từ file backup .msc/.json tải lên web (bot nuke khác). */
+    importRestoreRequested: v.optional(v.boolean()),
+    importFileName: v.optional(v.string()),
+    importFileContent: v.optional(v.string()),
     /** Khóa chống lặp: bot nào claim được thì mới được chạy (2 phút). */
     backupClaimedAt: v.optional(v.number()),
     /** Backup server: cờ bot cần khôi phục + id backup dùng để khôi phục. */
@@ -240,10 +246,14 @@ export default defineSchema({
   guildBackups: defineTable({
     guildId: v.string(),
     guildName: v.string(),
-    /** JSON cấu trúc server: roles (tên/màu/quyền) + channels (kênh/quyền kênh). */
+    /** JSON cấu trúc server: roles (tên/màu/quyền) + channels (kênh/quyền kênh) + tin nhắn. */
     backupJson: v.string(),
     roleCount: v.number(),
     channelCount: v.number(),
+    /** Số tin nhắn đã backup (0 = không kèm tin). */
+    messageCount: v.optional(v.number()),
+    /** Nguồn backup: "backup" (bot tự chụp) | "import" (tải file .msc/.json lên). */
+    source: v.optional(v.string()),
     /** URL gist GitHub nếu backup đã được đẩy lên đám mây. */
     githubUrl: v.optional(v.string()),
     pushedToGithub: v.boolean(),

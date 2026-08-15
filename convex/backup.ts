@@ -38,6 +38,8 @@ export const listMine = query({
           createdAt: b.createdAt,
           roleCount: b.roleCount,
           channelCount: b.channelCount,
+          messageCount: b.messageCount ?? 0,
+          source: b.source ?? "backup",
           githubUrl: b.githubUrl ?? null,
           pushedToGithub: b.pushedToGithub,
         });
@@ -63,6 +65,8 @@ export const listGuild = query({
       createdAt: b.createdAt,
       roleCount: b.roleCount,
       channelCount: b.channelCount,
+      messageCount: b.messageCount ?? 0,
+      source: b.source ?? "backup",
       githubUrl: b.githubUrl ?? null,
       pushedToGithub: b.pushedToGithub,
     }));
@@ -75,8 +79,10 @@ export const requestBackup = mutation({
     token: v.string(),
     guildId: v.string(),
     pushToGithub: v.optional(v.boolean()),
+    /** Kèm tin nhắn (tối đa 50 tin/kênh) khi chụp backup. */
+    includeMessages: v.optional(v.boolean()),
   },
-  handler: async (ctx, { token, guildId, pushToGithub }) => {
+  handler: async (ctx, { token, guildId, pushToGithub, includeMessages }) => {
     const user = await getUserByToken(ctx, token);
     const guild = await ctx.db
       .query("guilds")
@@ -89,6 +95,7 @@ export const requestBackup = mutation({
     await ctx.db.patch(guild._id, {
       backupRequested: true,
       backupPushToGithub: !!pushToGithub,
+      backupIncludeMessages: !!includeMessages,
       backupClaimedAt: undefined,
       updatedAt: Date.now(),
     });
@@ -126,6 +133,44 @@ export const requestRestore = mutation({
     await ctx.db.patch(guild._id, {
       restoreRequested: true,
       restoreBackupId: backupId,
+      restoreClaimedAt: undefined,
+      updatedAt: Date.now(),
+    });
+    return { ok: true };
+  },
+});
+
+/**
+ * Dashboard tải file backup .msc/.json (từ bot nuke khác) lên để bot khôi phục
+ * server hiện tại theo đúng thứ tự role/kênh/tin nhắn có trong file.
+ */
+export const requestImportRestore = mutation({
+  args: {
+    token: v.string(),
+    guildId: v.string(),
+    fileName: v.string(),
+    fileContent: v.string(),
+  },
+  handler: async (ctx, { token, guildId, fileName, fileContent }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild)) {
+      throw new Error("Không có quyền quản lý server này");
+    }
+    if (!guild.botInGuild) throw new Error("Bot chưa có trong server này");
+    if (!fileContent || fileContent.trim().length < 8) {
+      throw new Error("File rỗng hoặc quá nhỏ để là backup hợp lệ");
+    }
+    if (fileContent.length > 600_000) {
+      throw new Error("File quá lớn (tối đa ~600 KB) — hãy dùng file backup cấu trúc, không kèm media");
+    }
+    await ctx.db.patch(guild._id, {
+      importRestoreRequested: true,
+      importFileName: String(fileName || "backup.msc").slice(0, 120),
+      importFileContent: fileContent,
       restoreClaimedAt: undefined,
       updatedAt: Date.now(),
     });
@@ -180,7 +225,17 @@ export const botGetDueAuto = query({
 export const botGetPending = query({
   args: {},
   handler: async (ctx) => {
-    const out: { kind: string; guildId: string; pushToGithub?: boolean; backupId?: string; backupJson?: string; guildName?: string }[] = [];
+    const out: {
+      kind: string;
+      guildId: string;
+      pushToGithub?: boolean;
+      includeMessages?: boolean;
+      backupId?: string;
+      backupJson?: string;
+      guildName?: string;
+      fileName?: string;
+      fileContent?: string;
+    }[] = [];
     const all = await ctx.db.query("guilds").collect();
     for (const g of all) {
       if (g.backupRequested) {
@@ -188,6 +243,7 @@ export const botGetPending = query({
           kind: "backup",
           guildId: g.discordId,
           pushToGithub: !!g.backupPushToGithub,
+          includeMessages: !!g.backupIncludeMessages,
           guildName: g.name,
         });
       }
@@ -202,6 +258,15 @@ export const botGetPending = query({
             guildName: b.guildName,
           });
         }
+      }
+      if (g.importRestoreRequested && g.importFileContent) {
+        out.push({
+          kind: "import",
+          guildId: g.discordId,
+          fileName: g.importFileName ?? "backup.msc",
+          fileContent: g.importFileContent,
+          guildName: g.name,
+        });
       }
     }
     return out;

@@ -5,16 +5,19 @@
  * ("⏱️ Timeout hết hạn") — phân biệt với trường hợp mod chủ động GỠ timeout
  * (lệnh /mod untimeout — vốn đã có log riêng).
  *
- * Thời điểm được ghi nhận khi:
- *  - bot tự áp timeout (auto-mod / antinuke / heat) — heat.js punishMember
- *  - mod áp timeout thủ công (/mod timeout) — modTools.js timeoutMember
- *  - bot nhìn thấy timeout mới trên sự kiện guildMemberUpdate (mod áp trực tiếp
- *    trên Discord hoặc bot khác) — attach() bên dưới
+ * ⚠️ Vì sao KHÔNG dựa vào sự kiện guildMemberUpdate làm đường chính:
+ * discord.js v14 KHÔNG phát sự kiện này cho thành viên KHÔNG nằm trong cache
+ * (discordjs/discord.js#5685), và bot này giới hạn cache member ở 200 — nên ở
+ * server lớn, sự kiện hết hạn bị rơi, embed không xuất hiện. Vì vậy:
  *
- * Khi timeout hết hạn tự nhiên, Discord đổi communicationDisabledUntil → null và
- * phát guildMemberUpdate; attach() phát hiện và gửi embed tới kênh log moderation.
+ *  1. track() lên lịch MỘT TIMER NGAY (hết hạn + 1.5s): khi chạy, kiểm tra mục
+ *     vẫn là bản đang theo dõi (chưa bị gỡ / gia hạn) → forget + gửi embed.
+ *     Đây là đường CHÍNH — hoạt động kể cả khi gateway không gửi sự kiện gì.
+ *  2. guildMemberUpdate chỉ là đường PHỤ: timeout mới áp trực tiếp trên Discord
+ *     (không qua bot) mới được track ở đây; khi thấy timeout biến mất thì gửi
+ *     embed như cũ. Cả 2 đường đều forget TRƯỚC khi gửi → không bao giờ log trùng.
+ *
  * Gỡ chủ động thì modTools.js gọi forget() trước → không log nhầm thành hết hạn.
- *
  * Giới hạn: tracker nằm trong RAM — nếu bot khởi động lại giữa chừng, các timeout
  * đang chạy sẽ không được log lúc hết hạn (best-effort, không phạt ai thêm).
  *
@@ -22,21 +25,80 @@
  */
 const { sendCaseLog } = require("./caseLog");
 
-const timeouts = new Map();
+const timeouts = new Map(); // key -> until (ms)
+const timers = new Map(); // key -> setTimeout id
+const MAX_TIMER_MS = 2_147_000_000; // setTimeout 32-bit: ~24.8 ngày (Discord tối đa 28 ngày)
+
+let clientRef = null;
+let storeRef = null;
 
 function key(guildId, userId) {
   return `${guildId}:${userId}`;
 }
 
+/** Lên lịch timer kiểm tra hết hạn (hủy timer cũ nếu có — gia hạn sẽ thay thế). */
+function scheduleTimer(guildId, userId, until) {
+  const k = key(guildId, userId);
+  clearTimeout(timers.get(k));
+  const delay = Math.max(1_000, Math.min(MAX_TIMER_MS, until - Date.now() + 1_500));
+  timers.set(
+    k,
+    setTimeout(() => {
+      void onTimerFire(guildId, userId, until).catch((e) => console.error("[timeoutWatch:timer]", e?.message || e));
+    }, delay),
+  );
+}
+
+/** Timer chạy: mục vẫn là bản đang theo dõi và đã qua mốc hết hạn → log. */
+async function onTimerFire(guildId, userId, until) {
+  const k = key(guildId, userId);
+  if (timeouts.get(k) !== until) return; // đã bị gỡ / gia hạn → bỏ qua
+  if (Date.now() < until) {
+    // Timer bị cap 32-bit với timeout rất dài — đặt lại cho tới hạn.
+    timers.set(
+      k,
+      setTimeout(() => {
+        void onTimerFire(guildId, userId, until).catch((e) => console.error("[timeoutWatch:timer]", e?.message || e));
+      }, Math.min(MAX_TIMER_MS, until - Date.now() + 1_500)),
+    );
+    return;
+  }
+  timers.delete(k);
+  timeouts.delete(k);
+  await maybeLogExpired(guildId, userId, until);
+}
+
+/** Gửi embed "⏱️ Timeout hết hạn" (caller đã forget đồng bộ trước khi await). */
+async function maybeLogExpired(guildId, userId, until) {
+  if (Date.now() < until) return false; // mod gỡ sớm → không log
+  const guild = clientRef?.guilds?.cache.get(guildId);
+  if (!guild || guild.available === false) return false;
+  const guildConfig = storeRef ? await storeRef.getConfig(guildId).catch(() => null) : null;
+  const username = guild.members?.cache?.get(userId)?.user?.username ?? userId;
+  await sendCaseLog({
+    guild,
+    guildConfig,
+    action: "timeout_expired",
+    offender: { id: userId, username },
+    reason: "Timeout đã hết hạn tự nhiên.",
+  });
+  return true;
+}
+
 /** Ghi nhận một timeout đang chạy, hết hạn lúc `until` (ms). */
 function track(guildId, userId, until) {
   if (!guildId || !userId || !Number.isFinite(until)) return;
-  timeouts.set(key(guildId, userId), until);
+  const k = key(guildId, userId);
+  timeouts.set(k, until);
+  scheduleTimer(guildId, userId, until);
 }
 
 /** Bỏ theo dõi (gỡ timeout / hết hạn / thành viên rời server). */
 function forget(guildId, userId) {
-  timeouts.delete(key(guildId, userId));
+  const k = key(guildId, userId);
+  timeouts.delete(k);
+  clearTimeout(timers.get(k));
+  timers.delete(k);
 }
 
 /** Thời điểm hết hạn đang theo dõi (ms) hoặc null. */
@@ -44,11 +106,18 @@ function getUntil(guildId, userId) {
   return timeouts.get(key(guildId, userId)) ?? null;
 }
 
-/** Dọn các mục đã hết hạn (chống rò rỉ RAM). */
+/**
+ * Dọn các mục đã hết hạn (chống rò rỉ RAM). Đợi quá hạn 2 phút trước khi xóa —
+ * nếu gateway gửi sự kiện hết hạn trễ hơn timer, đường phụ vẫn có mục để log.
+ */
 function sweep() {
-  const now = Date.now();
+  const cutoff = Date.now() - 120_000;
   for (const [k, until] of timeouts) {
-    if (until <= now) timeouts.delete(k);
+    if (until <= cutoff) {
+      timeouts.delete(k);
+      clearTimeout(timers.get(k));
+      timers.delete(k);
+    }
   }
 }
 
@@ -58,14 +127,17 @@ function size() {
 }
 
 /**
- * Gắn listener phát hiện timeout hết hạn (gọi 1 lần từ index.js):
- *  - guildMemberUpdate: timeout mới/gia hạn → track; hết hạn tự nhiên (after =
- *    null và đã qua mốc track) → gửi embed "⏱️ Timeout hết hạn"; gỡ sớm → chỉ
- *    forget, không log (untimeout đã có embed riêng).
+ * Gắn listener (gọi 1 lần từ index.js):
+ *  - guildMemberUpdate: đường PHỤ — timeout mới/gia hạn → track (có timer riêng);
+ *    timeout biến mất và đã qua mốc track → gửi embed "⏱️ Timeout hết hạn" (dedupe
+ *    bằng forget-first; timer chính cũng bị vô hiệu vì mục đã hết).
  *  - guildMemberRemove: forget (thành viên rời server khi đang bị timeout).
- *  - sweep định kỳ 60s dọn bộ nhớ.
+ *  - sweep định kỳ 60s dọn bộ nhớ (chỉ mục quá hạn > 2 phút).
  */
 function attach(client, store) {
+  clientRef = client;
+  storeRef = store;
+
   client.on("guildMemberUpdate", async (_oldMember, newMember) => {
     try {
       const guildId = newMember.guild?.id;
@@ -80,18 +152,10 @@ function attach(client, store) {
       // Timeout đã được gỡ / hết hạn: quyết định dựa trên mốc đã track.
       const trackedUntil = getUntil(guildId, userId);
       if (!trackedUntil) return;
-      // forget đồng bộ TRƯỚC await → nếu Discord phát event chồng nhau, lần sau
-      // thấy trackedUntil = null nên không log trùng.
+      // forget đồng bộ TRƯỚC await → đường chính (timer) thấy mục hết nên không log trùng.
       forget(guildId, userId);
       if (Date.now() < trackedUntil) return; // mod gỡ sớm → không log
-      const guildConfig = store ? await store.getConfig(guildId) : null;
-      await sendCaseLog({
-        guild: newMember.guild,
-        guildConfig,
-        action: "timeout_expired",
-        offender: { id: userId, username: newMember.user?.username ?? userId },
-        reason: "Timeout đã hết hạn tự nhiên.",
-      });
+      await maybeLogExpired(guildId, userId, trackedUntil);
     } catch (e) {
       console.error("[timeoutWatch]", e?.message || e);
     }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import {
@@ -6,9 +6,11 @@ import {
   CloudUpload,
   DatabaseBackup,
   ExternalLink,
+  FileUp,
   FolderTree,
   Github,
   Loader2,
+  MessageSquare,
   RefreshCw,
   ShieldCheck,
   Users,
@@ -25,7 +27,11 @@ const TOKEN = () => getSessionToken();
 
 export default function BackupPanel({ data }: { data: GuildData }) {
   const [pushGithub, setPushGithub] = useState(true);
+  const [includeMessages, setIncludeMessages] = useState(true);
   const [busy, setBusy] = useState<"backup" | string | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importFileName, setImportFileName] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
   const [refreshAt, setRefreshAt] = useState(0);
   const [autoOn, setAutoOn] = useState((data.guild.backupAutoDays ?? 0) > 0);
   const [autoDays, setAutoDays] = useState(
@@ -34,6 +40,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
   const [autoBusy, setAutoBusy] = useState(false);
   const requestBackup = useMutation(api.backup.requestBackup);
   const requestRestore = useMutation(api.backup.requestRestore);
+  const requestImportRestore = useMutation(api.backup.requestImportRestore);
   const setAutoBackup = useMutation(api.backup.setAutoBackup);
 
   const refresh = () => setRefreshAt((n) => n + 1);
@@ -45,11 +52,16 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         token: TOKEN(),
         guildId: data.guild.discordId,
         pushToGithub: pushGithub,
+        includeMessages,
       });
       toast.success("Đã yêu cầu tạo backup — bot thực hiện trong ~20 giây", {
         description: pushGithub
-          ? "Backup sẽ được lưu trên Convex và đẩy lên GitHub (token của chủ bot — dùng chung mọi server)."
-          : "Backup sẽ được lưu trên Convex.",
+          ? includeMessages
+            ? "Backup (kèm tin nhắn) sẽ được lưu trên Convex và đẩy lên GitHub (token của chủ bot — dùng chung mọi server)."
+            : "Backup sẽ được lưu trên Convex và đẩy lên GitHub (token của chủ bot — dùng chung mọi server)."
+          : includeMessages
+            ? "Backup (kèm tin nhắn) sẽ được lưu trên Convex."
+            : "Backup sẽ được lưu trên Convex.",
       });
       // Tự động tải lại danh sách sau khi bot kịp xử lý.
       window.setTimeout(refresh, 25000);
@@ -80,8 +92,40 @@ export default function BackupPanel({ data }: { data: GuildData }) {
     }
   }
 
+  async function importFile(file: File) {
+    if (!file) return;
+    if (file.size > 600_000) {
+      toast.error("File quá lớn (tối đa ~600 KB) — chỉ cấu trúc + tin nhắn, không kèm media");
+      return;
+    }
+    setImportBusy(true);
+    try {
+      const content = await file.text();
+      if (!content || content.trim().length < 8) {
+        throw new Error("File rỗng hoặc không phải backup hợp lệ");
+      }
+      await requestImportRestore({
+        token: TOKEN(),
+        guildId: data.guild.discordId,
+        fileName: file.name,
+        fileContent: content,
+      });
+      toast.success(`Đã tải "${file.name}" lên — bot khôi phục trong ~30 giây`, {
+        description:
+          "Bot nhận diện định dạng (JSON thường / base64 / có lớp bọc), tạo lại role + kênh đúng thứ tự trong file và phục hồi tin nhắn nếu file có lưu.",
+      });
+      if (fileRef.current) fileRef.current.value = "";
+      setImportFileName("");
+      window.setTimeout(refresh, 30000);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Tải file thất bại");
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
   async function restore(backup: BackupInfo) {
-    if (!window.confirm(`Khôi phục backup của "${backup.guildName}" vào server hiện tại?\n\nBot sẽ tạo lại role (tên, màu, quyền) và kênh theo backup. Các role/kênh đang có của server này được giữ nguyên.`)) {
+    if (!window.confirm(`Khôi phục backup của "${backup.guildName}" vào server hiện tại?\n\nBot sẽ tạo lại role (tên, màu, quyền) và kênh theo backup, sắp xếp lại đúng thứ tự, và phục hồi tin nhắn nếu backup có. Các role/kênh đang có của server này được giữ nguyên.`)) {
       return;
     }
     setBusy(backup._id);
@@ -133,16 +177,22 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                 </p>
               </div>
             </div>
-            <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-2.5">
-              <span className="flex items-center gap-2 text-sm">
-                <Github className="h-4 w-4" />
-                Đồng thời đẩy backup lên GitHub (Gist riêng tư)
-                <Badge variant="secondary" className="px-2 py-0.5 text-[10px]">
-                  token chủ bot · dùng chung
-                </Badge>
-              </span>
-              <Switch checked={pushGithub} onCheckedChange={setPushGithub} />
-            </label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-2.5">
+                <span className="flex items-center gap-2 text-sm">
+                  <Github className="h-4 w-4" />
+                  Đồng thời đẩy lên GitHub (Gist riêng tư)
+                </span>
+                <Switch checked={pushGithub} onCheckedChange={setPushGithub} />
+              </label>
+              <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-2.5">
+                <span className="flex items-center gap-2 text-sm">
+                  <MessageSquare className="h-4 w-4" />
+                  Kèm tin nhắn (tối đa 50 tin/kênh)
+                </span>
+                <Switch checked={includeMessages} onCheckedChange={setIncludeMessages} />
+              </label>
+            </div>
             <p className="text-[11px] text-muted-foreground">
               Backup luôn được lưu trong Convex; đẩy lên GitHub giúp bạn còn giữ được dữ liệu ngay
               cả khi Convex bị xóa. Mọi server đều dùng chung <code className="font-mono">GITHUB_TOKEN</code>{" "}
@@ -164,6 +214,59 @@ export default function BackupPanel({ data }: { data: GuildData }) {
               )}
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Khôi phục từ file backup của bot nuke (.msc / .json) */}
+      <Card className="border-amber-500/25 bg-gradient-to-br from-amber-500/10 via-transparent to-transparent">
+        <CardContent className="grid gap-4 p-5">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400">
+              <FileUp className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="font-display font-semibold">
+                Khôi phục từ file backup của bot nuke (.msc / .json)
+              </p>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                Nếu server bị một con <b className="text-foreground">bot nuke</b> phá sập mà bạn giữ được file backup của
+                nó (định dạng <code className="font-mono">.msc</code> hoặc <code className="font-mono">.json</code>), tải
+                file lên đây — bot sẽ <b className="text-foreground">nhận diện định dạng</b> (JSON thường / base64 / có lớp
+                bọc), tạo lại <b className="text-foreground">role + kênh đúng thứ tự</b> như trong file và phục hồi{" "}
+                <b className="text-foreground">tin nhắn</b> nếu file có lưu.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".msc,.json,application/json"
+              onChange={(e) => setImportFileName(e.target.files?.[0]?.name ?? "")}
+              className="max-w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-secondary file:px-3 file:py-2 file:text-sm file:font-medium file:text-foreground file:transition-colors hover:file:bg-secondary/80"
+            />
+            <Button
+              onClick={() => {
+                const f = fileRef.current?.files?.[0];
+                if (f) void importFile(f);
+              }}
+              disabled={importBusy || !importFileName}
+            >
+              {importBusy ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Đang tải lên…
+                </>
+              ) : (
+                <>
+                  <FileUp className="h-4 w-4" /> Tải lên & khôi phục
+                </>
+              )}
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Giới hạn file ~600 KB (chỉ cấu trúc + tin nhắn, không kèm media). Bot giữ nguyên role/kênh có sẵn của server
+            hiện tại — chỉ thêm mới theo file, không xóa gì.
+          </p>
         </CardContent>
       </Card>
 
@@ -356,6 +459,16 @@ function BackupListCard({
                     {b.pushedToGithub && (
                       <Badge className="gap-1 bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-400">
                         <Github className="h-3 w-3" /> GitHub
+                      </Badge>
+                    )}
+                    {b.source === "import" && (
+                      <Badge className="gap-1 bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-400">
+                        <FileUp className="h-3 w-3" /> Từ file
+                      </Badge>
+                    )}
+                    {(b.messageCount ?? 0) > 0 && (
+                      <Badge className="gap-1 bg-sky-500/15 px-2 py-0.5 text-[10px] text-sky-400">
+                        <MessageSquare className="h-3 w-3" /> {b.messageCount} tin
                       </Badge>
                     )}
                   </div>
