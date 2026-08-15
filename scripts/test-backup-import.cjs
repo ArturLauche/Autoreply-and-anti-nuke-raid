@@ -130,7 +130,7 @@ try {
   normalizeBackupFile("day khong phai json cung khong phai base64 !!!");
 } catch (e) {
   threw = true;
-  check("báo lỗi rõ ràng", /không phải JSON/i.test(e.message), e.message);
+  check("báo lỗi rõ ràng", /không đọc được file backup|không phải JSON/i.test(e.message), e.message);
 }
 check("file hỏng → ném lỗi", threw);
 
@@ -287,6 +287,83 @@ check(
   big.channels[0].messages[0].attachments[0].startsWith("data:") && big.emojis[0].raw !== undefined,
   JSON.stringify(big.emojis[0]),
 );
+
+console.log("\n15) JSON nằm giữa văn bản thừa (dòng tiêu đề / trailer):");
+b = normalizeBackupFile(
+  "MSC BACKUP v1.0 — file khong sua doi\n" +
+    JSON.stringify({ guildName: "Server H", roles: [{ name: "Mod" }], channels: [{ name: "general", type: 0 }] }) +
+    "\n--- het file ---",
+);
+check("cắt được JSON giữa tiêu đề + trailer", b.roles.length === 1 && b.channels.length === 1, JSON.stringify({ r: b.roles.length, c: b.channels.length }));
+
+console.log("\n16) Base64 có tiền tố (base64://, data:...;base64,) + URL-encode:");
+const raw16 = JSON.stringify({ guildName: "Server I", roles: [{ name: "Vip" }] });
+check(
+  "base64:// prefix",
+  normalizeBackupFile("base64://" + Buffer.from(raw16).toString("base64")).roles[0].name === "Vip",
+  "",
+);
+check(
+  "data:application/json;base64, prefix",
+  normalizeBackupFile("data:application/json;base64," + Buffer.from(raw16).toString("base64")).roles[0].name === "Vip",
+  "",
+);
+check(
+  "URL-encode",
+  normalizeBackupFile(encodeURIComponent(raw16)).roles[0].name === "Vip",
+  encodeURIComponent(raw16).slice(0, 40),
+);
+
+console.log("\n17) Roles/channels dạng OBJECT keyed-by-id (không phải array):");
+b = normalizeBackupFile(
+  JSON.stringify({
+    guildName: "Server J",
+    roles: { r1: { name: "Admin", permissions: "administrator,ban_members" }, r2: { name: "Member" } },
+    channels: {
+      c1: { name: "general", type: 0 },
+      c2: { name: "Văn phòng", type: 4 },
+    },
+  }),
+);
+check("object roles → 2 role đúng thứ tự", b.roles.length === 2 && b.roles[0].name === "Admin", JSON.stringify(b.roles.map((r) => r.name)));
+check("object channels → 2 kênh", b.channels.length === 2, String(b.channels.length));
+
+console.log("\n18) Quyền lưu theo TÊN → bitfield (administrator/ban_members, view_channel/send_messages):");
+check(
+  "administrator+ban_members → bitfield 12",
+  b.roles[0].permissions === "12",
+  b.roles[0].permissions,
+);
+b = normalizeBackupFile(
+  JSON.stringify({
+    guildName: "Server K",
+    roles: [],
+    channels: [
+      {
+        name: "general",
+        type: 0,
+        overwrites: [{ id: "x", type: 0, allow: ["view_channel", "send_messages"], deny: 0 }],
+      },
+    ],
+  }),
+);
+check(
+  "overwrite allow theo tên → bitfield 3072 (view_channel=1024, send_messages=2048)",
+  b.channels[0].overwrites[0].allow === "3072",
+  b.channels[0].overwrites[0].allow,
+);
+
+console.log("\n19) Wrapper sâu 5 lớp + wrapper chứa chuỗi JSON/base64 nhúng:");
+b = normalizeBackupFile(
+  JSON.stringify({ result: { data: { guild: { server: { backup: { snapshot: { roles: [{ name: "Deep" }] } } } } } } }),
+);
+check("wrapper 5 lớp → đọc được role", b.roles.length === 1 && b.roles[0].name === "Deep", String(b.roles.length));
+const wrappedStr = JSON.stringify({
+  ok: true,
+  content: Buffer.from(JSON.stringify({ guildName: "Server L", roles: [{ name: "Nested" }] })).toString("base64"),
+});
+b = normalizeBackupFile(wrappedStr);
+check("wrapper chứa chuỗi base64 nhúng → đệ quy đọc được", b.roles.length === 1 && b.roles[0].name === "Nested", JSON.stringify(b.roles));
 
 (async () => {
   const f = await resolveAttachment("data:image/png;base64,iVBORw0KGgo=", 0);

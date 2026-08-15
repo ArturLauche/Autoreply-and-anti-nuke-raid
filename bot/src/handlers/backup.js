@@ -1,4 +1,4 @@
-const { EmbedBuilder, Colors, ChannelType } = require("discord.js");
+const { EmbedBuilder, Colors, ChannelType, PermissionsBitField } = require("discord.js");
 const { logEmbed } = require("../util");
 
 /**
@@ -699,8 +699,9 @@ function normalizeOverwrite(o) {
   return {
     id: str(o.id ?? o.roleId ?? o.userId ?? o.targetId, ""),
     type,
-    allow: str(o.allow ?? o.allowNew ?? "0", "0"),
-    deny: str(o.deny ?? o.denyNew ?? "0", "0"),
+    // allow/deny có thể là số, chuỗi số, hoặc DANH SÁCH TÊN quyền (vd "manage_messages,view_channel").
+    allow: parsePermissions(o.allow ?? o.allowNew ?? "0"),
+    deny: parsePermissions(o.deny ?? o.denyNew ?? "0"),
   };
 }
 
@@ -735,7 +736,8 @@ function normalizeRole(r, index) {
     color: parseColor(r.color ?? r.colour),
     hoist: !!r.hoist,
     mentionable: !!r.mentionable,
-    permissions: str(r.permissions ?? r.permissionBits ?? "0", "0"),
+    // permissions có thể là số/chuỗi số, hoặc danh sách tên quyền ("manage_messages,ban_members").
+    permissions: parsePermissions(r.permissions ?? r.permissionBits ?? "0"),
     position: num(r.position, index),
     icon: str(r.icon ?? r.iconUrl ?? "", null),
     unicodeEmoji: r.unicodeEmoji ?? r.emoji ?? null,
@@ -751,8 +753,8 @@ function normalizeChannel(c, index) {
         .map(normalizeOverwrite)
         .filter(Boolean)
     : [];
-  const messages = Array.isArray(c.messages ?? c.messageData ?? c.msgs)
-    ? (c.messages ?? c.messageData ?? c.msgs).map(normalizeMessage).filter(Boolean)
+  const messages = asArray(c.messages ?? c.messageData ?? c.msgs)
+    ? asArray(c.messages ?? c.messageData ?? c.msgs).map(normalizeMessage).filter(Boolean)
     : [];
   return {
     id: str(c.id ?? c.channelId ?? c.channel_id ?? `ch-${index}`, ""),
@@ -868,63 +870,216 @@ function normalizeSticker(s, index) {
   return null;
 }
 
+/** Quyền lưu dạng danh sách TÊN → bitfield (discord.js: tên camelCase "ManageMessages"). */
+function permFlagValue(key) {
+  const k = String(key || "").trim();
+  if (!k) return null;
+  const F = PermissionsBitField.Flags;
+  if (F[k] !== undefined) return F[k];
+  const camel = k.replace(/_([a-z])/g, (_, c) => c.toUpperCase()).replace(/^([a-z])/, (c) => c.toUpperCase());
+  if (F[camel] !== undefined) return F[camel];
+  const lower = k.toLowerCase();
+  for (const fk of Object.keys(F)) {
+    if (fk.toLowerCase() === lower) return F[fk];
+  }
+  return null;
+}
+
+/**
+ * Chuẩn hóa permissions: số / chuỗi số / mảng tên / chuỗi tên cách nhau
+ * ("manage_messages,ban_members") → bitfield dạng chuỗi.
+ */
+function parsePermissions(raw) {
+  if (raw === undefined || raw === null || raw === "") return "0";
+  if (typeof raw === "number") return String(Math.max(0, Math.floor(raw)));
+  if (Array.isArray(raw)) raw = raw.join(",");
+  const s = String(raw).trim();
+  if (/^\d+$/.test(s)) return s;
+  let bits = 0n;
+  for (const part of s.split(/[,\s|]+/)) {
+    const v = permFlagValue(part);
+    if (v !== undefined && v !== null) bits |= BigInt(v);
+  }
+  return bits.toString();
+}
+
+/** Nhận array hoặc object keyed-by-id (biến thể "channels": {"123": {...}} → [...values]). */
+function asArray(v) {
+  if (Array.isArray(v)) return v;
+  if (v && typeof v === "object") return Object.values(v);
+  return null;
+}
+
+/** Thử đọc JSON từ chuỗi; trả null nếu không phải. */
+function tryParseJson(text) {
+  try {
+    const v = JSON.parse(text);
+    return v && typeof v === "object" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Giải mã base64 (bỏ khoảng trắng); chỉ nhận khi kết quả trông giống JSON. */
+function decodeB64Text(text) {
+  try {
+    const cleaned = String(text).replace(/\s+/g, "");
+    if (cleaned.length < 8) return text;
+    const out = Buffer.from(cleaned, "base64").toString("utf8");
+    return /[{\[}\]]/.test(out) ? out : text;
+  } catch {
+    return text;
+  }
+}
+
+/** Cắt lấy phần JSON nằm giữa văn bản thừa (dòng tiêu đề "MSC BACKUP v1.0" / trailer…). */
+function extractJsonFromText(text) {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    const parsed = tryParseJson(text.slice(start, end + 1));
+    if (parsed) return parsed;
+  }
+  const startB = text.indexOf("[");
+  const endB = text.lastIndexOf("]");
+  if (startB >= 0 && endB > startB) {
+    const parsed = tryParseJson(text.slice(startB, endB + 1));
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
+/** Các khóa chứa nội dung backup thật (array hoặc object keyed-by-id). */
+const BACKUP_CONTENT_KEYS = [
+  "roles",
+  "guildRoles",
+  "rolesData",
+  "roleData",
+  "channels",
+  "guildChannels",
+  "channelsData",
+  "channelData",
+  "emojis",
+  "guildEmojis",
+  "emojiData",
+  "stickers",
+  "guildStickers",
+  "stickerData",
+];
+/** Các khóa wrapper thường gặp của file bot nuke khác. */
+const WRAP_KEYS = [
+  "data",
+  "guild",
+  "server",
+  "backup",
+  "snapshot",
+  "result",
+  "body",
+  "content",
+  "file",
+  "json",
+  "payload",
+  "response",
+  "message",
+];
+
+/**
+ * Tìm object chứa roles/channels/emojis/stickers ở bất kỳ độ sâu nào trong file
+ * backup (wrapper lồng nhau tối đa 10 lớp, kể cả wrapper chứa chuỗi JSON/base64
+ * nhúng — đọc đệ quy chính nó). Trả null nếu không tìm thấy.
+ */
+function findBackupPayload(node, depth = 0) {
+  if (!node || typeof node !== "object" || depth > 10) return null;
+  if (Array.isArray(node)) return null;
+  const hasContent = BACKUP_CONTENT_KEYS.some((k) => node[k] !== undefined && node[k] !== null);
+  if (hasContent) return node;
+  for (const k of WRAP_KEYS) {
+    const v = node[k];
+    if (v === undefined || v === null) continue;
+    if (typeof v === "string") {
+      // Nhận chuỗi JSON trực tiếp HOẶC chuỗi base64 giải mã ra JSON.
+      const looksJsonish = /[{\[}\]]/.test(v) || decodeB64Text(v) !== v;
+      if (looksJsonish) {
+        try {
+          const nested = normalizeBackupFile(v);
+          if (nested) return nested;
+        } catch {
+          // không phải JSON — tiếp tục
+        }
+      }
+      continue;
+    }
+    const found = findBackupPayload(v, depth + 1);
+    if (found) return found;
+  }
+  for (const k of Object.keys(node)) {
+    const v = node[k];
+    if (v && typeof v === "object") {
+      const found = findBackupPayload(v, depth + 1);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 /**
  * Chuẩn hóa nội dung file backup từ bot nuke khác (.msc / .json) về đúng shape
  * nội bộ của Protogon để chạy restore: { version, guildId, guildName, roles,
- * channels, settings, messageCount }. Nhận diện:
- *  - JSON trực tiếp, hoặc JSON bọc base64;
- *  - có wrapper ngoài (data / guild / server / backup / snapshot / result);
+ * channels, emojis, stickers, settings, messageCount }. Nhận diện:
+ *  - JSON trực tiếp / bọc base64 (kể cả có tiền tố data:...;base64, / base64://) / URL-encode;
+ *  - JSON nằm giữa văn bản thừa (dòng tiêu đề, trailer…);
+ *  - có wrapper ngoài (data / guild / server / backup / snapshot / result / body…)
+ *    tới 5 lớp, kể cả wrapper chứa chuỗi JSON/base64 nhúng;
+ *  - roles/channels/emojis/stickers/messages dạng ARRAY hoặc OBJECT keyed-by-id;
  *  - tên trường đa dạng (guildRoles, channelData, permission_overwrites…);
- *  - màu dạng số / hex "#RRGGBB" / "0x…"; type kênh dạng số hoặc chuỗi.
+ *  - màu dạng số / hex "#RRGGBB" / "0x…"; type kênh dạng số hoặc chuỗi;
+ *  - quyền dạng bitfield số hoặc danh sách tên ("manage_messages,ban_members").
  * Ném Error kèm lý do nếu không đọc được.
  */
 function normalizeBackupFile(content) {
   let text = String(content || "").replace(/^\uFEFF/, "").trim();
-  let parsed = null;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
+  // Gỡ tiền tố base64 thường gặp: data:application/json;base64, / base64:// / base64: / b64:
+  const prefixed = text.match(/^(?:data:application\/(?:json|octet-stream)[^,]*;base64,|base64:\/\/|base64:|b64:)(.+)$/is);
+  if (prefixed) text = prefixed[1].trim();
+  // URL-encode (có %7B… mà chưa có dấu { thật)
+  if (!text.includes("{") && /%7B|%7D|%5B|%5D/i.test(text)) {
     try {
-      parsed = JSON.parse(Buffer.from(text, "base64").toString("utf8"));
+      text = decodeURIComponent(text);
     } catch {
-      throw new Error("File không phải JSON hợp lệ (đã thử cả base64) — hãy kiểm tra lại file backup");
+      // giữ nguyên — các bước sau vẫn thử
     }
   }
-  // Gỡ wrapper ngoài (tối đa 3 lớp) nếu bên trong có dấu hiệu chứa roles/channels.
-  for (let i = 0; i < 3; i++) {
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) break;
-    const inner = pickFirst(parsed, ["data", "guild", "server", "backup", "snapshot", "result"]);
-    if (!inner || typeof inner !== "object" || Array.isArray(inner)) break;
-    const looksLikeBackup = ["roles", "guildRoles", "rolesData", "channels", "guildChannels", "channelsData"].some(
-      (k) => Array.isArray(inner[k]),
-    );
-    if (!looksLikeBackup) break;
-    parsed = inner;
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("File backup không có cấu trúc roles/channels để khôi phục");
-  }
 
-  const roles = Array.isArray(pickFirst(parsed, ["roles", "guildRoles", "rolesData", "roleData"]))
-    ? pickFirst(parsed, ["roles", "guildRoles", "rolesData", "roleData"])
-        .map(normalizeRole)
-        .filter(Boolean)
-    : [];
-  const channels = Array.isArray(pickFirst(parsed, ["channels", "guildChannels", "channelsData", "channelData", "guildChannelsData"]))
-    ? pickFirst(parsed, ["channels", "guildChannels", "channelsData", "channelData", "guildChannelsData"])
-        .map(normalizeChannel)
-        .filter(Boolean)
-    : [];
-  const emojis = Array.isArray(pickFirst(parsed, ["emojis", "guildEmojis", "emojiData", "emojisData", "customEmojis", "emojiList"]))
-    ? pickFirst(parsed, ["emojis", "guildEmojis", "emojiData", "emojisData", "customEmojis", "emojiList"])
-        .map(normalizeEmoji)
-        .filter(Boolean)
-    : [];
-  const stickers = Array.isArray(pickFirst(parsed, ["stickers", "guildStickers", "stickerData", "stickersData", "stickerList"]))
-    ? pickFirst(parsed, ["stickers", "guildStickers", "stickerData", "stickersData", "stickerList"])
-        .map(normalizeSticker)
-        .filter(Boolean)
-    : [];
+  let parsed = tryParseJson(text);
+  if (!parsed) parsed = tryParseJson(decodeB64Text(text));
+  if (!parsed) parsed = extractJsonFromText(text);
+  if (!parsed) parsed = extractJsonFromText(decodeB64Text(text));
+  if (!parsed) {
+    throw new Error(
+      "Không đọc được file backup (.msc/.json) — đã thử: JSON trực tiếp, cắt theo dấu {…}, base64 và URL-encode. Hãy mở file bằng Notepad xem có phải văn bản JSON không.",
+    );
+  }
+  // Tìm object chứa roles/channels/emojis/stickers ở bất kỳ độ sâu (wrapper lồng nhau).
+  const payload = findBackupPayload(parsed);
+  if (!payload) {
+    throw new Error("File backup không có cấu trúc role/kênh (hoặc emoji/sticker) để khôi phục");
+  }
+  parsed = payload;
+
+  const rolesRaw = asArray(pickFirst(parsed, ["roles", "guildRoles", "rolesData", "roleData"]));
+  const roles = rolesRaw ? rolesRaw.map(normalizeRole).filter(Boolean) : [];
+  const channelsRaw = asArray(
+    pickFirst(parsed, ["channels", "guildChannels", "channelsData", "channelData", "guildChannelsData"]),
+  );
+  const channels = channelsRaw ? channelsRaw.map(normalizeChannel).filter(Boolean) : [];
+  const emojisRaw = asArray(
+    pickFirst(parsed, ["emojis", "guildEmojis", "emojiData", "emojisData", "customEmojis", "emojiList"]),
+  );
+  const emojis = emojisRaw ? emojisRaw.map(normalizeEmoji).filter(Boolean) : [];
+  const stickersRaw = asArray(
+    pickFirst(parsed, ["stickers", "guildStickers", "stickerData", "stickersData", "stickerList"]),
+  );
+  const stickers = stickersRaw ? stickersRaw.map(normalizeSticker).filter(Boolean) : [];
   if (roles.length === 0 && channels.length === 0 && emojis.length === 0 && stickers.length === 0) {
     throw new Error("File backup không chứa role, kênh, emoji hoặc sticker nào để khôi phục");
   }
