@@ -766,7 +766,10 @@ function normalizeChannel(c, index) {
     bitrate: c.bitrate ? num(c.bitrate, null) : null,
     userLimit: c.userLimit ? num(c.userLimit, null) : null,
     position: num(c.position, index),
-    parentId: str(c.parentId ?? c.parent ?? c.parent_id ?? c.categoryId ?? c.category ?? c.parentChannelId ?? "", null),
+    parentId: str(
+      c.parentId ?? c.parent ?? c.parent_id ?? c.categoryId ?? c.category_id ?? c.category ?? c.parentChannelId ?? "",
+      null,
+    ),
     overwrites,
     messages,
   };
@@ -781,6 +784,19 @@ function normalizeEmoji(e, index) {
   if (typeof e === "string") {
     const s = e.trim();
     if (!s) return null;
+    // URL CDN trực tiếp (file bot nuke lưu emoji dạng link, KHÔNG kèm tên):
+    // lấy ID từ đường dẫn /emojis/<id>.png và tự đặt tên theo ID (Discord bắt buộc tên).
+    if (s.startsWith("http")) {
+      const idm = s.match(/\/emojis\/(\d+)/);
+      const id = idm ? idm[1] : "";
+      return {
+        id: id || `emoji-${index}`,
+        name: id ? `e${id}` : `emoji_${index}`,
+        animated: /\.gif(?:[?#]|$)/i.test(s),
+        url: s,
+        raw: null,
+      };
+    }
     let name = "";
     let id = "";
     const m = s.match(/^<a?:([a-zA-Z0-9_]+):(\d+)>$/);
@@ -998,6 +1014,9 @@ function findBackupPayload(node, depth = 0) {
     const v = node[k];
     if (v === undefined || v === null) continue;
     if (typeof v === "string") {
+      // Chuỗi lớn (> 1MB) chắc chắn là payload blob (alphabet+key+payload của file
+      // mã hóa, base64 media…) chứ không phải wrapper JSON — bỏ qua cho nhanh.
+      if (v.length > 1_000_000) continue;
       // Nhận chuỗi JSON trực tiếp HOẶC chuỗi base64 giải mã ra JSON.
       const looksJsonish = /[{\[}\]]/.test(v) || decodeB64Text(v) !== v;
       if (looksJsonish) {
@@ -1166,10 +1185,69 @@ function decompressCandidates(buf) {
  * Giải mã payload {alphabet, key, payload} → object backup thật, hoặc null nếu
  * không khớp sơ đồ nào đã biết. Chỉ chấp nhận kết quả là JSON chứa nội dung backup.
  */
+/** Bảng base64 chuẩn (64 ký tự) — phần đầu của bảng chữ của file .msc mã hóa. */
+const STD_B64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+/**
+ * Giải mã đúng định dạng file .msc mã hóa của bot nuke (đã xác minh trên file thật):
+ *   1. Nội dung backup là chuỗi JSON → base64 chuẩn (64 ký tự).
+ *   2. Mỗi ký tự base64 có chỉ số i (0-63) được dịch Vigenère theo key trên bảng
+ *      chữ 89 ký tự: payload[i] = alphabet[(i + keyIdx[j]) % 89], key lặp lại 32 ký tự
+ *      (keyIdx[j] = alphabet.indexOf(key[j])). Ký tự padding '=' (chỉ số 64) cũng bị
+ *      dịch → khi giải mã ngược cho giá trị ≥ 64, bỏ qua (chính là padding).
+ * Trả về object backup hoặc null nếu không khớp.
+ */
+function decodeVigenereB64({ alphabet, key, payload }) {
+  const alpha = [...new Set([...String(alphabet)])];
+  const N = alpha.length;
+  if (N < 64 || N > 128) return null;
+  const idx = new Map();
+  alpha.forEach((c, i) => idx.set(c, i));
+  const kIdx = [...String(key || "")].map((c) => idx.get(c)).filter((v) => v !== undefined);
+  if (kIdx.length === 0 || typeof payload !== "string" || payload.length < 8) return null;
+  const mod = (a, n) => ((a % n) + n) % n;
+  const chunks = [];
+  let b64 = "";
+  const maxChunks = Math.ceil(payload.length / 131_072) + 2; // chống payload bất thường
+  for (let i = 0; i < payload.length; i++) {
+    const p = idx.get(payload[i]);
+    if (p === undefined) continue; // ký tự lạ ngoài bảng chữ — bỏ qua
+    const v = mod(p - kIdx[i % kIdx.length], N);
+    if (v >= 64) continue; // padding '=' bị dịch chuyển — bỏ qua
+    b64 += STD_B64_ALPHABET[v];
+    if (b64.length >= 131_072) {
+      chunks.push(b64);
+      b64 = "";
+      if (chunks.length > maxChunks) return null;
+    }
+  }
+  if (b64) chunks.push(b64);
+  const raw = Buffer.concat(chunks.map((c) => Buffer.from(c, "base64")));
+  if (raw.length === 0) return null;
+  const text = textFromBuffer(raw);
+  if (!text) return null;
+  const obj = tryParseJson(text);
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return null;
+  // guild_id là số 18 chữ số bị JSON.parse làm mất chính xác → lấy lại đúng chuỗi số từ text.
+  if (obj.guild_id !== undefined && typeof obj.guild_id === "number") {
+    const m = text.match(/"guild_id"\s*:\s*(\d{15,})/);
+    if (m) obj.guildId = m[1];
+  }
+  return obj;
+}
+
 function decodeEncryptedMsc(parsed) {
   if (!parsed || typeof parsed !== "object" || typeof parsed.alphabet !== "string" || typeof parsed.payload !== "string") {
     return null;
   }
+  // 1) Sơ đồ đã xác minh trên file thật: base64 + Vigenère theo key trên bảng chữ 89 ký tự.
+  try {
+    const obj = decodeVigenereB64(parsed);
+    if (obj && hasBackupContent(obj)) return obj;
+  } catch {
+    // rơi xuống các sơ đồ dự đoán bên dưới
+  }
+  // 2) Fallback: quét các sơ đồ base-N phổ biến khác (chưa xác minh file thật).
   let candidates = [];
   try {
     candidates = mscDecodeCandidates(parsed);

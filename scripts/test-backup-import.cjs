@@ -461,6 +461,26 @@ function xorBytes(buf, key) {
   return out;
 }
 
+const STD_B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+/** Mã hóa theo sơ đồ đã xác minh: JSON → base64 (kể cả padding '=') → Vigenère theo key. */
+function vigenereB64Encode(obj, alphabet, key) {
+  const kIdx = [...key].map((c) => alphabet.indexOf(c));
+  const b64 = Buffer.from(JSON.stringify(obj), "utf8").toString("base64");
+  let out = "";
+  for (let i = 0; i < b64.length; i++) {
+    const c = STD_B64.indexOf(b64[i]);
+    const base = c === -1 ? 64 : c; // '=' padding ở chỉ số 64
+    out += alphabet[(base + kIdx[i % kIdx.length]) % alphabet.length];
+  }
+  return out;
+}
+
+/** Bảng chữ 89 ký tự GIỐNG HỆT file .msc thật (64 base64 + '=' + 24 ký tự thêm). */
+function makeAlphabet89() {
+  return "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=_-~!@#$%^&*()[]{}<>?:;.,";
+}
+
 /** Bọc file mã hóa giống bot nuke: {v, guild_id, saved_at, alphabet, key, payload}. */
 function makeMscWrapper({ backupObj, alphabet, key, encode }) {
   const json = JSON.stringify(backupObj);
@@ -501,6 +521,11 @@ function makeMscWrapper({ backupObj, alphabet, key, encode }) {
       break;
     case "b64-xor-ascii":
       payload = base64CustomEncode(xorBytes(bytes, kAscii), alphabet);
+      break;
+    case "vigenere-b64":
+      // Sơ đồ ĐÃ XÁC MINH trên file .msc thật: base64 chuẩn rồi dịch Vigenère
+      // từng ký tự (kể cả padding '=' ở chỉ số 64) theo key trên bảng chữ 89 ký tự.
+      payload = vigenereB64Encode(backupObj, alphabet, key);
       break;
 
     default:
@@ -572,6 +597,71 @@ const mscBackupObj = {
     } catch (e) {
       check(`giải mã định dạng mã hóa base64 tùy biến (${scheme}) → đủ role/kênh/emoji`, false, e.message);
     }
+  }
+}
+
+{
+  // Sơ đồ ĐÃ XÁC MINH trên file .msc thật: base64 + Vigenère theo key trên bảng
+  // chữ 89 ký tự (giống hệt alphabet file thật). Backup có emoji dạng URL string
+  // không tên + role thiếu id + channel type dạng chuỗi — đúng shape file thật.
+  const alphabet = makeAlphabet89();
+  const key = "~k5V+n~E[U3=1uO._^C&~fQZj<FViV9*";
+  const real = {
+    guild_id: 1527942433739116584,
+    name: "ྀ𝕷𝖎𝖈𝖆𝖋𝖎𝖓 ྀ🐱🚬",
+    channels: [
+      { name: "Welcome", position: 0, type: "category", category_id: null, id: "111", permission_overwrites: [] },
+      { name: "general", position: 1, type: "text", category_id: "111", id: "222", permission_overwrites: [] },
+      { name: "Voice", position: 2, type: "voice", category_id: "111", id: "333" },
+    ],
+    roles: [
+      { name: "Mem mới", position: 37, color: 1146986, permissions: "49152", hoist: false, mentionable: false },
+      { name: "Admin", position: 38, color: 0xff0000, permissions: "8", hoist: true, mentionable: false },
+    ],
+    emojis: [
+      "https://cdn.discordapp.com/emojis/1527953852601597982.png",
+      "https://cdn.discordapp.com/emojis/1527953852601598001.gif",
+    ],
+  };
+  const wrapper = makeMscWrapper({ backupObj: real, alphabet, key, encode: "vigenere-b64" });
+  try {
+    const bb = normalizeBackupFile(wrapper);
+    const ok =
+      bb.roles.length === 2 &&
+      bb.channels.length === 3 &&
+      bb.emojis.length === 2 &&
+      bb.roles[0].name === "Mem mới" &&
+      bb.roles[0].permissions === "49152" &&
+      bb.channels[0].type === 4 &&
+      bb.channels[1].type === 0 &&
+      bb.channels[1].parentId === "111" &&
+      bb.emojis[0].name.startsWith("e1527953852601597982") &&
+      bb.emojis[0].url === "https://cdn.discordapp.com/emojis/1527953852601597982.png" &&
+      bb.emojis[1].animated === true;
+    check("sơ đồ đã xác minh (base64+Vigenère 89 ký tự) + shape file thật → đủ role/kênh/emoji", ok, JSON.stringify(bb));
+  } catch (e) {
+    check("sơ đồ đã xác minh (base64+Vigenère 89 ký tự) + shape file thật → đủ role/kênh/emoji", false, e.message);
+  }
+}
+
+{
+  // Giải mã FILE .msc THẬT 2.5MB (chỉ chạy khi file tồn tại trong workspace này).
+  const fs = require("fs");
+  if (fs.existsSync("/tmp/real-backup.msc")) {
+    try {
+      const content = fs.readFileSync("/tmp/real-backup.msc", "utf8");
+      const bb = normalizeBackupFile(content);
+      const ok =
+        bb.roles.length === 36 &&
+        bb.channels.length === 32 &&
+        bb.emojis.length === 91 &&
+        bb.guildName.includes("𝕷𝖎𝖈𝖆𝖋𝖎𝖓");
+      check(`FILE .msc THẬT 2.5MB → 36 roles / 32 channels / 91 emojis / đúng tên server`, ok, JSON.stringify({ roles: bb.roles.length, channels: bb.channels.length, emojis: bb.emojis.length, name: bb.guildName }));
+    } catch (e) {
+      check(`FILE .msc THẬT 2.5MB → 36 roles / 32 channels / 91 emojis / đúng tên server`, false, e.message);
+    }
+  } else {
+    console.log("  ⏭️  bỏ qua test file .msc thật (/tmp/real-backup.msc không tồn tại)");
   }
 }
 
