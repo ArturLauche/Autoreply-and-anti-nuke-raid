@@ -172,8 +172,14 @@ client.on("interactionCreate", (i) =>
 client.on("guildMemberAdd", (m) => joinGate(client, m, store).catch((e) => console.error("[joinGate]", e.message)));
 // Sự kiện guild thêm/xóa: xử lý ĐÚNG guild đó thôi — không kéo theo sync toàn bộ
 // (tránh chồng lấn + tránh sweep nhầm khi cache đang lấp dần).
-client.on("guildCreate", (guild) => guildSync.syncOne(client, store, guild.id).catch(() => {}));
-client.on("guildDelete", (guild) => guildSync.markGone(client, store, guild.id).catch(() => {}));
+client.on("guildCreate", (guild) => {
+  console.log(`[guildCreate] Đã vào server: ${guild.name} (${guild.id}) — tổng ${client.guilds.cache.size} server`);
+  guildSync.syncOne(client, store, guild.id).catch((e) => console.error(`[guildCreate:sync] ${guild.id}:`, e.message));
+});
+client.on("guildDelete", (guild) => {
+  console.log(`[guildDelete] Rời/khỏi khỏi server: ${guild.name ?? guild.id} — còn ${client.guilds.cache.size} server`);
+  guildSync.markGone(client, store, guild.id).catch((e) => console.error(`[guildDelete:sync] ${guild.id}:`, e.message));
+});
 
 antinuke.attach();
 // Log embed "⏱️ Timeout hết hạn" khi thành viên hết timeout tự nhiên.

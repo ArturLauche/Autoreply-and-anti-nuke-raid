@@ -83,7 +83,7 @@ async function syncAll(client, store) {
     memberCount,
     // Bản bot đang chạy — web dùng để báo "bot trên host đang chạy bản cũ, cần cập nhật".
     // Nhớ nâng cùng số zip khi đóng gói bản mới (v47, v48…).
-    version: "v50",
+    version: "v51",
     ownerName,
     ownerAvatarUrl,
   });
