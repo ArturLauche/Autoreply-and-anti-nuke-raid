@@ -292,6 +292,36 @@ export const setAutoBackup = mutation({
 });
 
 /**
+ * Web bật/tắt khôi phục role / emoji/sticker khi restore backup.
+ * Bot đọc qua guilds:getBotConfig và bỏ qua phần đã tắt — áp dụng cho cả
+ * backup Protogon lẫn file .msc/.json của bot nuke (cùng restoreCore).
+ */
+export const setRestoreOptions = mutation({
+  args: {
+    token: v.string(),
+    guildId: v.string(),
+    restoreRoles: v.optional(v.boolean()),
+    restoreEmojis: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { token, guildId, restoreRoles, restoreEmojis }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild)) {
+      throw new Error("Không có quyền quản lý server này");
+    }
+    if (!guild.botInGuild) throw new Error("Bot chưa có trong server này");
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (typeof restoreRoles === "boolean") patch.restoreRolesEnabled = restoreRoles;
+    if (typeof restoreEmojis === "boolean") patch.restoreEmojisEnabled = restoreEmojis;
+    await ctx.db.patch(guild._id, patch);
+    return { ok: true, restoreRoles: guild.restoreRolesEnabled ?? true, restoreEmojis: guild.restoreEmojisEnabled ?? true };
+  },
+});
+
+/**
  * Bot quét mỗi giờ để tìm server đã đến hạn tự động backup
  * (bật lịch 2-30 ngày, chưa có yêu cầu đang chờ, chưa backup trong khoảng thời gian đó).
  */

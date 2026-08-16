@@ -131,6 +131,8 @@ export const getGuild = query({
         theme: guild.theme ?? "pink",
         backupAutoDays: guild.backupAutoDays ?? 0,
         lastBackupAt: guild.lastBackupAt ?? null,
+        restoreRolesEnabled: guild.restoreRolesEnabled ?? true,
+        restoreEmojisEnabled: guild.restoreEmojisEnabled ?? true,
         raidHuntEnabled: guild.raidHuntEnabled ?? true,
         raidHuntBanSuspects: guild.raidHuntBanSuspects ?? true,
         modRoles: guild.modRoles,
@@ -294,6 +296,8 @@ export const getBotConfig = query({
       lockdownUntil: guild.lockdownUntil ?? null,
       lockdownRequested: guild.lockdownRequested ?? false,
       dailyReportEnabled: guild.dailyReportEnabled ?? true,
+      restoreRolesEnabled: guild.restoreRolesEnabled ?? true,
+      restoreEmojisEnabled: guild.restoreEmojisEnabled ?? true,
       lastReportAt: guild.lastReportAt ?? null,
       raidHuntEnabled: guild.raidHuntEnabled ?? true,
       raidHuntBanSuspects: guild.raidHuntBanSuspects ?? true,
@@ -680,6 +684,9 @@ export const botSyncGuilds = mutation({
           managers: [],
           // Tự động backup mặc định mỗi 7 ngày (0 = tắt — chỉnh trong Backup server).
           backupAutoDays: 7,
+          // Khôi phục role + emoji/sticker bật theo mặc định (web có thể tắt).
+          restoreRolesEnabled: true,
+          restoreEmojisEnabled: true,
           // Raid Intel: bật săn nguồn cơn raid + tự ban nghi phạm theo mặc định.
           raidHuntEnabled: true,
           raidHuntBanSuspects: true,

@@ -161,6 +161,10 @@ export interface GuildData {
     backupAutoDays: number;
     /** Lần backup thành công gần nhất (ms epoch) hoặc null. */
     lastBackupAt: number | null;
+    /** Khôi phục role khi restore backup (áp dụng cho backup Protogon lẫn file bot nuke). */
+    restoreRolesEnabled: boolean;
+    /** Khôi phục emoji/sticker khi restore backup (áp dụng cho backup Protogon lẫn file bot nuke). */
+    restoreEmojisEnabled: boolean;
     /** Raid Intel: bật săn lùng nguồn cơn raid (phân tích cụm + audit log). */
     raidHuntEnabled: boolean;
     /** Raid Intel: tự ban tài khoản nghi là nguồn cơn raid khi đủ tín hiệu. */

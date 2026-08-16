@@ -1371,12 +1371,20 @@ async function restoreCore(client, store, guildId, backup, { backupName, source 
   if (!guild || guild.available === false) {
     throw new Error("Bot không còn trong server cần khôi phục");
   }
-  const roleMap = await createRoles(guild, backup);
+  // Tùy chỉnh khôi phục từ web (bật/tắt role + emoji/sticker) — áp dụng cho cả
+  // backup Protogon lẫn file .msc/.json của bot nuke (cùng restoreCore này).
+  const cfg = await store.getConfig(guildId).catch(() => null);
+  const restoreRoles = cfg?.restoreRolesEnabled !== false;
+  const restoreEmojis = cfg?.restoreEmojisEnabled !== false;
+  if (!restoreRoles || !restoreEmojis) {
+    console.log(`[backup:restore] ${guildId}: tùy chỉnh khôi phục — role=${restoreRoles ? "bật" : "TẮT"}, emoji/sticker=${restoreEmojis ? "bật" : "TẮT"}`);
+  }
+  const roleMap = restoreRoles ? await createRoles(guild, backup) : new Map();
   const channelMap = await createChannels(guild, backup, roleMap);
   const replayed = await replayMessages(guild, backup, channelMap);
   // Emoji + sticker: tải ảnh/file về và tạo lại thật (best-effort, lỗi từng cái bỏ qua).
-  const emojisCreated = await restoreEmojis(guild, backup);
-  const stickersCreated = await restoreStickers(guild, backup);
+  const emojisCreated = restoreEmojis ? await restoreEmojis(guild, backup) : 0;
+  const stickersCreated = restoreEmojis ? await restoreStickers(guild, backup) : 0;
 
   // Áp lại cấu hình cơ bản với id mới (role/kênh đã được map sang server này).
   const s = backup.settings || {};
@@ -1399,15 +1407,22 @@ async function restoreCore(client, store, guildId, backup, { backupName, source 
     .mutation("bot_writes:botClearBackup", { guildId, kind: source === "import" ? "import" : "restore" })
     .catch((e) => console.error("[backup:clear]", e.message));
 
-  const fields = [
-    { name: "Role đã tạo", value: `${roleMap.size}`, inline: true },
-    { name: "Kênh đã tạo", value: `${channelMap.size}`, inline: true },
-  ];
-  if (emojisCreated > 0) {
-    fields.push({ name: "Emoji đã tạo", value: `${emojisCreated}`, inline: true });
+  const fields = [];
+  if (restoreRoles) {
+    fields.push({ name: "Role đã tạo", value: `${roleMap.size}`, inline: true });
+  } else {
+    fields.push({ name: "Role", value: "⏭️ bỏ qua (đã tắt)", inline: true });
   }
-  if (stickersCreated > 0) {
-    fields.push({ name: "Sticker đã tạo", value: `${stickersCreated}`, inline: true });
+  fields.push({ name: "Kênh đã tạo", value: `${channelMap.size}`, inline: true });
+  if (restoreEmojis) {
+    if (emojisCreated > 0) {
+      fields.push({ name: "Emoji đã tạo", value: `${emojisCreated}`, inline: true });
+    }
+    if (stickersCreated > 0) {
+      fields.push({ name: "Sticker đã tạo", value: `${stickersCreated}`, inline: true });
+    }
+  } else {
+    fields.push({ name: "Emoji/Sticker", value: "⏭️ bỏ qua (đã tắt)", inline: true });
   }
   if (replayed > 0) {
     fields.push({ name: "Tin nhắn đã phục hồi", value: `${replayed}`, inline: true });
@@ -1415,19 +1430,19 @@ async function restoreCore(client, store, guildId, backup, { backupName, source 
   fields.push({
     name: "Lưu ý",
     value:
-      "Các role/kênh có sẵn của server này được giữ nguyên. Role và kênh đã được sắp xếp lại đúng thứ tự trong file backup. Hãy kiểm tra lại quyền theo ý muốn.",
+      "Kênh đã được sắp xếp lại đúng thứ tự trong file backup; phần role và emoji/sticker đã tắt trong Tùy chỉnh khôi phục sẽ không được tạo. Các role/kênh có sẵn của server này được giữ nguyên. Hãy kiểm tra lại quyền theo ý muốn.",
     inline: false,
   });
 
   const embed = logEmbed({
     title: "♻️ Đã khôi phục server từ backup",
-    description: `Đã tạo lại cấu trúc của **${backupName || "server đã backup"}** trên **${guild.name}**${replayed > 0 ? ` — phục hồi **${replayed} tin nhắn** theo đúng thứ tự thời gian` : ""}${emojisCreated > 0 ? ` + **${emojisCreated} emoji**` : ""}${stickersCreated > 0 ? ` + **${stickersCreated} sticker**` : ""}.`,
+    description: `Đã tạo lại cấu trúc của **${backupName || "server đã backup"}** trên **${guild.name}**${restoreRoles ? ` — **${roleMap.size} role**` : " (bỏ qua role — đã tắt)"}${replayed > 0 ? ` — phục hồi **${replayed} tin nhắn** theo đúng thứ tự thời gian` : ""}${restoreEmojis && emojisCreated > 0 ? ` + **${emojisCreated} emoji**` : ""}${restoreEmojis && stickersCreated > 0 ? ` + **${stickersCreated} sticker**` : ""}${restoreEmojis ? "" : " (bỏ qua emoji/sticker — đã tắt)"}.`,
     color: Colors.Green,
     fields,
     footer: "Protogon · Backup",
   });
   await sendToLog(guild, embed);
-  console.log(`[backup:restore] ${guildId}: ${roleMap.size} roles, ${channelMap.size} channels, ${replayed} messages, ${emojisCreated} emojis, ${stickersCreated} stickers (${source})`);
+  console.log(`[backup:restore] ${guildId}: ${roleMap.size} roles, ${channelMap.size} channels, ${replayed} messages, ${emojisCreated} emojis, ${stickersCreated} stickers (${source}, restoreRoles=${restoreRoles}, restoreEmojis=${restoreEmojis})`);
   return {
     roleCount: roleMap.size,
     channelCount: channelMap.size,

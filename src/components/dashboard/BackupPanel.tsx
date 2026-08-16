@@ -50,6 +50,10 @@ export default function BackupPanel({ data }: { data: GuildData }) {
     Math.max(2, Math.min(30, data.guild.backupAutoDays ?? 7)),
   );
   const [autoBusy, setAutoBusy] = useState(false);
+  /** Tùy chỉnh khôi phục: bật/tắt tạo lại role và emoji/sticker khi restore (cả 2 nguồn). */
+  const [restoreRoles, setRestoreRoles] = useState(data.guild.restoreRolesEnabled ?? true);
+  const [restoreEmojis, setRestoreEmojis] = useState(data.guild.restoreEmojisEnabled ?? true);
+  const [restoreOptBusy, setRestoreOptBusy] = useState(false);
   /** Theo dõi trạng thái xử lý file import: null = không chờ, active = đang chờ bot. */
   const [importWatch, setImportWatch] = useState<null | { startedAt: number }>(null);
   const requestBackup = useMutation(api.backup.requestBackup);
@@ -57,6 +61,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
   const generateUploadUrl = useMutation(api.backup.generateImportUploadUrl);
   const requestImportRestore = useMutation(api.backup.requestImportRestore);
   const setAutoBackup = useMutation(api.backup.setAutoBackup);
+  const setRestoreOptions = useMutation(api.backup.setRestoreOptions);
   // Luôn theo dõi trạng thái import (reactive): hiện lỗi lần trước + chẩn đoán bot online/bản cũ.
   const importStatus = useQuery(api.backup.importStatus, {
     token: TOKEN(),
@@ -167,6 +172,27 @@ export default function BackupPanel({ data }: { data: GuildData }) {
     }
   }
 
+  async function saveRestoreOptions() {
+    setRestoreOptBusy(true);
+    try {
+      await setRestoreOptions({
+        token: TOKEN(),
+        guildId: data.guild.discordId,
+        restoreRoles,
+        restoreEmojis,
+      });
+      toast.success("Đã lưu tùy chỉnh khôi phục", {
+        description: `Áp dụng cho cả backup Protogon lẫn file bot nuke: ${
+          restoreRoles ? "role sẽ được tạo lại" : "role sẽ bị bỏ qua"
+        } · ${restoreEmojis ? "emoji/sticker sẽ được tạo lại" : "emoji/sticker sẽ bị bỏ qua"}.`,
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Thất bại");
+    } finally {
+      setRestoreOptBusy(false);
+    }
+  }
+
   async function importFile(file: File) {
     if (!file) return;
     if (file.size > 8_000_000) {
@@ -196,8 +222,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         storageId,
       });
       toast.success(`Đã tải "${file.name}" lên — bot đang xử lý`, {
-        description:
-          "Bot nhận diện định dạng (JSON thường / base64 / có lớp bọc), tạo lại role + kênh đúng thứ tự trong file, phục hồi tin nhắn, đăng lại media (ảnh/video…) và tạo lại emoji/sticker nếu file có lưu. Lỗi (nếu có) sẽ hiện ngay khi bot báo lại.",
+        description: `Bot nhận diện định dạng (JSON thường / base64 / có lớp bọc), tạo lại kênh đúng thứ tự${restoreRoles ? ", role" : ""}${restoreEmojis ? " + emoji/sticker" : ""} theo tùy chỉnh khôi phục, phục hồi tin nhắn và đăng lại media (ảnh/video…). Lỗi (nếu có) sẽ hiện ngay khi bot báo lại.`,
       });
       if (fileRef.current) fileRef.current.value = "";
       setImportFileName("");
@@ -211,7 +236,13 @@ export default function BackupPanel({ data }: { data: GuildData }) {
   }
 
   async function restore(backup: BackupInfo) {
-    if (!window.confirm(`Khôi phục backup của "${backup.guildName}" vào server hiện tại?\n\nBot sẽ tạo lại role (tên, màu, quyền), kênh theo backup, sắp xếp lại đúng thứ tự, phục hồi tin nhắn kèm media (ảnh/video…) cùng emoji/sticker nếu backup có. Các role/kênh đang có của server này được giữ nguyên.`)) {
+    const skipNote = [
+      !restoreRoles ? "role (đã tắt trong Tùy chỉnh khôi phục)" : null,
+      !restoreEmojis ? "emoji/sticker (đã tắt trong Tùy chỉnh khôi phục)" : null,
+    ].filter(Boolean);
+    if (!window.confirm(`Khôi phục backup của "${backup.guildName}" vào server hiện tại?\n\nBot sẽ tạo lại kênh theo backup, sắp xếp lại đúng thứ tự, phục hồi tin nhắn kèm media (ảnh/video…)${
+      restoreRoles ? ", role (tên, màu, quyền)" : ""
+    }${restoreEmojis ? " cùng emoji/sticker nếu backup có" : ""}.${skipNote.length ? `\n\n⚠️ BỎ QUA: ${skipNote.join(", ")}.` : ""}\nCác role/kênh đang có của server này được giữ nguyên.`)) {
       return;
     }
     setBusy(backup._id);
@@ -466,6 +497,52 @@ export default function BackupPanel({ data }: { data: GuildData }) {
               {autoBusy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               Lưu lịch tự động
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tùy chỉnh khôi phục: bật/tắt role + emoji/sticker (cả 2 nguồn backup) */}
+      <Card className="border-border/70">
+        <CardContent className="grid gap-4 p-5">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
+              <ShieldCheck className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="font-display font-semibold">Tùy chỉnh khôi phục</p>
+              <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+                Bật/tắt từng phần khi bot khôi phục — áp dụng cho <b className="text-foreground">cả
+                backup của Protogon</b> lẫn <b className="text-foreground">file backup của bot nuke</b>{" "}
+                (.msc/.json tải lên). Phần tắt sẽ được bỏ qua khi khôi phục (kênh, tin nhắn + media vẫn
+                được xử lý bình thường).
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-2.5">
+              <span className="flex items-center gap-2 text-sm">
+                <Users className="h-4 w-4" />
+                Khôi phục role (tên, màu, quyền, thứ tự)
+              </span>
+              <Switch checked={restoreRoles} onCheckedChange={setRestoreRoles} />
+            </label>
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-2.5">
+              <span className="flex items-center gap-2 text-sm">
+                <Smile className="h-4 w-4" />
+                Khôi phục emoji / sticker
+              </span>
+              <Switch checked={restoreEmojis} onCheckedChange={setRestoreEmojis} />
+            </label>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button size="sm" onClick={saveRestoreOptions} disabled={restoreOptBusy}>
+              {restoreOptBusy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Lưu tùy chỉnh khôi phục
+            </Button>
+            {(data.guild.restoreRolesEnabled ?? true) !== restoreRoles ||
+              (data.guild.restoreEmojisEnabled ?? true) !== restoreEmojis ? (
+              <span className="text-xs text-muted-foreground">Có thay đổi chưa lưu — bấm Lưu để áp dụng.</span>
+            ) : null}
           </div>
         </CardContent>
       </Card>
