@@ -14,12 +14,21 @@ const SYNC_CHANNEL_TYPES = [
 //    sweep (cache guild chưa chắc đã lấp đầy — GUILD_CREATE đến rải rác sau READY).
 //  - lastTrustedCount: số guild ở lần sync tin cậy gần nhất. Nếu lần này ít hơn
 //    >10% (và >50 guild) → cache đang thiếu → coi là KHÔNG tin cậy → không sweep.
+//  - lowCountStreak: số lần LIÊN TIẾP count sụt thấp. Nếu ổn định ở mức thấp qua 3
+//    lượt (3 phút) → sụt giảm là THẬT (bot bị kick/ban khỏi nhiều server) → chấp
+//    nhận sweep — không kẹt "cache thiếu" vĩnh viễn như bản cũ.
 //  - runCounter: giãn syncChannels/syncRoles xuống mỗi 5 phút (dashboard không cần
 //    danh sách kênh/role tươi từng phút; ở 2k+ server, 2 mutation/guild/phút là
 //    hàng nghìn mutation mỗi lần và làm chồng lấn vòng sync).
 let firstRun = true;
 let lastTrustedCount = 0;
+let lowCountStreak = 0;
 let runCounter = 0;
+
+// Bot nhỏ (≤50 server): cache guild gần như chắc chắn đầy đủ ngay sau READY (Discord
+// gửi toàn bộ guild của bot trong vài giây) → tin tưởng ngay từ lượt đầu, không cần
+// chờ lượt thứ 2 như bot 2k+ server (GUILD_CREATE lấp dần mất nhiều phút).
+const SMALL_BOT_LIMIT = 50;
 
 async function syncAll(client, store) {
   const guilds = [];
@@ -52,10 +61,21 @@ async function syncAll(client, store) {
   }
 
   const count = guilds.length;
-  const droppedSharply =
-    lastTrustedCount > 0 && count < lastTrustedCount - Math.max(50, Math.round(lastTrustedCount * 0.1));
-  // Lần đầu tiên của process: không bao giờ sweep (cache chưa chắc đầy).
-  const trustedFullList = !firstRun && !droppedSharply;
+  let trustedFullList;
+  if (count <= SMALL_BOT_LIMIT) {
+    // Bot nhỏ: cache chắc chắn đầy đủ → sweep ngay (kể cả lượt đầu sau restart).
+    // Đồng thời tự dọn nhầm cũ: guild còn trong bot thì hiện lại, guild mất thật thì ẩn.
+    trustedFullList = true;
+    lowCountStreak = 0;
+  } else {
+    const droppedSharply =
+      lastTrustedCount > 0 && count < lastTrustedCount - Math.max(50, Math.round(lastTrustedCount * 0.1));
+    lowCountStreak = droppedSharply ? lowCountStreak + 1 : 0;
+    // Lần đầu tiên của process: không bao giờ sweep (cache đang lấp dần qua GUILD_CREATE).
+    // Sụt giảm chỉ chấp nhận sau khi ỔN ĐỊNH 3 lượt liên tiếp (~3 phút) → sụt THẬT
+    // (kick/ban hàng loạt), không phải cache thiếu thoáng qua — tránh kẹt "cache thiếu" mãi.
+    trustedFullList = !firstRun && !(droppedSharply && lowCountStreak < 3);
+  }
   firstRun = false;
   if (trustedFullList) lastTrustedCount = count;
 
@@ -83,7 +103,7 @@ async function syncAll(client, store) {
     memberCount,
     // Bản bot đang chạy — web dùng để báo "bot trên host đang chạy bản cũ, cần cập nhật".
     // Nhớ nâng cùng số zip khi đóng gói bản mới (v47, v48…).
-    version: "v51",
+    version: "v52",
     ownerName,
     ownerAvatarUrl,
   });
