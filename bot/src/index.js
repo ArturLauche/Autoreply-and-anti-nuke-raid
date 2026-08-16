@@ -173,11 +173,37 @@ client.on("guildMemberAdd", (m) => joinGate(client, m, store).catch((e) => conso
 // Sự kiện guild thêm/xóa: xử lý ĐÚNG guild đó thôi — không kéo theo sync toàn bộ
 // (tránh chồng lấn + tránh sweep nhầm khi cache đang lấp dần).
 client.on("guildCreate", (guild) => {
-  console.log(`[guildCreate] Đã vào server: ${guild.name} (${guild.id}) — tổng ${client.guilds.cache.size} server`);
-  guildSync.syncOne(client, store, guild.id).catch((e) => console.error(`[guildCreate:sync] ${guild.id}:`, e.message));
+  void (async () => {
+    console.log(`[guildCreate] Đã vào server: ${guild.name} (${guild.id}) — tổng ${client.guilds.cache.size} server`);
+    // Chẩn đoán "vào xong bị đá ngay": liệt kê bot khác đang có trong server —
+    // bot bảo vệ tự kick/ban bot mới là thủ phạm phổ biến nhất.
+    try {
+      let bots = guild.members.cache
+        .filter((m) => m.user?.bot && m.id !== client.user.id)
+        .map((m) => m.user.username)
+        .slice(0, 20);
+      if (bots.length === 0) {
+        const members = await guild.members.fetch().catch(() => null);
+        if (members) {
+          bots = members
+            .filter((m) => m.user?.bot && m.id !== client.user.id)
+            .map((m) => m.user.username)
+            .slice(0, 20);
+        }
+      }
+      console.log(
+        bots.length
+          ? `[guildCreate] Bot khác trong server: ${bots.join(", ")}`
+          : `[guildCreate] Không có bot khác trong server`,
+      );
+    } catch (e) {
+      console.error(`[guildCreate:bots] ${guild.id}:`, e.message);
+    }
+    await guildSync.syncOne(client, store, guild.id).catch((e) => console.error(`[guildCreate:sync] ${guild.id}:`, e.message));
+  })();
 });
 client.on("guildDelete", (guild) => {
-  console.log(`[guildDelete] Rời/khỏi khỏi server: ${guild.name ?? guild.id} — còn ${client.guilds.cache.size} server`);
+  console.log(`[guildDelete] Rời khỏi server: ${guild.name ?? guild.id} — còn ${client.guilds.cache.size} server`);
   guildSync.markGone(client, store, guild.id).catch((e) => console.error(`[guildDelete:sync] ${guild.id}:`, e.message));
 });
 
