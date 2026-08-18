@@ -869,6 +869,23 @@ module.exports = function createAntiNuke(client, store, heat) {
       footer: "Protogon · Anti Nuke/Raid",
     });
     await sendLog(guild, config, embed);
+
+    // Gửi embed case log kiểu Carl-bot tới kênh log moderation
+    if (punishChosen) {
+      try {
+        await sendCaseLog({
+          guild,
+          guildConfig: config,
+          action: punishChosen,
+          caseNumber: punishCaseNumber,
+          offender: { id: executor.id, username: executor.username || executor.id },
+          reason: '[AntiNuke] ' + MODULE_LABELS[module] + ': ' + count + ' lượt/' + moduleCfg.windowSeconds + 's',
+          executor: null,
+        });
+      } catch (e) {
+        console.error('[antinuke:' + module + ':caseLog]', e.message);
+      }
+    }
   }
 
   /**
@@ -1313,6 +1330,8 @@ module.exports = function createAntiNuke(client, store, heat) {
     if (!executor) return; // can't attribute, can't punish — stay quiet
 
     let action = "đã ghi nhận";
+    let punishCaseNumber;
+    let punishChosen;
     const actions = actionsOf(moduleCfg);
     try {
       const member = await guild.members.fetch(executor.id).catch(() => null);
@@ -1320,6 +1339,8 @@ module.exports = function createAntiNuke(client, store, heat) {
       if (member) {
         const res = await punishWithHeat(guild, member, moduleCfg, reason);
         action = res.action;
+        punishCaseNumber = res.caseNumber;
+        punishChosen = res.chosen;
       } else if (actions.includes("ban")) {
         try {
           await guild.members.ban(executor.id, { reason });
@@ -1879,6 +1900,8 @@ module.exports = function createAntiNuke(client, store, heat) {
     if (!executor) return;
 
     let action = "đã ghi nhận";
+    let punishType = null;
+    let punishCaseNum = undefined;
     const actions = actionsOf(moduleCfg);
     try {
       const member = await guild.members.fetch(executor.id).catch(() => null);
@@ -1886,6 +1909,8 @@ module.exports = function createAntiNuke(client, store, heat) {
       if (member) {
         const res = await punishWithHeat(guild, member, moduleCfg, reason);
         action = res.action;
+        punishType = res.chosen;
+        punishCaseNum = res.caseNumber;
       } else if (actions.includes("ban")) {
         try {
           await guild.members.ban(executor.id, { reason });
@@ -1942,6 +1967,23 @@ module.exports = function createAntiNuke(client, store, heat) {
       footer: "Protogon · Anti Nuke/Raid",
     });
     await sendLog(guild, config, embed);
+
+    // Gửi embed case log kiểu Carl-bot tới kênh log moderation
+    if (punishType) {
+      try {
+        await sendCaseLog({
+          guild,
+          guildConfig: config,
+          action: punishType,
+          caseNumber: punishCaseNum,
+          offender: { id: executor.id, username: executor.username || executor.id },
+          reason: "[AntiNuke] " + MODULE_LABELS[module] + ": " + count + " lượt/" + moduleCfg.windowSeconds + "s",
+          executor: null,
+        });
+      } catch (e) {
+        console.error("[antinuke:" + module + ":caseLog]", e.message);
+      }
+    }
   }
 
   /**
