@@ -1,6 +1,7 @@
+import { useCallback, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
-import { BadgeCheck, Fingerprint, Hash, Mail, Send, ShieldCheck, ShieldOff } from "lucide-react";
+import { BadgeCheck, Eye, Fingerprint, Hash, Mail, Send, ShieldCheck, ShieldOff } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { Card, CardContent } from "../ui/card";
 import { Switch } from "../ui/switch";
@@ -14,8 +15,28 @@ const TOKEN = () => getSessionToken();
 export default function VerifyPanel({ data }: { data: GuildData }) {
   const updateSettings = useMutation(api.guilds.updateSettings);
   const g = data.guild;
-  const channels = data.channels.filter((c) => c.type === 0 || c.type === 5); // text + announcement
+  const channels = data.channels.filter((c) => c.type === 0 || c.type === 5);
   const roles = data.roles;
+
+  // Local state for debounced text inputs
+  const [localTitle, setLocalTitle] = useState(g.verifyWelcomeTitle ?? "");
+  const [localDesc, setLocalDesc] = useState(g.verifyWelcomeDescription ?? "");
+  const [localColor, setLocalColor] = useState(g.verifyWelcomeColor ?? "#f2629e");
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushDebounced = useCallback(
+    (patch: Record<string, unknown>) => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(async () => {
+        try {
+          await updateSettings({ token: TOKEN(), guildId: g.discordId, ...patch });
+        } catch (e: unknown) {
+          toast.error(String(e));
+        }
+      }, 600);
+    },
+    [g.discordId, updateSettings],
+  );
 
   async function patch(p: Record<string, unknown>, msg?: string) {
     try {
@@ -25,6 +46,14 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
       toast.error(String(e));
     }
   }
+
+  // Welcome embed preview
+  const previewTitle = localTitle || "🌸 Chào mừng bạn!";
+  const previewDesc =
+    (localDesc || "Bạn đã xác minh thành công. Chào mừng bạn đến với server!")
+      .replace(/\{user\}/g, "@thành viên")
+      .replace(/\{server\}/g, g.name || "Server");
+  const previewColor = localColor || "#f2629e";
 
   return (
     <div className="space-y-6">
@@ -62,7 +91,8 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
       {/* Verify Method Selector */}
       {g.verifyEnabled && (
         <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card/50 px-4 py-3">
-          <div className="flex items-start gap-3">              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
               <Fingerprint className="h-4 w-4" />
             </span>
             <div>
@@ -113,8 +143,11 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
                   <Label className="text-xs font-medium">Tiêu đề embed</Label>
                   <input
                     type="text"
-                    value={g.verifyWelcomeTitle ?? ""}
-                    onChange={(e) => patch({ verifyWelcomeTitle: e.target.value || null })}
+                    value={localTitle}
+                    onChange={(e) => {
+                      setLocalTitle(e.target.value);
+                      flushDebounced({ verifyWelcomeTitle: e.target.value || null });
+                    }}
                     placeholder="🌸 Chào mừng bạn!"
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                     maxLength={256}
@@ -124,8 +157,11 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Nội dung embed</Label>
                   <textarea
-                    value={g.verifyWelcomeDescription ?? ""}
-                    onChange={(e) => patch({ verifyWelcomeDescription: e.target.value || null })}
+                    value={localDesc}
+                    onChange={(e) => {
+                      setLocalDesc(e.target.value);
+                      flushDebounced({ verifyWelcomeDescription: e.target.value || null });
+                    }}
                     placeholder="Bạn đã xác minh thành công. Chào mừng bạn đến với server!\n{user} để tag thành viên."
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                     rows={3}
@@ -142,14 +178,23 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
                   <div className="flex items-center gap-2">
                     <input
                       type="color"
-                      value={g.verifyWelcomeColor ?? "#f2629e"}
-                      onChange={(e) => patch({ verifyWelcomeColor: e.target.value })}
+                      value={localColor}
+                      onChange={(e) => {
+                        setLocalColor(e.target.value);
+                        flushDebounced({ verifyWelcomeColor: e.target.value });
+                      }}
                       className="h-8 w-8 cursor-pointer rounded border border-border bg-transparent"
                     />
                     <input
                       type="text"
-                      value={g.verifyWelcomeColor ?? ""}
-                      onChange={(e) => patch({ verifyWelcomeColor: e.target.value || null })}
+                      value={localColor}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setLocalColor(v);
+                        if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+                          flushDebounced({ verifyWelcomeColor: v });
+                        }
+                      }}
                       placeholder="#f2629e"
                       className="w-28 rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-mono"
                       maxLength={7}
@@ -157,8 +202,42 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
                     <span className="text-[10px] text-muted-foreground">để trống = màu mặc định</span>
                   </div>
                 </div>
+
+                {/* Welcome embed preview */}
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5 text-xs font-medium">
+                    <Eye className="h-3 w-3" /> Xem trước DM chào mừng
+                  </Label>
+                  <div className="overflow-hidden rounded-xl border border-border">
+                    <div
+                      className="px-4 py-3"
+                      style={{ backgroundColor: previewColor + "22", borderLeft: `4px solid ${previewColor}` }}
+                    >
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tin nhắn trực tiếp từ Protogon</p>
+                    </div>
+                    <div className="border-t border-border bg-background/80 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15">
+                          <span className="text-lg">🤖</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold">Protogon</p>
+                            <Badge variant="secondary" className="text-[9px]">APP</Badge>
+                            <span className="text-[10px] text-muted-foreground">Hôm nay lúc 00:00</span>
+                          </div>
+                          <div className="mt-1 rounded-lg bg-muted/50 p-3">
+                            <p className="text-sm font-semibold" style={{ color: previewColor }}>{previewTitle}</p>
+                            <p className="mt-1 text-sm text-muted-foreground whitespace-pre-line">{previewDesc}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
+
             {/* Kênh Verify */}
             <div className="space-y-2">
               <Label className="flex items-center gap-1.5 text-sm font-medium">
@@ -231,6 +310,9 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
               <p>• Thành viên mới vào server → tự động nhận <b>role chưa xác minh</b>.</p>
               <p>• Bot gửi embed trong <b>kênh xác minh</b> với nút / phản ứng để xác minh.</p>
               <p>• Sau khi xác minh → gỡ role chưa xác minh, gán <b>role đã xác minh</b>.</p>
+              {g.verifyWelcomeEnabled && (
+                <p>• Bot gửi <b>DM chào mừng</b> với embed tùy chỉnh đến thành viên đã xác minh.</p>
+              )}
             </div>
 
             {/* Send panel button */}
