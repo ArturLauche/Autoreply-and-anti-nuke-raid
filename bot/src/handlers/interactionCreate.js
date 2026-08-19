@@ -63,9 +63,51 @@ function parsePairs(pairsRaw, guild) {
   return entries.slice(0, 20);
 }
 
+const { genCaptcha, setCode } = require("../captchaStore");
+
 module.exports = async function onInteractionCreate(client, interaction, store, heat) {
-  // Handle button interactions (verify_confirm)
+  // Handle button interactions (verify_confirm + verify_request_captcha)
   if (interaction.isButton()) {
+    if (interaction.customId === "verify_request_captcha") {
+      const guild = interaction.guild;
+      if (!guild) return;
+      const config = await store.getConfig(guild.id);
+      if (!config?.verifyEnabled) {
+        return interaction.reply({ content: "❌ Xác minh đã bị tắt.", ephemeral: true });
+      }
+      const unverifiedRoleId = config.unverifiedRoleId;
+      if (!unverifiedRoleId) {
+        return interaction.reply({ content: "❌ Chưa cấu hình role xác minh.", ephemeral: true });
+      }
+      const member = guild.members.cache.get(interaction.user.id) || await guild.members.fetch(interaction.user.id).catch(() => null);
+      if (!member) {
+        return interaction.reply({ content: "❌ Không tìm thấy thành viên.", ephemeral: true });
+      }
+      if (!member.roles.cache.has(unverifiedRoleId)) {
+        return interaction.reply({ content: "✅ Bạn đã xác minh rồi!", ephemeral: true });
+      }
+      // Tạo mã captcha và gửi DM
+      const code = genCaptcha();
+      setCode(guild.id, interaction.user.id, code);
+      try {
+        const dmEmbed = new EmbedBuilder()
+          .setColor(Colors.Blue)
+          .setTitle("🔑 Mã xác minh")
+          .setDescription(`Mã xác minh của bạn trong **${guild.name}** là:`)
+          .addFields({ name: "Mã", value: `||${code}||`, inline: true })
+          .setFooter({ text: "Mã hết hạn trong 5 phút. Nhập mã trong kênh xác minh để hoàn tất." });
+        await member.send({ embeds: [dmEmbed] });
+        return interaction.reply({
+          content: "✅ Đã gửi mã xác minh qua DM! Hãy kiểm tra tin nhắn trực tiếp và nhập mã trong kênh xác minh.",
+          ephemeral: true,
+        });
+      } catch {
+        return interaction.reply({
+          content: "❌ Không thể gửi DM — hãy bật"\"cho phép tin nhắn trực tiếp\"" từ thành viên server rồi thử lại.",
+          ephemeral: true,
+        });
+      }
+    }
     if (interaction.customId === "verify_confirm") {
       const guild = interaction.guild;
       if (!guild) return;
@@ -991,32 +1033,47 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         const channel = interaction.options.getChannel("channel", true);
         const unverifiedRole = interaction.options.getRole("unverified_role", true);
         const verifiedRole = interaction.options.getRole("verified_role", true);
+        const method = interaction.options.getString("method") || "button";
         await store.client.mutation("bot_writes:botUpdateSettings", {
           guildId: guild.id,
           verifyEnabled: true,
+          verifyMethod: method,
           verifyChannelId: channel.id,
           unverifiedRoleId: unverifiedRole.id,
           verifiedRoleId: verifiedRole.id,
         });
         store.invalidate(guild.id);
-        // Gửi embed xác minh vào kênh
         try {
           const embed = new EmbedBuilder()
             .setColor(Colors.Blurple)
             .setTitle("✅ Xác minh thành viên")
-            .setDescription("Nhấn nút bên dưới để xác minh và vào server.");
-          const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId("verify_confirm")
-              .setLabel("Xác minh ✅")
-              .setStyle(ButtonStyle.Success),
-          );
+            .setDescription(
+              method === "captcha"
+                ? "Nhấn nút bên dưới để nhận mã xác minh qua DM, sau đó nhập mã trong kênh này."
+                : "Nhấn nút bên dưới để xác minh và vào server."
+            );
+          const row = new ActionRowBuilder();
+          if (method === "captcha") {
+            row.addComponents(
+              new ButtonBuilder()
+                .setCustomId("verify_request_captcha")
+                .setLabel("Nhận mã xác minh 🔑")
+                .setStyle(ButtonStyle.Primary),
+            );
+          } else {
+            row.addComponents(
+              new ButtonBuilder()
+                .setCustomId("verify_confirm")
+                .setLabel("Xác minh ✅")
+                .setStyle(ButtonStyle.Success),
+            );
+          }
           await channel.send({ embeds: [embed], components: [row] });
         } catch (e) {
           console.error(`[verify:setup:send] ${guild.id}:`, e.message);
         }
         return interaction.reply({
-          content: `✅ Đã thiết lập xác minh: kênh ${channel}, role chưa xác minh ${unverifiedRole}, role đã xác minh ${verifiedRole}.`,
+          content: `✅ Đã thiết lập xác minh (${method === "captcha" ? "captcha" : "button"}): kênh ${channel}, role chưa xác minh ${unverifiedRole}, role đã xác minh ${verifiedRole}.`,
           ephemeral: true,
         });
       }
@@ -1033,6 +1090,22 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         store.invalidate(guild.id);
         return interaction.reply({
           content: `✅ Đã ${value === "on" ? "bật" : "tắt"} xác minh thành viên.`,
+          ephemeral: true,
+        });
+      }
+
+      if (sub === "method") {
+        const type = interaction.options.getString("type", true);
+        if (!["button", "captcha"].includes(type)) {
+          return interaction.reply({ content: "Phương thức phải là button hoặc captcha.", ephemeral: true });
+        }
+        await store.client.mutation("bot_writes:botUpdateSettings", {
+          guildId: guild.id,
+          verifyMethod: type,
+        });
+        store.invalidate(guild.id);
+        return interaction.reply({
+          content: `✅ Đã đổi phương thức xác minh thành **${type === "captcha" ? "captcha — nhập mã DM" : "button — bấm nút"}**.`,
           ephemeral: true,
         });
       }

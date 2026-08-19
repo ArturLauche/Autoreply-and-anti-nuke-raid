@@ -1,6 +1,6 @@
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
-import { BadgeCheck, Hash, Mail, ShieldCheck, ShieldOff } from "lucide-react";
+import { BadgeCheck, Fingerprint, Hash, Mail, ShieldCheck, ShieldOff } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { Card, CardContent } from "../ui/card";
 import { Switch } from "../ui/switch";
@@ -58,6 +58,31 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
           onCheckedChange={(v) => patch({ verifyEnabled: v }, v ? "Đã bật xác minh thành viên" : "Đã tắt xác minh thành viên")}
         />
       </div>
+
+      {/* Verify Method Selector */}
+      {g.verifyEnabled && (
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card/50 px-4 py-3">
+          <div className="flex items-start gap-3">              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
+              <Fingerprint className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold">Phương thức xác minh</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                <b>Button</b> — thành viên bấm nút để xác minh ngay lập tức.
+                <b>Captcha</b> — bot gửi mã qua DM, thành viên nhập mã trong kênh.
+              </p>
+            </div>
+          </div>
+          <select
+            value={g.verifyMethod}
+            onChange={(e) => patch({ verifyMethod: e.target.value as "button" | "captcha" }, "Đã đổi phương thức xác minh")}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="button">🖱️ Button — bấm nút xác minh</option>
+            <option value="captcha">🔑 Captcha — nhập mã từ DM</option>
+          </select>
+        </div>
+      )}
 
       {g.verifyEnabled && (
         <Card>

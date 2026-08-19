@@ -1,5 +1,6 @@
 const prefixCommands = require("../commands/prefix");
 const { fillPlaceholders } = require("../util");
+const { verifyCode } = require("../captchaStore");
 
 function channelAllowed(rule, message) {
   if (!rule.channels || rule.channels.length === 0) return true;
@@ -60,6 +61,57 @@ module.exports = async function onMessageCreate(client, message, store, heat) {
     }
     // unknown prefix command — fall through to auto reply for safety? No: ignore.
     return;
+  }
+
+  // Captcha verify: nếu message là mã 6 chữ số trong kênh verify → kiểm tra
+  if (config.verifyEnabled && config.verifyMethod === "captcha" && config.verifyChannelId === message.channel.id) {
+    const content = message.content.trim();
+    if (/^\d{6}$/.test(content)) {
+      const member = message.member;
+      if (member && config.unverifiedRoleId && member.roles.cache.has(config.unverifiedRoleId)) {
+        const result = verifyCode(message.guild.id, member.id, content);
+        if (result.ok) {
+          try {
+            if (config.unverifiedRoleId) await member.roles.remove(config.unverifiedRoleId, "Xác minh thành công (captcha)");
+            if (config.verifiedRoleId) await member.roles.add(config.verifiedRoleId, "Xác minh thành công (captcha)");
+            await message.reply({ content: "✅ Mã chính xác! Bạn đã xác minh thành công.", failIfNotExists: false }).catch(() => {});
+            // DM chào mừng
+            if (config.verifyWelcomeEnabled) {
+              try {
+                const { EmbedBuilder } = require("discord.js");
+                const title = config.verifyWelcomeTitle || "🌸 Chào mừng bạn!";
+                let description = config.verifyWelcomeDescription || `Chào mừng bạn đến với **${message.guild.name}**! Bạn đã xác minh thành công.`;
+                description = description.replace(/{user}/g, `<@${member.id}>`).replace(/{server}/g, message.guild.name);
+                const colorHex = config.verifyWelcomeColor || "#f2629e";
+                const colorInt = parseInt(colorHex.replace("#", ""), 16) || 0xf2629e;
+                const welcomeEmbed = new EmbedBuilder()
+                  .setTitle(title)
+                  .setDescription(description)
+                  .setColor(colorInt)
+                  .setThumbnail(message.guild.iconURL({ size: 256 }) || null)
+                  .setFooter({ text: message.guild.name, iconURL: message.guild.iconURL({ size: 64 }) || undefined });
+                await member.send({ embeds: [welcomeEmbed] }).catch(() => {});
+              } catch {}
+            }
+          } catch (e) {
+            console.error(`[verify:captcha] ${message.guild.id}:`, e.message);
+          }
+          // Xóa tin nhắn mã sau 3 giây
+          setTimeout(() => message.delete().catch(() => {}), 3000);
+          return;
+        }
+        if (result.reason === "wrong") {
+          await message.reply({ content: "❌ Mã không đúng. Hãy bấm nút nhận mã mới và thử lại.", failIfNotExists: false }).catch(() => {});
+          setTimeout(() => message.delete().catch(() => {}), 3000);
+          return;
+        }
+        if (result.reason === "expired") {
+          await message.reply({ content: "⏰ Mã đã hết hạn. Hãy bấm nút nhận mã mới.", failIfNotExists: false }).catch(() => {});
+          setTimeout(() => message.delete().catch(() => {}), 3000);
+          return;
+        }
+      }
+    }
   }
 
   await handleAutoReply(client, message, config, store);

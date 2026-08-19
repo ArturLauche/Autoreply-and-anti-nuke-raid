@@ -957,46 +957,61 @@ async function handleVerify(client, message, args, config, store) {
     const channelMention = args[1] || "";
     const unverifiedMention = args[2] || "";
     const verifiedMention = args[3] || "";
+    const method = ["button", "captcha"].includes(args[4]) ? args[4] : "button";
     const channelId = channelMention.replace(/^<#(\d+)>$/, "$1");
     const unverifiedRoleId = unverifiedMention.replace(/^<@(\d+)>$/, "$1");
     const verifiedRoleId = verifiedMention.replace(/^<@(\d+)>$/, "$1");
     if (!/^\d{15,20}$/.test(channelId)) {
-      return message.reply("❌ Cú pháp: `!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh`");
+      return message.reply("❌ Cú pháp: `!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh [button|captcha]`");
     }
     if (!/^\d{15,20}$/.test(unverifiedRoleId)) {
-      return message.reply("❌ Cú pháp: `!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh`");
+      return message.reply("❌ Cú pháp: `!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh [button|captcha]`");
     }
     if (!/^\d{15,20}$/.test(verifiedRoleId)) {
-      return message.reply("❌ Cú pháp: `!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh`");
+      return message.reply("❌ Cú pháp: `!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh [button|captcha]`");
     }
     await store.client.mutation("bot_writes:botUpdateSettings", {
       guildId: message.guild.id,
       verifyEnabled: true,
+      verifyMethod: method,
       verifyChannelId: channelId,
       unverifiedRoleId,
       verifiedRoleId,
     });
     store.invalidate(message.guild.id);
-    // Gửi embed xác minh vào kênh
     try {
       const verifyChannel = message.guild.channels.cache.get(channelId);
       if (verifyChannel) {
         const embed = new EmbedBuilder()
           .setColor(Colors.Blurple)
           .setTitle("✅ Xác minh thành viên")
-          .setDescription("Nhấn nút bên dưới để xác minh và vào server.");
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId("verify_confirm")
-            .setLabel("Xác minh ✅")
-            .setStyle(ButtonStyle.Success),
-        );
+          .setDescription(
+            method === "captcha"
+              ? "Nhấn nút bên dưới để nhận mã xác minh qua DM, sau đó nhập mã trong kênh này."
+              : "Nhấn nút bên dưới để xác minh và vào server."
+          );
+        const row = new ActionRowBuilder();
+        if (method === "captcha") {
+          row.addComponents(
+            new ButtonBuilder()
+              .setCustomId("verify_request_captcha")
+              .setLabel("Nhận mã xác minh 🔑")
+              .setStyle(ButtonStyle.Primary),
+          );
+        } else {
+          row.addComponents(
+            new ButtonBuilder()
+              .setCustomId("verify_confirm")
+              .setLabel("Xác minh ✅")
+              .setStyle(ButtonStyle.Success),
+          );
+        }
         await verifyChannel.send({ embeds: [embed], components: [row] });
       }
     } catch (e) {
       console.error(`[verify:setup:send] ${message.guild.id}:`, e.message);
     }
-    return message.reply("✅ Đã thiết lập xác minh thành viên.");
+    return message.reply(`✅ Đã thiết lập xác minh (${method === "captcha" ? "captcha" : "button"}).`);
   }
   if (sub === "on" || sub === "off") {
     if (!canManageGuild(message.member)) {
@@ -1010,10 +1025,26 @@ async function handleVerify(client, message, args, config, store) {
     store.invalidate(message.guild.id);
     return message.reply(`✅ Đã ${enabled ? "bật" : "tắt"} xác minh thành viên.`);
   }
+  if (sub === "method") {
+    if (!canManageGuild(message.member)) {
+      return message.reply("❌ Bạn không có quyền dùng lệnh này — cần quyền **Quản lý server**.");
+    }
+    const type = (args[1] || "").toLowerCase();
+    if (!["button", "captcha"].includes(type)) {
+      return message.reply("❌ Cú pháp: `!verify method button|captcha`");
+    }
+    await store.client.mutation("bot_writes:botUpdateSettings", {
+      guildId: message.guild.id,
+      verifyMethod: type,
+    });
+    store.invalidate(message.guild.id);
+    return message.reply(`✅ Đã đổi phương thức xác minh thành **${type === "captcha" ? "captcha — nhập mã DM" : "button — bấm nút"}**.`);
+  }
   return message.reply(
     "**Cú pháp:**\n" +
-      "`!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh` — thiết lập\n" +
-      "`!verify on/off` — bật/tắt",
+      "`!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh [button\|captcha]` — thiết lập\n" +
+      "`!verify on/off` — bật/tắt\n" +
+      "`!verify method button\|captcha` — đổi phương thức",
   );
 }
 

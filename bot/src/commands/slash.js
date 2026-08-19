@@ -409,6 +409,16 @@ const commands = [
           { name: "channel", description: "Kênh hiển thị embed xác minh", type: 7, required: true },
           { name: "unverified_role", description: "Role gán cho thành viên mới (chưa xác minh)", type: 8, required: true },
           { name: "verified_role", description: "Role gán sau khi xác minh thành công", type: 8, required: true },
+          {
+            name: "method",
+            description: "Phương thức xác minh",
+            type: 3,
+            required: false,
+            choices: [
+              { name: "Button — bấm nút xác minh", value: "button" },
+              { name: "Captcha — nhập mã từ DM", value: "captcha" },
+            ],
+          },
         ],
       },
       {
@@ -424,6 +434,23 @@ const commands = [
             choices: [
               { name: "Bật", value: "on" },
               { name: "Tắt", value: "off" },
+            ],
+          },
+        ],
+      },
+      {
+        name: "method",
+        description: "Đổi phương thức xác minh",
+        type: 1,
+        options: [
+          {
+            name: "type",
+            description: "Phương thức",
+            type: 3,
+            required: true,
+            choices: [
+              { name: "Button — bấm nút", value: "button" },
+              { name: "Captcha — nhập mã DM", value: "captcha" },
             ],
           },
         ],

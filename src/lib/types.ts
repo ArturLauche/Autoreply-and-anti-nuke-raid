@@ -171,6 +171,7 @@ export interface GuildData {
     raidHuntBanSuspects: boolean;
     /** Verify system: bật xác minh thành viên khi vào server. */
     verifyEnabled: boolean;
+    verifyMethod: "button" | "captcha";
     verifyChannelId: string | null;
     unverifiedRoleId: string | null;
     verifiedRoleId: string | null;

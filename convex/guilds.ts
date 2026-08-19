@@ -167,6 +167,7 @@ export const getGuild = query({
         warnStrikePunish: guild.warnStrikePunish ?? WARN_STRIKE_DEFAULTS.punish,
         safetyPercent,
         verifyEnabled: guild.verifyEnabled ?? false,
+        verifyMethod: guild.verifyMethod ?? "button",
         verifyChannelId: guild.verifyChannelId ?? null,
         unverifiedRoleId: guild.unverifiedRoleId ?? null,
         verifiedRoleId: guild.verifiedRoleId ?? null,
@@ -337,6 +338,7 @@ export const getBotConfig = query({
       dmMessage: guild.dmMessage ?? null,
       backupAutoDays: guild.backupAutoDays ?? 0,
       verifyEnabled: guild.verifyEnabled ?? false,
+      verifyMethod: guild.verifyMethod ?? "button",
       verifyChannelId: guild.verifyChannelId ?? null,
       unverifiedRoleId: guild.unverifiedRoleId ?? null,
       verifiedRoleId: guild.verifiedRoleId ?? null,
@@ -412,6 +414,7 @@ export const updateSettings = mutation({
     raidHuntBanSuspects: v.optional(v.boolean()),
     theme: v.optional(v.string()),
     verifyEnabled: v.optional(v.boolean()),
+    verifyMethod: v.optional(v.union(v.literal("button"), v.literal("captcha"))),
     verifyChannelId: v.optional(v.string()),
     unverifiedRoleId: v.optional(v.string()),
     verifiedRoleId: v.optional(v.string()),
@@ -538,6 +541,7 @@ export const updateSettings = mutation({
     }
     if (args.warnStrikePunish !== undefined) patch.warnStrikePunish = args.warnStrikePunish;
     if (args.verifyEnabled !== undefined) patch.verifyEnabled = args.verifyEnabled;
+    if (args.verifyMethod !== undefined) patch.verifyMethod = args.verifyMethod;
     if (args.verifyChannelId !== undefined) patch.verifyChannelId = args.verifyChannelId || undefined;
     if (args.unverifiedRoleId !== undefined) patch.unverifiedRoleId = args.unverifiedRoleId || undefined;
     if (args.verifiedRoleId !== undefined) patch.verifiedRoleId = args.verifiedRoleId || undefined;

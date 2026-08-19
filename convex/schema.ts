@@ -119,6 +119,8 @@ export default defineSchema({
     dmRequested: v.optional(v.boolean()),
     /** Verify system: bật xác minh thành viên khi vào server. */
     verifyEnabled: v.optional(v.boolean()),
+    /** Phương thức xác minh: "button" (bấm nút) hoặc "captcha" (nhập mã DM). */
+    verifyMethod: v.optional(v.union(v.literal("button"), v.literal("captcha"))),
     verifyChannelId: v.optional(v.string()),
     unverifiedRoleId: v.optional(v.string()),
     verifiedRoleId: v.optional(v.string()),
