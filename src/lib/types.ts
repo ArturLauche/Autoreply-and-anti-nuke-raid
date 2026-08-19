@@ -169,6 +169,16 @@ export interface GuildData {
     raidHuntEnabled: boolean;
     /** Raid Intel: tự ban tài khoản nghi là nguồn cơn raid khi đủ tín hiệu. */
     raidHuntBanSuspects: boolean;
+    /** Verify system: bật xác minh thành viên khi vào server. */
+    verifyEnabled: boolean;
+    verifyChannelId: string | null;
+    unverifiedRoleId: string | null;
+    verifiedRoleId: string | null;
+    /** Verify welcome DM: gửi embed chào mừng qua DM sau khi verify thành công. */
+    verifyWelcomeEnabled: boolean;
+    verifyWelcomeTitle: string | null;
+    verifyWelcomeDescription: string | null;
+    verifyWelcomeColor: string | null;
   };
   heatStates: HeatState[];
   autoReplies: AutoReply[];

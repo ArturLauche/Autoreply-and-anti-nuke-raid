@@ -948,6 +948,75 @@ function parseEmojiRolePairs(pairsRaw, message) {
   return entries.slice(0, 20);
 }
 
+async function handleVerify(client, message, args, config, store) {
+  const sub = (args[0] || "").toLowerCase();
+  if (sub === "setup") {
+    if (!canManageGuild(message.member)) {
+      return message.reply("❌ Bạn không có quyền dùng lệnh này — cần quyền **Quản lý server**.");
+    }
+    const channelMention = args[1] || "";
+    const unverifiedMention = args[2] || "";
+    const verifiedMention = args[3] || "";
+    const channelId = channelMention.replace(/^<#(\d+)>$/, "$1");
+    const unverifiedRoleId = unverifiedMention.replace(/^<@(\d+)>$/, "$1");
+    const verifiedRoleId = verifiedMention.replace(/^<@(\d+)>$/, "$1");
+    if (!/^\d{15,20}$/.test(channelId)) {
+      return message.reply("❌ Cú pháp: `!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh`");
+    }
+    if (!/^\d{15,20}$/.test(unverifiedRoleId)) {
+      return message.reply("❌ Cú pháp: `!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh`");
+    }
+    if (!/^\d{15,20}$/.test(verifiedRoleId)) {
+      return message.reply("❌ Cú pháp: `!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh`");
+    }
+    await store.client.mutation("bot_writes:botUpdateSettings", {
+      guildId: message.guild.id,
+      verifyEnabled: true,
+      verifyChannelId: channelId,
+      unverifiedRoleId,
+      verifiedRoleId,
+    });
+    store.invalidate(message.guild.id);
+    // Gửi embed xác minh vào kênh
+    try {
+      const verifyChannel = message.guild.channels.cache.get(channelId);
+      if (verifyChannel) {
+        const embed = new EmbedBuilder()
+          .setColor(Colors.Blurple)
+          .setTitle("✅ Xác minh thành viên")
+          .setDescription("Nhấn nút bên dưới để xác minh và vào server.");
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("verify_confirm")
+            .setLabel("Xác minh ✅")
+            .setStyle(ButtonStyle.Success),
+        );
+        await verifyChannel.send({ embeds: [embed], components: [row] });
+      }
+    } catch (e) {
+      console.error(`[verify:setup:send] ${message.guild.id}:`, e.message);
+    }
+    return message.reply("✅ Đã thiết lập xác minh thành viên.");
+  }
+  if (sub === "on" || sub === "off") {
+    if (!canManageGuild(message.member)) {
+      return message.reply("❌ Bạn không có quyền dùng lệnh này — cần quyền **Quản lý server**.");
+    }
+    const enabled = sub === "on";
+    await store.client.mutation("bot_writes:botUpdateSettings", {
+      guildId: message.guild.id,
+      verifyEnabled: enabled,
+    });
+    store.invalidate(message.guild.id);
+    return message.reply(`✅ Đã ${enabled ? "bật" : "tắt"} xác minh thành viên.`);
+  }
+  return message.reply(
+    "**Cú pháp:**\n" +
+      "`!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh` — thiết lập\n" +
+      "`!verify on/off` — bật/tắt",
+  );
+}
+
 module.exports = {
   help: handleHelp,
   ping: handlePing,
@@ -972,4 +1041,5 @@ module.exports = {
     handleBackup(client, message, ["list"], config, store),
   restore: (client, message, args, config, store) =>
     handleBackup(client, message, ["restore", ...args], config, store),
+  verify: handleVerify,
 };

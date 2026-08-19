@@ -397,6 +397,39 @@ const commands = [
       },
     ],
   },
+  {
+    name: "verify",
+    description: "Cấu hình xác minh thành viên (verify)",
+    options: [
+      {
+        name: "setup",
+        description: "Thiết lập kênh + role xác minh",
+        type: 1,
+        options: [
+          { name: "channel", description: "Kênh hiển thị embed xác minh", type: 7, required: true },
+          { name: "unverified_role", description: "Role gán cho thành viên mới (chưa xác minh)", type: 8, required: true },
+          { name: "verified_role", description: "Role gán sau khi xác minh thành công", type: 8, required: true },
+        ],
+      },
+      {
+        name: "toggle",
+        description: "Bật/tắt xác minh thành viên",
+        type: 1,
+        options: [
+          {
+            name: "value",
+            description: "on hoặc off",
+            type: 3,
+            required: true,
+            choices: [
+              { name: "Bật", value: "on" },
+              { name: "Tắt", value: "off" },
+            ],
+          },
+        ],
+      },
+    ],
+  },
 ];
 
 module.exports = { commands };

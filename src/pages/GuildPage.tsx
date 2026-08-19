@@ -42,6 +42,7 @@ import ModActionsPanel from "../components/dashboard/ModActionsPanel";
 import JoinGatePanel from "../components/dashboard/JoinGatePanel";
 import SettingsPanel from "../components/dashboard/SettingsPanel";
 import WhitelistPanel from "../components/dashboard/WhitelistPanel";
+import VerifyPanel from "../components/dashboard/VerifyPanel";
 
 type SectionKey =
   | "overview"
@@ -54,6 +55,7 @@ type SectionKey =
   | "backup"
   | "punishments"
   | "hidden"
+  | "verify"
   | "settings";
 
 const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof LayoutDashboard }[] = [
@@ -66,6 +68,7 @@ const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof LayoutDashboard 
   { key: "whitelist", label: "Whitelist", icon: UserCheck },
   { key: "backup", label: "Backup server", icon: CloudUpload },
   { key: "punishments", label: "Hình phạt", icon: Gavel },
+  { key: "verify", label: "Xác minh (Verify)", icon: UserCheck },
   { key: "hidden", label: "Tính năng ẩn 🔒", icon: Lock },
   { key: "settings", label: "Cài đặt", icon: Settings },
 ];
@@ -225,6 +228,7 @@ export default function GuildPage() {
               {section === "whitelist" && <WhitelistPanel data={data} />}
               {section === "backup" && <BackupPanel data={data} />}
               {section === "punishments" && <ModActionsPanel data={data} />}
+              {section === "verify" && <VerifyPanel data={data} />}
               {section === "settings" && <SettingsPanel data={data} />}
               {section === "hidden" &&
                 (!data.guild.isBotOwner || (data.guild.hiddenPasswordSet && !hiddenUnlocked) ? (

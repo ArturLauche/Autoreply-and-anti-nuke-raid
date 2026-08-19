@@ -1,4 +1,4 @@
-const { EmbedBuilder, Colors } = require("discord.js");
+const { EmbedBuilder, Colors, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { canManageGuild, isAdmin, canManageWithConfig } = require("../util");
 const { isLocked, markLocked, unlockGuild } = require("../lockdown");
 const { emojiKeyOf } = require("./hidden");
@@ -64,6 +64,64 @@ function parsePairs(pairsRaw, guild) {
 }
 
 module.exports = async function onInteractionCreate(client, interaction, store, heat) {
+  // Handle button interactions (verify_confirm)
+  if (interaction.isButton()) {
+    if (interaction.customId === "verify_confirm") {
+      const guild = interaction.guild;
+      if (!guild) return;
+      const config = await store.getConfig(guild.id);
+      if (!config?.verifyEnabled) {
+        return interaction.reply({ content: "❌ Xác minh đã bị tắt.", ephemeral: true });
+      }
+      const unverifiedRoleId = config.unverifiedRoleId;
+      const verifiedRoleId = config.verifiedRoleId;
+      if (!unverifiedRoleId || !verifiedRoleId) {
+        return interaction.reply({ content: "❌ Chưa cấu hình role xác minh.", ephemeral: true });
+      }
+      const member = guild.members.cache.get(interaction.user.id) || await guild.members.fetch(interaction.user.id).catch(() => null);
+      if (!member) {
+        return interaction.reply({ content: "❌ Không tìm thấy thành viên.", ephemeral: true });
+      }
+      try {
+        // Gỡ role unverified
+        if (member.roles.cache.has(unverifiedRoleId)) {
+          await member.roles.remove(unverifiedRoleId, "Xác minh thành công");
+        }
+        // Gán role verified
+        if (!member.roles.cache.has(verifiedRoleId)) {
+          await member.roles.add(verifiedRoleId, "Xác minh thành công");
+        }
+        await interaction.reply({ content: "✅ Đã xác minh thành công! Chào mừng bạn đến với server.", ephemeral: true });
+        // Gửi DM chào mừng nếu bật
+        if (config.verifyWelcomeEnabled) {
+          try {
+            const title = config.verifyWelcomeTitle || "🌸 Chào mừng bạn!";
+            let description = config.verifyWelcomeDescription || `Chào mừng bạn đến với **${guild.name}**! Bạn đã xác minh thành công.`;
+            description = description.replace(/{user}/g, `<@${member.id}>`).replace(/{server}/g, guild.name);
+            const colorHex = config.verifyWelcomeColor || "#f2629e";
+            const colorInt = parseInt(colorHex.replace("#", ""), 16) || 0xf2629e;
+            const welcomeEmbed = new EmbedBuilder()
+              .setTitle(title)
+              .setDescription(description)
+              .setColor(colorInt)
+              .setThumbnail(guild.iconURL({ size: 256 }) || null)
+              .setFooter({ text: guild.name, iconURL: guild.iconURL({ size: 64 }) || undefined });
+            await member.send({ embeds: [welcomeEmbed] }).catch(() => {});
+          } catch (e) {
+            // member có thể tắt DM — bỏ qua im lặng
+          }
+        }
+      } catch (e) {
+        console.error(`[verify:button] ${guild.id}:`, e.message);
+        if (!interaction.replied) {
+          await interaction.reply({ content: `❌ Lỗi xác minh: ${e.message}`, ephemeral: true }).catch(() => {});
+        }
+      }
+      return;
+    }
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) return;
 
   const name = interaction.commandName;
@@ -91,6 +149,7 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
             "**Giveaway** — `/giveaway start <tên> <giải thưởng> <thời lượng>`, `/giveaway list`, `/giveaway end`",
             "**Reaction Role** — `/reactionrole create <kênh> <tên> <cặp emoji:role>`, `/reactionrole add`, `/reactionrole edit`, `/reactionrole remove`, `/reactionrole delete`",
             "**Backup server** — `/backup now` (tạo + đẩy GitHub chủ bot), `/backup list`, `/backup restore <số>`, `/backup auto <2-30>` (tự động định kỳ) — phòng khi server bị nuke phá sập",
+            "**Xác minh** — `/verify setup` (kênh + role), `/verify toggle`",
             "**Cấu hình** — `/setup log-channel`, `/setup mod-role`, `/setup admin-role`, `/prefix set`",
             "**Khác** — `/ping`",
           ].join("\n"),
@@ -922,6 +981,62 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       } catch (e) {
         return interaction.reply({ content: `❌ ${e.message}`, ephemeral: true });
       }
+    }
+
+    case "verify": {
+      const sub = interaction.options.getSubcommand();
+      if (!canManageGuild(interaction.member)) return needPerm(interaction);
+
+      if (sub === "setup") {
+        const channel = interaction.options.getChannel("channel", true);
+        const unverifiedRole = interaction.options.getRole("unverified_role", true);
+        const verifiedRole = interaction.options.getRole("verified_role", true);
+        await store.client.mutation("bot_writes:botUpdateSettings", {
+          guildId: guild.id,
+          verifyEnabled: true,
+          verifyChannelId: channel.id,
+          unverifiedRoleId: unverifiedRole.id,
+          verifiedRoleId: verifiedRole.id,
+        });
+        store.invalidate(guild.id);
+        // Gửi embed xác minh vào kênh
+        try {
+          const embed = new EmbedBuilder()
+            .setColor(Colors.Blurple)
+            .setTitle("✅ Xác minh thành viên")
+            .setDescription("Nhấn nút bên dưới để xác minh và vào server.");
+          const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId("verify_confirm")
+              .setLabel("Xác minh ✅")
+              .setStyle(ButtonStyle.Success),
+          );
+          await channel.send({ embeds: [embed], components: [row] });
+        } catch (e) {
+          console.error(`[verify:setup:send] ${guild.id}:`, e.message);
+        }
+        return interaction.reply({
+          content: `✅ Đã thiết lập xác minh: kênh ${channel}, role chưa xác minh ${unverifiedRole}, role đã xác minh ${verifiedRole}.`,
+          ephemeral: true,
+        });
+      }
+
+      if (sub === "toggle") {
+        const value = interaction.options.getString("value", true);
+        if (!["on", "off"].includes(value)) {
+          return interaction.reply({ content: "Giá trị phải là on hoặc off.", ephemeral: true });
+        }
+        await store.client.mutation("bot_writes:botUpdateSettings", {
+          guildId: guild.id,
+          verifyEnabled: value === "on",
+        });
+        store.invalidate(guild.id);
+        return interaction.reply({
+          content: `✅ Đã ${value === "on" ? "bật" : "tắt"} xác minh thành viên.`,
+          ephemeral: true,
+        });
+      }
+      return;
     }
 
     case "setup": {

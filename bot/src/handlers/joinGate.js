@@ -17,8 +17,26 @@ const DAY_MS = 86_400_000;
  * Lưu ý: Discord không cho bot đọc trạng thái "email/phone đã xác thực" của người dùng,
  * nên thay vào đó dùng các tín hiệu công khai trên (tuổi, avatar, huy hiệu, trạng thái raid).
  */
+async function assignUnverifiedRole(client, member, store) {
+  let config;
+  try {
+    config = await store.getConfig(member.guild.id);
+  } catch (err) {
+    console.error(`[assignUnverified] ${member.guild.id}:`, err.message);
+    return;
+  }
+  if (!config?.verifyEnabled || !config?.unverifiedRoleId) return;
+  try {
+    await member.roles.add(config.unverifiedRoleId, "Xác minh thành viên — role mặc định");
+  } catch (err) {
+    console.error(`[assignUnverified] ${member.guild.id}:`, err.message);
+  }
+}
+
 module.exports = async function joinGate(client, member, store) {
   if (!member?.guild || member.user?.bot) return; // chỉ xét tài khoản người thật
+  // Gán role unverified nếu verify đang bật
+  assignUnverifiedRole(client, member, store).catch((e) => console.error(`[assignUnverified]`, e.message));
   let config;
   try {
     config = await store.getConfig(member.guild.id);

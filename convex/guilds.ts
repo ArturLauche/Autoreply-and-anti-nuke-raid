@@ -166,6 +166,14 @@ export const getGuild = query({
         warnStrikeWindowMin: guild.warnStrikeWindowMin ?? WARN_STRIKE_DEFAULTS.windowMin,
         warnStrikePunish: guild.warnStrikePunish ?? WARN_STRIKE_DEFAULTS.punish,
         safetyPercent,
+        verifyEnabled: guild.verifyEnabled ?? false,
+        verifyChannelId: guild.verifyChannelId ?? null,
+        unverifiedRoleId: guild.unverifiedRoleId ?? null,
+        verifiedRoleId: guild.verifiedRoleId ?? null,
+        verifyWelcomeEnabled: guild.verifyWelcomeEnabled ?? false,
+        verifyWelcomeTitle: guild.verifyWelcomeTitle ?? null,
+        verifyWelcomeDescription: guild.verifyWelcomeDescription ?? null,
+        verifyWelcomeColor: guild.verifyWelcomeColor ?? null,
       },
       heatStates,
       autoReplies: autoReplies.map((r) => ({
@@ -328,6 +336,14 @@ export const getBotConfig = query({
       dmTargetUsername: guild.dmTargetUsername ?? null,
       dmMessage: guild.dmMessage ?? null,
       backupAutoDays: guild.backupAutoDays ?? 0,
+      verifyEnabled: guild.verifyEnabled ?? false,
+      verifyChannelId: guild.verifyChannelId ?? null,
+      unverifiedRoleId: guild.unverifiedRoleId ?? null,
+      verifiedRoleId: guild.verifiedRoleId ?? null,
+      verifyWelcomeEnabled: guild.verifyWelcomeEnabled ?? false,
+      verifyWelcomeTitle: guild.verifyWelcomeTitle ?? null,
+      verifyWelcomeDescription: guild.verifyWelcomeDescription ?? null,
+      verifyWelcomeColor: guild.verifyWelcomeColor ?? null,
       heatStates,
       autoReplies,
       giveaways: giveaways.map((g) => ({
@@ -395,6 +411,14 @@ export const updateSettings = mutation({
     raidHuntEnabled: v.optional(v.boolean()),
     raidHuntBanSuspects: v.optional(v.boolean()),
     theme: v.optional(v.string()),
+    verifyEnabled: v.optional(v.boolean()),
+    verifyChannelId: v.optional(v.string()),
+    unverifiedRoleId: v.optional(v.string()),
+    verifiedRoleId: v.optional(v.string()),
+    verifyWelcomeEnabled: v.optional(v.boolean()),
+    verifyWelcomeTitle: v.optional(v.string()),
+    verifyWelcomeDescription: v.optional(v.string()),
+    verifyWelcomeColor: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await getUserByToken(ctx, args.token);
@@ -513,6 +537,14 @@ export const updateSettings = mutation({
       patch.warnStrikeWindowMin = Math.max(1, Math.min(1440, Math.floor(args.warnStrikeWindowMin)));
     }
     if (args.warnStrikePunish !== undefined) patch.warnStrikePunish = args.warnStrikePunish;
+    if (args.verifyEnabled !== undefined) patch.verifyEnabled = args.verifyEnabled;
+    if (args.verifyChannelId !== undefined) patch.verifyChannelId = args.verifyChannelId || undefined;
+    if (args.unverifiedRoleId !== undefined) patch.unverifiedRoleId = args.unverifiedRoleId || undefined;
+    if (args.verifiedRoleId !== undefined) patch.verifiedRoleId = args.verifiedRoleId || undefined;
+    if (args.verifyWelcomeEnabled !== undefined) patch.verifyWelcomeEnabled = args.verifyWelcomeEnabled;
+    if (args.verifyWelcomeTitle !== undefined) patch.verifyWelcomeTitle = args.verifyWelcomeTitle || undefined;
+    if (args.verifyWelcomeDescription !== undefined) patch.verifyWelcomeDescription = args.verifyWelcomeDescription || undefined;
+    if (args.verifyWelcomeColor !== undefined) patch.verifyWelcomeColor = args.verifyWelcomeColor || undefined;
     await ctx.db.patch(guild._id, patch);
     return { ok: true };
   },

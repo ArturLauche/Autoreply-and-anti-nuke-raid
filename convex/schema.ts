@@ -117,6 +117,16 @@ export default defineSchema({
     dmTargetUsername: v.optional(v.string()),
     dmMessage: v.optional(v.string()),
     dmRequested: v.optional(v.boolean()),
+    /** Verify system: bật xác minh thành viên khi vào server. */
+    verifyEnabled: v.optional(v.boolean()),
+    verifyChannelId: v.optional(v.string()),
+    unverifiedRoleId: v.optional(v.string()),
+    verifiedRoleId: v.optional(v.string()),
+    /** Verify welcome DM: gửi embed chào mừng qua DM sau khi verify thành công. */
+    verifyWelcomeEnabled: v.optional(v.boolean()),
+    verifyWelcomeTitle: v.optional(v.string()),
+    verifyWelcomeDescription: v.optional(v.string()),
+    verifyWelcomeColor: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_discordId", ["discordId"]),
