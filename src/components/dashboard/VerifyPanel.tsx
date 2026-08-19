@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type RefObject } from "react";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { BadgeCheck, Eye, Fingerprint, Hash, Mail, Send, ShieldCheck, ShieldOff } from "lucide-react";
@@ -23,6 +23,31 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
   const [localDesc, setLocalDesc] = useState(g.verifyWelcomeDescription ?? "");
   const [localColor, setLocalColor] = useState(g.verifyWelcomeColor ?? "#f2629e");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const descRef = useRef<HTMLTextAreaElement>(null);
+
+  /** Chèn placeholder vào vị trí cursor của textarea */
+  function insertPlaceholder(
+    ref: RefObject<HTMLTextAreaElement | null>,
+    setter: React.Dispatch<React.SetStateAction<string>>,
+    current: string,
+    debounce: (p: Record<string, unknown>) => void,
+    basePatch: Record<string, unknown>,
+    placeholder: string,
+  ) {
+    const el = ref.current;
+    const start = el?.selectionStart ?? current.length;
+    const end = el?.selectionEnd ?? current.length;
+    const next = current.slice(0, start) + placeholder + current.slice(end);
+    setter(next);
+    debounce({ ...basePatch, verifyWelcomeDescription: next || null });
+    // Focus + đặt cursor sau placeholder
+    requestAnimationFrame(() => {
+      if (el) {
+        el.focus();
+        el.selectionStart = el.selectionEnd = start + placeholder.length;
+      }
+    });
+  }
 
   const flushDebounced = useCallback(
     (patch: Record<string, unknown>) => {
@@ -157,20 +182,35 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Nội dung embed</Label>
                   <textarea
+                    ref={descRef}
                     value={localDesc}
                     onChange={(e) => {
                       setLocalDesc(e.target.value);
                       flushDebounced({ verifyWelcomeDescription: e.target.value || null });
                     }}
-                    placeholder="Bạn đã xác minh thành công. Chào mừng bạn đến với server!\n{user} để tag thành viên."
+                    placeholder="Bạn đã xác minh thành công. Chào mừng bạn đến với server!"
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                     rows={3}
                     maxLength={2000}
                   />
-                  <p className="text-[10px] text-muted-foreground">
-                    Dùng <code className="rounded bg-muted px-1 py-0.5 font-mono">{'{user}'}</code> để tag thành viên,{' '}
-                    <code className="rounded bg-muted px-1 py-0.5 font-mono">{'{server}'}</code> để tên server.
-                  </p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground">Chèn:</span>
+                    {([
+                      ["{user}", "Tag thành viên"],
+                      ["{server}", "Tên server"],
+                    ] as const).map(([ph, label]) => (
+                      <button
+                        key={ph}
+                        type="button"
+                        onClick={() => insertPlaceholder(descRef, setLocalDesc, localDesc, flushDebounced, { verifyWelcomeDescription: null }, ph)}
+                        className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[10px] font-mono text-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                        title={label}
+                      >
+                        {ph}
+                      </button>
+                    ))}
+                    <span className="text-[10px] text-muted-foreground">— {"{user}"} để tag, {"{server}"} để tên server</span>
+                  </div>
                 </div>
                 {/* Welcome color */}
                 <div className="space-y-1.5">
