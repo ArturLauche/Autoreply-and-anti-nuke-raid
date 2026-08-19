@@ -129,6 +129,7 @@ export default defineSchema({
     verifyWelcomeTitle: v.optional(v.string()),
     verifyWelcomeDescription: v.optional(v.string()),
     verifyWelcomeColor: v.optional(v.string()),
+    verifySendPanel: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_discordId", ["discordId"]),

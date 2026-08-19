@@ -1,6 +1,6 @@
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
-import { BadgeCheck, Fingerprint, Hash, Mail, ShieldCheck, ShieldOff } from "lucide-react";
+import { BadgeCheck, Fingerprint, Hash, Mail, Send, ShieldCheck, ShieldOff } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { Card, CardContent } from "../ui/card";
 import { Switch } from "../ui/switch";
@@ -232,6 +232,17 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
               <p>• Bot gửi embed trong <b>kênh xác minh</b> với nút / phản ứng để xác minh.</p>
               <p>• Sau khi xác minh → gỡ role chưa xác minh, gán <b>role đã xác minh</b>.</p>
             </div>
+
+            {/* Send panel button */}
+            {g.verifyChannelId && (
+              <button
+                onClick={() => patch({ verifySendPanel: true }, "Đã yêu cầu bot gửi panel xác minh!")}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                <Send className="h-4 w-4" />
+                Gửi panel xác minh vào kênh
+              </button>
+            )}
 
             {/* Current config badges */}
             <div className="flex flex-wrap gap-2">

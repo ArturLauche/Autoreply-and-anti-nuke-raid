@@ -180,6 +180,7 @@ export interface GuildData {
     verifyWelcomeTitle: string | null;
     verifyWelcomeDescription: string | null;
     verifyWelcomeColor: string | null;
+    verifySendPanel: boolean;
   };
   heatStates: HeatState[];
   autoReplies: AutoReply[];

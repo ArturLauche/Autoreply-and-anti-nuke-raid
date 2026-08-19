@@ -175,6 +175,7 @@ export const getGuild = query({
         verifyWelcomeTitle: guild.verifyWelcomeTitle ?? null,
         verifyWelcomeDescription: guild.verifyWelcomeDescription ?? null,
         verifyWelcomeColor: guild.verifyWelcomeColor ?? null,
+        verifySendPanel: guild.verifySendPanel ?? false,
       },
       heatStates,
       autoReplies: autoReplies.map((r) => ({
@@ -346,6 +347,7 @@ export const getBotConfig = query({
       verifyWelcomeTitle: guild.verifyWelcomeTitle ?? null,
       verifyWelcomeDescription: guild.verifyWelcomeDescription ?? null,
       verifyWelcomeColor: guild.verifyWelcomeColor ?? null,
+      verifySendPanel: guild.verifySendPanel ?? false,
       heatStates,
       autoReplies,
       giveaways: giveaways.map((g) => ({
@@ -422,6 +424,7 @@ export const updateSettings = mutation({
     verifyWelcomeTitle: v.optional(v.string()),
     verifyWelcomeDescription: v.optional(v.string()),
     verifyWelcomeColor: v.optional(v.string()),
+    verifySendPanel: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const user = await getUserByToken(ctx, args.token);
@@ -549,6 +552,7 @@ export const updateSettings = mutation({
     if (args.verifyWelcomeTitle !== undefined) patch.verifyWelcomeTitle = args.verifyWelcomeTitle || undefined;
     if (args.verifyWelcomeDescription !== undefined) patch.verifyWelcomeDescription = args.verifyWelcomeDescription || undefined;
     if (args.verifyWelcomeColor !== undefined) patch.verifyWelcomeColor = args.verifyWelcomeColor || undefined;
+    if (args.verifySendPanel !== undefined) patch.verifySendPanel = args.verifySendPanel;
     await ctx.db.patch(guild._id, patch);
     return { ok: true };
   },
@@ -641,6 +645,36 @@ export const setAntinukeGlobal = mutation({
 });
 
 /* ------------------------- Bot-side sync ------------------------- */
+
+/** Query: find guilds where verifySendPanel is true (bot polls this). */
+export const getVerifySendPanelGuilds = query({
+  args: {},
+  handler: async (ctx) => {
+    const guilds = await ctx.db.query("guilds").collect();
+    return guilds
+      .filter((g) => g.verifySendPanel === true && g.verifyEnabled && g.verifyChannelId)
+      .map((g) => ({
+        guildId: g.discordId,
+        verifyChannelId: g.verifyChannelId!,
+        unverifiedRoleId: g.unverifiedRoleId ?? null,
+        verifiedRoleId: g.verifiedRoleId ?? null,
+        verifyMethod: g.verifyMethod ?? "button",
+      }));
+  },
+});
+
+/** Mutation: clear verifySendPanel flag after bot sends the panel. */
+export const clearVerifySendPanel = mutation({
+  args: { guildId: v.string() },
+  handler: async (ctx, { guildId }) => {
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) return;
+    await ctx.db.patch(guild._id, { verifySendPanel: false });
+  },
+});
 
 export const botSyncGuilds = mutation({
   args: {

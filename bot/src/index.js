@@ -167,6 +167,12 @@ client.on("interactionCreate", (i) =>
   onInteractionCreate(client, i, store, heat).catch((e) => {
     console.error("[interaction]", e?.message || e);
     if (e?.errors) console.error("[interaction] details:", JSON.stringify(e.errors).slice(0, 600));
+    // Reply error to interaction so Discord doesn't show "application not responding"
+    try {
+      if (!i.replied && !i.deferred && (i.isChatInputCommand() || i.isButton() || i.isStringSelectMenu())) {
+        i.reply({ content: "❌ Có lỗi xảy ra khi xử lý lệnh. Vui lòng thử lại.", ephemeral: true }).catch(() => {});
+      }
+    } catch {}
   }),
 );
 client.on("guildMemberAdd", (m) => joinGate(client, m, store).catch((e) => console.error("[joinGate]", e.message)));

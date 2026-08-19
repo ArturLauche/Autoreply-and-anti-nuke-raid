@@ -98,12 +98,56 @@ async function syncAll(client, store) {
   } catch (e) {
     console.error("[owner:sync]", e.message);
   }
+  // Verify panel: check if any guild requested sending a verify panel from dashboard
+  try {
+    const pendingPanels = await store.client.query("guilds:getVerifySendPanelGuilds", {});
+    for (const panel of (pendingPanels || [])) {
+      try {
+        const guild = client.guilds.cache.get(panel.guildId);
+        if (!guild) continue;
+        const ch = guild.channels.cache.get(panel.verifyChannelId);
+        if (!ch || !ch.isTextBased()) continue;
+        const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Colors } = require("discord.js");
+        const embed = new EmbedBuilder()
+          .setColor(Colors.Blurple)
+          .setTitle("✅ Xác minh thành viên")
+          .setDescription(
+            panel.verifyMethod === "captcha"
+              ? "Nhấn nút bên dưới để nhận mã xác minh qua DM, sau đó nhập mã trong kênh này."
+              : "Nhấn nút bên dưới để xác minh và vào server."
+          );
+        const row = new ActionRowBuilder();
+        if (panel.verifyMethod === "captcha") {
+          row.addComponents(
+            new ButtonBuilder()
+              .setCustomId("verify_request_captcha")
+              .setLabel("Nhận mã xác minh 🔑")
+              .setStyle(ButtonStyle.Primary),
+          );
+        } else {
+          row.addComponents(
+            new ButtonBuilder()
+              .setCustomId("verify_confirm")
+              .setLabel("Xác minh ✅")
+              .setStyle(ButtonStyle.Success),
+          );
+        }
+        await ch.send({ embeds: [embed], components: [row] });
+        await store.client.mutation("guilds:clearVerifySendPanel", { guildId: panel.guildId });
+        store.invalidate(panel.guildId);
+        console.log(`[verify:panel] Đã gửi panel xác minh vào #${ch.name} (${guild.name})`);
+      } catch (e) {
+        console.error(`[verify:panel] Lỗi gửi panel:`, e.message);
+      }
+    }
+  } catch (e) {
+    console.error("[verify:panel] Lỗi query:", e.message);
+  }
+
   await store.client.mutation("guilds:botHeartbeat", {
     guildCount: count,
     memberCount,
-    // Bản bot đang chạy — web dùng để báo "bot trên host đang chạy bản cũ, cần cập nhật".
-    // Nhớ nâng cùng số zip khi đóng gói bản mới (v47, v48…).
-    version: "v57",
+    version: "v59",
     ownerName,
     ownerAvatarUrl,
   });
