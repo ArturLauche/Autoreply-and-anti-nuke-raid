@@ -103,7 +103,7 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         });
       } catch {
         return interaction.reply({
-          content: "❌ Không thể gửi DM — hãy bật"\"cho phép tin nhắn trực tiếp\"" từ thành viên server rồi thử lại.",
+          content: '❌ Không thể gửi DM — hãy bật "cho phép tin nhắn trực tiếp" từ thành viên server rồi thử lại.',
           ephemeral: true,
         });
       }
