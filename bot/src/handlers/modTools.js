@@ -132,6 +132,10 @@ async function banMember({ guild, member, executor, reason, deleteDays, guildCon
 }
 
 async function untimeoutMember({ guild, member, executor, reason, guildConfig, store }) {
+  // Kiểm tra member có đang bị timeout không
+  if (!member.isCommunicationDisabled()) {
+    throw new Error(`**${member.user.tag}** hiện không bị timeout.`);
+  }
   await member.timeout(null, reason || undefined);
   // Gỡ chủ động → bỏ theo dõi để không log nhầm "timeout hết hạn" sau này.
   timeoutWatch.forget(guild.id, member.id);
@@ -150,6 +154,11 @@ async function untimeoutMember({ guild, member, executor, reason, guildConfig, s
 }
 
 async function unbanMember({ guild, userId, executor, reason, guildConfig, store }) {
+  // Kiểm tra member có đang bị ban không
+  const ban = await guild.members.fetchBan(userId).catch(() => null);
+  if (!ban) {
+    throw new Error(`**<@${userId}>** hiện không bị ban trong server này.`);
+  }
   await guild.members.unban(userId, reason || undefined);
   await logModAction(
     guild,
@@ -166,6 +175,11 @@ async function unbanMember({ guild, userId, executor, reason, guildConfig, store
 }
 
 async function unwarnMember({ guild, userId, heat, executor, reason, guildConfig, store }) {
+  // Kiểm tra member có warn tích lũy không
+  const strikeCount = heat.strikeCount?.(guild.id, userId);
+  if (!strikeCount || strikeCount === 0) {
+    throw new Error(`**<@${userId}>** hiện không có warn tích lũy nào.`);
+  }
   heat.clearStrikes(guild.id, userId);
   await logModAction(
     guild,
@@ -178,7 +192,7 @@ async function unwarnMember({ guild, userId, heat, executor, reason, guildConfig
     },
     store,
   );
-  return `Đã gỡ toàn bộ warn tích lũy của **<@${userId}>**${reason ? ` — Lý do: ${reason}` : ""}`;
+  return `Đã gỡ toàn bộ warn tích lũy (${strikeCount} warn) của **<@${userId}>**${reason ? ` — Lý do: ${reason}` : ""}`;
 }
 
 async function purgeChannel(channel, count, executor, guildConfig, store) {

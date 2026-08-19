@@ -56,8 +56,8 @@ async function punishMember(guild, member, punishType, reason, timeoutSeconds = 
     const seconds = Math.max(1, Math.min(86400, Math.floor(timeoutSeconds || 300)));
     try {
       await member.timeout(seconds * 1000, reason);
-      // Ghi nhận để log khi timeout hết hạn tự nhiên.
-      timeoutWatch.track(guild.id, member.id, Date.now() + seconds * 1000);
+      // KHÔNG track timeoutWatch ở đây — auto-mod đã ghi case log khi áp dụng.
+      // Chỉ manual mod (modTools.timeoutMember) mới track để log "timeout hết hạn".
       result = `đã tạm khóa ${Math.round(seconds / 60)} phút`;
     } catch {
       result = "không thể tạm khóa (thiếu quyền)";

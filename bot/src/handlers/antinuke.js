@@ -928,6 +928,11 @@ module.exports = function createAntiNuke(client, store, heat) {
     // bot quen thuộc; tầng audit (IntegrationCreate) đã xử lý app kết nối ngoài.
     if (!isExternalAppTarget({ isBot, isWebhook })) return;
 
+    // Whitelist known logging bots (Carl-bot, MEE6, Dyno...) — tạo webhook hợp pháp
+    // để ghi log, KHÔNG phải external app raid.
+    const webhookName = (message.author?.username || '').toLowerCase();
+    if (webhookName && KNOWN_LOGGING_BOTS.some(b => webhookName.includes(b))) return;
+
     const config = await store.getConfig(message.guild.id);
     if (!config || !config.antinukeEnabled) return;
     lastConfigs.set(message.guild.id, config);
