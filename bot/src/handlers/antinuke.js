@@ -52,6 +52,22 @@ const MODULE_LABELS = {
   malware: "Link độc hại & file nguy hiểm",
 };
 
+
+// Các bot logging/app phổ biến tạo webhook hợp pháp → bỏ qua massWebhookCreate
+const KNOWN_LOGGING_BOTS = [
+  'carl-bot', 'carlbot', 'carl bot',
+  'mee6', 'dyno', 'tatsu', 'probot', 'wumpus bot',
+  'wick', 'security bot', 'auto moderador',
+  'statbot', 'arcane', 'top.gg bot',
+  'disboard', 'xenon', 'sapphire',
+];
+
+function isKnownLoggingBot(executor) {
+  const name = (executor?.username || '').toLowerCase();
+  const tag = (executor?.tag || '').toLowerCase();
+  return KNOWN_LOGGING_BOTS.some(b => name.includes(b) || tag.includes(b));
+}
+
 // Module nuke/raid: phạt trực tiếp, KHÔNG cộng nhiệt (chỉ có hình phạt gốc).
 const NUKE_MODULES = new Set([
   "massBan",
@@ -1324,6 +1340,10 @@ module.exports = function createAntiNuke(client, store, heat) {
     if (executor && (executor.id === client.user.id || isExempt(executor, moduleCfg, config))) {
       return; // whitelisted / self — fully ignore
     }
+    // Bỏ qua bot logging/app hợp pháp tạo webhook (Carl-bot, MEE6, Dyno…)
+    if (module === 'massWebhookCreate' && isKnownLoggingBot(executor)) {
+      return; // logging app tạo webhook cho log — không phải raid
+    }
 
     const count = record(guild.id, module, moduleCfg);
     if (executor && count < moduleCfg.threshold) return;
@@ -1397,6 +1417,23 @@ module.exports = function createAntiNuke(client, store, heat) {
       footer: "Protogon · Anti Nuke/Raid",
     });
     await sendLog(guild, config, embed);
+
+    // Gửi embed case log kiểu Carl-bot tới kênh log moderation
+    if (punishChosen) {
+      try {
+        await sendCaseLog({
+          guild,
+          guildConfig: config,
+          action: punishChosen,
+          caseNumber: punishCaseNumber,
+          offender: { id: executor.id, username: executor.username || executor.id },
+          reason: `[AntiNuke] ${MODULE_LABELS[module]}: ${count} lượt/${moduleCfg.windowSeconds}s`,
+          executor: null,
+        });
+      } catch (e) {
+        console.error(`[antinuke:${module}:caseLog]`, e.message);
+      }
+    }
   }
 
   async function handleRaidJoin(member) {
