@@ -25,7 +25,7 @@
  */
 const { sendCaseLog } = require("./caseLog");
 
-const timeouts = new Map(); // key -> until (ms)
+const timeouts = new Map(); // key -> { until, durationMs } (ms)
 const timers = new Map(); // key -> setTimeout id
 const MAX_TIMER_MS = 2_147_000_000; // setTimeout 32-bit: ~24.8 ngày (Discord tối đa 28 ngày)
 
@@ -52,7 +52,8 @@ function scheduleTimer(guildId, userId, until) {
 /** Timer chạy: mục vẫn là bản đang theo dõi và đã qua mốc hết hạn → log. */
 async function onTimerFire(guildId, userId, until) {
   const k = key(guildId, userId);
-  if (timeouts.get(k) !== until) return; // đã bị gỡ / gia hạn → bỏ qua
+  const entry = timeouts.get(k);
+  if (!entry || entry.until !== until) return; // đã bị gỡ / gia hạn → bỏ qua
   if (Date.now() < until) {
     // Timer bị cap 32-bit với timeout rất dài — đặt lại cho tới hạn.
     timers.set(
@@ -64,23 +65,35 @@ async function onTimerFire(guildId, userId, until) {
     return;
   }
   timers.delete(k);
+  const durationMs = entry.durationMs;
   timeouts.delete(k);
-  await maybeLogExpired(guildId, userId, until);
+  await maybeLogExpired(guildId, userId, until, durationMs);
 }
 
 /** Gửi embed "⏱️ Timeout hết hạn" (caller đã forget đồng bộ trước khi await). */
-async function maybeLogExpired(guildId, userId, until) {
+async function maybeLogExpired(guildId, userId, until, durationMs) {
   if (Date.now() < until) return false; // mod gỡ sớm → không log
   const guild = clientRef?.guilds?.cache.get(guildId);
   if (!guild || guild.available === false) return false;
   const guildConfig = storeRef ? await storeRef.getConfig(guildId).catch(() => null) : null;
   const username = guild.members?.cache?.get(userId)?.user?.username ?? userId;
+  // Format thời lượng timeout ban đầu (kiểu Carl-bot)
+  const extra = [];
+  if (durationMs && durationMs > 0) {
+    const mins = Math.round(durationMs / 60_000);
+    let durStr;
+    if (mins >= 1440) durStr = `${Math.round(mins / 1440)} ngày`;
+    else if (mins >= 60) durStr = `${Math.round(mins / 60)} giờ`;
+    else durStr = `${mins} phút`;
+    extra.push(`**Thời lượng ban đầu:** ${durStr}`);
+  }
   await sendCaseLog({
     guild,
     guildConfig,
     action: "timeout_expired",
     offender: { id: userId, username },
     reason: "Timeout đã hết hạn tự nhiên.",
+    extraDescription: extra,
   });
   return true;
 }
@@ -89,21 +102,26 @@ async function maybeLogExpired(guildId, userId, until) {
 function track(guildId, userId, until) {
   if (!guildId || !userId || !Number.isFinite(until)) return;
   const k = key(guildId, userId);
-  timeouts.set(k, until);
+  const durationMs = until - Date.now();
+  timeouts.set(k, { until, durationMs });
   scheduleTimer(guildId, userId, until);
 }
 
-/** Bỏ theo dõi (gỡ timeout / hết hạn / thành viên rời server). */
+/** Bỏ theo dõi (gỡ timeout / hết hạn / thành viên rời server). Trả về durationMs hoặc null. */
 function forget(guildId, userId) {
   const k = key(guildId, userId);
+  const entry = timeouts.get(k);
+  const durationMs = entry?.durationMs;
   timeouts.delete(k);
   clearTimeout(timers.get(k));
   timers.delete(k);
+  return durationMs;
 }
 
 /** Thời điểm hết hạn đang theo dõi (ms) hoặc null. */
 function getUntil(guildId, userId) {
-  return timeouts.get(key(guildId, userId)) ?? null;
+  const entry = timeouts.get(key(guildId, userId));
+  return entry ? entry.until : null;
 }
 
 /**
@@ -112,8 +130,8 @@ function getUntil(guildId, userId) {
  */
 function sweep() {
   const cutoff = Date.now() - 120_000;
-  for (const [k, until] of timeouts) {
-    if (until <= cutoff) {
+  for (const [k, entry] of timeouts) {
+    if (entry.until <= cutoff) {
       timeouts.delete(k);
       clearTimeout(timers.get(k));
       timers.delete(k);
@@ -153,9 +171,9 @@ function attach(client, store) {
       const trackedUntil = getUntil(guildId, userId);
       if (!trackedUntil) return;
       // forget đồng bộ TRƯỚC await → đường chính (timer) thấy mục hết nên không log trùng.
-      forget(guildId, userId);
+      const durationMs = forget(guildId, userId);
       if (Date.now() < trackedUntil) return; // mod gỡ sớm → không log
-      await maybeLogExpired(guildId, userId, trackedUntil);
+      await maybeLogExpired(guildId, userId, trackedUntil, durationMs);
     } catch (e) {
       console.error("[timeoutWatch]", e?.message || e);
     }

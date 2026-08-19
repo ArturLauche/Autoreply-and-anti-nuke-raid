@@ -1,6 +1,6 @@
 const { AuditLogEvent, PermissionFlagsBits, Colors, UserFlags } = require("discord.js");
 const { logEmbed, sendLog } = require("../util");
-const { sendCaseLog } = require("../caseLog");
+const { sendCaseLog, CASE_LABEL } = require("../caseLog");
 const { isLocked, markLocked, lockGuild, unlockGuild } = require("../lockdown");
 const {
   heatSettings,
@@ -796,6 +796,8 @@ module.exports = function createAntiNuke(client, store, heat) {
 
     const punished = [];
     const punishedUsers = [];
+    let firstPunishedUserId = null;
+    let firstPunishedUsername = null;
     for (const t of freshTargets) {
       const member = await guild.members.fetch(t.executorId).catch(() => null);
       if (!member || isExempt(member, moduleCfg, config)) continue;
@@ -814,6 +816,10 @@ module.exports = function createAntiNuke(client, store, heat) {
         const res = await punishWithHeat(guild, member, moduleCfg, reason);
         outcome = res.action;
         actionLabel = res.chosen ?? "xử lý";
+      }
+      if (!firstPunishedUserId) {
+        firstPunishedUserId = t.executorId;
+        firstPunishedUsername = t.executorName;
       }
       punished.push(`<@${t.executorId}>: ${outcome}`);
       punishedUsers.push({
@@ -886,20 +892,28 @@ module.exports = function createAntiNuke(client, store, heat) {
     });
     await sendLog(guild, config, embed);
 
-    // Gửi embed case log kiểu Carl-bot tới kênh log moderation
-    if (punishChosen) {
+    // Gửi embed case log kiểu Carl-bot tới kênh log moderation (dùng đúng biến local)
+    if (firstPunishedUserId) {
       try {
+        const caseAction = isRaid ? 'ban' : (moduleCfg.punish || 'kick');
+        const caseRec = await store.client.mutation('bot_writes:botRecordModAction', {
+          guildId: guild.id,
+          action: (CASE_LABEL[caseAction] || caseAction).replace(/[^\p{L}\p{N}\s]/gu, '').trim().slice(0, 20) || caseAction,
+          targetId: firstPunishedUserId,
+          targetName: firstPunishedUsername,
+          reason: '[AntiNuke] ' + MODULE_LABELS.externalAppRaid + ': ' + count + ' app/' + moduleCfg.windowSeconds + 's',
+        }).catch(() => null);
         await sendCaseLog({
           guild,
           guildConfig: config,
-          action: punishChosen,
-          caseNumber: punishCaseNumber,
-          offender: { id: executor.id, username: executor.username || executor.id },
-          reason: '[AntiNuke] ' + MODULE_LABELS[module] + ': ' + count + ' lượt/' + moduleCfg.windowSeconds + 's',
+          action: caseAction,
+          caseNumber: caseRec?.caseNumber,
+          offender: { id: firstPunishedUserId, username: firstPunishedUsername || firstPunishedUserId },
+          reason: '[AntiNuke] ' + MODULE_LABELS.externalAppRaid + ': ' + count + ' app trong ' + moduleCfg.windowSeconds + 's' + (punished.length > 1 ? ' (+' + (punished.length - 1) + ' người khác)' : ''),
           executor: null,
         });
       } catch (e) {
-        console.error('[antinuke:' + module + ':caseLog]', e.message);
+        console.error('[antinuke:externalAppRaid:caseLog]', e.message);
       }
     }
   }
