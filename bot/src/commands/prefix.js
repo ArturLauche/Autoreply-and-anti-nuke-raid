@@ -959,8 +959,8 @@ async function handleVerify(client, message, args, config, store) {
     const verifiedMention = args[3] || "";
     const method = ["button", "captcha"].includes(args[4]) ? args[4] : "button";
     const channelId = channelMention.replace(/^<#(\d+)>$/, "$1");
-    const unverifiedRoleId = unverifiedMention.replace(/^<@(\d+)>$/, "$1");
-    const verifiedRoleId = verifiedMention.replace(/^<@(\d+)>$/, "$1");
+    const unverifiedRoleId = unverifiedMention.replace(/^<@&?(\d+)>$/, "$1");
+    const verifiedRoleId = verifiedMention.replace(/^<@&?(\d+)>$/, "$1");
     if (!/^\d{15,20}$/.test(channelId)) {
       return message.reply("❌ Cú pháp: `!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh [button|captcha]`");
     }
