@@ -6,7 +6,8 @@
   "type": "commonjs",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js",
+    "start": "node --max-old-space-size=640 --optimize-for-size src/index.js",
+    "start:gc": "node --max-old-space-size=640 --expose-gc --optimize-for-size src/index.js",
     "register": "node src/register-slash.js",
     "deploy:commands": "node src/register-slash.js",
     "pack:host": "node scripts/pack-host.js"

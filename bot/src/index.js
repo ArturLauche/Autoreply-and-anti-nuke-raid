@@ -1,3 +1,8 @@
+// ============================================================
+// Protogon Bot — Memory-Optimized Production Entry Point
+// Target: 1-1 VPS (1 vCPU, 1GB RAM + 1GB swap)
+// ============================================================
+
 require("./loadenv").loadEnv();
 
 const {
@@ -9,18 +14,13 @@ const {
   Partials,
 } = require("discord.js");
 const ConvexStore = require("./convex");
+const { HeatTracker } = require("./heat");
 const guildSync = require("./handlers/guildSync");
 const onMessageCreate = require("./handlers/messageCreate");
 const onInteractionCreate = require("./handlers/interactionCreate");
-const createAntiNuke = require("./handlers/antinuke");
-const scanMessage = require("./handlers/filters");
 const joinGate = require("./handlers/joinGate");
-const { HeatTracker } = require("./heat");
-const { runDailyReports } = require("./handlers/dailyReport");
-const { registerCommands } = require("./register-slash");
-const { setupHidden } = require("./handlers/hidden");
-const pollBackups = require("./handlers/backup");
 
+// --- Client config: aggressive memory limits cho 1GB RAM ---
 const client = new Client({
   partials: [
     Partials.Message,
@@ -32,193 +32,193 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMessageReactions, // cần để nhận sự kiện reaction (reaction role / giveaway)
+    GatewayIntentBits.GuildMessageReactions,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildModeration,
   ],
-  // ⚡ Tối ưu RAM: không giữ tin nhắn trong cache (chỉ 1 msg tối đa),
-  // giới hạn cache user/member/channel/role, các cache khác giữ tối thiểu.
   makeCache: (manager) => {
     if (manager.name === "MessageManager") return new LimitedCollection({ maxSize: 0 });
     if (manager.name === "UserManager" || manager.name === "GuildMemberManager") {
-      return new LimitedCollection({ maxSize: 200 });
+      return new LimitedCollection({ maxSize: 100 });
     }
     if (manager.name === "PresenceManager" || manager.name === "VoiceStateManager") {
       return new LimitedCollection({ maxSize: 0 });
     }
     if (manager.name === "ReactionManager") return new LimitedCollection({ maxSize: 0 });
-    if (manager.name === "GuildEmojiManager") return new LimitedCollection({ maxSize: 100 });
+    if (manager.name === "GuildEmojiManager") return new LimitedCollection({ maxSize: 50 });
+    if (manager.name === "GuildBanManager") return new LimitedCollection({ maxSize: 50 });
     return new Collection();
   },
   sweepers: {
-    messages: { interval: 900, lifetime: 1800 },
-    users: { interval: 900, filter: () => (user) => user.id !== client.user.id },
-    guildMembers: { interval: 900, filter: () => (member) => member.id !== member.guild.ownerId },
-    presences: { interval: 900, filter: () => () => true },
-    voiceStates: { interval: 900, filter: () => () => true },
-    reactions: { interval: 900, filter: () => () => true },
+    messages: { interval: 300, lifetime: 600 },
+    users: { interval: 300, filter: () => (user) => user.id !== client.user?.id },
+    guildMembers: { interval: 300, filter: () => (member) => member.id !== member.guild?.ownerId },
+    presences: { interval: 300, filter: () => () => true },
+    voiceStates: { interval: 300, filter: () => () => true },
+    reactions: { interval: 300, filter: () => () => true },
+    guildBans: { interval: 300, filter: () => () => true },
   },
 });
 
 const store = new ConvexStore();
 const heat = new HeatTracker(client, store);
-const antinuke = createAntiNuke(client, store, heat);
+
+// --- Memory logging ---
+function logMemory(label = "") {
+  const used = process.memoryUsage();
+  const rss = Math.round(used.rss / 1024 / 1024);
+  const heap = Math.round(used.heapUsed / 1024 / 1024);
+  console.log(`[mem] ${label} RSS=${rss}MB Heap=${heap}MB`);
+}
 
 client.once("ready", async () => {
+  logMemory("startup");
   console.log(`✅ Protogon đã online: ${client.user.tag} — ${client.guilds.cache.size} server`);
 
+  // Register slash commands
   if (process.env.AUTO_REGISTER_COMMANDS !== "false") {
     try {
+      const { registerCommands } = require("./register-slash");
       const count = await registerCommands();
       console.log(`✅ Đã đăng ký ${count} slash commands`);
     } catch (err) {
       console.error("⚠️ Đăng ký slash commands thất bại:", err.message);
-      console.error("   Chạy thủ công: cd bot && bun run register");
     }
   }
 
-  // Best-effort: xác định admin sở hữu bot từ ứng dụng Discord (nếu API trả về).
+  // Lazy-init heavy modules
+  const antinuke = require("./handlers/antinuke")(client, store, heat);
+  const scanMessage = require("./handlers/filters");
+  antinuke.attach();
+  require("./timeoutWatch").attach(client, store);
+  require("./handlers/hidden").setupHidden(client, store);
+
+  // Bot owner detection
   try {
     const app = await client.application.fetch();
     const owner = app?.owner;
-    // Ưu tiên ownerId (user id của Team owner); chỉ dùng owner.id khi là User thật.
     const ownerId = owner?.ownerId || (/^\d{15,20}$/.test(owner?.id || "") ? owner.id : null);
     if (ownerId) {
-      let ownerName;
-      let ownerAvatarUrl;
+      let ownerName, ownerAvatarUrl;
       try {
         const ownerUser = await client.users.fetch(ownerId).catch(() => null);
         if (ownerUser) {
           ownerName = ownerUser.username;
           ownerAvatarUrl = ownerUser.displayAvatarURL({ size: 256, extension: "png" });
         }
-      } catch (e) {
-        console.error("[owner:profile]", e.message);
-      }
-      await store.client.mutation("hidden:botSetOwner", {
-        ownerId,
-        ownerName,
-        ownerAvatarUrl,
-      });
+      } catch {}
+      await store.client.mutation("hidden:botSetOwner", { ownerId, ownerName, ownerAvatarUrl });
     }
   } catch (e) {
-    console.error("[owner] Không xác định được chủ bot qua API:", e.message);
+    console.error("[owner]", e.message);
   }
 
-  // Đồng bộ guild an toàn cho bot nhiều server:
-  //  - sync lần đầu SAU 15s (cache guild lấp đầy qua GUILD_CREATE sau READY — nếu
-  //    sync sớm với cache thiếu, hàng nghìn server bị đánh dấu "bot đã rời").
-  //  - vòng lặp TUẦN TỰ (sync xong mới hẹn lượt tiếp) — không chồng lấn như setInterval
-  //    khi một lượt sync 2k+ server mất nhiều phút.
+  // Guild sync loop — mỗi 2 phút (giảm từ 1 phút)
   const runSyncLoop = () => {
     void (async () => {
       try {
         const res = await guildSync.syncAll(client, store);
-        console.log(`[sync] ${res?.count ?? "?"} server${res?.trustedFullList === false ? " (cache thiếu — chưa sweep)" : ""}`);
+        console.log(`[sync] ${res?.count ?? "?"} server${res?.trustedFullList === false ? " (cache thiếu)" : ""}`);
       } catch (e) {
         console.error("[sync]", e.message);
       }
-      setTimeout(runSyncLoop, 60_000);
+      setTimeout(runSyncLoop, 120_000);
     })();
   };
   setTimeout(() => {
     void (async () => {
-      try {
-        await guildSync.ensureModules(client, store);
-      } catch (e) {
-        console.error("[sync:ensure]", e.message);
-      }
+      try { await guildSync.ensureModules(client, store); } catch (e) { console.error("[sync:ensure]", e.message); }
       runSyncLoop();
     })();
   }, 15_000);
 
-  setInterval(() => {
+  // Presence update — mỗi 2 phút
+  const presenceInterval = setInterval(() => {
     client.user.setPresence({
-      activities: [
-        {
-          name: `${client.guilds.cache.size} server · /help`,
-          type: ActivityType.Watching,
-        },
-      ],
+      activities: [{ name: `${client.guilds.cache.size} server · /help`, type: ActivityType.Watching }],
       status: "online",
     });
   }, 120_000);
+  presenceInterval.unref();
 
-  // Daily anti-nuke report: once shortly after start, then every 10 minutes.
+  // Daily report — mỗi 15 phút (giảm từ 10)
+  const { runDailyReports } = require("./handlers/dailyReport");
   setTimeout(() => runDailyReports(client, store, heat).catch((e) => console.error("[report]", e.message)), 30_000);
-  setInterval(() => runDailyReports(client, store, heat).catch((e) => console.error("[report]", e.message)), 10 * 60 * 1000);
+  const reportInterval = setInterval(
+    () => runDailyReports(client, store, heat).catch((e) => console.error("[report]", e.message)),
+    15 * 60 * 1000,
+  );
+  reportInterval.unref();
 
-  // Flush pending heat states to Convex so the dashboard stays in sync.
-  setInterval(() => heat.flushAll().catch((e) => console.error("[heat:flush]", e.message)), 30_000);
+  // Heat flush — mỗi 60s (giảm từ 30s)
+  const heatInterval = setInterval(
+    () => heat.flushAll().catch((e) => console.error("[heat:flush]", e.message)),
+    60_000,
+  );
+  heatInterval.unref();
 
-  // Backup server → GitHub: quét yêu cầu từ dashboard mỗi 20 giây.
+  // Backup poll — mỗi 60s (giảm từ 20s)
+  const pollBackups = require("./handlers/backup");
   setTimeout(() => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)), 15_000);
-  setInterval(() => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)), 20_000);
+  const backupInterval = setInterval(
+    () => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)),
+    60_000,
+  );
+  backupInterval.unref();
 
-  // Tự động backup định kỳ (2-30 ngày theo cấu hình từng server): quét mỗi giờ.
-  setTimeout(() => pollBackups.autoBackupSweep(client, store).catch((e) => console.error("[backup:auto]", e.message)), 60_000);
-  setInterval(() => pollBackups.autoBackupSweep(client, store).catch((e) => console.error("[backup:auto]", e.message)), 60 * 60 * 1000);
+  // Auto backup — mỗi 2 giờ (giảm từ 1 giờ)
+  const autoBackupInterval = setInterval(
+    () => pollBackups.autoBackupSweep(client, store).catch((e) => console.error("[backup:auto]", e.message)),
+    2 * 60 * 60 * 1000,
+  );
+  autoBackupInterval.unref();
+
+  // Memory log — mỗi 5 phút
+  const memInterval = setInterval(() => logMemory("periodic"), 5 * 60 * 1000);
+  memInterval.unref();
+
+  // Force GC sau startup
+  setTimeout(() => {
+    if (global.gc) { global.gc(); logMemory("after GC"); }
+  }, 30_000);
 });
 
-client.on("messageCreate", (m) => onMessageCreate(client, m, store, heat).catch((e) => console.error("[messageCreate]", e.message)));
-client.on("messageCreate", (m) => scanMessage(client, m, store, heat).catch((e) => console.error("[filters]", e.message)));
+// --- Event handlers ---
+client.on("messageCreate", (m) => {
+  if (m.author?.bot) return;
+  onMessageCreate(client, m, store, heat).catch((e) => console.error("[messageCreate]", e.message));
+});
+client.on("messageCreate", (m) => {
+  if (m.author?.bot) return;
+  require("./handlers/filters")(client, m, store, heat).catch((e) => console.error("[filters]", e.message));
+});
 client.on("interactionCreate", (i) =>
   onInteractionCreate(client, i, store, heat).catch((e) => {
     console.error("[interaction]", e?.message || e);
-    if (e?.errors) console.error("[interaction] details:", JSON.stringify(e.errors).slice(0, 600));
-    // Reply error to interaction so Discord doesn't show "application not responding"
     try {
       if (!i.replied && !i.deferred && (i.isChatInputCommand() || i.isButton() || i.isStringSelectMenu())) {
-        i.reply({ content: "❌ Có lỗi xảy ra khi xử lý lệnh. Vui lòng thử lại.", ephemeral: true }).catch(() => {});
+        i.reply({ content: "❌ Có lỗi xảy ra khi xử lý lệnh.", ephemeral: true }).catch(() => {});
       }
     } catch {}
   }),
 );
 client.on("guildMemberAdd", (m) => joinGate(client, m, store).catch((e) => console.error("[joinGate]", e.message)));
-// Sự kiện guild thêm/xóa: xử lý ĐÚNG guild đó thôi — không kéo theo sync toàn bộ
-// (tránh chồng lấn + tránh sweep nhầm khi cache đang lấp dần).
 client.on("guildCreate", (guild) => {
-  void (async () => {
-    console.log(`[guildCreate] Đã vào server: ${guild.name} (${guild.id}) — tổng ${client.guilds.cache.size} server`);
-    // Chẩn đoán "vào xong bị đá ngay": liệt kê bot khác đang có trong server —
-    // bot bảo vệ tự kick/ban bot mới là thủ phạm phổ biến nhất.
-    try {
-      let bots = guild.members.cache
-        .filter((m) => m.user?.bot && m.id !== client.user.id)
-        .map((m) => m.user.username)
-        .slice(0, 20);
-      if (bots.length === 0) {
-        const members = await guild.members.fetch().catch(() => null);
-        if (members) {
-          bots = members
-            .filter((m) => m.user?.bot && m.id !== client.user.id)
-            .map((m) => m.user.username)
-            .slice(0, 20);
-        }
-      }
-      console.log(
-        bots.length
-          ? `[guildCreate] Bot khác trong server: ${bots.join(", ")}`
-          : `[guildCreate] Không có bot khác trong server`,
-      );
-    } catch (e) {
-      console.error(`[guildCreate:bots] ${guild.id}:`, e.message);
-    }
-    await guildSync.syncOne(client, store, guild.id).catch((e) => console.error(`[guildCreate:sync] ${guild.id}:`, e.message));
-  })();
+  console.log(`[guildCreate] ${guild.name} (${guild.id}) — ${client.guilds.cache.size} server`);
+  guildSync.syncOne(client, store, guild.id).catch((e) => console.error(`[guildCreate:sync] ${guild.id}:`, e.message));
 });
 client.on("guildDelete", (guild) => {
-  console.log(`[guildDelete] Rời khỏi server: ${guild.name ?? guild.id} — còn ${client.guilds.cache.size} server`);
+  console.log(`[guildDelete] ${guild.name ?? guild.id} — ${client.guilds.cache.size} server`);
   guildSync.markGone(client, store, guild.id).catch((e) => console.error(`[guildDelete:sync] ${guild.id}:`, e.message));
 });
 
-antinuke.attach();
-// Log embed "⏱️ Timeout hết hạn" khi thành viên hết timeout tự nhiên.
-require("./timeoutWatch").attach(client, store);
-setupHidden(client, store);
-
+// --- Login ---
 client.login(process.env.DISCORD_TOKEN).catch((err) => {
   console.error("❌ Không thể đăng nhập Discord:", err.message);
   process.exit(1);
 });
+
+// Graceful shutdown — quan trọng cho PM2
+process.on("SIGINT", () => { client.destroy(); process.exit(0); });
+process.on("SIGTERM", () => { client.destroy(); process.exit(0); });
