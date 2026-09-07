@@ -64,7 +64,7 @@ const client = new Client({
 const store = new ConvexStore();
 const heat = new HeatTracker(client, store);
 
-client.once("ready", async () => {
+client.once("clientReady", async () => {
   console.log(`✅ Protogon đã online: ${client.user.tag} — ${client.guilds.cache.size} server`);
 
   // Register slash commands
