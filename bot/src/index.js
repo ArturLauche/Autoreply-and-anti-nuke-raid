@@ -5,6 +5,20 @@
 
 require("./loadenv").loadEnv();
 
+// --- Startup env validation ---
+const REQUIRED_VARS = ["DISCORD_TOKEN"];
+const MISSING = REQUIRED_VARS.filter((k) => !process.env[k]);
+if (MISSING.length > 0) {
+  console.error(`❌ Thiếu biến môi trường bắt buộc: ${MISSING.join(", ")}`);
+  console.error("   Kiểm tra file .env hoặc biến môi trường trên VPS.");
+  process.exit(1);
+}
+if (!process.env.CONVEX_URL) {
+  console.error("❌ Thiếu CONVEX_URL — bot cần kết nối Convex backend.");
+  console.error("   Thêm CONVEX_URL=https://xxx-xxx-xx.convex.cloud vào file .env");
+  process.exit(1);
+}
+
 const {
   Client,
   GatewayIntentBits,

@@ -348,7 +348,7 @@ class HeatTracker {
 
   /**
    * Ghi toàn bộ nhiệt + warn tích lũy của một guild lên Convex.
-   * Rows hết nhiệt lẫn warn sẽ được xóa để giữ bảng gọn.
+   * Fire-and-forget: các mutation chạy song song, không block nhau.
    */
   async flushGuild(guildId) {
     this.pending.delete(guildId);
@@ -365,23 +365,22 @@ class HeatTracker {
       ...[...this.states.keys()].filter((k) => k.startsWith(prefix)),
       ...[...this.strikes.keys()].filter((k) => k.startsWith(prefix)),
     ]);
+    const mutations = [];
     for (const key of keys) {
       const [, userId] = key.split(":");
       const entry = this.states.get(key);
       const heat = entry ? this._decay(entry, s) : 0;
       const strikes = this.strikeCount(guildId, userId, s);
-      try {
-        await this.store.client.mutation("bot_writes:botRecordHeat", {
+      mutations.push(
+        this.store.client.mutation("bot_writes:botRecordHeat", {
           guildId,
           userId,
           username: entry?.username || this.strikes.get(key)?.username || undefined,
           heat: Math.max(0, heat),
           updatedAt: entry?.updatedAt ?? Date.now(),
           warnStrikes: strikes,
-        });
-      } catch (e) {
-        console.error("[heat:flush]", e.message);
-      }
+        }).catch((e) => console.error("[heat:flush]", e.message))
+      );
       // Chống rò rỉ RAM: entry nhiệt = 0 và không còn trong cửa sổ tái phạm
       // thì xóa khỏi bộ nhớ (bảng Convex đã được botRecordHeat dọn tương ứng).
       if (heat <= 0 && strikes <= 0) {
@@ -394,13 +393,15 @@ class HeatTracker {
         }
       }
     }
+    // Fire-and-forget: đợi tất cả mutation hoàn thành (batch, không block bot)
+    await Promise.allSettled(mutations);
   }
 
-  /** Ghi tất cả guild còn chờ (chạy định kỳ). */
+  /** Ghi tất cả guild còn chờ (chạy song song tất cả guilds). */
   async flushAll() {
-    for (const guildId of [...this.pending]) {
-      await this.flushGuild(guildId);
-    }
+    const pending = [...this.pending];
+    this.pending.clear();
+    await Promise.allSettled(pending.map((guildId) => this.flushGuild(guildId)));
   }
 }
 

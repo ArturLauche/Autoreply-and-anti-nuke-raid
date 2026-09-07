@@ -10,7 +10,11 @@ async function registerCommands(clientOrRest) {
     rest = new REST({ version: "10" }).setToken(token);
   }
   const clientId = process.env.DISCORD_CLIENT_ID;
-  if (!clientId) throw new Error("Thiếu DISCORD_CLIENT_ID trong .env");
+  if (!clientId) {
+    console.warn("⚠️ Thiếu DISCORD_CLIENT_ID — bỏ qua đăng ký slash commands.",
+      "Thêm DISCORD_CLIENT_ID vào .env để bật tính năng này.");
+    return 0;
+  }
   const data = await rest.put(Routes.applicationCommands(clientId), { body: commands });
   return data.length;
 }

@@ -4,7 +4,14 @@ const CONFIG_TTL_MS = 30_000;
 
 class ConvexStore {
   constructor() {
-    this.client = new ConvexHttpClient(process.env.CONVEX_URL);
+    const url = process.env.CONVEX_URL;
+    if (!url) {
+      throw new Error(
+        "❌ CONVEX_URL không được để trống. " +
+        "Kiểm tra file .env ở thư mục bot hoặc biến môi trường trên VPS."
+      );
+    }
+    this.client = new ConvexHttpClient(url);
     if (process.env.CONVEX_DEPLOY_KEY) {
       // Allows the bot to call mutations on a production deployment.
       this.client.setAdminAuth(process.env.CONVEX_DEPLOY_KEY);
