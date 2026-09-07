@@ -1,6 +1,6 @@
 // ============================================================
-// Protogon Bot — Memory-Optimized Production Entry Point
-// Target: 1-1 VPS (1 vCPU, 1GB RAM + 1GB swap)
+// Protogon Bot — Full-Featured Production Entry Point
+// Target: VPS with 32GB RAM, 6 CPU cores, 80GB storage
 // ============================================================
 
 require("./loadenv").loadEnv();
@@ -10,7 +10,6 @@ const {
   GatewayIntentBits,
   ActivityType,
   Collection,
-  LimitedCollection,
   Partials,
 } = require("discord.js");
 const ConvexStore = require("./convex");
@@ -20,7 +19,7 @@ const onMessageCreate = require("./handlers/messageCreate");
 const onInteractionCreate = require("./handlers/interactionCreate");
 const joinGate = require("./handlers/joinGate");
 
-// --- Client config: aggressive memory limits cho 1GB RAM ---
+// --- Client config: full-featured for powerful VPS ---
 const client = new Client({
   partials: [
     Partials.Message,
@@ -38,42 +37,20 @@ const client = new Client({
     GatewayIntentBits.GuildModeration,
   ],
   makeCache: (manager) => {
-    if (manager.name === "MessageManager") return new LimitedCollection({ maxSize: 0 });
-    if (manager.name === "UserManager" || manager.name === "GuildMemberManager") {
-      return new LimitedCollection({ maxSize: 100 });
-    }
-    if (manager.name === "PresenceManager" || manager.name === "VoiceStateManager") {
-      return new LimitedCollection({ maxSize: 0 });
-    }
-    if (manager.name === "ReactionManager") return new LimitedCollection({ maxSize: 0 });
-    if (manager.name === "GuildEmojiManager") return new LimitedCollection({ maxSize: 50 });
-    if (manager.name === "GuildBanManager") return new LimitedCollection({ maxSize: 50 });
+    // Use default Collection for all managers (full caching)
     return new Collection();
   },
   sweepers: {
-    messages: { interval: 300, lifetime: 600 },
-    users: { interval: 300, filter: () => (user) => user.id !== client.user?.id },
-    guildMembers: { interval: 300, filter: () => (member) => member.id !== member.guild?.ownerId },
-    presences: { interval: 300, filter: () => () => true },
-    voiceStates: { interval: 300, filter: () => () => true },
-    reactions: { interval: 300, filter: () => () => true },
-    guildBans: { interval: 300, filter: () => () => true },
+    messages: { interval: 3600, lifetime: 1800 }, // 1 hour interval, 30 min lifetime
+    users: { interval: 3600, filter: () => (user) => user.id !== client.user?.id },
+    guildMembers: { interval: 3600, filter: () => (member) => member.id !== member.guild?.ownerId },
   },
 });
 
 const store = new ConvexStore();
 const heat = new HeatTracker(client, store);
 
-// --- Memory logging ---
-function logMemory(label = "") {
-  const used = process.memoryUsage();
-  const rss = Math.round(used.rss / 1024 / 1024);
-  const heap = Math.round(used.heapUsed / 1024 / 1024);
-  console.log(`[mem] ${label} RSS=${rss}MB Heap=${heap}MB`);
-}
-
 client.once("ready", async () => {
-  logMemory("startup");
   console.log(`✅ Protogon đã online: ${client.user.tag} — ${client.guilds.cache.size} server`);
 
   // Register slash commands
@@ -87,7 +64,7 @@ client.once("ready", async () => {
     }
   }
 
-  // Lazy-init heavy modules
+  // Init heavy modules
   const antinuke = require("./handlers/antinuke")(client, store, heat);
   const scanMessage = require("./handlers/filters");
   antinuke.attach();
@@ -114,7 +91,7 @@ client.once("ready", async () => {
     console.error("[owner]", e.message);
   }
 
-  // Guild sync loop — mỗi 2 phút (giảm từ 1 phút)
+  // Guild sync loop — mỗi 1 phút (đầy đủ)
   const runSyncLoop = () => {
     void (async () => {
       try {
@@ -123,7 +100,7 @@ client.once("ready", async () => {
       } catch (e) {
         console.error("[sync]", e.message);
       }
-      setTimeout(runSyncLoop, 120_000);
+      setTimeout(runSyncLoop, 60_000);
     })();
   };
   setTimeout(() => {
@@ -131,57 +108,48 @@ client.once("ready", async () => {
       try { await guildSync.ensureModules(client, store); } catch (e) { console.error("[sync:ensure]", e.message); }
       runSyncLoop();
     })();
-  }, 15_000);
+  }, 5_000);
 
-  // Presence update — mỗi 2 phút
+  // Presence update — mỗi 1 phút
   const presenceInterval = setInterval(() => {
     client.user.setPresence({
       activities: [{ name: `${client.guilds.cache.size} server · /help`, type: ActivityType.Watching }],
       status: "online",
     });
-  }, 120_000);
+  }, 60_000);
   presenceInterval.unref();
 
-  // Daily report — mỗi 15 phút (giảm từ 10)
+  // Daily report — mỗi 10 phút
   const { runDailyReports } = require("./handlers/dailyReport");
-  setTimeout(() => runDailyReports(client, store, heat).catch((e) => console.error("[report]", e.message)), 30_000);
+  setTimeout(() => runDailyReports(client, store, heat).catch((e) => console.error("[report]", e.message)), 15_000);
   const reportInterval = setInterval(
     () => runDailyReports(client, store, heat).catch((e) => console.error("[report]", e.message)),
-    15 * 60 * 1000,
+    10 * 60 * 1000,
   );
   reportInterval.unref();
 
-  // Heat flush — mỗi 60s (giảm từ 30s)
+  // Heat flush — mỗi 30s
   const heatInterval = setInterval(
     () => heat.flushAll().catch((e) => console.error("[heat:flush]", e.message)),
-    60_000,
+    30_000,
   );
   heatInterval.unref();
 
-  // Backup poll — mỗi 60s (giảm từ 20s)
+  // Backup poll — mỗi 20s
   const pollBackups = require("./handlers/backup");
-  setTimeout(() => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)), 15_000);
+  setTimeout(() => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)), 10_000);
   const backupInterval = setInterval(
     () => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)),
-    60_000,
+    20_000,
   );
   backupInterval.unref();
 
-  // Auto backup — mỗi 2 giờ (giảm từ 1 giờ)
+  // Auto backup — mỗi 1 giờ
   const autoBackupInterval = setInterval(
     () => pollBackups.autoBackupSweep(client, store).catch((e) => console.error("[backup:auto]", e.message)),
-    2 * 60 * 60 * 1000,
+    1 * 60 * 60 * 1000,
   );
   autoBackupInterval.unref();
-
-  // Memory log — mỗi 5 phút
-  const memInterval = setInterval(() => logMemory("periodic"), 5 * 60 * 1000);
-  memInterval.unref();
-
-  // Force GC sau startup
-  setTimeout(() => {
-    if (global.gc) { global.gc(); logMemory("after GC"); }
-  }, 30_000);
 });
 
 // --- Event handlers ---
@@ -219,6 +187,6 @@ client.login(process.env.DISCORD_TOKEN).catch((err) => {
   process.exit(1);
 });
 
-// Graceful shutdown — quan trọng cho PM2
+// Graceful shutdown
 process.on("SIGINT", () => { client.destroy(); process.exit(0); });
 process.on("SIGTERM", () => { client.destroy(); process.exit(0); });

@@ -4,10 +4,8 @@ module.exports = {
       name: "protogon-bot",
       script: "src/index.js",
       cwd: __dirname,
-      // 🔋 Tối ưu RAM cho VPS 1GB:
-      node_args: "--max-old-space-size=640 --optimize-for-size --gc-interval=100",
-      // Auto-restart khi crash hoặc memory leak
-      max_memory_restart: "700M",
+      // 🚀 VPS mạnh (32GB RAM, 6 CPU) — không cần giới hạn bộ nhớ
+      // Auto-restart khi crash
       exp_backoff_restart_delay: 100,
       // Logs
       log_date_format: "YYYY-MM-DD HH:mm:ss",
