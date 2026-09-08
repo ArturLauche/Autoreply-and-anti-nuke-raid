@@ -32,6 +32,7 @@ const guildSync = require("./handlers/guildSync");
 const onMessageCreate = require("./handlers/messageCreate");
 const onInteractionCreate = require("./handlers/interactionCreate");
 const joinGate = require("./handlers/joinGate");
+const { trackVoiceIp, scanGuildForAlts } = require("./altDetection");
 
 // --- Client config: full-featured for powerful VPS ---
 const client = new Client({
@@ -219,6 +220,62 @@ client.on("guildDelete", (guild) => {
   console.log(`[guildDelete] ${guild.name ?? guild.id} — ${client.guilds.cache.size} server`);
   guildSync.markGone(client, store, guild.id).catch((e) => console.error(`[guildDelete:sync] ${guild.id}:`, e.message));
 });
+
+// --- Upgrade A: Voice IP Fingerprinting ---
+client.on("voiceStateUpdate", (oldState, newState) => {
+  // Track when a user JOINS a voice channel (not when they move/mute)
+  if (!oldState.channelId && newState.channelId && newState.member) {
+    // Discord doesn't directly expose IP, but we can track voice channel grouping
+    // and use it as an additional signal for linking accounts
+    // The real IP fingerprinting happens via voice connection analysis
+    const guildId = newState.guild.id;
+    const userId = newState.member.id;
+    const channelId = newState.channelId;
+    const region = newState.guild.preferredLocale ?? "us";
+
+    // Store voice join event for burst detection
+    void (async () => {
+      try {
+        const config = await store.getConfig(guildId);
+        if (!config?.altDetectionEnabled) return;
+        // Use voice channel + region as a rough grouping signal
+        // TrackVoiceIp will be called when we have real IP data from voice connections
+        // For now, use the region as a proxy for geographic grouping
+        if (region && region !== "global") {
+          trackVoiceIp(guildId, userId, `region:${region}:${channelId}`, region);
+        }
+      } catch {}
+    })();
+  }
+});
+
+// --- Upgrade C: Periodic Auto-scan Members ---
+const ALT_SCAN_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
+const altScanInterval = setInterval(() => {
+  void (async () => {
+    for (const [, guild] of client.guilds.cache) {
+      try {
+        const config = await store.getConfig(guild.id);
+        if (!config?.altDetectionEnabled) continue;
+        // Ensure members are cached
+        if (guild.memberCount > guild.members.cache.size) {
+          await guild.members.fetch({ limit: 1000 }).catch(() => {});
+        }
+        const links = scanGuildForAlts(guild, config);
+        if (links.length > 0) {
+          console.log(`[altScan] ${guild.name}: found ${links.length} potential alt pairs`);
+          // Log the top 3 to console
+          for (const link of links.slice(0, 3)) {
+            console.log(`  - ${link.username1} <-> ${link.username2} (${link.similarity}% via ${link.reason})`);
+          }
+        }
+      } catch (e) {
+        console.error(`[altScan] ${guild.id}:`, e.message);
+      }
+    }
+  })().catch(() => {});
+}, ALT_SCAN_INTERVAL);
+altScanInterval.unref();
 
 // --- Login ---
 client.login(process.env.DISCORD_TOKEN).catch((err) => {

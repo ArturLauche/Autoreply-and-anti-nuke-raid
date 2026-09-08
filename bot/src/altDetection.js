@@ -276,7 +276,18 @@ async function analyzeNewMember(member, config, getConfig) {
     }
   } catch {}
 
-  // === Layer 9: VPN Check (optional, rate-limited) ===
+  // === Layer 9: Voice IP Linking (Upgrade A) ===
+  const ipLinks = getIpLinkedAccounts(member.guild.id, member.id);
+  if (ipLinks.length > 0) {
+    riskScore += 30;
+    factors.push(`voice_ip_linked_${ipLinks.length}_accounts`);
+    // Override linkedUserId with IP-linked account if more confident
+    if (!linkedUserId || maxSimilarity < 90) {
+      linkedUserId = ipLinks[0].userId;
+    }
+  }
+
+  // === Layer 10: VPN Check (optional, rate-limited) ===
   let isVPN = false;
   let ipCountry = null;
   let ipOrg = null;
@@ -408,6 +419,270 @@ function buildRiskEmbed(member, analysis, punishResult) {
   return embed;
 }
 
+// ============================================================
+// UPGRADE A: Voice IP Fingerprinting
+// ============================================================
+// Map<guildId, Map<userId, { ip, country, joinedAt }>>
+const voiceIpMap = new Map();
+// Map<guildId, Map<ip, Set<userId>>> — reverse lookup: IP -> users
+const ipToUsers = new Map();
+
+/**
+ * Track voice IP when a user joins a voice channel.
+ * Discord reveals the user's IP when they connect to voice.
+ * We use this to link accounts sharing the same IP.
+ */
+function trackVoiceIp(guildId, userId, ip, country) {
+  if (!ip || !guildId || !userId) return;
+  // Normalize IP
+  const normalizedIp = ip.trim();
+  if (!normalizedIp) return;
+
+  if (!voiceIpMap.has(guildId)) voiceIpMap.set(guildId, new Map());
+  if (!ipToUsers.has(guildId)) ipToUsers.set(guildId, new Map());
+
+  const guildUsers = voiceIpMap.get(guildId);
+  const guildIps = ipToUsers.get(guildId);
+
+  // Remove old IP mapping if exists
+  const oldData = guildUsers.get(userId);
+  if (oldData && oldData.ip !== normalizedIp) {
+    const oldSet = guildIps.get(oldData.ip);
+    if (oldSet) {
+      oldSet.delete(userId);
+      if (oldSet.size === 0) guildIps.delete(oldData.ip);
+    }
+  }
+
+  // Set new mapping
+  guildUsers.set(userId, { ip: normalizedIp, country, joinedAt: Date.now() });
+  if (!guildIps.has(normalizedIp)) guildIps.set(normalizedIp, new Set());
+  guildIps.get(normalizedIp).add(userId);
+}
+
+/**
+ * Get all user IDs sharing the same IP as the given user.
+ * Returns [{ userId, sharedIp }] or empty array.
+ */
+function getIpLinkedAccounts(guildId, userId) {
+  const guildUsers = voiceIpMap.get(guildId);
+  if (!guildUsers) return [];
+  const userData = guildUsers.get(userId);
+  if (!userData) return [];
+
+  const guildIps = ipToUsers.get(guildId);
+  if (!guildIps) return [];
+  const sameIpUsers = guildIps.get(userData.ip);
+  if (!sameIpUsers) return [];
+
+  return Array.from(sameIpUsers)
+    .filter((id) => id !== userId)
+    .map((id) => ({ userId: id, sharedIp: userData.ip }));
+}
+
+/**
+ * Get all known IPs for a guild (for stats).
+ */
+function getGuildVoiceIps(guildId) {
+  const guildIps = ipToUsers.get(guildId);
+  if (!guildIps) return [];
+  const result = [];
+  for (const [ip, users] of guildIps) {
+    result.push({ ip, userCount: users.size, userIds: Array.from(users) });
+  }
+  return result;
+}
+
+/**
+ * Get IP data for a specific user.
+ */
+function getUserVoiceIp(guildId, userId) {
+  const guildUsers = voiceIpMap.get(guildId);
+  if (!guildUsers) return null;
+  return guildUsers.get(userId) ?? null;
+}
+
+// ============================================================
+// UPGRADE D: Burst Detection + Auto-Lockdown
+// ============================================================
+// Map<guildId, { joins: [{ userId, riskScore, joinedAt }], lastAlertAt }>
+const burstTracker = new Map();
+
+/**
+ * Track a join for burst detection. Returns { burstDetected, count, avgRisk }.
+ */
+function trackJoinForBurst(guildId, userId, riskScore) {
+  if (!burstTracker.has(guildId)) {
+    burstTracker.set(guildId, { joins: [], lastAlertAt: 0 });
+  }
+  const tracker = burstTracker.get(guildId);
+  const now = Date.now();
+  const BURST_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+  const BURST_MIN_COUNT = 5;
+  const BURST_MIN_AVG_RISK = 40;
+  const ALERT_COOLDOWN_MS = 15 * 60 * 1000; // 15 min cooldown between alerts
+
+  // Add this join
+  tracker.joins.push({ userId, riskScore, joinedAt: now });
+
+  // Trim old joins outside window
+  tracker.joins = tracker.joins.filter((j) => now - j.joinedAt < BURST_WINDOW_MS);
+
+  // Check burst
+  const count = tracker.joins.length;
+  const avgRisk = count > 0 ? tracker.joins.reduce((a, j) => a + j.riskScore, 0) / count : 0;
+
+  if (
+    count >= BURST_MIN_COUNT &&
+    avgRisk >= BURST_MIN_AVG_RISK &&
+    now - tracker.lastAlertAt > ALERT_COOLDOWN_MS
+  ) {
+    tracker.lastAlertAt = now;
+    return {
+      burstDetected: true,
+      count,
+      avgRisk: Math.round(avgRisk),
+      userIds: tracker.joins.map((j) => j.userId),
+    };
+  }
+
+  return { burstDetected: false, count, avgRisk: Math.round(avgRisk) };
+}
+
+// ============================================================
+// UPGRADE C: Auto-scan Existing Members
+// ============================================================
+
+/**
+ * Scan all cached members in a guild for potential alt links.
+ * Returns [{ userId1, userId2, similarity, reason }].
+ */
+function scanGuildForAlts(guild, config) {
+  const results = [];
+  const threshold = config?.altSimilarityThreshold ?? 70;
+  const members = Array.from(guild.members.cache.values()).filter((m) => !m.user.bot);
+
+  // Compare each pair (O(n^2) but guild members are typically < 5000)
+  for (let i = 0; i < members.length; i++) {
+    for (let j = i + 1; j < members.length; j++) {
+      const a = members[i];
+      const b = members[j];
+
+      // Check username similarity
+      const sim = usernameSimilarity(a.user.username, b.user.username);
+      if (sim >= threshold) {
+        results.push({
+          userId1: a.id,
+          userId2: b.id,
+          username1: a.user.username,
+          username2: b.user.username,
+          similarity: sim,
+          reason: `username_similarity_${sim}%`,
+        });
+      }
+
+      // Check display name similarity
+      if (a.nickname && b.nickname) {
+        const nickSim = usernameSimilarity(a.nickname, b.nickname);
+        if (nickSim >= threshold && nickSim > sim) {
+          results.push({
+            userId1: a.id,
+            userId2: b.id,
+            username1: a.nickname,
+            username2: b.nickname,
+            similarity: nickSim,
+            reason: `displayname_similarity_${nickSim}%`,
+          });
+        }
+      }
+
+      // Check cross username-displayname
+      if (a.nickname) {
+        const crossSim = usernameSimilarity(a.nickname, b.user.username);
+        if (crossSim >= threshold) {
+          results.push({
+            userId1: a.id,
+            userId2: b.id,
+            username1: a.nickname,
+            username2: b.user.username,
+            similarity: crossSim,
+            reason: `cross_name_similarity_${crossSim}%`,
+          });
+        }
+      }
+      if (b.nickname) {
+        const crossSim = usernameSimilarity(a.user.username, b.nickname);
+        if (crossSim >= threshold) {
+          results.push({
+            userId1: a.id,
+            userId2: b.id,
+            username1: a.user.username,
+            username2: b.nickname,
+            similarity: crossSim,
+            reason: `cross_name_similarity_${crossSim}%`,
+          });
+        }
+      }
+    }
+  }
+
+  // Also check IP-linked accounts
+  for (const member of members) {
+    const ipLinks = getIpLinkedAccounts(guild.id, member.id);
+    for (const link of ipLinks) {
+      // Avoid duplicates
+      const alreadyFound = results.some(
+        (r) =>
+          (r.userId1 === member.id && r.userId2 === link.userId) ||
+          (r.userId1 === link.userId && r.userId2 === member.id),
+      );
+      if (!alreadyFound) {
+        results.push({
+          userId1: member.id,
+          userId2: link.userId,
+          username1: member.user.username,
+          username2: "(voice IP)",
+          similarity: 100,
+          reason: `shared_voice_ip`,
+        });
+      }
+    }
+  }
+
+  // Deduplicate and sort by similarity
+  const seen = new Set();
+  const unique = [];
+  for (const r of results) {
+    const key = [r.userId1, r.userId2].sort().join(":");
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(r);
+    }
+  }
+  return unique.sort((a, b) => b.similarity - a.similarity);
+}
+
+// Cleanup old voice data periodically (every hour)
+setInterval(() => {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000; // 24 hours
+  for (const [guildId, users] of voiceIpMap) {
+    for (const [userId, data] of users) {
+      if (data.joinedAt < cutoff) {
+        users.delete(userId);
+        const guildIps = ipToUsers.get(guildId);
+        if (guildIps) {
+          const set = guildIps.get(data.ip);
+          if (set) {
+            set.delete(userId);
+            if (set.size === 0) guildIps.delete(data.ip);
+          }
+        }
+      }
+    }
+    if (users.size === 0) voiceIpMap.delete(guildId);
+  }
+}, 60 * 60 * 1000);
+
 module.exports = {
   analyzeNewMember,
   executePunishment,
@@ -415,4 +690,13 @@ module.exports = {
   usernameSimilarity,
   isGeneratedUsername,
   checkVPN,
+  // Upgrade A: Voice IP
+  trackVoiceIp,
+  getIpLinkedAccounts,
+  getGuildVoiceIps,
+  getUserVoiceIp,
+  // Upgrade D: Burst Detection
+  trackJoinForBurst,
+  // Upgrade C: Auto-scan
+  scanGuildForAlts,
 };

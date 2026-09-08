@@ -1,7 +1,7 @@
 const { Colors } = require("discord.js");
 const { logEmbed, sendLog } = require("../util");
 const { isLocked } = require("../lockdown");
-const { analyzeNewMember, executePunishment, buildRiskEmbed } = require("../altDetection");
+const { analyzeNewMember, executePunishment, buildRiskEmbed, trackJoinForBurst, trackVoiceIp } = require("../altDetection");
 
 const DAY_MS = 86_400_000;
 
@@ -196,6 +196,55 @@ module.exports = async function joinGate(client, member, store) {
       `[altDetect] ${member.guild.name}/${member.user.username} risk=${analysis.riskScore} factors=[${analysis.riskFactors.join(",")}] action=${analysis.action}`,
     );
   }
+
+  // Upgrade D: Burst Detection
+  try {
+    const burst = trackJoinForBurst(member.guild.id, member.id, analysis.riskScore);
+    if (burst.burstDetected) {
+      console.log(`[burst] ${member.guild.name}: BURST DETECTED! ${burst.count} joins, avg risk ${burst.avgRisk}`);
+      // Auto-lockdown: lock all text channels if not already locked
+      try {
+        const { isLocked, markLocked } = require("../lockdown");
+        if (!isLocked(member.guild.id)) {
+          markLocked(member.guild.id);
+          // Lock all text channels
+          for (const [, ch] of member.guild.channels.cache) {
+            if (ch.isTextBased() && !ch.isThread()) {
+              try {
+                await ch.permissionOverwrites.edit(member.guild.id, { SendMessages: false }, "Protogon Auto-Lockdown: burst alt detection");
+              } catch {}
+            }
+          }
+          // Update config for auto-unlock
+          await store.client.mutation("bot_writes:botUpdateLockdown", {
+            guildId: member.guild.id,
+            enabled: true,
+          }).catch(() => {});
+
+          // Notify log channel
+          const config2 = await store.getConfig(member.guild.id).catch(() => null);
+          if (config2) {
+            const { logEmbed, sendLog } = require("../util");
+            const { Colors } = require("discord.js");
+            const burstEmbed = logEmbed({
+              title: "🚨 AUTO-LOCKDOWN: Burst Alt Detection",
+              description: `Phát hiện **${burst.count} tài khoản** join trong 10 phút với điểm rủi ro trung bình **${burst.avgRisk}/100**.`,
+              color: Colors.DarkRed,
+              fields: [
+                { name: "Số lượng", value: `${burst.count} tài khoản`, inline: true },
+                { name: "Rủi ro TB", value: `${burst.avgRisk}/100`, inline: true },
+                { name: "Tài khoản", value: burst.userIds.slice(0, 10).map((id) => `<@${id}>`).join(", ").slice(0, 1000) },
+              ],
+              footer: "Protogon Auto-Lockdown",
+            });
+            await sendLog(member.guild, config2, burstEmbed);
+          }
+        }
+      } catch (e) {
+        console.error(`[burst:lockdown]`, e.message);
+      }
+    }
+  } catch {}
 
   // Execute punishment if risk exceeds threshold
   let punishResult = null;
