@@ -182,8 +182,6 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         guildId: data.guild.discordId,
         restoreRoles,
         restoreEmojis,
-        restoreChannels,
-        restoreMessages,
       });
       const parts = [
         restoreRoles ? "role" : null,

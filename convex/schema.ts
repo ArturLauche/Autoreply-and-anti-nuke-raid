@@ -64,6 +64,10 @@ export default defineSchema({
     restoreRolesEnabled: v.optional(v.boolean()),
     /** Web bật/tắt khôi phục emoji/sticker khi restore (áp dụng cho backup Protogon lẫn file bot nuke). */
     restoreEmojisEnabled: v.optional(v.boolean()),
+    /** Web bật/tắt khôi phục kênh khi restore. */
+    restoreChannelsEnabled: v.optional(v.boolean()),
+    /** Web bật/tắt khôi phục tin nhắn khi restore. */
+    restoreMessagesEnabled: v.optional(v.boolean()),
     /** Tự động backup: số ngày giữa 2 lần (2-30, 0 = tắt). */
     backupAutoDays: v.optional(v.number()),
     /** Lần backup thành công gần nhất (dùng cho lịch tự động). */
@@ -285,6 +289,8 @@ export default defineSchema({
     backupCompressed: v.optional(v.boolean()),
     /** Có mã hóa AES-256-GCM không. */
     backupEncrypted: v.optional(v.boolean()),
+    /** ID backup trước đó (dùng cho diff). */
+    previousBackupId: v.optional(v.string()),
     /** URL gist GitHub nếu backup đã được đẩy lên đám mây. */
     githubUrl: v.optional(v.string()),
     pushedToGithub: v.boolean(),
@@ -391,4 +397,18 @@ export default defineSchema({
     /** Avatar chủ bot (bot tự lấy từ Discord mỗi lần sync — cập nhật 24/7). */
     ownerAvatarUrl: v.optional(v.string()),
   }).index("by_kind", ["kind"]),
+
+  /** Audit log — ghi lại mọi thay đổi settings trên web. */
+  auditLog: defineTable({
+    guildId: v.string(),
+    executorId: v.string(),
+    executorName: v.optional(v.string()),
+    action: v.string(),
+    field: v.string(),
+    oldValue: v.optional(v.string()),
+    newValue: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_guildId", ["guildId"])
+    .index("by_guildId_createdAt", ["guildId", "createdAt"]),
 });

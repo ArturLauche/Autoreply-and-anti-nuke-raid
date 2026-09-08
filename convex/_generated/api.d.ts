@@ -9,6 +9,7 @@
  */
 
 import type * as antinuke from "../antinuke.js";
+import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
 import type * as autoreplies from "../autoreplies.js";
 import type * as backup from "../backup.js";
@@ -32,6 +33,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   antinuke: typeof antinuke;
+  audit: typeof audit;
   auth: typeof auth;
   autoreplies: typeof autoreplies;
   backup: typeof backup;

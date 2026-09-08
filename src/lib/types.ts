@@ -165,6 +165,10 @@ export interface GuildData {
     restoreRolesEnabled: boolean;
     /** Khôi phục emoji/sticker khi restore backup (áp dụng cho backup Protogon lẫn file bot nuke). */
     restoreEmojisEnabled: boolean;
+    /** Khôi phục kênh khi restore backup. */
+    restoreChannelsEnabled?: boolean;
+    /** Khôi phục tin nhắn khi restore backup. */
+    restoreMessagesEnabled?: boolean;
     /** Raid Intel: bật săn lùng nguồn cơn raid (phân tích cụm + audit log). */
     raidHuntEnabled: boolean;
     /** Raid Intel: tự ban tài khoản nghi là nguồn cơn raid khi đủ tín hiệu. */

@@ -164,6 +164,31 @@ client.once("clientReady", async () => {
     1 * 60 * 60 * 1000,
   );
   autoBackupInterval.unref();
+
+  // Health check heartbeat — mỗi 30s (gửi trạng thái lên Convex)
+  const heartbeatInterval = setInterval(() => {
+    const memberCount = client.guilds.cache.reduce((a, g) => a + (g.memberCount ?? 0), 0);
+    store.sendHeartbeat(client.guilds.cache.size, memberCount).catch(() => {});
+  }, 30_000);
+  heartbeatInterval.unref();
+
+  // Memory monitoring — mỗi 30 phút (nhẹ nhàng)
+  const memMonitorInterval = setInterval(() => {
+    const mem = process.memoryUsage();
+    const rss = Math.round(mem.rss / 1024 / 1024);
+    const heap = Math.round(mem.heapUsed / 1024 / 1024);
+    if (rss > 500) console.warn(`[mem] RSS=${rss}MB, Heap=${heap}MB — cao bất thường!`);
+  }, 30 * 60 * 1000);
+  memMonitorInterval.unref();
+});
+
+// --- Global error handlers ---
+process.on("unhandledRejection", (reason) => {
+  console.error("[unhandled]", reason?.message || reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[uncaught]", err.message);
+  // Don't exit — PM2 will handle restarts
 });
 
 // --- Event handlers ---

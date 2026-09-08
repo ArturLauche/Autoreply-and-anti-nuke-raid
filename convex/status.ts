@@ -1,4 +1,4 @@
-import { query } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken } from "./auth";
 
@@ -18,6 +18,43 @@ export const isOwner = query({
       .withIndex("by_kind", (q) => q.eq("kind", "status"))
       .first();
     return !!status?.ownerDiscordId && status.ownerDiscordId === user.discordId;
+  },
+});
+
+/** Bot heartbeat — called every 30s to update status (mutation, not action). */
+export const heartbeat = mutation({
+  args: {
+    online: v.boolean(),
+    guildCount: v.number(),
+    memberCount: v.number(),
+    version: v.string(),
+  },
+  handler: async (ctx, { online, guildCount, memberCount, version }) => {
+    const now = Date.now();
+    const status = await ctx.db
+      .query("botStatus")
+      .withIndex("by_kind", (q) => q.eq("kind", "status"))
+      .first();
+    if (status) {
+      await ctx.db.patch(status._id, {
+        online,
+        guildCount,
+        memberCount,
+        lastHeartbeat: now,
+        version,
+      });
+    } else {
+      await ctx.db.insert("botStatus", {
+        kind: "status" as const,
+        online,
+        guildCount,
+        memberCount,
+        lastHeartbeat: now,
+        startedAt: now,
+        version,
+      });
+    }
+    return { ok: true };
   },
 });
 
