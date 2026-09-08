@@ -155,30 +155,14 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       }
       try {
         // === ALT DETECTION AT VERIFY GATE (Double Counter style) ===
-        // FIX: Avoid re-analyzing if member already passed at join time.
-        // The join analysis is recorded in Convex — if risk was below threshold
-        // at join, don't re-run (which could give different results due to cache changes).
-        // FIX: If punishment fails (e.g. missing permissions), allow verify anyway
-        // instead of leaving the user stuck in limbo.
+        // Re-run alt analysis at verify time for defense-in-depth.
+        // The guild member cache may have changed since join, so results
+        // can differ — that's acceptable. If punishment fails (e.g. missing
+        // permissions), we fail-open and allow verify instead of leaving
+        // the user stuck in limbo.
         let altBanned = false;
         if (config.altDetectionEnabled) {
           try {
-            // Check if member already has a recorded join analysis
-            let alreadyAnalyzed = false;
-            try {
-              const recentJoins = await store.client.query("altDetection:getRecentJoins", {
-                token: "",
-                guildId: guild.id,
-                limit: 50,
-              }).catch(() => null);
-              // Look for this user's join record
-              if (recentJoins?.some?.((j) => j.userId === member.id)) {
-                alreadyAnalyzed = true;
-              }
-            } catch {}
-
-            // Only run fresh analysis if not already analyzed at join
-            // (prevents inconsistent results from double-analysis)
             const analysis = await analyzeNewMember(member, config, (guildId) => store.getConfig(guildId));
             const maxRisk = config.altMaxRiskScore ?? 70;
             if (analysis.riskScore >= maxRisk && analysis.action !== "pass") {
