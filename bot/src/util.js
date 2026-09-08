@@ -42,16 +42,20 @@ function logEmbed({ title, description, color = Colors.Red, fields = [], footer 
   return embed;
 }
 
+/** Gửi embed tới một kênh. Trả về true nếu gửi thành công, false nếu kênh
+ * không tồn tại / không phải kênh text / gửi thất bại (để caller fallback). */
 async function sendToChannel(guild, channelId, embed) {
-  if (!guild || !channelId) return;
+  if (!guild || !channelId) return false;
   try {
     const channel = await guild.channels.fetch(channelId);
     if (channel && channel.isTextBased()) {
       await channel.send({ embeds: [embed] });
+      return true;
     }
   } catch {
     // log channel unavailable — ignore
   }
+  return false;
 }
 
 /**
@@ -66,12 +70,21 @@ async function sendLog(guild, guildConfig, embed) {
 /**
  * Log MODERATION (auto-mod + lệnh mod thủ công: ban/timeout/kick/warn + gỡ hình
  * phạt, purge, bot xóa tin nhắn) — GỘP CHUNG một kênh, kiểu Carl-bot. Gửi tới
- * modLogChannelId nếu đã đặt, ngược lại rơi về kênh log chung (logChannelId).
+ * punishNoticeChannelId (nếu có) → modLogChannelId → kênh log chung.
+ * Fallback qua từng kênh: nếu kênh ưu tiên đã bị xóa/hỏng thì vẫn ghi được
+ * (không để mất log case).
  */
 async function sendModLog(guild, guildConfig, embed, preferChannelId) {
-  if (!guildConfig) return;
-  const channelId = preferChannelId || guildConfig.modLogChannelId || guildConfig.logChannelId;
-  await sendToChannel(guild, channelId, embed);
+  if (!guildConfig) return false;
+  const candidates = [
+    preferChannelId,
+    guildConfig.modLogChannelId,
+    guildConfig.logChannelId,
+  ].filter(Boolean);
+  for (const channelId of [...new Set(candidates)]) {
+    if (await sendToChannel(guild, channelId, embed)) return true;
+  }
+  return false;
 }
 
 function mentionRoles(roleIds) {

@@ -82,6 +82,38 @@ function usernameSimilarity(u1, u2) {
     if (coreA === coreB && coreA.length >= 5) return Math.min(100, baseScore + prefixBonus + 10);
   }
 
+  // Chống false positive tên thật kiểu VN: tiền tố dài ("nguyenvan", "phamthi")
+  // cực phổ biến giữa người lạ. Quy tắc:
+  //  - Tiền tố >= 6 ký tự → KHÔNG cộng prefix bonus (base score đã phản ánh độ
+  //    giống; bonus là đếm trùng lặp).
+  //  - Thêm nữa, nếu 2 tên chỉ chênh nhau 1-3 ký tự CUỐI ("nguyenvana" /
+  //    "nguyenvanb", "phamthianh"/"phamthibinh") → hạ xuống 80: đủ theo dõi
+  //    (+10) nhưng KHÔNG đủ thành bằng chứng mạnh (cần >= 85).
+  //  - Riêng hậu tố SỐ ("linh12345"/"linh12346") vẫn giữ điểm cao — đó là
+  //    pattern alt thật (tên + số tăng dần).
+  const sharedPrefixLen = (() => {
+    let n = 0;
+    const cap = Math.min(a.length, b.length, 12);
+    while (n < cap && a[n] === b[n]) n++;
+    return n;
+  })();
+  const suffixA = a.slice(sharedPrefixLen);
+  const suffixB = b.slice(sharedPrefixLen);
+  // Ngưỡng 5: tên thật VN như "khanh", "thanh", "hoang" (5 ký tự) rất phổ biến
+  // làm tiền tố trùng giữa người lạ ("khanhvy"/"khanhly").
+  const longPrefix = sharedPrefixLen >= 5;
+  if (longPrefix) {
+    const shortSuffixDiff =
+      suffixA.length > 0 &&
+      suffixA.length <= 3 &&
+      suffixB.length > 0 &&
+      suffixB.length <= 3;
+    const bothDigitSuffix = /^\d+$/.test(suffixA) && /^\d+$/.test(suffixB);
+    if (shortSuffixDiff && !bothDigitSuffix) {
+      return Math.min(80, baseScore);
+    }
+    return Math.min(100, baseScore);
+  }
   return Math.min(100, baseScore + prefixBonus);
 }
 
@@ -176,13 +208,27 @@ async function checkVPN(ip) {
  * @param {Function} getConfig — store.getConfig(guildId)
  * @returns {{ riskScore, riskFactors, action, isVPN, ipCountry, ipOrg, linkedUserId, similarityScore }}
  */
-async function analyzeNewMember(member, config, getConfig) {
+async function analyzeNewMember(member, config, getConfig, store) {
   const factors = [];
   let riskScore = 0;
   let positiveScore = 0; // Positive signals REDUCE risk
 
   const ageDays = (Date.now() - member.user.createdTimestamp) / DAY_MS;
   const minAge = config?.altMinAgeDays ?? 7;
+
+  // Lịch sử join từ Convex (khi có store) — bắt alt đã RỜI server (không còn
+  // trong cache), alt từng bị phạt quay lại với account khác, và cluster chính
+  // xác hơn. Cache chỉ thấy user còn ở lại — thiếu sót lớn của phiên bản cũ.
+  let joinHistory = [];
+  if (store?.client) {
+    try {
+      joinHistory = await store.client
+        .query("altDetection:botGetJoinHistory", { guildId: member.guild.id, limit: 100 })
+        .catch(() => []);
+    } catch {
+      joinHistory = [];
+    }
+  }
 
   // === POSITIVE SIGNALS (reduce risk) ===
   // Old account = trustworthy
@@ -298,22 +344,95 @@ async function analyzeNewMember(member, config, getConfig) {
     }
   }
 
-  // Layer 7: Join Burst — ONLY count HIGH-RISK joins (>50 risk)
+  // Layer 6b: Trùng với account TỪNG BỊ PHẠT (kick/ban/timeout/verify) — evasion
+  // signal. User bị phạt rồi quay lại bằng account khác là dấu hiệu alt RẤT mạnh,
+  // nhưng chỉ tính khi username/avatar khớp chặt (85%+) để tránh dính người lạ.
+  let punishedMatch = false;
+  const punishedRecords = joinHistory.filter((h) => h.userId !== member.id && h.action);
+  if (punishedRecords.length > 0 && !punishedMatch) {
+    for (const h of punishedRecords) {
+      if (h.avatar && member.user.avatar && h.avatar === member.user.avatar) {
+        punishedMatch = true;
+        linkedUserId = h.userId;
+        break;
+      }
+      if (h.username && member.user.username.length >= 5 && h.username.length >= 5) {
+        const sim = usernameSimilarity(member.user.username, h.username);
+        if (sim >= 85) {
+          punishedMatch = true;
+          linkedUserId = h.userId;
+          break;
+        }
+      }
+    }
+    if (punishedMatch) {
+      riskScore += 25;
+      factors.push("❌ matches_previously_punished_account");
+    }
+  }
+
+  // Layer 6c: Shared avatar với account TRẺ khác (< 30 ngày) — cùng file ảnh đại
+  // diện là bằng chứng độc lập. Chỉ tính khi account kia CÒN MỚI để tránh dính
+  // ảnh meme/ảnh phổ biến giữa người lạ (nguồn false positive lớn nhất của
+  // avatar matching).
+  let sharedAvatar = false;
+  const myAvatar = member.user.avatar;
+  if (myAvatar) {
+    const nowMs = Date.now();
+    for (const [, m] of member.guild.members.cache) {
+      if (m.id === member.id || m.user.bot) continue;
+      if (m.user.avatar === myAvatar) {
+        const mAge = (nowMs - (m.user.createdTimestamp || 0)) / DAY_MS;
+        if (mAge < 30) {
+          sharedAvatar = true;
+          linkedUserId = m.id;
+          break;
+        }
+      }
+    }
+    if (!sharedAvatar) {
+      for (const h of joinHistory) {
+        if (h.userId === member.id || !h.avatar) continue;
+        if (h.avatar === myAvatar) {
+          const hAge = (nowMs - (h.createdAt || 0)) / DAY_MS;
+          if (hAge < 30) {
+            sharedAvatar = true;
+            break;
+          }
+        }
+      }
+    }
+    if (sharedAvatar) {
+      riskScore += 20;
+      factors.push("❌ shared_avatar_with_recent_account");
+    }
+  }
+
+  // Layer 7: Join Burst / Cluster — đếm account MỚI (age < 30d, không avatar)
+  // join trong cửa sổ. Nguồn dữ liệu: lịch sử join từ Convex (bao gồm user ĐÃ RỜI
+  // server — cache không thấy), fallback về cache khi chưa có lịch sử.
   const joinWindowMs = (config?.altJoinWindowMinutes ?? 5) * 60 * 1000;
   const now = Date.now();
   let highRiskRecentJoins = 0;
   try {
-    // Only count joins from users who ALSO look suspicious
-    // (We can't run full analysis on cached members, but we can check basic signals)
-    const recentMembers = member.guild.members.cache.filter((m) => {
-      if (m.joinedTimestamp && (now - m.joinedTimestamp) < joinWindowMs && m.id !== member.id) {
-        const mAge = (Date.now() - (m.user?.createdTimestamp ?? 0)) / DAY_MS;
-        // Only count if the other member is ALSO suspicious (new account)
-        return mAge < 30 && !m.user?.avatar;
-      }
-      return false;
-    });
-    highRiskRecentJoins = recentMembers.size;
+    if (joinHistory.length > 0) {
+      highRiskRecentJoins = joinHistory.filter((h) => {
+        if (h.userId === member.id) return false;
+        if (now - h.joinedAt > joinWindowMs) return false;
+        const hAge = (now - (h.createdAt || 0)) / DAY_MS;
+        // Giữ nguyên tiêu chí cũ (mới + không avatar) — chỉ mở rộng NGUỒN dữ liệu.
+        return hAge < 30 && !h.avatar;
+      }).length;
+    } else {
+      const recentMembers = member.guild.members.cache.filter((m) => {
+        if (m.joinedTimestamp && (now - m.joinedTimestamp) < joinWindowMs && m.id !== member.id) {
+          const mAge = (Date.now() - (m.user?.createdTimestamp ?? 0)) / DAY_MS;
+          return mAge < 30 && !m.user?.avatar;
+        }
+        return false;
+      });
+      highRiskRecentJoins = recentMembers.size;
+    }
     if (highRiskRecentJoins >= 5) {
       riskScore += 15;
       factors.push(`❌ high_risk_join_burst_${highRiskRecentJoins}+`);
@@ -347,22 +466,54 @@ async function analyzeNewMember(member, config, getConfig) {
   let ipCountry = null;
   let ipOrg = null;
 
+  // === STRONG SIGNALS (bằng chứng độc lập) ===
+  // Mỗi nhóm là một DẠNG bằng chứng khác nhau. Nhiều bằng chứng độc lập = độ
+  // chắc chắn cao. Đây là lớp chống chặn nhầm quan trọng nhất: 1 tín hiệu đơn
+  // lẻ (tên giống, tuổi trẻ, avatar trùng…) có thể là trùng hợp ngẫu nhiên,
+  // còn 2+ tín hiệu độc lập cùng lúc thì gần như chắc chắn là alt.
+  const strongSignals = [];
+  if (ageDays < 3) strongSignals.push("age<3d");
+  if (usernameCheck.generated && ageDays < 30) strongSignals.push("generated_name");
+  if (maxSimilarity >= 85) strongSignals.push("name_sim_85+");
+  if (sharedAvatar) strongSignals.push("shared_avatar");
+  if (punishedMatch) strongSignals.push("punished_match");
+  if (highRiskRecentJoins >= 3) strongSignals.push("join_cluster");
+  if (member.user.bot) strongSignals.push("bot_account");
+
   // === FINAL SCORE CALCULATION ===
   // Apply positive score reduction (min 0)
   riskScore = Math.max(0, riskScore - positiveScore);
   riskScore = Math.min(100, riskScore);
 
-  // === Determine Action ===
+  // === Determine Action (theo độ chắc chắn, không chỉ theo điểm số) ===
   const maxRisk = config?.altMaxRiskScore ?? 70;
   let action = "pass";
   if (riskScore >= maxRisk) {
-    action = config?.altPunish || "kick";
+    const punish = config?.altPunish || "kick";
+    const safeMode = config?.altSafeMode !== false; // mặc định BẬT
+    if (!safeMode) {
+      // Chủ server tắt chế độ an toàn → hành vi cũ: phạt thẳng theo cấu hình.
+      action = punish;
+    } else if (strongSignals.length >= 2 || riskScore >= 95) {
+      // >= 2 bằng chứng độc lập (hoặc điểm gần tuyệt đối) → chắc chắn → phạt đúng cấu hình.
+      action = punish;
+    } else if (strongSignals.length === 1) {
+      // Chỉ 1 bằng chứng → HẠ CẤP 1 bậc để không phạt nặng nhầm:
+      // ban → kick, kick → timeout. timeout/verify giữ nguyên (đã là phạt nhẹ).
+      action = punish === "ban" ? "kick" : punish === "kick" ? "timeout" : punish;
+    } else {
+      // Điểm cao nhưng KHÔNG có bằng chứng độc lập nào (chỉ tín hiệu yếu cộng
+      // dồn) → chỉ theo dõi, KHÔNG phạt — chống chặn nhầm người thật.
+      factors.push("⚠️ monitor_only_insufficient_evidence");
+      action = "pass";
+    }
   }
 
   return {
     riskScore,
     riskFactors: factors,
     action,
+    strongSignals,
     isVPN,
     ipCountry,
     ipOrg,
@@ -395,22 +546,43 @@ async function executePunishment(member, analysis, config) {
       case "timeout": {
         const minutes = config?.altTimeoutMinutes ?? 60;
         await member.timeout(minutes * 60 * 1000, reason);
+        // Track để khi hết hạn tự nhiên có embed "⏱️ Timeout hết hạn" — nhất quán
+        // với mọi timeout khác (manual + auto-mod). Gỡ sớm sẽ được forget.
+        try {
+          require("./timeoutWatch").track(
+            member.guild.id,
+            member.id,
+            Date.now() + minutes * 60 * 1000,
+          );
+        } catch (e) {
+          console.error(`[altDetect:timeoutTrack] ${member.guild.id}:`, e.message);
+        }
         return { executed: true, action: "timeout", reason };
       }
 
       case "verify": {
-        // Gán lại role unverified → buộc xác minh lại
+        // Gán lại role unverified → buộc xác minh lại.
+        // CHỈ dùng roles.add (KHÔNG dùng roles.set — roles.set XÓA SẠCH toàn bộ
+        // role khác của member, phá hỏng role của thành viên hợp lệ bị nghi oan).
+        // Chỉ ép xác minh khi hệ thống verify đã setup ĐẦY ĐỦ (bật + kênh + cả 2 role),
+        // nếu không member sẽ bị kẹt không có cách xác minh.
         const unverifiedRoleId = config?.unverifiedRoleId;
-        if (unverifiedRoleId) {
-          await member.roles.set(
-            [unverifiedRoleId],
-            "Alt detection — forced re-verify",
-          );
+        const verifyReady =
+          config?.verifyEnabled &&
+          unverifiedRoleId &&
+          config?.verifiedRoleId &&
+          config?.verifyChannelId;
+        if (verifyReady) {
+          await member.roles.add(unverifiedRoleId, "Alt detection — forced re-verify");
           return { executed: true, action: "verify", reason };
         }
-        // Nếu không có unverified role → fallback to kick
+        // Chưa setup verify đầy đủ → fallback to kick
         await member.kick(reason);
-        return { executed: true, action: "kick", reason: reason + " (fallback: no unverified role)" };
+        return {
+          executed: true,
+          action: "kick",
+          reason: reason + " (fallback: verify not fully set up)",
+        };
       }
 
       default:

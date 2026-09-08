@@ -163,7 +163,7 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         let altBanned = false;
         if (config.altDetectionEnabled) {
           try {
-            const analysis = await analyzeNewMember(member, config, (guildId) => store.getConfig(guildId));
+            const analysis = await analyzeNewMember(member, config, (guildId) => store.getConfig(guildId), store);
             const maxRisk = config.altMaxRiskScore ?? 70;
             if (analysis.riskScore >= maxRisk && analysis.action !== "pass") {
               // Execute punishment instead of verifying
@@ -176,6 +176,15 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
                 // Fall through to normal verify flow
               } else {
                 altBanned = true;
+
+                // Đánh dấu đã bị phạt để lần join sau đối chiếu (evasion detect).
+                await store.client
+                  .mutation("altDetection:markJoinPunished", {
+                    guildId: guild.id,
+                    userId: member.id,
+                    action: punishResult.action,
+                  })
+                  .catch(() => {});
 
                 // Reply to user with reason
                 await interaction.reply({

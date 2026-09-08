@@ -77,8 +77,11 @@ async function sendCaseLog({
   //  - reason → thêm Reason (trống → "không có lý do")
   //  - full   → thêm Responsible moderator (bot tự động = tên bot, mod lệnh = tên người dùng)
   // purge / delete (không nằm trong bảng cấu hình) luôn hiển thị đầy đủ.
-  const level = NOTICE_ACTIONS.includes(action)
-    ? guildConfig.punishNotice?.[action] || "full"
+  // "timeout_expired" là hậu quả của timeout → tôn trọng mức chi tiết timeout
+  // (chủ server chọn none = không muốn thấy bất kỳ log timeout nào).
+  const noticeKey = action === "timeout_expired" ? "timeout" : action;
+  const level = NOTICE_ACTIONS.includes(noticeKey)
+    ? guildConfig.punishNotice?.[noticeKey] || "full"
     : "full";
   if ((LEVEL_ORDER[level] ?? 3) === 0) return null;
 

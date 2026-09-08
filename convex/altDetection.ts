@@ -24,6 +24,7 @@ export const getAltConfig = query({
       altWhitelistUsers: guild.altWhitelistUsers ?? [],
       altSimilarityThreshold: guild.altSimilarityThreshold ?? 70,
       altJoinWindowMinutes: guild.altJoinWindowMinutes ?? 5,
+      altSafeMode: guild.altSafeMode ?? true,
     };
   },
 });
@@ -41,6 +42,7 @@ export const updateAltConfig = mutation({
     altVpnMode: v.optional(v.union(v.literal("strict"), v.literal("warn"), v.literal("off"))),
     altWhitelistRoles: v.optional(v.array(v.string())),
     altWhitelistUsers: v.optional(v.array(v.string())),
+    altSafeMode: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const user = await getUserByToken(ctx, args.token);
@@ -59,6 +61,7 @@ export const updateAltConfig = mutation({
     if (args.altVpnMode !== undefined) patch.altVpnMode = args.altVpnMode;
     if (args.altWhitelistRoles !== undefined) patch.altWhitelistRoles = args.altWhitelistRoles;
     if (args.altWhitelistUsers !== undefined) patch.altWhitelistUsers = args.altWhitelistUsers;
+    if (args.altSafeMode !== undefined) patch.altSafeMode = args.altSafeMode;
     await ctx.db.patch(guild._id, patch);
     return { ok: true };
   },
@@ -75,6 +78,8 @@ export const recordJoin = mutation({
     flags: v.optional(v.number()),
     riskScore: v.number(),
     riskFactors: v.array(v.string()),
+    strongSignals: v.optional(v.number()),
+    action: v.optional(v.string()),
     isVPN: v.optional(v.boolean()),
     ipCountry: v.optional(v.string()),
     ipOrg: v.optional(v.string()),
@@ -92,21 +97,72 @@ export const recordJoin = mutation({
       joinedAt: now,
       riskScore: args.riskScore,
       riskFactors: args.riskFactors,
+      strongSignals: args.strongSignals,
+      action: args.action,
       isVPN: args.isVPN ?? false,
       ipCountry: args.ipCountry,
       ipOrg: args.ipOrg,
     });
-    // Keep max 500 joins per guild
-    const all = await ctx.db
-      .query("memberJoins")
-      .withIndex("by_guildId", (q) => q.eq("guildId", args.guildId))
-      .order("desc")
-      .collect();
-    if (all.length > 500) {
-      const drop = all.slice(500).map((r) => r._id);
-      for (const id of drop) await ctx.db.delete(id);
+    // Keep max 500 joins per guild. KHÔNG collect toàn bộ mỗi lần join (tốn
+    // ~500 reads/join — rất nặng khi raid) — chỉ dọn định kỳ ~1/40 lần
+    // (~mỗi 4 phút khi có join liên tục).
+    if (Date.now() % 240_000 < 2000) {
+      const all = await ctx.db
+        .query("memberJoins")
+        .withIndex("by_guildId_joinedAt", (q) => q.eq("guildId", args.guildId))
+        .order("desc")
+        .take(501);
+      if (all.length > 500) {
+        const drop = all.slice(500).map((r) => r._id);
+        for (const id of drop) await ctx.db.delete(id);
+      }
     }
     return { ok: true, riskScore: args.riskScore };
+  },
+});
+
+/**
+ * Đánh dấu record join gần nhất của user đã bị xử lý (kick/ban/timeout/verify).
+ * Bot gọi sau khi executePunishment thành công — để lần join SAU với account
+ * khác có thể đối chiếu (rejoin-evasion detection).
+ */
+export const markJoinPunished = mutation({
+  args: { guildId: v.string(), userId: v.string(), action: v.string() },
+  handler: async (ctx, args) => {
+    const rec = await ctx.db
+      .query("memberJoins")
+      .withIndex("by_guildId_joinedAt", (q) => q.eq("guildId", args.guildId))
+      .order("desc")
+      .take(50);
+    const mine = rec.find((r) => r.userId === args.userId);
+    if (!mine) return { ok: false };
+    await ctx.db.patch(mine._id, {
+      action: args.action.slice(0, 20),
+      updatedAt: Date.now(),
+    });
+    return { ok: true };
+  },
+});
+
+/** Lịch sử join gần đây cho bot (không cần token — bot chạy với deploy key). */
+export const botGetJoinHistory = query({
+  args: { guildId: v.string(), limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const joins = await ctx.db
+      .query("memberJoins")
+      .withIndex("by_guildId_joinedAt", (q) => q.eq("guildId", args.guildId))
+      .order("desc")
+      .take(Math.min(args.limit ?? 100, 200));
+    return joins.map((j) => ({
+      userId: j.userId,
+      username: j.username,
+      avatar: j.avatar,
+      createdAt: j.createdAt,
+      joinedAt: j.joinedAt,
+      riskScore: j.riskScore,
+      strongSignals: j.strongSignals ?? 0,
+      action: j.action ?? null,
+    }));
   },
 });
 
@@ -136,6 +192,8 @@ export const getRecentJoins = query({
       joinedAt: j.joinedAt,
       riskScore: j.riskScore,
       riskFactors: j.riskFactors,
+      strongSignals: j.strongSignals ?? 0,
+      action: j.action ?? null,
       isVPN: j.isVPN,
       ipCountry: j.ipCountry,
       ipOrg: j.ipOrg,

@@ -115,7 +115,9 @@ client.once("clientReady", async () => {
       } catch (e) {
         console.error("[sync]", e.message);
       }
-      setTimeout(runSyncLoop, 60_000);
+      // 120s thay vì 60s — dashboard không cần độ trễ dưới 2 phút,
+      // tiết kiệm 50% operations của vòng đồng bộ.
+      setTimeout(runSyncLoop, 120_000);
     })();
   };
   setTimeout(() => {
@@ -134,28 +136,28 @@ client.once("clientReady", async () => {
   }, 60_000);
   presenceInterval.unref();
 
-  // Daily report — mỗi 10 phút
+  // Daily report — mỗi 15 phút (query per-guild chỉ khi đến hạn)
   const { runDailyReports } = require("./handlers/dailyReport");
   setTimeout(() => runDailyReports(client, store, heat).catch((e) => console.error("[report]", e.message)), 15_000);
   const reportInterval = setInterval(
     () => runDailyReports(client, store, heat).catch((e) => console.error("[report]", e.message)),
-    10 * 60 * 1000,
+    15 * 60 * 1000,
   );
   reportInterval.unref();
 
-  // Heat flush — mỗi 30s
+  // Heat flush — mỗi 60s (batch 1 mutation/guild — tiết kiệm operations)
   const heatInterval = setInterval(
     () => heat.flushAll().catch((e) => console.error("[heat:flush]", e.message)),
-    30_000,
+    60_000,
   );
   heatInterval.unref();
 
-  // Backup poll — mỗi 20s
+  // Backup poll — mỗi 60s (người dùng chờ vài chục giây vẫn ổn)
   const pollBackups = require("./handlers/backup");
-  setTimeout(() => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)), 10_000);
+  setTimeout(() => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)), 15_000);
   const backupInterval = setInterval(
     () => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)),
-    20_000,
+    60_000,
   );
   backupInterval.unref();
 
@@ -166,11 +168,11 @@ client.once("clientReady", async () => {
   );
   autoBackupInterval.unref();
 
-  // Health check heartbeat — mỗi 30s (gửi trạng thái lên Convex)
+  // Health check heartbeat — mỗi 60s (đủ để web hiển thị online/offline)
   const heartbeatInterval = setInterval(() => {
     const memberCount = client.guilds.cache.reduce((a, g) => a + (g.memberCount ?? 0), 0);
     store.sendHeartbeat(client.guilds.cache.size, memberCount).catch(() => {});
-  }, 30_000);
+  }, 60_000);
   heartbeatInterval.unref();
 
   // Memory monitoring — mỗi 30 phút (nhẹ nhàng)

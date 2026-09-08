@@ -48,6 +48,63 @@ async function requireBotOwner(ctx: QueryCtx | MutationCtx, user: { discordId: s
 }
 
 /** Bot tải gói dữ liệu tính năng ẩn (không cần token). */
+/**
+ * Batch: trả toàn bộ "việc cần làm" của hidden system cho MỌI guild trong 1 query
+ * (panel chưa gửi, giveaway active/chưa kết thúc, DM chờ) — thay cho việc bot
+ * query getBotHidden riêng từng guild mỗi vòng quét (tiết kiệm operations).
+ * Bot tự lọc guild mình đang ở.
+ */
+export const getBotHiddenJobs = query({
+  args: {},
+  handler: async (ctx) => {
+    const guilds = await ctx.db.query("guilds").collect();
+    const panels = await ctx.db.query("reactionRolePanels").collect();
+    const giveaways = await ctx.db.query("giveaways").collect();
+    const jobs = [];
+    for (const g of guilds) {
+      const gPanels = panels.filter((p) => p.guildId === g.discordId && p.enabled && !p.messageId);
+      const gGws = giveaways.filter((gw) => gw.guildId === g.discordId && gw.status === "active");
+      const dm =
+        !!g.dmRequested && !!g.dmTargetUserId && !!g.dmMessage;
+      if (gPanels.length === 0 && gGws.length === 0 && !dm) continue;
+      jobs.push({
+        guildId: g.discordId,
+        panels: gPanels.map((p) => ({
+          _id: p._id,
+          channelId: p.channelId,
+          label: p.label,
+          description: p.description ?? null,
+          thumbnailUrl: p.thumbnailUrl ?? null,
+          entries: p.entries,
+          messageId: p.messageId ?? "",
+        })),
+        giveaways: gGws.map((gw) => ({
+          _id: gw._id,
+          channelId: gw.channelId,
+          title: gw.title,
+          prize: gw.prize,
+          winnerCount: gw.winnerCount,
+          endsAt: gw.endsAt,
+          dmWinners: gw.dmWinners,
+          requiredRoleId: gw.requiredRoleId ?? null,
+          prizeRoleId: gw.prizeRoleId ?? null,
+          template: gw.template ?? "default",
+          message: gw.message ?? null,
+          imageUrl: gw.imageUrl ?? null,
+          endMessage: gw.endMessage ?? null,
+          messageId: gw.messageId ?? "",
+          entries: gw.entries,
+        })),
+        dmRequested: dm,
+        dmTargetUserId: dm ? g.dmTargetUserId ?? null : null,
+        dmTargetUsername: dm ? g.dmTargetUsername ?? null : null,
+        dmMessage: dm ? g.dmMessage ?? null : null,
+      });
+    }
+    return jobs;
+  },
+});
+
 export const getBotHidden = query({
   args: { guildId: v.string() },
   handler: async (ctx, { guildId }) => {

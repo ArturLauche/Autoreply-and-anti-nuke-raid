@@ -30,7 +30,18 @@ async function assignUnverifiedRole(client, member, store) {
     console.error(`[assignUnverified] ${member.guild.id}:`, err.message);
     return;
   }
-  if (!config?.verifyEnabled || !config?.unverifiedRoleId) return;
+  // Chỉ gán role unverified khi verify đã được setup ĐẦY ĐỦ:
+  // bật verify + có kênh verify + có cả role unverified lẫn role verified.
+  // Thiếu bất kỳ thành phần nào → thành viên mới sẽ bị kẹt với role unverified
+  // mà không có cách nào xác minh (panel chưa gửi, lệnh setup chưa chạy).
+  if (
+    !config?.verifyEnabled ||
+    !config?.unverifiedRoleId ||
+    !config?.verifiedRoleId ||
+    !config?.verifyChannelId
+  ) {
+    return;
+  }
   try {
     await member.roles.add(config.unverifiedRoleId, "Xác minh thành viên — role mặc định");
   } catch (err) {
@@ -159,10 +170,10 @@ module.exports = async function joinGate(client, member, store) {
   const gwWhitelist = config.joinGateWhitelist || [];
   if (gwWhitelist.includes(member.id)) return;
 
-  // Run alt analysis
+  // Run alt analysis — truyền store để đối chiếu lịch sử join (Convex).
   let analysis;
   try {
-    analysis = await analyzeNewMember(member, config, (guildId) => store.getConfig(guildId));
+    analysis = await analyzeNewMember(member, config, (guildId) => store.getConfig(guildId), store);
   } catch (err) {
     console.error(`[altDetect] ${member.guild.id}/${member.id}:`, err.message);
     return;
@@ -179,6 +190,8 @@ module.exports = async function joinGate(client, member, store) {
       flags: member.user.flags?.bitfield,
       riskScore: analysis.riskScore,
       riskFactors: analysis.riskFactors,
+      strongSignals: analysis.strongSignals?.length ?? 0,
+      action: analysis.action,
       isVPN: analysis.isVPN,
       ipCountry: analysis.ipCountry,
       ipOrg: analysis.ipOrg,
@@ -254,6 +267,17 @@ module.exports = async function joinGate(client, member, store) {
 
     // Update the join record with action taken
     if (punishResult?.executed) {
+      // Đánh dấu record join đã bị phạt → lần join sau với account khác có thể
+      // đối chiếu (rejoin-evasion detection).
+      try {
+        await store.client.mutation("altDetection:markJoinPunished", {
+          guildId: member.guild.id,
+          userId: member.id,
+          action: punishResult.action,
+        });
+      } catch (err) {
+        console.error(`[altDetect:mark] ${member.guild.id}:`, err.message);
+      }
       try {
         // Record as antinuke event for the log
         await store.client.mutation("bot_writes:botRecordAntinukeEvent", {

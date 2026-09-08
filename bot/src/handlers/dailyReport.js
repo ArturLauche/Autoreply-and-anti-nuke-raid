@@ -9,15 +9,6 @@ const TIER_EMOJI = { warn: "⚠️", timeout: "⏸️", kick: "👢", ban: "🚫
 
 async function runDailyReports(client, store, heat) {
   const now = Date.now();
-  const events = await store.client.query("reports:getDailyEvents", {
-    since: now - 48 * 60 * 60 * 1000,
-  });
-
-  const byGuild = new Map();
-  for (const e of events) {
-    if (!byGuild.has(e.guildId)) byGuild.set(e.guildId, []);
-    byGuild.get(e.guildId).push(e);
-  }
 
   for (const guild of client.guilds.cache.values()) {
     try {
@@ -27,7 +18,16 @@ async function runDailyReports(client, store, heat) {
       const lastAt = config.lastReportAt || now - WINDOW_MS;
       if (now - lastAt < MIN_INTERVAL_MS) continue; // not due yet
 
-      const list = (byGuild.get(guild.id) || []).filter((e) => e.createdAt >= lastAt);
+      // Chỉ query sự kiện cho guild ĐẾN HẠN (per-guild, không query global
+      // cho mọi guild mỗi 10 phút — tiết kiệm hàng triệu operations/tháng).
+      const events = await store.client
+        .query("reports:getGuildEvents", {
+          guildId: guild.id,
+          since: now - 48 * 60 * 60 * 1000,
+          limit: 500,
+        })
+        .catch(() => []);
+      const list = (events || []).filter((e) => e.createdAt >= lastAt);
       await sendReport(guild, config, list, lastAt, now, heat);
       await store.client.mutation("bot_writes:botSetReportAt", { guildId: guild.id, at: now });
     } catch (err) {

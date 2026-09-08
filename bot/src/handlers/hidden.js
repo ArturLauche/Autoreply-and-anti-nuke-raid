@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
 const GIVEAWAY_EMOJI = "🎉";
 const HIDDEN_COLOR = 0xf48fb1;
@@ -313,23 +313,100 @@ async function sendDirectDm(client, store, guildId) {
   }
 }
 
-/** Vòng quét: đăng bảng/giveaway mới, kết thúc giveaway hết hạn, gửi DM chờ. */
-async function pollHidden(client, store) {
-  for (const guild of client.guilds.cache.values()) {
+/**
+ * Gửi panel xác minh khi dashboard yêu cầu (verifySendPanel = true).
+ * Được kích hoạt bằng nút "Gửi panel xác minh" trên web — bot phải tự gửi
+ * vì web không có quyền gửi tin nhắn vào Discord.
+ */
+async function pollVerifyPanels(client, store) {
+  let items;
+  try {
+    items = await store.client.query("guilds:getVerifySendPanelGuilds", {});
+  } catch (e) {
+    console.error(`[hidden:verifyPanel:poll]`, e.message);
+    return;
+  }
+  if (!items || items.length === 0) return;
+  for (const item of items) {
     try {
-      const hidden = await store.client.query("hidden:getBotHidden", { guildId: guild.id });
-      if (!hidden) continue;
+      const guild = client.guilds.cache.get(item.guildId);
+      if (!guild) {
+        console.warn(`[hidden:verifyPanel] ${item.guildId}: bot không còn trong server — bỏ qua`);
+        continue;
+      }
+      const channel = await client.channels.fetch(item.verifyChannelId).catch(() => null);
+      if (!channel?.isTextBased()) {
+        console.warn(`[hidden:verifyPanel] ${item.guildId}: kênh verify không tồn tại hoặc không phải kênh text`);
+        continue;
+      }
+      // Panel chỉ hữu ích khi đã setup đủ 2 role — thiếu thì bỏ qua (không gửi
+      // nút bấm sẽ báo lỗi "Chưa cấu hình role xác minh" cho thành viên).
+      if (!item.unverifiedRoleId || !item.verifiedRoleId) {
+        console.warn(`[hidden:verifyPanel] ${item.guildId}: thiếu role unverified/verified — bỏ qua panel`);
+        continue;
+      }
+      const method = item.verifyMethod === "captcha" ? "captcha" : "button";
+      const embed = new EmbedBuilder()
+        .setColor(0x5865f2)
+        .setTitle("✅ Xác minh thành viên")
+        .setDescription(
+          method === "captcha"
+            ? "Nhấn nút bên dưới để nhận mã xác minh qua DM, sau đó nhập mã trong kênh này."
+            : "Nhấn nút bên dưới để xác minh và vào server.",
+        )
+        .setFooter({ text: "Protogon · Verify" });
+      const row = new ActionRowBuilder().addComponents(
+        method === "captcha"
+          ? new ButtonBuilder()
+              .setCustomId("verify_request_captcha")
+              .setLabel("Nhận mã xác minh 🔑")
+              .setStyle(ButtonStyle.Primary)
+          : new ButtonBuilder()
+              .setCustomId("verify_confirm")
+              .setLabel("Xác minh ✅")
+              .setStyle(ButtonStyle.Success),
+      );
+      await channel.send({ embeds: [embed], components: [row] });
+      console.log(`[hidden:verifyPanel] ${item.guildId}: đã gửi panel xác minh (${method}) tới #${channel.name}`);
+    } catch (e) {
+      console.error(`[hidden:verifyPanel] ${item.guildId}:`, e.message);
+    } finally {
+      // Luôn xóa cờ để không gửi lặp lại mỗi 30s (kể cả khi gửi thất bại
+      // vì kênh/role bị xóa — user sẽ bấm lại nút trên dashboard).
+      await store.client
+        .mutation("guilds:clearVerifySendPanel", { guildId: item.guildId })
+        .catch(() => {});
+    }
+  }
+}
 
-      for (const panel of hidden.panels) {
-        if (panel.enabled && !panel.messageId) {
+/**
+ * Vòng quét: đăng bảng/giveaway mới, kết thúc giveaway hết hạn, gửi DM chờ.
+ * Dùng MỘT query batch (getBotHiddenJobs) cho tất cả guild — thay vì query
+ * riêng từng guild mỗi vòng (tiết kiệm operations khi bot ở nhiều server).
+ */
+async function pollHidden(client, store) {
+  let jobs;
+  try {
+    jobs = await store.client.query("hidden:getBotHiddenJobs", {});
+  } catch (e) {
+    console.error(`[hidden:poll]`, e?.message || e);
+    return;
+  }
+  if (!jobs || jobs.length === 0) return;
+  for (const hidden of jobs) {
+    const guild = client.guilds.cache.get(hidden.guildId);
+    if (!guild) continue;
+    try {
+      for (const panel of hidden.panels || []) {
+        if (!panel.messageId) {
           await postPanel(client, store, panel).catch((e) =>
             console.error(`[hidden:panel ${guild.id}]`, e.message),
           );
         }
       }
 
-      for (const giveaway of hidden.giveaways) {
-        if (giveaway.status !== "active") continue;
+      for (const giveaway of hidden.giveaways || []) {
         if (!giveaway.messageId) {
           await postGiveaway(client, store, giveaway).catch((e) =>
             console.error(`[hidden:giveaway ${guild.id}]`, e.message),
@@ -363,8 +440,12 @@ function setupHidden(client, store) {
     ),
   );
   client.once("ready", () => {
-    setInterval(() => pollHidden(client, store).catch(() => {}), 30_000);
+    // 60s thay vì 30s — đủ nhanh cho panel/giveaway/DM, tiết kiệm 50% operations.
+    setInterval(() => {
+      pollHidden(client, store).catch(() => {});
+      pollVerifyPanels(client, store).catch(() => {});
+    }, 60_000);
   });
 }
 
-module.exports = { setupHidden, pollHidden, emojiKeyOf, resolveEmoji };
+module.exports = { setupHidden, pollHidden, pollVerifyPanels, emojiKeyOf, resolveEmoji };

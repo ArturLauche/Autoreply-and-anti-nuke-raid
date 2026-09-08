@@ -160,12 +160,13 @@ async function unbanMember({ guild, userId, executor, reason, guildConfig, store
     throw new Error(`**<@${userId}>** hiện không bị ban trong server này.`);
   }
   await guild.members.unban(userId, reason || undefined);
+  // Dùng username thật từ bản ghi ban (ban.user) thay vì hiển thị ID làm tên.
   await logModAction(
     guild,
     guildConfig,
     {
       actionKey: "unban",
-      target: { id: userId, username: userId },
+      target: { id: ban.user.id, username: ban.user.username },
       executor,
       reason,
     },
@@ -181,12 +182,14 @@ async function unwarnMember({ guild, userId, heat, executor, reason, guildConfig
     throw new Error(`**<@${userId}>** hiện không có warn tích lũy nào.`);
   }
   heat.clearStrikes(guild.id, userId);
+  // Lấy username thật từ tracker (nếu có) thay vì hiển thị ID làm tên.
+  const username = heat.strikeUsername?.(guild.id, userId) || userId;
   await logModAction(
     guild,
     guildConfig,
     {
       actionKey: "unwarn",
-      target: { id: userId, username: userId },
+      target: { id: userId, username },
       executor,
       reason,
     },
@@ -222,9 +225,8 @@ async function purgeChannel(channel, count, executor, guildConfig, store) {
       action: "purge",
       caseNumber,
       offender: null,
-      reason: `Xóa ${deleted.size} tin nhắn tại #${channel.name}`,
+      reason: `Xóa ${deleted.size} tin nhắn tại ${channel} (\`${channel.id}\`)`,
       executor,
-      extraDescription: [`**Kênh:** ${channel} (\`${channel.id}\`)`],
     });
   } catch (e) {
     console.error(`[modTools:purge:log] ${channel.guild.id}:`, e.message);

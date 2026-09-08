@@ -39,6 +39,12 @@ export const botUpdateSettings = mutation({
     modRoles: v.optional(v.array(v.string())),
     adminRoles: v.optional(v.array(v.string())),
     badWords: v.optional(v.array(v.string())),
+    // Verify system — bot commands `/verify` and `!verify` call this mutation
+    verifyEnabled: v.optional(v.boolean()),
+    verifyMethod: v.optional(v.union(v.literal("button"), v.literal("captcha"))),
+    verifyChannelId: v.optional(v.union(v.string(), v.null())),
+    unverifiedRoleId: v.optional(v.union(v.string(), v.null())),
+    verifiedRoleId: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const guild = await ctx.db
@@ -63,6 +69,11 @@ export const botUpdateSettings = mutation({
         .slice(0, 100);
       patch.badWords = [...new Set(words)];
     }
+    if (args.verifyEnabled !== undefined) patch.verifyEnabled = args.verifyEnabled;
+    if (args.verifyMethod !== undefined) patch.verifyMethod = args.verifyMethod;
+    if (args.verifyChannelId !== undefined) patch.verifyChannelId = args.verifyChannelId ?? undefined;
+    if (args.unverifiedRoleId !== undefined) patch.unverifiedRoleId = args.unverifiedRoleId ?? undefined;
+    if (args.verifiedRoleId !== undefined) patch.verifiedRoleId = args.verifiedRoleId ?? undefined;
     await ctx.db.patch(guild._id, patch);
     return { ok: true };
   },
@@ -283,21 +294,77 @@ export const botRecordAntinukeEvent = mutation({
       punish: args.punish,
       createdAt: Date.now(),
     });
-    // Chống phình DB: giữ tối đa 800 sự kiện/server — bảng này không giới hạn
-    // độ dài lịch sử trên dashboard (GuildHistory phân trang, cũ hơn 800 tự xóa).
-    const all = await ctx.db
-      .query("antinukeEvents")
-      .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", args.guildId))
-      .order("desc")
-      .collect();
-    if (all.length > 800) {
-      const drop = all.slice(800).map((r) => r._id);
-      for (const id of drop) await ctx.db.delete(id);
+    // Chống phình DB: giữ tối đa 800 sự kiện/server. KHÔNG collect toàn bộ mỗi
+    // lần ghi (tốn ~800 reads/event) — chỉ dọn định kỳ ~1/40 lần (~mỗi 4 phút
+    // khi có event liên tục).
+    if (Date.now() % 240_000 < 2000) {
+      const all = await ctx.db
+        .query("antinukeEvents")
+        .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", args.guildId))
+        .order("desc")
+        .take(801);
+      if (all.length > 800) {
+        const drop = all.slice(800).map((r) => r._id);
+        for (const id of drop) await ctx.db.delete(id);
+      }
     }
     return { ok: true };
   },
 });
 
+
+/**
+ * Batch upsert nhiệt độ + warn tích lũy cho NHIỀU thành viên trong 1 mutation.
+ * Bot gom toàn bộ member đang nóng của 1 guild vào đây (thay vì N mutation
+ * botRecordHeat riêng lẻ mỗi vòng flush) — cắt giảm operations đáng kể.
+ */
+export const botRecordHeatBatch = mutation({
+  args: {
+    guildId: v.string(),
+    entries: v.array(
+      v.object({
+        userId: v.string(),
+        username: v.optional(v.string()),
+        heat: v.number(),
+        updatedAt: v.number(),
+        warnStrikes: v.optional(v.number()),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    for (const e of args.entries) {
+      const existing = await ctx.db
+        .query("heatStates")
+        .withIndex("by_guildId_userId", (q) =>
+          q.eq("guildId", args.guildId).eq("userId", e.userId),
+        )
+        .first();
+      const strikes = Math.max(0, Math.floor(e.warnStrikes ?? 0));
+      if (e.heat <= 0 && strikes <= 0) {
+        if (existing) await ctx.db.delete(existing._id);
+        continue;
+      }
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          username: e.username ?? existing.username,
+          heat: Math.max(1, Math.min(100, Math.round(e.heat))),
+          updatedAt: e.updatedAt,
+          warnStrikes: strikes,
+        });
+      } else {
+        await ctx.db.insert("heatStates", {
+          guildId: args.guildId,
+          userId: e.userId,
+          username: e.username ?? "",
+          heat: Math.max(1, Math.min(100, Math.round(e.heat))),
+          updatedAt: e.updatedAt,
+          warnStrikes: strikes,
+        });
+      }
+    }
+    return { ok: true, count: args.entries.length };
+  },
+});
 
 /** Bot xóa cờ yêu cầu reset nhiệt sau khi đã dọn bộ nhớ. */
 export const botClearHeatReset = mutation({
@@ -754,15 +821,17 @@ export const botRecordModAction = mutation({
       caseNumber,
       createdAt: now,
     });
-    const extras = await ctx.db
-      .query("modActions")
-      .withIndex("by_guildId", (q) => q.eq("guildId", args.guildId))
-      .collect();
-    const drop = extras
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(100)
-      .map((r) => r._id);
-    for (const id of drop) await ctx.db.delete(id);
+    // Chống phình DB: giữ tối đa 100 bản/server. Chỉ dọn định kỳ (~1/40 lần)
+    // thay vì collect toàn bộ mỗi lần ghi (tiết kiệm ~100 reads/action).
+    if (Date.now() % 240_000 < 2000) {
+      const extras = await ctx.db
+        .query("modActions")
+        .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", args.guildId))
+        .order("desc")
+        .take(101);
+      const drop = extras.slice(100).map((r) => r._id);
+      for (const id of drop) await ctx.db.delete(id);
+    }
     return { ok: true, caseNumber };
   },
 });

@@ -56,8 +56,11 @@ async function punishMember(guild, member, punishType, reason, timeoutSeconds = 
     const seconds = Math.max(1, Math.min(86400, Math.floor(timeoutSeconds || 300)));
     try {
       await member.timeout(seconds * 1000, reason);
-      // KHÔNG track timeoutWatch ở đây — auto-mod đã ghi case log khi áp dụng.
-      // Chỉ manual mod (modTools.timeoutMember) mới track để log "timeout hết hạn".
+      // Track vào timeoutWatch để khi hết hạn TỰ NHIÊN có embed "⏱️ Timeout hết
+      // hạn" — nhất quán với timeout thủ công (modTools.timeoutMember). Nếu mod
+      // gỡ sớm (lệnh /mod untimeout hoặc bấm trên Discord) thì timeoutWatch
+      // forget → không log nhầm. Chỉ track khi áp dụng THÀNH CÔNG.
+      timeoutWatch.track(guild.id, member.id, Date.now() + seconds * 1000);
       result = `đã tạm khóa ${Math.round(seconds / 60)} phút`;
     } catch {
       result = "không thể tạm khóa (thiếu quyền)";
@@ -265,6 +268,12 @@ class HeatTracker {
     return hit.count;
   }
 
+  /** Username của lần warn tích lũy gần nhất (cho embed case log), hoặc null. */
+  strikeUsername(guildId, userId) {
+    const hit = this.strikes.get(this._key(guildId, userId));
+    return hit?.username || null;
+  }
+
   /** Chụp nhiệt độ hiện tại của toàn guild (cho báo cáo hàng ngày). */
   heatSnapshot(guildId, s) {
     const prefix = `${guildId}:`;
@@ -333,7 +342,7 @@ class HeatTracker {
     }
   }
 
-  /** Đánh dấu guild cần đồng bộ lên Convex (gộp nhiều thay đổi, 4 giây/lần). */
+  /** Đánh dấu guild cần đồng bộ lên Convex (gộp nhiều thay đổi, 15 giây/lần). */
   _scheduleFlush(guildId) {
     this.pending.add(guildId);
     if (this.timers.has(guildId)) return;
@@ -342,7 +351,7 @@ class HeatTracker {
       setTimeout(() => {
         this.timers.delete(guildId);
         void this.flushGuild(guildId);
-      }, 4000),
+      }, 15_000),
     );
   }
 
@@ -365,24 +374,23 @@ class HeatTracker {
       ...[...this.states.keys()].filter((k) => k.startsWith(prefix)),
       ...[...this.strikes.keys()].filter((k) => k.startsWith(prefix)),
     ]);
-    const mutations = [];
+    // GOM tất cả member của guild vào MỘT mutation batch (botRecordHeatBatch)
+    // thay vì N mutation riêng lẻ — giảm mạnh operations khi nhiều user nóng.
+    const entries = [];
     for (const key of keys) {
       const [, userId] = key.split(":");
       const entry = this.states.get(key);
       const heat = entry ? this._decay(entry, s) : 0;
       const strikes = this.strikeCount(guildId, userId, s);
-      mutations.push(
-        this.store.client.mutation("bot_writes:botRecordHeat", {
-          guildId,
-          userId,
-          username: entry?.username || this.strikes.get(key)?.username || undefined,
-          heat: Math.max(0, heat),
-          updatedAt: entry?.updatedAt ?? Date.now(),
-          warnStrikes: strikes,
-        }).catch((e) => console.error("[heat:flush]", e.message))
-      );
+      entries.push({
+        userId,
+        username: entry?.username || this.strikes.get(key)?.username || undefined,
+        heat: Math.max(0, heat),
+        updatedAt: entry?.updatedAt ?? Date.now(),
+        warnStrikes: strikes,
+      });
       // Chống rò rỉ RAM: entry nhiệt = 0 và không còn trong cửa sổ tái phạm
-      // thì xóa khỏi bộ nhớ (bảng Convex đã được botRecordHeat dọn tương ứng).
+      // thì xóa khỏi bộ nhớ (bảng Convex đã được botRecordHeatBatch dọn tương ứng).
       if (heat <= 0 && strikes <= 0) {
         const keepPunished =
           !!entry?.lastPunishedAt &&
@@ -393,8 +401,11 @@ class HeatTracker {
         }
       }
     }
-    // Fire-and-forget: đợi tất cả mutation hoàn thành (batch, không block bot)
-    await Promise.allSettled(mutations);
+    if (entries.length > 0) {
+      await this.store.client
+        .mutation("bot_writes:botRecordHeatBatch", { guildId, entries })
+        .catch((e) => console.error("[heat:flush]", e.message));
+    }
   }
 
   /** Ghi tất cả guild còn chờ (chạy song song tất cả guilds). */

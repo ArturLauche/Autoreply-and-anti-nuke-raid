@@ -77,13 +77,21 @@ module.exports = async function onMessageCreate(client, message, store, heat) {
           if (config.altDetectionEnabled) {
             try {
               const { analyzeNewMember, executePunishment, buildRiskEmbed } = require("../altDetection");
-              const analysis = await analyzeNewMember(member, config, (guildId) => store.getConfig(guildId));
+              const analysis = await analyzeNewMember(member, config, (guildId) => store.getConfig(guildId), store);
               const maxRisk = config.altMaxRiskScore ?? 70;
               if (analysis.riskScore >= maxRisk && analysis.action !== "pass") {
                 const punishResult = await executePunishment(member, analysis, config);
                 // FIX: Fail-open — if punishment failed, allow verify
                 if (punishResult.executed) {
                   altBlocked = true;
+                  // Đánh dấu đã bị phạt để lần join sau đối chiếu (evasion detect).
+                  await store.client
+                    .mutation("altDetection:markJoinPunished", {
+                      guildId: message.guild.id,
+                      userId: member.id,
+                      action: punishResult.action,
+                    })
+                    .catch(() => {});
                   await message.reply({
                     content: `❌ **Xác minh bị từ chối.** Tài khoản có rủi ro cao (**${analysis.riskScore}/100**). Đã xử lý: ${punishResult.action}`,
                     failIfNotExists: false,

@@ -83,6 +83,7 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
   const currentPunish = altConfig?.altPunish ?? "kick";
   const maxRisk = altConfig?.altMaxRiskScore ?? 70;
   const currentVpnMode = altConfig?.altVpnMode ?? "off";
+  const safeMode = altConfig?.altSafeMode ?? true;
 
   async function toggleEnabled() {
     setSaving(true);
@@ -111,6 +112,17 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
     try {
       await updateConfig({ token, guildId, altMaxRiskScore: value });
       toast.success(`Nguong rui ro: ${value}/100`);
+    } catch (e: unknown) {
+      toast.error((e as Error).message);
+    }
+    setSaving(false);
+  }
+
+  async function setSafeMode(v: boolean) {
+    setSaving(true);
+    try {
+      await updateConfig({ token, guildId, altSafeMode: v });
+      toast.success(v ? "Đã bật chế độ an toàn — chỉ phạt khi có đủ bằng chứng" : "Đã tắt chế độ an toàn — phạt theo điểm rủi ro");
     } catch (e: unknown) {
       toast.error((e as Error).message);
     }
@@ -259,6 +271,34 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
                 );
               })}
             </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              ⚠️ Discord không cung cấp địa chỉ IP của thành viên cho bot, nên việc phát hiện VPN/Proxy
+              trực tiếp là không khả thi với dữ liệu hiện tại. Hệ thống tập trung vào phát hiện alt account
+              bằng bằng chứng hành vi (tuổi tài khoản, tên/avatar trùng, lịch sử bị phạt, join cluster) —
+              đây là cách chặn account lạm dụng VPN hiệu quả nhất mà Discord cho phép.
+            </p>
+          </div>
+
+          {/* Safe Mode */}
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-background/50 px-4 py-3">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500">
+                <ShieldCheck className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold">Chế độ an toàn (chống chặn nhầm)</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Chỉ phạt khi có <b>đủ bằng chứng độc lập</b>: 2+ tín hiệu mạnh → phạt đúng cấu hình;
+                  1 tín hiệu → hạ cấp nhẹ hơn (ban → kick, kick → timeout); 0 tín hiệu → chỉ theo dõi.
+                  Tắt để phạt theo điểm rủi ro như cũ (dễ chặn nhầm hơn).
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={safeMode}
+              onCheckedChange={setSafeMode}
+              disabled={saving}
+            />
           </div>
         </CardContent>
       </Card>
@@ -276,6 +316,8 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
                   <tr className="border-b text-left text-xs text-muted-foreground">
                     <th className="pb-2 pr-4">Thanh vien</th>
                     <th className="pb-2 pr-4 text-center">Rui ro</th>
+                    <th className="pb-2 pr-4 text-center">Bang chung</th>
+                    <th className="pb-2 pr-4 text-center">Xu ly</th>
                     <th className="pb-2 pr-4 text-center">Tuoi</th>
                     <th className="pb-2 pr-4 text-center">VPN</th>
                     <th className="pb-2">Yeu to</th>
@@ -296,6 +338,20 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
                           <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-bold ${riskColor(riskScore)}`}>
                             {riskScore} -- {riskLabel(riskScore)}
                           </span>
+                        </td>
+                        <td className="py-2.5 pr-4 text-center">
+                          <span className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-bold ${(j.strongSignals ?? 0) >= 2 ? "bg-red-500/10 text-red-500 border border-red-500/30" : (j.strongSignals ?? 0) === 1 ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/30" : "bg-muted text-muted-foreground border border-border"}`}>
+                            {j.strongSignals ?? 0}
+                          </span>
+                        </td>
+                        <td className="py-2.5 pr-4 text-center">
+                          {j.action && j.action !== "pass" ? (
+                            <Badge variant="outline" className="text-[10px] text-red-500 border-red-500/30">
+                              {j.action}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">--</span>
+                          )}
                         </td>
                         <td className="py-2.5 pr-4 text-center text-muted-foreground text-xs">
                           {formatAge(j.createdAt)}

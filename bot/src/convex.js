@@ -1,6 +1,9 @@
 const { ConvexHttpClient } = require("convex/browser");
 
-const CONFIG_TTL_MS = 30_000;
+// TTL 180s (thay vì 30s): cấu hình hiếm khi đổi, và bot invalidate cache ngay
+// sau khi tự ghi. Giảm ~6 lần số query getConfig (tiết kiệm operations/tháng).
+// Thay đổi từ web sẽ được bot thấy trong tối đa 3 phút.
+const CONFIG_TTL_MS = 180_000;
 const MAX_RETRIES = 3;
 const BASE_RETRY_DELAY_MS = 500;
 

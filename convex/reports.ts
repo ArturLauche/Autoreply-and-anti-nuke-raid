@@ -96,13 +96,17 @@ export const historyForGuild = query({
 });
 
 /** All anti-nuke events since a timestamp — used by the bot's daily report. */
-export const getDailyEvents = query({
-  args: { since: v.number() },
-  handler: async (ctx, { since }) => {
+/** Sự kiện chống nuke của MỘT guild từ mốc `since` (dùng cho báo cáo hằng ngày).
+ * Per-guild thay vì query global: chỉ chạy khi guild thực sự đến hạn báo cáo
+ * (tiết kiệm hàng triệu reads/tháng khi nhiều guild). */
+export const getGuildEvents = query({
+  args: { guildId: v.string(), since: v.number(), limit: v.optional(v.number()) },
+  handler: async (ctx, { guildId, since, limit }) => {
     const events = await ctx.db
       .query("antinukeEvents")
-      .withIndex("by_createdAt", (q) => q.gte("createdAt", since))
-      .collect();
+      .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId).gte("createdAt", since))
+      .order("desc")
+      .take(Math.min(limit ?? 500, 500));
     return events.map(EVENT_FIELDS);
   },
 });

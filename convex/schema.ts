@@ -155,6 +155,8 @@ export default defineSchema({
     altJoinWindowMinutes: v.optional(v.number()),
     /** Chế độ kiểm tra VPN: strict (block) | warn (log only) | off. */
     altVpnMode: v.optional(v.union(v.literal("strict"), v.literal("warn"), v.literal("off"))),
+    /** Chế độ an toàn: chỉ phạt khi có >= 2 bằng chứng độc lập (chống chặn nhầm). */
+    altSafeMode: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_discordId", ["discordId"]),
@@ -449,6 +451,8 @@ export default defineSchema({
     riskScore: v.number(),
     /** Danh sách yếu tố rủi ro chi tiết. */
     riskFactors: v.array(v.string()),
+    /** Số nhóm bằng chứng độc lập (0-7) — quyết định mức phạt, chống chặn nhầm. */
+    strongSignals: v.optional(v.number()),
     /** IP có phải VPN/Proxy không. */
     isVPN: v.optional(v.boolean()),
     /** Quốc gia từ IP (nếu detect được). */
@@ -463,6 +467,8 @@ export default defineSchema({
     linkedUserId: v.optional(v.string()),
     /** Điểm tương đồng với account đã link (0-100). */
     similarityScore: v.optional(v.number()),
+    /** Lần cập nhật cuối (vd: đánh dấu đã bị phạt). */
+    updatedAt: v.optional(v.number()),
   })
     .index("by_guildId", ["guildId"])
     .index("by_guildId_joinedAt", ["guildId", "joinedAt"])
