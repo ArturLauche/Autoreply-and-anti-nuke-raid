@@ -144,12 +144,9 @@ module.exports = async function joinGate(client, member, store) {
   // ==========================================
   if (!config.altDetectionEnabled) return;
 
-  // Check whitelist
-  const altWhitelist = [
-    ...(config.altWhitelistUsers || []),
-    ...(config.altWhitelistRoles || []),
-  ];
-  if (altWhitelist.includes(member.id)) return;
+  // Check whitelist — user IDs only (role IDs are checked separately below)
+  const altWhitelistUsers = config.altWhitelistUsers || [];
+  if (altWhitelistUsers.includes(member.id)) return;
   // Check role whitelist
   if (config.altWhitelistRoles?.length) {
     const hasWhitelistedRole = member.roles.cache.some((r) =>

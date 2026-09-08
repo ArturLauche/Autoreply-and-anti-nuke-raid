@@ -54,25 +54,32 @@ function usernameSimilarity(u1, u2) {
   if (a === b) return 100;
   if (!a || !b) return 0;
 
+  // REQUIRE minimum 5 chars to avoid false positives on short/common names
+  if (a.length < 5 || b.length < 5) return 0;
+
+  // SKIP Discord default names like "User123456"
+  if (/^user\d+$/i.test(a) || /^user\d+$/i.test(b)) return 0;
+
   const maxLen = Math.max(a.length, b.length);
   const dist = levenshtein(a, b);
   const baseScore = Math.round((1 - dist / maxLen) * 100);
 
-  // Bonus: shared prefix (first 3+ chars)
+  // Bonus: shared prefix — REDUCED from +3 to +1 per char
   let prefixBonus = 0;
   const prefixLen = Math.min(a.length, b.length);
   for (let i = 0; i < prefixLen && i < 6; i++) {
-    if (a[i] === b[i]) prefixBonus += 3;
+    if (a[i] === b[i]) prefixBonus += 1;
     else break;
   }
 
-  // Bonus: one ends with the other's number suffix
+  // Number suffix match — only if BOTH have numbers AND core name is long enough
   const numSuffixA = a.match(/(\d+)$/);
   const numSuffixB = b.match(/(\d+)$/);
   if (numSuffixA && numSuffixB) {
     const coreA = a.slice(0, a.length - numSuffixA[1].length);
     const coreB = b.slice(0, b.length - numSuffixB[1].length);
-    if (coreA === coreB && coreA.length > 2) return 95;
+    // Require core name to be 5+ chars AND same
+    if (coreA === coreB && coreA.length >= 5) return Math.min(100, baseScore + prefixBonus + 10);
   }
 
   return Math.min(100, baseScore + prefixBonus);
@@ -172,65 +179,105 @@ async function checkVPN(ip) {
 async function analyzeNewMember(member, config, getConfig) {
   const factors = [];
   let riskScore = 0;
+  let positiveScore = 0; // Positive signals REDUCE risk
 
-  // === Layer 1: Account Age Analysis ===
   const ageDays = (Date.now() - member.user.createdTimestamp) / DAY_MS;
   const minAge = config?.altMinAgeDays ?? 7;
-  if (ageDays < 1) {
-    riskScore += 35;
-    factors.push("account_age_1day");
-  } else if (ageDays < 3) {
-    riskScore += 25;
-    factors.push("account_age_3days");
-  } else if (ageDays < minAge) {
-    riskScore += 15;
-    factors.push(`account_age_under_${minAge}d`);
-  }
 
-  // === Layer 2: Avatar Analysis ===
-  if (!member.user.avatar) {
-    riskScore += 15;
-    factors.push("no_avatar");
+  // === POSITIVE SIGNALS (reduce risk) ===
+  // Old account = trustworthy
+  if (ageDays > 365) {
+    positiveScore += 30;
+    factors.push("✅ account_1yr+");
+  } else if (ageDays > 180) {
+    positiveScore += 20;
+    factors.push("✅ account_6mo+");
+  } else if (ageDays > 30) {
+    positiveScore += 10;
+    factors.push("✅ account_30d+");
   }
-
-  // === Layer 3: Username Pattern Analysis ===
+  // Has avatar = real person
+  if (member.user.avatar) {
+    positiveScore += 5;
+  }
+  // Has Discord badges = verified user
+  const flags = member.user.flags?.bitfield ?? 0;
+  if (flags & 128 || flags & 64 || flags & 32) { // HypeSquad
+    positiveScore += 15;
+    factors.push("✅ hypesquad_badge");
+  }
+  if (flags & 4) { // Verified bot developer
+    positiveScore += 10;
+    factors.push("✅ verified_dev_badge");
+  }
+  if (flags & 512) { // Early supporter
+    positiveScore += 5;
+    factors.push("✅ early_supporter");
+  }
+  // Has a normal-looking username (not generated)
   const usernameCheck = isGeneratedUsername(member.user.username);
-  if (usernameCheck.generated) {
+  if (!usernameCheck.generated) {
+    positiveScore += 5;
+  }
+
+  // === NEGATIVE SIGNALS (increase risk) ===
+
+  // Layer 1: Account Age (only penalize VERY new accounts)
+  if (ageDays < 1) {
+    riskScore += 30;
+    factors.push("❌ account_age_1day");
+  } else if (ageDays < 3) {
     riskScore += 20;
-    factors.push(`generated_username_${usernameCheck.pattern}`);
-  }
-
-  // === Layer 4: Flag Analysis ===
-  const flagResult = analyzeFlags(member.user.flags?.bitfield);
-  if (flagResult.factors.includes("no_flags") && ageDays < 30) {
+    factors.push("❌ account_age_3days");
+  } else if (ageDays < minAge) {
     riskScore += 10;
-    factors.push("no_flags_new_account");
+    factors.push(`❌ account_age_under_${minAge}d`);
   }
 
-  // === Layer 5: Bot flag ===
+  // Layer 2: Avatar — REMOVED as penalty (too many false positives)
+  // Only flag if MULTIPLE bad signals
+
+  // Layer 3: Username Pattern (require longer match to reduce false positives)
+  if (usernameCheck.generated) {
+    // Only penalize if account is also NEW (< 30 days)
+    if (ageDays < 30) {
+      riskScore += 15;
+      factors.push(`❌ generated_username_${usernameCheck.pattern}`);
+    } else {
+      riskScore += 5; // Older account with weird name = less suspicious
+      factors.push(`⚠️ generated_username_${usernameCheck.pattern}_but_old`);
+    }
+  }
+
+  // Layer 4: No flags — REMOVED as penalty (most users have no flags)
+
+  // Layer 5: Bot flag
   if (member.user.bot) {
     riskScore += 5;
-    factors.push("is_bot_account");
+    factors.push("⚠️ is_bot_account");
   }
 
-  // === Layer 6: Username Similarity with existing members ===
+  // Layer 6: Username Similarity (require MINIMUM 5 char names to match)
   let maxSimilarity = 0;
   let linkedUserId = null;
   const threshold = config?.altSimilarityThreshold ?? 70;
 
   try {
-    // Fetch all members (Discord.js caches them)
     const guildMembers = member.guild.members.cache;
     for (const [, existingMember] of guildMembers) {
       if (existingMember.id === member.id) continue;
       if (existingMember.user.bot) continue;
+      // SKIP short usernames (3-4 chars) to avoid false positives on common names
+      if (member.user.username.length < 5 || existingMember.user.username.length < 5) continue;
+      // SKIP common Discord default names like "User123456"
+      if (/^user\d+$/i.test(member.user.username) || /^user\d+$/i.test(existingMember.user.username)) continue;
+
       const sim = usernameSimilarity(member.user.username, existingMember.user.username);
       if (sim > maxSimilarity) {
         maxSimilarity = sim;
         linkedUserId = existingMember.id;
       }
-      // Also check display name
-      if (existingMember.nickname) {
+      if (existingMember.nickname && existingMember.nickname.length >= 5) {
         const nickSim = usernameSimilarity(member.user.username, existingMember.nickname);
         if (nickSim > maxSimilarity) {
           maxSimilarity = nickSim;
@@ -241,68 +288,68 @@ async function analyzeNewMember(member, config, getConfig) {
   } catch {}
 
   if (maxSimilarity >= threshold) {
-    riskScore += 25;
-    factors.push(`username_similarity_${maxSimilarity}%`);
+    // Only penalize HIGH similarity (>= 85%) to reduce false positives
+    if (maxSimilarity >= 85) {
+      riskScore += 25;
+      factors.push(`❌ username_similarity_${maxSimilarity}%`);
+    } else {
+      riskScore += 10;
+      factors.push(`⚠️ username_similarity_${maxSimilarity}%`);
+    }
   }
 
-  // === Layer 7: Join Time Correlation ===
+  // Layer 7: Join Burst — ONLY count HIGH-RISK joins (>50 risk)
   const joinWindowMs = (config?.altJoinWindowMinutes ?? 5) * 60 * 1000;
   const now = Date.now();
-  let recentSimilarJoins = 0;
+  let highRiskRecentJoins = 0;
   try {
-    const recentMembers = member.guild.members.cache.filter(
-      (m) => m.joinedTimestamp && (now - m.joinedTimestamp) < joinWindowMs && m.id !== member.id,
-    );
-    recentSimilarJoins = recentMembers.size;
-    if (recentSimilarJoins >= 5) {
-      riskScore += 20;
-      factors.push("join_burst_5+");
-    } else if (recentSimilarJoins >= 3) {
-      riskScore += 10;
-      factors.push("join_burst_3+");
+    // Only count joins from users who ALSO look suspicious
+    // (We can't run full analysis on cached members, but we can check basic signals)
+    const recentMembers = member.guild.members.cache.filter((m) => {
+      if (m.joinedTimestamp && (now - m.joinedTimestamp) < joinWindowMs && m.id !== member.id) {
+        const mAge = (Date.now() - (m.user?.createdTimestamp ?? 0)) / DAY_MS;
+        // Only count if the other member is ALSO suspicious (new account)
+        return mAge < 30 && !m.user?.avatar;
+      }
+      return false;
+    });
+    highRiskRecentJoins = recentMembers.size;
+    if (highRiskRecentJoins >= 5) {
+      riskScore += 15;
+      factors.push(`❌ high_risk_join_burst_${highRiskRecentJoins}+`);
+    } else if (highRiskRecentJoins >= 3) {
+      riskScore += 8;
+      factors.push(`⚠️ high_risk_join_burst_${highRiskRecentJoins}`);
     }
   } catch {}
 
-  // === Layer 8: Cross-reference with banned members ===
+  // Layer 8: Cross-reference with banned users (require HIGH similarity)
   try {
     const bans = await member.guild.bans.fetch();
     for (const [, ban] of bans) {
+      if (ban.user.username.length < 5) continue;
       const banUserSim = usernameSimilarity(member.user.username, ban.user.username);
-      if (banUserSim >= 80) {
-        riskScore += 30;
-        factors.push(`matches_banned_user_${banUserSim}%`);
+      if (banUserSim >= 90) { // Require 90%+ match with banned users
+        riskScore += 25;
+        factors.push(`❌ matches_banned_user_${banUserSim}%`);
         break;
       }
     }
   } catch {}
 
-  // === Layer 9: Voice IP Linking (Upgrade A) ===
-  const ipLinks = getIpLinkedAccounts(member.guild.id, member.id);
-  if (ipLinks.length > 0) {
-    riskScore += 30;
-    factors.push(`voice_ip_linked_${ipLinks.length}_accounts`);
-    // Override linkedUserId with IP-linked account if more confident
-    if (!linkedUserId || maxSimilarity < 90) {
-      linkedUserId = ipLinks[0].userId;
-    }
-  }
+  // Layer 9: Voice IP Linking — DISABLED (was causing false positives)
+  // Previous code used region:channelId as a pseudo-IP which falsely linked
+  // ALL users in the same voice channel. Discord does NOT expose real IPs.
+  // Voice presence alone is NOT a reliable alt detection signal.
 
-  // === Layer 10: VPN Check (optional, rate-limited) ===
+  // Layer 10: VPN — REMOVED behavioral heuristic (feedback loop)
   let isVPN = false;
   let ipCountry = null;
   let ipOrg = null;
 
-  // VPN detection requires the user to connect to voice or use a webhook.
-  // For now, we'll use a heuristic: if user has no avatar + generated username + new account, flag as likely VPN/alt.
-  // Full IP-based VPN detection requires the member to make a voice connection first.
-  // We store a "vpnSuspect" flag based on behavioral signals.
-  const vpnSuspect = riskScore >= 50 && !member.user.avatar && usernameCheck.generated;
-  if (vpnSuspect) {
-    isVPN = true; // Behavioral VPN suspect
-    factors.push("vpn_suspect_behavioral");
-  }
-
-  // Cap risk score at 100
+  // === FINAL SCORE CALCULATION ===
+  // Apply positive score reduction (min 0)
+  riskScore = Math.max(0, riskScore - positiveScore);
   riskScore = Math.min(100, riskScore);
 
   // === Determine Action ===

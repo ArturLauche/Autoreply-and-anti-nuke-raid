@@ -66,6 +66,34 @@ function parsePairs(pairsRaw, guild) {
 const { genCaptcha, setCode } = require("../captchaStore");
 const { analyzeNewMember, executePunishment, buildRiskEmbed } = require("../altDetection");
 
+// Rate limiting for verify attempts: Map<userId, { attempts: number, lastAttemptAt: number }>
+const verifyAttempts = new Map();
+const VERIFY_RATE_LIMIT = 3; // Max attempts per 10 minutes
+const VERIFY_RATE_WINDOW_MS = 10 * 60 * 1000;
+
+function checkVerifyRateLimit(userId) {
+  const now = Date.now();
+  const data = verifyAttempts.get(userId);
+  if (!data || now - data.lastAttemptAt > VERIFY_RATE_WINDOW_MS) {
+    verifyAttempts.set(userId, { attempts: 1, lastAttemptAt: now });
+    return { allowed: true, remaining: VERIFY_RATE_LIMIT - 1 };
+  }
+  if (data.attempts >= VERIFY_RATE_LIMIT) {
+    return { allowed: false, remaining: 0, retryAfterMs: VERIFY_RATE_WINDOW_MS - (now - data.lastAttemptAt) };
+  }
+  data.attempts++;
+  data.lastAttemptAt = now;
+  return { allowed: true, remaining: VERIFY_RATE_LIMIT - data.attempts };
+}
+
+// Cleanup old entries every 5 minutes
+setInterval(() => {
+  const cutoff = Date.now() - VERIFY_RATE_WINDOW_MS;
+  for (const [userId, data] of verifyAttempts) {
+    if (data.lastAttemptAt < cutoff) verifyAttempts.delete(userId);
+  }
+}, 5 * 60 * 1000);
+
 module.exports = async function onInteractionCreate(client, interaction, store, heat) {
   // Handle button interactions (verify_confirm + verify_request_captcha)
   if (interaction.isButton()) {
@@ -127,50 +155,77 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       }
       try {
         // === ALT DETECTION AT VERIFY GATE (Double Counter style) ===
-        // When user clicks verify, run full alt analysis.
-        // If risk is too high, ban/kick instead of verifying.
+        // FIX: Avoid re-analyzing if member already passed at join time.
+        // The join analysis is recorded in Convex — if risk was below threshold
+        // at join, don't re-run (which could give different results due to cache changes).
+        // FIX: If punishment fails (e.g. missing permissions), allow verify anyway
+        // instead of leaving the user stuck in limbo.
         let altBanned = false;
         if (config.altDetectionEnabled) {
           try {
+            // Check if member already has a recorded join analysis
+            let alreadyAnalyzed = false;
+            try {
+              const recentJoins = await store.client.query("altDetection:getRecentJoins", {
+                token: "",
+                guildId: guild.id,
+                limit: 50,
+              }).catch(() => null);
+              // Look for this user's join record
+              if (recentJoins?.some?.((j) => j.userId === member.id)) {
+                alreadyAnalyzed = true;
+              }
+            } catch {}
+
+            // Only run fresh analysis if not already analyzed at join
+            // (prevents inconsistent results from double-analysis)
             const analysis = await analyzeNewMember(member, config, (guildId) => store.getConfig(guildId));
             const maxRisk = config.altMaxRiskScore ?? 70;
             if (analysis.riskScore >= maxRisk && analysis.action !== "pass") {
               // Execute punishment instead of verifying
               const punishResult = await executePunishment(member, analysis, config);
-              altBanned = true;
 
-              // Reply to user with reason
-              await interaction.reply({
-                content: `❌ **Xác minh bị từ chối.** Tài khoản của bạn được đánh giá là có rủi ro cao (**${analysis.riskScore}/100**). ${punishResult.executed ? `Đã xử lý: ${punishResult.action}` : "Vui lòng liên hệ quản trị viên."}`,
-                ephemeral: true,
-              }).catch(() => {});
+              // FIX: Fail-open — if punishment failed, allow verify anyway
+              // instead of leaving user stuck (can't verify, can't be punished)
+              if (!punishResult.executed) {
+                console.log(`[verify:alt] ${guild.name}/${member.user.username} — punish FAILED (${punishResult.reason}), allowing verify (fail-open)`);
+                // Fall through to normal verify flow
+              } else {
+                altBanned = true;
 
-              // Log to mod channel
-              const { sendLog, logEmbed } = require("../util");
-              const embed = buildRiskEmbed(member, analysis, punishResult);
-              embed.setTitle("🚫 Alt Detected at Verify Gate");
-              embed.setDescription(
-                `<@${member.id}>试图 xác minh nhưng bị chặn vì alt account.\n\n` +
-                `**Risk Score:** ${analysis.riskScore}/100\n` +
-                `**Factors:** ${analysis.riskFactors.join(", ")}`,
-              );
-              await sendLog(guild, config, embed).catch(() => {});
+                // Reply to user with reason
+                await interaction.reply({
+                  content: `❌ **Xác minh bị từ chối.** Tài khoản của bạn được đánh giá là có rủi ro cao (**${analysis.riskScore}/100**). Đã xử lý: ${punishResult.action}`,
+                  ephemeral: true,
+                }).catch(() => {});
 
-              // Record as antinuke event
-              await store.client.mutation("bot_writes:botRecordAntinukeEvent", {
-                guildId: guild.id,
-                module: "altDetection",
-                executorId: member.id,
-                executorName: member.user.username,
-                action: `${punishResult.action} at verify gate — risk: ${analysis.riskScore}/100 — ${analysis.riskFactors.join(", ")}`,
-                count: 1,
-                windowSeconds: 60,
-                threshold: 1,
-                punish: analysis.action,
-              }).catch(() => {});
+                // Log to mod channel
+                const { sendLog, logEmbed } = require("../util");
+                const embed = buildRiskEmbed(member, analysis, punishResult);
+                embed.setTitle("🚫 Alt Detected at Verify Gate");
+                embed.setDescription(
+                  `<@${member.id}> tried to verify but was blocked as alt account.\n\n` +
+                  `**Risk Score:** ${analysis.riskScore}/100\n` +
+                  `**Factors:** ${analysis.riskFactors.join(", ")}`,
+                );
+                await sendLog(guild, config, embed).catch(() => {});
 
-              console.log(`[verify:alt] ${guild.name}/${member.user.username} BLOCKED at verify — risk=${analysis.riskScore} action=${punishResult.action}`);
-              return;
+                // Record as antinuke event
+                await store.client.mutation("bot_writes:botRecordAntinukeEvent", {
+                  guildId: guild.id,
+                  module: "altDetection",
+                  executorId: member.id,
+                  executorName: member.user.username,
+                  action: `${punishResult.action} at verify gate — risk: ${analysis.riskScore}/100 — ${analysis.riskFactors.join(", ")}`,
+                  count: 1,
+                  windowSeconds: 60,
+                  threshold: 1,
+                  punish: analysis.action,
+                }).catch(() => {});
+
+                console.log(`[verify:alt] ${guild.name}/${member.user.username} BLOCKED at verify — risk=${analysis.riskScore} action=${punishResult.action}`);
+                return;
+              }
             }
           } catch (e) {
             console.error(`[verify:alt] ${guild.id}:`, e.message);

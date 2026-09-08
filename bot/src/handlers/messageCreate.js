@@ -72,6 +72,8 @@ module.exports = async function onMessageCreate(client, message, store, heat) {
         const result = verifyCode(message.guild.id, member.id, content);
         if (result.ok) {
           // === ALT DETECTION AT VERIFY GATE (Double Counter style) ===
+          // FIX: Fail-open if punishment fails (same fix as button verify)
+          let altBlocked = false;
           if (config.altDetectionEnabled) {
             try {
               const { analyzeNewMember, executePunishment, buildRiskEmbed } = require("../altDetection");
@@ -79,26 +81,31 @@ module.exports = async function onMessageCreate(client, message, store, heat) {
               const maxRisk = config.altMaxRiskScore ?? 70;
               if (analysis.riskScore >= maxRisk && analysis.action !== "pass") {
                 const punishResult = await executePunishment(member, analysis, config);
-                await message.reply({
-                  content: `❌ **Xác minh bị từ chối.** Tài khoản có rủi ro cao (**${analysis.riskScore}/100**). ${punishResult.executed ? `Đã xử lý: ${punishResult.action}` : "Liên hệ admin."}`,
-                  failIfNotExists: false,
-                }).catch(() => {});
-                // Log
-                const { sendLog } = require("../util");
-                const embed = buildRiskEmbed(member, analysis, punishResult);
-                embed.setTitle("🚫 Alt Detected at Verify Gate (Captcha)");
-                await sendLog(message.guild, config, embed).catch(() => {});
-                await store.client.mutation("bot_writes:botRecordAntinukeEvent", {
-                  guildId: message.guild.id,
-                  module: "altDetection",
-                  executorId: member.id,
-                  executorName: member.user.username,
-                  action: `${punishResult.action} at verify gate (captcha) — risk: ${analysis.riskScore}/100 — ${analysis.riskFactors.join(", ")}`,
-                  count: 1, windowSeconds: 60, threshold: 1, punish: analysis.action,
-                }).catch(() => {});
-                console.log(`[verify:alt:captcha] ${message.guild.name}/${member.user.username} BLOCKED — risk=${analysis.riskScore}`);
-                setTimeout(() => message.delete().catch(() => {}), 3000);
-                return;
+                // FIX: Fail-open — if punishment failed, allow verify
+                if (punishResult.executed) {
+                  altBlocked = true;
+                  await message.reply({
+                    content: `❌ **Xác minh bị từ chối.** Tài khoản có rủi ro cao (**${analysis.riskScore}/100**). Đã xử lý: ${punishResult.action}`,
+                    failIfNotExists: false,
+                  }).catch(() => {});
+                  const { sendLog } = require("../util");
+                  const embed = buildRiskEmbed(member, analysis, punishResult);
+                  embed.setTitle("🚫 Alt Detected at Verify Gate (Captcha)");
+                  await sendLog(message.guild, config, embed).catch(() => {});
+                  await store.client.mutation("bot_writes:botRecordAntinukeEvent", {
+                    guildId: message.guild.id,
+                    module: "altDetection",
+                    executorId: member.id,
+                    executorName: member.user.username,
+                    action: `${punishResult.action} at verify gate (captcha) — risk: ${analysis.riskScore}/100 — ${analysis.riskFactors.join(", ")}`,
+                    count: 1, windowSeconds: 60, threshold: 1, punish: analysis.action,
+                  }).catch(() => {});
+                  console.log(`[verify:alt:captcha] ${message.guild.name}/${member.user.username} BLOCKED — risk=${analysis.riskScore}`);
+                  setTimeout(() => message.delete().catch(() => {}), 3000);
+                  return;
+                } else {
+                  console.log(`[verify:alt:captcha] ${message.guild.name}/${member.user.username} — punish FAILED (${punishResult.reason}), allowing verify (fail-open)`);
+                }
               }
             } catch (e) {
               console.error(`[verify:alt:captcha] ${message.guild.id}:`, e.message);

@@ -32,7 +32,7 @@ const guildSync = require("./handlers/guildSync");
 const onMessageCreate = require("./handlers/messageCreate");
 const onInteractionCreate = require("./handlers/interactionCreate");
 const joinGate = require("./handlers/joinGate");
-const { trackVoiceIp, scanGuildForAlts } = require("./altDetection");
+const { scanGuildForAlts } = require("./altDetection");
 
 // --- Client config: full-featured for powerful VPS ---
 const client = new Client({
@@ -221,31 +221,48 @@ client.on("guildDelete", (guild) => {
   guildSync.markGone(client, store, guild.id).catch((e) => console.error(`[guildDelete:sync] ${guild.id}:`, e.message));
 });
 
-// --- Upgrade A: Voice IP Fingerprinting ---
-client.on("voiceStateUpdate", (oldState, newState) => {
-  // Track when a user JOINS a voice channel (not when they move/mute)
-  if (!oldState.channelId && newState.channelId && newState.member) {
-    // Discord doesn't directly expose IP, but we can track voice channel grouping
-    // and use it as an additional signal for linking accounts
-    // The real IP fingerprinting happens via voice connection analysis
-    const guildId = newState.guild.id;
-    const userId = newState.member.id;
-    const channelId = newState.channelId;
-    const region = newState.guild.preferredLocale ?? "us";
+// --- Voice Presence Tracking (weaker signal, NO fake IP) ---
+// Discord does NOT expose individual user IPs via the API.
+// Previous code used region:channelId as a pseudo-IP which caused MASSIVE
+// false positives — ALL users in the same voice channel were flagged as
+// "IP-linked" adding +30 risk score to innocent members.
+//
+// Replacement: track voice channel co-presence as a WEAK signal only.
+// We only flag when the SAME user joins voice from a NEW guild join
+// within a short window (not just co-presence).
+const voicePresenceMap = new Map(); // guildId -> Map<channelId, Set<userId>>
 
-    // Store voice join event for burst detection
+client.on("voiceStateUpdate", (oldState, newState) => {
+  if (!oldState.channelId && newState.channelId && newState.member) {
+    const guildId = newState.guild.id;
+    const channelId = newState.channelId;
+    const userId = newState.member.id;
+
     void (async () => {
       try {
         const config = await store.getConfig(guildId);
         if (!config?.altDetectionEnabled) return;
-        // Use voice channel + region as a rough grouping signal
-        // TrackVoiceIp will be called when we have real IP data from voice connections
-        // For now, use the region as a proxy for geographic grouping
-        if (region && region !== "global") {
-          trackVoiceIp(guildId, userId, `region:${region}:${channelId}`, region);
-        }
+        // Track presence for monitoring only — NO IP linking
+        if (!voicePresenceMap.has(guildId)) voicePresenceMap.set(guildId, new Map());
+        const guildMap = voicePresenceMap.get(guildId);
+        if (!guildMap.has(channelId)) guildMap.set(channelId, new Set());
+        guildMap.get(channelId).add(userId);
       } catch {}
     })();
+  }
+  // Remove user from presence when they leave voice
+  if (oldState.channelId && !newState.channelId && oldState.member) {
+    const guildId = oldState.guild.id;
+    const channelId = oldState.channelId;
+    const userId = oldState.member.id;
+    const guildMap = voicePresenceMap.get(guildId);
+    if (guildMap) {
+      const chSet = guildMap.get(channelId);
+      if (chSet) {
+        chSet.delete(userId);
+        if (chSet.size === 0) guildMap.delete(channelId);
+      }
+    }
   }
 });
 
