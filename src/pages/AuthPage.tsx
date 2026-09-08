@@ -82,8 +82,7 @@ export default function AuthPage() {
               "Join Gate chống selfbot khi vào server",
               "Chặn link độc hại & file nguy hiểm",
               "Công cụ mod: timeout, kick, ban, purge kèm lý do",
-              "Giveaway đa mẫu: ảnh, lời dẫn, tự cấp role thưởng",
-              "Tính năng ẩn: reaction role, giveaway, gửi DM, tùy chỉnh avatar — chỉ chủ sở hữu bot",
+              "Khu vực riêng tư dành cho chủ sở hữu bot 🔒",
               "Tùy chọn lưu / không lưu đăng nhập",
             ].map((t) => (
               <li key={t} className="flex items-center gap-3 text-muted-foreground">

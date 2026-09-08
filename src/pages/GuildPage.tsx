@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   UserCheck,
   UserX,
+  Webhook as WebhookIcon,
 } from "lucide-react";
 import { DEFAULT_THEME, SERVER_THEMES } from "../lib/constants";
 import PanelErrorBoundary from "../components/PanelErrorBoundary";
@@ -45,6 +46,7 @@ import SettingsPanel from "../components/dashboard/SettingsPanel";
 import WhitelistPanel from "../components/dashboard/WhitelistPanel";
 import VerifyPanel from "../components/dashboard/VerifyPanel";
 import AltDetectionPanel from "../components/dashboard/AltDetectionPanel";
+import WebhookPanel from "../components/dashboard/WebhookPanel";
 
 type SectionKey =
   | "overview"
@@ -57,8 +59,9 @@ type SectionKey =
   | "whitelist"
   | "backup"
   | "punishments"
-  | "hidden"
   | "verify"
+  | "webhooks"
+  | "hidden"
   | "settings";
 
 const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof LayoutDashboard }[] = [
@@ -73,6 +76,7 @@ const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof LayoutDashboard 
   { key: "backup", label: "Backup server", icon: CloudUpload },
   { key: "punishments", label: "Hình phạt", icon: Gavel },
   { key: "verify", label: "Xác minh (Verify)", icon: UserCheck },
+  { key: "webhooks", label: "Webhook & Log", icon: WebhookIcon },
   { key: "hidden", label: "Tính năng ẩn 🔒", icon: Lock },
   { key: "settings", label: "Cài đặt", icon: Settings },
 ];
@@ -210,12 +214,11 @@ export default function GuildPage() {
               <p className="mt-1">• Join Gate = chặn selfbot khi vào server.</p>
               <p className="mt-1">• Nuke/raid phạt trực tiếp, không cộng nhiệt.</p>
               <p className="mt-1">• ⭐ Whitelist = chọn người dùng/role miễn trừ moderation, anti-raid và nuke.</p>
-              <p className="mt-1">• 💾 Backup server = chụp role + kênh lên đám mây GitHub; khôi phục lại khi server bị nuke phá sập.</p>
-              <p className="mt-1">• 🔒 Tính năng ẩn = reaction role, giveaway, gửi DM, auto reply, tùy chỉnh giao diện — chỉ chủ sở hữu bot.</p>
+              <p className="mt-1">• 💾 Backup server = chụp role + kênh lên đám mây riêng; khôi phục lại khi server bị nuke phá sập.</p>
               <p className="mt-1">• 🛠️ Lệnh mod: /mod timeout · kick · ban · purge + !timeout !kick !ban !purge — mọi hình phạt hiện trong mục Hình phạt.</p>
-              <p className="mt-1">• 🎭 Reaction role: /reactionrole create · add · remove · edit · delete (kèm !reactionrole) hoặc tạo ngay trên dashboard.</p>
+              <p className="mt-1">• 🔒 Tính năng ẩn — khu vực riêng tư, chỉ chủ sở hữu bot mở khóa bằng mật khẩu.</p>
               <p className="mt-1">• 🎨 Mỗi server có chủ đề màu riêng trong Cài đặt.</p>
-              <p className="mt-1">• 🎉 Lệnh giveaway: /giveaway start + !giveaway start.</p>
+              <p className="mt-1">• 🔗 Webhook & Log = bot tự tạo webhook tên/avatar/màu tùy chỉnh để nhận log.</p>
               <p className="mt-1">• Thay đổi áp dụng trong ~3 phút.</p>
             </div>
           </aside>
@@ -234,6 +237,7 @@ export default function GuildPage() {
               {section === "backup" && <BackupPanel data={data} />}
               {section === "punishments" && <ModActionsPanel data={data} />}
               {section === "verify" && <VerifyPanel data={data} />}
+              {section === "webhooks" && <WebhookPanel data={data} />}
               {section === "settings" && <SettingsPanel data={data} />}
               {section === "hidden" &&
                 (!data.guild.isBotOwner || (data.guild.hiddenPasswordSet && !hiddenUnlocked) ? (

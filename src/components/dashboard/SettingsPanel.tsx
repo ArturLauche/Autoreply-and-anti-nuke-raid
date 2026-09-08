@@ -255,8 +255,8 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                   <KeyRound className="h-4 w-4 text-primary" /> Mật khẩu tính năng ẩn 🔒
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  Dùng để mở khóa tính năng riêng của admin: reaction role, giveaway, gửi DM,
-                  auto reply, tùy chỉnh giao diện. Chỉ <b>admin sở hữu bot</b> được đặt.
+                  Dùng để mở khóa khu vực riêng tư dành cho chủ sở hữu bot — nội dung bên trong
+                  không tiết lộ công khai. Chỉ <b>admin sở hữu bot</b> được đặt.
                 </p>
               </div>
 

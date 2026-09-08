@@ -435,6 +435,42 @@ export default defineSchema({
     .index("by_guildId", ["guildId"])
     .index("by_guildId_createdAt", ["guildId", "createdAt"]),
 
+  /**
+   * Webhook tùy chỉnh do bot tạo theo yêu cầu (log qua webhook): người dùng
+   * chọn kênh, tên (kèm emoji động/tĩnh), avatar, màu embed, nội dung kèm và
+   * loại sự kiện log. Bot thực hiện tạo/sửa/xóa trên Discord rồi báo lại.
+   */
+  guildWebhooks: defineTable({
+    guildId: v.string(),
+    /** Tên webhook (1-80 ký tự) — hỗ trợ emoji tĩnh lẫn động (<a:name:id>). */
+    name: v.string(),
+    channelId: v.string(),
+    /** URL ảnh đại diện webhook (https). */
+    avatarUrl: v.optional(v.string()),
+    /** Màu embed ghi đè khi gửi log qua webhook (số 0-16777215). */
+    color: v.optional(v.number()),
+    /** Nội dung gửi kèm trước embed — placeholder {server} {time} {action}. */
+    contentTemplate: v.optional(v.string()),
+    /** Loại sự kiện nhận: "mod" (case log ban/kick/timeout/warn/purge…) | "general" (anti nuke/raid + log chung). */
+    eventTypes: v.array(v.string()),
+    enabled: v.boolean(),
+    /** pending_create → ready → pending_update/pending_delete/error (bot xử lý). */
+    status: v.union(
+      v.literal("pending_create"),
+      v.literal("ready"),
+      v.literal("pending_update"),
+      v.literal("pending_delete"),
+      v.literal("error"),
+    ),
+    /** Web bấm "Gửi thử" → bot gửi 1 embed test rồi xóa cờ. */
+    testRequested: v.optional(v.boolean()),
+    webhookId: v.optional(v.string()),
+    token: v.optional(v.string()),
+    lastError: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_guildId", ["guildId"]),
+
   /** Member join records for alt detection — lưu lịch sử join + risk analysis. */
   memberJoins: defineTable({
     guildId: v.string(),

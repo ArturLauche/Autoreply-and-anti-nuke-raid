@@ -59,11 +59,38 @@ async function sendToChannel(guild, channelId, embed) {
 }
 
 /**
+ * Gửi embed qua webhook tùy chỉnh (nếu guild có webhook khớp loại sự kiện).
+ * Trả về true khi ÍT NHẤT 1 webhook nhận thành công — caller bỏ qua kênh thường.
+ * Không có webhook / gửi thất bại → false để fallback kênh như cũ.
+ */
+async function deliverViaWebhooks(guild, eventType, embed) {
+  if (!guild) return false;
+  try {
+    const hub = require("./webhookHub");
+    const matched = await hub.matchFor(guild.id, eventType);
+    if (matched.length === 0) return false;
+    let sent = 0;
+    for (const wh of matched) {
+      try {
+        await hub.send(wh, embed, { guildName: guild.name });
+        sent++;
+      } catch {
+        // webhook hỏng (đã xóa / thiếu quyền) — thử webhook khác
+      }
+    }
+    return sent > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Log chung — dành cho cảnh báo ANTI NUKE / RAID và sự kiện quan trọng.
- * Gửi tới logChannelId.
+ * Ưu tiên webhook loại "general"; không có thì gửi tới logChannelId.
  */
 async function sendLog(guild, guildConfig, embed) {
   if (!guildConfig || !guildConfig.logChannelId) return;
+  if (await deliverViaWebhooks(guild, "general", embed)) return;
   await sendToChannel(guild, guildConfig.logChannelId, embed);
 }
 
@@ -76,6 +103,8 @@ async function sendLog(guild, guildConfig, embed) {
  */
 async function sendModLog(guild, guildConfig, embed, preferChannelId) {
   if (!guildConfig) return false;
+  // Webhook tùy chỉnh loại "mod" được ưu tiên hơn kênh thường.
+  if (await deliverViaWebhooks(guild, "mod", embed)) return true;
   const candidates = [
     preferChannelId,
     guildConfig.modLogChannelId,

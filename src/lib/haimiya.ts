@@ -37,22 +37,22 @@ const TOPICS: Topic[] = [
       "chu bot",
     ],
     answer:
-      "Tính năng ẩn là khu vực dành riêng cho chủ sở hữu bot 🔒: Reaction Role, Giveaway, Gửi DM trực tiếp, Auto Reply và Tùy chỉnh giao diện (đổi avatar bot & Haimiya). Chỉ admin sở hữu bot mới được phép đặt mật khẩu và đăng nhập vào khu vực này — owner hay mod của một server có quyền quản lý cũng không đủ. Cách mở khóa: chủ bot đăng nhập bằng chính tài khoản Discord đã tạo bot → đặt mật khẩu trong Cài đặt → vào sidebar chọn Tính năng ẩn → nhập mật khẩu là xong.",
+      "Tính năng ẩn là khu vực riêng tư dành cho chủ sở hữu bot 🔒 — nội dung bên trong không được tiết lộ công khai. Chỉ admin sở hữu bot mới được phép đặt mật khẩu và mở khu vực này; owner hay mod của một server có quyền quản lý cũng không đủ. Cách mở khóa: chủ bot đăng nhập bằng chính tài khoản Discord đã tạo bot → đặt mật khẩu trong Cài đặt → vào sidebar chọn Tính năng ẩn → nhập mật khẩu là xong.",
     suggestions: [
-      "Reaction role hoạt động thế nào?",
-      "Giveaway có những tùy chọn gì?",
-      "Đổi avatar bot ở đâu?",
+      "Cách đặt mật khẩu tính năng ẩn",
+      "Chủ sở hữu bot là ai?",
+      "Hệ thống nhiệt độ hoạt động thế nào?",
     ],
   },
   {
     id: "reactionrole",
     keywords: ["reaction role", "reaction", "emoji", "nhan role", "go role", "tu nhan role"],
     answer:
-      "Reaction Role giúp thành viên tự chọn role chỉ bằng một cú bấm emoji 🎭. Trong Tính năng ẩn, bạn tạo bảng: chọn kênh, đặt tên, rồi thêm từng cặp emoji → role. Bot gửi tin nhắn kèm các emoji vào kênh — ai bấm emoji nào sẽ được gán role đó, bấm lại lần nữa là gỡ role. Ngoài dashboard, bạn dùng được cả lệnh /reactionrole create · add · remove · edit · delete (kèm !reactionrole) ngay trong Discord. Mỗi server tạo được tối đa 10 bảng, mỗi bảng tối đa 20 cặp emoji/role.",
+      "Công cụ chọn role bằng emoji nằm trong khu vực riêng tư dành cho chủ sở hữu bot 🔒 — tôi không tiết lộ chi tiết công khai. Nếu bạn là chủ sở hữu, hãy đăng nhập bằng tài khoản Discord đã tạo bot, đặt mật khẩu trong Cài đặt rồi mở khóa Tính năng ẩn trong sidebar — mọi thứ đều nằm ở đó.",
     suggestions: [
-      "Giveaway có những tùy chọn gì?",
-      "Tính năng ẩn gồm những gì?",
       "Cách đặt mật khẩu tính năng ẩn",
+      "Chủ sở hữu bot là ai?",
+      "Hệ thống nhiệt độ hoạt động thế nào?",
     ],
   },
   {
@@ -71,22 +71,22 @@ const TOPICS: Topic[] = [
       "loi dan",
     ],
     answer:
-      "Giveaway của Protogon chạy hoàn toàn tự động 🎉. Bạn tạo qua dashboard, /giveaway start hoặc !giveaway start. Có 4 mẫu tin nhắn (Mặc định, Sang trọng, VIP, Nhanh gọn), lời dẫn tùy chỉnh, chèn ảnh nền embed, số người thắng (1–20) và thời lượng (5 phút → 7 ngày). Hỗ trợ Yêu cầu role để giới hạn người tham gia, và Role thưởng: hết giờ bot tự chọn người thắng ngẫu nhiên, cấp role thưởng cho họ, thông báo trong kênh và gửi DM kèm lời chúc mừng nếu bật. Tối đa 5 giveaway chạy song song.",
+      "Giveaway nằm trong khu vực riêng tư dành cho chủ sở hữu bot 🔒 — tôi không tiết lộ chi tiết công khai. Nếu bạn là chủ sở hữu, hãy đăng nhập bằng tài khoản Discord đã tạo bot, đặt mật khẩu trong Cài đặt rồi mở khóa Tính năng ẩn trong sidebar.",
     suggestions: [
-      "Có lệnh giveaway trong Discord không?",
-      "Đổi avatar bot ở đâu?",
+      "Cách đặt mật khẩu tính năng ẩn",
       "Công cụ mod gồm những gì?",
+      "Hệ thống nhiệt độ hoạt động thế nào?",
     ],
   },
   {
     id: "dm",
     keywords: ["gui dm", "dm truc tiep", "nhan tin rieng", "gui tin nhan rieng", "dm cho", "gui cho"],
     answer:
-      "Tính năng gửi DM trực tiếp cho phép admin nhắn riêng bất kỳ người dùng nào qua bot 💌. Trong Tính năng ẩn, bạn nhập ID người dùng (bật Developer Mode trong Discord, chuột phải người dùng → Copy User ID), viết nội dung rồi bấm Gửi — bot sẽ nhắn riêng cho họ trong vòng ~1 phút. Lưu ý: nếu người đó đã chặn tin nhắn từ bot thì việc gửi sẽ không thành công.",
+      "Khả năng nhắn tin trực tiếp nằm trong khu vực riêng tư dành cho chủ sở hữu bot 🔒 — tôi không tiết lộ chi tiết công khai. Nếu bạn là chủ sở hữu, hãy đăng nhập bằng tài khoản Discord đã tạo bot, đặt mật khẩu trong Cài đặt rồi mở khóa Tính năng ẩn trong sidebar.",
     suggestions: [
-      "Giveaway có những tùy chọn gì?",
       "Cách đặt mật khẩu tính năng ẩn",
-      "Tính năng ẩn gồm những gì?",
+      "Công cụ mod gồm những gì?",
+      "Bảng hình phạt là gì?",
     ],
   },
   {
@@ -103,11 +103,11 @@ const TOPICS: Topic[] = [
       "avatar",
     ],
     answer:
-      "Bạn có thể đổi avatar bot và avatar của tôi ngay trên web 🎨. Vào Tính năng ẩn → mục Tùy chỉnh giao diện: tải ảnh lên (tối đa 2MB) hoặc dán đường dẫn ảnh cho từng mục — Avatar bot (Protogon, hiển thị làm logo toàn web) và Avatar trợ lý AI (Haimiya, hiển thị trong cửa sổ chat). Thay đổi áp dụng ngay toàn bộ trang chủ, đăng nhập và dashboard. Lưu ý: chỉ admin sở hữu bot mới được đổi.",
+      "Việc tùy chỉnh giao diện nằm trong khu vực riêng tư dành cho chủ sở hữu bot 🔒 — tôi không tiết lộ chi tiết công khai. Nếu bạn là chủ sở hữu, hãy đăng nhập bằng tài khoản Discord đã tạo bot, đặt mật khẩu trong Cài đặt rồi mở khóa Tính năng ẩn trong sidebar.",
     suggestions: [
-      "Tính năng ẩn gồm những gì?",
+      "Cách đặt mật khẩu tính năng ẩn",
       "Chủ đề màu server là gì?",
-      "Giveaway có những tùy chọn gì?",
+      "Công cụ mod gồm những gì?",
     ],
   },
   {
@@ -198,11 +198,11 @@ const TOPICS: Topic[] = [
       "hi ",
     ],
     answer:
-      "Tôi là Haimiya, trợ lý ảo của Protogon — bot Discord bảo vệ server. Tôi có thể giải đáp về hệ thống nhiệt độ, Join Gate, chống nuke/raid, auto reply, tính năng ẩn, giveaway, công cụ mod… Bạn cứ hỏi, tôi sẽ trả lời rõ ràng.",
+      "Tôi là Haimiya, trợ lý ảo của Protogon — bot Discord bảo vệ server. Tôi có thể giải đáp về hệ thống nhiệt độ, Join Gate, chống nuke/raid, auto reply, công cụ mod… Bạn cứ hỏi, tôi sẽ trả lời rõ ràng. Một số khu vực riêng tư của chủ sở hữu bot thì tôi giữ bí mật 🔒.",
     suggestions: [
       "Hệ thống nhiệt độ hoạt động thế nào?",
       "Join Gate là gì?",
-      "Tính năng ẩn gồm những gì?",
+      "Cách đặt mật khẩu tính năng ẩn",
     ],
   },
   {
@@ -315,10 +315,10 @@ const TOPICS: Topic[] = [
     id: "autoreply",
     keywords: ["auto reply", "tu tra loi", "tu dong tra loi", "keyword", "mention bot", "rule"],
     answer:
-      "Auto Reply tự động trả lời tin nhắn theo rule 💬. Mỗi rule gồm: tên, loại kích hoạt (từ khóa xuất hiện trong tin hoặc khi thành viên tag bot), nội dung trả lời (hỗ trợ {user} và {username}), giới hạn kênh và cooldown chống spam. Quản lý rule trong Tính năng ẩn → Auto Reply, hoặc lệnh !autoreply add/list/remove.",
+      "Auto Reply tự động trả lời tin nhắn theo rule 💬. Mỗi rule gồm: tên, loại kích hoạt (từ khóa xuất hiện trong tin hoặc khi thành viên tag bot), nội dung trả lời (hỗ trợ {user} và {username}), giới hạn kênh và cooldown chống spam. Quản lý rule ngay trên dashboard hoặc lệnh !autoreply add/list/remove.",
     suggestions: [
-      "Tính năng ẩn gồm những gì?",
       "Bot có những lệnh nào?",
+      "Công cụ mod gồm những gì?",
       "Hệ thống nhiệt độ hoạt động thế nào?",
     ],
   },
@@ -359,11 +359,11 @@ const TOPICS: Topic[] = [
       "lệnh",
     ],
     answer:
-      "Bot hỗ trợ cả prefix và slash command ⌨️. Công cụ Mod: /mod timeout, /mod kick, /mod ban, /mod purge — lệnh text tương đương !timeout !kick !ban !purge. Giveaway: /giveaway start <tên> <giải> <thời lượng> hoặc !giveaway start. Reaction role: /reactionrole create · add · remove · edit · delete (kèm !reactionrole). Ngoài ra: /heat status xem nhiệt & warn, /antinuke bật tắt bảo vệ, /prefix đổi prefix, /badword quản lý từ ngữ xấu. Gõ / trong Discord để xem toàn bộ danh sách slash command.",
+      "Bot hỗ trợ cả prefix và slash command ⌨️. Công cụ Mod: /mod timeout, /mod kick, /mod ban, /mod purge — lệnh text tương đương !timeout !kick !ban !purge. Ngoài ra: /heat status xem nhiệt & warn, /antinuke bật tắt bảo vệ, /prefix đổi prefix, /badword quản lý từ ngữ xấu. Một số lệnh khác nằm trong khu vực riêng tư của chủ sở hữu bot 🔒. Gõ / trong Discord để xem toàn bộ danh sách slash command.",
     suggestions: [
       "Cách xem nhiệt của thành viên",
       "Công cụ mod gồm những gì?",
-      "Giveaway có những tùy chọn gì?",
+      "Cách đặt mật khẩu tính năng ẩn",
     ],
   },
   {
@@ -393,10 +393,10 @@ const TOPICS: Topic[] = [
       "phí",
     ],
     answer:
-      "Protogon miễn phí cho mọi server 💰. Toàn bộ tính năng — auto reply, nhiệt độ 4 giai đoạn, warn tích lũy, Join Gate, chống nuke/raid, chặn link độc hại, giveaway, reaction role, công cụ mod, bảng hình phạt, báo cáo hàng ngày — đều dùng được không giới hạn. Bạn chỉ cần host bot và dùng dashboard, không mất phí.",
+      "Protogon miễn phí cho mọi server 💰. Toàn bộ tính năng công khai — auto reply, nhiệt độ 4 giai đoạn, warn tích lũy, Join Gate, chống nuke/raid, chặn link độc hại, công cụ mod, bảng hình phạt, báo cáo hàng ngày — đều dùng được không giới hạn. Bạn chỉ cần host bot và dùng dashboard, không mất phí.",
     suggestions: [
       "Cách chạy bot trên hosting",
-      "Tính năng ẩn gồm những gì?",
+      "Cách đặt mật khẩu tính năng ẩn",
       "Hệ thống nhiệt độ hoạt động thế nào?",
     ],
   },
@@ -424,17 +424,17 @@ const TOPICS: Topic[] = [
 ];
 
 export const GREETING =
-  "Xin chào! Tôi là Haimiya, trợ lý ảo của Protogon — bot Discord bảo vệ server. Tôi có thể giúp bạn giải đáp về hệ thống nhiệt độ, Join Gate, chống nuke/raid, tính năng ẩn, giveaway, công cụ mod và nhiều hơn nữa. Bạn muốn hỏi điều gì?";
+  "Xin chào! Tôi là Haimiya, trợ lý ảo của Protogon — bot Discord bảo vệ server. Tôi có thể giúp bạn giải đáp về hệ thống nhiệt độ, Join Gate, chống nuke/raid, công cụ mod và nhiều hơn nữa. Bạn muốn hỏi điều gì?";
 
 export const QUICK_QUESTIONS = [
   "Hệ thống nhiệt độ hoạt động thế nào?",
   "Join Gate là gì?",
-  "Tính năng ẩn gồm những gì?",
+  "Cách đặt mật khẩu tính năng ẩn",
   "Cách chạy bot trên hosting",
 ];
 
 const FALLBACK: HaimiyaAnswer = {
-  text: "Mình rất muốn trò chuyện về điều đó! Hiện tại AI thật chưa kết nối được nên mình chỉ trả lời được các câu hỏi về Protogon trong kiến thức sẵn có. Bạn thử hỏi về: nhiệt độ, join gate, warn, giveaway, hosting, tính năng ẩn, bảng hình phạt… Hoặc chọn một câu hỏi gợi ý bên dưới nhé.",
+  text: "Mình rất muốn trò chuyện về điều đó! Hiện tại AI thật chưa kết nối được nên mình chỉ trả lời được các câu hỏi về Protogon trong kiến thức sẵn có. Bạn thử hỏi về: nhiệt độ, join gate, warn, hosting, bảng hình phạt… Hoặc chọn một câu hỏi gợi ý bên dưới nhé.",
   suggestions: [
     "Hệ thống nhiệt độ hoạt động thế nào?",
     "Join Gate là gì?",

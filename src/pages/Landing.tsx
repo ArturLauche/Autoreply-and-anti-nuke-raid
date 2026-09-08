@@ -11,14 +11,11 @@ import {
   Facebook,
   Flame,
   Gavel,
-  Gift,
   Heart,
   LayoutDashboard,
   Lock,
-  Mail,
   MessageCircle,
   MessageSquareReply,
-  Palette,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
@@ -403,35 +400,12 @@ function Features() {
   );
 }
 
-/** Tính năng ẩn dành riêng cho admin — bảo vệ bằng mật khẩu. */
+/**
+ * Khu vực bí mật — KHÔNG liệt kê chi tiết tính năng ở đây. Những gì nằm trong
+ * "Tính năng ẩn" chỉ dành riêng chủ sở hữu bot; công khai tên tính năng ra trang
+ * chủ là lộ thông tin nội bộ cho mọi người.
+ */
 function HiddenFeatures() {
-  const items = [
-    {
-      icon: ShieldCheck,
-      title: "Reaction Role",
-      desc: "Thành viên bấm emoji dưới tin nhắn là tự nhận / gỡ role — tạo & chỉnh bảng ngay trên dashboard hoặc bằng /reactionrole create · add · edit (kèm !reactionrole).",
-    },
-    {
-      icon: Palette,
-      title: "Tùy chỉnh giao diện",
-      desc: "Đổi avatar bot & trợ lý AI Haimiya ngay từ web — áp dụng toàn bộ trang chủ, đăng nhập và dashboard.",
-    },
-    {
-      icon: Gift,
-      title: "Giveaway 🎉",
-      desc: "Nhiều mẫu tin nhắn (mặc định, sang trọng, VIP, nhanh gọn), chèn ảnh, lời dẫn tùy chỉnh, tự cấp role thưởng cho người thắng — tạo được qua dashboard, /giveaway start hoặc !giveaway start.",
-    },
-    {
-      icon: Mail,
-      title: "Gửi DM trực tiếp",
-      desc: "Nhập ID người dùng + nội dung trên dashboard — bot nhắn riêng cho họ ngay lập tức.",
-    },
-    {
-      icon: MessageSquareReply,
-      title: "Auto Reply cho admin",
-      desc: "Quản lý rule tự trả lời được chuyển vào khu vực ẩn — chỉ người biết mật khẩu mới chỉnh được.",
-    },
-  ];
   return (
     <section className="relative py-16">
       <div className="container">
@@ -444,35 +418,26 @@ function HiddenFeatures() {
         >
           <motion.div variants={fadeUp}>
             <Badge className="mb-4 border-primary/40 bg-primary/10 text-primary">
-              <Lock className="h-3.5 w-3.5" /> Tính năng ẩn — dành riêng admin
+              <Lock className="h-3.5 w-3.5" /> Khu vực riêng tư — chỉ chủ sở hữu bot
             </Badge>
           </motion.div>
           <motion.h2 variants={fadeUp} className="font-display text-3xl font-bold tracking-tight md:text-4xl">
-            Mở khóa bằng <span className="text-gradient-sakura">mật khẩu bí mật</span> 🔒
+            Một số khả năng <span className="text-gradient-sakura">đặc biệt</span>…
           </motion.h2>
-          <motion.p variants={fadeUp} className="mt-3 text-muted-foreground">
-            Quản trị viên đặt mật khẩu trong Cài đặt — ai đăng nhập cũng thấy giao diện bình
-            thường, chỉ người nhập đúng mật khẩu mới thấy khu vực quyền lực này.
+          <motion.p variants={fadeUp} className="mx-auto mt-3 max-w-xl text-muted-foreground">
+            Ngoài những gì bạn thấy, Protogon còn giữ riêng một khu vực quyền lực chỉ chủ sở hữu
+            bot mở khóa được bằng mật khẩu bí mật — ngay trong dashboard, không cần cài thêm gì.
           </motion.p>
-        </motion.div>
-        <motion.div
-          variants={stagger}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: "-60px" }}
-          className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-        >
-          {items.map((f) => (
-            <motion.div key={f.title} variants={fadeUp}>
-              <div className="card-hover h-full rounded-xl border border-primary/20 bg-gradient-to-b from-card to-primary/5 p-6">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <f.icon className="h-5 w-5" />
-                </div>
-                <h3 className="font-display text-lg font-semibold">{f.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
-              </div>
-            </motion.div>
-          ))}
+          <motion.div variants={fadeUp} className="mt-6 flex flex-wrap items-center justify-center gap-2">
+            {["Chỉ dành chủ sở hữu bot", "Mở khóa bằng mật khẩu", "Được bảo vệ chặt chẽ"].map((t) => (
+              <span
+                key={t}
+                className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1 text-xs text-muted-foreground"
+              >
+                {t}
+              </span>
+            ))}
+          </motion.div>
         </motion.div>
       </div>
     </section>

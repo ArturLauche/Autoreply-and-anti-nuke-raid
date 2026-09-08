@@ -87,8 +87,8 @@ export default function UnlockPanel({
         <div>
           <h2 className="font-display text-xl font-bold">Tính năng ẩn 🔒</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Mục này được bảo vệ bằng mật khẩu do chủ sở hữu bot đặt. Nhập mật khẩu để mở khóa
-            reaction role, giveaway, gửi DM, auto reply và tùy chỉnh giao diện.
+            Mục này được bảo vệ bằng mật khẩu do chủ sở hữu bot đặt. Chỉ người biết mật khẩu mới
+            nhìn thấy nội dung bên trong.
           </p>
         </div>
         <div className="grid w-full gap-1.5">

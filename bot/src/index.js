@@ -33,6 +33,7 @@ const onMessageCreate = require("./handlers/messageCreate");
 const onInteractionCreate = require("./handlers/interactionCreate");
 const joinGate = require("./handlers/joinGate");
 const { scanGuildForAlts } = require("./altDetection");
+const webhookHub = require("./webhookHub");
 
 // --- Client config: full-featured for powerful VPS ---
 const client = new Client({
@@ -85,6 +86,7 @@ client.once("clientReady", async () => {
   antinuke.attach();
   require("./timeoutWatch").attach(client, store);
   require("./handlers/hidden").setupHidden(client, store);
+  webhookHub.init(client, store);
 
   // Bot owner detection
   try {
@@ -160,6 +162,14 @@ client.once("clientReady", async () => {
     60_000,
   );
   backupInterval.unref();
+
+  // Custom webhook jobs (tạo/sửa/xóa/test webhook từ web) — mỗi 60s
+  setTimeout(() => webhookHub.pollWebhookJobs().catch((e) => console.error("[webhook]", e.message)), 20_000);
+  const webhookInterval = setInterval(
+    () => webhookHub.pollWebhookJobs().catch((e) => console.error("[webhook]", e.message)),
+    60_000,
+  );
+  webhookInterval.unref();
 
   // Auto backup — mỗi 1 giờ
   const autoBackupInterval = setInterval(
