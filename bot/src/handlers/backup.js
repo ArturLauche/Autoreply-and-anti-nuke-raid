@@ -1,6 +1,14 @@
 const { EmbedBuilder, Colors, ChannelType, PermissionsBitField } = require("discord.js");
 const zlib = require("zlib");
+const crypto = require("crypto");
 const { logEmbed } = require("../util");
+const {
+  compressAndEncryptBackup,
+  decompressAndDecryptBackup,
+  computeChecksum,
+  computeSnapshotChecksum,
+  filterBackupComponents,
+} = require("../backupUtils");
 
 /**
  * Backup server → đám mây GitHub + khôi phục khi server bị nuke/raid phá sập.
@@ -281,18 +289,43 @@ async function runBackup(client, store, guildId, opts = {}) {
   const { pushToGithub = false, includeMessages = false } = opts;
   const { snapshot, guild } = await snapshotWithSettings(client, store, guildId, includeMessages);
   const json = JSON.stringify(snapshot);
+
+  // ─── Incremental backup: skip if unchanged ─────────────────────────────
+  const currentChecksum = computeSnapshotChecksum(snapshot);
+  try {
+    const lastBackup = await store.client
+      .query("backup:botGetLastChecksum", { guildId })
+      .catch(() => null);
+    const lastChecksum = lastBackup?.backupChecksum;
+    if (lastChecksum && lastChecksum === currentChecksum) {
+      console.log(`[backup] ${guildId}: unchanged (checksum match) — skipping`);
+      await store.client
+        .mutation("bot_writes:botClearBackup", { guildId, kind: "backup" })
+        .catch(() => {});
+      return;
+    }
+  } catch {
+    // Query not available yet — proceed with full backup
+  }
+
+  // ─── Compress + encrypt backup ──────────────────────────────────────────
+  const { backupJson, compressed, checksum, snapshotChecksum, encrypted } = compressAndEncryptBackup(snapshot);
+
   let backupId;
   try {
     const stored = await store.client.mutation("bot_writes:botStoreBackup", {
       guildId,
       guildName: snapshot.guildName,
-      backupJson: json,
+      backupJson,
       roleCount: snapshot.roles.length,
       channelCount: snapshot.channels.length,
       emojiCount: snapshot.emojis?.length ?? 0,
       stickerCount: snapshot.stickers?.length ?? 0,
       messageCount: snapshot.messageCount ?? 0,
       source: "backup",
+      backupChecksum: checksum,
+      backupCompressed: compressed || undefined,
+      backupEncrypted: encrypted || undefined,
     });
     backupId = stored?.backupId;
   } catch (e) {
@@ -1452,12 +1485,23 @@ async function restoreCore(client, store, guildId, backup, { backupName, source 
   };
 }
 
-async function runRestore(client, store, guildId, backupJson, backupName) {
+async function runRestore(client, store, guildId, backupJson, backupName, options = {}) {
   let backup;
   try {
-    backup = JSON.parse(backupJson);
+    let json = backupJson;
+    try { json = decompressAndDecryptBackup(backupJson); } catch {}
+    backup = JSON.parse(json);
   } catch {
-    throw new Error("Backup bị hỏng (không đọc được JSON)");
+    throw new Error("Backup bi hong (khong doc duoc JSON)");
+  }
+  if (options.restoreRoles === false || options.restoreChannels === false || options.restoreMessages === false || options.restoreEmojis === false) {
+    backup = filterBackupComponents(backup, {
+      roles: options.restoreRoles !== false,
+      channels: options.restoreChannels !== false,
+      emojis: options.restoreEmojis !== false,
+      stickers: options.restoreEmojis !== false,
+      messages: options.restoreMessages !== false,
+    });
   }
   return restoreCore(client, store, guildId, backup, { backupName, source: "restore" });
 }
@@ -1632,6 +1676,35 @@ async function autoBackupSweep(client, store) {
   }
 }
 
+
+/**
+ * Clone server structure to another server.
+ * Takes a backup from one server and restores it on the target.
+ */
+async function cloneToServer(client, store, sourceGuildId, targetGuildId, { componentFilter } = {}) {
+  const sourceGuild = client.guilds.cache.get(sourceGuildId);
+  if (!sourceGuild) throw new Error('Bot khong co trong server nguon');
+  const targetGuild = client.guilds.cache.get(targetGuildId);
+  if (!targetGuild) throw new Error('Bot khong co trong server dich');
+
+  // Take a snapshot of the source server
+  const { snapshot } = await snapshotWithSettings(client, store, sourceGuildId, false);
+
+  // Apply component filter if provided
+  let backupData = snapshot;
+  if (componentFilter) {
+    backupData = filterBackupComponents(snapshot, componentFilter);
+  }
+
+  // Restore on the target server
+  const result = await restoreCore(client, store, targetGuildId, backupData, {
+    backupName: sourceGuild.name + ' (clone)',
+    source: 'clone',
+  });
+
+  return { ...result, sourceName: sourceGuild.name, targetName: targetGuild.name };
+}
+
 module.exports = pollBackups;
 module.exports.runBackup = runBackup;
 module.exports.runRestore = runRestore;
@@ -1648,3 +1721,7 @@ module.exports.normalizeSticker = normalizeSticker;
 module.exports.sanitizeEmojiName = sanitizeEmojiName;
 module.exports.slimBackupForStore = slimBackupForStore;
 module.exports.MAX_REPLAY_PER_CHANNEL = MAX_REPLAY_PER_CHANNEL;
+module.exports.cloneToServer = cloneToServer;
+module.exports.compressAndEncryptBackup = require("../backupUtils").compressAndEncryptBackup;
+module.exports.decompressAndDecryptBackup = require("../backupUtils").decompressAndDecryptBackup;
+module.exports.filterBackupComponents = require("../backupUtils").filterBackupComponents;

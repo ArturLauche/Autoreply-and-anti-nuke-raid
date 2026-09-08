@@ -277,8 +277,14 @@ export default defineSchema({
     stickerCount: v.optional(v.number()),
     /** Số tin nhắn đã backup (0 = không kèm tin). */
     messageCount: v.optional(v.number()),
-    /** Nguồn backup: "backup" (bot tự chụp) | "import" (tải file .msc/.json lên). */
+    /** Nguồn backup: "backup" (bot tự chụp) | "import" (tải file .msc/.json lên) | "clone" (sao chép từ server khác). */
     source: v.optional(v.string()),
+    /** SHA-256 checksum của backup JSON (dùng cho incremental backup + xác minh). */
+    backupChecksum: v.optional(v.string()),
+    /** Có nén zlib không (true = compressed JSON). */
+    backupCompressed: v.optional(v.boolean()),
+    /** Có mã hóa AES-256-GCM không. */
+    backupEncrypted: v.optional(v.boolean()),
     /** URL gist GitHub nếu backup đã được đẩy lên đám mây. */
     githubUrl: v.optional(v.string()),
     pushedToGithub: v.boolean(),
