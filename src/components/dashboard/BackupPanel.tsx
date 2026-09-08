@@ -50,9 +50,11 @@ export default function BackupPanel({ data }: { data: GuildData }) {
     Math.max(2, Math.min(30, data.guild.backupAutoDays ?? 7)),
   );
   const [autoBusy, setAutoBusy] = useState(false);
-  /** Tùy chỉnh khôi phục: bật/tắt tạo lại role và emoji/sticker khi restore (cả 2 nguồn). */
+  /** Tùy chỉnh khôi phục: bật/tắt tạo lại role, emoji/sticker, kênh, tin nhắn khi restore (cả 2 nguồn). */
   const [restoreRoles, setRestoreRoles] = useState(data.guild.restoreRolesEnabled ?? true);
   const [restoreEmojis, setRestoreEmojis] = useState(data.guild.restoreEmojisEnabled ?? true);
+  const [restoreChannels, setRestoreChannels] = useState(data.guild.restoreChannelsEnabled ?? true);
+  const [restoreMessages, setRestoreMessages] = useState(data.guild.restoreMessagesEnabled ?? true);
   const [restoreOptBusy, setRestoreOptBusy] = useState(false);
   /** Theo dõi trạng thái xử lý file import: null = không chờ, active = đang chờ bot. */
   const [importWatch, setImportWatch] = useState<null | { startedAt: number }>(null);
@@ -180,11 +182,23 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         guildId: data.guild.discordId,
         restoreRoles,
         restoreEmojis,
+        restoreChannels,
+        restoreMessages,
       });
+      const parts = [
+        restoreRoles ? "role" : null,
+        restoreEmojis ? "emoji/sticker" : null,
+        restoreChannels ? "kênh" : null,
+        restoreMessages ? "tin nhắn" : null,
+      ].filter(Boolean);
+      const skipped = [
+        !restoreRoles ? "role" : null,
+        !restoreEmojis ? "emoji/sticker" : null,
+        !restoreChannels ? "kênh" : null,
+        !restoreMessages ? "tin nhắn" : null,
+      ].filter(Boolean);
       toast.success("Đã lưu tùy chỉnh khôi phục", {
-        description: `Áp dụng cho cả backup Protogon lẫn file bot nuke: ${
-          restoreRoles ? "role sẽ được tạo lại" : "role sẽ bị bỏ qua"
-        } · ${restoreEmojis ? "emoji/sticker sẽ được tạo lại" : "emoji/sticker sẽ bị bỏ qua"}.`,
+        description: `Phần khôi phục: ${parts.join(", ")} ${skipped.length ? `· BỎ QUA: ${skipped.join(", ")}` : "(tất cả)"}.`,
       });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Thất bại");
@@ -528,6 +542,20 @@ export default function BackupPanel({ data }: { data: GuildData }) {
             </label>
             <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-2.5">
               <span className="flex items-center gap-2 text-sm">
+                <FolderTree className="h-4 w-4" />
+                Khôi phục kênh (danh mục, văn bản, thoại…)
+              </span>
+              <Switch checked={restoreChannels} onCheckedChange={setRestoreChannels} />
+            </label>
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-2.5">
+              <span className="flex items-center gap-2 text-sm">
+                <MessageSquare className="h-4 w-4" />
+                Khôi phục tin nhắn + media
+              </span>
+              <Switch checked={restoreMessages} onCheckedChange={setRestoreMessages} />
+            </label>
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-2.5">
+              <span className="flex items-center gap-2 text-sm">
                 <Smile className="h-4 w-4" />
                 Khôi phục emoji / sticker
               </span>
@@ -540,7 +568,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
               Lưu tùy chỉnh khôi phục
             </Button>
             {(data.guild.restoreRolesEnabled ?? true) !== restoreRoles ||
-              (data.guild.restoreEmojisEnabled ?? true) !== restoreEmojis ? (
+              (data.guild.restoreEmojisEnabled ?? true) !== restoreEmojis ||
+              (data.guild.restoreChannelsEnabled ?? true) !== restoreChannels ||
+              (data.guild.restoreMessagesEnabled ?? true) !== restoreMessages ? (
               <span className="text-xs text-muted-foreground">Có thay đổi chưa lưu — bấm Lưu để áp dụng.</span>
             ) : null}
           </div>
@@ -676,6 +706,16 @@ function BackupListCard({
                     {(b.messageCount ?? 0) > 0 && (
                       <Badge className="gap-1 bg-sky-500/15 px-2 py-0.5 text-[10px] text-sky-400">
                         <MessageSquare className="h-3 w-3" /> {b.messageCount} tin
+                      </Badge>
+                    )}
+                    {b.backupCompressed && (
+                      <Badge className="gap-1 bg-teal-500/15 px-2 py-0.5 text-[10px] text-teal-400">
+                        Nén
+                      </Badge>
+                    )}
+                    {b.backupEncrypted && (
+                      <Badge className="gap-1 bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-400">
+                        🔒 Mã hóa
                       </Badge>
                     )}
                   </div>

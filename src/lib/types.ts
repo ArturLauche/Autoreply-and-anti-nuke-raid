@@ -234,10 +234,16 @@ export interface BackupInfo {
   stickerCount?: number;
   /** Số tin nhắn đã backup (0 = không kèm tin). */
   messageCount?: number;
-  /** Nguồn backup: "backup" (bot tự chụp) | "import" (tải file .msc/.json lên). */
+  /** Nguồn backup: "backup" (bot tự chụp) | "import" (tải file .msc/.json lên) | "clone" (sao chép từ server khác). */
   source?: string;
   githubUrl: string | null;
   pushedToGithub: boolean;
+  /** SHA-256 checksum của backup JSON (dùng cho incremental backup + xác minh). */
+  backupChecksum?: string;
+  /** Có nén zlib không (true = compressed JSON). */
+  backupCompressed?: boolean;
+  /** Có mã hóa AES-256-GCM không. */
+  backupEncrypted?: boolean;
 }
 
 /** Raid Intel — dữ liệu thu thập + kết quả săn nguồn cơn raid của một server. */
