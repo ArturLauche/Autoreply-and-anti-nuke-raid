@@ -1161,6 +1161,97 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       return;
     }
 
+    case "alt": {
+      const sub = interaction.options.getSubcommand();
+      const config = await store.getConfig(guild.id);
+      if (!canManageGuild(interaction.member) && !isAdmin(interaction.member)) return needPerm(interaction);
+
+      if (sub === "status") {
+        const enabled = config?.altDetectionEnabled ?? false;
+        const vpnMode = config?.altVpnMode ?? "off";
+        const maxRisk = config?.altMaxRiskScore ?? 70;
+        const minAge = config?.altMinAgeDays ?? 7;
+        const punish = config?.altPunish ?? "kick";
+        const embed = new EmbedBuilder()
+          .setColor(enabled ? Colors.Green : Colors.Red)
+          .setTitle("🔍 Alt Detection Status")
+          .setDescription(
+            [
+              `**Phát hiện alt account:** ${enabled ? "✅ BẬT" : "⏸️ TẮT"}`,
+              `**Chế độ VPN:** ${vpnMode === "strict" ? "🔒 Nghiêm ngặt" : vpnMode === "warn" ? "⚠️ Cảnh báo" : "⏸️ Tắt"}`,
+              `**Ngưỡng rủi ro:** ${maxRisk}/100`,
+              `**Tuổi tối thiểu:** ${minAge} ngày`,
+              `**Hình phạt:** ${punish}`,
+              `**Tương đồng username:** ≥${config?.altSimilarityThreshold ?? 70}%`,
+              `**Cửa sổ join:** ${config?.altJoinWindowMinutes ?? 5} phút`,
+            ].join("\n"),
+          );
+        return interaction.reply({ embeds: [embed], ephemeral: true });
+      }
+
+      if (sub === "on" || sub === "off") {
+        await store.client.mutation("bot_writes:botUpdateSettings", {
+          guildId: guild.id,
+          altDetectionEnabled: sub === "on",
+        });
+        store.invalidate(guild.id);
+        return interaction.reply({
+          content: `✅ Đã ${sub === "on" ? "bật" : "tắt"} phát hiện alt account.`,
+          ephemeral: true,
+        });
+      }
+
+      if (sub === "punish") {
+        const type = interaction.options.getString("type", true);
+        if (!["kick", "ban", "timeout", "verify"].includes(type)) {
+          return interaction.reply({ content: "Hình phạt phải là: kick, ban, timeout, hoặc verify.", ephemeral: true });
+        }
+        await store.client.mutation("bot_writes:botUpdateSettings", {
+          guildId: guild.id,
+          altPunish: type,
+        });
+        store.invalidate(guild.id);
+        return interaction.reply({
+          content: `✅ Hình phạt alt account đã đổi thành **${type}**.`,
+          ephemeral: true,
+        });
+      }
+
+      if (sub === "threshold") {
+        const value = interaction.options.getInteger("value", true);
+        if (value < 10 || value > 100) {
+          return interaction.reply({ content: "Ngưỡng phải từ 10 đến 100.", ephemeral: true });
+        }
+        await store.client.mutation("bot_writes:botUpdateSettings", {
+          guildId: guild.id,
+          altMaxRiskScore: value,
+        });
+        store.invalidate(guild.id);
+        return interaction.reply({
+          content: `✅ Ngưỡng rủi ro đã đổi thành **${value}/100**.`,
+          ephemeral: true,
+        });
+      }
+
+      if (sub === "vpn") {
+        const mode = interaction.options.getString("mode", true);
+        if (!["strict", "warn", "off"].includes(mode)) {
+          return interaction.reply({ content: "Chế độ VPN phải là: strict, warn, hoặc off.", ephemeral: true });
+        }
+        await store.client.mutation("bot_writes:botUpdateSettings", {
+          guildId: guild.id,
+          altVpnMode: mode,
+          vpnBlockEnabled: mode === "strict",
+        });
+        store.invalidate(guild.id);
+        return interaction.reply({
+          content: `✅ Chế độ VPN đã đổi thành **${mode === "strict" ? "nghiêm ngặt" : mode === "warn" ? "cảnh báo" : "tắt"}**.`,
+          ephemeral: true,
+        });
+      }
+      return;
+    }
+
     default:
       return interaction.reply({ content: "Lệnh chưa được hỗ trợ.", ephemeral: true });
   }

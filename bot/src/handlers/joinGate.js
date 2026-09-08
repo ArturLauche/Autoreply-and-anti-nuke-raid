@@ -1,6 +1,7 @@
 const { Colors } = require("discord.js");
 const { logEmbed, sendLog } = require("../util");
 const { isLocked } = require("../lockdown");
+const { analyzeNewMember, executePunishment, buildRiskEmbed } = require("../altDetection");
 
 const DAY_MS = 86_400_000;
 
@@ -14,8 +15,12 @@ const DAY_MS = 86_400_000;
  *  - joinGateRaidKick      khi server đang khóa kênh (raid) thì xử lý mọi thành viên mới
  *  - joinGateWhitelist     danh sách ID luôn được vào
  *
- * Lưu ý: Discord không cho bot đọc trạng thái "email/phone đã xác thực" của người dùng,
- * nên thay vào đó dùng các tín hiệu công khai trên (tuổi, avatar, huy hiệu, trạng thái raid).
+ * Alt Detection (mới):
+ *  - altDetectionEnabled   bật hệ thống phát hiện alt account
+ *  - vpnBlockEnabled       chặn VPN/proxy
+ *  - altMinAgeDays         tuổi tối thiểu
+ *  - altMaxRiskScore       ngưỡng risk score
+ *  - altPunish             hình phạt (kick/ban/timeout/verify)
  */
 async function assignUnverifiedRole(client, member, store) {
   let config;
@@ -44,86 +49,190 @@ module.exports = async function joinGate(client, member, store) {
     console.error(`[joinGate] ${member.guild.id}:`, err.message);
     return;
   }
-  if (!config || !config.joinGateEnabled) return;
+  if (!config) return;
 
-  const whitelist = config.joinGateWhitelist || [];
-  if (whitelist.includes(member.id)) return; // luôn cho vào
+  // ==========================================
+  // PART 1: Classic Join Gate (existing logic)
+  // ==========================================
+  if (config.joinGateEnabled) {
+    const whitelist = config.joinGateWhitelist || [];
+    if (!whitelist.includes(member.id)) {
+      const failures = [];
 
-  const failures = [];
+      // 1) Tuổi tài khoản
+      const minAge = config.joinGateMinAgeDays ?? 0;
+      if (minAge > 0) {
+        const ageDays = (Date.now() - member.user.createdTimestamp) / DAY_MS;
+        if (ageDays < minAge) {
+          failures.push(
+            `tài khoản mới (**${Math.max(0, Math.floor(ageDays))} ngày** < yêu cầu ${minAge} ngày)`,
+          );
+        }
+      }
 
-  // 1) Tuổi tài khoản
-  const minAge = config.joinGateMinAgeDays ?? 0;
-  if (minAge > 0) {
-    const ageDays = (Date.now() - member.user.createdTimestamp) / DAY_MS;
-    if (ageDays < minAge) {
-      failures.push(
-        `tài khoản mới (**${Math.max(0, Math.floor(ageDays))} ngày** < yêu cầu ${minAge} ngày)`,
-      );
+      // 2) Avatar riêng
+      if (config.joinGateRequireAvatar && !member.user.avatar) {
+        failures.push("không có avatar riêng (đang dùng avatar mặc định)");
+      }
+
+      // 3) Huy hiệu công khai — selfbot thường là tài khoản mới không có bất kỳ flag nào
+      if (config.joinGateRequireFlag) {
+        const flags = member.user.flags;
+        if (!flags || flags.bitfield === 0) {
+          failures.push("không có huy hiệu tài khoản (flag = 0)");
+        }
+      }
+
+      // 4) Đang bị raid → chặn mọi lượt vào
+      if (config.joinGateRaidKick && isLocked(member.guild.id)) {
+        failures.push("server đang khóa kênh do raid");
+      }
+
+      if (failures.length > 0) {
+        const punish = config.joinGatePunish === "ban" ? "ban" : "kick";
+        const reason = `[Protogon Join Gate] ${failures.join("; ")}`;
+        let action;
+        try {
+          if (punish === "ban") {
+            await member.ban({ reason, deleteMessageSeconds: 0 });
+            action = "đã ban";
+          } else {
+            await member.kick(reason);
+            action = "đã kick";
+          }
+        } catch (err) {
+          action = `không thể ${punish} (thiếu quyền)`;
+          console.error(`[joinGate] ${member.guild.id}:`, err.message);
+        }
+
+        // Ghi lại event antinuke
+        try {
+          await store.client.mutation("bot_writes:botRecordAntinukeEvent", {
+            guildId: member.guild.id,
+            module: "joinGate",
+            executorId: member.id,
+            executorName: member.user.username,
+            action: `${action} — ${failures.join("; ")}`,
+            count: 1,
+            windowSeconds: 10,
+            threshold: 1,
+            punish,
+          });
+        } catch (err) {
+          console.error("[joinGate:record]", err.message);
+        }
+
+        const embed = logEmbed({
+          title: "🚪 Join Gate: đã chặn thành viên",
+          description: `<@${member.id}> vừa tham gia nhưng **không vượt qua cổng vào** và đã bị xử lý.`,
+          color: Colors.Red,
+          fields: [
+            { name: "Thành viên", value: `<@${member.id}> (${member.user.username})`, inline: true },
+            { name: "Lý do", value: failures.map((f) => `• ${f}`).join("\n").slice(0, 1000), inline: false },
+            { name: "Xử lý", value: action, inline: true },
+          ],
+          footer: "Protogon Join Gate",
+        });
+        await sendLog(member.guild, config, embed);
+        return; // Đã bị chặn, không cần xét tiếp
+      }
     }
   }
 
-  // 2) Avatar riêng
-  if (config.joinGateRequireAvatar && !member.user.avatar) {
-    failures.push("không có avatar riêng (đang dùng avatar mặc định)");
+  // ==========================================
+  // PART 2: Alt Account + VPN Detection
+  // ==========================================
+  if (!config.altDetectionEnabled) return;
+
+  // Check whitelist
+  const altWhitelist = [
+    ...(config.altWhitelistUsers || []),
+    ...(config.altWhitelistRoles || []),
+  ];
+  if (altWhitelist.includes(member.id)) return;
+  // Check role whitelist
+  if (config.altWhitelistRoles?.length) {
+    const hasWhitelistedRole = member.roles.cache.some((r) =>
+      config.altWhitelistRoles.includes(r.id),
+    );
+    if (hasWhitelistedRole) return;
   }
 
-  // 3) Huy hiệu công khai — selfbot thường là tài khoản mới không có bất kỳ flag nào
-  if (config.joinGateRequireFlag) {
-    const flags = member.user.flags;
-    if (!flags || flags.bitfield === 0) {
-      failures.push("không có huy hiệu tài khoản (flag = 0)");
-    }
-  }
+  // Also check joinGate whitelist
+  const gwWhitelist = config.joinGateWhitelist || [];
+  if (gwWhitelist.includes(member.id)) return;
 
-  // 4) Đang bị raid → chặn mọi lượt vào
-  if (config.joinGateRaidKick && isLocked(member.guild.id)) {
-    failures.push("server đang khóa kênh do raid");
-  }
-
-  if (failures.length === 0) return; // qua cổng
-
-  const punish = config.joinGatePunish === "ban" ? "ban" : "kick";
-  const reason = `[Protogon Join Gate] ${failures.join("; ")}`;
-  let action;
+  // Run alt analysis
+  let analysis;
   try {
-    if (punish === "ban") {
-      await member.ban({ reason, deleteMessageSeconds: 0 });
-      action = "đã ban";
-    } else {
-      await member.kick(reason);
-      action = "đã kick";
-    }
+    analysis = await analyzeNewMember(member, config, (guildId) => store.getConfig(guildId));
   } catch (err) {
-    action = `không thể ${punish} (thiếu quyền)`;
-    console.error(`[joinGate] ${member.guild.id}:`, err.message);
+    console.error(`[altDetect] ${member.guild.id}/${member.id}:`, err.message);
+    return;
   }
 
+  // Record the join in Convex
   try {
-    await store.client.mutation("bot_writes:botRecordAntinukeEvent", {
+    await store.client.mutation("altDetection:recordJoin", {
       guildId: member.guild.id,
-      module: "joinGate",
-      executorId: member.id,
-      executorName: member.user.username,
-      action: `${action} — ${failures.join("; ")}`,
-      count: 1,
-      windowSeconds: 10,
-      threshold: 1,
-      punish,
+      userId: member.id,
+      username: member.user.username,
+      avatar: member.user.avatar,
+      createdAt: member.user.createdTimestamp,
+      flags: member.user.flags?.bitfield,
+      riskScore: analysis.riskScore,
+      riskFactors: analysis.riskFactors,
+      isVPN: analysis.isVPN,
+      ipCountry: analysis.ipCountry,
+      ipOrg: analysis.ipOrg,
     });
   } catch (err) {
-    console.error("[joinGate:record]", err.message);
+    console.error(`[altDetect:record] ${member.guild.id}:`, err.message);
   }
 
-  const embed = logEmbed({
-    title: "🚪 Join Gate: đã chặn thành viên",
-    description: `<@${member.id}> vừa tham gia nhưng **không vượt qua cổng vào** và đã bị xử lý.`,
-    color: Colors.Red,
-    fields: [
-      { name: "Thành viên", value: `<@${member.id}> (${member.user.username})`, inline: true },
-      { name: "Lý do", value: failures.map((f) => `• ${f}`).join("\n").slice(0, 1000), inline: false },
-      { name: "Xử lý", value: action, inline: true },
-    ],
-    footer: "Protogon Join Gate",
-  });
-  await sendLog(member.guild, config, embed);
+  // Log all joins for monitoring (not just high-risk ones)
+  if (analysis.riskScore > 0) {
+    console.log(
+      `[altDetect] ${member.guild.name}/${member.user.username} risk=${analysis.riskScore} factors=[${analysis.riskFactors.join(",")}] action=${analysis.action}`,
+    );
+  }
+
+  // Execute punishment if risk exceeds threshold
+  let punishResult = null;
+  if (analysis.action !== "pass") {
+    try {
+      punishResult = await executePunishment(member, analysis, config);
+    } catch (err) {
+      console.error(`[altDetect:punish] ${member.guild.id}/${member.id}:`, err.message);
+    }
+
+    // Update the join record with action taken
+    if (punishResult?.executed) {
+      try {
+        // Record as antinuke event for the log
+        await store.client.mutation("bot_writes:botRecordAntinukeEvent", {
+          guildId: member.guild.id,
+          module: "altDetection",
+          executorId: member.id,
+          executorName: member.user.username,
+          action: `${punishResult.action} — risk: ${analysis.riskScore}/100 — ${analysis.riskFactors.join("; ")}`,
+          count: 1,
+          windowSeconds: 60,
+          threshold: 1,
+          punish: analysis.action,
+        });
+      } catch (err) {
+        console.error("[altDetect:event]", err.message);
+      }
+
+      // Send log embed
+      const embed = buildRiskEmbed(member, analysis, punishResult);
+      await sendLog(member.guild, config, embed).catch(() => {});
+    }
+  } else if (analysis.riskScore >= 20) {
+    // Low-risk but notable — log it for analytics (don't punish)
+    console.log(
+      `[altDetect:monitor] ${member.guild.name}/${member.user.username} — risk=${analysis.riskScore}, monitoring only`,
+    );
+  }
 };

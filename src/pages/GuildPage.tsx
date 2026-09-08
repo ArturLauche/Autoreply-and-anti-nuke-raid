@@ -17,6 +17,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   UserCheck,
+  UserX,
 } from "lucide-react";
 import { DEFAULT_THEME, SERVER_THEMES } from "../lib/constants";
 import PanelErrorBoundary from "../components/PanelErrorBoundary";
@@ -43,12 +44,14 @@ import JoinGatePanel from "../components/dashboard/JoinGatePanel";
 import SettingsPanel from "../components/dashboard/SettingsPanel";
 import WhitelistPanel from "../components/dashboard/WhitelistPanel";
 import VerifyPanel from "../components/dashboard/VerifyPanel";
+import AltDetectionPanel from "../components/dashboard/AltDetectionPanel";
 
 type SectionKey =
   | "overview"
   | "automod"
   | "moderation"
   | "joingate"
+  | "altdetect"
   | "antinuke"
   | "externalapp"
   | "whitelist"
@@ -63,6 +66,7 @@ const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof LayoutDashboard 
   { key: "automod", label: "Auto-mod", icon: ShieldCheck },
   { key: "moderation", label: "Moderation", icon: Megaphone },
   { key: "joingate", label: "Join Gate", icon: DoorOpen },
+  { key: "altdetect", label: "Alt Detection", icon: UserX },
   { key: "antinuke", label: "Chống nuke / raid", icon: ShieldAlert },
   { key: "externalapp", label: "Raid external app", icon: AppWindow },
   { key: "whitelist", label: "Whitelist", icon: UserCheck },
@@ -223,6 +227,7 @@ export default function GuildPage() {
               {section === "automod" && <AutoModPanel data={data} />}
               {section === "moderation" && <ModerationPanel data={data} />}
               {section === "joingate" && <JoinGatePanel data={data} />}
+              {section === "altdetect" && <AltDetectionPanel data={data} />}
               {section === "antinuke" && <AntiNukePanel data={data} />}
               {section === "externalapp" && <ExternalAppRaidsPanel data={data} />}
               {section === "whitelist" && <WhitelistPanel data={data} />}

@@ -134,6 +134,27 @@ export default defineSchema({
     verifyWelcomeDescription: v.optional(v.string()),
     verifyWelcomeColor: v.optional(v.string()),
     verifySendPanel: v.optional(v.boolean()),
+    /** Alt account + VPN detection system. */
+    altDetectionEnabled: v.optional(v.boolean()),
+    vpnBlockEnabled: v.optional(v.boolean()),
+    /** Tuổi tối thiểu (ngày) khi xét alt — tài khoản dưới ngưỡng này bị tăng riskScore. */
+    altMinAgeDays: v.optional(v.number()),
+    /** Ngưỡng riskScore tối đa được chấp nhận (vượt thì bị kick/ban). */
+    altMaxRiskScore: v.optional(v.number()),
+    /** Hình phạt cho alt account: kick | ban | timeout | verify (gán lại unverified role). */
+    altPunish: v.optional(v.union(v.literal("kick"), v.literal("ban"), v.literal("timeout"), v.literal("verify"))),
+    /** Timeout duration (phút) khi altPunish = timeout. */
+    altTimeoutMinutes: v.optional(v.number()),
+    /** Roles được miễn khỏi alt detection. */
+    altWhitelistRoles: v.optional(v.array(v.string())),
+    /** Users được miễn khỏi alt detection. */
+    altWhitelistUsers: v.optional(v.array(v.string())),
+    /** Phân tích tương đồng username: ngưỡng similarity (0-100) để link accounts. */
+    altSimilarityThreshold: v.optional(v.number()),
+    /** Thời gian cửa sổ (phút) — 2 account join trong khoảng này + similarity cao = alt suspects. */
+    altJoinWindowMinutes: v.optional(v.number()),
+    /** Chế độ kiểm tra VPN: strict (block) | warn (log only) | off. */
+    altVpnMode: v.optional(v.union(v.literal("strict"), v.literal("warn"), v.literal("off"))),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_discordId", ["discordId"]),
@@ -411,4 +432,39 @@ export default defineSchema({
   })
     .index("by_guildId", ["guildId"])
     .index("by_guildId_createdAt", ["guildId", "createdAt"]),
+
+  /** Member join records for alt detection — lưu lịch sử join + risk analysis. */
+  memberJoins: defineTable({
+    guildId: v.string(),
+    userId: v.string(),
+    username: v.string(),
+    avatar: v.optional(v.string()),
+    /** Discord account creation timestamp. */
+    createdAt: v.number(),
+    /** Discord public flags (USER_FLAGS). */
+    flags: v.optional(v.number()),
+    /** Thời gian bot ghi nhận join vào server. */
+    joinedAt: v.number(),
+    /** Điểm rủi ro tổng hợp (0-100). */
+    riskScore: v.number(),
+    /** Danh sách yếu tố rủi ro chi tiết. */
+    riskFactors: v.array(v.string()),
+    /** IP có phải VPN/Proxy không. */
+    isVPN: v.optional(v.boolean()),
+    /** Quốc gia từ IP (nếu detect được). */
+    ipCountry: v.optional(v.string()),
+    /** Tổ chức/TISP từ IP. */
+    ipOrg: v.optional(v.string()),
+    /** Kết quả xử lý: kick/ban/timeout/verify/pass/warn. */
+    action: v.optional(v.string()),
+    /** Lý do xử lý chi tiết. */
+    actionReason: v.optional(v.string()),
+    /** ID account bị nghi là alt (nếu link được). */
+    linkedUserId: v.optional(v.string()),
+    /** Điểm tương đồng với account đã link (0-100). */
+    similarityScore: v.optional(v.number()),
+  })
+    .index("by_guildId", ["guildId"])
+    .index("by_guildId_joinedAt", ["guildId", "joinedAt"])
+    .index("by_guildId_riskScore", ["guildId", "riskScore"]),
 });

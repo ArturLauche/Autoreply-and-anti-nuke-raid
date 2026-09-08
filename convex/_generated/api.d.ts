@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as altDetection from "../altDetection.js";
 import type * as antinuke from "../antinuke.js";
 import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
@@ -32,6 +33,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  altDetection: typeof altDetection;
   antinuke: typeof antinuke;
   audit: typeof audit;
   auth: typeof auth;
