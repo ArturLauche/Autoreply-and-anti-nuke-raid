@@ -181,6 +181,8 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         token: TOKEN(),
         guildId: data.guild.discordId,
         restoreRoles,
+        restoreChannels,
+        restoreMessages,
         restoreEmojis,
       });
       const parts = [
@@ -264,7 +266,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         guildId: data.guild.discordId,
         backupId: backup._id,
       });
-      toast.success("Đã yêu cầu khôi phục — bot thực hiện trong ~30 giây", {
+      toast.success("Đã yêu cầu khôi phục — bot thực hiện trong ~1 phút", {
         description: "Role, quyền role và kênh sẽ được tạo lại theo backup.",
       });
     } catch (e) {

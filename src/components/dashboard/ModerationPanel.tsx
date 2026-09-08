@@ -68,7 +68,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
     setSaving(true);
     try {
       await updateSettings({ token: TOKEN(), guildId: data.guild.discordId, ...patch });
-      toast.success("Đã lưu — bot áp dụng trong vòng 30 giây");
+      toast.success("Đã lưu — bot áp dụng trong vòng ~3 phút");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Lưu thất bại");
     } finally {

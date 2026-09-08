@@ -29,7 +29,7 @@ export default function DmPanel({ data }: { data: GuildData }) {
         userId: userId.trim(),
         message,
       });
-      toast.success("Đã gửi yêu cầu — bot sẽ gửi DM trong vòng ~30 giây 💌");
+      toast.success("Đã gửi yêu cầu — bot sẽ gửi DM trong vòng ~1 phút 💌");
       setUserId("");
       setMessage("");
     } catch (e) {

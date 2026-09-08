@@ -819,7 +819,7 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
           });
           store.invalidate(guild.id);
           return interaction.reply({
-            content: `🎉 Đã tạo giveaway "${title}" tại ${interaction.channel} — bot gửi embed trong ~30 giây!`,
+            content: `🎉 Đã tạo giveaway "${title}" tại ${interaction.channel} — bot gửi embed trong ~1 phút!`,
             ephemeral: true,
           });
         } catch (e) {
@@ -836,7 +836,7 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         store.invalidate(guild.id);
         return interaction.reply({
           content: res.ok
-            ? `✅ Đã kết thúc giveaway "${title}" — bot chốt người thắng trong ~30 giây.`
+            ? `✅ Đã kết thúc giveaway "${title}" — bot chốt người thắng trong ~1 phút.`
             : `Không tìm thấy giveaway đang chạy tên "${title}".`,
           ephemeral: true,
         });
@@ -899,7 +899,7 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
           });
           store.invalidate(guild.id);
           return interaction.reply({
-            content: `✅ Đã tạo bảng "${label}" tại ${channel} — bot gửi tin nhắn trong ~30 giây.`,
+            content: `✅ Đã tạo bảng "${label}" tại ${channel} — bot gửi tin nhắn trong ~1 phút.`,
             ephemeral: true,
           });
         } catch (e) {
@@ -929,7 +929,7 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
           });
           store.invalidate(guild.id);
           return interaction.reply({
-            content: `✅ Đã thêm ${emoji} → ${role} vào bảng "${panel.label}" — bot gửi bảng mới trong ~30 giây.`,
+            content: `✅ Đã thêm ${emoji} → ${role} vào bảng "${panel.label}" — bot gửi bảng mới trong ~1 phút.`,
             ephemeral: true,
           });
         } catch (e) {
@@ -959,7 +959,7 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
           });
           store.invalidate(guild.id);
           return interaction.reply({
-            content: `✅ Đã gỡ ${emoji} khỏi bảng "${panel.label}" — bot gửi bảng mới trong ~30 giây.`,
+            content: `✅ Đã gỡ ${emoji} khỏi bảng "${panel.label}" — bot gửi bảng mới trong ~1 phút.`,
             ephemeral: true,
           });
         } catch (e) {
@@ -993,7 +993,7 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
           await store.client.mutation("hidden:botUpdatePanel", patch);
           store.invalidate(guild.id);
           return interaction.reply({
-            content: `✅ Đã cập nhật bảng "${panel.label}" — bot gửi bảng mới trong ~30 giây.`,
+            content: `✅ Đã cập nhật bảng "${panel.label}" — bot gửi bảng mới trong ~1 phút.`,
             ephemeral: true,
           });
         } catch (e) {
@@ -1073,7 +1073,7 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
           });
           store.invalidate(guildId);
           return interaction.reply({
-            content: `✅ Đã yêu cầu khôi phục backup của **${backup.guildName}** (${backup.roleCount} role · ${backup.channelCount} kênh) — bot tạo lại cấu trúc trong ~30 giây.`,
+            content: `✅ Đã yêu cầu khôi phục backup của **${backup.guildName}** (${backup.roleCount} role · ${backup.channelCount} kênh) — bot tạo lại cấu trúc trong ~1 phút.`,
             ephemeral: true,
           });
         } catch (e) {

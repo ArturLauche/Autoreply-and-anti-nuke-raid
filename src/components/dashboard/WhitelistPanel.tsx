@@ -56,7 +56,7 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
         whitelistUsers,
         whitelistRoles,
       });
-      toast.success("Đã lưu whitelist — bot áp dụng trong vòng 30 giây");
+      toast.success("Đã lưu whitelist — bot áp dụng trong vòng ~3 phút");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Lưu thất bại");
     } finally {

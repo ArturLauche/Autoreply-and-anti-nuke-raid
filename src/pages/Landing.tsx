@@ -384,7 +384,7 @@ function Features() {
           {[
             { icon: Crown, t: "Warn tích lũy", d: "Đủ N lần warn → tự tăng cấp hình phạt" },
             { icon: LayoutDashboard, t: "Bảng nhiệt & warn", d: "Xem từng thành viên, xóa nhiệt 1 cú nhấn" },
-            { icon: Zap, t: "Đồng bộ 30 giây", d: "Chỉnh trên web → bot áp dụng ngay" },
+            { icon: Zap, t: "Đồng bộ tự động", d: "Chỉnh trên web → bot áp dụng trong vài phút" },
             { icon: Timer, t: "Báo cáo hàng ngày", d: "Tóm tắt sự kiện, nhiệt & warn gửi vào kênh log" },
           ].map((b) => (
             <div key={b.t} className="flex items-start gap-3">
@@ -700,7 +700,7 @@ function HowItWorks() {
       n: "03",
       icon: LayoutDashboard,
       title: "Cấu hình trên dashboard",
-      desc: "Thêm rule trả lời, chỉnh nhiệt độ & warn, bật Join Gate, chọn hình phạt — mọi thứ hiệu lực trong 30 giây.",
+      desc: "Thêm rule trả lời, chỉnh nhiệt độ & warn, bật Join Gate, chọn hình phạt — mọi thứ hiệu lực trong vài phút.",
     },
   ];
   return (

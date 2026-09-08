@@ -233,7 +233,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
           thumbnailUrl: thumbnailUrl.trim() || null,
           entries: rows,
         });
-        toast.success("Đã cập nhật bảng — bot gửi bảng mới trong ~30 giây");
+        toast.success("Đã cập nhật bảng — bot gửi bảng mới trong ~1 phút");
       } else {
         await createPanel({
           token,
@@ -244,7 +244,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
           thumbnailUrl: thumbnailUrl.trim() || undefined,
           entries: rows,
         });
-        toast.success("Đã tạo bảng — bot sẽ gửi tin nhắn trong vòng ~30 giây");
+        toast.success("Đã tạo bảng — bot sẽ gửi tin nhắn trong vòng ~1 phút");
       }
       setOpen(false);
       setEditingPanel(null);
@@ -363,7 +363,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
               <DialogTitle>{editingPanel ? "Sửa bảng reaction role" : "Tạo bảng reaction role"}</DialogTitle>
               <DialogDescription>
                 {editingPanel
-                  ? "Bot sẽ gửi bảng mới với nội dung đã chỉnh trong vòng ~30 giây (tin nhắn cũ vẫn còn)."
+                  ? "Bot sẽ gửi bảng mới với nội dung đã chỉnh trong vòng ~1 phút (tin nhắn cũ vẫn còn)."
                   : "Bot sẽ gửi một tin nhắn vào kênh đã chọn kèm các emoji. Thành viên bấm emoji để nhận role."}
               </DialogDescription>
             </DialogHeader>

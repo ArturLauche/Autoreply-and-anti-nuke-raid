@@ -88,7 +88,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
         imageUrl: imageUrl.trim() || undefined,
         endMessage: endMessage.trim() || undefined,
       });
-      toast.success("Đã tạo giveaway — bot sẽ gửi trong vòng ~30 giây 🎉");
+      toast.success("Đã tạo giveaway — bot sẽ gửi trong vòng ~1 phút 🎉");
       setOpen(false);
       setTitle("");
       setPrize("");

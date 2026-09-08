@@ -216,7 +216,7 @@ export default function GuildPage() {
               <p className="mt-1">• 🎭 Reaction role: /reactionrole create · add · remove · edit · delete (kèm !reactionrole) hoặc tạo ngay trên dashboard.</p>
               <p className="mt-1">• 🎨 Mỗi server có chủ đề màu riêng trong Cài đặt.</p>
               <p className="mt-1">• 🎉 Lệnh giveaway: /giveaway start + !giveaway start.</p>
-              <p className="mt-1">• Thay đổi áp dụng trong ~30 giây.</p>
+              <p className="mt-1">• Thay đổi áp dụng trong ~3 phút.</p>
             </div>
           </aside>
 

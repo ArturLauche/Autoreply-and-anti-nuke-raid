@@ -292,7 +292,7 @@ export const setAutoBackup = mutation({
 });
 
 /**
- * Web bật/tắt khôi phục role / emoji/sticker khi restore backup.
+ * Web bật/tắt khôi phục role / kênh / tin nhắn / emoji-sticker khi restore backup.
  * Bot đọc qua guilds:getBotConfig và bỏ qua phần đã tắt — áp dụng cho cả
  * backup Protogon lẫn file .msc/.json của bot nuke (cùng restoreCore).
  */
@@ -301,9 +301,11 @@ export const setRestoreOptions = mutation({
     token: v.string(),
     guildId: v.string(),
     restoreRoles: v.optional(v.boolean()),
+    restoreChannels: v.optional(v.boolean()),
+    restoreMessages: v.optional(v.boolean()),
     restoreEmojis: v.optional(v.boolean()),
   },
-  handler: async (ctx, { token, guildId, restoreRoles, restoreEmojis }) => {
+  handler: async (ctx, { token, guildId, restoreRoles, restoreChannels, restoreMessages, restoreEmojis }) => {
     const user = await getUserByToken(ctx, token);
     const guild = await ctx.db
       .query("guilds")
@@ -315,9 +317,17 @@ export const setRestoreOptions = mutation({
     if (!guild.botInGuild) throw new Error("Bot chưa có trong server này");
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (typeof restoreRoles === "boolean") patch.restoreRolesEnabled = restoreRoles;
+    if (typeof restoreChannels === "boolean") patch.restoreChannelsEnabled = restoreChannels;
+    if (typeof restoreMessages === "boolean") patch.restoreMessagesEnabled = restoreMessages;
     if (typeof restoreEmojis === "boolean") patch.restoreEmojisEnabled = restoreEmojis;
     await ctx.db.patch(guild._id, patch);
-    return { ok: true, restoreRoles: guild.restoreRolesEnabled ?? true, restoreEmojis: guild.restoreEmojisEnabled ?? true };
+    return {
+      ok: true,
+      restoreRoles: guild.restoreRolesEnabled ?? true,
+      restoreChannels: guild.restoreChannelsEnabled ?? true,
+      restoreMessages: guild.restoreMessagesEnabled ?? true,
+      restoreEmojis: guild.restoreEmojisEnabled ?? true,
+    };
   },
 });
 

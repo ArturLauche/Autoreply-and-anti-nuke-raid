@@ -584,7 +584,7 @@ async function handleGiveaway(client, message, args, config, store) {
     store.invalidate(message.guild.id);
     return message.reply(
       res.ok
-        ? `✅ Đã kết thúc giveaway "${name}" — bot sẽ chốt người thắng trong ~30 giây.`
+        ? `✅ Đã kết thúc giveaway "${name}" — bot sẽ chốt người thắng trong ~1 phút.`
         : `Không tìm thấy giveaway đang chạy tên "${name}".`,
     );
   }
@@ -615,7 +615,7 @@ async function handleGiveaway(client, message, args, config, store) {
       });
       store.invalidate(message.guild.id);
       return message.reply(
-        `🎉 Đã tạo giveaway "${title}" ngay tại kênh này — bot gửi embed trong ~30 giây!`,
+        `🎉 Đã tạo giveaway "${title}" ngay tại kênh này — bot gửi embed trong ~1 phút!`,
       );
     } catch (e) {
       return message.reply(`❌ ${e.message}`);
@@ -688,7 +688,7 @@ async function handleReactionRole(client, message, args, config, store) {
       });
       store.invalidate(message.guild.id);
       return message.reply(
-        `✅ Đã tạo bảng "${label}" tại ${channel} — bot gửi tin nhắn trong ~30 giây.`,
+        `✅ Đã tạo bảng "${label}" tại ${channel} — bot gửi tin nhắn trong ~1 phút.`,
       );
     } catch (e) {
       return message.reply(`❌ ${e.message}`);
@@ -716,7 +716,7 @@ async function handleReactionRole(client, message, args, config, store) {
       });
       store.invalidate(message.guild.id);
       return message.reply(
-        `✅ Đã thêm ${emoji} → ${role} vào bảng "${panel.label}" — bot gửi bảng mới trong ~30 giây.`,
+        `✅ Đã thêm ${emoji} → ${role} vào bảng "${panel.label}" — bot gửi bảng mới trong ~1 phút.`,
       );
     } catch (e) {
       return message.reply(`❌ ${e.message}`);
@@ -741,7 +741,7 @@ async function handleReactionRole(client, message, args, config, store) {
       });
       store.invalidate(message.guild.id);
       return message.reply(
-        `✅ Đã gỡ ${emoji} khỏi bảng "${panel.label}" — bot gửi bảng mới trong ~30 giây.`,
+        `✅ Đã gỡ ${emoji} khỏi bảng "${panel.label}" — bot gửi bảng mới trong ~1 phút.`,
       );
     } catch (e) {
       return message.reply(`❌ ${e.message}`);
@@ -768,7 +768,7 @@ async function handleReactionRole(client, message, args, config, store) {
       await store.client.mutation("hidden:botUpdatePanel", patch);
       store.invalidate(message.guild.id);
       return message.reply(
-        `✅ Đã cập nhật bảng "${panel.label}" — bot gửi bảng mới trong ~30 giây.`,
+        `✅ Đã cập nhật bảng "${panel.label}" — bot gửi bảng mới trong ~1 phút.`,
       );
     } catch (e) {
       return message.reply(`❌ ${e.message}`);
@@ -853,7 +853,7 @@ async function handleBackup(client, message, args, config, store) {
       });
       store.invalidate(guildId);
       return message.reply(
-        `✅ Đã yêu cầu khôi phục backup của **${backup.guildName}** (${backup.roleCount} role · ${backup.channelCount} kênh) — bot tạo lại cấu trúc trong ~30 giây.`,
+        `✅ Đã yêu cầu khôi phục backup của **${backup.guildName}** (${backup.roleCount} role · ${backup.channelCount} kênh) — bot tạo lại cấu trúc trong ~1 phút.`,
       );
     } catch (e) {
       return message.reply(`❌ ${e.message}`);

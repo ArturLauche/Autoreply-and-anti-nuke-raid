@@ -126,7 +126,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
   async function setRaidHunt(patch: { raidHuntEnabled?: boolean; raidHuntBanSuspects?: boolean }) {
     try {
       await updateSettings({ token: TOKEN(), guildId: data.guild.discordId, ...patch });
-      toast.success("Đã lưu cài đặt Raid Intel — bot áp dụng trong ~30 giây");
+      toast.success("Đã lưu cài đặt Raid Intel — bot áp dụng trong ~3 phút");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Lưu thất bại");
     }

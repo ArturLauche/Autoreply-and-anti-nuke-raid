@@ -245,7 +245,7 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
             </li>
             <li className="flex gap-2">
               <span className="text-primary">•</span>
-              Thay đổi cấu hình được bot đồng bộ tự động trong vòng ~30 giây.
+              Thay đổi cấu hình được bot đồng bộ tự động trong vòng ~3 phút.
             </li>
             <li className="flex gap-2">
               <span className="text-primary">•</span>
