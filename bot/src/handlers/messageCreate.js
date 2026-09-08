@@ -71,6 +71,40 @@ module.exports = async function onMessageCreate(client, message, store, heat) {
       if (member && config.unverifiedRoleId && member.roles.cache.has(config.unverifiedRoleId)) {
         const result = verifyCode(message.guild.id, member.id, content);
         if (result.ok) {
+          // === ALT DETECTION AT VERIFY GATE (Double Counter style) ===
+          if (config.altDetectionEnabled) {
+            try {
+              const { analyzeNewMember, executePunishment, buildRiskEmbed } = require("../altDetection");
+              const analysis = await analyzeNewMember(member, config, (guildId) => store.getConfig(guildId));
+              const maxRisk = config.altMaxRiskScore ?? 70;
+              if (analysis.riskScore >= maxRisk && analysis.action !== "pass") {
+                const punishResult = await executePunishment(member, analysis, config);
+                await message.reply({
+                  content: `❌ **Xác minh bị từ chối.** Tài khoản có rủi ro cao (**${analysis.riskScore}/100**). ${punishResult.executed ? `Đã xử lý: ${punishResult.action}` : "Liên hệ admin."}`,
+                  failIfNotExists: false,
+                }).catch(() => {});
+                // Log
+                const { sendLog } = require("../util");
+                const embed = buildRiskEmbed(member, analysis, punishResult);
+                embed.setTitle("🚫 Alt Detected at Verify Gate (Captcha)");
+                await sendLog(message.guild, config, embed).catch(() => {});
+                await store.client.mutation("bot_writes:botRecordAntinukeEvent", {
+                  guildId: message.guild.id,
+                  module: "altDetection",
+                  executorId: member.id,
+                  executorName: member.user.username,
+                  action: `${punishResult.action} at verify gate (captcha) — risk: ${analysis.riskScore}/100 — ${analysis.riskFactors.join(", ")}`,
+                  count: 1, windowSeconds: 60, threshold: 1, punish: analysis.action,
+                }).catch(() => {});
+                console.log(`[verify:alt:captcha] ${message.guild.name}/${member.user.username} BLOCKED — risk=${analysis.riskScore}`);
+                setTimeout(() => message.delete().catch(() => {}), 3000);
+                return;
+              }
+            } catch (e) {
+              console.error(`[verify:alt:captcha] ${message.guild.id}:`, e.message);
+            }
+          }
+          // Normal verify
           try {
             if (config.unverifiedRoleId) await member.roles.remove(config.unverifiedRoleId, "Xác minh thành công (captcha)");
             if (config.verifiedRoleId) await member.roles.add(config.verifiedRoleId, "Xác minh thành công (captcha)");

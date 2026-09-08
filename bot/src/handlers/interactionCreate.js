@@ -64,6 +64,7 @@ function parsePairs(pairsRaw, guild) {
 }
 
 const { genCaptcha, setCode } = require("../captchaStore");
+const { analyzeNewMember, executePunishment, buildRiskEmbed } = require("../altDetection");
 
 module.exports = async function onInteractionCreate(client, interaction, store, heat) {
   // Handle button interactions (verify_confirm + verify_request_captcha)
@@ -125,11 +126,62 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         return interaction.reply({ content: "❌ Không tìm thấy thành viên.", ephemeral: true });
       }
       try {
-        // Gỡ role unverified
+        // === ALT DETECTION AT VERIFY GATE (Double Counter style) ===
+        // When user clicks verify, run full alt analysis.
+        // If risk is too high, ban/kick instead of verifying.
+        let altBanned = false;
+        if (config.altDetectionEnabled) {
+          try {
+            const analysis = await analyzeNewMember(member, config, (guildId) => store.getConfig(guildId));
+            const maxRisk = config.altMaxRiskScore ?? 70;
+            if (analysis.riskScore >= maxRisk && analysis.action !== "pass") {
+              // Execute punishment instead of verifying
+              const punishResult = await executePunishment(member, analysis, config);
+              altBanned = true;
+
+              // Reply to user with reason
+              await interaction.reply({
+                content: `❌ **Xác minh bị từ chối.** Tài khoản của bạn được đánh giá là có rủi ro cao (**${analysis.riskScore}/100**). ${punishResult.executed ? `Đã xử lý: ${punishResult.action}` : "Vui lòng liên hệ quản trị viên."}`,
+                ephemeral: true,
+              }).catch(() => {});
+
+              // Log to mod channel
+              const { sendLog, logEmbed } = require("../util");
+              const embed = buildRiskEmbed(member, analysis, punishResult);
+              embed.setTitle("🚫 Alt Detected at Verify Gate");
+              embed.setDescription(
+                `<@${member.id}>试图 xác minh nhưng bị chặn vì alt account.\n\n` +
+                `**Risk Score:** ${analysis.riskScore}/100\n` +
+                `**Factors:** ${analysis.riskFactors.join(", ")}`,
+              );
+              await sendLog(guild, config, embed).catch(() => {});
+
+              // Record as antinuke event
+              await store.client.mutation("bot_writes:botRecordAntinukeEvent", {
+                guildId: guild.id,
+                module: "altDetection",
+                executorId: member.id,
+                executorName: member.user.username,
+                action: `${punishResult.action} at verify gate — risk: ${analysis.riskScore}/100 — ${analysis.riskFactors.join(", ")}`,
+                count: 1,
+                windowSeconds: 60,
+                threshold: 1,
+                punish: analysis.action,
+              }).catch(() => {});
+
+              console.log(`[verify:alt] ${guild.name}/${member.user.username} BLOCKED at verify — risk=${analysis.riskScore} action=${punishResult.action}`);
+              return;
+            }
+          } catch (e) {
+            console.error(`[verify:alt] ${guild.id}:`, e.message);
+            // If alt detection fails, still allow verify (fail-open for UX)
+          }
+        }
+
+        // Normal verify flow
         if (member.roles.cache.has(unverifiedRoleId)) {
           await member.roles.remove(unverifiedRoleId, "Xác minh thành công");
         }
-        // Gán role verified
         if (!member.roles.cache.has(verifiedRoleId)) {
           await member.roles.add(verifiedRoleId, "Xác minh thành công");
         }
