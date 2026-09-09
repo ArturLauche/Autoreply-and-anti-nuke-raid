@@ -123,7 +123,10 @@ async function syncAll(client, store) {
   return { count, trustedFullList };
 }
 
-/** Upsert nhanh 1 guild vừa mời bot */
+/** Upsert nhanh 1 guild vừa mời bot — sync NGAY tên/icon/thành viên + channels + roles.
+ *  Previously only synced basic info, causing empty dropdowns on web dashboard
+ *  until the next syncAll cycle (~5 min). Now syncs everything immediately.
+ */
 async function syncOne(client, store, guildId) {
   const g = client.guilds.cache.get(guildId);
   if (!g) return;
@@ -141,6 +144,30 @@ async function syncOne(client, store, guildId) {
     });
   } catch (err) {
     console.error(`[sync:one] ${guildId}:`, err.message);
+  }
+
+  // Sync channels + roles NGAY LẬP TỨC để web dashboard hiển thị dropdown.
+  try {
+    const channels = g.channels.cache
+      .filter((c) => SYNC_CHANNEL_TYPES.includes(c.type))
+      .map((c) => ({ channelId: c.id, name: c.name, type: c.type }));
+    const roles = g.roles.cache
+      .filter((r) => r.name !== "@everyone")
+      .map((r) => ({ roleId: r.id, name: r.name, color: r.color, position: r.position }));
+
+    if (channels.length > 0) {
+      await store.client.mutation("guilds:syncChannels", { guildId, channels });
+    }
+    if (roles.length > 0) {
+      await store.client.mutation("guilds:syncRoles", { guildId, roles });
+    }
+    prevGuildData.set(guildId, {
+      name: g.name, icon: g.icon, memberCount: g.memberCount,
+      channelHash: quickHash(JSON.stringify(channels)),
+      roleHash: quickHash(JSON.stringify(roles)),
+    });
+  } catch (err) {
+    console.error(`[sync:one:channels] ${guildId}:`, err.message);
   }
 }
 

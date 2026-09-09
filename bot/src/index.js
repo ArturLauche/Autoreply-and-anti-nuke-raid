@@ -222,6 +222,8 @@ client.on("guildMemberAdd", (m) => joinGate(client, m, store).catch((e) => conso
 client.on("guildCreate", (guild) => {
   console.log(`[guildCreate] ${guild.name} (${guild.id}) — ${client.guilds.cache.size} server`);
   guildSync.syncOne(client, store, guild.id).catch((e) => console.error(`[guildCreate:sync] ${guild.id}:`, e.message));
+  // Đảm bảo server mới có đủ module antinuke mặc định (nếu botSyncGuilds bị lỗi).
+  guildSync.ensureModules(client, store).catch((e) => console.error(`[guildCreate:ensure] ${guild.id}:`, e.message));
 });
 client.on("guildDelete", (guild) => {
   console.log(`[guildDelete] ${guild.name ?? guild.id} — ${client.guilds.cache.size} server`);
