@@ -64,11 +64,19 @@ async function sendToChannel(guild, channelId, embed) {
  * Không có webhook / gửi thất bại → false để fallback kênh như cũ.
  * meta: { action, reason, user, mod } để chèn vào placeholder nội dung kèm.
  */
-async function deliverViaWebhooks(guild, eventType, embed, meta = {}) {
+async function deliverViaWebhooks(guild, eventType, embed, meta = {}, targetChannelId) {
   if (!guild) return false;
   try {
     const hub = require("./webhookHub");
-    const matched = await hub.matchFor(guild.id, eventType);
+    let matched = await hub.matchFor(guild.id, eventType);
+
+    // Nếu chưa có webhook nào — thử tạo on-the-fly "Protogon Log".
+    // targetChannelId: kênh ưu tiên tạo webhook (modLog → log).
+    if (matched.length === 0 && targetChannelId) {
+      const created = await hub.ensureDefaultWebhook(guild, targetChannelId);
+      if (created) matched = [created];
+    }
+
     if (matched.length === 0) return false;
     let sent = 0;
     for (const wh of matched) {
@@ -112,9 +120,9 @@ async function sendLog(guild, guildConfig, embed, eventType, meta = {}) {
   // cầu: webhook mặc định chỉ hoạt động sau khi chủ server set kênh log.
   if (!guildConfig || (!guildConfig.logChannelId && !guildConfig.modLogChannelId)) return;
   const et = eventType || inferEventType(embed);
-  // Ưu tiên webhook (tùy chỉnh khớp hạng mục → webhook mặc định của bot).
-  if (await deliverViaWebhooks(guild, et, embed, meta)) return;
-  if (guildConfig.logChannelId) await sendToChannel(guild, guildConfig.logChannelId, embed);
+  const targetChannel = guildConfig.modLogChannelId ?? guildConfig.logChannelId;
+  // Toàn bộ log gửi qua webhook — KHÔNG fallback kênh thường.
+  await deliverViaWebhooks(guild, et, embed, meta, targetChannel);
 }
 
 /**
@@ -127,17 +135,9 @@ async function sendLog(guild, guildConfig, embed, eventType, meta = {}) {
  */
 async function sendModLog(guild, guildConfig, embed, preferChannelId, eventType = "mod", meta = {}) {
   if (!guildConfig) return false;
-  // Webhook khớp hạng mục (hoặc wildcard mod/all) được ưu tiên hơn kênh thường.
-  if (await deliverViaWebhooks(guild, eventType, embed, meta)) return true;
-  const candidates = [
-    preferChannelId,
-    guildConfig.modLogChannelId,
-    guildConfig.logChannelId,
-  ].filter(Boolean);
-  for (const channelId of [...new Set(candidates)]) {
-    if (await sendToChannel(guild, channelId, embed)) return true;
-  }
-  return false;
+  const targetChannel = preferChannelId ?? guildConfig.modLogChannelId ?? guildConfig.logChannelId;
+  // Toàn bộ log gửi qua webhook — KHÔNG fallback kênh thường.
+  return await deliverViaWebhooks(guild, eventType, embed, meta, targetChannel);
 }
 
 function mentionRoles(roleIds) {

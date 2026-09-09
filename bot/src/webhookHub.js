@@ -166,9 +166,69 @@ async function send(whInfo, embed, meta = {}) {
   return true;
 }
 
+/**
+ * Đảm bảo webhook MẶC ĐỊNH "Protogon Log" tồn tại cho guild + channelId.
+ * Nếu đã có trong cache → trả về ngay. Nếu chưa có trên Discord → tạo mới.
+ * Trả về object webhook info (phù hợp với matchFor/send) hoặc null nếu tạo thất bại.
+ * Dùng trong util.js: khi gửi log mà chưa có webhook → gọi hàm này để tạo on-the-fly.
+ */
+async function ensureDefaultWebhook(guild, channelId) {
+  if (!client || !store || !guild || !channelId) return null;
+  const guildId = guild.id;
+
+  // 1. Kiểm tra cache trước — webhook mặc định đã tạo rồi?
+  const cached = await getForGuild(guildId);
+  const existing = cached.find((w) => w.isDefault);
+  if (existing) return existing;
+
+  // 2. Kiểm tra trên Convex (có thể bot vừa nhận config mới chưa sync cache).
+  try {
+    const rows = await store.client.query("webhooks:botGetWebhooks", { guildId });
+    const def = rows.find((w) => w.isDefault);
+    if (def) {
+      invalidateCache(guildId);
+      return def;
+    }
+  } catch {
+    // Bỏ qua — sẽ tạo mới bên dưới.
+  }
+
+  // 3. Chưa có → tạo webhook trên Discord.
+  try {
+    const channel = await guild.channels.fetch(channelId).catch(() => null);
+    if (!channel || !channel.isTextBased()) return null;
+    const created = await channel.createWebhook({
+      name: "Protogon Log",
+      avatar: (await resolveAvatar(client.user?.displayAvatarURL({ size: 256 }))) || undefined,
+    });
+    await store.client.mutation("webhooks:botDefaultWebhookReady", {
+      guildId,
+      channelId,
+      discordWebhookId: created.id,
+      token: created.token,
+    });
+    invalidateCache(guildId);
+    console.log(`[webhook:ensure] ${guildId}: đã tự tạo "Protogon Log" tại #${channel.name}`);
+    return {
+      _id: "new",
+      name: created.name,
+      webhookId: created.id,
+      token: created.token,
+      color: null,
+      contentTemplate: null,
+      eventTypes: ["all"],
+      isDefault: true,
+    };
+  } catch (e) {
+    console.error(`[webhook:ensure] ${guildId}:`, e.message);
+    return null;
+  }
+}
+
 module.exports = {
   init,
   reconcileDefaultWebhook,
+  ensureDefaultWebhook,
   matchFor,
   send,
   getForGuild,
