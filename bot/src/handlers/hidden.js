@@ -423,12 +423,6 @@ async function pollHidden(client, store) {
         await sendDirectDm(client, store, guild.id);
       }
 
-      // Webhook tùy chỉnh (tạo/sửa/xóa/test) — gộp vào cùng batch để tiết kiệm
-      // 1 query mỗi vòng quét (bot cũ gọi webhooks:botGetWebhookJobs riêng).
-      for (const job of hidden.webhooks || []) {
-        await webhookHub.processJob(job);
-      }
-
       // Webhook MẶC ĐỊNH của bot: tự tạo "Protogon Log" khi đã set kênh log,
       // tự gỡ khi bỏ set kênh hoặc kênh đổi chỗ (xem getBotHiddenJobs).
       if (hidden.defaultWebhook) {

@@ -1,218 +1,282 @@
-import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
-import { toast } from "sonner";
+import { useState, useCallback } from "react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import {
-  Check,
-  Eye,
-  Link2,
-  Palette,
-  Pencil,
-  Plus,
   Send,
+  Plus,
   Trash2,
-  Webhook as WebhookIcon,
-  X,
+  Palette,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  Link,
+  Image,
+  Type,
+  MessageSquare,
+  User,
+  Clock,
 } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { Card, CardContent } from "../ui/card";
-import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
+import { toast } from "sonner";
 import type { GuildData } from "../../lib/types";
 import { getSessionToken } from "../../lib/discord";
 
 const TOKEN = () => getSessionToken();
 
-interface WebhookRow {
-  _id: Id<"guildWebhooks">;
+/* ======================== Types ======================== */
+
+interface EmbedField {
   name: string;
-  channelId: string;
-  avatarUrl: string | null;
-  color: number | null;
-  contentTemplate: string | null;
-  eventTypes: string[];
-  enabled: boolean;
-  status: "pending_create" | "ready" | "pending_update" | "pending_delete" | "error";
-  testRequested: boolean;
-  isDefault: boolean;
-  webhookId: string | null;
-  lastError: string | null;
-  createdAt: number;
+  value: string;
+  inline: boolean;
 }
 
-/** Hạng mục log chi tiết — webhook chọn thoải mái, không giới hạn số lượng. */
-const EVENT_LABELS: Record<string, string> = {
-  ban: "🚫 Ban",
-  kick: "👢 Kick",
-  timeout: "⏱️ Timeout",
-  warn: "⚠️ Warn",
-  purge: "🧹 Purge / xóa tin",
-  unban: "🔓 Gỡ ban",
-  untimeout: "🔓 Gỡ timeout",
-  antinuke: "🛡️ Anti nuke (phá kênh/role/ban kick hàng loạt)",
-  raid: "🚨 Raid (thành viên/app ngoài/nút bấm)",
-  join: "🚪 Join Gate / verify / alt & VPN",
-  leave: "🚶 Thành viên rời server",
-  settings: "⚙️ Thay đổi cài đặt",
-  general: "📦 Log chung còn lại",
-  mod: "⚖️ TẤT CẢ hình phạt (ban+kick+timeout+warn…)",
-  all: "🌟 MỌI log (thay webhook mặc định)",
+interface EmbedData {
+  title: string;
+  description: string;
+  color: string; // hex string like "#5865F2"
+  authorName: string;
+  authorIconUrl: string;
+  authorUrl: string;
+  fields: EmbedField[];
+  imageUrl: string;
+  thumbnailUrl: string;
+  footerText: string;
+  footerIconUrl: string;
+  timestamp: boolean;
+}
+
+const EMPTY_EMBED: EmbedData = {
+  title: "",
+  description: "",
+  color: "#5865F2",
+  authorName: "",
+  authorIconUrl: "",
+  authorUrl: "",
+  fields: [],
+  imageUrl: "",
+  thumbnailUrl: "",
+  footerText: "",
+  footerIconUrl: "",
+  timestamp: false,
 };
 
-function hexToNumber(hex: string): number | undefined {
-  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex.trim());
-  return m ? parseInt(m[1], 16) : undefined;
+function hexToDecimal(hex: string): number {
+  const clean = hex.replace("#", "");
+  return parseInt(clean, 16) || 0;
 }
 
-function numberToHex(n: number | null | undefined): string {
-  if (n === null || n === undefined) return "#f2629e";
-  return "#" + n.toString(16).padStart(6, "0");
+function isValidUrl(url: string): boolean {
+  if (!url) return true;
+  return /^https?:\/\/.+/i.test(url);
 }
 
-const STATUS_BADGE: Record<WebhookRow["status"], { label: string; cls: string }> = {
-  pending_create: { label: "⏳ Đang tạo…", cls: "secondary" },
-  pending_update: { label: "⏳ Đang đồng bộ…", cls: "secondary" },
-  pending_delete: { label: "🗑️ Chờ xóa…", cls: "secondary" },
-  ready: { label: "✅ Sẵn sàng", cls: "success" },
-  error: { label: "⚠️ Lỗi", cls: "danger" },
-};
+function isValidWebhookUrl(url: string): boolean {
+  return /^https:\/\/discord\.com\/api\/webhooks\/\d{17,20}\/[\w-]{60,68}(\?wait=\d+)?$/.test(url);
+}
 
-export default function WebhookPanel({ data }: { data: GuildData }) {
-  const g = data.guild;
-  const token = TOKEN();
-  const webhooks = useQuery(api.webhooks.getGuildWebhooks, {
-    token,
-    guildId: g.discordId,
-  }) as WebhookRow[] | null | undefined;
+/* ======================== Discord Embed Preview ======================== */
 
-  const createWebhook = useMutation(api.webhooks.createWebhook);
-  const updateWebhook = useMutation(api.webhooks.updateWebhook);
-  const toggleWebhook = useMutation(api.webhooks.toggleWebhook);
-  const toggleDefaultWebhook = useMutation(api.webhooks.toggleDefaultWebhook);
-  const deleteWebhook = useMutation(api.webhooks.deleteWebhook);
-  const requestTest = useMutation(api.webhooks.requestWebhookTest);
+function EmbedPreview({ embed }: { embed: EmbedData }) {
+  const hasAnyContent =
+    embed.title || embed.description || embed.authorName || embed.footerText || embed.fields.length > 0 || embed.imageUrl || embed.thumbnailUrl;
 
-  const channels = data.channels.filter((c) => c.type === 0 || c.type === 5);
-
-  // Form tạo webhook
-  const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState("");
-  const [channelId, setChannelId] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [color, setColor] = useState("#f2629e");
-  const [contentTemplate, setContentTemplate] = useState("");
-  const [eventTypes, setEventTypes] = useState<string[]>(["mod"]);
-
-  // Form sửa (mở rộng từng dòng)
-  const [editing, setEditing] = useState<string | null>(null);
-
-  async function handleCreate() {
-    if (!name.trim()) return toast.error("Cần đặt tên cho webhook");
-    if (!channelId) return toast.error("Chọn kênh nhận log");
-    try {
-      await createWebhook({
-        token,
-        guildId: g.discordId,
-        name: name.trim(),
-        channelId,
-        avatarUrl: avatarUrl.trim() || undefined,
-        color: hexToNumber(color),
-        contentTemplate: contentTemplate.trim() || undefined,
-        eventTypes,
-      });
-      toast.success("Đã gửi yêu cầu — bot sẽ tạo webhook trong ~1 phút");
-      setShowForm(false);
-      setName("");
-      setChannelId("");
-      setAvatarUrl("");
-      setContentTemplate("");
-      setEventTypes(["mod"]);
-    } catch (e: unknown) {
-      toast.error(String(e));
-    }
-  }
-
-  async function handleSave(id: Id<"guildWebhooks">, patch: Record<string, unknown>) {
-    try {
-      await updateWebhook({ token, guildId: g.discordId, webhookId: id, ...patch });
-      toast.success("Đã lưu — bot đồng bộ trong ~1 phút");
-      setEditing(null);
-    } catch (e: unknown) {
-      toast.error(String(e));
-    }
-  }
-
-  async function handleDelete(id: Id<"guildWebhooks">) {
-    if (!window.confirm("Xóa webhook này? Bot sẽ xóa nó khỏi Discord.")) return;
-    try {
-      await deleteWebhook({ token, guildId: g.discordId, webhookId: id });
-      toast.success("Đã yêu cầu xóa webhook");
-    } catch (e: unknown) {
-      toast.error(String(e));
-    }
-  }
-
-  async function handleTest(id: Id<"guildWebhooks">) {
-    try {
-      await requestTest({ token, guildId: g.discordId, webhookId: id });
-      toast.success("Đã yêu cầu gửi embed test — kiểm tra kênh trong ~1 phút");
-    } catch (e: unknown) {
-      toast.error(String(e));
-    }
-  }
-
-  function toggleEvent(type: string) {
-    setEventTypes((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
+  if (!hasAnyContent) {
+    return (
+      <div className="rounded-lg border border-[#3f4147] bg-[#2b2d31] p-4 text-center text-xs text-[#b5bac1]">
+        Chưa có nội dung embed — hãy soạn bên trái.
+      </div>
     );
   }
 
-  const defaultWh = (webhooks ?? []).find((w) => w.isDefault) ?? null;
-  const customWhs = (webhooks ?? []).filter((w) => !w.isDefault);
-  const loading = webhooks === undefined;
+  const colorHex = embed.color || "#5865F2";
+
+  return (
+    <div className="flex gap-2">
+      {/* Author icon (left of embed) */}
+      {embed.authorName && embed.authorIconUrl && isValidUrl(embed.authorIconUrl) && (
+        <img
+          src={embed.authorIconUrl}
+          alt=""
+          className="mt-1 h-8 w-8 rounded-full object-cover"
+          onError={(e) => (e.currentTarget.style.display = "none")}
+        />
+      )}
+      <div className="min-w-0 flex-1 overflow-hidden rounded-lg border-l-4 bg-[#2b2d31]" style={{ borderColor: colorHex }}>
+        {/* Author */}
+        {embed.authorName && (
+          <div className="flex items-center gap-1.5 px-3 pt-2">
+            {embed.authorIconUrl && isValidUrl(embed.authorIconUrl) && (
+              <img
+                src={embed.authorIconUrl}
+                alt=""
+                className="h-5 w-5 rounded-full object-cover"
+                onError={(e) => (e.currentTarget.style.display = "none")}
+              />
+            )}
+            <span className="text-xs font-semibold text-white">{embed.authorName}</span>
+          </div>
+        )}
+
+        <div className="flex gap-2 p-3">
+          <div className="min-w-0 flex-1">
+            {/* Title */}
+            {embed.title && <p className="mb-1 text-sm font-semibold text-white">{embed.title}</p>}
+            {/* Description */}
+            {embed.description && <p className="whitespace-pre-wrap text-xs text-[#dcddde]">{embed.description}</p>}
+
+            {/* Fields */}
+            {embed.fields.length > 0 && (
+              <div className="mt-2 grid gap-2" style={{ gridTemplateColumns: embed.fields.some((f) => f.inline) ? "repeat(auto-fill, minmax(120px, 1fr))" : "1fr" }}>
+                {embed.fields.map((f, i) => (
+                  <div key={i} className={f.inline ? "" : "col-span-full"}>
+                    <p className="text-xs font-semibold text-white">{f.name || "Field"}</p>
+                    <p className="text-xs text-[#dcddde]">{f.value || "Value"}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Thumbnail */}
+          {embed.thumbnailUrl && isValidUrl(embed.thumbnailUrl) && (
+            <img
+              src={embed.thumbnailUrl}
+              alt=""
+              className="h-20 w-20 shrink-0 rounded object-cover"
+              onError={(e) => (e.currentTarget.style.display = "none")}
+            />
+          )}
+        </div>
+
+        {/* Image */}
+        {embed.imageUrl && isValidUrl(embed.imageUrl) && (
+          <div className="px-3 pb-1">
+            <img
+              src={embed.imageUrl}
+              alt=""
+              className="max-h-40 w-full rounded object-cover"
+              onError={(e) => (e.currentTarget.style.display = "none")}
+            />
+          </div>
+        )}
+
+        {/* Footer */}
+        {(embed.footerText || embed.timestamp) && (
+          <div className="flex items-center gap-1.5 px-3 pb-2">
+            {embed.footerIconUrl && isValidUrl(embed.footerIconUrl) && (
+              <img
+                src={embed.footerIconUrl}
+                alt=""
+                className="h-4 w-4 rounded-full object-cover"
+                onError={(e) => (e.currentTarget.style.display = "none")}
+              />
+            )}
+            <span className="text-[11px] text-[#b5bac1]">{embed.footerText}</span>
+            {embed.timestamp && <span className="text-[11px] text-[#b5bac1]">• {new Date().toLocaleString("vi-VV")}</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ======================== Main Component ======================== */
+
+export default function WebhookPanel({ data }: { data: GuildData }) {
+  const token = TOKEN();
+  const g = data.guild;
+  const defaultWhQuery = useQuery(api.webhooks.getGuildWebhooks, { token, guildId: g.discordId });
+  const toggleDefaultWebhook = useMutation(api.webhooks.toggleDefaultWebhook);
+  const sendEmbed = useAction(api.webhooks.sendEmbed);
+
+  /* --- Default webhook state --- */
+  const defaultWh = defaultWhQuery?.find((w) => w.isDefault) ?? null;
+
+  /* --- Embed builder state --- */
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [username, setUsername] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [content, setContent] = useState("");
+  const [embed, setEmbed] = useState<EmbedData>({ ...EMPTY_EMBED });
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  const updateEmbed = useCallback((patch: Partial<EmbedData>) => {
+    setEmbed((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  /* --- Send --- */
+  async function handleSend() {
+    if (!webhookUrl.trim()) {
+      toast.error("Nhập Discord Webhook URL");
+      return;
+    }
+    if (!isValidWebhookUrl(webhookUrl)) {
+      toast.error("URL webhook không hợp lệ — phải đúng định dạng discord.com/api/webhooks/{id}/{token}");
+      return;
+    }
+
+    setSending(true);
+    setResult(null);
+
+    try {
+      const embedPayload: Record<string, unknown> = {};
+      if (embed.title) embedPayload.title = embed.title;
+      if (embed.description) embedPayload.description = embed.description;
+      if (embed.color) embedPayload.color = hexToDecimal(embed.color);
+      if (embed.authorName) {
+        const author: Record<string, string> = { name: embed.authorName };
+        if (embed.authorIconUrl && isValidUrl(embed.authorIconUrl)) author.icon_url = embed.authorIconUrl;
+        if (embed.authorUrl && isValidUrl(embed.authorUrl)) author.url = embed.authorUrl;
+        embedPayload.author = author;
+      }
+      if (embed.fields.length > 0) {
+        embedPayload.fields = embed.fields.map((f) => ({
+          name: f.name,
+          value: f.value,
+          inline: f.inline,
+        }));
+      }
+      if (embed.imageUrl && isValidUrl(embed.imageUrl)) embedPayload.image = { url: embed.imageUrl };
+      if (embed.thumbnailUrl && isValidUrl(embed.thumbnailUrl)) embedPayload.thumbnail = { url: embed.thumbnailUrl };
+      if (embed.footerText) {
+        const footer: Record<string, string> = { text: embed.footerText };
+        if (embed.footerIconUrl && isValidUrl(embed.footerIconUrl)) footer.icon_url = embed.footerIconUrl;
+        embedPayload.footer = footer;
+      }
+      if (embed.timestamp) embedPayload.timestamp = new Date().toISOString();
+
+      const hasEmbed = Object.keys(embedPayload).length > 0;
+
+      await sendEmbed({
+        webhookUrl: webhookUrl.trim(),
+        content: content.trim() || undefined,
+        username: username.trim() || undefined,
+        avatarUrl: avatarUrl.trim() || undefined,
+        embeds: hasEmbed ? [embedPayload as any] : [],
+      });
+
+      setResult({ ok: true, msg: "Đã gửi thành công! Kiểm tra kênh Discord." });
+      toast.success("Gửi thành công!");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setResult({ ok: false, msg });
+      toast.error(msg);
+    } finally {
+      setSending(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-primary">
-          <WebhookIcon className="h-5 w-5" />
-        </span>
-        <div>
-          <h2 className="font-display text-lg font-bold">Webhook tùy chỉnh</h2>
-          <p className="text-xs text-muted-foreground">
-            Bot tự tạo webhook theo ý bạn — tên, emoji, avatar, màu embed, nội dung kèm — rồi gửi log
-            vào kênh đã chọn.
-          </p>
-        </div>
-      </div>
-
-      {/* Hướng dẫn nhanh */}
-      <div className="rounded-xl bg-muted/50 p-4 text-xs leading-relaxed text-muted-foreground">
-        <p className="mb-1 font-semibold text-foreground">💡 Cách hoạt động:</p>
-        <p>
-          • <b className="text-foreground">Webhook mặc định</b> của bot: chỉ cần set{" "}
-          <b className="text-foreground">Kênh log</b> trong Cài đặt là bot tự tạo{" "}
-          <code className="rounded bg-muted px-1 font-mono">Protogon Log</code> (avatar bot) — nhận
-          toàn bộ hình phạt + anti nuke/raid mà chưa có webhook tùy chỉnh nào nhận.
-        </p>
-        <p className="mt-1">
-          • <b className="text-foreground">Webhook tùy chỉnh</b> tạo không giới hạn số lượng — chọn
-          hạng mục chi tiết (ban, kick, timeout, warn, purge, antinuke, raid…) hoặc nhóm gộp (mod /
-          general / all). Có webhook khớp → log gửi qua webhook đó (ưu tiên hơn webhook mặc định).
-        </p>
-        <p className="mt-1">
-          • Sau khi tạo, bot tạo webhook trên Discord trong khoảng 1 phút — bấm{" "}
-          <b className="text-foreground">Gửi thử</b> để kiểm tra ngay.
-        </p>
-      </div>
-
-      {/* Webhook MẶC ĐỊNH của bot */}
+      {/* ===== WEBHOOK MẶC ĐỊNH ===== */}
       <div className="rounded-xl border border-primary/25 bg-primary/5 p-4">
         <div className="flex flex-wrap items-center gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
-            <WebhookIcon className="h-5 w-5" />
+            <Link className="h-5 w-5" />
           </span>
           <div className="min-w-0 flex-1">
             <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
@@ -226,17 +290,14 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
                 <>
                   Tên <b className="text-foreground">{defaultWh.name}</b> · kênh{" "}
                   <b className="text-foreground">
-                    #{" "}
-                    {channels.find((c) => c.channelId === defaultWh.channelId)?.name ??
-                      "kênh đã bị xóa"}
+                    # {data.channels?.find((c) => c.channelId === defaultWh.channelId)?.name ?? "kênh đã bị xóa"}
                   </b>{" "}
-                  (theo Kênh log trong Cài đặt) · nhận mọi log chưa có webhook tùy chỉnh nào khớp.
+                  (theo Kênh log trong Cài đặt) · nhận mọi log hình phạt & anti nuke/raid.
                 </>
               ) : (
                 <>
                   Chưa có — bot sẽ <b className="text-foreground">tự tạo trong ~1 phút</b> sau khi bạn{" "}
-                  <b className="text-foreground">set Kênh log</b> trong Cài đặt (hoặc Kênh log hình
-                  phạt).
+                  <b className="text-foreground">set Kênh log</b> trong Cài đặt.
                 </>
               )}
             </p>
@@ -256,362 +317,312 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
           )}
         </div>
         {defaultWh?.lastError && (
-          <p className="mt-2 rounded-lg bg-danger/10 px-3 py-2 text-xs text-red-500">
-            ⚠️ {defaultWh.lastError}
-          </p>
+          <p className="mt-2 rounded-lg bg-danger/10 px-3 py-2 text-xs text-red-500">⚠️ {defaultWh.lastError}</p>
         )}
       </div>
 
-      {/* Nút tạo mới */}
-      {!showForm && (
-        <Button onClick={() => setShowForm(true)} className="gap-2">
-          <Plus className="h-4 w-4" /> Tạo webhook mới
-        </Button>
-      )}
+      {/* ===== EMBED BUILDER (discohook.org style) ===== */}
+      <div className="space-y-4">
+        <div>
+          <h3 className="flex items-center gap-2 text-base font-semibold">
+            <MessageSquare className="h-4 w-4 text-primary" />
+            Discord Webhook Sender
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Dán webhook URL từ Discord (Kênh → Tích hợp → Webhook → Tạo webhook), soạn nội dung & embed, bấm gửi.
+          </p>
+        </div>
 
-      {/* Form tạo */}
-      {showForm && (
-        <Card>
-          <CardContent className="space-y-4 p-5">
-            <div className="flex items-center justify-between">
-              <p className="font-display text-sm font-bold">Tạo webhook mới</p>
-              <button
-                onClick={() => setShowForm(false)}
-                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                aria-label="Đóng form"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium">Tên webhook (kèm emoji nếu muốn)</Label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder='🔔 Protogon Logs'
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                  maxLength={80}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium">Kênh nhận log</Label>
-                <select
-                  value={channelId}
-                  onChange={(e) => setChannelId(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">— Chọn kênh —</option>
-                  {channels.map((ch) => (
-                    <option key={ch.channelId} value={ch.channelId}>
-                      # {ch.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium">Avatar (URL ảnh https)</Label>
-                <input
-                  type="url"
-                  value={avatarUrl}
-                  onChange={(e) => setAvatarUrl(e.target.value)}
-                  placeholder="https://…/avatar.png"
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                />
-                <p className="text-[10px] text-muted-foreground">Để trống = avatar mặc định của bot.</p>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium">Màu embed</Label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={/^#[0-9a-fA-F]{6}$/.test(color) ? color : "#f2629e"}
-                    onChange={(e) => setColor(e.target.value)}
-                    className="h-8 w-8 cursor-pointer rounded border border-border bg-transparent"
-                  />
-                  <input
-                    type="text"
-                    value={color}
-                    onChange={(e) => setColor(e.target.value)}
-                    placeholder="#f2629e"
-                    className="w-28 rounded-lg border border-border bg-background px-3 py-1.5 font-mono text-sm"
-                    maxLength={7}
-                  />
-                  <Palette className="h-3.5 w-3.5 text-muted-foreground" />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Nội dung gửi kèm (trước embed)</Label>
+        {/* Webhook URL */}
+        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+          <label className="text-xs font-medium text-muted-foreground">
+            <Link className="mr-1 inline h-3 w-3" />
+            Webhook URL
+          </label>
+          <input
+            value={webhookUrl}
+            onChange={(e) => setWebhookUrl(e.target.value)}
+            placeholder="https://discord.com/api/webhooks/123456789/abc..."
+            className="w-full rounded-lg border border-border bg-background/70 px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="text-[11px] font-medium text-muted-foreground">Username ghi đè (tùy chọn)</label>
               <input
-                type="text"
-                value={contentTemplate}
-                onChange={(e) => setContentTemplate(e.target.value)}
-                placeholder='📋 Log mới — {server} lúc {time}'
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                maxLength={500}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Protogon Bot"
+                className="mt-1 w-full rounded-lg border border-border bg-background/70 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
               />
-              <p className="text-[10px] text-muted-foreground">
-                Chèn: <code className="font-mono">{'{server}'}</code> tên server ·{" "}
-                <code className="font-mono">{'{time}'}</code> giờ · <code className="font-mono">{'{action}'}</code> hành động ·{" "}
-                <code className="font-mono">{'{reason}'}</code> lý do ·{" "}
-                <code className="font-mono">{'{user}'}</code> người bị xử lý ·{" "}
-                <code className="font-mono">{'{mod}'}</code> người thực hiện.
-              </p>
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-muted-foreground">Avatar URL ghi đè (tùy chọn)</label>
+              <input
+                value={avatarUrl}
+                onChange={(e) => setAvatarUrl(e.target.value)}
+                placeholder="https://..."
+                className="mt-1 w-full rounded-lg border border-border bg-background/70 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] font-medium text-muted-foreground">Nội dung tin nhắn (tùy chọn — gửi cùng embed)</label>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="Nội dung tin nhắn Discord..."
+              rows={2}
+              className="mt-1 w-full rounded-lg border border-border bg-background/70 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none resize-none"
+            />
+          </div>
+        </div>
+
+        {/* Embed Builder + Preview side by side */}
+        <div className="grid gap-4 xl:grid-cols-2">
+          {/* --- Builder --- */}
+          <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+            <h4 className="flex items-center gap-1.5 text-sm font-semibold">
+              <Palette className="h-3.5 w-3.5" /> Soạn Embed
+            </h4>
+
+            {/* Author */}
+            <fieldset className="rounded-lg border border-border/60 bg-secondary/30 p-3 space-y-2">
+              <legend className="flex items-center gap-1 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <User className="h-3 w-3" /> Author
+              </legend>
+              <input
+                value={embed.authorName}
+                onChange={(e) => updateEmbed({ authorName: e.target.value })}
+                placeholder="Tên tác giả"
+                className="w-full rounded border border-border bg-background/70 px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
+              />
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  value={embed.authorIconUrl}
+                  onChange={(e) => updateEmbed({ authorIconUrl: e.target.value })}
+                  placeholder="Icon URL (avatar)"
+                  className="w-full rounded border border-border bg-background/70 px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
+                />
+                <input
+                  value={embed.authorUrl}
+                  onChange={(e) => updateEmbed({ authorUrl: e.target.value })}
+                  placeholder="URL khi nhấn tên"
+                  className="w-full rounded border border-border bg-background/70 px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
+                />
+              </div>
+            </fieldset>
+
+            {/* Title + Description */}
+            <input
+              value={embed.title}
+              onChange={(e) => updateEmbed({ title: e.target.value })}
+              placeholder="Tiêu đề embed"
+              className="w-full rounded-lg border border-border bg-background/70 px-3 py-2 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
+            />
+            <textarea
+              value={embed.description}
+              onChange={(e) => updateEmbed({ description: e.target.value })}
+              placeholder="Mô tả / nội dung chính..."
+              rows={4}
+              className="w-full rounded-lg border border-border bg-background/70 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none resize-none"
+            />
+
+            {/* Color */}
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] font-medium text-muted-foreground shrink-0">
+                <Palette className="mr-1 inline h-3 w-3" />
+                Màu
+              </label>
+              <input
+                type="color"
+                value={embed.color}
+                onChange={(e) => updateEmbed({ color: e.target.value })}
+                className="h-8 w-8 cursor-pointer rounded border border-border"
+              />
+              <input
+                value={embed.color}
+                onChange={(e) => updateEmbed({ color: e.target.value })}
+                placeholder="#5865F2"
+                className="w-24 rounded border border-border bg-background/70 px-2 py-1.5 text-xs font-mono text-foreground focus:border-primary/50 focus:outline-none"
+              />
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Nhận loại log nào?</Label>
-              <div className="flex flex-col gap-2">
-                {Object.entries(EVENT_LABELS).map(([type, label]) => (
-                  <label
-                    key={type}
-                    className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-background/50 px-3 py-2 text-sm transition-colors hover:bg-accent"
-                  >
+            {/* Fields */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Fields</label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 gap-1 text-[11px]"
+                  onClick={() => updateEmbed({ fields: [...embed.fields, { name: "", value: "", inline: false }] })}
+                >
+                  <Plus className="h-3 w-3" /> Thêm
+                </Button>
+              </div>
+              {embed.fields.map((f, i) => (
+                <div key={i} className="rounded-lg border border-border/60 bg-secondary/30 p-2 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground">Field {i + 1}</span>
+                    <button
+                      onClick={() => {
+                        const next = [...embed.fields];
+                        next.splice(i, 1);
+                        updateEmbed({ fields: next });
+                      }}
+                      className="text-red-400 hover:text-red-500"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                  <input
+                    value={f.name}
+                    onChange={(e) => {
+                      const next = [...embed.fields];
+                      next[i] = { ...next[i], name: e.target.value };
+                      updateEmbed({ fields: next });
+                    }}
+                    placeholder="Tên field"
+                    className="w-full rounded border border-border bg-background/70 px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
+                  />
+                  <input
+                    value={f.value}
+                    onChange={(e) => {
+                      const next = [...embed.fields];
+                      next[i] = { ...next[i], value: e.target.value };
+                      updateEmbed({ fields: next });
+                    }}
+                    placeholder="Giá trị"
+                    className="w-full rounded border border-border bg-background/70 px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
+                  />
+                  <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                     <input
                       type="checkbox"
-                      checked={eventTypes.includes(type)}
-                      onChange={() => toggleEvent(type)}
-                      className="h-4 w-4 accent-[hsl(var(--primary))]"
+                      checked={f.inline}
+                      onChange={(e) => {
+                        const next = [...embed.fields];
+                        next[i] = { ...next[i], inline: e.target.checked };
+                        updateEmbed({ fields: next });
+                      }}
+                      className="accent-primary"
                     />
-                    {label}
+                    Inline
                   </label>
-                ))}
+                </div>
+              ))}
+            </div>
+
+            {/* Image / Thumbnail */}
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div>
+                <label className="text-[11px] font-medium text-muted-foreground">
+                  <Image className="mr-1 inline h-3 w-3" />
+                  Image URL
+                </label>
+                <input
+                  value={embed.imageUrl}
+                  onChange={(e) => updateEmbed({ imageUrl: e.target.value })}
+                  placeholder="https://..."
+                  className="mt-1 w-full rounded border border-border bg-background/70 px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-muted-foreground">
+                  <Image className="mr-1 inline h-3 w-3" />
+                  Thumbnail URL
+                </label>
+                <input
+                  value={embed.thumbnailUrl}
+                  onChange={(e) => updateEmbed({ thumbnailUrl: e.target.value })}
+                  placeholder="https://..."
+                  className="mt-1 w-full rounded border border-border bg-background/70 px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
+                />
               </div>
             </div>
 
-            <Button onClick={handleCreate} className="gap-2">
-              <Plus className="h-4 w-4" /> Tạo webhook
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+            {/* Footer + Timestamp */}
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="text-[11px] font-medium text-muted-foreground">Footer text</label>
+                <input
+                  value={embed.footerText}
+                  onChange={(e) => updateEmbed({ footerText: e.target.value })}
+                  placeholder="Protogon · Log"
+                  className="mt-1 w-full rounded border border-border bg-background/70 px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="text-[11px] font-medium text-muted-foreground">Footer icon URL</label>
+                <input
+                  value={embed.footerIconUrl}
+                  onChange={(e) => updateEmbed({ footerIconUrl: e.target.value })}
+                  placeholder="https://..."
+                  className="mt-1 w-full rounded border border-border bg-background/70 px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={embed.timestamp}
+                onChange={(e) => updateEmbed({ timestamp: e.target.checked })}
+                className="accent-primary"
+              />
+              <Clock className="h-3 w-3" />
+              Hiển thị timestamp hiện tại
+            </label>
+          </div>
 
-      {/* Danh sách webhook */}
-      <div className="space-y-3">
-        {loading && (
-          <p className="text-sm text-muted-foreground">Đang tải danh sách webhook…</p>
-        )}
-        {!loading && customWhs.length === 0 && (
-          <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            Chưa có webhook tùy chỉnh nào — webhook mặc định của bot vẫn đang lo toàn bộ log hình
-            phạt & anti nuke/raid. Tạo thêm để tách log theo hạng mục riêng.
-          </p>
-        )}
-        {customWhs.map((w) => {
-          const badge = STATUS_BADGE[w.status] ?? STATUS_BADGE.ready;
-          const isEditing = editing === w._id;
-          return (
-            <Card key={w._id}>
-              <CardContent className="space-y-3 p-4">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-lg">
-                    <WebhookIcon className="h-5 w-5 text-primary" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">{w.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      # {channels.find((c) => c.channelId === w.channelId)?.name ?? "kênh đã bị xóa"}
-                    </p>
+          {/* --- Preview --- */}
+          <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+            <h4 className="flex items-center gap-1.5 text-sm font-semibold">
+              <Type className="h-3.5 w-3.5" /> Xem trước
+            </h4>
+            {/* Discord-like message container */}
+            <div className="rounded-lg bg-[#313338] p-4 space-y-1">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 shrink-0 rounded-full bg-[#5865F2]" />
+                <div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm font-semibold text-white">{username || "Protogon Bot"}</span>
+                    <span className="text-[11px] text-[#b5bac1]">Hôm nay lúc {new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</span>
                   </div>
-                  <Badge variant={badge.cls as "secondary" | "success" | "danger"}>{badge.label}</Badge>
-                  <Switch
-                    checked={w.enabled}
-                    onCheckedChange={async (v) => {
-                      try {
-                        await toggleWebhook({ token, guildId: g.discordId, webhookId: w._id });
-                        toast.success(v ? "Đã bật webhook" : "Đã tắt webhook");
-                      } catch (e: unknown) {
-                        toast.error(String(e));
-                      }
-                    }}
-                  />
+                  {content && <p className="mt-0.5 text-sm text-[#dcddde]">{content}</p>}
                 </div>
+              </div>
+              <div className="ml-[52px]">
+                <EmbedPreview embed={embed} />
+              </div>
+            </div>
+          </div>
+        </div>
 
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {w.eventTypes.map((t) => (
-                    <Badge key={t} variant="outline" className="text-[10px]">
-                      {EVENT_LABELS[t] ?? t}
-                    </Badge>
-                  ))}
-                  {w.color !== null && (
-                    <Badge variant="outline" className="text-[10px]">
-                      <Palette className="mr-1 h-2.5 w-2.5" style={{ color: numberToHex(w.color) }} />
-                      {numberToHex(w.color)}
-                    </Badge>
-                  )}
-                </div>
+        {/* Send button + status */}
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={handleSend}
+            disabled={sending || !webhookUrl.trim()}
+            className="gap-2"
+          >
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {sending ? "Đang gửi..." : "Gửi embed"}
+          </Button>
+          {result && (
+            <span className={`flex items-center gap-1.5 text-xs ${result.ok ? "text-emerald-600" : "text-red-500"}`}>
+              {result.ok ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+              {result.msg}
+            </span>
+          )}
+        </div>
 
-                {w.lastError && (
-                  <p className="rounded-lg bg-danger/10 px-3 py-2 text-xs text-red-500">
-                    ⚠️ {w.lastError}
-                  </p>
-                )}
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button size="sm" variant="outline" onClick={() => handleTest(w._id)} className="gap-1.5">
-                    <Send className="h-3.5 w-3.5" /> Gửi thử
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setEditing(isEditing ? null : w._id)}
-                    className="gap-1.5"
-                  >
-                    <Pencil className="h-3.5 w-3.5" /> {isEditing ? "Đóng" : "Chỉnh sửa"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleDelete(w._id)}
-                    className="gap-1.5 text-red-500 hover:bg-danger/10 hover:text-red-500"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" /> Xóa
-                  </Button>
-                </div>
-
-                {isEditing && (
-                  <div className="space-y-3 rounded-xl border border-border bg-background/50 p-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-medium">Tên webhook</Label>
-                        <input
-                          type="text"
-                          defaultValue={w.name}
-                          id={`wh-name-${w._id}`}
-                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                          maxLength={80}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-medium">Kênh nhận log</Label>
-                        <select
-                          defaultValue={w.channelId}
-                          id={`wh-channel-${w._id}`}
-                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                        >
-                          {channels.map((ch) => (
-                            <option key={ch.channelId} value={ch.channelId}>
-                              # {ch.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-medium">Avatar (URL https)</Label>
-                        <input
-                          type="url"
-                          defaultValue={w.avatarUrl ?? ""}
-                          id={`wh-avatar-${w._id}`}
-                          placeholder="https://…"
-                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-medium">Màu embed</Label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            defaultValue={numberToHex(w.color)}
-                            id={`wh-color-${w._id}`}
-                            className="h-8 w-8 cursor-pointer rounded border border-border bg-transparent"
-                          />
-                          <input
-                            type="text"
-                            defaultValue={numberToHex(w.color)}
-                            id={`wh-color-text-${w._id}`}
-                            className="w-28 rounded-lg border border-border bg-background px-3 py-1.5 font-mono text-sm"
-                            maxLength={7}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium">Nội dung gửi kèm</Label>
-                      <input
-                        type="text"
-                        defaultValue={w.contentTemplate ?? ""}
-                        id={`wh-template-${w._id}`}
-                        placeholder="📋 {server} lúc {time}"
-                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                        maxLength={500}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium">Nhận loại log</Label>
-                      <div className="flex flex-wrap gap-2">
-                        {Object.keys(EVENT_LABELS).map((type) => (
-                          <label
-                            key={type}
-                            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-background/50 px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
-                          >
-                            <input
-                              type="checkbox"
-                              defaultChecked={w.eventTypes.includes(type)}
-                              id={`wh-type-${w._id}-${type}`}
-                              className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-                            />
-                            {EVENT_LABELS[type]}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        const val = (id: string) =>
-                          (document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null)
-                            ?.value ?? "";
-                        const nameEl = val(`wh-name-${w._id}`);
-                        const channelEl = val(`wh-channel-${w._id}`);
-                        const avatarEl = val(`wh-avatar-${w._id}`);
-                        const colorEl = val(`wh-color-${w._id}`);
-                        const templateEl = val(`wh-template-${w._id}`);
-                        const types = Object.keys(EVENT_LABELS).filter(
-                          (t) =>
-                            (document.getElementById(`wh-type-${w._id}-${t}`) as HTMLInputElement | null)
-                              ?.checked,
-                        );
-                        handleSave(w._id, {
-                          name: nameEl.trim() || w.name,
-                          channelId: channelEl || w.channelId,
-                          avatarUrl: avatarEl.trim() || null,
-                          color: hexToNumber(colorEl) ?? null,
-                          contentTemplate: templateEl.trim() || null,
-                          eventTypes: types.length > 0 ? types : w.eventTypes,
-                        });
-                      }}
-                      className="gap-1.5"
-                    >
-                      <Check className="h-3.5 w-3.5" /> Lưu thay đổi
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Lưu ý */}
-      <div className="flex items-start gap-2 rounded-xl bg-muted/50 p-3 text-xs text-muted-foreground">
-        <Link2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        <p>
-          Webhook do bot tạo bằng quyền <b className="text-foreground">Manage Webhooks</b> — hãy chắc
-          chắn bot có quyền này ở kênh bạn chọn. Thay đổi áp dụng trong ~1 phút.
-          <span className="ml-1 inline-flex items-center gap-1">
-            <Eye className="h-3 w-3" /> Emoji động trong tên webhook chỉ hiển thị động cho người dùng
-            có Nitro.
-          </span>
-        </p>
+        {/* Tips */}
+        <div className="rounded-xl border border-border/50 bg-secondary/30 p-4 text-xs leading-relaxed text-muted-foreground">
+          <p className="mb-1 font-semibold text-foreground">💡 Hướng dẫn nhanh:</p>
+          <p>• Vào Discord → Kênh cần gửi → <b className="text-foreground">Tích hợp</b> → <b className="text-foreground">Webhook</b> → <b className="text-foreground">Tạo webhook</b> → Copy URL.</p>
+          <p className="mt-1">• Dán URL vào ô trên, soạn embed với tiêu đề, mô tả, màu sắc, fields... rồi bấm <b className="text-foreground">Gửi embed</b>.</p>
+          <p className="mt-1">• Webhook mặc định (Protogon Log) ở trên chỉ dùng để nhận log hình phạt & anti nuke từ bot — không liên quan đến embed sender.</p>
+          <p className="mt-1">• Hỗ trợ: author (tên + avatar + link), title, description, color hex, fields (tên + giá trị + inline), image, thumbnail, footer + icon, timestamp.</p>
+        </div>
       </div>
     </div>
   );

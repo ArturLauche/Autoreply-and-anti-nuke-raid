@@ -62,23 +62,19 @@ export const getBotHiddenJobs = query({
     const giveaways = await ctx.db.query("giveaways").collect();
     // Gộp luôn việc webhook (tạo/sửa/xóa/test) vào batch này để bot chỉ cần
     // 1 query mỗi vòng quét thay vì 2 (tiết kiệm function calls cho free tier).
-    const webhooks = await ctx.db.query("guildWebhooks").collect();
+    // Webhook mặc định: query riêng bên dưới (chỉ cần tìm 1 row isDefault per guild).
     const jobs = [];
     for (const g of guilds) {
       const gPanels = panels.filter((p) => p.guildId === g.discordId && p.enabled && !p.messageId);
       const gGws = giveaways.filter((gw) => gw.guildId === g.discordId && gw.status === "active");
-      const gWhs = webhooks.filter(
-        (w) =>
-          w.guildId === g.discordId &&
-          !w.isDefault &&
-          (w.status === "pending_create" ||
-            w.status === "pending_update" ||
-            w.status === "pending_delete" ||
-            w.testRequested === true),
-      );
+
       // Webhook MẶC ĐỊNH của bot: tự tạo khi đã set kênh log (modLog ?? log),
       // tự gỡ khi bỏ set kênh hoặc kênh đổi sang chỗ khác.
-      const gDefault = webhooks.find((w) => w.guildId === g.discordId && w.isDefault === true);
+      const gDefault = await ctx.db
+        .query("guildWebhooks")
+        .withIndex("by_guildId", (q) => q.eq("guildId", g.discordId))
+        .filter((q) => q.eq(q.field("isDefault"), true))
+        .first();
       const targetChannel = g.modLogChannelId ?? g.logChannelId;
       let defaultWebhook: {
         kind: "create" | "delete";
@@ -105,7 +101,7 @@ export const getBotHiddenJobs = query({
       }
       const dm =
         !!g.dmRequested && !!g.dmTargetUserId && !!g.dmMessage;
-      if (gPanels.length === 0 && gGws.length === 0 && gWhs.length === 0 && !dm && !defaultWebhook) continue;
+      if (gPanels.length === 0 && gGws.length === 0 && !dm && !defaultWebhook) continue;
       jobs.push({
         guildId: g.discordId,
         panels: gPanels.map((p) => ({
@@ -133,20 +129,6 @@ export const getBotHiddenJobs = query({
           endMessage: gw.endMessage ?? null,
           messageId: gw.messageId ?? "",
           entries: gw.entries,
-        })),
-        webhooks: gWhs.map((w) => ({
-          _id: w._id,
-          guildId: w.guildId,
-          name: w.name,
-          channelId: w.channelId,
-          avatarUrl: w.avatarUrl ?? null,
-          color: w.color ?? null,
-          contentTemplate: w.contentTemplate ?? null,
-          eventTypes: w.eventTypes,
-          status: w.status,
-          testRequested: w.testRequested ?? false,
-          webhookId: w.webhookId ?? null,
-          token: w.token ?? null,
         })),
         defaultWebhook,
         dmRequested: dm,
