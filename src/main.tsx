@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { ConvexReactClient, ConvexProvider } from "convex/react";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
+import RootErrorBoundary from "./components/RootErrorBoundary";
 import "./index.css";
 
 // Convex backend URL (shared with the Discord bot):
@@ -25,9 +26,11 @@ const convex = new ConvexReactClient(convexUrl);
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ConvexProvider client={convex}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <RootErrorBoundary>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </RootErrorBoundary>
     </ConvexProvider>
   </React.StrictMode>,
 );

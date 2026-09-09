@@ -31,6 +31,7 @@ import CherryBlossom from "../components/CherryBlossom";
 import BotLogo from "../components/BotLogo";
 import HaimiyaChat, { HaimiyaAvatar } from "../components/HaimiyaChat";
 import Taskbar from "../components/Taskbar";
+import SectionBoundary from "../components/SectionBoundary";
 import { useBranding } from "../lib/useBranding";
 import { usePublicConfig } from "../lib/usePublicConfig";
 import { useBotStatus } from "../lib/useBotStatus";
@@ -170,8 +171,9 @@ function Nav() {
 }
 
 /**
- * Nút mở dashboard thông minh: nếu đã đăng nhập → vào thẳng /dashboard,
- * ngược lại → sang trang đăng nhập (kèm returnTo để quay lại sau khi đăng nhập).
+ * Nút mở dashboard thông minh: nếu có token đăng nhập → vào thẳng /dashboard
+ * (RequireAuth tự đưa về /auth nếu token hết hạn), ngược lại → sang trang đăng
+ * nhập kèm returnTo. Không query backend nên luôn hiển thị kể cả khi máy chủ down.
  */
 function DashboardCta({
   children,
@@ -180,9 +182,7 @@ function DashboardCta({
   children: React.ReactNode;
   variant?: "default" | "outline";
 }) {
-  const token = getSessionToken();
-  const me = useQuery(api.sessions.me, { token }) as MeData | null | undefined;
-  const loggedIn = token !== "" && me !== null;
+  const loggedIn = getSessionToken() !== "";
   const to = loggedIn ? "/dashboard" : "/auth?returnTo=/dashboard";
   return (
     <Link to={to}>
@@ -190,6 +190,50 @@ function DashboardCta({
         {children}
       </Button>
     </Link>
+  );
+}
+
+/**
+ * Avatar Haimiya chống lỗi backend: nếu query branding thất bại (backend down),
+ * tự rơi về SVG mặc định thay vì làm sập cả trang.
+ */
+function SafeHaimiyaAvatar({ className }: { className?: string }) {
+  return (
+    <SectionBoundary>
+      <SafeHaimiyaAvatarInner className={className} />
+    </SectionBoundary>
+  );
+}
+
+function SafeHaimiyaAvatarInner({ className }: { className?: string }) {
+  const branding = useBranding();
+  return <HaimiyaAvatar className={className} src={branding?.haimiyaAvatarUrl ?? null} />;
+}
+
+/** Khối chủ bot ở footer — tự chặn lỗi riêng, mặc định về tên gốc khi backend down. */
+function FooterOwner() {
+  const botStatus = useBotStatus();
+  const ownerName = botStatus?.ownerName ?? "wiothemilo";
+  const ownerAvatar = botStatus?.ownerAvatarUrl ?? null;
+  return (
+    <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+      {ownerAvatar ? (
+        <img
+          src={ownerAvatar}
+          alt={ownerName}
+          className="h-8 w-8 rounded-full object-cover ring-2 ring-white/70"
+          draggable={false}
+        />
+      ) : (
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#8fc8ff] to-[#f79fc6] text-white">
+          <User className="h-4 w-4" />
+        </span>
+      )}
+      <span>
+        Chủ bot: <b className="text-foreground">{ownerName}</b>
+        <span className="ml-1.5 hidden sm:inline">· cập nhật 24/7</span>
+      </span>
+    </div>
   );
 }
 
@@ -577,7 +621,6 @@ function AntiNuke() {
 
 /** Gặp gỡ Haimiya-senpai — trợ lý ảo. */
 function HaimiyaSection() {
-  const branding = useBranding();
   return (
     <section id="haimiya" className="relative overflow-hidden py-24">
       <div className="absolute inset-x-0 bottom-0 h-[420px] bg-glow-sky" />
@@ -593,7 +636,7 @@ function HaimiyaSection() {
               <div className="absolute -inset-8 rounded-full bg-glow-sakura blur-2xl" />
               <div className="relative animate-float">
                 <div className="flex h-64 w-64 items-center justify-center rounded-full border-2 border-white/80 bg-gradient-to-br from-[#ffe0ed] via-[#fdf2f8] to-[#d6ecff] shadow-[0_24px_60px_-20px_hsl(342_60%_55%/0.45)]">
-                  <HaimiyaAvatar className="h-48 w-48" src={branding?.haimiyaAvatarUrl ?? null} />
+                  <SafeHaimiyaAvatar className="h-48 w-48" />
                 </div>
                 <span className="absolute -right-2 top-6 animate-float text-2xl" style={{ animationDelay: "0.6s" }}>🌸</span>
                 <span className="absolute -left-3 bottom-14 animate-float text-xl" style={{ animationDelay: "1.2s" }}>🎀</span>
@@ -710,7 +753,6 @@ function HowItWorks() {
 }
 
 function CtaBanner() {
-  const branding = useBranding();
   return (
     <section className="py-16">
       <div className="container">
@@ -724,10 +766,7 @@ function CtaBanner() {
           <div className="absolute inset-0 bg-glow-sakura opacity-50" />
           <div className="absolute inset-0 bg-glow-sky opacity-60" />
           <div className="relative">
-            <HaimiyaAvatar
-              className="mx-auto h-28 w-28 drop-shadow-[0_10px_30px_hsl(342_92%_66%/0.4)]"
-              src={branding?.haimiyaAvatarUrl ?? null}
-            />
+            <SafeHaimiyaAvatar className="mx-auto h-28 w-28 drop-shadow-[0_10px_30px_hsl(342_92%_66%/0.4)]" />
             <h2 className="mt-4 font-display text-3xl font-bold tracking-tight md:text-5xl">
               Sẵn sàng để Haimiya <br className="hidden md:block" /> hỗ trợ bạn quản lý server?
             </h2>
@@ -750,18 +789,22 @@ function CtaBanner() {
 }
 
 export default function Landing() {
-  const branding = useBranding();
   const { discordInvite, facebookUrl } = usePublicConfig();
-  const botStatus = useBotStatus();
-  const ownerName = botStatus?.ownerName ?? "wiothemilo";
-  const ownerAvatar = botStatus?.ownerAvatarUrl ?? null;
   return (
     <div className="relative min-h-screen text-foreground">
       <CherryBlossom count={18} />
-      <HaimiyaChat />
-      <Taskbar />
+      {/* Các phần phụ thuộc backend được bọc chặn lỗi riêng — backend down thì
+          phần đó tự ẩn, hero/tính năng/footer vẫn hiển thị đầy đủ. */}
+      <SectionBoundary>
+        <HaimiyaChat />
+      </SectionBoundary>
+      <SectionBoundary>
+        <Taskbar />
+      </SectionBoundary>
       <div className="relative z-10">
-        <Nav />
+        <SectionBoundary>
+          <Nav />
+        </SectionBoundary>
         <main>
           <section className="relative overflow-hidden pb-16 pt-28 md:pb-20 md:pt-32">
             <div className="absolute inset-0 bg-grid opacity-50 [mask-image:radial-gradient(70%_60%_at_50%_30%,black,transparent)]" />
@@ -776,7 +819,7 @@ export default function Landing() {
                   className="flex flex-col items-center gap-4 text-center lg:block lg:text-left"
                 >
                   <span className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-white/70 bg-gradient-to-br from-[#ffe0ed] to-[#d8ecff] shadow-[0_10px_30px_-10px_hsl(342_70%_60%/0.5)] lg:hidden">
-                    <HaimiyaAvatar className="h-20 w-20" src={branding?.haimiyaAvatarUrl ?? null} />
+                    <SafeHaimiyaAvatar className="h-20 w-20" />
                   </span>
                   <Badge variant="secondary" className="border border-primary/30">
                     <span className="relative flex h-2 w-2">
@@ -822,7 +865,7 @@ export default function Landing() {
                     variant="outline"
                     onClick={() => window.dispatchEvent(new Event("haimiya-open"))}
                   >
-                    <HaimiyaAvatar className="h-6 w-6" src={branding?.haimiyaAvatarUrl ?? null} /> Hỏi Haimiya
+                    <SafeHaimiyaAvatar className="h-6 w-6" /> Hỏi Haimiya
                   </Button>
                 </motion.div>
                 <motion.div
@@ -862,7 +905,7 @@ export default function Landing() {
               <div className="flex items-center gap-3">
                 <span className="rounded-xl bg-gradient-to-br from-white/95 via-white/45 to-white/0 p-[2px] drop-shadow-[0_0_10px_rgba(255,255,255,0.7)]">
                   <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] p-0.5">
-                    <HaimiyaAvatar className="h-full w-full" src={branding?.haimiyaAvatarUrl ?? null} />
+                    <SafeHaimiyaAvatar className="h-full w-full" />
                   </span>
                 </span>
                 <div>
@@ -891,24 +934,9 @@ export default function Landing() {
               <p className="text-center text-sm text-muted-foreground">
                 © {new Date().getFullYear()} Protogon Bot · Tự trả lời thông minh, nhiệt độ vi phạm, Join Gate & phòng thủ chống raid cho Discord
               </p>
-              <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
-                {ownerAvatar ? (
-                  <img
-                    src={ownerAvatar}
-                    alt={ownerName}
-                    className="h-8 w-8 rounded-full object-cover ring-2 ring-white/70"
-                    draggable={false}
-                  />
-                ) : (
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#8fc8ff] to-[#f79fc6] text-white">
-                    <User className="h-4 w-4" />
-                  </span>
-                )}
-                <span>
-                  Chủ bot: <b className="text-foreground">{ownerName}</b>
-                  <span className="ml-1.5 hidden sm:inline">· cập nhật 24/7</span>
-                </span>
-              </div>
+              <SectionBoundary>
+                <FooterOwner />
+              </SectionBoundary>
             </div>
           </div>
         </footer>
