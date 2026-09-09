@@ -41,6 +41,49 @@ KIẾN THỨC CHUYÊN SÂU VỀ PROTOGON (dùng khi được hỏi về bot):
 - Bot chạy trên hosting (Wispbyte...): tải zip từ nhánh host-deploy trên GitHub, upload + unarchive + restart.
 - Nếu bạn không chắc chắn, hãy trả lời trung thực và đề nghị kiểm tra dashboard hoặc cài đặt.`;
 
+/**
+ * Chọn provider AI theo thứ tự ưu tiên (tất cả tương thích OpenAI chat completions):
+ *   1. Cerebras: CEREBRAS_API_KEY (+ CEREBRAS_MODEL, mặc định gpt-oss-120b)
+ *   2. SambaNova: SAMBANOVA_API_KEY (mặc định Meta-Llama-3.3-70B-Instruct)
+ *   3. Groq (free): AI_BASE_URL=https://api.groq.com/openai/v1 + AI_API_KEY + AI_MODEL
+ *   4. OpenAI: OPENAI_API_KEY (+ OPENAI_MODEL, mặc định gpt-4o-mini)
+ */
+function aiProvider(): { key: string; baseUrl: string; model: string } | null {
+  const cerebrasKey = process.env.CEREBRAS_API_KEY;
+  if (cerebrasKey) {
+    return {
+      key: cerebrasKey,
+      baseUrl: process.env.CEREBRAS_BASE_URL ?? "https://api.cerebras.ai/v1",
+      model: process.env.CEREBRAS_MODEL ?? "gpt-oss-120b",
+    };
+  }
+  const sambanovaKey = process.env.SAMBANOVA_API_KEY;
+  if (sambanovaKey) {
+    return {
+      key: sambanovaKey,
+      baseUrl: "https://api.sambanova.ai/v1",
+      model: "Meta-Llama-3.3-70B-Instruct",
+    };
+  }
+  const groqKey = process.env.AI_API_KEY;
+  if (groqKey && process.env.AI_BASE_URL) {
+    return {
+      key: groqKey,
+      baseUrl: process.env.AI_BASE_URL,
+      model: process.env.AI_MODEL ?? "llama-3.3-70b-versatile",
+    };
+  }
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (openaiKey) {
+    return {
+      key: openaiKey,
+      baseUrl: "https://api.openai.com/v1",
+      model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+    };
+  }
+  return null;
+}
+
 export const ask = action({
   args: {
     messages: v.array(
@@ -51,31 +94,20 @@ export const ask = action({
     ),
   },
   handler: async (_ctx, { messages }) => {
-    // Linh hoạt provider (tất cả đều tương thích OpenAI chat completions):
-    //   SambaNova:  SAMBANOVA_API_KEY (mặc định model Meta-Llama-3.3-70B-Instruct)
-    //   OpenAI:     OPENAI_API_KEY (+ OPENAI_MODEL, mặc định gpt-4o-mini)
-    //   Groq (free): AI_BASE_URL=https://api.groq.com/openai/v1 + AI_API_KEY + AI_MODEL=llama-3.3-70b-versatile
-    const sambanovaKey = process.env.SAMBANOVA_API_KEY;
-    const key = sambanovaKey ?? process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY;
-    if (!key) return { reply: "", offline: true };
+    const p = aiProvider();
+    if (!p) return { reply: "", offline: true };
     const last = messages[messages.length - 1];
     if (!last?.content?.trim()) return { reply: "", offline: true };
-    const baseUrl = process.env.AI_BASE_URL ??
-      (sambanovaKey ? "https://api.sambanova.ai/v1" : "https://api.openai.com/v1");
-    const model =
-      process.env.AI_MODEL ??
-      process.env.OPENAI_MODEL ??
-      (sambanovaKey ? "Meta-Llama-3.3-70B-Instruct" : "gpt-4o-mini");
     const history = messages.slice(-8).map((m) => ({ role: m.role, content: m.content }));
     try {
-      const res = await fetch(`${baseUrl}/chat/completions`, {
+      const res = await fetch(`${p.baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
+          Authorization: `Bearer ${p.key}`,
         },
         body: JSON.stringify({
-          model,
+          model: p.model,
           messages: [{ role: "system", content: SYSTEM_PROMPT }, ...history],
           max_tokens: 500,
           temperature: 0.6,
@@ -113,15 +145,8 @@ export const classifyViolation = action({
     memberCount: v.optional(v.number()),
   },
   handler: async (_ctx, args) => {
-    const key =
-      process.env.SAMBANOVA_API_KEY ?? process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY;
-    if (!key) return { classification: "individual", confidence: 0.5, reason: "AI chưa cấu hình", suggestPunish: undefined, offline: true };
-    const baseUrl = process.env.AI_BASE_URL ??
-      (process.env.SAMBANOVA_API_KEY ? "https://api.sambanova.ai/v1" : "https://api.openai.com/v1");
-    const model =
-      process.env.AI_MODEL ??
-      process.env.OPENAI_MODEL ??
-      (process.env.SAMBANOVA_API_KEY ? "Meta-Llama-3.3-70B-Instruct" : "gpt-4o-mini");
+    const p = aiProvider();
+    if (!p) return { classification: "individual", confidence: 0.5, reason: "AI chưa cấu hình", suggestPunish: undefined, offline: true };
     const samples = (args.sampleMessages || []).slice(0, 6).map((s) => s.slice(0, 200));
     const system = `Bạn là chuyên gia an ninh Discord. Phân loại một sự kiện vi phạm vừa xảy ra:
 - "raid": tấn công có tổ chức / tự động — bot-account, hàng loạt tài khoản cùng lúc, nội dung lặp lại giống hệt nhau, tin nhắn cực dài hoặc giả blank (chỉ khoảng trắng / ký tự ẩn) gây nhiễu loạn kênh, hoặc kết hợp với làn sóng thành viên mới vào.
@@ -133,14 +158,14 @@ Server: ${args.guildName ?? "?"} (${args.memberCount ?? "?"} thành viên).
 Thành viên mới gần đây: ${args.recentJoins ?? 0}.
 Mẫu tin nhắn:\n${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).join("\n") : "(không có)"}`;
     try {
-      const res = await fetch(`${baseUrl}/chat/completions`, {
+      const res = await fetch(`${p.baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
+          Authorization: `Bearer ${p.key}`,
         },
         body: JSON.stringify({
-          model,
+          model: p.model,
           messages: [
             { role: "system", content: system },
             { role: "user", content: user },
@@ -196,17 +221,10 @@ export const analyzeRaid = action({
     recentActions: v.optional(v.string()),
   },
   handler: async (_ctx, args) => {
-    const key =
-      process.env.SAMBANOVA_API_KEY ?? process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY;
-    if (!key) {
+    const p = aiProvider();
+    if (!p) {
       return { coordinated: null, confidence: 0, reasoning: "AI chưa cấu hình", sourceHint: null, offline: true };
     }
-    const baseUrl = process.env.AI_BASE_URL ??
-      (process.env.SAMBANOVA_API_KEY ? "https://api.sambanova.ai/v1" : "https://api.openai.com/v1");
-    const model =
-      process.env.AI_MODEL ??
-      process.env.OPENAI_MODEL ??
-      (process.env.SAMBANOVA_API_KEY ? "Meta-Llama-3.3-70B-Instruct" : "gpt-4o-mini");
     const system = `Bạn là chuyên gia an ninh Discord chuyên điều tra RAID/NUKE.
 Phân tích dữ liệu một vụ tấn công server vừa xảy ra và trả lời:
 - "coordinated": vụ này có phải tấn công PHỐI HỢP (raid/nuke) hay chỉ là cá nhân vi phạm.
@@ -216,14 +234,14 @@ Phân tích dữ liệu một vụ tấn công server vừa xảy ra và trả l
 Hồ sơ cụm tài khoản:\n${args.clusterProfile || "(không có)"}
 Chuỗi hành vi gần đây:\n${args.recentActions || "(không có)"}`;
     try {
-      const res = await fetch(`${baseUrl}/chat/completions`, {
+      const res = await fetch(`${p.baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
+          Authorization: `Bearer ${p.key}`,
         },
         body: JSON.stringify({
-          model,
+          model: p.model,
           messages: [
             { role: "system", content: system },
             { role: "user", content: user },
@@ -276,17 +294,10 @@ export const analyzeExternalApp = action({
     memberCount: v.optional(v.number()),
   },
   handler: async (_ctx, args) => {
-    const key =
-      process.env.SAMBANOVA_API_KEY ?? process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY;
-    if (!key) {
+    const p = aiProvider();
+    if (!p) {
       return { isRaid: null, confidence: 0, reason: "AI chưa cấu hình", offline: true };
     }
-    const baseUrl = process.env.AI_BASE_URL ??
-      (process.env.SAMBANOVA_API_KEY ? "https://api.sambanova.ai/v1" : "https://api.openai.com/v1");
-    const model =
-      process.env.AI_MODEL ??
-      process.env.OPENAI_MODEL ??
-      (process.env.SAMBANOVA_API_KEY ? "Meta-Llama-3.3-70B-Instruct" : "gpt-4o-mini");
     const system = `Bạn là chuyên gia an ninh Discord chuyên điều tra RAID bằng ỨNG DỤNG NGOÀI (external app / integration).
 
 "External app raid" là kỹ thuật tấn công server dùng ứng dụng Discord thay vì bot thành viên:
@@ -307,14 +318,14 @@ Chỉ trả lời JSON thuần (không markdown): {"isRaid": true|false|null, "c
     const user = `Vụ: ${args.count} kết nối app ngoài trong ${args.windowSeconds}s (ngưỡng ${args.threshold}). Server: ${args.guildName ?? "?"} (${args.memberCount ?? "?"} thành viên). Thành viên mới gần đây: ${args.recentJoins ?? 0}.
 Hồ sơ kết nối / tin nhắn app:\n${args.appProfile || "(không có)"}`;
     try {
-      const res = await fetch(`${baseUrl}/chat/completions`, {
+      const res = await fetch(`${p.baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
+          Authorization: `Bearer ${p.key}`,
         },
         body: JSON.stringify({
-          model,
+          model: p.model,
           messages: [
             { role: "system", content: system },
             { role: "user", content: user },

@@ -5,7 +5,7 @@ import { api } from "../../convex/_generated/api";
 import { askHaimiya, GREETING, QUICK_QUESTIONS } from "../lib/haimiya";
 import { useBranding } from "../lib/useBranding";
 import { cn } from "../lib/utils";
-import { isPuterAvailable, puterChat } from "../lib/puterChat";
+
 
 interface ChatMessage {
   role: "user" | "haimiya";
@@ -174,16 +174,7 @@ export default function HaimiyaChat({
   }, [messages, typing, open]);
 
   async function getAIResponse(history: Array<{ role: "user" | "assistant"; content: string }>): Promise<string | null> {
-    // Ưu tiên 1: Puter.js — free, không cần API key (User-Pays model).
-    if (isPuterAvailable()) {
-      try {
-        const reply = await puterChat(history, "gpt-5.4-nano");
-        if (reply) return reply;
-      } catch {
-        // Puter lỗi → thử Convex action bên dưới.
-      }
-    }
-    // Ưu tiên 2: Convex action (SAMBANOVA_API_KEY / OPENAI_API_KEY nếu có).
+    // Convex action — chạy qua Cerebras / SambaNova / Groq / OpenAI (key ở Keys tab).
     try {
       const res = await askAI({ messages: history });
       if (res && !res.offline && res.reply) return res.reply;
