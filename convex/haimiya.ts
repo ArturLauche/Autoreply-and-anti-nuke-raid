@@ -43,20 +43,11 @@ KIẾN THỨC CHUYÊN SÂU VỀ PROTOGON (dùng khi được hỏi về bot):
 
 /**
  * Chọn provider AI theo thứ tự ưu tiên (tất cả tương thích OpenAI chat completions):
- *   1. Cerebras: CEREBRAS_API_KEY (+ CEREBRAS_MODEL, mặc định gpt-oss-120b)
- *   2. SambaNova: SAMBANOVA_API_KEY (mặc định Meta-Llama-3.3-70B-Instruct)
- *   3. Groq (free): AI_BASE_URL=https://api.groq.com/openai/v1 + AI_API_KEY + AI_MODEL
- *   4. OpenAI: OPENAI_API_KEY (+ OPENAI_MODEL, mặc định gpt-4o-mini)
+ *   1. SambaNova: SAMBANOVA_API_KEY (mặc định Meta-Llama-3.3-70B-Instruct)
+ *   2. Gateway OpenAI-compatible (Groq, kiosapi, ...): AI_BASE_URL + AI_API_KEY + AI_MODEL
+ *   3. OpenAI: OPENAI_API_KEY (+ OPENAI_MODEL, mặc định gpt-4o-mini)
  */
 function aiProvider(): { key: string; baseUrl: string; model: string } | null {
-  const cerebrasKey = process.env.CEREBRAS_API_KEY;
-  if (cerebrasKey) {
-    return {
-      key: cerebrasKey,
-      baseUrl: process.env.CEREBRAS_BASE_URL ?? "https://api.cerebras.ai/v1",
-      model: process.env.CEREBRAS_MODEL ?? "gpt-oss-120b",
-    };
-  }
   const sambanovaKey = process.env.SAMBANOVA_API_KEY;
   if (sambanovaKey) {
     return {
