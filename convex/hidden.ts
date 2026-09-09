@@ -70,14 +70,42 @@ export const getBotHiddenJobs = query({
       const gWhs = webhooks.filter(
         (w) =>
           w.guildId === g.discordId &&
+          !w.isDefault &&
           (w.status === "pending_create" ||
             w.status === "pending_update" ||
             w.status === "pending_delete" ||
             w.testRequested === true),
       );
+      // Webhook MẶC ĐỊNH của bot: tự tạo khi đã set kênh log (modLog ?? log),
+      // tự gỡ khi bỏ set kênh hoặc kênh đổi sang chỗ khác.
+      const gDefault = webhooks.find((w) => w.guildId === g.discordId && w.isDefault === true);
+      const targetChannel = g.modLogChannelId ?? g.logChannelId;
+      let defaultWebhook: {
+        kind: "create" | "delete";
+        channelId: string | null;
+        webhookId: string | null;
+        token: string | null;
+      } | null = null;
+      if (gDefault) {
+        if (!targetChannel || gDefault.channelId !== targetChannel) {
+          defaultWebhook = {
+            kind: "delete",
+            channelId: targetChannel ?? null,
+            webhookId: gDefault.webhookId ?? null,
+            token: gDefault.token ?? null,
+          };
+        }
+      } else if (targetChannel) {
+        defaultWebhook = {
+          kind: "create",
+          channelId: targetChannel,
+          webhookId: null,
+          token: null,
+        };
+      }
       const dm =
         !!g.dmRequested && !!g.dmTargetUserId && !!g.dmMessage;
-      if (gPanels.length === 0 && gGws.length === 0 && gWhs.length === 0 && !dm) continue;
+      if (gPanels.length === 0 && gGws.length === 0 && gWhs.length === 0 && !dm && !defaultWebhook) continue;
       jobs.push({
         guildId: g.discordId,
         panels: gPanels.map((p) => ({
@@ -120,6 +148,7 @@ export const getBotHiddenJobs = query({
           webhookId: w.webhookId ?? null,
           token: w.token ?? null,
         })),
+        defaultWebhook,
         dmRequested: dm,
         dmTargetUserId: dm ? g.dmTargetUserId ?? null : null,
         dmTargetUsername: dm ? g.dmTargetUsername ?? null : null,

@@ -890,7 +890,7 @@ module.exports = function createAntiNuke(client, store, heat) {
       ],
       footer: "Protogon · Anti Nuke/Raid",
     });
-    await sendLog(guild, config, embed);
+    await sendLog(guild, config, embed, "raid");
 
     // Gửi embed case log kiểu Carl-bot tới kênh log moderation (dùng đúng biến local)
     if (firstPunishedUserId) {
@@ -1198,7 +1198,7 @@ module.exports = function createAntiNuke(client, store, heat) {
       ],
       footer: "Protogon · Anti Nuke/Raid",
     });
-    await sendLog(message.guild, config, embed);
+    await sendLog(message.guild, config, embed, "raid");
   }
 
   /**

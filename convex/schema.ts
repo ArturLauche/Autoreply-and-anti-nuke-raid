@@ -464,6 +464,8 @@ export default defineSchema({
     ),
     /** Web bấm "Gửi thử" → bot gửi 1 embed test rồi xóa cờ. */
     testRequested: v.optional(v.boolean()),
+    /** Webhook MẶC ĐỊNH của bot (tự tạo khi set kênh log, nhận mọi log chưa có webhook tùy chỉnh khớp). */
+    isDefault: v.optional(v.boolean()),
     webhookId: v.optional(v.string()),
     token: v.optional(v.string()),
     lastError: v.optional(v.string()),

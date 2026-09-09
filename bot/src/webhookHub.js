@@ -14,9 +14,37 @@ const { WebhookClient, EmbedBuilder } = require("discord.js");
 const WEBHOOK_CACHE_TTL_MS = 5 * 60_000; // cache webhooks của 1 guild 5 phút
 const webhookCache = new Map(); // guildId -> { webhooks, fetchedAt }
 const inflight = new Map(); // guildId -> Promise (chống query chồng lấp)
+const defaultBackoff = new Map(); // guildId -> thời điểm được thử tạo webhook mặc định lại
 
 let client = null;
 let store = null;
+
+/** Nhóm hạng mục: webhook chọn "mod"/"general" nhận toàn bộ nhóm tương ứng. */
+const MOD_EVENTS = new Set(["ban", "kick", "timeout", "warn", "purge", "unban", "untimeout"]);
+const GENERAL_EVENTS = new Set(["antinuke", "raid", "join", "leave", "settings", "general"]);
+
+/** Webhook có nhận sự kiện eventType không (khớp chính xác / nhóm / "all"). */
+function webhookMatches(w, eventType) {
+  const types = w.eventTypes || [];
+  if (types.includes("all")) return true;
+  if (types.includes(eventType)) return true;
+  if (MOD_EVENTS.has(eventType) && types.includes("mod")) return true;
+  if (GENERAL_EVENTS.has(eventType) && types.includes("general")) return true;
+  return false;
+}
+
+/** Tải avatar từ URL → Buffer (discord.js cần buffer/base64, không nhận URL thô). */
+async function resolveAvatar(url) {
+  if (!url || !/^https?:\/\//i.test(url)) return undefined;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return undefined;
+    const buf = Buffer.from(await res.arrayBuffer());
+    return buf.length > 0 && buf.length <= 512 * 1024 ? buf : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function init(c, s) {
   client = c;
@@ -82,7 +110,10 @@ async function createOne(job) {
   }
   let created = null;
   try {
-    created = await channel.createWebhook({ name: job.name, avatar: job.avatarUrl || undefined });
+    created = await channel.createWebhook({
+      name: job.name,
+      avatar: (await resolveAvatar(job.avatarUrl)) || undefined,
+    });
   } catch (e) {
     if (job.avatarUrl && e) {
       // Ảnh đại diện lỗi (URL hỏng/quá chậm) — thử lại không avatar để webhook vẫn tạo được.
@@ -123,7 +154,10 @@ async function updateOne(job) {
   }
   const wh = new WebhookClient({ id: job.webhookId, token: job.token });
   try {
-    const updated = await wh.edit({ name: job.name, avatar: job.avatarUrl || undefined });
+    const updated = await wh.edit({
+      name: job.name,
+      avatar: (await resolveAvatar(job.avatarUrl)) || undefined,
+    });
     await store.client.mutation("webhooks:botWebhookReady", {
       webhookId: job._id,
       discordWebhookId: updated.id,
@@ -177,21 +211,25 @@ async function sendTest(job) {
   }
 }
 
-/** Thay placeholder trong nội dung kèm: {server} {time} {action}. */
-function fillTemplate(tpl, { guildName, action }) {
+/** Thay placeholder trong nội dung kèm: {server} {time} {action} {reason} {user} {mod}. */
+function fillTemplate(tpl, { guildName, action, reason, user, mod }) {
   if (!tpl) return "";
   const now = new Date();
   const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const clean = (s) => (s ? String(s).replace(/[\r\n]+/g, " ").slice(0, 120) : "—");
   return tpl
     .replaceAll("{server}", guildName ?? "server")
     .replaceAll("{time}", time)
-    .replaceAll("{action}", action ?? "log");
+    .replaceAll("{action}", clean(action) || "log")
+    .replaceAll("{reason}", clean(reason))
+    .replaceAll("{user}", clean(user))
+    .replaceAll("{mod}", clean(mod));
 }
 
 /** Tạo payload gửi qua webhook: nội dung kèm + embed (màu ghi đè nếu có). */
-function buildPayload(whInfo, embed, { guildName, action }) {
+function buildPayload(whInfo, embed, meta = {}) {
   const payload = { embeds: [embed] };
-  const content = fillTemplate(whInfo.contentTemplate, { guildName, action });
+  const content = fillTemplate(whInfo.contentTemplate, meta);
   if (content) payload.content = content.slice(0, 1900);
   if (whInfo.color !== null && whInfo.color !== undefined) {
     // Clone embed với màu ghi đè của webhook (không sửa embed gốc của caller).
@@ -225,19 +263,87 @@ async function getForGuild(guildId) {
   return p;
 }
 
-/** Webhooks khớp loại sự kiện (mod/general) — dùng trong sendLog/sendModLog. */
+/**
+ * Webhooks khớp sự kiện (hạng mục chi tiết hoặc wildcard nhóm mod/general/all).
+ * Ưu tiên webhook TÙY CHỈNH của người dùng; webhook MẶC ĐỊNH của bot chỉ nhận
+ * log khi KHÔNG có webhook tùy chỉnh nào khớp (nó là lưới an toàn mặc định).
+ */
 async function matchFor(guildId, eventType) {
   if (!store) return [];
   const webhooks = await getForGuild(guildId);
-  return webhooks.filter((w) => w.eventTypes.includes(eventType));
+  // Chỉ gửi qua webhook đang BẬT (enabled) — toggle tắt = bot ngừng gửi.
+  const active = webhooks.filter((w) => w.enabled !== false);
+  const customs = active.filter(
+    (w) => !w.isDefault && webhookMatches(w, eventType),
+  );
+  if (customs.length > 0) return customs;
+  return active.filter((w) => w.isDefault && webhookMatches(w, eventType));
+}
+
+/**
+ * Bot tự tạo/gỡ webhook MẶC ĐỊNH theo yêu cầu từ batch hidden (getBotHiddenJobs):
+ * - create: tạo "Protogon Log" (avatar bot) tại kênh log; lỗi → thử lại sau 10 phút.
+ * - delete: xóa webhook trên Discord + row (kênh log bị bỏ hoặc đổi chỗ).
+ */
+async function reconcileDefaultWebhook(guild, req) {
+  if (!client || !store || !guild || !req) return;
+  const guildId = guild.id;
+  try {
+    if (req.kind === "create") {
+      if (Date.now() < (defaultBackoff.get(guildId) || 0)) return;
+      const channel = await guild.channels.fetch(req.channelId).catch(() => null);
+      if (!channel || !channel.isTextBased()) {
+        defaultBackoff.set(guildId, Date.now() + 10 * 60_000);
+        return;
+      }
+      const created = await channel.createWebhook({
+        name: "Protogon Log",
+        avatar: (await resolveAvatar(client.user?.displayAvatarURL({ size: 256 }))) || undefined,
+      });
+      await store.client.mutation("webhooks:botDefaultWebhookReady", {
+        guildId,
+        channelId: req.channelId,
+        discordWebhookId: created.id,
+        token: created.token,
+      });
+      defaultBackoff.delete(guildId);
+      invalidateCache(guildId);
+      console.log(`[webhook:default] ${guildId}: đã tự tạo "Protogon Log" tại #${channel.name}`);
+    } else if (req.kind === "delete") {
+      if (req.webhookId && req.token) {
+        try {
+          await new WebhookClient({ id: req.webhookId, token: req.token }).delete();
+        } catch (e) {
+          // Webhook đã bị xóa từ trước cũng coi là xong.
+          console.warn(`[webhook:default:delete] ${guildId}:`, e.message);
+        }
+      }
+      await store.client.mutation("webhooks:botDefaultWebhookDeleted", { guildId });
+      defaultBackoff.delete(guildId);
+      invalidateCache(guildId);
+      console.log(`[webhook:default] ${guildId}: đã gỡ webhook log mặc định (kênh log đổi/bỏ)`);
+    }
+  } catch (e) {
+    console.error(`[webhook:default] ${guildId}:`, e.message);
+    if (req.kind === "create") defaultBackoff.set(guildId, Date.now() + 10 * 60_000);
+  }
 }
 
 /** Gửi embed qua 1 webhook. Trả về true nếu Discord nhận. */
-async function send(whInfo, embed, { guildName, action } = {}) {
+async function send(whInfo, embed, meta = {}) {
   const wh = new WebhookClient({ id: whInfo.webhookId, token: whInfo.token });
-  const payload = buildPayload(whInfo, embed, { guildName, action });
+  const payload = buildPayload(whInfo, embed, meta);
   await wh.send(payload);
   return true;
 }
 
-module.exports = { init, pollWebhookJobs, processJob, matchFor, send, getForGuild, invalidateCache };
+module.exports = {
+  init,
+  pollWebhookJobs,
+  processJob,
+  reconcileDefaultWebhook,
+  matchFor,
+  send,
+  getForGuild,
+  invalidateCache,
+};

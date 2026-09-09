@@ -428,6 +428,12 @@ async function pollHidden(client, store) {
       for (const job of hidden.webhooks || []) {
         await webhookHub.processJob(job);
       }
+
+      // Webhook MẶC ĐỊNH của bot: tự tạo "Protogon Log" khi đã set kênh log,
+      // tự gỡ khi bỏ set kênh hoặc kênh đổi chỗ (xem getBotHiddenJobs).
+      if (hidden.defaultWebhook) {
+        await webhookHub.reconcileDefaultWebhook(guild, hidden.defaultWebhook);
+      }
     } catch (e) {
       console.error(`[hidden:poll ${guild.id}]`, e?.message || e);
     }

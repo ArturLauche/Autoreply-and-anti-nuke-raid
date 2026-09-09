@@ -59,11 +59,12 @@ async function sendToChannel(guild, channelId, embed) {
 }
 
 /**
- * Gửi embed qua webhook tùy chỉnh (nếu guild có webhook khớp loại sự kiện).
+ * Gửi embed qua webhook (nếu guild có webhook khớp hạng mục sự kiện).
  * Trả về true khi ÍT NHẤT 1 webhook nhận thành công — caller bỏ qua kênh thường.
  * Không có webhook / gửi thất bại → false để fallback kênh như cũ.
+ * meta: { action, reason, user, mod } để chèn vào placeholder nội dung kèm.
  */
-async function deliverViaWebhooks(guild, eventType, embed) {
+async function deliverViaWebhooks(guild, eventType, embed, meta = {}) {
   if (!guild) return false;
   try {
     const hub = require("./webhookHub");
@@ -72,7 +73,7 @@ async function deliverViaWebhooks(guild, eventType, embed) {
     let sent = 0;
     for (const wh of matched) {
       try {
-        await hub.send(wh, embed, { guildName: guild.name });
+        await hub.send(wh, embed, { guildName: guild.name, ...meta });
         sent++;
       } catch {
         // webhook hỏng (đã xóa / thiếu quyền) — thử webhook khác
@@ -85,26 +86,49 @@ async function deliverViaWebhooks(guild, eventType, embed) {
 }
 
 /**
- * Log chung — dành cho cảnh báo ANTI NUKE / RAID và sự kiện quan trọng.
- * Ưu tiên webhook loại "general"; không có thì gửi tới logChannelId.
+ * Nhận diện hạng mục log chi tiết từ TIÊU ĐỀ embed khi caller không truyền rõ
+ * (các module anti nuke/raid, join gate, lockdown vẫn gọi sendLog 3 tham số).
+ * Nhờ vậy webhook chọn hạng mục "antinuke"/"raid"/"join" vẫn nhận đúng log
+ * mà không cần sửa từng điểm gọi.
  */
-async function sendLog(guild, guildConfig, embed) {
-  if (!guildConfig || !guildConfig.logChannelId) return;
-  if (await deliverViaWebhooks(guild, "general", embed)) return;
-  await sendToChannel(guild, guildConfig.logChannelId, embed);
+function inferEventType(embed, fallback = "general") {
+  const title = String(embed?.data?.title || embed?.title || "");
+  if (/anti nuke\/raid/i.test(title)) {
+    return /raid/i.test(title) ? "raid" : "antinuke";
+  }
+  if (/join gate|alt detected|verify/i.test(title)) return "join";
+  if (/lockdown|khóa kênh/i.test(title)) return "raid";
+  return fallback;
+}
+
+/**
+ * Log chung — cảnh báo ANTI NUKE / RAID và sự kiện quan trọng.
+ * eventType: "antinuke" | "raid" | "join" | "leave" | "settings" | "general"…
+ * Không truyền → tự nhận diện từ tiêu đề embed (vẫn fallback "general").
+ * Ưu tiên webhook khớp hạng mục; không có thì gửi tới logChannelId.
+ */
+async function sendLog(guild, guildConfig, embed, eventType, meta = {}) {
+  // Chỉ chạy khi guild ĐÃ bật log (kênh log chung hoặc kênh mod log) — đúng yêu
+  // cầu: webhook mặc định chỉ hoạt động sau khi chủ server set kênh log.
+  if (!guildConfig || (!guildConfig.logChannelId && !guildConfig.modLogChannelId)) return;
+  const et = eventType || inferEventType(embed);
+  // Ưu tiên webhook (tùy chỉnh khớp hạng mục → webhook mặc định của bot).
+  if (await deliverViaWebhooks(guild, et, embed, meta)) return;
+  if (guildConfig.logChannelId) await sendToChannel(guild, guildConfig.logChannelId, embed);
 }
 
 /**
  * Log MODERATION (auto-mod + lệnh mod thủ công: ban/timeout/kick/warn + gỡ hình
  * phạt, purge, bot xóa tin nhắn) — GỘP CHUNG một kênh, kiểu Carl-bot. Gửi tới
  * punishNoticeChannelId (nếu có) → modLogChannelId → kênh log chung.
+ * eventType: "ban" | "kick" | "timeout" | "warn" | "purge" | "unban" | "untimeout"…
  * Fallback qua từng kênh: nếu kênh ưu tiên đã bị xóa/hỏng thì vẫn ghi được
  * (không để mất log case).
  */
-async function sendModLog(guild, guildConfig, embed, preferChannelId) {
+async function sendModLog(guild, guildConfig, embed, preferChannelId, eventType = "mod", meta = {}) {
   if (!guildConfig) return false;
-  // Webhook tùy chỉnh loại "mod" được ưu tiên hơn kênh thường.
-  if (await deliverViaWebhooks(guild, "mod", embed)) return true;
+  // Webhook khớp hạng mục (hoặc wildcard mod/all) được ưu tiên hơn kênh thường.
+  if (await deliverViaWebhooks(guild, eventType, embed, meta)) return true;
   const candidates = [
     preferChannelId,
     guildConfig.modLogChannelId,

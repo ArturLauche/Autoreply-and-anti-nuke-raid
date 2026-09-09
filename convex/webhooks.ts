@@ -2,7 +2,32 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild } from "./auth";
 
-const EVENT_TYPES = ["mod", "general"] as const;
+/**
+ * Hạng mục sự kiện log chi tiết — người dùng chọn thoải mái (không giới hạn số
+ * lượng webhook, tối đa 100/server để bảo vệ bảng).
+ * - Nhóm mod: ban/kick/timeout/warn/purge/unban/untimeout (hình phạt + gỡ hình phạt)
+ * - Nhóm general: antinuke/raid/join/leave/settings/general (bảo vệ server + sự kiện chung)
+ * - Wildcard: "mod" (mọi hình phạt), "general" (mọi sự kiện chung), "all" (MỌI log)
+ * Webhook mặc định của bot dùng ["all"] nhưng chỉ nhận log khi KHÔNG có webhook
+ * tùy chỉnh nào khớp (ưu tiên webhook người dùng tạo).
+ */
+export const EVENT_TYPES = [
+  "ban",
+  "kick",
+  "timeout",
+  "warn",
+  "purge",
+  "unban",
+  "untimeout",
+  "antinuke",
+  "raid",
+  "join",
+  "leave",
+  "settings",
+  "general",
+  "mod",
+  "all",
+] as const;
 
 async function requireGuild(ctx: QueryCtx | MutationCtx, token: string, guildId: string) {
   const user = await getUserByToken(ctx, token);
@@ -23,7 +48,9 @@ function cleanName(name: string): string {
 }
 
 function cleanEventTypes(types: string[]): string[] {
-  const cleaned = [...new Set(types.filter((t) => (EVENT_TYPES as readonly string[]).includes(t)))];
+  const cleaned = [
+    ...new Set(types.filter((t) => (EVENT_TYPES as readonly string[]).includes(t))),
+  ];
   if (cleaned.length === 0) throw new Error("Chọn ít nhất 1 loại sự kiện log");
   return cleaned;
 }
@@ -69,6 +96,7 @@ export const getGuildWebhooks = query({
         enabled: w.enabled,
         status: w.status,
         testRequested: w.testRequested ?? false,
+        isDefault: w.isDefault ?? false,
         webhookId: w.webhookId ?? null,
         lastError: w.lastError ?? null,
         createdAt: w.createdAt,
@@ -95,7 +123,7 @@ export const createWebhook = mutation({
       .query("guildWebhooks")
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
       .collect();
-    if (count.length >= 5) throw new Error("Tối đa 5 webhook cho mỗi server");
+    if (count.length >= 100) throw new Error("Tối đa 100 webhook cho mỗi server");
     const now = Date.now();
     await ctx.db.insert("guildWebhooks", {
       guildId,
@@ -131,6 +159,7 @@ export const updateWebhook = mutation({
     await requireGuild(ctx, token, guildId);
     const wh = await ctx.db.get(webhookId);
     if (!wh || wh.guildId !== guildId) throw new Error("Không tìm thấy webhook");
+    if (wh.isDefault) throw new Error("Webhook mặc định do bot quản lý — không sửa được");
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (rest.name !== undefined) patch.name = cleanName(rest.name);
     if (rest.channelId !== undefined) {
@@ -160,6 +189,22 @@ export const toggleWebhook = mutation({
   },
 });
 
+/** Tắt/mở webhook MẶC ĐỊNH của bot (chỉ chủ server quản lý được). */
+export const toggleDefaultWebhook = mutation({
+  args: { token: v.string(), guildId: v.string() },
+  handler: async (ctx, { token, guildId }) => {
+    await requireGuild(ctx, token, guildId);
+    const wh = await ctx.db
+      .query("guildWebhooks")
+      .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
+      .filter((q) => q.eq(q.field("isDefault"), true))
+      .first();
+    if (!wh) throw new Error("Server chưa có webhook mặc định — set kênh log trong Cài đặt để bot tự tạo");
+    await ctx.db.patch(wh._id, { enabled: !wh.enabled, updatedAt: Date.now() });
+    return { ok: true, enabled: !wh.enabled };
+  },
+});
+
 /** Web yêu cầu xóa webhook — bot xóa trên Discord rồi xóa bản ghi. */
 export const deleteWebhook = mutation({
   args: { token: v.string(), guildId: v.string(), webhookId: v.id("guildWebhooks") },
@@ -167,6 +212,9 @@ export const deleteWebhook = mutation({
     await requireGuild(ctx, token, guildId);
     const wh = await ctx.db.get(webhookId);
     if (!wh || wh.guildId !== guildId) throw new Error("Không tìm thấy webhook");
+    if (wh.isDefault) {
+      throw new Error("Webhook mặc định do bot tự quản lý — hãy tắt nó hoặc bỏ set kênh log");
+    }
     if (wh.webhookId) {
       await ctx.db.patch(webhookId, { status: "pending_delete", updatedAt: Date.now() });
     } else {
@@ -240,7 +288,66 @@ export const botGetWebhooks = query({
         color: w.color ?? null,
         contentTemplate: w.contentTemplate ?? null,
         eventTypes: w.eventTypes,
+        isDefault: w.isDefault ?? false,
       }));
+  },
+});
+
+/** Bot báo đã tự tạo xong webhook MẶC ĐỊNH (upsert row isDefault cho guild). */
+export const botDefaultWebhookReady = mutation({
+  args: {
+    guildId: v.string(),
+    channelId: v.string(),
+    discordWebhookId: v.string(),
+    token: v.string(),
+  },
+  handler: async (ctx, { guildId, channelId, discordWebhookId, token }) => {
+    const existing = await ctx.db
+      .query("guildWebhooks")
+      .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
+      .filter((q) => q.eq(q.field("isDefault"), true))
+      .first();
+    const now = Date.now();
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        channelId,
+        webhookId: discordWebhookId,
+        token,
+        status: "ready",
+        lastError: undefined,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("guildWebhooks", {
+        guildId,
+        name: "Protogon Log",
+        channelId,
+        eventTypes: ["all"],
+        enabled: true,
+        status: "ready",
+        isDefault: true,
+        webhookId: discordWebhookId,
+        token,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    return { ok: true };
+  },
+});
+
+/** Bot báo đã gỡ webhook MẶC ĐỊNH (kênh log bị bỏ/đổi → xóa row). */
+export const botDefaultWebhookDeleted = mutation({
+  args: { guildId: v.string() },
+  handler: async (ctx, { guildId }) => {
+    const rows = await ctx.db
+      .query("guildWebhooks")
+      .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
+      .collect();
+    for (const row of rows) {
+      if (row.isDefault) await ctx.db.delete(row._id);
+    }
+    return { ok: true };
   },
 });
 

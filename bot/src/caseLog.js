@@ -113,8 +113,34 @@ async function sendCaseLog({
     text: offender && offender.id ? `ID: ${offender.id} • ${fmtTimestamp()}` : fmtTimestamp(),
   });
 
+  // Hạng mục log chi tiết cho webhook (ban/kick/timeout/warn/purge/unban/untimeout…)
+  // + meta để chèn {action} {reason} {user} {mod} vào nội dung kèm của webhook.
+  const EVENT_TYPE_OF = {
+    ban: "ban",
+    timeout: "timeout",
+    kick: "kick",
+    warn: "warn",
+    purge: "purge",
+    untimeout: "untimeout",
+    timeout_expired: "timeout",
+    unban: "unban",
+    unwarn: "warn",
+    delete: "mod",
+  };
   // Kênh gửi ưu tiên kênh thông báo hình phạt (Moderation trên web), rồi log mod, rồi log chung.
-  await sendModLog(guild, guildConfig, embed, guildConfig.punishNoticeChannelId);
+  await sendModLog(
+    guild,
+    guildConfig,
+    embed,
+    guildConfig.punishNoticeChannelId,
+    EVENT_TYPE_OF[action] || "mod",
+    {
+      action: label,
+      reason: reason || "",
+      user: offender?.username ?? "",
+      mod: responsible,
+    },
+  );
   return embed;
 }
 

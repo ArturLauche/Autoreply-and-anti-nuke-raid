@@ -36,14 +36,29 @@ interface WebhookRow {
   enabled: boolean;
   status: "pending_create" | "ready" | "pending_update" | "pending_delete" | "error";
   testRequested: boolean;
+  isDefault: boolean;
   webhookId: string | null;
   lastError: string | null;
   createdAt: number;
 }
 
+/** Hạng mục log chi tiết — webhook chọn thoải mái, không giới hạn số lượng. */
 const EVENT_LABELS: Record<string, string> = {
-  mod: "⚖️ Log hình phạt (ban/kick/timeout/warn…)",
-  general: "🛡️ Cảnh báo anti nuke/raid + log chung",
+  ban: "🚫 Ban",
+  kick: "👢 Kick",
+  timeout: "⏱️ Timeout",
+  warn: "⚠️ Warn",
+  purge: "🧹 Purge / xóa tin",
+  unban: "🔓 Gỡ ban",
+  untimeout: "🔓 Gỡ timeout",
+  antinuke: "🛡️ Anti nuke (phá kênh/role/ban kick hàng loạt)",
+  raid: "🚨 Raid (thành viên/app ngoài/nút bấm)",
+  join: "🚪 Join Gate / verify / alt & VPN",
+  leave: "🚶 Thành viên rời server",
+  settings: "⚙️ Thay đổi cài đặt",
+  general: "📦 Log chung còn lại",
+  mod: "⚖️ TẤT CẢ hình phạt (ban+kick+timeout+warn…)",
+  all: "🌟 MỌI log (thay webhook mặc định)",
 };
 
 function hexToNumber(hex: string): number | undefined {
@@ -75,6 +90,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
   const createWebhook = useMutation(api.webhooks.createWebhook);
   const updateWebhook = useMutation(api.webhooks.updateWebhook);
   const toggleWebhook = useMutation(api.webhooks.toggleWebhook);
+  const toggleDefaultWebhook = useMutation(api.webhooks.toggleDefaultWebhook);
   const deleteWebhook = useMutation(api.webhooks.deleteWebhook);
   const requestTest = useMutation(api.webhooks.requestWebhookTest);
 
@@ -153,6 +169,8 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
     );
   }
 
+  const defaultWh = (webhooks ?? []).find((w) => w.isDefault) ?? null;
+  const customWhs = (webhooks ?? []).filter((w) => !w.isDefault);
   const loading = webhooks === undefined;
 
   return (
@@ -174,21 +192,74 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
       <div className="rounded-xl bg-muted/50 p-4 text-xs leading-relaxed text-muted-foreground">
         <p className="mb-1 font-semibold text-foreground">💡 Cách hoạt động:</p>
         <p>
-          • <b className="text-foreground">Tên webhook</b> hỗ trợ emoji: dán emoji tĩnh{" "}
-          <code className="rounded bg-muted px-1 font-mono">🔔</code> hoặc emoji custom{" "}
-          <code className="rounded bg-muted px-1 font-mono">&lt;:ten:123…&gt;</code> /{" "}
-          <code className="rounded bg-muted px-1 font-mono">&lt;a:ten:123…&gt;</code> (emoji động{" "}
-          <b className="text-foreground">&lt;a:…&gt;</b> hiển thị động cho người có Nitro, người khác
-          thấy bản tĩnh).
+          • <b className="text-foreground">Webhook mặc định</b> của bot: chỉ cần set{" "}
+          <b className="text-foreground">Kênh log</b> trong Cài đặt là bot tự tạo{" "}
+          <code className="rounded bg-muted px-1 font-mono">Protogon Log</code> (avatar bot) — nhận
+          toàn bộ hình phạt + anti nuke/raid mà chưa có webhook tùy chỉnh nào nhận.
         </p>
         <p className="mt-1">
-          • Webhook nhận log theo loại đã chọn: log hình phạt (mod) và/hoặc cảnh báo anti nuke/raid
-          (general). Có webhook khớp → log gửi qua webhook, kênh thường chỉ dùng khi chưa có webhook.
+          • <b className="text-foreground">Webhook tùy chỉnh</b> tạo không giới hạn số lượng — chọn
+          hạng mục chi tiết (ban, kick, timeout, warn, purge, antinuke, raid…) hoặc nhóm gộp (mod /
+          general / all). Có webhook khớp → log gửi qua webhook đó (ưu tiên hơn webhook mặc định).
         </p>
         <p className="mt-1">
           • Sau khi tạo, bot tạo webhook trên Discord trong khoảng 1 phút — bấm{" "}
           <b className="text-foreground">Gửi thử</b> để kiểm tra ngay.
         </p>
+      </div>
+
+      {/* Webhook MẶC ĐỊNH của bot */}
+      <div className="rounded-xl border border-primary/25 bg-primary/5 p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+            <WebhookIcon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+              Webhook mặc định của bot{" "}
+              <Badge variant="secondary" className="text-[10px]">
+                MẶC ĐỊNH — tự động
+              </Badge>
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {defaultWh ? (
+                <>
+                  Tên <b className="text-foreground">{defaultWh.name}</b> · kênh{" "}
+                  <b className="text-foreground">
+                    #{" "}
+                    {channels.find((c) => c.channelId === defaultWh.channelId)?.name ??
+                      "kênh đã bị xóa"}
+                  </b>{" "}
+                  (theo Kênh log trong Cài đặt) · nhận mọi log chưa có webhook tùy chỉnh nào khớp.
+                </>
+              ) : (
+                <>
+                  Chưa có — bot sẽ <b className="text-foreground">tự tạo trong ~1 phút</b> sau khi bạn{" "}
+                  <b className="text-foreground">set Kênh log</b> trong Cài đặt (hoặc Kênh log hình
+                  phạt).
+                </>
+              )}
+            </p>
+          </div>
+          {defaultWh && (
+            <Switch
+              checked={defaultWh.enabled}
+              onCheckedChange={async (v) => {
+                try {
+                  await toggleDefaultWebhook({ token, guildId: g.discordId });
+                  toast.success(v ? "Đã bật webhook mặc định" : "Đã tắt webhook mặc định");
+                } catch (e: unknown) {
+                  toast.error(String(e));
+                }
+              }}
+            />
+          )}
+        </div>
+        {defaultWh?.lastError && (
+          <p className="mt-2 rounded-lg bg-danger/10 px-3 py-2 text-xs text-red-500">
+            ⚠️ {defaultWh.lastError}
+          </p>
+        )}
       </div>
 
       {/* Nút tạo mới */}
@@ -288,8 +359,10 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
               />
               <p className="text-[10px] text-muted-foreground">
                 Chèn: <code className="font-mono">{'{server}'}</code> tên server ·{" "}
-                <code className="font-mono">{'{time}'}</code> giờ hiện tại ·{" "}
-                <code className="font-mono">{'{action}'}</code> hành động.
+                <code className="font-mono">{'{time}'}</code> giờ · <code className="font-mono">{'{action}'}</code> hành động ·{" "}
+                <code className="font-mono">{'{reason}'}</code> lý do ·{" "}
+                <code className="font-mono">{'{user}'}</code> người bị xử lý ·{" "}
+                <code className="font-mono">{'{mod}'}</code> người thực hiện.
               </p>
             </div>
 
@@ -325,12 +398,13 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
         {loading && (
           <p className="text-sm text-muted-foreground">Đang tải danh sách webhook…</p>
         )}
-        {!loading && (webhooks ?? []).length === 0 && (
+        {!loading && customWhs.length === 0 && (
           <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            Chưa có webhook nào. Tạo webhook đầu tiên để log gửi qua webhook tùy chỉnh.
+            Chưa có webhook tùy chỉnh nào — webhook mặc định của bot vẫn đang lo toàn bộ log hình
+            phạt & anti nuke/raid. Tạo thêm để tách log theo hạng mục riêng.
           </p>
         )}
-        {(webhooks ?? []).map((w) => {
+        {customWhs.map((w) => {
           const badge = STATUS_BADGE[w.status] ?? STATUS_BADGE.ready;
           const isEditing = editing === w._id;
           return (
