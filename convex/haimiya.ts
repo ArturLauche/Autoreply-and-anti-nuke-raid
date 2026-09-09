@@ -43,25 +43,25 @@ KIẾN THỨC CHUYÊN SÂU VỀ PROTOGON (dùng khi được hỏi về bot):
 
 /**
  * Chọn provider AI theo thứ tự ưu tiên (tất cả tương thích OpenAI chat completions):
- *   1. SambaNova: SAMBANOVA_API_KEY (mặc định Meta-Llama-3.3-70B-Instruct)
- *   2. Gateway OpenAI-compatible (Groq, kiosapi, ...): AI_BASE_URL + AI_API_KEY + AI_MODEL
+ *   1. Gateway OpenAI-compatible (Groq, kiosapi, ...): AI_BASE_URL + AI_API_KEY + AI_MODEL
+ *   2. SambaNova: SAMBANOVA_API_KEY (mặc định Meta-Llama-3.3-70B-Instruct)
  *   3. OpenAI: OPENAI_API_KEY (+ OPENAI_MODEL, mặc định gpt-4o-mini)
  */
 function aiProvider(): { key: string; baseUrl: string; model: string } | null {
-  const sambanovaKey = process.env.SAMBANOVA_API_KEY;
-  if (sambanovaKey) {
-    return {
-      key: sambanovaKey,
-      baseUrl: "https://api.sambanova.ai/v1",
-      model: "Meta-Llama-3.3-70B-Instruct",
-    };
-  }
   const groqKey = process.env.AI_API_KEY;
   if (groqKey && process.env.AI_BASE_URL) {
     return {
       key: groqKey,
       baseUrl: process.env.AI_BASE_URL,
       model: process.env.AI_MODEL ?? "llama-3.3-70b-versatile",
+    };
+  }
+  const sambanovaKey = process.env.SAMBANOVA_API_KEY;
+  if (sambanovaKey) {
+    return {
+      key: sambanovaKey,
+      baseUrl: "https://api.sambanova.ai/v1",
+      model: "Meta-Llama-3.3-70B-Instruct",
     };
   }
   const openaiKey = process.env.OPENAI_API_KEY;
