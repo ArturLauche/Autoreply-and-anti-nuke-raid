@@ -163,13 +163,8 @@ client.once("clientReady", async () => {
   );
   backupInterval.unref();
 
-  // Custom webhook jobs (tạo/sửa/xóa/test webhook từ web) — mỗi 60s
-  setTimeout(() => webhookHub.pollWebhookJobs().catch((e) => console.error("[webhook]", e.message)), 20_000);
-  const webhookInterval = setInterval(
-    () => webhookHub.pollWebhookJobs().catch((e) => console.error("[webhook]", e.message)),
-    60_000,
-  );
-  webhookInterval.unref();
+  // Custom webhook jobs đã gộp vào batch hidden (pollHidden mỗi 60s) —
+  // không còn poll webhooks:botGetWebhookJobs riêng (tiết kiệm function calls).
 
   // Auto backup — mỗi 1 giờ
   const autoBackupInterval = setInterval(

@@ -23,7 +23,27 @@ function init(c, s) {
   store = s;
 }
 
-/** Bot xử lý tất cả việc cần làm (create/update/delete/test) — gọi mỗi 60s. */
+/** Xử lý 1 việc webhook (test/delete/update/create) — dùng chung cho cả batch hidden. */
+async function processJob(job) {
+  try {
+    if (job.testRequested) {
+      await sendTest(job);
+    } else if (job.status === "pending_delete") {
+      await deleteOne(job);
+    } else if (job.status === "pending_update") {
+      await updateOne(job);
+    } else if (job.status === "pending_create") {
+      await createOne(job);
+    }
+  } catch (e) {
+    console.error(`[webhook:${job.status}] ${job.guildId}:`, e.message);
+  }
+}
+
+/**
+ * Bot xử lý tất cả việc cần làm (create/update/delete/test) — vòng quét cũ,
+ * giữ lại cho bot zip cũ vẫn còn gọi; bot mới dùng batch hidden (pollHidden).
+ */
 async function pollWebhookJobs() {
   if (!client || !store) return;
   let jobs;
@@ -35,19 +55,7 @@ async function pollWebhookJobs() {
   }
   if (!jobs || jobs.length === 0) return;
   for (const job of jobs) {
-    try {
-      if (job.testRequested) {
-        await sendTest(job);
-      } else if (job.status === "pending_delete") {
-        await deleteOne(job);
-      } else if (job.status === "pending_update") {
-        await updateOne(job);
-      } else if (job.status === "pending_create") {
-        await createOne(job);
-      }
-    } catch (e) {
-      console.error(`[webhook:${job.status}] ${job.guildId}:`, e.message);
-    }
+    await processJob(job);
   }
 }
 
@@ -232,4 +240,4 @@ async function send(whInfo, embed, { guildName, action } = {}) {
   return true;
 }
 
-module.exports = { init, pollWebhookJobs, matchFor, send, getForGuild, invalidateCache };
+module.exports = { init, pollWebhookJobs, processJob, matchFor, send, getForGuild, invalidateCache };

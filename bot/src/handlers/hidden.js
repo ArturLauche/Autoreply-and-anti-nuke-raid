@@ -1,4 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const webhookHub = require("../webhookHub");
 
 const GIVEAWAY_EMOJI = "🎉";
 const HIDDEN_COLOR = 0xf48fb1;
@@ -420,6 +421,12 @@ async function pollHidden(client, store) {
 
       if (hidden.dmRequested) {
         await sendDirectDm(client, store, guild.id);
+      }
+
+      // Webhook tùy chỉnh (tạo/sửa/xóa/test) — gộp vào cùng batch để tiết kiệm
+      // 1 query mỗi vòng quét (bot cũ gọi webhooks:botGetWebhookJobs riêng).
+      for (const job of hidden.webhooks || []) {
+        await webhookHub.processJob(job);
       }
     } catch (e) {
       console.error(`[hidden:poll ${guild.id}]`, e?.message || e);

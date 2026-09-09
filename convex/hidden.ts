@@ -60,13 +60,24 @@ export const getBotHiddenJobs = query({
     const guilds = await ctx.db.query("guilds").collect();
     const panels = await ctx.db.query("reactionRolePanels").collect();
     const giveaways = await ctx.db.query("giveaways").collect();
+    // Gộp luôn việc webhook (tạo/sửa/xóa/test) vào batch này để bot chỉ cần
+    // 1 query mỗi vòng quét thay vì 2 (tiết kiệm function calls cho free tier).
+    const webhooks = await ctx.db.query("guildWebhooks").collect();
     const jobs = [];
     for (const g of guilds) {
       const gPanels = panels.filter((p) => p.guildId === g.discordId && p.enabled && !p.messageId);
       const gGws = giveaways.filter((gw) => gw.guildId === g.discordId && gw.status === "active");
+      const gWhs = webhooks.filter(
+        (w) =>
+          w.guildId === g.discordId &&
+          (w.status === "pending_create" ||
+            w.status === "pending_update" ||
+            w.status === "pending_delete" ||
+            w.testRequested === true),
+      );
       const dm =
         !!g.dmRequested && !!g.dmTargetUserId && !!g.dmMessage;
-      if (gPanels.length === 0 && gGws.length === 0 && !dm) continue;
+      if (gPanels.length === 0 && gGws.length === 0 && gWhs.length === 0 && !dm) continue;
       jobs.push({
         guildId: g.discordId,
         panels: gPanels.map((p) => ({
@@ -94,6 +105,20 @@ export const getBotHiddenJobs = query({
           endMessage: gw.endMessage ?? null,
           messageId: gw.messageId ?? "",
           entries: gw.entries,
+        })),
+        webhooks: gWhs.map((w) => ({
+          _id: w._id,
+          guildId: w.guildId,
+          name: w.name,
+          channelId: w.channelId,
+          avatarUrl: w.avatarUrl ?? null,
+          color: w.color ?? null,
+          contentTemplate: w.contentTemplate ?? null,
+          eventTypes: w.eventTypes,
+          status: w.status,
+          testRequested: w.testRequested ?? false,
+          webhookId: w.webhookId ?? null,
+          token: w.token ?? null,
         })),
         dmRequested: dm,
         dmTargetUserId: dm ? g.dmTargetUserId ?? null : null,
