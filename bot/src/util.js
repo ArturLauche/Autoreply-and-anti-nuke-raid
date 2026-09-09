@@ -42,22 +42,6 @@ function logEmbed({ title, description, color = Colors.Red, fields = [], footer 
   return embed;
 }
 
-/** Gửi embed tới một kênh. Trả về true nếu gửi thành công, false nếu kênh
- * không tồn tại / không phải kênh text / gửi thất bại (để caller fallback). */
-async function sendToChannel(guild, channelId, embed) {
-  if (!guild || !channelId) return false;
-  try {
-    const channel = await guild.channels.fetch(channelId);
-    if (channel && channel.isTextBased()) {
-      await channel.send({ embeds: [embed] });
-      return true;
-    }
-  } catch {
-    // log channel unavailable — ignore
-  }
-  return false;
-}
-
 /**
  * Gửi embed qua webhook (nếu guild có webhook khớp hạng mục sự kiện).
  * Trả về true khi ÍT NHẤT 1 webhook nhận thành công — caller bỏ qua kênh thường.
