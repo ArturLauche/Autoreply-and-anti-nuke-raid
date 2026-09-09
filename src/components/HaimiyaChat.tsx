@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import { askHaimiya, GREETING, QUICK_QUESTIONS } from "../lib/haimiya";
 import { useBranding } from "../lib/useBranding";
 import { cn } from "../lib/utils";
+import { isPuterAvailable, puterChat } from "../lib/puterChat";
 
 interface ChatMessage {
   role: "user" | "haimiya";
@@ -172,6 +173,26 @@ export default function HaimiyaChat({
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, typing, open]);
 
+  async function getAIResponse(history: Array<{ role: "user" | "assistant"; content: string }>): Promise<string | null> {
+    // Ưu tiên 1: Puter.js — free, không cần API key (User-Pays model).
+    if (isPuterAvailable()) {
+      try {
+        const reply = await puterChat(history, "gpt-5.4-nano");
+        if (reply) return reply;
+      } catch {
+        // Puter lỗi → thử Convex action bên dưới.
+      }
+    }
+    // Ưu tiên 2: Convex action (SAMBANOVA_API_KEY / OPENAI_API_KEY nếu có).
+    try {
+      const res = await askAI({ messages: history });
+      if (res && !res.offline && res.reply) return res.reply;
+    } catch {
+      // fallback to local knowledge.
+    }
+    return null;
+  }
+
   function send(text: string) {
     const q = text.trim();
     if (!q || typing) return;
@@ -180,29 +201,25 @@ export default function HaimiyaChat({
     setTyping(true);
     window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(async () => {
-      try {
-        // Ưu tiên AI thật (khi đã cấu hình SAMBANOVA_API_KEY / OPENAI_API_KEY); nếu offline → dùng bộ kiến thức.
-        const history = messages
-          .concat([{ role: "user", text: q }])
-          .slice(-8)
-          .map((m) => ({
-            role: m.role === "user" ? ("user" as const) : ("assistant" as const),
-            content: m.text,
-          }));
-        const res = await askAI({ messages: history });
-        if (res && !res.offline && res.reply) {
-          setMessages((m) => [...m, { role: "haimiya", text: res.reply }]);
-          setTyping(false);
-          return;
-        }
-      } catch {
-        // fallback bên dưới
+      const history = messages
+        .concat([{ role: "user", text: q }])
+        .slice(-8)
+        .map((m) => ({
+          role: m.role === "user" ? ("user" as const) : ("assistant" as const),
+          content: m.text,
+        }));
+
+      const aiReply = await getAIResponse(history);
+      if (aiReply) {
+        setMessages((m) => [...m, { role: "haimiya", text: aiReply }]);
+      } else {
+        // Fallback: bộ kiến thức cục bộ.
+        const ans = askHaimiya(q);
+        setMessages((m) => [
+          ...m,
+          { role: "haimiya", text: ans.text, suggestions: ans.suggestions },
+        ]);
       }
-      const ans = askHaimiya(q);
-      setMessages((m) => [
-        ...m,
-        { role: "haimiya", text: ans.text, suggestions: ans.suggestions },
-      ]);
       setTyping(false);
     }, 650 + Math.random() * 500);
   }
