@@ -196,11 +196,19 @@ async function ensureDefaultWebhook(guild, channelId) {
   // 3. Chưa có → tạo webhook trên Discord.
   try {
     const channel = await guild.channels.fetch(channelId).catch(() => null);
-    if (!channel || !channel.isTextBased()) return null;
+    if (!channel || !channel.isTextBased()) {
+      console.warn(`[webhook:ensure] ${guildId}: kênh #${channelId} không tồn tại hoặc không phải text`);
+      return null;
+    }
     const created = await channel.createWebhook({
       name: "Protogon Log",
       avatar: (await resolveAvatar(client.user?.displayAvatarURL({ size: 256 }))) || undefined,
+    }).catch((e) => {
+      console.error(`[webhook:ensure] ${guildId}: không tạo được webhook — ${e.message} (kiểm tra quyền ManageWebhooks)`);
+      return null;
     });
+    if (!created) return null;
+
     await store.client.mutation("webhooks:botDefaultWebhookReady", {
       guildId,
       channelId,
