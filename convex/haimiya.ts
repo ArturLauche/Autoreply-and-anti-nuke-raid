@@ -47,15 +47,37 @@ KIẾN THỨC CHUYÊN SÂU VỀ PROTOGON (dùng khi được hỏi về bot):
  *   2. SambaNova: SAMBANOVA_API_KEY (mặc định Meta-Llama-3.3-70B-Instruct)
  *   3. OpenAI: OPENAI_API_KEY (+ OPENAI_MODEL, mặc định gpt-4o-mini)
  */
+/**
+ * Chọn provider AI theo thứ tự ưu tiên (tất cả tương thích OpenAI chat completions):
+ *   1. Gateway OpenAI-compatible (Groq, kiosapi, ...): AI_BASE_URL + AI_API_KEY + AI_MODEL
+ *   2. Groq free (không cần credit card, 30 RPM, 14.4K RPD): GROQ_API_KEY
+ *   3. SambaNova: SAMBANOVA_API_KEY (mặc định Meta-Llama-3.3-70B-Instruct)
+ *   4. OpenAI: OPENAI_API_KEY (+ OPENAI_MODEL, mặc định gpt-4o-mini)
+ *
+ * Free tier từ awesome-freellm-apis:
+ * - Groq: 30 RPM, 14,400 RPD, model llama-3.3-70b-versatile — MIỄN PHÍ, không cần thẻ
+ * - SambaNova: 20 RPM, 20 RPD, model deepseek-v3-1 — MIỄN PHÍ, cần đăng ký
+ */
 function aiProvider(): { key: string; baseUrl: string; model: string } | null {
+  // 1. Gateway tùy chỉnh (Groq/kiosapi qua env)
   const groqKey = process.env.AI_API_KEY;
   if (groqKey && process.env.AI_BASE_URL) {
     return {
       key: groqKey,
       baseUrl: process.env.AI_BASE_URL,
-      model: process.env.AI_MODEL ?? "llama-3.3-70b-versatile",
+      model: process.env.AI_MODEL ?? "qwen/qwen3.8-27b",
     };
   }
+  // 2. Groq free trực tiếp (không qua gateway)
+  const groqDirectKey = process.env.GROQ_API_KEY;
+  if (groqDirectKey) {
+    return {
+      key: groqDirectKey,
+      baseUrl: "https://api.groq.com/openai/v1",
+      model: process.env.AI_MODEL ?? "qwen/qwen3.8-27b",
+    };
+  }
+  // 3. SambaNova free
   const sambanovaKey = process.env.SAMBANOVA_API_KEY;
   if (sambanovaKey) {
     return {
@@ -64,6 +86,7 @@ function aiProvider(): { key: string; baseUrl: string; model: string } | null {
       model: "Meta-Llama-3.3-70B-Instruct",
     };
   }
+  // 4. OpenAI (trả phí)
   const openaiKey = process.env.OPENAI_API_KEY;
   if (openaiKey) {
     return {

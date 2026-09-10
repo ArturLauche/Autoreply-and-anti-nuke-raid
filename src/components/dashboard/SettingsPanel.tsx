@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import {
   BarChart3,
@@ -12,6 +12,7 @@ import {
   ShieldHalf,
   Trash2,
   Users,
+  Webhook,
 } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { Card, CardContent } from "../ui/card";
@@ -42,6 +43,19 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
   const [theme, setTheme] = useState(data.guild.theme || DEFAULT_THEME);
   const [themeSaving, setThemeSaving] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Webhook config
+  const webhookData = useQuery(api.webhooks.getGuildWebhooks, {
+    token: TOKEN(),
+    guildId: data.guild.discordId,
+  });
+  const updateDefaultWebhook = useMutation(api.webhooks.updateDefaultWebhook);
+  const [webhookEventTypes, setWebhookEventTypes] = useState<string[]>([
+    "antinuke", "mod", "join", "leave", "general",
+  ]);
+  const [webhookColor, setWebhookColor] = useState<string>("");
+  const [webhookTemplate, setWebhookTemplate] = useState<string>("");
+  const [webhookSaving, setWebhookSaving] = useState(false);
 
   const textChannels = data.channels.filter((c) => c.type === 0 || c.type === 5);
   const roleOptions = data.roles
@@ -190,6 +204,91 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                   onCheckedChange={toggleDailyReport}
                 />
               </div>
+
+              {/* ── Webhook Log Config ─────────────────────────────── */}
+              {webhookData && webhookData.length > 0 && (
+                <div className="rounded-lg border border-border bg-secondary/30 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Webhook className="h-4 w-4 text-primary" />
+                    <p className="text-sm font-medium">Tùy chỉnh Webhook Log</p>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Webhook "{webhookData[0]?.name}" tự gửi log khi có sự kiện. Tùy chỉnh loại sự kiện, màu embed và nội dung kèm.
+                  </p>
+                  <div className="grid gap-1.5">
+                    <Label>Loại sự kiện nhận log</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {["antinuke", "mod", "join", "leave", "general", "all"].map((et) => (
+                        <button
+                          key={et}
+                          type="button"
+                          onClick={() => {
+                            setWebhookEventTypes((prev) =>
+                              prev.includes(et) ? prev.filter((e) => e !== et) : [...prev, et]
+                            );
+                          }}
+                          className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                            webhookEventTypes.includes(et)
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background text-muted-foreground border-border hover:border-primary/50"
+                          }`}
+                        >
+                          {et === "antinuke" ? "🛡️ Chống nuke" : et === "mod" ? "⚙️ Moderation" : et === "join" ? "📥 Vào server" : et === "leave" ? "📤 Rời server" : et === "general" ? "📋 Chung" : "🌐 Tất cả"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid gap-1.5 sm:grid-cols-2">
+                    <div className="grid gap-1.5">
+                      <Label>Màu embed (hex, để trống = mặc định)</Label>
+                      <Input
+                        type="color"
+                        value={webhookColor || "#5865F2"}
+                        onChange={(e) => setWebhookColor(e.target.value)}
+                        className="h-9 w-16 cursor-pointer"
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label>Nội dung kèm (template)</Label>
+                      <Input
+                        value={webhookTemplate}
+                        onChange={(e) => setWebhookTemplate(e.target.value)}
+                        placeholder="{server} · {action} · {time}"
+                      />
+                      <p className="text-[10px] text-muted-foreground">
+                        Placeholder: {'{server}'} {'{time}'} {'{action}'} {'{reason}'} {'{user}'} {'{mod}'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        setWebhookSaving(true);
+                        try {
+                          const parsedColor = webhookColor ? parseInt(webhookColor.replace("#", ""), 16) : null;
+                          await updateDefaultWebhook({
+                            token: TOKEN(),
+                            guildId: data.guild.discordId,
+                            eventTypes: webhookEventTypes,
+                            color: parsedColor,
+                            contentTemplate: webhookTemplate || null,
+                          });
+                          toast.success("Đã lưu webhook log");
+                        } catch (e) {
+                          toast.error(e instanceof Error ? e.message : "Lỗi lưu webhook");
+                        } finally {
+                          setWebhookSaving(false);
+                        }
+                      }}
+                      disabled={webhookSaving}
+                    >
+                      {webhookSaving ? "Đang lưu…" : "Lưu webhook"}
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end">
                 <Button onClick={handleSave} disabled={saving}>

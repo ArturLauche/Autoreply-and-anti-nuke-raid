@@ -140,6 +140,34 @@ export const botDefaultWebhookDeleted = mutation({
   },
 });
 
+/* ======================== Cấu hình webhook mặc định từ web ======================== */
+
+/** Web chủ server cập nhật cấu hình webhook MẶC ĐỊNH (eventTypes, color, contentTemplate). */
+export const updateDefaultWebhook = mutation({
+  args: {
+    token: v.string(),
+    guildId: v.string(),
+    eventTypes: v.optional(v.array(v.string())),
+    color: v.optional(v.union(v.number(), v.null())),
+    contentTemplate: v.optional(v.union(v.string(), v.null())),
+  },
+  handler: async (ctx, { token, guildId, eventTypes, color, contentTemplate }) => {
+    await requireGuild(ctx, token, guildId);
+    const wh = await ctx.db
+      .query("guildWebhooks")
+      .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
+      .filter((q) => q.eq(q.field("isDefault"), true))
+      .first();
+    if (!wh) throw new Error("Server chưa có webhook mặc định — hãy set kênh log trước");
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (eventTypes !== undefined) patch.eventTypes = eventTypes;
+    if (color !== undefined) patch.color = color;
+    if (contentTemplate !== undefined) patch.contentTemplate = contentTemplate;
+    await ctx.db.patch(wh._id, patch);
+    return { ok: true };
+  },
+});
+
 /* ======================== Discord Webhook Sender (discohook.org style) ======================== */
 
 /** Gửi embed qua Discord Webhook URL — chạy server-side để tránh CORS. */

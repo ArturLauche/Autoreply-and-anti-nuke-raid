@@ -129,13 +129,13 @@ client.once("clientReady", async () => {
     })();
   }, 5_000);
 
-  // Presence update — mỗi 1 phút
+  // Presence update — mỗi 3 phút (chỉ cần Discord cache, không gọi Convex)
   const presenceInterval = setInterval(() => {
     client.user.setPresence({
       activities: [{ name: `${client.guilds.cache.size} server · /help`, type: ActivityType.Watching }],
       status: "online",
     });
-  }, 60_000);
+  }, 180_000);
   presenceInterval.unref();
 
   // Daily report — mỗi 15 phút (query per-guild chỉ khi đến hạn)
@@ -147,19 +147,19 @@ client.once("clientReady", async () => {
   );
   reportInterval.unref();
 
-  // Heat flush — mỗi 60s (batch 1 mutation/guild — tiết kiệm operations)
+  // Heat flush — mỗi 2 phút (batch 1 mutation/guild — tiết kiệm Convex writes)
   const heatInterval = setInterval(
     () => heat.flushAll().catch((e) => console.error("[heat:flush]", e.message)),
-    60_000,
+    120_000,
   );
   heatInterval.unref();
 
-  // Backup poll — mỗi 60s (người dùng chờ vài chục giây vẫn ổn)
+  // Backup poll — mỗi 2 phút (tiết kiệm Convex reads, người dùng chờ thêm 60s vẫn ổn)
   const pollBackups = require("./handlers/backup");
   setTimeout(() => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)), 15_000);
   const backupInterval = setInterval(
     () => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)),
-    60_000,
+    120_000,
   );
   backupInterval.unref();
 
@@ -173,11 +173,11 @@ client.once("clientReady", async () => {
   );
   autoBackupInterval.unref();
 
-  // Health check heartbeat — mỗi 60s (đủ để web hiển thị online/offline)
+  // Health check heartbeat — mỗi 3 phút (tiết kiệm Convex writes: 3x ít hơn)
   const heartbeatInterval = setInterval(() => {
     const memberCount = client.guilds.cache.reduce((a, g) => a + (g.memberCount ?? 0), 0);
     store.sendHeartbeat(client.guilds.cache.size, memberCount).catch(() => {});
-  }, 60_000);
+  }, 180_000);
   heartbeatInterval.unref();
 
   // Memory monitoring — mỗi 30 phút (nhẹ nhàng)
