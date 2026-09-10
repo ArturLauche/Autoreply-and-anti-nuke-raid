@@ -43,9 +43,27 @@ function logEmbed({ title, description, color = Colors.Red, fields = [], footer 
 }
 
 /**
+ * Gửi embed trực tiếp vào kênh text (fallback an toàn khi webhook không hoạt động).
+ * Trả về true nếu gửi thành công.
+ */
+async function sendToChannel(guild, channelId, embed) {
+  if (!guild || !channelId) return false;
+  try {
+    const channel = await guild.channels.fetch(channelId).catch(() => null);
+    if (channel && channel.isTextBased()) {
+      await channel.send({ embeds: [embed] });
+      return true;
+    }
+  } catch {
+    // kênh bị xóa / thiếu quyền Send Messages — bỏ qua
+  }
+  return false;
+}
+
+/**
  * Gửi embed qua webhook (nếu guild có webhook khớp hạng mục sự kiện).
  * Trả về true khi ÍT NHẤT 1 webhook nhận thành công — caller bỏ qua kênh thường.
- * Không có webhook / gửi thất bại → false để fallback kênh như cũ.
+ * Không có webhook / gửi thất bại → fallback gửi trực tiếp vào kênh (an toàn).
  * meta: { action, reason, user, mod } để chèn vào placeholder nội dung kèm.
  */
 async function deliverViaWebhooks(guild, eventType, embed, meta = {}, targetChannelId) {
@@ -61,7 +79,10 @@ async function deliverViaWebhooks(guild, eventType, embed, meta = {}, targetChan
       if (created) matched = [created];
     }
 
-    if (matched.length === 0) return false;
+    if (matched.length === 0) {
+      // Fallback: gửi trực tiếp vào kênh (khi webhook không tạo được — thiếu quyền ManageWebhooks)
+      return await sendToChannel(guild, targetChannelId, embed);
+    }
     let sent = 0;
     for (const wh of matched) {
       try {
@@ -71,9 +92,14 @@ async function deliverViaWebhooks(guild, eventType, embed, meta = {}, targetChan
         // webhook hỏng (đã xóa / thiếu quyền) — thử webhook khác
       }
     }
+    if (sent === 0 && targetChannelId) {
+      // Tất cả webhook đều hỏng — fallback kênh thường
+      return await sendToChannel(guild, targetChannelId, embed);
+    }
     return sent > 0;
   } catch {
-    return false;
+    // Lỗi không xác định — fallback kênh thường nếu có
+    return await sendToChannel(guild, targetChannelId, embed);
   }
 }
 
