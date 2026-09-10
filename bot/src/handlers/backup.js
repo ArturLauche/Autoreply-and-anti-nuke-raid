@@ -1,7 +1,7 @@
 const { EmbedBuilder, Colors, ChannelType, PermissionsBitField } = require("discord.js");
 const zlib = require("zlib");
 const crypto = require("crypto");
-const { logEmbed } = require("../util");
+const { logEmbed, sendLog } = require("../util");
 const {
   compressAndEncryptBackup,
   decompressAndDecryptBackup,
@@ -373,17 +373,17 @@ async function runBackup(client, store, guildId, opts = {}) {
     fields,
     footer: "Protogon · Backup",
   });
-  await sendToLog(guild, embed);
+  await sendToLog(guild, embed, store);
   console.log(`[backup] ${guildId}: xong (${snapshot.roles.length} roles, ${snapshot.channels.length} channels, ${snapshot.emojis?.length ?? 0} emojis, ${snapshot.stickers?.length ?? 0} stickers, ${snapshot.messageCount ?? 0} messages) — ${githubLine}`);
 }
 
-/** Gửi embed tới kênh hệ thống của guild (best-effort). */
-async function sendToLog(guild, embed) {
+/** Gửi embed tới kênh log của guild qua webhook (giống các handler khác). */
+async function sendToLog(guild, embed, store) {
   try {
-    const channel = guild.systemChannel;
-    if (channel && channel.isTextBased()) await channel.send({ embeds: [embed] });
+    const config = store ? await store.getConfig(guild.id).catch(() => null) : null;
+    await sendLog(guild, config, embed);
   } catch {
-    // không có kênh phù hợp — bỏ qua
+    // webhook chưa sẵn sàng hoặc chưa set kênh log — bỏ qua
   }
 }
 
@@ -1484,7 +1484,7 @@ async function restoreCore(client, store, guildId, backup, { backupName, source 
     fields,
     footer: "Protogon · Backup",
   });
-  await sendToLog(guild, embed);
+  await sendToLog(guild, embed, store);
   console.log(`[backup:restore] ${guildId}: ${roleMap.size} roles, ${channelMap.size} channels, ${replayed} messages, ${emojisCreated} emojis, ${stickersCreated} stickers (${source}, restoreRoles=${restoreRoles}, restoreChannels=${restoreChannels}, restoreMessages=${restoreMessages}, restoreEmojis=${restoreEmojis})`);
   return {
     roleCount: roleMap.size,
