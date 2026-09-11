@@ -163,6 +163,8 @@ module.exports = function createAntiNuke(client, store, heat) {
   const appUserHandledAt = new Map(); // `${guildId}:${userId}` -> ts
   const lastExtAppProcessedAt = new Map(); // guildId -> ts
   const patternPunishedAt = new Map(); // `${guildId}:${userId}:${module}` -> ts
+  const staleUnlockSwept = new Set(); // guild key mốc đã quét (chống spam log mở khóa)
+  const punishedRecently = new Map(); // `${guildId}:${module}:${userId}` -> ts (chống phạt/case lặp)
 
   function record(guildId, module, cfg) {
     const key = `${guildId}:${module}`;
@@ -173,6 +175,25 @@ module.exports = function createAntiNuke(client, store, heat) {
     const pruned = arr.filter((t) => t >= cutoff);
     buckets.set(key, pruned);
     return pruned.length;
+  }
+
+  /** Danh dau 1 vu da phat/hanh dong — window chong lap phat + lap case log. */
+  function markHandled(guildId, module, userId, windowMs) {
+    if (!userId) return;
+    punishedRecently.set(`${guildId}:${module}:${userId}`, { ts: Date.now(), ms: windowMs });
+    if (punishedRecently.size > 2000) {
+      const now = Date.now();
+      for (const [k, v] of punishedRecently) {
+        if (now - v.ts > v.ms) punishedRecently.delete(k);
+      }
+    }
+  }
+
+  /** Da phat/hanh dong cho cung module + thu pham trong window chua? (chong log/case trung). */
+  function wasHandled(guildId, module, userId) {
+    if (!userId) return false;
+    const hit = punishedRecently.get(`${guildId}:${module}:${userId}`);
+    return !!hit && Date.now() - hit.ts < hit.ms;
   }
 
   /** Người dùng app vừa bị xử lý ở tầng khác trong cửa sổ? (chống log trùng) */
@@ -1367,6 +1388,10 @@ module.exports = function createAntiNuke(client, store, heat) {
     const count = record(guild.id, module, moduleCfg);
     if (executor && count < moduleCfg.threshold) return;
     if (!executor) return; // can't attribute, can't punish — stay quiet
+    // Chong lap: thu pham do da bi xu ly cho cung module o vua roi (audit log
+    // thuong fire 2 lan cho 1 hanh vi) -> bo qua, khong phat/log/case them lan nua.
+    if (wasHandled(guild.id, module, executor.id)) return;
+    markHandled(guild.id, module, executor.id, Math.max(2, moduleCfg.windowSeconds || 10) * 1000);
 
     let action = "đã ghi nhận";
     let punishCaseNumber;
@@ -1873,8 +1898,15 @@ module.exports = function createAntiNuke(client, store, heat) {
           if (expired) {
             // Hết hạn sau khi bot restart: overwrite vẫn còn trên Discord
             // nhưng bot không nhớ — phải markLocked rồi mở khóa để reset.
-            markLocked(guild.id);
-            await unlockGuild(client, guild, config, store);
+            // Chi xu ly 1 lan cho moi moc lockdownUntil: khong nho moc nay thi
+            // vong quet 20s sau lai thay "expired" -> mo khoa + gui log
+            // "Da mo khoa kenh" LAP LAI vo han (spam log o server tung bi khoa).
+            const sweptKey = `${guild.id}:expired:${config.lockdownUntil}`;
+            if (!staleUnlockSwept.has(sweptKey)) {
+              staleUnlockSwept.add(sweptKey);
+              markLocked(guild.id);
+              await unlockGuild(client, guild, config, store);
+            }
           } else if (config.lockdownUntil) {
             // Vẫn đang trong thời gian khóa (restart giữa chừng): nhớ lại trạng thái.
             markLocked(guild.id);
@@ -1954,6 +1986,9 @@ module.exports = function createAntiNuke(client, store, heat) {
     const count = record(guild.id, module, moduleCfg);
     if (executor && count < moduleCfg.threshold) return;
     if (!executor) return;
+    // Chong lap (giong handleAttributeEvent): 1 hanh vi = 1 phat + 1 case log.
+    if (wasHandled(guild.id, module, executor.id)) return;
+    markHandled(guild.id, module, executor.id, Math.max(2, moduleCfg.windowSeconds || 10) * 1000);
 
     let action = "đã ghi nhận";
     let punishType = null;

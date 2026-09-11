@@ -507,6 +507,14 @@ export const botStoreBackup = mutation({
     stickerCount: v.optional(v.number()),
     messageCount: v.optional(v.number()),
     source: v.optional(v.string()),
+    /** SHA-256 checksum (nén + mã hóa) — bot gửi từ backupUtils. */
+    backupChecksum: v.optional(v.string()),
+    /** Backup có nén zlib không. */
+    backupCompressed: v.optional(v.boolean()),
+    /** Backup có mã hóa AES-256-GCM không. */
+    backupEncrypted: v.optional(v.boolean()),
+    /** Checksum "ổn định" của snapshot (so khớp incremental — bỏ qua khi không đổi). */
+    backupSnapshotChecksum: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -520,6 +528,10 @@ export const botStoreBackup = mutation({
       stickerCount: args.stickerCount === undefined ? undefined : Math.max(0, Math.floor(args.stickerCount)),
       messageCount: args.messageCount === undefined ? undefined : Math.max(0, Math.floor(args.messageCount)),
       source: args.source ?? undefined,
+      backupChecksum: args.backupChecksum ?? undefined,
+      backupCompressed: args.backupCompressed ?? undefined,
+      backupEncrypted: args.backupEncrypted ?? undefined,
+      backupSnapshotChecksum: args.backupSnapshotChecksum ?? undefined,
       pushedToGithub: false,
       createdAt: now,
     });
@@ -674,8 +686,10 @@ export const botClearBackup = mutation({
   args: {
     guildId: v.string(),
     kind: v.union(v.literal("backup"), v.literal("restore"), v.literal("import")),
+    /** true khi backup đã lưu thành công (hoặc bỏ qua vì không đổi) — chỉ khi đó mới cập nhật lastBackupAt. */
+    storeOk: v.optional(v.boolean()),
   },
-  handler: async (ctx, { guildId, kind }) => {
+  handler: async (ctx, { guildId, kind, storeOk }) => {
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -686,6 +700,10 @@ export const botClearBackup = mutation({
       patch.backupRequested = false;
       patch.backupPushToGithub = false;
       patch.backupClaimedAt = undefined;
+      // Backup đã xử lý xong (kể cả trường hợp bỏ qua vì checksum trùng) —
+      // cập nhật mốc để botGetDueAuto không kích hoạt lại tức thì (chống lặp/spam).
+      // Store thất bại → KHÔNG cập nhật, để bot thử lại ở vòng quét sau.
+      if (storeOk !== false) patch.lastBackupAt = Date.now();
     } else if (kind === "import") {
       patch.importRestoreRequested = false;
       patch.importFileName = undefined;

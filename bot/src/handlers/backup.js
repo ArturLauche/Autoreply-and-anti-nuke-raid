@@ -291,16 +291,18 @@ async function runBackup(client, store, guildId, opts = {}) {
   const json = JSON.stringify(snapshot);
 
   // ─── Incremental backup: skip if unchanged ─────────────────────────────
+  // So khớp checksum "ổn định" (không gồm timestamps/media): server không đổi
+  // → bỏ qua, không gửi log spam. Lỗi (query chưa deploy, v.v.) → backup đầy đủ.
   const currentChecksum = computeSnapshotChecksum(snapshot);
   try {
     const lastBackup = await store.client
       .query("backup:botGetLastChecksum", { guildId })
       .catch(() => null);
-    const lastChecksum = lastBackup?.backupChecksum;
+    const lastChecksum = lastBackup?.backupSnapshotChecksum;
     if (lastChecksum && lastChecksum === currentChecksum) {
       console.log(`[backup] ${guildId}: unchanged (checksum match) — skipping`);
       await store.client
-        .mutation("bot_writes:botClearBackup", { guildId, kind: "backup" })
+        .mutation("bot_writes:botClearBackup", { guildId, kind: "backup", storeOk: true })
         .catch(() => {});
       return;
     }
@@ -324,6 +326,7 @@ async function runBackup(client, store, guildId, opts = {}) {
       messageCount: snapshot.messageCount ?? 0,
       source: "backup",
       backupChecksum: checksum,
+      backupSnapshotChecksum: currentChecksum,
       backupCompressed: compressed || undefined,
       backupEncrypted: encrypted || undefined,
     });
@@ -347,8 +350,10 @@ async function runBackup(client, store, guildId, opts = {}) {
     githubLine = "lưu Convex thất bại → bỏ qua GitHub";
   }
 
+  // Clear pending flag + cập nhật lastBackupAt (khi store thành công) để
+  // botGetDueAuto không kích hoạt lại tức thì sau khi backup xong.
   await store.client
-    .mutation("bot_writes:botClearBackup", { guildId, kind: "backup" })
+    .mutation("bot_writes:botClearBackup", { guildId, kind: "backup", storeOk: !!backupId })
     .catch((e) => console.error("[backup:clear]", e.message));
 
   const fields = [

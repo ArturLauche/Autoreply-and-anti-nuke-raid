@@ -308,6 +308,8 @@ export default defineSchema({
     source: v.optional(v.string()),
     /** SHA-256 checksum của backup JSON (dùng cho incremental backup + xác minh). */
     backupChecksum: v.optional(v.string()),
+    /** Checksum "ổn định" của snapshot (không gồm timestamps/media) — so khớp incremental để bỏ qua backup không đổi. */
+    backupSnapshotChecksum: v.optional(v.string()),
     /** Có nén zlib không (true = compressed JSON). */
     backupCompressed: v.optional(v.boolean()),
     /** Có mã hóa AES-256-GCM không. */

@@ -352,6 +352,22 @@ export const botGetDueAuto = query({
   },
 });
 
+/**
+ * Bot đọc checksum snapshot gần nhất (để bỏ qua backup không thay đổi).
+ * Trả về null khi server chưa có backup nào.
+ */
+export const botGetLastChecksum = query({
+  args: { guildId: v.string() },
+  handler: async (ctx, { guildId }) => {
+    const last = await ctx.db
+      .query("guildBackups")
+      .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId))
+      .order("desc")
+      .first();
+    return last ? { backupSnapshotChecksum: last.backupSnapshotChecksum ?? null } : null;
+  },
+});
+
 /** Bot quét mỗi ~20s để nhận yêu cầu tạo backup / khôi phục đang chờ. */
 export const botGetPending = query({
   args: {},
