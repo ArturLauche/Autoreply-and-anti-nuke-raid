@@ -117,9 +117,8 @@ client.once("clientReady", async () => {
       } catch (e) {
         console.error("[sync]", e.message);
       }
-      // 120s thay vì 60s — dashboard không cần độ trễ dưới 2 phút,
-      // tiết kiệm 50% operations của vòng đồng bộ.
-      setTimeout(runSyncLoop, 120_000);
+      // 60s — dashboard đồng bộ guild mới/kicked bot nhanh hơn (trước 120s).
+      setTimeout(runSyncLoop, 60_000);
     })();
   };
   setTimeout(() => {
@@ -129,13 +128,13 @@ client.once("clientReady", async () => {
     })();
   }, 5_000);
 
-  // Presence update — mỗi 3 phút (chỉ cần Discord cache, không gọi Convex)
+  // Presence update — mỗi 60s (nhẹ: chỉ Discord cache, không gọi Convex)
   const presenceInterval = setInterval(() => {
     client.user.setPresence({
       activities: [{ name: `${client.guilds.cache.size} server · /help`, type: ActivityType.Watching }],
       status: "online",
     });
-  }, 180_000);
+  }, 60_000);
   presenceInterval.unref();
 
   // Daily report — mỗi 15 phút (query per-guild chỉ khi đến hạn)
@@ -147,19 +146,20 @@ client.once("clientReady", async () => {
   );
   reportInterval.unref();
 
-  // Heat flush — mỗi 2 phút (batch 1 mutation/guild — tiết kiệm Convex writes)
+  // Heat flush — mỗi 30s (batch 1 mutation/guild — rẻ mà heat cập nhật nhanh,
+  // dashboard thấy "nhiệt độ" thành viên gần như realtime).
   const heatInterval = setInterval(
     () => heat.flushAll().catch((e) => console.error("[heat:flush]", e.message)),
-    120_000,
+    30_000,
   );
   heatInterval.unref();
 
-  // Backup poll — mỗi 2 phút (tiết kiệm Convex reads, người dùng chờ thêm 60s vẫn ổn)
+  // Backup poll — mỗi 60s (lệnh "Backup ngay" trên web chỉ chờ tối đa ~1 phút).
   const pollBackups = require("./handlers/backup");
   setTimeout(() => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)), 15_000);
   const backupInterval = setInterval(
     () => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)),
-    120_000,
+    60_000,
   );
   backupInterval.unref();
 
@@ -173,11 +173,11 @@ client.once("clientReady", async () => {
   );
   autoBackupInterval.unref();
 
-  // Health check heartbeat — mỗi 3 phút (tiết kiệm Convex writes: 3x ít hơn)
+  // Health check heartbeat — mỗi 60s (monitor web thấy trạng thái bot gần realtime)
   const heartbeatInterval = setInterval(() => {
     const memberCount = client.guilds.cache.reduce((a, g) => a + (g.memberCount ?? 0), 0);
     store.sendHeartbeat(client.guilds.cache.size, memberCount).catch(() => {});
-  }, 180_000);
+  }, 60_000);
   heartbeatInterval.unref();
 
   // Memory monitoring — mỗi 30 phút (nhẹ nhàng)

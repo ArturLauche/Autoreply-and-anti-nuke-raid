@@ -447,11 +447,11 @@ function setupHidden(client, store) {
     ),
   );
   client.once("ready", () => {
-    // 60s thay vì 30s — đủ nhanh cho panel/giveaway/DM, tiết kiệm 50% operations.
+    // 30s — panel/giveaway/DM phản hồi nhanh hơn (bot chấp nhận tốn thêm operations).
     setInterval(() => {
       pollHidden(client, store).catch(() => {});
       pollVerifyPanels(client, store).catch(() => {});
-    }, 60_000);
+    }, 30_000);
   });
 }
 

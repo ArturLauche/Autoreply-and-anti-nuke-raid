@@ -94,6 +94,22 @@ const NUKE_MODULES = new Set([
   "guildTamper",
 ]);
 
+// Bot gây hại: các module phá hủy cấu trúc này KHÔNG cần chờ đủ ngưỡng khi thủ
+// phạm là bot — bot làm 1 lần đã là nuke (khác người dùng có thể thao tác nhầm).
+// Bot logging hợp pháp (Carl-bot, MEE6...) vẫn được lọc riêng ở massWebhookCreate.
+const IMMEDIATE_BOT_NUKE = new Set([
+  "massBan",
+  "massKick",
+  "massChannelDelete",
+  "massRoleDelete",
+  "massMessageDelete",
+  "massThreadDelete",
+  "massWebhookCreate",
+  "adminSelfGrant",
+  "massBotAdd",
+  "externalAppRaid",
+]);
+
 // Tin nhắn "giả blank": chỉ gồm khoảng trắng / ký tự ẩn (zero-width) / xuống dòng.
 const BLANK_ONLY_RE = /^[\s\u200b-\u200d\u2060\ufeff\u00a0]+$/;
 // Ký tự ẩn thường dùng để gây nhiễu.
@@ -217,14 +233,20 @@ module.exports = function createAntiNuke(client, store, heat) {
 
   function isExempt(member, moduleCfg, guildConfig) {
     if (!member) return false;
-    if (member.id === member.guild.ownerId) return true;
-    if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
-    if ((guildConfig?.adminRoles || []).some((id) => member.roles.cache.has(id))) return true;
-    if ((guildConfig?.modRoles || []).some((id) => member.roles.cache.has(id))) return true;
+    // An toàn kiểu: executor từ audit log là User (không có .guild/.roles) —
+    // truy cập liều lĩnh trước đây làm crash cả handler → mất luôn lệnh phạt.
+    const isBotMember = member.user?.bot === true || member.bot === true;
+    if (member.guild?.ownerId && member.id === member.guild.ownerId) return true;
+    // Người admin thật được miễn thao tác quản trị thường ngày; còn BOT có quyền
+    // Administrator thì KHÔNG được miễn — bot nuke được mời với quyền admin
+    // chính là đối tượng cần cấm, không phải "quản trị viên tin cậy".
+    if (!isBotMember && member.permissions?.has?.(PermissionFlagsBits.Administrator)) return true;
+    if ((guildConfig?.adminRoles || []).some((id) => member.roles?.cache.has(id))) return true;
+    if ((guildConfig?.modRoles || []).some((id) => member.roles?.cache.has(id))) return true;
     // Whitelist toàn cục: role/người dùng được miễn trừ khỏi mọi module nuke/raid/moderation.
-    if ((guildConfig?.whitelistRoles || []).some((id) => member.roles.cache.has(id))) return true;
+    if ((guildConfig?.whitelistRoles || []).some((id) => member.roles?.cache.has(id))) return true;
     if ((guildConfig?.whitelistUsers || []).includes(member.id)) return true;
-    if ((moduleCfg?.whitelistRoles || []).some((id) => member.roles.cache.has(id))) return true;
+    if ((moduleCfg?.whitelistRoles || []).some((id) => member.roles?.cache.has(id))) return true;
     return false;
   }
 
@@ -1386,7 +1408,12 @@ module.exports = function createAntiNuke(client, store, heat) {
     }
 
     const count = record(guild.id, module, moduleCfg);
-    if (executor && count < moduleCfg.threshold) return;
+    // Bot gây hại: hạ ngưỡng xuống 1 — bot nuke bị xử lý NGAY ở lần đầu,
+    // không chờ đủ ngưỡng như người dùng (audit vẫn cho biết thủ phạm là bot).
+    const executorIsBot = executor?.bot === true;
+    const effectiveThreshold =
+      executorIsBot && IMMEDIATE_BOT_NUKE.has(module) ? 1 : moduleCfg.threshold;
+    if (executor && count < effectiveThreshold) return;
     if (!executor) return; // can't attribute, can't punish — stay quiet
     // Chong lap: thu pham do da bi xu ly cho cung module o vua roi (audit log
     // thuong fire 2 lan cho 1 hanh vi) -> bo qua, khong phat/log/case them lan nua.
@@ -1971,10 +1998,13 @@ module.exports = function createAntiNuke(client, store, heat) {
         const em = await guild.members.fetch(executor.id).catch(() => null);
         if (em) {
           if (module === "adminSelfGrant") {
+            // Bot tự cấp/quyền admin là vector nuke — KHÔNG miễn cho bot.
             exempt =
               em.id === guild.ownerId ||
-              em.permissions.has(PermissionFlagsBits.Administrator) ||
-              (config?.adminRoles || []).some((id) => em.roles.cache.has(id));
+              (em.user?.bot !== true &&
+                em.permissions.has(PermissionFlagsBits.Administrator)) ||
+              (em.user?.bot !== true &&
+                (config?.adminRoles || []).some((id) => em.roles.cache.has(id)));
           } else {
             exempt = isExempt(em, moduleCfg, config);
           }
@@ -1984,7 +2014,12 @@ module.exports = function createAntiNuke(client, store, heat) {
     if (exempt) return;
 
     const count = record(guild.id, module, moduleCfg);
-    if (executor && count < moduleCfg.threshold) return;
+    // Bot gây hại: hạ ngưỡng xuống 1 — bot nuke bị xử lý NGAY ở lần đầu,
+    // không chờ đủ ngưỡng như người dùng (audit vẫn cho biết thủ phạm là bot).
+    const executorIsBot = executor?.bot === true;
+    const effectiveThreshold =
+      executorIsBot && IMMEDIATE_BOT_NUKE.has(module) ? 1 : moduleCfg.threshold;
+    if (executor && count < effectiveThreshold) return;
     if (!executor) return;
     // Chong lap (giong handleAttributeEvent): 1 hanh vi = 1 phat + 1 case log.
     if (wasHandled(guild.id, module, executor.id)) return;
