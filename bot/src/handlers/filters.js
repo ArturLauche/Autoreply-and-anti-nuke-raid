@@ -72,7 +72,11 @@ function refreshThreatIntel(store) {
     });
 }
 
-/** So khớp nội dung với từ khóa/cụm từ scam đã học (0 token, regex cục bộ). */
+/** So khớp nội dung với từ khóa/cụm từ scam đã học (0 token, regex cục bộ).
+ *  CHỐNG BẮT NHẦM: từ khóa ĐƠN học được (vd "password", "credential") chỉ đáng
+ *  ngờ khi tin nhắn kèm LINK tới domain KHÁC lành tính — chat thường nhắc những
+ *  từ này hàng ngày. Cụm từ nhiều từ (đặc thù hơn) vẫn khớp standalone.
+ */
 function findLearnedThreat(content) {
   if (threatKeywords.length === 0 && threatPhrases.length === 0) return null;
   const lower = content.toLowerCase();
@@ -80,7 +84,10 @@ function findLearnedThreat(content) {
   for (const p of threatPhrases) {
     if (p.length >= 6 && lower.includes(p)) return { kind: "intel-phrase", value: p };
   }
-  // Từ khóa đơn — ranh giới từ để tránh khớp nhầm trong từ dài hơn.
+  // Từ khóa đơn: phải kèm link đáng ngờ (domain lạ) mới tính — tránh phạt người
+  // dùng nhắc từ chung chung kèm link github/youtube/discord.
+  const suspiciousLink = findSuspiciousLink(content);
+  if (!suspiciousLink) return null;
   for (const k of threatKeywords) {
     if (k.length >= 5 && wordBoundaryRegex(k).test(lower)) return { kind: "intel-keyword", value: k };
   }
@@ -110,6 +117,38 @@ function isExempt(member, config) {
 }
 
 /** Tìm link độc hại trong nội dung tin nhắn. */
+// Scam signature chỉ đáng ngờ khi KÈM LINK (scam bot luôn dẫn sang trang lừa đảo;
+// từ "giveaway"/"airdrop" đơn thuần là từ chat bình thường).
+
+/**
+ * Domain THƯỜNG GẶP, lành tính — link tới đây + từ khóa scam đã học KHÔNG đủ để
+ * phạt (vd dev share "password reset flow https://github.com/..."). Link tới domain
+ * lạ + từ khóa scam mới được coi là đáng ngờ.
+ */
+const BENIGN_LINK_HOSTS = new Set([
+  "discord.com", "discord.gg", "discordapp.com", "github.com", "gitlab.com",
+  "youtube.com", "youtu.be", "google.com", "reddit.com", "stackoverflow.com",
+  "npmjs.com", "medium.com", "developer.mozilla.org", "wikipedia.org",
+  "canva.com", "imgur.com", "tenor.com", "spotify.com", "open.spotify.com",
+  "figma.com", "notion.so", "trello.com", "facebook.com", "instagram.com",
+  "tiktok.com", "x.com", "twitter.com", "vnexpress.net", "dantri.com.vn",
+  "tuoitre.vn", "thanhtra.com.vn", "microsoft.com", "apple.com", "cloudflare.com",
+]);
+
+/** Link đầu tiên trong nội dung có domain KHÔNG nằm trong danh sách lành tính. */
+function findSuspiciousLink(content) {
+  const urls = content.match(/https?:\/\/[^\s<>"]+|www\.[^\s<>"]+/gi) || [];
+  for (const raw of urls) {
+    const host = raw
+      .replace(/^https?:\/\//i, "")
+      .replace(/^www\./i, "")
+      .split(/[/?#]/)[0]
+      .toLowerCase();
+    if (!BENIGN_LINK_HOSTS.has(host)) return { host, url: raw };
+  }
+  return null;
+}
+
 function findMaliciousLink(content) {
   const urls = content.match(/https?:\/\/[^\s<>"]+|www\.[^\s<>"]+/gi) || [];
   for (const raw of urls) {
@@ -123,7 +162,11 @@ function findMaliciousLink(content) {
       return { kind: "ip", value: host }; // link IP trực tiếp — nghi ngờ
     }
   }
-  if (SCAM_KEYWORD_RE.test(content)) return { kind: "scam-keyword", value: "nội dung lừa đảo" };
+  // CHỐNG BẮT NHẦM: chữ ký lừa đảo (free nitro/giveaway/airdrop...) chỉ tính khi
+  // tin nhắn CÓ LINK tới domain KHÁC lành tính (scam dẫn sang trang lừa đảo;
+  // người dùng nhắc "giveaway" kèm link github/youtube là chat bình thường).
+  if (findSuspiciousLink(content) && SCAM_KEYWORD_RE.test(content))
+    return { kind: "scam-keyword", value: "nội dung lừa đảo kèm link" };
   return null;
 }
 
@@ -393,3 +436,11 @@ module.exports = scanMessage;
 module.exports.MODULE_LABELS = MODULE_LABELS;
 module.exports.findMaliciousLink = findMaliciousLink;
 module.exports.findDangerousAttachment = findDangerousAttachment;
+module.exports.findLearnedThreat = findLearnedThreat;
+module.exports.findSuspiciousLink = findSuspiciousLink;
+/** Hook test: nạp intel giả không cần Convex (chỉ dùng trong scripts/test-*). */
+module.exports._setThreatIntelForTest = (keywords, phrases) => {
+  threatKeywords = keywords || [];
+  threatPhrases = phrases || [];
+  threatLoadedAt = Date.now();
+};
