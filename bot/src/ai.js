@@ -9,64 +9,159 @@
  *
  * Env trên VPS (file bot/.env):
  *   GROQ_API_KEY      — khuyến nghị (free, không cần thẻ): console.groq.com
+ *   NVIDIA_API_KEY    — NVIDIA NIM (free 40 RPM / 4M TPM): build.nvidia.com
+ *   DEEPSEEK_NIM_KEY  — key NIM riêng cho model DeepSeek (nếu muốn dùng model khác)
  *   AI_BASE_URL       — (tùy chọn) gateway tương thích OpenAI khác
  *   AI_API_KEY        — (tùy chọn) key cho gateway trên
- *   AI_MODEL          — (tùy chọn) mặc định "llama-3.3-70b-versatile"
+ *   AI_MODEL          — (tùy chọn) mặc định "llama-3.3-70b-versatile" (Groq)
  *   OPENAI_API_KEY    — (tùy chọn) fallback trả phí
  *
- * Không có key nào → mọi hàm trả { offline: true } và bot chạy theo điểm
- * nghi vấn deterministic (đúng hành vi cũ khi AI chưa cấu hình).
+ * KHÔNG có key nào → mọi hàm trả { offline: true } và bot chạy theo điểm nghi
+ * vấn deterministic (đúng hành vi cũ khi AI chưa cấu hình).
+ *
+ * FALLBACK: provider đầu tiên lỗi (4xx/5xx, timeout, mạng) → thử provider kế
+ * tiếp trong cùng một lượt gọi, với timeout riêng ngắn hơn. Key NIM nào xuất
+ * hiện trước trong env sẽ được xếp trước.
  */
 
 const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+const DEEPSEEK_NIM_MODEL = "deepseek-ai/deepseek-v4-pro-0813";
+const NIM_BASE_URL = "https://integrate.api.nvidia.com/v1";
 const TIMEOUT_MS = 12_000;
+/** Thời gian trừ đi mỗi lần chuyển provider (provider sau có ít thời gian hơn). */
+const FALLBACK_BUDGET_MS = 2_000;
 
-/** Chọn provider: gateway tùy chỉnh → Groq → SambaNova → OpenAI. */
-function provider() {
-  const key = process.env.AI_API_KEY;
-  const baseUrl = process.env.AI_BASE_URL;
-  if (key && baseUrl) {
-    return { key, baseUrl: baseUrl.replace(/\/+$/, ""), model: process.env.AI_MODEL || DEFAULT_MODEL };
+/**
+ * Danh sách provider theo thứ tự ưu tiên. Được tính 1 lần khi module load —
+ * key không đổi trong lúc chạy. Provider vẫn trả model theo env override nếu có.
+ */
+function providerChain() {
+  const chain = [];
+  const add = (p) => {
+    if (p && p.key && p.baseUrl) chain.push(p);
+  };
+
+  // 1. Gateway tùy chỉnh (AI_API_KEY + AI_BASE_URL — kiosapi hoặc gateway khác)
+  const customKey = process.env.AI_API_KEY;
+  const customBase = process.env.AI_BASE_URL;
+  if (customKey && customBase) {
+    add({
+      key: customKey,
+      baseUrl: customBase.replace(/\/+$/, ""),
+      model: process.env.AI_MODEL || DEFAULT_MODEL,
+      label: "custom-gateway",
+    });
   }
+
+  // 2. Groq free trực tiếp
   const groq = process.env.GROQ_API_KEY;
   if (groq) {
-    return {
+    add({
       key: groq,
       baseUrl: "https://api.groq.com/openai/v1",
       model: process.env.AI_MODEL || DEFAULT_MODEL,
-    };
+      label: "groq",
+    });
   }
+
+  // 3. NVIDIA NIM — DeepSeek V4 Pro (model mạnh, key NIM riêng)
+  const deepseekNim = process.env.DEEPSEEK_NIM_KEY;
+  if (deepseekNim) {
+    add({
+      key: deepseekNim,
+      baseUrl: NIM_BASE_URL,
+      model: process.env.DEEPSEEK_NIM_MODEL || DEEPSEEK_NIM_MODEL,
+      label: "nvidia-nim-deepseek",
+      /** Model DeepSeek có thể "suy nghĩ" lâu hơn — cho phép timeout rộng hơn. */
+      extraBody: { chat_template_kwargs: { thinking: false } },
+    });
+  }
+
+  // 4. NVIDIA NIM — model khác (mistral-nemotron mặc định, key NIM chung)
+  const nvidia = process.env.NVIDIA_API_KEY;
+  if (nvidia) {
+    add({
+      key: nvidia,
+      baseUrl: NIM_BASE_URL,
+      model: process.env.NVIDIA_MODEL || "mistralai/mistral-nemotron",
+      label: "nvidia-nim",
+    });
+  }
+
+  // 5. SambaNova free
   const samba = process.env.SAMBANOVA_API_KEY;
   if (samba) {
-    return {
+    add({
       key: samba,
       baseUrl: "https://api.sambanova.ai/v1",
       model: "Meta-Llama-3.3-70B-Instruct",
-    };
+      label: "sambanova",
+    });
   }
+
+  // 6. OpenAI (trả phí)
   const openai = process.env.OPENAI_API_KEY;
   if (openai) {
-    return { key: openai, baseUrl: "https://api.openai.com/v1", model: process.env.OPENAI_MODEL || "gpt-4o-mini" };
+    add({
+      key: openai,
+      baseUrl: "https://api.openai.com/v1",
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      label: "openai",
+    });
   }
-  return null;
+
+  return chain;
+}
+
+/** Provider đầu tiên (để hiển thị nguồn phát hiện) hoặc null nếu không có key. */
+function provider() {
+  return providerChain()[0] ?? null;
 }
 
 /** Báo AI online hay không (để UI/log hiển thị đúng nguồn phát hiện). */
 function aiAvailable() {
-  return !!provider();
+  return providerChain().length > 0;
 }
 
-/** Gọi chat completions, trả về chuỗi nội dung hoặc null. Không bao giờ throw. */
+/**
+ * Gọi chat completions QUA CẢ CHUỖI provider: provider đầu lỗi → thử kế tiếp.
+ * Dùng deadline tổng (12s): provider trước để dành FALLBACK_BUDGET_MS cho lần
+ * thử kế tiếp; nếu provider đầu fail nhanh (429/mạng) thì provider sau nhận
+ * gần như toàn bộ thời gian. Trả về chuỗi nội dung hoặc null. Không throw.
+ */
 async function chat(messages, { maxTokens = 250, temperature = 0.2, timeoutMs = TIMEOUT_MS } = {}) {
-  const p = provider();
-  if (!p) return null;
+  const chain = providerChain();
+  if (chain.length === 0) return null;
+
+  const deadline = Date.now() + timeoutMs;
+  for (let i = 0; i < chain.length; i++) {
+    const isLast = i === chain.length - 1;
+    const left = deadline - Date.now();
+    if (left <= 0) break;
+    const reserve = isLast ? 0 : FALLBACK_BUDGET_MS;
+    const slice = Math.max(3_000, left - reserve);
+    const res = await chatOne(chain[i], messages, { maxTokens, temperature, timeoutMs: slice });
+    if (res !== null) return res;
+  }
+  return null;
+}
+
+/** Một lần gọi tới 1 provider — trả content hoặc null, không throw. */
+async function chatOne(p, messages, { maxTokens, temperature, timeoutMs }) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
+    const body = {
+      model: p.model,
+      messages,
+      max_tokens: maxTokens,
+      temperature,
+      ...(p.extraBody || {}),
+    };
     const res = await fetch(`${p.baseUrl}/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${p.key}` },
-      body: JSON.stringify({ model: p.model, messages, max_tokens: maxTokens, temperature }),
+      body: JSON.stringify(body),
       signal: ctrl.signal,
     });
     if (!res.ok) return null;
@@ -96,8 +191,7 @@ function extractJson(raw) {
  * Trả { classification, confidence, reason, suggestPunish, offline }.
  */
 async function classifyViolation({ module, count, windowSeconds, threshold, sampleMessages = [], recentJoins, memberCount }) {
-  const p = provider();
-  if (!p) return { classification: "individual", confidence: 0.5, reason: "AI chưa cấu hình", offline: true };
+  if (!aiAvailable()) return { classification: "individual", confidence: 0.5, reason: "AI chưa cấu hình", offline: true };
   const samples = (sampleMessages || []).slice(0, 6).map((s) => String(s).slice(0, 200));
   const system = `Bạn là chuyên gia an ninh Discord. Phân loại một sự kiện vi phạm vừa xảy ra:
 - "raid": tấn công có tổ chức / tự động — bot-account, hàng loạt tài khoản cùng lúc, nội dung lặp lại giống hệt nhau, tin nhắn cực dài hoặc giả blank (chỉ khoảng trắng / ký tự ẩn) gây nhiễu loạn kênh, hoặc kết hợp với làn sóng thành viên mới vào.
@@ -135,7 +229,7 @@ ${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).join("\n") : "(không
  * Trả { coordinated, confidence, reasoning, sourceHint, offline }.
  */
 async function analyzeRaid({ module, count, windowSeconds, threshold, clusterProfile, recentActions }) {
-  if (!provider()) return { coordinated: null, confidence: 0, reasoning: "AI chưa cấu hình", sourceHint: null, offline: true };
+  if (!aiAvailable()) return { coordinated: null, confidence: 0, reasoning: "AI chưa cấu hình", sourceHint: null, offline: true };
   const system = `Bạn là chuyên gia an ninh Discord chuyên điều tra RAID/NUKE.
 Phân tích dữ liệu một vụ tấn công server vừa xảy ra và trả lời:
 - "coordinated": vụ này có phải tấn công PHỐI HỢP (raid/nuke) hay chỉ là cá nhân vi phạm.
@@ -171,7 +265,7 @@ ${recentActions || "(không có)"}`;
  * Trả { isRaid, confidence, reason, offline }.
  */
 async function analyzeExternalApp({ count, windowSeconds, threshold, appProfile, recentJoins, memberCount }) {
-  if (!provider()) return { isRaid: null, confidence: 0, reason: "AI chưa cấu hình", offline: true };
+  if (!aiAvailable()) return { isRaid: null, confidence: 0, reason: "AI chưa cấu hình", offline: true };
   const system = `Bạn là chuyên gia an ninh Discord chuyên điều tra RAID bằng ỨNG DỤNG NGOÀI (external app / integration).
 
 "External app raid" là kỹ thuật tấn công server dùng ứng dụng Discord thay vì bot thành viên:
@@ -211,4 +305,12 @@ ${appProfile || "(không có)"}`;
   };
 }
 
-module.exports = { aiAvailable, classifyViolation, analyzeRaid, analyzeExternalApp };
+module.exports = { aiAvailable, classifyViolation, analyzeRaid, analyzeExternalApp, chatForResearch };
+
+/**
+ * Chat completions công khai — dành cho research.js (threat intel). Trả content
+ * hoặc null, dùng chung provider chain + fallback + giới hạn timeout.
+ */
+async function chatForResearch(messages, opts = {}) {
+  return chat(messages, { maxTokens: 700, temperature: 0.2, timeoutMs: 25_000, ...opts });
+}

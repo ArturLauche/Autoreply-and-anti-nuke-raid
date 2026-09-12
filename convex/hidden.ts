@@ -14,7 +14,7 @@ async function requireGuild(ctx: QueryCtx | MutationCtx, token: string, guildId:
 }
 
 /** Bot status row duy nhất (chứa ownerDiscordId + avatar tùy chỉnh). */
-async function getBotStatus(ctx: QueryCtx | MutationCtx) {
+export async function getBotStatus(ctx: QueryCtx | MutationCtx) {
   return await ctx.db
     .query("botStatus")
     .withIndex("by_kind", (q) => q.eq("kind", "status"))

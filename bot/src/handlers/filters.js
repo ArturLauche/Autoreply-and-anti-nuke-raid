@@ -41,6 +41,52 @@ const DANGEROUS_EXTENSIONS = [
 const SCAM_KEYWORD_RE =
   /(free\s?nitro|steam\s?gift|discord\s?nitro\s?(gift|code)|giveaway|airdrop|claim\s?(reward|prize|gift)|you\s?(won|are\s?(the\s?)?winner))/i;
 
+// ============================================================
+// THREAT INTEL (học hỏi từ research.js) — dùng MIỄN PHÍ vĩnh viễn:
+// từ khóa/cụm từ scam học được từ nguồn mở + các vụ raid thật được hợp nhất
+// vào bộ lọc malware. Chi phí: 1 query Convex mỗi 10 phút (~4.3k/tháng, nằm
+// trong gói free) — 0 token AI, 0 network thêm khi so khớp (đều là regex cục bộ).
+// ============================================================
+let threatKeywords = [];
+let threatPhrases = [];
+let threatLoadedAt = 0;
+let threatLoading = false;
+const THREAT_REFRESH_MS = 10 * 60 * 1000;
+
+/** Tải intel từ Convex (fire-and-forget, không bao giờ làm fail quét tin nhắn). */
+function refreshThreatIntel(store) {
+  if (threatLoading || Date.now() - threatLoadedAt < THREAT_REFRESH_MS) return;
+  threatLoading = true;
+  store.client
+    .query("threatIntel:botGetIntel", {})
+    .then((intel) => {
+      if (intel) {
+        threatKeywords = (intel.keywords || []).slice(0, 60).map((k) => String(k).toLowerCase()).filter(Boolean);
+        threatPhrases = (intel.scamPhrases || []).slice(0, 40).map((p) => String(p).toLowerCase()).filter(Boolean);
+        threatLoadedAt = Date.now();
+      }
+    })
+    .catch(() => {})
+    .finally(() => {
+      threatLoading = false;
+    });
+}
+
+/** So khớp nội dung với từ khóa/cụm từ scam đã học (0 token, regex cục bộ). */
+function findLearnedThreat(content) {
+  if (threatKeywords.length === 0 && threatPhrases.length === 0) return null;
+  const lower = content.toLowerCase();
+  // Cụm từ nhiều từ (vd "free gift redeem") — khớp nguyên cụm, ưu tiên trước.
+  for (const p of threatPhrases) {
+    if (p.length >= 6 && lower.includes(p)) return { kind: "intel-phrase", value: p };
+  }
+  // Từ khóa đơn — ranh giới từ để tránh khớp nhầm trong từ dài hơn.
+  for (const k of threatKeywords) {
+    if (k.length >= 5 && wordBoundaryRegex(k).test(lower)) return { kind: "intel-keyword", value: k };
+  }
+  return null;
+}
+
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -235,8 +281,19 @@ async function scanMessage(client, message, store, heat) {
     }
   }
 
-  // 3) Link độc hại (domain lừa đảo / IP / chữ ký scam)
+  // 3) Link độc hại (domain lừa đảo / IP / chữ ký scam + từ khóa THREAT INTEL đã học)
   if (malwareCfg?.enabled && message.content) {
+    refreshThreatIntel(store); // fire-and-forget — tải lại intel khi đến hạn (0 token)
+    // 3a) Từ khóa/cụm từ scam HỌC ĐƯỢC từ research (ưu tiên — luôn mới nhất)
+    const learned = findLearnedThreat(message.content);
+    if (learned) {
+      return punishFlow(
+        client, message, malwareCfg, config, heat,
+        `[Protogon] Nội dung lừa đảo (threat intel): "${learned.value}"`,
+        `Khớp từ khóa scam bot tự học (\`${learned.kind}: ${learned.value}\`)`,
+        1,
+      );
+    }
     const hit = findMaliciousLink(message.content);
     if (hit) {
       return punishFlow(

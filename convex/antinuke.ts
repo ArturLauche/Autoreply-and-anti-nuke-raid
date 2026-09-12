@@ -201,3 +201,22 @@ export const externalAppRaids = query({
     }));
   },
 });
+
+/** Bot đọc các mẫu raid gần nhất (Raid Intel) — dùng cho ambient learning (0 token AI). */
+export const recentRaidSamples = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => {
+    const rows = await ctx.db
+      .query("raidSamples")
+      .withIndex("by_createdAt", (q) => q.gt("createdAt", 0))
+      .order("desc")
+      .take(Math.min(Math.max(limit ?? 60, 1), 200));
+    return rows.map((s) => ({
+      module: s.module,
+      action: s.action ?? null,
+      aiReason: s.aiReason ?? null,
+      aiClassification: s.aiClassification ?? null,
+      apps: (s.apps ?? []).map((a) => a.appName ?? null).filter(Boolean),
+    }));
+  },
+});

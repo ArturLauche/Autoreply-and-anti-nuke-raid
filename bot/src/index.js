@@ -169,6 +169,11 @@ client.once("clientReady", async () => {
   );
   autoBackupInterval.unref();
 
+  // Threat Intel research — mỗi 4 giờ (6 lần/ngày), tải nguồn mở MIỄN PHÍ
+  // (Reddit JSON API + CISA KEV) + AI tổng hợp tối đa 1 lần/tuần (~15k tokens/tháng).
+  // Chỉ chạy khi chủ bot bật trên web Admin. Học từ khóa scam → dùng miễn phí vĩnh viễn.
+  require("./research").setupResearch(client, store);
+
   // Health check heartbeat — mỗi 60s (monitor web thấy trạng thái bot gần realtime)
   const heartbeatInterval = setInterval(() => {
     const memberCount = client.guilds.cache.reduce((a, g) => a + (g.memberCount ?? 0), 0);

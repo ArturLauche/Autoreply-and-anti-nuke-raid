@@ -421,6 +421,25 @@ export default defineSchema({
     ownerName: v.optional(v.string()),
     /** Avatar chủ bot (bot tự lấy từ Discord mỗi lần sync — cập nhật 24/7). */
     ownerAvatarUrl: v.optional(v.string()),
+    /** Threat Intel: bật hệ thống tự nghiên cứu raid/nuke từ nguồn mở (owner bật/tắt). */
+    threatResearchEnabled: v.optional(v.boolean()),
+    /** Threat Intel: cho phép AI tổng hợp MỖI TUẦN 1 lần (~8-15k tokens/tháng) hay không. */
+    threatResearchAiWeekly: v.optional(v.boolean()),
+    /** Threat Intel: thời điểm chạy nghiên cứu gần nhất + lần kế tiếp (ms epoch). */
+    threatResearchLastRunAt: v.optional(v.number()),
+    threatResearchNextRunAt: v.optional(v.number()),
+    /** Threat Intel: tổng số lượt chạy nghiên cứu. */
+    threatResearchRuns: v.optional(v.number()),
+    /** Threat Intel: nguồn đã tải ở lượt gần nhất (tên nguồn, tối đa 8). */
+    threatResearchLastSources: v.optional(v.array(v.string())),
+    /** Threat Intel: tóm tắt AI gần nhất (lý do học được gì — hiển thị web Admin). */
+    threatResearchLastSummary: v.optional(v.string()),
+    /** Threat Intel: lượt gần nhất có dùng AI hay chỉ heuristics (0 token). */
+    threatResearchLastAiUsed: v.optional(v.boolean()),
+    /** Threat Intel: từ khóa scam MỚI học được (hợp nhất vào wildcard regex — miễn phí dùng vĩnh viễn). */
+    threatKeywords: v.optional(v.array(v.string())),
+    /** Threat Intel: cụm từ scam nhiều từ học được (vd "free gift redeem"). */
+    threatScamPhrases: v.optional(v.array(v.string())),
   }).index("by_kind", ["kind"]),
 
   /** Audit log — ghi lại mọi thay đổi settings trên web. */

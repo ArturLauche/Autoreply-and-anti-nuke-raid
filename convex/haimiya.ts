@@ -51,8 +51,10 @@ KIẾN THỨC CHUYÊN SÂU VỀ PROTOGON (dùng khi được hỏi về bot):
  * Chọn provider AI theo thứ tự ưu tiên (tất cả tương thích OpenAI chat completions):
  *   1. Gateway OpenAI-compatible (Groq, kiosapi, ...): AI_BASE_URL + AI_API_KEY + AI_MODEL
  *   2. Groq free (không cần credit card, 30 RPM, 14.4K RPD): GROQ_API_KEY
- *   3. SambaNova: SAMBANOVA_API_KEY (mặc định Meta-Llama-3.3-70B-Instruct)
- *   4. OpenAI: OPENAI_API_KEY (+ OPENAI_MODEL, mặc định gpt-4o-mini)
+ *   3. NVIDIA NIM free (40 RPM / 4M TPM, không cần thẻ): NVIDIA_API_KEY
+ *      hoặc key riêng cho DeepSeek: DEEPSEEK_NIM_KEY (deepseek-v4-pro-0813)
+ *   4. SambaNova: SAMBANOVA_API_KEY (mặc định Meta-Llama-3.3-70B-Instruct)
+ *   5. OpenAI: OPENAI_API_KEY (+ OPENAI_MODEL, mặc định gpt-4o-mini)
  *
  * Free tier từ awesome-freellm-apis:
  * - Groq: 30 RPM, 14,400 RPD, model llama-3.3-70b-versatile — MIỄN PHÍ, không cần thẻ
@@ -77,7 +79,25 @@ function aiProvider(): { key: string; baseUrl: string; model: string } | null {
       model: process.env.AI_MODEL ?? "qwen/qwen3.8-27b",
     };
   }
-  // 3. SambaNova free
+  // 3. NVIDIA NIM free (https://build.nvidia.com — 40 RPM, 4M TPM)
+  const nvidiaKey = process.env.NVIDIA_API_KEY;
+  if (nvidiaKey) {
+    return {
+      key: nvidiaKey,
+      baseUrl: "https://integrate.api.nvidia.com/v1",
+      model: process.env.NVIDIA_MODEL ?? "mistralai/mistral-nemotron",
+    };
+  }
+  // 3b. NVIDIA NIM với model DeepSeek V4 Pro (key NIM riêng, mạnh hơn)
+  const deepseekNimKey = process.env.DEEPSEEK_NIM_KEY;
+  if (deepseekNimKey) {
+    return {
+      key: deepseekNimKey,
+      baseUrl: "https://integrate.api.nvidia.com/v1",
+      model: process.env.DEEPSEEK_NIM_MODEL ?? "deepseek-ai/deepseek-v4-pro-0813",
+    };
+  }
+  // 4. SambaNova free
   const sambanovaKey = process.env.SAMBANOVA_API_KEY;
   if (sambanovaKey) {
     return {
@@ -86,7 +106,7 @@ function aiProvider(): { key: string; baseUrl: string; model: string } | null {
       model: "Meta-Llama-3.3-70B-Instruct",
     };
   }
-  // 4. OpenAI (trả phí)
+  // 5. OpenAI (trả phí)
   const openaiKey = process.env.OPENAI_API_KEY;
   if (openaiKey) {
     return {

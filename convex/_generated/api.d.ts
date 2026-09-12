@@ -26,6 +26,7 @@ import type * as reports from "../reports.js";
 import type * as sessions from "../sessions.js";
 import type * as sha256 from "../sha256.js";
 import type * as status from "../status.js";
+import type * as threatIntel from "../threatIntel.js";
 import type * as webhooks from "../webhooks.js";
 
 import type {
@@ -53,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   sessions: typeof sessions;
   sha256: typeof sha256;
   status: typeof status;
+  threatIntel: typeof threatIntel;
   webhooks: typeof webhooks;
 }>;
 

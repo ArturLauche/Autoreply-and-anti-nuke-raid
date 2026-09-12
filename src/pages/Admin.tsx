@@ -1,14 +1,16 @@
 import { Link } from "react-router-dom";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   Activity,
   AlertTriangle,
   ArrowLeft,
   Bug,
   Gauge,
+  GraduationCap,
   Loader2,
   Server,
   ShieldCheck,
+  X,
 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import CherryBlossom from "../components/CherryBlossom";
@@ -23,6 +25,9 @@ function AdminContent() {
   const isOwner = useQuery(api.status.isOwner, { token });
   const { status, latency, avg, incidents, lastUpdate, nextUpdate, refresh } =
     useBotMonitor(5000);
+  const threat = useQuery(api.threatIntel.getSettings);
+  const setThreat = useMutation(api.threatIntel.setResearchSettings);
+  const removeThreatKw = useMutation(api.threatIntel.removeKeyword);
 
   if (isOwner === undefined) {
     return (
@@ -174,6 +179,18 @@ function AdminContent() {
                 onRefresh={refresh}
                 showRefresh
               />
+              <ThreatIntelCard
+                threat={threat}
+                onToggle={(enabled) =>
+                  setThreat({ token, enabled }).catch(() => {})
+                }
+                onToggleAi={(aiWeeklyEnabled) =>
+                  setThreat({ token, aiWeeklyEnabled }).catch(() => {})
+                }
+                onRemove={(keyword, kind) =>
+                  removeThreatKw({ token, keyword, kind }).catch(() => {})
+                }
+              />
               <div className="rounded-xl border border-border bg-secondary/30 p-4 text-xs leading-relaxed text-muted-foreground">
                 <p className="mb-1 font-semibold text-foreground">🔒 Quyền riêng tư</p>
                 <p>
@@ -196,5 +213,152 @@ export default function Admin() {
     <RequireAuth>
       <AdminContent />
     </RequireAuth>
+  );
+}
+
+/**
+ * Threat Intel — hệ thống bot TỰ NGHIÊN CỨU raid/nuke/scam từ nguồn mở
+ * (Reddit security subs + CISA KEV, 0 token) + AI tổng hợp ≤ 1 lần/tuần.
+ * Từ khóa học được hợp nhất vào bộ lọc malware trên VPS — miễn phí vĩnh viễn.
+ */
+function ThreatIntelCard({
+  threat,
+  onToggle,
+  onToggleAi,
+  onRemove,
+}: {
+  threat:
+    | {
+        researchEnabled: boolean;
+        aiWeeklyEnabled: boolean;
+        lastRunAt: number | null;
+        keywords: string[];
+        scamPhrases: string[];
+        lastSources: string[];
+        totalRuns: number;
+        lastSummary?: string | null;
+      }
+    | undefined
+    | null;
+  onToggle: (enabled: boolean) => void;
+  onToggleAi: (aiWeeklyEnabled: boolean) => void;
+  onRemove: (keyword: string, kind: "keyword" | "phrase") => void;
+}) {
+  const lastRun = threat?.lastRunAt
+    ? new Date(threat.lastRunAt).toLocaleString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        day: "2-digit",
+        month: "2-digit",
+      })
+    : null;
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
+            <GraduationCap className="h-4 w-4" />
+          </span>
+          <div>
+            <h3 className="font-display text-sm font-bold">Threat Intel — bot tự học</h3>
+            <p className="text-[11px] text-muted-foreground">
+              Tải nguồn mở mỗi 4h (0 token) · AI ≤ 1 lần/tuần
+            </p>
+          </div>
+        </div>
+        <label className="flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-[hsl(var(--primary))]"
+            checked={!!threat?.researchEnabled}
+            onChange={(e) => onToggle(e.target.checked)}
+          />
+          <span className="text-xs font-semibold">
+            {threat?.researchEnabled ? "Đang bật" : "Đang tắt"}
+          </span>
+        </label>
+      </div>
+
+      <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+        Khi bật, bot tải tin an ninh công khai (Reddit security, CISA KEV) mỗi 4 giờ,
+        học từ khóa scam mới và dùng MIỄN PHÍ vĩnh viễn trong bộ lọc link độc hại.
+        Từ khóa sai có thể bấm xóa bên dưới. Chi phí: gần như 0 — không cần key thêm.
+      </p>
+
+      <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+        <input
+          type="checkbox"
+          className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+          checked={threat?.aiWeeklyEnabled ?? true}
+          onChange={(e) => onToggleAi(e.target.checked)}
+        />
+        Cho phép AI tổng hợp tối đa 1 lần/tuần (~15k tokens/tháng, dùng Groq/NVIDIA free)
+      </label>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+        <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
+          <span className="text-muted-foreground">Lượt chạy gần nhất:</span>{" "}
+          <b>{lastRun ?? "chưa có"}</b>
+        </div>
+        <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
+          <span className="text-muted-foreground">Tổng lượt:</span> <b>{threat?.totalRuns ?? 0}</b>
+        </div>
+        <div className="col-span-2 rounded-lg bg-secondary/40 px-2.5 py-1.5">
+          <span className="text-muted-foreground">Nguồn lượt trước:</span>{" "}
+          <b>{threat?.lastSources?.length ? threat.lastSources.join(", ") : "—"}</b>
+        </div>
+        {threat?.lastSummary && (
+          <div className="col-span-2 rounded-lg bg-primary/5 px-2.5 py-1.5 text-foreground">
+            🧠 <b>AI:</b> {threat.lastSummary}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3">
+        <p className="mb-1.5 text-[11px] font-semibold text-foreground">
+          Từ khóa đã học ({(threat?.keywords?.length ?? 0) + (threat?.scamPhrases?.length ?? 0)})
+        </p>
+        <div className="flex max-h-28 flex-wrap gap-1 overflow-y-auto">
+          {threat &&
+            (threat.keywords?.length ?? 0) + (threat.scamPhrases?.length ?? 0) === 0 && (
+              <span className="text-[11px] text-muted-foreground">
+                Chưa học được từ khóa nào — bật research và chờ lượt chạy đầu tiên (5 phút sau khi bot online).
+              </span>
+            )}
+          {(threat?.keywords ?? []).map((k) => (
+            <span
+              key={`kw-${k}`}
+              className="inline-flex items-center gap-1 rounded-full bg-secondary/50 px-2 py-0.5 text-[10px] font-medium"
+            >
+              {k}
+              <button
+                type="button"
+                onClick={() => onRemove(k, "keyword")}
+                className="text-muted-foreground transition-colors hover:text-danger"
+                title="Xóa từ khóa học sai"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </span>
+          ))}
+          {(threat?.scamPhrases ?? []).map((p) => (
+            <span
+              key={`ph-${p}`}
+              className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
+            >
+              {p}
+              <button
+                type="button"
+                onClick={() => onRemove(p, "phrase")}
+                className="opacity-60 transition-opacity hover:opacity-100"
+                title="Xóa cụm từ học sai"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
