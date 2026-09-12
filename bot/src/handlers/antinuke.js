@@ -150,12 +150,29 @@ function moduleCfgOf(config, module) {
 }
 
 /**
+ * Điểm nghi vấn của MỘT tài khoản trong cụm raid (pure function, test được):
+ * acc mới <7 ngày (+2), avatar mặc định (+1), username dạng máy "tên + số cuối" (+1).
+ * Mức CỤM (joinClusterSuspicion): điểm >= 2 = đáng ngờ (đủ acc mới là đủ tín hiệu cụm).
+ * Mức CÁ NHÂN (kick từng người trong cụm hỗn hợp): điểm >= 3 — tức acc mới PHẢI kèm
+ * thêm ít nhất 1 tín hiệu nữa (avatar mặc định / username máy). Chỉ riêng "acc mới"
+ * chưa đủ để kick: người thật mới tạo tài khoản cũng có acc <7 ngày.
+ */
+function memberSuspicionScore(p, now = Date.now()) {
+  if (!p || !p.id) return 0;
+  let score = 0;
+  const ageDays = p.createdAt ? (now - p.createdAt) / 86_400_000 : NaN;
+  if (Number.isFinite(ageDays) && ageDays < 7) score += 2;
+  if (!p.avatar) score += 1;
+  if (/^[A-Za-z][A-Za-z0-9_]*\d{3,}$/.test(p.username || "")) score += 1;
+  return score;
+}
+
+/**
  * Heuristic chống ban nhầm làn sóng thành viên THẬT (pure function, test được):
  * raid thật dùng tài khoản mới (< 7 ngày), avatar mặc định, username dạng máy.
  * Cụm tăng trưởng tự nhiên (server viral, được quảng bá) có hồ sơ bình thường
  * → ratio đáng ngờ thấp → bot bỏ qua thay vì kick cả server oan.
- * Tài khoản đáng ngờ = điểm ≥ 2: acc mới <7 ngày (+2), avatar mặc định (+1),
- * username dạng máy "tên + số cuối" (+1).
+ * Tài khoản đáng ngờ = điểm >= 2 (xem memberSuspicionScore).
  */
 function joinClusterSuspicion(profiles, now = Date.now()) {
   const list = (profiles || []).filter((p) => p && p.id);
@@ -164,20 +181,11 @@ function joinClusterSuspicion(profiles, now = Date.now()) {
   let machineNames = 0;
   let suspicious = 0;
   for (const p of list) {
-    let score = 0;
+    const score = memberSuspicionScore(p, now);
     const ageDays = p.createdAt ? (now - p.createdAt) / 86_400_000 : NaN;
-    if (Number.isFinite(ageDays) && ageDays < 7) {
-      score += 2;
-      freshAccounts += 1;
-    }
-    if (!p.avatar) {
-      score += 1;
-      defaultAvatars += 1;
-    }
-    if (/^[A-Za-z][A-Za-z0-9_]*\d{3,}$/.test(p.username || "")) {
-      score += 1;
-      machineNames += 1;
-    }
+    if (Number.isFinite(ageDays) && ageDays < 7) freshAccounts += 1;
+    if (!p.avatar) defaultAvatars += 1;
+    if (/^[A-Za-z][A-Za-z0-9_]*\d{3,}$/.test(p.username || "")) machineNames += 1;
     if (score >= 2) suspicious += 1;
   }
   return {
@@ -221,6 +229,7 @@ module.exports = function createAntiNuke(client, store, heat) {
   const appUserHandledAt = new Map(); // `${guildId}:${userId}` -> ts
   const lastExtAppProcessedAt = new Map(); // guildId -> ts
   const patternPunishedAt = new Map(); // `${guildId}:${userId}:${module}` -> ts
+  const buttonRaidHandledAt = new Map(); // `${guildId}:${msgId}` -> ts — debounce vụ bấm nút đã xử lý
   const staleUnlockSwept = new Set(); // guild key mốc đã quét (chống spam log mở khóa)
   const punishedRecently = new Map(); // `${guildId}:${module}:${userId}` -> ts (chống phạt/case lặp)
 
@@ -409,6 +418,10 @@ module.exports = function createAntiNuke(client, store, heat) {
     for (const [key, ts] of patternPunishedAt) {
       const guildId = key.split(":")[0];
       if (!live.has(guildId) || now - ts >= stale) patternPunishedAt.delete(key);
+    }
+    for (const [key, ts] of buttonRaidHandledAt) {
+      const guildId = key.split(":")[0];
+      if (!live.has(guildId) || now - ts >= stale) buttonRaidHandledAt.delete(key);
     }
     if (buckets.size > BUCKET_MAX) {
       // Giữ lại 200 key gần nhất (chống phình vô hạn)
@@ -862,10 +875,33 @@ module.exports = function createAntiNuke(client, store, heat) {
       profile,
       recentJoins,
     );
-    // AI khẳng định raid (confidence >= 0.6) HOẶC AI offline mà nghi vấn rất cao → raid.
+    // AI khẳng định raid (tin cậy >= 0.6) → ban + khóa. AI kết luận KHÔNG raid
+    // (tin cậy >= 0.5) → CHỈ GHI NHẬN, không phạt ai — trước đây ý kiến AI bị bỏ
+    // qua khiến người dùng cài app bình thường vẫn bị kick oan. AI offline → chỉ
+    // xử lý khi nghi vấn rất cao (>= 6); 2 kết nối app bình thường (không có tín
+    // hiệu) đủ ngưỡng thì không phạt ai.
     const aiOffline = !ai || ai.offline === true;
-    const isRaid =
-      (ai?.isRaid === true && (ai?.confidence ?? 0) >= 0.6) || (aiOffline && suspectScore >= 6);
+    const aiSaysRaid = ai?.isRaid === true && (ai?.confidence ?? 0) >= 0.6;
+    const aiSaysNotRaid = ai && ai.offline !== true && ai?.isRaid === false && (ai?.confidence ?? 0) >= 0.5;
+    const aiUnknown = ai && ai.offline !== true && ai?.isRaid === null;
+    const isRaid = aiSaysRaid || (aiOffline && suspectScore >= 6);
+    if (
+      aiSaysNotRaid ||
+      (aiOffline && suspectScore < 4 && count <= moduleCfg.threshold) ||
+      (aiUnknown && suspectScore < 4)
+    ) {
+      await recordEvent(guild.id, {
+        module: "externalAppRaid",
+        action: aiSaysNotRaid
+          ? `bỏ qua — AI: không raid (${ai?.reason ?? "không đủ tín hiệu"})`
+          : "bỏ qua — kết nối app bình thường, không có tín hiệu raid",
+        count,
+        windowSeconds: moduleCfg.windowSeconds,
+        threshold: moduleCfg.threshold,
+        punish: "none",
+      });
+      return;
+    }
     const reason = `[Protogon AntiNuke] ${MODULE_LABELS.externalAppRaid}: ${count} app được kết nối trong ${moduleCfg.windowSeconds}s (ngưỡng ${moduleCfg.threshold})${raidNote(ai, isRaid)}`;
 
     // Những người dùng đã kết nối app trong cửa sổ (bỏ trùng, giới hạn 5).
@@ -1352,8 +1388,46 @@ module.exports = function createAntiNuke(client, store, heat) {
     if (!signal.triggered) return;
     buttonClickEvents.delete(key); // reset sau khi xử lý
 
+    // Debounce: vụ bấm nút trên tin này đã được xử lý trong cửa sổ → bỏ qua hẳn
+    // (minigame đông người sẽ kích hoạt lại bucket liên tục — tránh gọi AI + ghi
+    // event lặp mỗi lượt bấm).
+    const lastBtnHandled = buttonRaidHandledAt.get(key);
+    if (lastBtnHandled && Date.now() - lastBtnHandled < moduleCfg.windowSeconds * 1000) return;
+    buttonRaidHandledAt.set(key, Date.now());
+
     const appName = msg.author?.username || (msg.webhookId ? "webhook" : null) || appId;
-    const reason = `[Protogon AntiNuke] ${MODULE_LABELS.externalAppRaid}: nút bấm spam trên tin app "${appName}" (${totalClicks} lượt bấm trong ${moduleCfg.windowSeconds}s, ${sameUserClicks} lượt cùng người)`;
+
+    // CHỐNG KHÓA KÊNH NGẤY: làn sóng bấm nút còn phải qua AI. Minigame/giveaway
+    // thật (nhiều user bấm nút vui) là hiện tượng bình thường — chỉ xử lý khi AI
+    // xác nhận đây là mồi raid (tin cậy >= 0.6). AI offline/không rõ → chỉ xử lý
+    // kẻ spam bấm lặp lại (>= 4 lượt cùng 1 người), KHÔNG khóa kênh chỉ vì đông người bấm.
+    const clickProfile = `App "${appName}" (webhook ${appId}) — tin có nút bấm được ${totalClicks} lượt bấm trong ${moduleCfg.windowSeconds}s (${sameUserClicks} lượt cùng 1 người, ${new Set(fresh.map((c) => c.userId)).size} người khác nhau).`;
+    const clickAi = await aiAnalyzeExternalApp(
+      interaction.guild,
+      totalClicks,
+      moduleCfg.windowSeconds,
+      moduleCfg.threshold,
+      clickProfile,
+      joiners.get(interaction.guild.id)?.length ?? 0,
+    );
+    const clickAiRaid =
+      clickAi?.isRaid === true && (clickAi?.confidence ?? 0) >= 0.6;
+    const clickAiNotRaid =
+      clickAi && clickAi.offline !== true && clickAi.isRaid === false && (clickAi?.confidence ?? 0) >= 0.5;
+    if (clickAiNotRaid || (clickAiRaid === false && !clickAiNotRaid && !signal.spamClicker)) {
+      // AI không xác nhận raid → chỉ ghi nhận, không phạt, không khóa kênh.
+      await recordEvent(interaction.guild.id, {
+        module: "externalAppRaid",
+        action: `bỏ qua — bấm nút bình thường (${totalClicks} lượt trên tin app)${clickAi?.reason ? ` · AI: ${clickAi.reason}` : ""}`,
+        count: totalClicks,
+        windowSeconds: moduleCfg.windowSeconds,
+        threshold: moduleCfg.threshold,
+        punish: "none",
+      });
+      return;
+    }
+
+    const reason = `[Protogon AntiNuke] ${MODULE_LABELS.externalAppRaid}: nút bấm spam trên tin app "${appName}" (${totalClicks} lượt bấm trong ${moduleCfg.windowSeconds}s, ${sameUserClicks} lượt cùng người)${raidNote(clickAi, clickAiRaid)}`;
 
     let action = "đã ghi nhận";
     // 1) Xóa tin mồi chứa nút bấm — chặn làn sóng bấm tiếp.
@@ -1387,8 +1461,9 @@ module.exports = function createAntiNuke(client, store, heat) {
         action = punished.join("\n");
       }
     }
-    // 3) Làn sóng bấm (nhiều người bấm cùng 1 tin app) → khóa kênh nếu bật lockdown.
-    if (signal.clickFlood) {
+    // 3) Làn sóng bấm (nhiều người bấm cùng 1 tin app) → khóa kênh CHỈ khi AI
+    //    xác nhận raid (tránh khóa kênh oan minigame/giveaway khi AI offline).
+    if (signal.clickFlood && clickAiRaid) {
       await maybeLockdown(interaction.guild, config);
       action = `${action} · làn sóng bấm nút (${totalClicks} lượt)`;
     }
@@ -1414,7 +1489,7 @@ module.exports = function createAntiNuke(client, store, heat) {
         threshold: moduleCfg.threshold,
         action,
         punish: signal.spamClicker ? moduleCfg.punish : "none",
-        aiClassification: signal.clickFlood ? "raid" : undefined,
+        aiClassification: clickAiRaid ? "raid" : undefined,
         lockdownTriggered: isLocked(interaction.guild.id),
         apps: [{ appName: String(appName).slice(0, 60), executorName: undefined, executorId: appId }],
         punished: punishedUsers,
@@ -1628,6 +1703,7 @@ module.exports = function createAntiNuke(client, store, heat) {
 
     const reason = `[Protogon AntiNuke] Raid thành viên: ${fresh.length} người tham gia trong ${moduleCfg.windowSeconds}s`;
     const results = [];
+    const skippedReal = []; // hồ sơ bình thường — được miễn trong cụm hỗn hợp
     const actions = actionsOf(moduleCfg);
     // purgeMessages: giới hạn chỉ purge vài tài khoản mới nhất để tránh quá tải.
     let purgedCount = 0;
@@ -1635,6 +1711,20 @@ module.exports = function createAntiNuke(client, store, heat) {
     for (const j of fresh) {
       const m = await guild.members.fetch(j.id).catch(() => null);
       if (!m || isExempt(m, moduleCfg, config)) continue;
+      // CHỐNG BAN NHẦM CÁ NHÂN: trong cụm hỗn hợp (raid lẫn người thật), chỉ phạt
+      // tài khoản ĐÁNG NGỜ (điểm >= 2). Thành viên thật đi kèm làn sóng (acc cũ,
+      // có avatar, tên người) được bỏ qua thay vì bị kick oan cả cụm.
+      if (
+        memberSuspicionScore({
+          id: m.id,
+          username: m.user?.username,
+          avatar: m.user?.avatar,
+          createdAt: m.user?.createdTimestamp,
+        }) < 3
+      ) {
+        skippedReal.push(m.id);
+        continue;
+      }
       const res = await punishWithHeat(guild, m, moduleCfg, reason);
       results.push(`<@${j.id}>: ${res.action}`);
       if (purgedCount < purgeLimit) {
@@ -1656,8 +1746,10 @@ module.exports = function createAntiNuke(client, store, heat) {
       executorName: undefined,
       action:
         results.length > 0
-          ? `xử lý ${results.length} tài khoản (${moduleCfg.punish})${purgedCount > 0 ? ` · purge ${purgedCount} tài khoản` : ""}`
-          : "không có tài khoản để xử lý",
+          ? `xử lý ${results.length} tài khoản (${moduleCfg.punish})${skippedReal.length ? ` · bỏ qua ${skippedReal.length} hồ sơ bình thường` : ""}${purgedCount > 0 ? ` · purge ${purgedCount} tài khoản` : ""}`
+          : skippedReal.length
+            ? `bỏ qua ${skippedReal.length} hồ sơ bình thường trong cụm`
+            : "không có tài khoản để xử lý",
       count: fresh.length,
       windowSeconds: moduleCfg.windowSeconds,
       threshold: moduleCfg.threshold,
@@ -2422,3 +2514,4 @@ module.exports.MODULE_LABELS = MODULE_LABELS;
 module.exports.messageFingerprint = messageFingerprint;
 module.exports.isExternalAppSpam = isExternalAppSpam;
 module.exports.joinClusterSuspicion = joinClusterSuspicion;
+module.exports.memberSuspicionScore = memberSuspicionScore;
