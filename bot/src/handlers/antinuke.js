@@ -149,6 +149,47 @@ function moduleCfgOf(config, module) {
   return { module, enabled: true, ...d, whitelistRoles: [], actions: [d.punish] };
 }
 
+/**
+ * Heuristic chống ban nhầm làn sóng thành viên THẬT (pure function, test được):
+ * raid thật dùng tài khoản mới (< 7 ngày), avatar mặc định, username dạng máy.
+ * Cụm tăng trưởng tự nhiên (server viral, được quảng bá) có hồ sơ bình thường
+ * → ratio đáng ngờ thấp → bot bỏ qua thay vì kick cả server oan.
+ * Tài khoản đáng ngờ = điểm ≥ 2: acc mới <7 ngày (+2), avatar mặc định (+1),
+ * username dạng máy "tên + số cuối" (+1).
+ */
+function joinClusterSuspicion(profiles, now = Date.now()) {
+  const list = (profiles || []).filter((p) => p && p.id);
+  let freshAccounts = 0;
+  let defaultAvatars = 0;
+  let machineNames = 0;
+  let suspicious = 0;
+  for (const p of list) {
+    let score = 0;
+    const ageDays = p.createdAt ? (now - p.createdAt) / 86_400_000 : NaN;
+    if (Number.isFinite(ageDays) && ageDays < 7) {
+      score += 2;
+      freshAccounts += 1;
+    }
+    if (!p.avatar) {
+      score += 1;
+      defaultAvatars += 1;
+    }
+    if (/^[A-Za-z][A-Za-z0-9_]*\d{3,}$/.test(p.username || "")) {
+      score += 1;
+      machineNames += 1;
+    }
+    if (score >= 2) suspicious += 1;
+  }
+  return {
+    total: list.length,
+    suspicious,
+    ratio: list.length > 0 ? suspicious / list.length : 0,
+    freshAccounts,
+    defaultAvatars,
+    machineNames,
+  };
+}
+
 // Các hàm thuần (messageFingerprint, isExternalAppSpam, appNameSuspicion, normalizeFuzzy)
 // được tách sang ../externalAppGuard để test trực tiếp — xem require ở đầu file.
 
@@ -613,6 +654,21 @@ module.exports = function createAntiNuke(client, store, heat) {
     if (ai?.coordinated) {
       aiBoost = 2;
       scored.sort((a, b) => b.score - a.score);
+    }
+
+    // AI PHỦ QUYẾT: AI phân tích dữ liệu cụm và kết luận KHÔNG phối hợp (tin cậy đủ)
+    // → chỉ ghi nhận nghi phạm, KHÔNG ban ai. Trước đây ý kiến AI bị bỏ qua khiến
+    // người dùng thường (avatar trùng + acc mới) vẫn bị ban oan.
+    if (ai && ai.offline !== true && ai.coordinated === false && (ai.confidence ?? 0) >= 0.5) {
+      const reportTop = suspects[0];
+      const reportConfidence = Math.min(0.97, 0.5 + reportTop.score / 12);
+      return {
+        suspectedSourceId: reportTop.id ?? undefined,
+        suspectedSourceName: reportTop.username ?? undefined,
+        reason: `AI đánh giá KHÔNG phối hợp — chỉ ghi nhận, không ban (${(reportTop.parts || []).join(", ")})${ai.reasoning ? ` · AI: ${ai.reasoning}` : ""}`.slice(0, 500),
+        banned: false,
+        confidence: Math.round(reportConfidence * 100) / 100,
+      };
     }
 
     const top = suspects[0];
@@ -1526,13 +1582,11 @@ module.exports = function createAntiNuke(client, store, heat) {
     joiners.set(guild.id, fresh);
     if (fresh.length < moduleCfg.threshold) return;
 
-    const reason = `[Protogon AntiNuke] Raid thành viên: ${fresh.length} người tham gia trong ${moduleCfg.windowSeconds}s`;
-    const results = [];
+    // CHỐNG BAN NHẦM: soi hồ sơ toàn cụm TRƯỚC khi phạt (trước đây đủ ngưỡng là
+    // kick + khóa kênh ngay cả với làn sóng thành viên thật → ban oan cả server).
+    // Raid thật: đa số acc mới/default avatar. Tăng trưởng tự nhiên: hồ sơ bình thường
+    // → chỉ ghi nhận, KHÔNG phạt, KHÔNG khóa kênh.
     const profiles = []; // hồ sơ cụm tài khoản raid → Raid Intel
-    const actions = actionsOf(moduleCfg);
-    // purgeMessages: giới hạn chỉ purge vài tài khoản mới nhất để tránh quá tải.
-    let purgedCount = 0;
-    const purgeLimit = actions.includes("purgeMessages") ? 3 : 0;
     for (const j of fresh) {
       const m = await guild.members.fetch(j.id).catch(() => null);
       if (!m || isExempt(m, moduleCfg, config)) continue;
@@ -1543,6 +1597,44 @@ module.exports = function createAntiNuke(client, store, heat) {
         createdAt: m.user?.createdTimestamp,
         joinedAt: j.ts,
       });
+    }
+    const sus = joinClusterSuspicion(profiles);
+    if (sus.total === 0 || sus.ratio < 0.5) {
+      await recordEvent(guild.id, {
+        module: "massJoin",
+        action: `bỏ qua — hồ sơ bình thường (${sus.suspicious}/${sus.total} tài khoản đáng ngờ)`,
+        count: fresh.length,
+        windowSeconds: moduleCfg.windowSeconds,
+        threshold: moduleCfg.threshold,
+        punish: "none",
+      });
+      await sendLog(
+        guild,
+        config,
+        logEmbed({
+          title: "🛡️ Anti Nuke/Raid: Raid thành viên — KHÔNG xử lý",
+          description: `**${fresh.length}** thành viên vào trong **${moduleCfg.windowSeconds}s** nhưng hồ sơ tài khoản bình thường (nhiều khả năng tăng trưởng tự nhiên). Bot bỏ qua để tránh ban nhầm.`,
+          color: Colors.Yellow,
+          fields: [
+            { name: "Tài khoản đáng ngờ", value: `${sus.suspicious}/${sus.total || 0}`, inline: true },
+            { name: "Acc mới <7 ngày", value: String(sus.freshAccounts), inline: true },
+            { name: "Nguồn", value: "🛡️ Tự động — gate chống ban nhầm", inline: true },
+          ],
+          footer: "Protogon · Anti Nuke/Raid",
+        }),
+      );
+      return;
+    }
+
+    const reason = `[Protogon AntiNuke] Raid thành viên: ${fresh.length} người tham gia trong ${moduleCfg.windowSeconds}s`;
+    const results = [];
+    const actions = actionsOf(moduleCfg);
+    // purgeMessages: giới hạn chỉ purge vài tài khoản mới nhất để tránh quá tải.
+    let purgedCount = 0;
+    const purgeLimit = actions.includes("purgeMessages") ? 3 : 0;
+    for (const j of fresh) {
+      const m = await guild.members.fetch(j.id).catch(() => null);
+      if (!m || isExempt(m, moduleCfg, config)) continue;
       const res = await punishWithHeat(guild, m, moduleCfg, reason);
       results.push(`<@${j.id}>: ${res.action}`);
       if (purgedCount < purgeLimit) {
@@ -2329,3 +2421,4 @@ module.exports = function createAntiNuke(client, store, heat) {
 module.exports.MODULE_LABELS = MODULE_LABELS;
 module.exports.messageFingerprint = messageFingerprint;
 module.exports.isExternalAppSpam = isExternalAppSpam;
+module.exports.joinClusterSuspicion = joinClusterSuspicion;
