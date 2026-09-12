@@ -1,19 +1,20 @@
 /**
  * research.js — Threat Intel: hệ thống bot TỰ NGHIÊN CỨU + HỌC HỎI về raid/nuke/scam
- * từ nguồn mở trên internet. Chạy TRÊN VPS (không tốn operations Convex) và chỉ
- * dùng AI CỰC KỲ TIẾT KIỆM (mục tiêu < 20k tokens/tháng ≈ gần như 0 với Groq free).
+ * từ nguồn mở trên internet. Chạy TRÊN VPS (không tốn operations Convex).
  *
  * ============================================================
- * PHÂN BỔ TOKEN / LƯỢT TRA (thiết kế "tốn vừa đủ"):
+ * PHÂN BỔ TOKEN / LƯỢT TRA (cập nhật: có Kira AI free 30M tokens/ngày riêng
+ * cho việc học → tổng hợp AI thoải mái hơn, không đụng hạn mức Groq/NVIDIA
+ * giữ cho chống raid realtime):
  * ------------------------------------------------------------
  * 1. TẢI NGUỒN MỞ (6 lần/ngày, mỗi 4 giờ):
  *    - RSS/JSON công khai MIỄN PHÍ (Reddit JSON API, CISA KEV JSON).
  *    - Heuristics cục bộ trích từ khóa scam — KHÔNG tốn token AI.
  *    - Bot tự so sánh: chỉ giữ từ khóa mới chưa có trong intel cũ.
- * 2. AI TỔNG HỢP (CHỈ khi cần, giới hạn cứng):
- *    - Mỗi TUẦN tối đa 1 lượt AI bắt buộc (4.096 tokens max_tokens).
- *    - Lượt còn lại trong tuần: CHỈ dùng AI nếu lượt trước phát hiện ≥ 8 từ
- *      khóa mới (tín hiệu có chuyện lớn, đáng "tốn" 1 lần gọi).
+ * 2. AI TỔNG HỢP (Mimo V2.5 qua Kira AI — free 30M tokens/ngày):
+ *    - MỖI lượt nghiên cứu đều tổng hợp AI khi có dữ liệu mới (≈1-2k tokens/lượt
+ *      ⇒ ~6-12k tokens/ngày — chưa tới 0.05% hạn mức). Tuần không có gì mới vẫn
+ *      tổng hợp 1 lượt để có tóm tắt xu hướng.
  *    - AI không cấu hình / gọi lỗi → vẫn lưu từ khóa heuristic (không mất dữ liệu).
  * 3. AMBIENT LEARNING (0 token):
  *    - Mỗi vụ raid thật đã có AI phân loại (classifyViolation đã chạy sẵn khi
@@ -179,22 +180,26 @@ async function researchCisa(source) {
 }
 
 /**
- * Gọi AI tổng hợp — chỉ khi đáng "tốn". Trả về { keywords, phrases, summary } hoặc null.
- * Dùng bot/src/ai.js provider chain (Groq trước — free 30 RPM).
+ * Gọi AI tổng hợp — dùng chuỗi research riêng (Kira/Mimo V2.5 free 30M
+ * tokens/ngày đứng trước; không ăn hạn mức Groq/NVIDIA của chống raid).
+ * Trả về { keywords, phrases, summary } hoặc null.
  */
 async function aiSynthesize(researchText, previousKeywords) {
   try {
     const aiClient = require("./ai");
-    if (!aiClient.aiAvailable()) return null;
+    if (typeof aiClient.researchAvailable === "function"
+      ? !aiClient.researchAvailable()
+      : !aiClient.aiAvailable()) return null;
     const system = `Bạn là chuyên gia threat-intelligence về an ninh Discord. Bạn nhận dữ liệu thô từ nguồn mở (Reddit security subs, CISA KEV). NHIỆM VỤ: phát hiện TỪ KHÓA scam/raid/nuke MỚI, xu hướng tấn công Discord đang nổi.
 Chỉ trả JSON thuần (không markdown): {"keywords": ["từ khóa scam mới", ...], "phrases": ["cụm từ scam nhiều từ", ...], "summary": "tóm tắt 2-3 câu tiếng Việt về xu hướng đe dọa mới nhất"}. Tối đa 15 keywords, 8 phrases. Bỏ từ quá phổ biến (discord, server, free...).`;
-    const user = `Dữ liệu thô từ nguồn mở (trích đoạn):\n${researchText.slice(0, 3500)}\n\nTừ khóa bot đã biết (tránh trùng):\n${previousKeywords.slice(0, 40).join(", ")}`;
-    const raw = await aiClient.chatForResearch(
+    const user = `Dữ liệu thô từ nguồn mở (trích đoạn):\n${researchText.slice(0, 6000)}\n\nTừ khóa bot đã biết (tránh trùng):\n${previousKeywords.slice(0, 40).join(", ")}`;
+    const raw = await (typeof aiClient.researchChat === "function" ? aiClient.researchChat : aiClient.chatForResearch)(
       [
         { role: "system", content: system },
         { role: "user", content: user },
       ],
-      { maxTokens: 700, temperature: 0.2 },
+      // 30M tokens/ngày ⇒ cho phép đọc dữ liệu thô nhiều hơn + trả lời dài hơn.
+      { maxTokens: 1500, temperature: 0.2 },
     );
     if (!raw) return null;
     const m = raw.match(/\{[\s\S]*\}/);
@@ -290,14 +295,15 @@ async function runResearch(store) {
     newPhrases.push(ph);
   }
 
-  // 4. AI tổng hợp — GIỚI HẠN NGHIÊM NGẶT (tiết kiệm token)
+  // 4. AI tổng hợp — nới lỏng nhờ Kira free 30M tokens/ngày: mỗi lượt có dữ
+  // liệu mới đều tổng hợp; tuần trống vẫn chạy 1 lượt để có tóm tắt xu hướng.
   let aiUsed = false;
   let summary = null;
   if (intel?.aiWeeklyEnabled !== false) {
     const lastRun = intel?.lastRunAt ?? 0;
     const weekElapsed = now - lastRun >= AI_WEEKLY_INTERVAL_MS;
     const richFindings = newKeywords.length >= NEW_KEYWORD_AI_THRESHOLD;
-    if ((weekElapsed || richFindings) && (newKeywords.length > 0 || cveList.length > 0)) {
+    if ((newKeywords.length > 0 || cveList.length > 0 || weekElapsed || richFindings)) {
       const researchText = [
         `CVE đang bị khai thác: ${cveList.slice(0, 10).join(", ")}`,
         `Cụm từ từ cộng đồng: ${newPhrases.slice(0, 15).join(" | ")}`,

@@ -343,7 +343,8 @@ function ThreatIntelCard({
           checked={threat?.aiWeeklyEnabled ?? true}
           onChange={(e) => onToggleAi(e.target.checked)}
         />
-        Cho phép AI tổng hợp tối đa 1 lần/tuần (~15k tokens/tháng, dùng Groq/NVIDIA free)
+        Cho phép AI tổng hợp (Mimo V2.5 qua Kira AI — free 30M tokens/ngày riêng cho
+        việc học; tổng hợp mỗi lượt khi có dữ liệu mới, không đụng hạn mức Groq/NVIDIA)
       </label>
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">

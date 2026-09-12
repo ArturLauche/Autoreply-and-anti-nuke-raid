@@ -11,6 +11,11 @@
  *   GROQ_API_KEY      — khuyến nghị (free, không cần thẻ): console.groq.com
  *   NVIDIA_API_KEY    — NVIDIA NIM (free 40 RPM / 4M TPM): build.nvidia.com
  *   DEEPSEEK_NIM_KEY  — key NIM riêng cho model DeepSeek (nếu muốn dùng model khác)
+ *   KIRA_API_KEY      — Kira AI (kiraai.vn) free 30M tokens/ngày trên model Mimo V2.5
+ *                       → ƯU TIÊN CHO RESEARCH/HỌC HỎI (chatForResearch dùng trước,
+ *                       không ăn hạn mức Groq/NVIDIA giữ cho chống raid realtime).
+ *   KIRA_BASE_URL     — (tùy chọn) mặc định https://kiraai.vn/api/v1
+ *   KIRA_MODEL        — (tùy chọn) mặc định "mimo-v2.5-free"
  *   AI_BASE_URL       — (tùy chọn) gateway tương thích OpenAI khác
  *   AI_API_KEY        — (tùy chọn) key cho gateway trên
  *   AI_MODEL          — (tùy chọn) mặc định "llama-3.3-70b-versatile" (Groq)
@@ -27,6 +32,9 @@
 const DEFAULT_MODEL = "llama-3.3-70b-versatile";
 const DEEPSEEK_NIM_MODEL = "deepseek-ai/deepseek-v4-pro-0813";
 const NIM_BASE_URL = "https://integrate.api.nvidia.com/v1";
+/** Kira AI (kiraai.vn) — free 30M tokens/ngày, dùng riêng cho research/học hỏi. */
+const KIRA_BASE_URL = "https://kiraai.vn/api/v1";
+const KIRA_DEFAULT_MODEL = "mimo-v2.5-free";
 const TIMEOUT_MS = 12_000;
 /** Thời gian trừ đi mỗi lần chuyển provider (provider sau có ít thời gian hơn). */
 const FALLBACK_BUDGET_MS = 2_000;
@@ -99,7 +107,20 @@ function providerChain() {
     });
   }
 
-  // 6. OpenAI (trả phí)
+  // 6. Kira AI free (kiraai.vn) — 30M tokens/ngày trên Mimo V2.5. Không dùng
+  // cho chat chống raid (giữ hạn mức cho research) nhưng vẫn là fallback hợp lệ
+  // nếu mọi provider phía trên chết.
+  const kira = process.env.KIRA_API_KEY;
+  if (kira) {
+    add({
+      key: kira,
+      baseUrl: (process.env.KIRA_BASE_URL || KIRA_BASE_URL).replace(/\/+$/, ""),
+      model: process.env.KIRA_MODEL || KIRA_DEFAULT_MODEL,
+      label: "kira-mimo",
+    });
+  }
+
+  // 7. OpenAI (trả phí)
   const openai = process.env.OPENAI_API_KEY;
   if (openai) {
     add({
@@ -305,12 +326,62 @@ ${appProfile || "(không có)"}`;
   };
 }
 
-module.exports = { aiAvailable, classifyViolation, analyzeRaid, analyzeExternalApp, chatForResearch };
+module.exports = { aiAvailable, classifyViolation, analyzeRaid, analyzeExternalApp, chatForResearch, researchChat, researchAvailable };
 
 /**
  * Chat completions công khai — dành cho research.js (threat intel). Trả content
  * hoặc null, dùng chung provider chain + fallback + giới hạn timeout.
  */
 async function chatForResearch(messages, opts = {}) {
-  return chat(messages, { maxTokens: 700, temperature: 0.2, timeoutMs: 25_000, ...opts });
+  return researchChat(messages, opts);
+}
+
+/**
+ * Chuỗi provider RIÊNG cho học hỏi/research: Kira AI (Mimo V2.5, free 30M
+ * tokens/ngày) đứng TRƯỚC, sau đó mới tới chuỗi chung. Nhờ vậy lượt học không
+ * ăn hạn mức Groq/NVIDIA — hạn mức đó dành trọn cho chống raid realtime.
+ * Kira không cấu hình → rơi về chuỗi chung (hành vi cũ, không vỡ gì).
+ */
+function researchChain() {
+  const chain = [];
+  const kira = process.env.KIRA_API_KEY;
+  if (kira) {
+    chain.push({
+      key: kira,
+      baseUrl: (process.env.KIRA_BASE_URL || KIRA_BASE_URL).replace(/\/+$/, ""),
+      model: process.env.KIRA_MODEL || KIRA_DEFAULT_MODEL,
+      label: "kira-mimo",
+    });
+  }
+  chain.push(...providerChain().filter((p) => p.label !== "kira-mimo"));
+  return chain;
+}
+
+/** Research có sẵn AI nào không (Kira hoặc chuỗi chung). */
+function researchAvailable() {
+  return researchChain().length > 0;
+}
+
+/**
+ * Chat completions cho HỌC HỎI — dùng Kira/Mimo trước với hạn mức thoải mái
+ * (30M tokens/ngày ⇒ giới hạn cứng cũ “< 20k tokens/tháng” không còn cần thiết).
+ * Vẫn giữ timeout + fallback như chuỗi thường để lượt nghiên cứu không bao giờ
+ * treo bot. Trả content hoặc null, không throw.
+ */
+async function researchChat(messages, opts = {}) {
+  const chain = researchChain();
+  if (chain.length === 0) return null;
+  const maxTokens = opts.maxTokens ?? 1_500;
+  const temperature = opts.temperature ?? 0.2;
+  const timeoutMs = opts.timeoutMs ?? 45_000;
+  const deadline = Date.now() + timeoutMs;
+  for (let i = 0; i < chain.length; i++) {
+    const left = deadline - Date.now();
+    if (left <= 0) break;
+    const reserve = i === chain.length - 1 ? 0 : FALLBACK_BUDGET_MS;
+    const slice = Math.max(3_000, left - reserve);
+    const res = await chatOne(chain[i], messages, { maxTokens, temperature, timeoutMs: slice });
+    if (res !== null) return res;
+  }
+  return null;
 }
