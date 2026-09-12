@@ -154,19 +154,15 @@ client.once("clientReady", async () => {
   );
   heatInterval.unref();
 
-  // Backup poll — mỗi 60s (lệnh "Backup ngay" trên web chỉ chờ tối đa ~1 phút).
+  // Vòng quét TỔNG HỢP — mỗi 60s, 1 query batch (bot_tick:getPendingJobs) trả
+  // { hidden, verifyPanels, backups } cho mọi guild: panel reaction role,
+  // giveaway, DM chờ, webhook log mặc định, panel xác minh, backup/restore/import.
+  // Thay 3 vòng quét riêng cũ (hidden 120s + verify 120s + backup 60s) — tiết kiệm
+  // ~50% function calls nhóm này trên Convex free tier, hidden/verify nhanh hơn.
+  require("./tick").setupTick(client, store);
+
+  // Auto backup — mỗi 1 giờ (đặt cờ yêu cầu; việc backup thực hiện trong tick).
   const pollBackups = require("./handlers/backup");
-  setTimeout(() => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)), 15_000);
-  const backupInterval = setInterval(
-    () => pollBackups(client, store).catch((e) => console.error("[backup]", e.message)),
-    60_000,
-  );
-  backupInterval.unref();
-
-  // Custom webhook jobs đã gộp vào batch hidden (pollHidden mỗi 60s) —
-  // không còn poll webhooks:botGetWebhookJobs riêng (tiết kiệm function calls).
-
-  // Auto backup — mỗi 1 giờ
   const autoBackupInterval = setInterval(
     () => pollBackups.autoBackupSweep(client, store).catch((e) => console.error("[backup:auto]", e.message)),
     1 * 60 * 60 * 1000,

@@ -95,7 +95,17 @@ export const historyForGuild = query({
   },
 });
 
-/** All anti-nuke events since a timestamp — used by the bot's daily report. */
+/** Danh sách guild đang có bot (dùng cho script chẩn đoán lặp từng guild). */
+export const botListGuildIds = query({
+  args: {},
+  handler: async (ctx) => {
+    const guilds = await ctx.db.query("guilds").collect();
+    return guilds
+      .filter((g) => g.botInGuild)
+      .map((g) => ({ guildId: g.discordId, name: g.name }));
+  },
+});
+
 /** Sự kiện chống nuke của MỘT guild từ mốc `since` (dùng cho báo cáo hằng ngày).
  * Per-guild thay vì query global: chỉ chạy khi guild thực sự đến hạn báo cáo
  * (tiết kiệm hàng triệu reads/tháng khi nhiều guild). */

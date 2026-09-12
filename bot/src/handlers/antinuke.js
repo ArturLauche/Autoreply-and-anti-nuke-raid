@@ -9,6 +9,7 @@ const {
   heatSummary,
 } = require("../heat");
 const { actionsOf, memberPunishOf, cleanupMessages } = require("../moduleActions");
+const aiClient = require("../ai");
 const {
   messageFingerprint,
   isExternalAppSpam,
@@ -375,14 +376,15 @@ module.exports = function createAntiNuke(client, store, heat) {
     }
   }
 
-  /** Gọi AI phân loại sự kiện raid vs cá nhân. Trả về null khi AI không có. */
+  /** Gọi AI phân loại sự kiện raid vs cá nhân. Trả về null khi AI không có.
+   *  Chạy TRỰC TIẾP từ process bot (bot/src/ai.js) — không tốn Convex actions.
+   */
   async function aiClassify(guild, module, count, windowSeconds, threshold, samples) {
     try {
+      if (!aiClient.aiAvailable()) return null;
       const recentJoins = joiners.get(guild.id)?.length ?? 0;
       const res = await Promise.race([
-        store.client.action("haimiya:classifyViolation", {
-          guildId: guild.id,
-          guildName: guild.name,
+        aiClient.classifyViolation({
           module,
           count,
           windowSeconds,
@@ -401,13 +403,14 @@ module.exports = function createAntiNuke(client, store, heat) {
     }
   }
 
-  /** Gọi AI phân tích cụm raid (best-effort, 6s timeout). Trả null khi AI offline. */
+  /** Gọi AI phân tích cụm raid (best-effort, 6s timeout). Trả null khi AI offline.
+   *  Chạy TRỰC TIẾP từ process bot — không tốn Convex actions.
+   */
   async function aiAnalyzeRaid(guild, module, count, windowSeconds, threshold, clusterProfile, recentActions) {
     try {
+      if (!aiClient.aiAvailable()) return null;
       const res = await Promise.race([
-        store.client.action("haimiya:analyzeRaid", {
-          guildId: guild.id,
-          guildName: guild.name,
+        aiClient.analyzeRaid({
           module,
           count,
           windowSeconds,
@@ -425,13 +428,14 @@ module.exports = function createAntiNuke(client, store, heat) {
     }
   }
 
-  /** Gọi AI xác định chuỗi kết nối external app có phải raid không (best-effort, 6s timeout). */
+  /** Gọi AI xác định chuỗi kết nối external app có phải raid không (best-effort, 6s timeout).
+   *  Chạy TRỰC TIẾP từ process bot — không tốn Convex actions.
+   */
   async function aiAnalyzeExternalApp(guild, count, windowSeconds, threshold, appProfile, recentJoins) {
     try {
+      if (!aiClient.aiAvailable()) return null;
       const res = await Promise.race([
-        store.client.action("haimiya:analyzeExternalApp", {
-          guildId: guild.id,
-          guildName: guild.name,
+        aiClient.analyzeExternalApp({
           count,
           windowSeconds,
           threshold,

@@ -109,8 +109,8 @@ async function syncAll(client, store) {
     console.error("[owner:sync]", e.message);
   }
 
-  // Verify panel KHÔNG xử lý ở đây — đã có pollVerifyPanels riêng trong
-  // hidden.js (chạy mỗi 60s, gửi + luôn clear cờ kể cả khi kênh hỏng).
+  // Verify panel KHÔNG xử lý ở đây — đã có vòng tick riêng trong tick.js
+  // (bot_tick:getPendingJobs, gửi + luôn clear cờ kể cả khi kênh hỏng).
   // Tránh query trùng lặp mỗi vòng sync (tiết kiệm operations).
 
   await store.client.mutation("guilds:botHeartbeat", {

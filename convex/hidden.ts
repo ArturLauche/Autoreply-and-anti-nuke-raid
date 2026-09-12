@@ -47,16 +47,14 @@ async function requireBotOwner(ctx: QueryCtx | MutationCtx, user: { discordId: s
   return status;
 }
 
-/** Bot tải gói dữ liệu tính năng ẩn (không cần token). */
 /**
- * Batch: trả toàn bộ "việc cần làm" của hidden system cho MỌI guild trong 1 query
- * (panel chưa gửi, giveaway active/chưa kết thúc, DM chờ) — thay cho việc bot
- * query getBotHidden riêng từng guild mỗi vòng quét (tiết kiệm operations).
+ * Tạo danh sách "việc cần làm" của hidden system cho MỌI guild trong 1 lần đọc
+ * (panel chưa gửi, giveaway active/chưa kết thúc, DM chờ, webhook mặc định).
+ * Helper dùng chung cho getBotHiddenJobs và bot_tick:getPendingJobs — bot chỉ cần
+ * 1 query duy nhất mỗi vòng quét thay vì 2 (tiết kiệm function calls free tier).
  * Bot tự lọc guild mình đang ở.
  */
-export const getBotHiddenJobs = query({
-  args: {},
-  handler: async (ctx) => {
+export async function buildHiddenJobs(ctx: QueryCtx) {
     const guilds = await ctx.db.query("guilds").collect();
     const panels = await ctx.db.query("reactionRolePanels").collect();
     const giveaways = await ctx.db.query("giveaways").collect();
@@ -137,8 +135,16 @@ export const getBotHiddenJobs = query({
         dmMessage: dm ? g.dmMessage ?? null : null,
       });
     }
-    return jobs;
-  },
+  return jobs;
+}
+
+/**
+ * Batch: trả toàn bộ "việc cần làm" của hidden system cho MỌI guild trong 1 query.
+ * Bot tự lọc guild mình đang ở.
+ */
+export const getBotHiddenJobs = query({
+  args: {},
+  handler: async (ctx) => buildHiddenJobs(ctx),
 });
 
 export const getBotHidden = query({

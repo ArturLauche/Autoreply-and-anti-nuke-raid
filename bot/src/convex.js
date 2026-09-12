@@ -1,9 +1,13 @@
 const { ConvexHttpClient } = require("convex/browser");
 
-// TTL 180s (thay vì 30s): cấu hình hiếm khi đổi, và bot invalidate cache ngay
-// sau khi tự ghi. Giảm ~6 lần số query getConfig (tiết kiệm operations/tháng).
-// Thay đổi từ web sẽ được bot thấy trong tối đa 3 phút.
-const CONFIG_TTL_MS = 180_000;
+// TTL mặc định 300s (tăng từ 180s): cấu hình hiếm khi đổi — giảm số query
+// getConfig thêm ~40% so với TTL 180s và ~10 lần so với TTL 30s ban đầu.
+// Riêng guild có "cờ chờ xử lý" (lockdownRequested, heatResetRequested, DM chờ,
+// verify panel) dùng TTL ngắn 30s để nút bấm trên dashboard có tác dụng nhanh.
+// Ngoài ra getConfig(guildId, { force: true }) luôn đọc mới — dùng cho các chỗ
+// cần kết quả tức thì (mở khóa kênh, xóa nhiệt, gửi panel, backup ngay).
+const CONFIG_TTL_MS = 300_000;
+const CONFIG_TTL_PENDING_MS = 30_000;
 const MAX_RETRIES = 3;
 const BASE_RETRY_DELAY_MS = 500;
 
@@ -50,10 +54,25 @@ class ConvexStore {
     this._heartbeatOk = false;
   }
 
-  /** Fetch the config bundle for a guild, with a short TTL cache + retry. */
-  async getConfig(guildId) {
+  /**
+   * Fetch the config bundle for a guild, with TTL cache + retry.
+   * opts.force: luôn đọc mới (bỏ qua cache) — cho các thao tác cần tức thì.
+   * Guild có cờ chờ xử lý được tự động cache ngắn (30s).
+   */
+  async getConfig(guildId, opts = {}) {
     const hit = this.cache.get(guildId);
-    if (hit && Date.now() - hit.fetchedAt < CONFIG_TTL_MS) return hit.config;
+    if (!opts.force && hit) {
+      const now = Date.now();
+      const hasPending =
+        hit.config?.lockdownRequested ||
+        hit.config?.heatResetRequested ||
+        hit.config?.dmRequested ||
+        hit.config?.verifySendPanel ||
+        // Đang trong cửa sổ khóa kênh: cần thấy cờ "Mở khóa" từ dashboard nhanh.
+        (typeof hit.config?.lockdownUntil === "number" && hit.config.lockdownUntil > now);
+      const ttl = hasPending ? CONFIG_TTL_PENDING_MS : CONFIG_TTL_MS;
+      if (now - hit.fetchedAt < ttl) return hit.config;
+    }
     try {
       const config = await withRetry(
         () => this.client.query("guilds:getBotConfig", { guildId }),
@@ -74,7 +93,7 @@ class ConvexStore {
     this.cache.delete(guildId);
   }
 
-  /** Send health check heartbeat to Convex. Called every 30s. */
+  /** Send health check heartbeat to Convex. */
   async sendHeartbeat(guildCount, memberCount) {
     try {
       await withRetry(() =>

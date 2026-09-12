@@ -315,18 +315,10 @@ async function sendDirectDm(client, store, guildId) {
 }
 
 /**
- * Gửi panel xác minh khi dashboard yêu cầu (verifySendPanel = true).
- * Được kích hoạt bằng nút "Gửi panel xác minh" trên web — bot phải tự gửi
- * vì web không có quyền gửi tin nhắn vào Discord.
+ * Xử lý items verify panel đã fetch (từ guilds:getVerifySendPanelGuilds hoặc
+ * batch gộp bot_tick:getPendingJobs) — KHÔNG tự query. Tách riêng để tái sử dụng.
  */
-async function pollVerifyPanels(client, store) {
-  let items;
-  try {
-    items = await store.client.query("guilds:getVerifySendPanelGuilds", {});
-  } catch (e) {
-    console.error(`[hidden:verifyPanel:poll]`, e.message);
-    return;
-  }
+async function processVerifyPanelItems(client, store, items) {
   if (!items || items.length === 0) return;
   for (const item of items) {
     try {
@@ -382,19 +374,10 @@ async function pollVerifyPanels(client, store) {
 }
 
 /**
- * Vòng quét: đăng bảng/giveaway mới, kết thúc giveaway hết hạn, gửi DM chờ.
- * Dùng MỘT query batch (getBotHiddenJobs) cho tất cả guild — thay vì query
- * riêng từng guild mỗi vòng (tiết kiệm operations khi bot ở nhiều server).
+ * Xử lý dữ liệu jobs hidden đã fetch (từ hidden:getBotHiddenJobs hoặc batch gộp
+ * bot_tick:getPendingJobs) — KHÔNG tự query. Tách riêng để tái sử dụng.
  */
-async function pollHidden(client, store) {
-  let jobs;
-  try {
-    jobs = await store.client.query("hidden:getBotHiddenJobs", {});
-  } catch (e) {
-    console.error(`[hidden:poll]`, e?.message || e);
-    return;
-  }
-  if (!jobs || jobs.length === 0) return;
+async function processHiddenJobsData(client, store, jobs) {
   for (const hidden of jobs) {
     const guild = client.guilds.cache.get(hidden.guildId);
     if (!guild) continue;
@@ -447,12 +430,9 @@ function setupHidden(client, store) {
     ),
   );
   client.once("ready", () => {
-    // 30s — panel/giveaway/DM phản hồi nhanh hơn (bot chấp nhận tốn thêm operations).
-    setInterval(() => {
-      pollHidden(client, store).catch(() => {});
-      pollVerifyPanels(client, store).catch(() => {});
-    }, 30_000);
+    // Vòng quét định kỳ đã gộp vào tick.js (bot_tick:getPendingJobs — 1 query
+    // cho hidden + verify panel + backup). setupHidden chỉ gắn listener reaction.
   });
 }
 
-module.exports = { setupHidden, pollHidden, pollVerifyPanels, emojiKeyOf, resolveEmoji };
+module.exports = { setupHidden, processHiddenJobsData, processVerifyPanelItems, emojiKeyOf, resolveEmoji };
