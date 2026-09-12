@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "../components/ui/button";
@@ -11,10 +11,7 @@ import {
   SILENT_STATE_KEY,
   SILENT_VERIFIER_KEY,
   exchangeCode,
-  fetchDiscordGuilds,
-  fetchDiscordUser,
   getSessionToken,
-  newSessionToken,
   setSessionToken,
   storeDiscordAccess,
 } from "../lib/discord";
@@ -22,8 +19,9 @@ import {
 export default function DiscordCallback() {
   const navigate = useNavigate();
   const { clientId, loading: configLoading, error: configError } = usePublicConfig();
-  const login = useMutation(api.sessions.login);
-  const refreshGuilds = useMutation(api.sessions.refreshGuilds);
+  const exchangeAndLogin = useAction(api.sessionAuth.exchangeAndLogin);
+  // Làm mới im lặng: server tự hỏi Discord bằng access token (client không tự báo).
+  const refreshGuildsServer = useAction(api.sessionAuth.refreshGuildsServer);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -60,16 +58,7 @@ export default function DiscordCallback() {
             storeDiscordAccess(oauth);
             const sessToken = getSessionToken();
             if (sessToken) {
-              const guilds = await fetchDiscordGuilds(oauth.access_token);
-              await refreshGuilds({
-                token: sessToken,
-                guilds: guilds.map((g) => ({
-                  id: g.id,
-                  name: g.name,
-                  icon: g.icon ?? undefined,
-                  permissions: g.permissions,
-                })),
-              });
+              await refreshGuildsServer({ token: sessToken, accessToken: oauth.access_token });
             }
             window.location.replace(`${silentReturn}?silent=ok`);
           } catch {
@@ -93,31 +82,17 @@ export default function DiscordCallback() {
         return;
       }
       try {
-        const oauth = await exchangeCode(clientId, code, verifier);
-        const { access_token } = oauth;
+        // Đăng nhập an toàn: server tự trao đổi code với Discord (kèm
+        // client_secret) và tự tạo session token — client không thể giả mạo
+        // danh tính hay tự cấp token cho mình.
+        const result = await exchangeAndLogin({ code, codeVerifier: verifier, redirectUri: window.location.origin + "/discord/callback" });
         // Lưu access token để dashboard tự làm mới danh sách server sau này.
-        storeDiscordAccess(oauth);
-        const [user, guilds] = await Promise.all([
-          fetchDiscordUser(access_token),
-          fetchDiscordGuilds(access_token),
-        ]);
-        const token = newSessionToken();
-        await login({
-          token,
-          user: {
-            discordId: user.id,
-            username: user.username,
-            globalName: user.global_name ?? undefined,
-            avatar: user.avatar ?? undefined,
-          },
-          guilds: guilds.map((g) => ({
-            id: g.id,
-            name: g.name,
-            icon: g.icon ?? undefined,
-            permissions: g.permissions,
-          })),
+        storeDiscordAccess({
+          access_token: result.accessToken,
+          refresh_token: undefined,
+          expires_in: undefined,
         });
-        setSessionToken(token);
+        setSessionToken(result.token);
         sessionStorage.removeItem(OAUTH_VERIFIER_KEY);
         sessionStorage.removeItem(OAUTH_STATE_KEY);
         sessionStorage.removeItem("wio_oauth_return");
@@ -127,7 +102,7 @@ export default function DiscordCallback() {
       }
     }
     void run();
-  }, [clientId, configLoading, configError, login, navigate]);
+  }, [clientId, configLoading, configError, exchangeAndLogin, navigate]);
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">

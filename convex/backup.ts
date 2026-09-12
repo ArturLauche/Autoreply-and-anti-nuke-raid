@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild, guildAccessibleBy } from "./auth";
+import { requireBotKey } from "./botAuth";
 
 /**
  * Backup server → đám mây GitHub.
@@ -61,8 +62,11 @@ export const listMine = query({
 
 /** Bot (lệnh !backup / /backup) liệt kê backup của 1 server — chỉ cần guildId. */
 export const listGuild = query({
-  args: { guildId: v.string() },
-  handler: async (ctx, { guildId }) => {
+  args: { guildId: v.string(),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()), },
+  handler: async (ctx, { botKey, guildId }) => {
+    await requireBotKey(ctx, botKey);
     const backups = await ctx.db
       .query("guildBackups")
       .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId))
@@ -336,8 +340,9 @@ export const setRestoreOptions = mutation({
  * (bật lịch 2-30 ngày, chưa có yêu cầu đang chờ, chưa backup trong khoảng thời gian đó).
  */
 export const botGetDueAuto = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { botKey: v.optional(v.string()) },
+  handler: async (ctx, { botKey }) => {
+    await requireBotKey(ctx, botKey);
     const now = Date.now();
     const all = await ctx.db.query("guilds").collect();
     const due: { guildId: string; days: number }[] = [];
@@ -357,8 +362,11 @@ export const botGetDueAuto = query({
  * Trả về null khi server chưa có backup nào.
  */
 export const botGetLastChecksum = query({
-  args: { guildId: v.string() },
-  handler: async (ctx, { guildId }) => {
+  args: { guildId: v.string(),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()), },
+  handler: async (ctx, { botKey, guildId }) => {
+    await requireBotKey(ctx, botKey);
     const last = await ctx.db
       .query("guildBackups")
       .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId))
@@ -370,8 +378,9 @@ export const botGetLastChecksum = query({
 
 /** Bot quét mỗi ~20s để nhận yêu cầu tạo backup / khôi phục đang chờ. */
 export const botGetPending = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { botKey: v.optional(v.string()) },
+  handler: async (ctx, { botKey }) => {
+    await requireBotKey(ctx, botKey);
     const out: {
       kind: string;
       guildId: string;

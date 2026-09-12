@@ -10,6 +10,7 @@ declare const process: {
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
 import { v } from "convex/values";
+import { requireBotKey } from "./botAuth";
 
 /**
  * Đẩy backup lên đám mây GitHub dưới dạng Gist riêng tư (không cần repo).
@@ -22,8 +23,11 @@ export const githubPush = action({
     backupId: v.id("guildBackups"),
     backupJson: v.string(),
     guildName: v.optional(v.string()),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireBotKey(ctx, args.botKey);
     const token = process.env.GITHUB_TOKEN;
     if (!token) {
       return { ok: false, error: "GITHUB_TOKEN chưa được cấu hình trong Keys" };

@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken } from "./auth";
+import { requireBotKey } from "./botAuth";
 
 /**
  * Trạng thái tổng thể của bot (công khai, không nhạy cảm): online hay không,
@@ -28,8 +29,11 @@ export const heartbeat = mutation({
     guildCount: v.number(),
     memberCount: v.number(),
     version: v.string(),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()),
   },
-  handler: async (ctx, { online, guildCount, memberCount, version }) => {
+  handler: async (ctx, { botKey, online, guildCount, memberCount, version }) => {
+    await requireBotKey(ctx, botKey);
     const now = Date.now();
     const status = await ctx.db
       .query("botStatus")
@@ -59,8 +63,10 @@ export const heartbeat = mutation({
 });
 
 export const botStatus = query({
-  args: {},
-  handler: async (ctx) => {
+  // botKey: script chẩn đoán chèn chìa khóa vào mọi call — bỏ qua an toàn ở đây
+  // (đây là query công khai, không nhạy cảm).
+  args: { botKey: v.optional(v.string()) },
+  handler: async (ctx, _args) => {
     const status = await ctx.db
       .query("botStatus")
       .withIndex("by_kind", (q) => q.eq("kind", "status"))

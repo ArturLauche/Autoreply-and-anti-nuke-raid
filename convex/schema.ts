@@ -440,6 +440,10 @@ export default defineSchema({
     threatKeywords: v.optional(v.array(v.string())),
     /** Threat Intel: cụm từ scam nhiều từ học được (vd "free gift redeem"). */
     threatScamPhrases: v.optional(v.array(v.string())),
+    /** Chìa khóa bot (botAuth): SHA-256("protogon-bot-key::" + OWNER_SEED) — chủ bot đặt 1 lần qua Admin web. Khi có giá trị, mọi function bot-side yêu cầu botKey khớp. */
+    botKeySeed: v.optional(v.string()),
+    /** Seed cho chìa khóa chức năng (botFunc): các action nguy hiểm (OAuth exchange, AI chat) yêu cầu funcKey. */
+    funcSeed: v.optional(v.string()),
   }).index("by_kind", ["kind"]),
 
   /** Audit log — ghi lại mọi thay đổi settings trên web. */

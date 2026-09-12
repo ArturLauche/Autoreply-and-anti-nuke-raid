@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import { askHaimiya, GREETING, QUICK_QUESTIONS } from "../lib/haimiya";
 import { useBranding } from "../lib/useBranding";
 import { cn } from "../lib/utils";
+import { sha256Hex } from "../../convex/sha256";
 
 
 interface ChatMessage {
@@ -174,9 +175,20 @@ export default function HaimiyaChat({
   }, [messages, typing, open]);
 
   async function getAIResponse(history: Array<{ role: "user" | "assistant"; content: string }>): Promise<string | null> {
-    // Convex action — chạy qua Cerebras / SambaNova / Groq / OpenAI (key ở Keys tab).
+    // Convex action — chạy qua Groq / NVIDIA NIM / SambaNova / OpenAI (key ở Keys tab).
+    // funcKey: chìa khóa chống lạm dụng (SHA-256("protogon-func-key::" + FUNC_SEED)) —
+    // chỉ gửi khi người dùng đã cấu hình FUNC_SEED trong localStorage.
+    let funcKey: string | undefined;
     try {
-      const res = await askAI({ messages: history });
+      const seed = localStorage.getItem("protogon_func_seed");
+      if (seed) {
+        funcKey = await sha256Hex(`protogon-func-key::${seed}`);
+      }
+    } catch {
+      // ignore — gửi không funcKey (server miễn check khi chưa đặt FUNC_SEED).
+    }
+    try {
+      const res = await askAI({ messages: history, funcKey });
       if (res && !res.offline && res.reply) return res.reply;
     } catch {
       // fallback to local knowledge.

@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild, guildAccessibleBy } from "./auth";
+import { requireBotKey } from "./botAuth";
 import {
   ANTI_NUKE_MODULES,
   HEAT_DEFAULTS,
@@ -262,8 +263,11 @@ export const getGuild = query({
 
 /** Lightweight config bundle that the Discord bot fetches per guild. */
 export const getBotConfig = query({
-  args: { guildId: v.string() },
-  handler: async (ctx, { guildId }) => {
+  args: { guildId: v.string(),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()), },
+  handler: async (ctx, { botKey, guildId }) => {
+    await requireBotKey(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -665,8 +669,9 @@ export const setAntinukeGlobal = mutation({
 
 /** Query: find guilds where verifySendPanel is true (bot polls this). */
 export const getVerifySendPanelGuilds = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { botKey: v.optional(v.string()) },
+  handler: async (ctx, { botKey }) => {
+    await requireBotKey(ctx, botKey);
     const guilds = await ctx.db.query("guilds").collect();
     return guilds
       .filter((g) => g.verifySendPanel === true && g.verifyEnabled && g.verifyChannelId)
@@ -682,8 +687,11 @@ export const getVerifySendPanelGuilds = query({
 
 /** Mutation: clear verifySendPanel flag after bot sends the panel. */
 export const clearVerifySendPanel = mutation({
-  args: { guildId: v.string() },
-  handler: async (ctx, { guildId }) => {
+  args: { guildId: v.string(),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()), },
+  handler: async (ctx, { botKey, guildId }) => {
+    await requireBotKey(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -711,8 +719,11 @@ export const botSyncGuilds = mutation({
      * mặt quá 10 phút (không phải lỗi thoáng qua).
      */
     trustedFullList: v.optional(v.boolean()),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()),
   },
-  handler: async (ctx, { guilds, trustedFullList }) => {
+  handler: async (ctx, { botKey, guilds, trustedFullList }) => {
+    await requireBotKey(ctx, botKey);
     const now = Date.now();
     const present = new Set(guilds.map((g) => g.id));
     for (const g of guilds) {
@@ -819,8 +830,11 @@ export const botSyncGuilds = mutation({
 
 /** Bot bị kick khỏi guild → đánh dấu đúng guild đó (sự kiện guildDelete, không sweep toàn bộ). */
 export const botGuildGone = mutation({
-  args: { guildId: v.string() },
-  handler: async (ctx, { guildId }) => {
+  args: { guildId: v.string(),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()), },
+  handler: async (ctx, { botKey, guildId }) => {
+    await requireBotKey(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -833,8 +847,9 @@ export const botGuildGone = mutation({
 
 /** Chẩn đoán sức khỏe sync: số guild đang hiển thị / đã ẩn / heartbeat cũ (không lộ id). */
 export const botGuildStats = query({
-  args: {},
-  handler: async (ctx) => {
+  // botKey: script chẩn đoán chèn chìa khóa vào mọi call — chấp nhận và bỏ qua an toàn.
+  args: { botKey: v.optional(v.string()) },
+  handler: async (ctx, _args) => {
     const all = await ctx.db.query("guilds").collect();
     const now = Date.now();
     let inGuild = 0;
@@ -868,8 +883,11 @@ export const botHeartbeat = mutation({
     version: v.string(),
     ownerName: v.optional(v.string()),
     ownerAvatarUrl: v.optional(v.string()),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireBotKey(ctx, args.botKey);
     const now = Date.now();
     const existing = await ctx.db
       .query("botStatus")
@@ -910,8 +928,11 @@ export const syncChannels = mutation({
     channels: v.array(
       v.object({ channelId: v.string(), name: v.string(), type: v.number() }),
     ),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()),
   },
-  handler: async (ctx, { guildId, channels }) => {
+  handler: async (ctx, { botKey, guildId, channels }) => {
+    await requireBotKey(ctx, botKey);
     const old = await ctx.db
       .query("guildChannels")
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
@@ -935,8 +956,11 @@ export const syncRoles = mutation({
     roles: v.array(
       v.object({ roleId: v.string(), name: v.string(), color: v.number(), position: v.number() }),
     ),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()),
   },
-  handler: async (ctx, { guildId, roles }) => {
+  handler: async (ctx, { botKey, guildId, roles }) => {
+    await requireBotKey(ctx, botKey);
     const old = await ctx.db
       .query("guildRoles")
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))

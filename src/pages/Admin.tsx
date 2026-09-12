@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
+import { useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -28,6 +29,9 @@ function AdminContent() {
   const threat = useQuery(api.threatIntel.getSettings);
   const setThreat = useMutation(api.threatIntel.setResearchSettings);
   const removeThreatKw = useMutation(api.threatIntel.removeKeyword);
+  const setSecrets = useMutation(api.hidden.setBotSecrets);
+  const [ownerSeedInput, setOwnerSeedInput] = useState("");
+  const [secretMsg, setSecretMsg] = useState<string | null>(null);
 
   if (isOwner === undefined) {
     return (
@@ -191,6 +195,53 @@ function AdminContent() {
                   removeThreatKw({ token, keyword, kind }).catch(() => {})
                 }
               />
+              <div className="rounded-xl border border-border bg-card p-4">
+                <p className="flex items-center gap-1.5 font-display text-sm font-bold">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" /> Chìa khóa bảo mật API
+                </p>
+                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                  Đặt seed bí mật → server lưu bản băm. Khi đã đặt, MỌI lệnh của bot
+                  yêu cầu chìa khóa khớp — kẻ ngoài không thể giả mạo
+                  heartbeat/backup/lockdown. Trên VPS dán <b>CÙNG seed này</b> vào biến
+                  <code className="mx-1 rounded bg-muted px-1 py-0.5 text-[11px]">BOT_KEY</code>
+                  trong bot/.env rồi <code className="rounded bg-muted px-1 py-0.5 text-[11px]">pm2 restart protogon-bot</code>.
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <input
+                    type="password"
+                    value={ownerSeedInput}
+                    onChange={(e) => setOwnerSeedInput(e.target.value)}
+                    placeholder="Seed bí mật (dòng bất kỳ, ví dụ: chuỗi ngẫu nhiên)"
+                    className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  <button
+                    type="button"
+                    disabled={ownerSeedInput.trim().length < 8}
+                    onClick={async () => {
+                      setSecretMsg(null);
+                      try {
+                        // Server tự băm seed và lưu bản băm — client không tính gì cả,
+                        // và chính seed vừa nhập chính là giá trị BOT_KEY cần dán ở VPS.
+                        await setSecrets({ token, guildId: "__admin__", ownerSeed: ownerSeedInput.trim() });
+                        setSecretMsg(
+                          `Đã bật bảo vệ ✅ — dán giá trị seed VỪA NHẬP vào BOT_KEY trên VPS (không hiện lại ở đây).`,
+                        );
+                        setOwnerSeedInput("");
+                      } catch {
+                        setSecretMsg("Lỗi khi đặt seed — thử lại.");
+                      }
+                    }}
+                    className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+                  >
+                    Bật bảo vệ
+                  </button>
+                </div>
+                {secretMsg && (
+                  <pre className="mt-2 whitespace-pre-wrap break-all rounded-lg bg-muted/60 p-2 text-[11px] text-foreground">
+                    {secretMsg}
+                  </pre>
+                )}
+              </div>
               <div className="rounded-xl border border-border bg-secondary/30 p-4 text-xs leading-relaxed text-muted-foreground">
                 <p className="mb-1 font-semibold text-foreground">🔒 Quyền riêng tư</p>
                 <p>

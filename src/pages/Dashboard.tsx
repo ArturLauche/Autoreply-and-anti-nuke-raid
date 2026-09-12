@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import {
   Bot,
   Loader2,
@@ -28,7 +28,6 @@ import {
   clearSessionToken,
   discordAvatarUrl,
   discordGuildIconUrl,
-  fetchDiscordGuilds,
   generateChallenge,
   generateVerifier,
   getDiscordAccessToken,
@@ -44,7 +43,9 @@ export default function Dashboard() {
   const token = getSessionToken();
   const me = useQuery(api.sessions.me, { token }) as MeData | null | undefined;
   const logout = useMutation(api.sessions.logout);
-  const refreshGuilds = useMutation(api.sessions.refreshGuilds);
+  // Làm mới danh sách server qua action server-side: server tự hỏi Discord
+  // /users/@me/guilds bằng access token — client không tự báo danh sách.
+  const refreshGuilds = useAction(api.sessionAuth.refreshGuildsServer);
   const { clientId } = usePublicConfig();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -54,16 +55,7 @@ export default function Dashboard() {
     try {
       const accessToken = await getDiscordAccessToken(clientId);
       if (!accessToken) return;
-      const guilds = await fetchDiscordGuilds(accessToken);
-      await refreshGuilds({
-        token,
-        guilds: guilds.map((g) => ({
-          id: g.id,
-          name: g.name,
-          icon: g.icon ?? undefined,
-          permissions: g.permissions,
-        })),
-      });
+      await refreshGuilds({ token, accessToken });
     } catch {
       // Token hết hạn / mạng lỗi — bỏ qua, danh sách vẫn dùng dữ liệu đã lưu.
     }

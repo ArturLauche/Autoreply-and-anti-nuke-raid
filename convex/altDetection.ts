@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild } from "./auth";
+import { requireBotKey } from "./botAuth";
 
 /** Alt detection configuration per guild. */
 export const getAltConfig = query({
@@ -83,8 +84,11 @@ export const recordJoin = mutation({
     isVPN: v.optional(v.boolean()),
     ipCountry: v.optional(v.string()),
     ipOrg: v.optional(v.string()),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireBotKey(ctx, args.botKey);
     const now = Date.now();
     // Store join record
     await ctx.db.insert("memberJoins", {
@@ -127,8 +131,11 @@ export const recordJoin = mutation({
  * khác có thể đối chiếu (rejoin-evasion detection).
  */
 export const markJoinPunished = mutation({
-  args: { guildId: v.string(), userId: v.string(), action: v.string() },
+  args: { guildId: v.string(), userId: v.string(), action: v.string(),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()), },
   handler: async (ctx, args) => {
+    await requireBotKey(ctx, args.botKey);
     const rec = await ctx.db
       .query("memberJoins")
       .withIndex("by_guildId_joinedAt", (q) => q.eq("guildId", args.guildId))
@@ -146,8 +153,11 @@ export const markJoinPunished = mutation({
 
 /** Lịch sử join gần đây cho bot (không cần token — bot chạy với deploy key). */
 export const botGetJoinHistory = query({
-  args: { guildId: v.string(), limit: v.optional(v.number()) },
+  args: { guildId: v.string(), limit: v.optional(v.number()),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()), },
   handler: async (ctx, args) => {
+    await requireBotKey(ctx, args.botKey);
     const joins = await ctx.db
       .query("memberJoins")
       .withIndex("by_guildId_joinedAt", (q) => q.eq("guildId", args.guildId))

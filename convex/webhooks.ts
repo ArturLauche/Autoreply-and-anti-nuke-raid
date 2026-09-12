@@ -1,6 +1,7 @@
 import { action, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild } from "./auth";
+import { requireBotKey } from "./botAuth";
 
 async function requireGuild(ctx: QueryCtx | MutationCtx, token: string, guildId: string) {
   const user = await getUserByToken(ctx, token);
@@ -61,8 +62,11 @@ export const toggleDefaultWebhook = mutation({
 
 /** Bot tải webhooks (kèm token) của 1 guild để gửi log — cache ở phía bot. */
 export const botGetWebhooks = query({
-  args: { guildId: v.string() },
-  handler: async (ctx, { guildId }) => {
+  args: { guildId: v.string(),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()), },
+  handler: async (ctx, { botKey, guildId }) => {
+    await requireBotKey(ctx, botKey);
     const rows = await ctx.db
       .query("guildWebhooks")
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
@@ -89,8 +93,11 @@ export const botDefaultWebhookReady = mutation({
     channelId: v.string(),
     discordWebhookId: v.string(),
     token: v.string(),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()),
   },
-  handler: async (ctx, { guildId, channelId, discordWebhookId, token }) => {
+  handler: async (ctx, { botKey, guildId, channelId, discordWebhookId, token }) => {
+    await requireBotKey(ctx, botKey);
     const existing = await ctx.db
       .query("guildWebhooks")
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
@@ -127,8 +134,11 @@ export const botDefaultWebhookReady = mutation({
 
 /** Bot báo đã gỡ webhook MẶC ĐỊNH (kênh log bị bỏ/đổi → xóa row). */
 export const botDefaultWebhookDeleted = mutation({
-  args: { guildId: v.string() },
-  handler: async (ctx, { guildId }) => {
+  args: { guildId: v.string(),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()), },
+  handler: async (ctx, { botKey, guildId }) => {
+    await requireBotKey(ctx, botKey);
     const rows = await ctx.db
       .query("guildWebhooks")
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))

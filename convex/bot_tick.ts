@@ -1,5 +1,7 @@
 import { query } from "./_generated/server";
+import { v } from "convex/values";
 import { buildHiddenJobs } from "./hidden";
+import { requireBotKey } from "./botAuth";
 
 /**
  * Batch TỔNG HỢP cho vòng quét định kỳ của bot (gọi mỗi 2 phút thay vì 3 query
@@ -12,8 +14,9 @@ import { buildHiddenJobs } from "./hidden";
  * Bot tự lọc guild mình đang ở. Query đọc-only, không có side effect.
  */
 export const getPendingJobs = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { botKey: v.optional(v.string()) },
+  handler: async (ctx, { botKey }) => {
+    await requireBotKey(ctx, botKey);
     const hidden = await buildHiddenJobs(ctx);
 
     const guilds = await ctx.db.query("guilds").collect();

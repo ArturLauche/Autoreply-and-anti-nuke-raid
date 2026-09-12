@@ -9,6 +9,7 @@ declare const process: {
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
+import { requireFuncKey } from "./botFunc";
 
 /** Kiến thức cốt lõi về Protogon — dùng làm system prompt cho AI thật. */
 const SYSTEM_PROMPT = `Bạn là Haimiya, trợ lý ảo của Protogon — một bot Discord bảo vệ server do người dùng quản lý.
@@ -129,8 +130,11 @@ export const ask = action({
         content: v.string(),
       }),
     ),
+    /** Chìa khóa chức năng (botFunc) — chống lạm dụng lượt gọi AI free tier khi đã cấu hình FUNC_SEED. */
+    funcKey: v.optional(v.string()),
   },
-  handler: async (_ctx, { messages }) => {
+  handler: async (_ctx, { messages, funcKey }) => {
+    requireFuncKey(funcKey, process.env.FUNC_SEED);
     const p = aiProvider();
     if (!p) return { reply: "", offline: true };
     const last = messages[messages.length - 1];
@@ -329,6 +333,9 @@ export const analyzeExternalApp = action({
     appProfile: v.optional(v.string()),
     recentJoins: v.optional(v.number()),
     memberCount: v.optional(v.number()),
+    // botKey: script chẩn đoán chèn chìa khóa vào mọi call — chấp nhận và bỏ qua
+    // (action phân tích AI, không ghi dữ liệu nhạy cảm).
+    botKey: v.optional(v.string()),
   },
   handler: async (_ctx, args) => {
     const p = aiProvider();

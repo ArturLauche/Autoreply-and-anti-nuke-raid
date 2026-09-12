@@ -9,6 +9,18 @@ const { ConvexHttpClient } = require("../bot/node_modules/convex/browser");
   }
   const client = new ConvexHttpClient(url);
   if (process.env.CONVEX_DEPLOY_KEY) client.setAdminAuth(process.env.CONVEX_DEPLOY_KEY);
+  // botKey (botAuth): chèn CHỈ KHI hàm chưa có botKey trong args — nếu không sẽ
+  // đè lên giá trị args thật hoặc gửi thừa tham số làm hàm public từ chối.
+  const botKey = process.env.BOT_KEY ? String(process.env.BOT_KEY).trim() : null;
+  const withKey = (args) => {
+    const payload = args && typeof args === "object" ? { ...args } : {};
+    if (botKey && payload.botKey === undefined) payload.botKey = botKey;
+    return payload;
+  };
+  const _q = client.query.bind(client);
+  const _m = client.mutation.bind(client);
+  client.query = (fn, args) => _q(fn, withKey(args));
+  client.mutation = (fn, args) => _m(fn, withKey(args));
 
   const status = await client.query("status:botStatus");
   console.log("botStatus:", JSON.stringify({

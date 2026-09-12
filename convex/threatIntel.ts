@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken } from "./auth";
 import { getBotStatus } from "./hidden";
+import { requireBotKey } from "./botAuth";
 
 /**
  * Threat Intel — bộ não học hỏi của bot: lưu kết quả nghiên cứu định kỳ từ nguồn
@@ -158,8 +159,12 @@ export const botSetResearchRun = mutation({
 
 /** Bot đọc intel hiện có (từ khóa + phrases) — 1 query, rẻ, cache trong tick. */
 export const botGetIntel = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { botKey }) => {
+    await requireBotKey(ctx, botKey);
     const status = await getBotStatus(ctx);
     const now = Date.now();
     return {

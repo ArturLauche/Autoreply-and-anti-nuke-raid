@@ -52,6 +52,30 @@ class ConvexStore {
     this._startedAt = Date.now();
     this._lastHeartbeat = 0;
     this._heartbeatOk = false;
+
+    // Bảo mật: tự động chèn botKey vào MỌI query/mutation/action — Convex phía
+    // server kiểm tra SHA-256(botKey) khớp botKeySeed (đặt qua Admin web). Kẻ
+    // ngoài không có BOT_KEY thì không gọi được các function bot-side. Proxy
+    // phải bọc cả `action` (vd backup_github:githubPush) — nếu không, các call
+    // action của bot sẽ vỡ khi BOT_KEY đã cấu hình.
+    const self = this;
+    this.client = new Proxy(this.client, {
+      get(target, prop) {
+        if (prop !== "query" && prop !== "mutation" && prop !== "action") return target[prop];
+        return function (fnName, args) {
+          const payload = args && typeof args === "object" ? { ...args } : {};
+          if (self.botKey && payload.botKey === undefined) {
+            payload.botKey = self.botKey;
+          }
+          return target[prop](fnName, payload);
+        };
+      },
+    });
+
+    // Tính botKey từ BOT_KEY trong .env (SHA-256 hex) — protocol khớp convex/botAuth.ts.
+    if (process.env.BOT_KEY) {
+      this.botKey = process.env.BOT_KEY.trim();
+    }
   }
 
   /**

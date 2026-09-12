@@ -2,6 +2,7 @@ import { query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild } from "./auth";
+import { requireBotKey } from "./botAuth";
 
 const EVENT_FIELDS = (e: {
   module: string;
@@ -97,8 +98,9 @@ export const historyForGuild = query({
 
 /** Danh sách guild đang có bot (dùng cho script chẩn đoán lặp từng guild). */
 export const botListGuildIds = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { botKey: v.optional(v.string()) },
+  handler: async (ctx, { botKey }) => {
+    await requireBotKey(ctx, botKey);
     const guilds = await ctx.db.query("guilds").collect();
     return guilds
       .filter((g) => g.botInGuild)
@@ -106,12 +108,34 @@ export const botListGuildIds = query({
   },
 });
 
+/** Tất cả sự kiện chống nuke từ mốc `since` (script chẩn đoán: dup-logs, ext-app).
+ * Hàm này bị script gọi nhưng chưa từng tồn tại → script luôn lỗi "Unknown function". */
+export const getDailyEvents = query({
+  args: {
+    since: v.number(),
+    /** Chìa khóa bot (botAuth) — script chẩn đoán gửi cùng BOT_KEY từ .env. */
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { botKey, since }) => {
+    await requireBotKey(ctx, botKey);
+    const events = await ctx.db
+      .query("antinukeEvents")
+      .withIndex("by_createdAt", (q) => q.gte("createdAt", since))
+      .order("desc")
+      .take(2000);
+    return events.map(EVENT_FIELDS);
+  },
+});
+
 /** Sự kiện chống nuke của MỘT guild từ mốc `since` (dùng cho báo cáo hằng ngày).
  * Per-guild thay vì query global: chỉ chạy khi guild thực sự đến hạn báo cáo
  * (tiết kiệm hàng triệu reads/tháng khi nhiều guild). */
 export const getGuildEvents = query({
-  args: { guildId: v.string(), since: v.number(), limit: v.optional(v.number()) },
-  handler: async (ctx, { guildId, since, limit }) => {
+  args: { guildId: v.string(), since: v.number(), limit: v.optional(v.number()),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()), },
+  handler: async (ctx, { botKey, guildId, since, limit }) => {
+    await requireBotKey(ctx, botKey);
     const events = await ctx.db
       .query("antinukeEvents")
       .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId).gte("createdAt", since))

@@ -12,7 +12,9 @@ export interface BotStatus {
 
 /** Trạng thái bot tổng thể + thông tin chủ bot (bot tự đồng bộ 24/7 từ Discord). */
 export function useBotStatus(): BotStatus | null {
-  const data = useQuery(api.status.botStatus);
+  // botStatus giờ khai báo args (botKey tùy chọn cho script chẩn đoán) — truyền
+  // object rỗng từ web; hoặc bỏ qua args nhưng useQuery cần đối số đầy đủ.
+  const data = useQuery(api.status.botStatus, {});
   if (data === undefined) return null;
   return {
     online: !!data.online,

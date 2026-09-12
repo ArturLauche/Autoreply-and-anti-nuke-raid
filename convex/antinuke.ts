@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild } from "./auth";
+import { requireBotKey } from "./botAuth";
 import { isAntiNukeModule } from "./modules";
 
 /** Hành động hợp lệ của module: hình phạt thành viên + dọn tin nhắn. */
@@ -204,8 +205,11 @@ export const externalAppRaids = query({
 
 /** Bot đọc các mẫu raid gần nhất (Raid Intel) — dùng cho ambient learning (0 token AI). */
 export const recentRaidSamples = query({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit }) => {
+  args: { limit: v.optional(v.number()),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()), },
+  handler: async (ctx, { botKey, limit }) => {
+    await requireBotKey(ctx, botKey);
     const rows = await ctx.db
       .query("raidSamples")
       .withIndex("by_createdAt", (q) => q.gt("createdAt", 0))
