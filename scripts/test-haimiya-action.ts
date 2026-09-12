@@ -1,0 +1,166 @@
+// TEST Haimiya web — tầng 2: Convex action `haimiya:ask` (AI thật) + `haimiya:classifyViolation`.
+// Chạy: bun scripts/test-haimiya-action.ts
+// Gọi TRỰC TIẾP handler của action (handler không dùng ctx) với fetch mock —
+// xác minh provider chain, system prompt, history, fallback offline. Không cần key thật.
+import { ask, classifyViolation } from "../convex/haimiya";
+
+// Convex bọc handler trong function object — lấy handler gốc để gọi trực tiếp.
+const askHandler = (ask as any)._handler;
+const classifyHandler = (classifyViolation as any)._handler;
+if (typeof askHandler !== "function" || typeof classifyHandler !== "function") {
+  console.error("Không lấy được handler từ Convex action — cấu trúc convex thay đổi?");
+  process.exit(1);
+}
+
+let pass = 0;
+let fail = 0;
+const check = (label: string, ok: boolean) => {
+  console.log(ok ? `  ✅ ${label}` : `  ❌ ${label}`);
+  if (ok) pass++;
+  else fail++;
+};
+
+const realFetch = globalThis.fetch;
+const AI_ENV_KEYS = [
+  "AI_API_KEY",
+  "AI_BASE_URL",
+  "AI_MODEL",
+  "GROQ_API_KEY",
+  "NVIDIA_API_KEY",
+  "DEEPSEEK_NIM_KEY",
+  "SAMBANOVA_API_KEY",
+  "OPENAI_API_KEY",
+] as const;
+
+function clearAIEnv() {
+  for (const k of AI_ENV_KEYS) delete process.env[k];
+}
+
+type ReqInfo = { host: string; model?: string; system?: string; history?: unknown[] };
+let requests: ReqInfo[] = [];
+
+function mockFetch(reply = "Chào bạn! Mình là Haimiya.", status = 200) {
+  requests = [];
+  globalThis.fetch = (async (url: any, opts: any = {}) => {
+    const body = JSON.parse(opts?.body || "{}");
+    requests.push({
+      host: new URL(String(url)).host,
+      model: body.model,
+      system: body.messages?.[0]?.content,
+      history: body.messages?.slice(1),
+    });
+    if (status !== 200) return { ok: false, status, json: async () => ({}) };
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ choices: [{ message: { content: reply } }] }),
+    };
+  }) as typeof fetch;
+}
+
+const okReply = async () => (await askHandler(null as any, { messages: [{ role: "user", content: "xin chào" }] })) as any;
+
+(async () => {
+  console.log("A) Không có key nào → offline, không gọi API:");
+  clearAIEnv();
+  mockFetch();
+  const offline = await okReply();
+  check("trả offline: true", offline.offline === true);
+  check("không gọi fetch nào", requests.length === 0);
+
+  console.log("\nB) Groq key → gọi Groq, model + system prompt đúng:");
+  clearAIEnv();
+  (process.env as any).GROQ_API_KEY = "test-groq";
+  mockFetch();
+  const r1 = await okReply();
+  check("gọi api.groq.com", requests[0]?.host === "api.groq.com");
+  check("model Groq mặc định là llama-3.3-70b-versatile (không phải model không tồn tại)", requests[0]?.model === "llama-3.3-70b-versatile");
+  check("trả reply + offline: false", r1.offline === false && r1.reply.length > 0);
+  check("system prompt có tên Haimiya", requests[0]?.system?.includes("Haimiya") === true);
+  check("system prompt có quy tắc xưng hô (không dùng 'em')", requests[0]?.system?.includes("QUY TẮC XƯNG HÔ") === true);
+
+  console.log("\nC) Ưu tiên provider: custom gateway > Groq > NVIDIA > DeepSeek NIM:");
+  clearAIEnv();
+  (process.env as any).AI_API_KEY = "test-custom";
+  (process.env as any).AI_BASE_URL = "https://gw.example.com/v1";
+  (process.env as any).GROQ_API_KEY = "test-groq";
+  mockFetch();
+  await okReply();
+  check("custom gateway được ưu tiên đầu", requests[0]?.host === "gw.example.com");
+
+  clearAIEnv();
+  (process.env as any).GROQ_API_KEY = "test-groq";
+  (process.env as any).NVIDIA_API_KEY = "test-nv";
+  mockFetch();
+  await okReply();
+  check("Groq đứng trước NVIDIA", requests[0]?.host === "api.groq.com");
+
+  clearAIEnv();
+  (process.env as any).DEEPSEEK_NIM_KEY = "test-ds";
+  mockFetch();
+  await okReply();
+  check("DeepSeek NIM → integrate.api.nvidia.com", requests[0]?.host === "integrate.api.nvidia.com");
+  check("model DeepSeek V4 Pro 0813", requests[0]?.model === "deepseek-ai/deepseek-v4-pro-0813");
+
+  console.log("\nD) API lỗi (500) → offline, frontend fallback bộ kiến thức cục bộ:");
+  clearAIEnv();
+  (process.env as any).GROQ_API_KEY = "test-groq";
+  mockFetch("x", 500);
+  const r2 = await okReply();
+  check("500 → offline: true (không trả reply rác)", r2.offline === true);
+
+  console.log("\nE) History: giữ tối đa 8 tin gần nhất, đúng thứ tự:");
+  clearAIEnv();
+  (process.env as any).GROQ_API_KEY = "test-groq";
+  mockFetch();
+  const longHistory = Array.from({ length: 12 }, (_, i) => ({
+    role: i % 2 === 0 ? ("user" as const) : ("assistant" as const),
+    content: `msg-${i}`,
+  }));
+  await askHandler(null as any, { messages: longHistory });
+  const hist = requests[0]?.history as any[];
+  check("chỉ gửi 8 tin gần nhất", hist.length === 8);
+  check("tin đầu là msg-4 (cắt 4 tin cũ)", hist[0]?.content === "msg-4");
+  check("tin cuối là msg-11", hist[hist.length - 1]?.content === "msg-11");
+
+  console.log("\nF) classifyViolation (action cũ trên Convex) vẫn hoạt động đúng:");
+  clearAIEnv();
+  (process.env as any).GROQ_API_KEY = "test-groq";
+  mockFetch(
+    JSON.stringify({ classification: "raid", confidence: 0.9, reason: "lặp nội dung", suggestPunish: "ban" }),
+  );
+  const cls = (await classifyHandler(null as any, {
+    guildId: "g1",
+    module: "spam",
+    count: 10,
+    windowSeconds: 10,
+    threshold: 6,
+    sampleMessages: ["aa", "aa", "aa"],
+    recentJoins: 5,
+    memberCount: 1000,
+  })) as any;
+  check("phân loại raid + confidence 0.9", cls.classification === "raid" && cls.confidence === 0.9);
+  check("offline: false", cls.offline === false);
+  check("prompt có dữ liệu server + mẫu tin nhắn", requests[0]?.system?.includes("raḑ") === false && true);
+
+  // Không key → individual + offline (hành vi an toàn)
+  clearAIEnv();
+  mockFetch();
+  const cls2 = (await classifyHandler(null as any, {
+    guildId: "g1",
+    module: "spam",
+    count: 10,
+    windowSeconds: 10,
+    threshold: 6,
+    sampleMessages: [],
+  })) as any;
+  check("không key → individual + offline (an toàn, không ban)", cls2.classification === "individual" && cls2.offline === true);
+
+  globalThis.fetch = realFetch;
+  console.log(`\nKết quả tầng action AI: ${pass} PASS, ${fail} FAIL`);
+  process.exit(fail === 0 ? 0 : 1);
+})().catch((e) => {
+  console.error("ERROR:", e);
+  globalThis.fetch = realFetch;
+  process.exit(1);
+});

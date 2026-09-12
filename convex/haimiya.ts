@@ -61,22 +61,25 @@ KIẾN THỨC CHUYÊN SÂU VỀ PROTOGON (dùng khi được hỏi về bot):
  * - SambaNova: 20 RPM, 20 RPD, model deepseek-v3-1 — MIỄN PHÍ, cần đăng ký
  */
 function aiProvider(): { key: string; baseUrl: string; model: string } | null {
-  // 1. Gateway tùy chỉnh (Groq/kiosapi qua env)
+  // 1. Gateway tùy chỉnh (Groq/kiosapi qua env) — model gateway tự chọn, mặc định
+  // llama-3.3-70b-versatile (model phổ biến trên các gateway tương thích OpenAI).
   const groqKey = process.env.AI_API_KEY;
   if (groqKey && process.env.AI_BASE_URL) {
     return {
       key: groqKey,
       baseUrl: process.env.AI_BASE_URL,
-      model: process.env.AI_MODEL ?? "qwen/qwen3.8-27b",
+      model: process.env.AI_MODEL ?? "llama-3.3-70b-versatile",
     };
   }
-  // 2. Groq free trực tiếp (không qua gateway)
+  // 2. Groq free trực tiếp (không qua gateway) — model mặc định là model CỦA GROQ
+  // (trước đây dùng tên model qwen không tồn tại trên Groq → mọi call lỗi 400,
+  // chat web luôn rơi về fallback cục bộ dù key hợp lệ).
   const groqDirectKey = process.env.GROQ_API_KEY;
   if (groqDirectKey) {
     return {
       key: groqDirectKey,
       baseUrl: "https://api.groq.com/openai/v1",
-      model: process.env.AI_MODEL ?? "qwen/qwen3.8-27b",
+      model: process.env.AI_MODEL ?? "llama-3.3-70b-versatile",
     };
   }
   // 3. NVIDIA NIM free (https://build.nvidia.com — 40 RPM, 4M TPM)
