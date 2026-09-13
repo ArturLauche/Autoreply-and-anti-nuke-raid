@@ -32,14 +32,22 @@ const MALICIOUS_DOMAINS = [
 ].map((d) => d.toLowerCase());
 
 const DANGEROUS_EXTENSIONS = [
-  ".exe", ".scr", ".bat", ".cmd", ".com", ".msi", ".msp",
-  ".vbs", ".vbe", ".js", ".jse", ".hta", ".ps1", ".psm1",
-  ".jar", ".apk", ".cpl", ".reg",
+  ".exe", ".scr", ".bat", ".cmd", ".msi", ".msp",
+  ".vbs", ".vbe", ".jse", ".hta", ".ps1", ".psm1",
+  ".apk", ".cpl", ".reg",
+  // Đã loại bỏ: ".js" (dev upload file script là bình thường), ".com" (nhầm với
+  // tên miền trong tên file) — hai đuôi này gây phạt oan nhiều hơn giá trị chặn.
 ];
 
-// Chữ ký nội dung lừa đảo phổ biến
-const SCAM_KEYWORD_RE =
-  /(free\s?nitro|steam\s?gift|discord\s?nitro\s?(gift|code)|giveaway|airdrop|claim\s?(reward|prize|gift)|you\s?(won|are\s?(the\s?)?winner))/i;
+// Chữ ký nội dung lừa đảo:
+//  - MẠNH: cụm đặc thù scam (free nitro, claim prize, you won…) — kèm link lạ là phạt.
+//  - YẾU: từ xuất hiện trong chat thường (giveaway, airdrop) — chỉ phạt khi link
+//    tới TLD hay bị lạm dụng (ru/gift/top/xyz/…). Tránh phạt oan người chia sẻ
+//    bài viết "giveaway" trên shop/blog bình thường (shopee, blog cá nhân…).
+const SCAM_STRONG_RE =
+  /(free\s?nitro|steam\s?gift|discord\s?nitro\s?(gift|code)|claim\s?(reward|prize|gift)|you\s?(won|are\s?(the\s?)?winner))/i;
+const SCAM_WEAK_RE = /(giveaway|airdrop)/i;
+const SCAMMY_TLD_RE = /\.(ru|gift|top|xyz|site|quest|cc|tk|ml|ga|cf|gq|icu|buzz|cfd|sbs)([:/]|$)/i;
 
 // ============================================================
 // THREAT INTEL (học hỏi từ research.js) — dùng MIỄN PHÍ vĩnh viễn:
@@ -82,9 +90,10 @@ function refreshThreatIntel(store) {
 function findLearnedThreat(content) {
   if (threatKeywords.length === 0 && threatPhrases.length === 0) return null;
   const lower = content.toLowerCase();
-  // Cụm từ nhiều từ (vd "free gift redeem") — khớp nguyên cụm, ưu tiên trước.
+  // Cụm từ nhiều từ (vd "free gift redeem") — khớp nguyên cụm với RANH GIỚI TỪ
+  // (tránh khớp nhầm "re-claim rewards" chứa "claim reward").
   for (const p of threatPhrases) {
-    if (p.length >= 6 && lower.includes(p)) return { kind: "intel-phrase", value: p };
+    if (p.length >= 6 && wordBoundaryRegex(p).test(lower)) return { kind: "intel-phrase", value: p };
   }
   // Từ khóa đơn: phải kèm link đáng ngờ (domain lạ) mới tính — tránh phạt người
   // dùng nhắc từ chung chung kèm link github/youtube/discord.
@@ -135,9 +144,17 @@ const BENIGN_LINK_HOSTS = new Set([
   "figma.com", "notion.so", "trello.com", "facebook.com", "instagram.com",
   "tiktok.com", "x.com", "twitter.com", "vnexpress.net", "dantri.com.vn",
   "tuoitre.vn", "thanhtra.com.vn", "microsoft.com", "apple.com", "cloudflare.com",
+  // VN + dev thường dùng: shopee/lazada/tiki (mua bán), docs/drive google, github pages.
+  "shopee.vn", "lazada.vn", "tiki.vn", "github.io", "gitlab.io",
+  "docs.google.com", "drive.google.com", "discord.gg",
 ]);
 
-/** Link đầu tiên trong nội dung có domain KHÔNG nằm trong danh sách lành tính. */
+/** Link đầu tiên trong nội dung có domain KHÔNG nằm trong danh sách lành tính.
+ *  Suffix domains (github.io, gitlab.io): mọi subdomain (someone.github.io) đều
+ *  là của GitHub/GitLab sở hữu → lành tính. KHÔNG áp suffix cho domain mua bán
+ *  (shopee.vn) vì kẻ xấu mua domain kiểu evil-shopee.vn để lách.
+ */
+const BENIGN_SUFFIX_HOSTS = new Set(["github.io", "gitlab.io", "pages.dev"]);
 function findSuspiciousLink(content) {
   const urls = content.match(/https?:\/\/[^\s<>"]+|www\.[^\s<>"]+/gi) || [];
   for (const raw of urls) {
@@ -146,7 +163,9 @@ function findSuspiciousLink(content) {
       .replace(/^www\./i, "")
       .split(/[/?#]/)[0]
       .toLowerCase();
-    if (!BENIGN_LINK_HOSTS.has(host)) return { host, url: raw };
+    if (BENIGN_LINK_HOSTS.has(host)) continue;
+    if ([...BENIGN_SUFFIX_HOSTS].some((s) => host === s || host.endsWith("." + s))) continue;
+    return { host, url: raw };
   }
   return null;
 }
@@ -168,11 +187,18 @@ function findMaliciousLink(content) {
       return { kind: "ip", value: host }; // link IP trực tiếp — nghi ngờ
     }
   }
-  // CHỐNG BẮT NHẦM: chữ ký lừa đảo (free nitro/giveaway/airdrop...) chỉ tính khi
-  // tin nhắn CÓ LINK tới domain KHÁC lành tính (scam dẫn sang trang lừa đảo;
-  // người dùng nhắc "giveaway" kèm link github/youtube là chat bình thường).
-  if (findSuspiciousLink(content) && SCAM_KEYWORD_RE.test(content))
-    return { kind: "scam-keyword", value: "nội dung lừa đảo kèm link" };
+  // CHỐNG BẮT NHẦM: chữ ký lừa đảo chỉ tính khi tin nhắn CÓ LINK tới domain KHÁC
+  // lành tính (scam dẫn sang trang lừa đảo; người dùng nhắc "giveaway" kèm link
+  // github/youtube/shopee là chat bình thường).
+  //  - Chữ ký MẠNH (free nitro, claim prize…) + link lạ → phạt.
+  //  - Chữ ký YẾU (giveaway, airdrop) + link TLD lạm dụng (.ru/.top/…) → phạt;
+  //    link TLD thường (shopee.vn, blog .com…) → bỏ qua.
+  if (findSuspiciousLink(content)) {
+    if (SCAM_STRONG_RE.test(content)) return { kind: "scam-keyword", value: "nội dung lừa đảo kèm link" };
+    const urls = content.match(/https?:\/\/[^\s<>"]+|www\.[^\s<>"]+/gi) || [];
+    const hasScammyTld = urls.some((u) => SCAMMY_TLD_RE.test(u.replace(/^https?:\/\//i, "").replace(/^www\./i, "")));
+    if (SCAM_WEAK_RE.test(content) && hasScammyTld) return { kind: "scam-keyword", value: "nội dung lừa đảo kèm link đáng ngờ" };
+  }
   return null;
 }
 

@@ -77,24 +77,36 @@ async function punishMember(guild, member, punishType, reason, timeoutSeconds = 
   } else {
     // CHỐNG BAN NHẦM BOT HỢP LỆ: bot xác minh (tick) hoặc đã ở lại server >= 7
     // ngày là bot được mời chính thức (Carl-bot, Dyno, Wick…) — không bao giờ
-    // ban/kick, hạ xuống timeout. Chỉ bot MỚI (bot nuke vừa được thêm) bị ban thẳng.
+    // ban/kick, THỰC THI timeout thay thế. Chỉ bot MỚI (bot nuke vừa thêm) bị ban.
+    // (Lỗi cũ: chỉ đổi biến punishType rồi vẫn rơi xuống nhánh ban — bot tin cậy
+    // vẫn bị ban; giờ hạ cấp bằng cách gọi timeout trực tiếp.)
     const user = member?.user ?? member;
     const isBot = user?.bot === true;
     const verified = typeof user?.flags?.has === "function" && user.flags.has(4) /* UserFlags.VerifiedBot */;
     const joinedLong = typeof member?.joinedTimestamp === "number" && Date.now() - member.joinedTimestamp >= 7 * 86_400_000;
     if (isBot && (verified || joinedLong) && (punishType === "ban" || punishType === "kick")) {
-      punishType = "timeout";
-    }
-    try {
-      if (punishType === "kick") {
-        await member.kick(reason);
-        result = "đã kick";
-      } else {
-        await member.ban({ reason, deleteMessageSeconds: 0 });
-        result = "đã ban";
+      const seconds = Math.max(1, Math.min(86400, Math.floor(timeoutSeconds || 300)));
+      try {
+        await member.timeout(seconds * 1000, reason);
+        timeoutWatch.track(guild.id, member.id, Date.now() + seconds * 1000);
+        result = `bot tin cậy bị hạ cấp: đã tạm khóa ${Math.round(seconds / 60)} phút (thay vì ${punishType})`;
+        punishType = "timeout";
+      } catch {
+        result = "không thể tạm khóa bot (thiếu quyền) — bỏ qua hình phạt mạnh";
+        punishType = "timeout";
       }
-    } catch {
-      result = "không thể xử lý (thiếu quyền)";
+    } else {
+      try {
+        if (punishType === "kick") {
+          await member.kick(reason);
+          result = "đã kick";
+        } else {
+          await member.ban({ reason, deleteMessageSeconds: 0 });
+          result = "đã ban";
+        }
+      } catch {
+        result = "không thể xử lý (thiếu quyền)";
+      }
     }
   }
   let caseNumber;
