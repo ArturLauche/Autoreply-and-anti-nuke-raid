@@ -453,6 +453,8 @@ export default defineSchema({
     threatManualLearnAt: v.optional(v.number()),
     threatManualLearnBy: v.optional(v.string()),
     /** Self-Diagnose: bot tự chẩn đoán lỗi runtime qua AI (Mimo/Kira) + đăng đề xuất vá vào kênh log. Owner bật/tắt trên Admin web. */
+    // Threat Intel: bật/tắt GỬI THÔNG BÁO học tập vào kênh log các server.
+    researchNotifyEnabled: v.optional(v.boolean()),
     // Threat Intel mở rộng: digest tuần + AI review từ khóa + thống kê engine cục bộ.
     threatDigestLast: v.optional(v.string()),
     threatDigestLastAt: v.optional(v.number()),

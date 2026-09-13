@@ -454,7 +454,9 @@ export const botEnsureModules = mutation({
       await ctx.db.insert("antinukeModules", {
         guildId,
         module: m.module,
-        enabled: true,
+        // MẶC ĐỊNH TẮT: chủ server tự bật từng module (hoặc nút "Bật toàn bộ")
+        // trên web. Server ĐÃ có module không bị đụng tới (chỉ thêm module thiếu).
+        enabled: false,
         threshold: m.threshold,
         windowSeconds: m.windowSeconds,
         punish: m.punish as "warn" | "kick" | "ban" | "timeout",

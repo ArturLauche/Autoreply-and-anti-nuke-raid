@@ -201,6 +201,9 @@ function AdminContent() {
                 onToggleAi={(aiWeeklyEnabled) =>
                   setThreat({ token, aiWeeklyEnabled }).catch(() => {})
                 }
+                onToggleNotify={(notifyEnabled) =>
+                  setThreat({ token, notifyEnabled }).catch(() => {})
+                }
                 onRemove={(keyword, kind) =>
                   removeThreatKw({ token, keyword, kind }).catch(() => {})
                 }
@@ -364,6 +367,7 @@ function ThreatIntelCard({
   history,
   onToggle,
   onToggleAi,
+  onToggleNotify,
   onRemove,
   onLearnNow,
 }: {
@@ -371,6 +375,7 @@ function ThreatIntelCard({
     | {
         researchEnabled: boolean;
         aiWeeklyEnabled: boolean;
+        notifyEnabled?: boolean;
         lastRunAt: number | null;
         keywords: string[];
         scamPhrases: string[];
@@ -386,6 +391,7 @@ function ThreatIntelCard({
       }
     | undefined
     | null;
+  onToggleNotify: (notifyEnabled: boolean) => void;
   history:
     | Array<{
         trigger: string;
@@ -472,6 +478,18 @@ function ThreatIntelCard({
         />
         Cho phép AI tổng hợp (Mimo V2.5 qua Kira AI — free 30M tokens/ngày riêng cho
         việc học; tổng hợp mỗi lượt khi có dữ liệu mới, không đụng hạn mức Groq/NVIDIA)
+      </label>
+
+      <label className="mt-1.5 flex cursor-pointer items-start gap-2 text-[11px] leading-relaxed">
+        <input
+          type="checkbox"
+          className="mt-0.5 h-4 w-4 accent-[hsl(var(--primary))]"
+          checked={!!threat?.notifyEnabled}
+          onChange={(e) => onToggleNotify(e.target.checked)}
+        />
+        Gửi thông báo học tập vào kênh log các server (kết quả lượt học thủ công +
+        digest tuần). MẶC ĐỊNH TẮT — bật khi muốn admin theo dõi bot học được gì
+        ngay trên Discord thay vì mở web.
       </label>
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">

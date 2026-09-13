@@ -392,7 +392,10 @@ async function runResearch(store, opts = {}) {
         await store.client
           .mutation("threatIntel:botSetResearchMeta", { digest })
           .catch(() => null);
-        await postDigestToLog(digestClient, digest).catch(() => {});
+        // Digest cũng tôn trọng cờ thông báo học tập (mặc định TẮT).
+        if (intel?.notifyEnabled === true) {
+          await postDigestToLog(digestClient, digest).catch(() => {});
+        }
       }
     }
   } catch {
@@ -424,6 +427,8 @@ async function runResearch(store, opts = {}) {
     aiUsed,
     summary,
     totalKeywords: previousKeywords.length + newKeywords.length,
+    // Cờ GỬI THÔNG BÁO học tập (đọc từ intel — chủ bot bật trên Admin).
+    notifyEnabled: intel?.notifyEnabled === true,
   };
 }
 
@@ -452,8 +457,11 @@ function setupResearch(client, store) {
         console.log(
           `[research:manual] by=${manual.requestedBy} sources=${res.sources.length} newKw=${res.newKeywords} newPhrases=${res.newPhrases} ai=${res.aiUsed}`,
         );
-        // Báo kết quả vào kênh log chung của các server bot đang ở (tối đa 3).
-        await notifyManualResult(client, store, res, manual.requestedBy).catch(() => {});
+        // Báo kết quả vào kênh log chung — CHỈ khi chủ bot bật "thông báo học tập"
+        // trên Admin (mặc định TẮT để không làm spam kênh log).
+        if (res.notifyEnabled) {
+          await notifyManualResult(client, store, res, manual.requestedBy).catch(() => {});
+        }
         return;
       }
 

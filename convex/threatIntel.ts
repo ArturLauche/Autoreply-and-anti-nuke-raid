@@ -51,6 +51,7 @@ export const getSettings = query({
     return {
       researchEnabled: status?.threatResearchEnabled ?? false,
       aiWeeklyEnabled: status?.threatResearchAiWeekly ?? true,
+      notifyEnabled: status?.researchNotifyEnabled ?? false,
       lastRunAt: status?.threatResearchLastRunAt ?? null,
       lastRunAtMs: status?.threatResearchLastRunAt ?? null,
       keywords: status?.threatKeywords ?? [],
@@ -83,8 +84,9 @@ export const setResearchSettings = mutation({
     token: v.string(),
     enabled: v.optional(v.boolean()),
     aiWeeklyEnabled: v.optional(v.boolean()),
+    notifyEnabled: v.optional(v.boolean()),
   },
-  handler: async (ctx, { token, enabled, aiWeeklyEnabled }) => {
+  handler: async (ctx, { token, enabled, aiWeeklyEnabled, notifyEnabled }) => {
     const user = await getUserByToken(ctx, token);
     if (!user) throw new Error("Vui lòng đăng nhập");
     const status = await getBotStatus(ctx);
@@ -104,6 +106,7 @@ export const setResearchSettings = mutation({
     const patch: Record<string, unknown> = {};
     if (enabled !== undefined) patch.threatResearchEnabled = enabled;
     if (aiWeeklyEnabled !== undefined) patch.threatResearchAiWeekly = aiWeeklyEnabled;
+    if (notifyEnabled !== undefined) patch.researchNotifyEnabled = notifyEnabled;
     if (status) {
       await ctx.db.patch(status._id, patch);
     } else {
@@ -234,6 +237,7 @@ export const botGetIntel = query({
       scamPhrases: status?.threatScamPhrases ?? [],
       researchEnabled: status?.threatResearchEnabled ?? false,
       aiWeeklyEnabled: status?.threatResearchAiWeekly ?? true,
+      notifyEnabled: status?.researchNotifyEnabled ?? false,
       nextRunAt: status?.threatResearchNextRunAt ?? null,
       lastRunAt: status?.threatResearchLastRunAt ?? null,
       lastAiUsed: status?.threatResearchLastAiUsed ?? false,

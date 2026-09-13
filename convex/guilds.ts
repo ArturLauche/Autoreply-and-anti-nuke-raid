@@ -675,6 +675,19 @@ export const setAntinukeGlobal = mutation({
       .first();
     if (!guild || !canManageGuild(user, guild)) throw new Error("Không có quyền quản lý server này");
     await ctx.db.patch(guild._id, { antinukeEnabled: enabled, updatedAt: Date.now() });
+    // BẬT TOÀN BỘ = bật luôn mọi module con (ngưỡng/cấu hình từng module giữ
+    // nguyên). TẮT TOÀN BỘ = chỉ tắt tổng (antinukeEnabled=false) — giữ nguyên
+    // enabled từng module, bật lại tổng là mọi module sẵn sàng ngay.
+    if (enabled) {
+      const mods = await ctx.db
+        .query("antinukeModules")
+        .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
+        .collect();
+      const now = Date.now();
+      for (const m of mods) {
+        if (!m.enabled) await ctx.db.patch(m._id, { enabled: true, updatedAt: now });
+      }
+    }
     return { ok: true };
   },
 });
