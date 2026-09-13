@@ -16,6 +16,37 @@ const DISCORD_API = "https://discord.com/api/v10";
 const PERM_MANAGE_GUILD = 0x20;
 
 /**
+ * Rate-limit login attempt (in-memory, 60s window): IP-based bucket keyed from
+ * the Convex request. Without this, anyone can spam bogus codes → each attempt
+ * burns a Discord API roundtrip + writes; a botnet could drain quota and get
+ * the deployment's Discord OAuth client flagged.
+ * (Best-effort: in-memory only survives one action instance — enough against
+ * scripted bursts, same approach as haimiya:ask.)
+ */
+const loginBuckets = new Map<string, { calls: number[] }>();
+const LOGIN_WINDOW_MS = 60_000;
+const LOGIN_MAX_PER_WINDOW = 20;
+
+function assertLoginRateLimit(identity: string): void {
+  const now = Date.now();
+  const bucket = loginBuckets.get(identity);
+  if (bucket) {
+    bucket.calls = bucket.calls.filter((t) => now - t < LOGIN_WINDOW_MS);
+    if (bucket.calls.length >= LOGIN_MAX_PER_WINDOW) {
+      throw new Error("Quá nhiều lượt đăng nhập — thử lại sau ít phút");
+    }
+    bucket.calls.push(now);
+  } else {
+    loginBuckets.set(identity, { calls: [now] });
+    if (loginBuckets.size > 500) {
+      for (const [k, b] of loginBuckets) {
+        if (b.calls.every((t) => now - t > LOGIN_WINDOW_MS)) loginBuckets.delete(k);
+      }
+    }
+  }
+}
+
+/**
  * redirect_uri phải khớp CHÍNH XÁC một trong những URL đăng ký trong Discord
  * Developer Portal (/discord/callback trên domain dashboard). Chặn kẻ xấu trao đổi
  * code theo redirect_uri tùy ý ( authorization code bị kẹp có thể bị gửi tới
@@ -61,6 +92,10 @@ export const exchangeAndLogin = action({
   handler: async (ctx, { code, codeVerifier, redirectUri, funcKey }) => {
     requireFuncKey(funcKey, process.env.FUNC_SEED);
     assertAllowedRedirectUri(redirectUri);
+    // Chặn spam code giả trước khi đụng tới Discord API (tiết kiệm quota + tránh flag OAuth client).
+    assertLoginRateLimit(
+      process.env.FUNC_SEED && funcKey ? "func:" + funcKey.slice(0, 16) : "public",
+    );
 
     const clientId = process.env.DISCORD_CLIENT_ID;
     const clientSecret = process.env.DISCORD_CLIENT_SECRET;

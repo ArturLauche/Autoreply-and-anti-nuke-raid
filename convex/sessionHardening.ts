@@ -3,9 +3,26 @@
  * client không tự gọi được. `sessions:login` giờ chỉ được gọi từ action
  * `sessionAuth:exchangeAndLogin` (server-side), token do server sinh.
  */
-import { internalMutation, internalQuery } from "./_generated/server";
+import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { v, type GenericId } from "convex/values";
-import { getUserByToken, PERM_MANAGE_GUILD, guildAccessibleBy } from "./auth";
+import { getUserByToken, PERM_MANAGE_GUILD, guildAccessibleBy, SESSION_TTL_MS } from "./auth";
+
+/**
+ * Dọn phiên đã quá hạn (gọi cơ hội khi đăng nhập — không cần cron, không tốn
+ * function call định kỳ). Bảng sessions luôn nhỏ → auth query nhanh + rẻ.
+ */
+async function purgeExpiredSessions(ctx: MutationCtx, maxDelete = 50): Promise<void> {
+  const expiredBefore = Date.now() - SESSION_TTL_MS;
+  const oldest = await ctx.db
+    .query("sessions")
+    .withIndex("by_creation_time")
+    .order("asc")
+    .take(maxDelete);
+  for (const s of oldest) {
+    if (s.createdAt <= expiredBefore) await ctx.db.delete(s._id);
+    else break;
+  }
+}
 
 /** (internal) Đăng ký session — CHỈ action server-side được gọi. */
 export const loginInternal = internalMutation({
@@ -27,6 +44,7 @@ export const loginInternal = internalMutation({
     ),
   },
   handler: async (ctx, args) => {
+    await purgeExpiredSessions(ctx);
     const manageable = args.guilds
       .filter((g) => (BigInt(g.permissions) & BigInt(PERM_MANAGE_GUILD)) !== 0n)
       .map((g) => g.id);
@@ -87,6 +105,7 @@ export const loginInternal = internalMutation({
 export const newSessionInternal = internalMutation({
   args: { discordId: v.string() },
   handler: async (ctx, { discordId }) => {
+    await purgeExpiredSessions(ctx);
     const user = await ctx.db
       .query("users")
       .withIndex("by_discordId", (q) => q.eq("discordId", discordId))

@@ -1,6 +1,6 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
-import { buildHiddenJobs } from "./hidden";
+import { buildHiddenJobs, getBotStatus } from "./hidden";
 import { requireBotKey } from "./botAuth";
 
 /**
@@ -77,6 +77,13 @@ export const getPendingJobs = query({
       }
     }
 
-    return { hidden, verifyPanels, backups };
+    // Cấu hình self-diagnose (bot tự chẩn đoán lỗi qua AI) — đi nhờ batch query
+    // sẵn có, bot không cần thêm call riêng.
+    const status = await getBotStatus(ctx);
+    const selfDiagnose = {
+      enabled: status?.selfDiagnoseEnabled ?? false,
+    };
+
+    return { hidden, verifyPanels, backups, selfDiagnose };
   },
 });

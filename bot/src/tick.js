@@ -125,6 +125,10 @@ async function runTickOnce(client, store) {
   }
 
   if (jobs && typeof jobs === "object") {
+    // Self-Diagnose: đồng bộ flag bật/tắt từ batch (không tốn call thêm).
+    try {
+      require("./handlers/selfDiagnose").setEnabledFromJobs(jobs.selfDiagnose);
+    } catch {}
     try {
       await hiddenMod.processHiddenJobsData(client, store, jobs.hidden ?? []);
     } catch (e) {

@@ -25,6 +25,7 @@ import type * as hidden from "../hidden.js";
 import type * as modules from "../modules.js";
 import type * as public_ from "../public.js";
 import type * as reports from "../reports.js";
+import type * as selfDiagnose from "../selfDiagnose.js";
 import type * as sessionAuth from "../sessionAuth.js";
 import type * as sessionHardening from "../sessionHardening.js";
 import type * as sessions from "../sessions.js";
@@ -57,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   modules: typeof modules;
   public: typeof public_;
   reports: typeof reports;
+  selfDiagnose: typeof selfDiagnose;
   sessionAuth: typeof sessionAuth;
   sessionHardening: typeof sessionHardening;
   sessions: typeof sessions;

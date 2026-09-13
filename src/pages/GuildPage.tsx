@@ -182,7 +182,7 @@ export default function GuildPage() {
         </div>
       </header>
 
-      <main className="container py-8">
+      <main className="container py-4 max-sm:pb-32 sm:py-8">
         <div className="grid gap-6 lg:grid-cols-[230px_1fr]">
           {/* Sidebar */}
           <aside className="h-fit lg:sticky lg:top-6">
@@ -193,9 +193,15 @@ export default function GuildPage() {
                 return (
                   <button
                     key={item.key}
-                    onClick={() => setSection(item.key)}
+                    onClick={() => {
+                      setSection(item.key);
+                      // Mobile: cuộn lên đầu nội dung khi đổi panel — người dùng
+                      // luôn thấy đầu panel mới thay vì đứng ở vị trí cuộn cũ.
+                      if (window.innerWidth < 1024) window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
                     className={cn(
-                      "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                      // Touch target ≥ 44px trên mobile (max-sm:py-2.5).
                       active
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "text-muted-foreground hover:bg-accent hover:text-foreground",

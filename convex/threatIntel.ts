@@ -134,6 +134,9 @@ export const botSetResearchRun = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // CHỈ bot được ghi intel: kẻ ngoài gọi công khai sẽ ĐỘC intel (giả từ khóa
+    // scam → bot lọc nhầm thành viên thật = đầu độc dữ liệu) + đốt hạn mức ghi.
+    await requireBotKey(ctx, args.botKey);
     const status = await getBotStatus(ctx);
     const now = Date.now();
     // Hợp nhất từ khóa: giữ tối đa 60 keywords + 40 phrases, ưu tiên mới nhất.

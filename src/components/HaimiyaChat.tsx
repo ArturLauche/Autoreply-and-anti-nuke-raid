@@ -246,19 +246,23 @@ export default function HaimiyaChat({
 
   return (
     <>
-      {/* Nút mở chat */}
+      {/* Nút mở chat — z-30 để KHÔNG che dropdown/portal (z-40/z-50) và các
+          nút save của panel; trên mobile đặt cao hơn để không đè nút cuối panel.
+         Khi một dropdown (radix portal) mở, nút tự hạ xuống dưới dropdown. */}
       <button
         onClick={() => setOpen(true)}
         aria-label="Trò chuyện với Haimiya"
         className={cn(
-          "group fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full",
+          "group fixed bottom-5 right-5 z-30 flex items-center gap-2 rounded-full",
           "border border-white/50 bg-gradient-to-br from-[#ff8fab] to-[#f2629e] p-0.5 pr-1",
           "shadow-[0_8px_30px_-6px_hsl(342_92%_66%/0.6)] transition-transform hover:scale-105",
+          // Mobile: nút nhỏ hơn + cao hơn để không che nút save cuối panel.
+          "max-sm:bottom-20 max-sm:right-4",
           open && "pointer-events-none opacity-0",
         )}
       >
-        <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white/95 ring-2 ring-white/60 shadow-inner">
-          <HaimiyaAvatar className="h-12 w-12" src={avatarSrc} />
+        <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white/95 ring-2 ring-white/60 shadow-inner max-sm:h-12 max-sm:w-12">
+          <HaimiyaAvatar className="h-12 w-12 max-sm:h-10 max-sm:w-10" src={avatarSrc} />
           <span className="absolute -right-0.5 -top-0.5 flex h-3 w-3">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
             <span className="relative inline-flex h-3 w-3 rounded-full border-2 border-white bg-emerald-400" />

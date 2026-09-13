@@ -240,6 +240,14 @@ Muốn đăng ký lại slash commands thủ công: `bun run register`.
 - Dashboard → Admin: bảng "Threat Intel — bot tự học" hiện tiến độ + lịch sử + nút **Học ngay**.
 - Ghi nhớ: từ khóa học được hợp nhất vào bộ lọc malware — dùng miễn phí vĩnh viễn (0 token khi lọc).
 
+## Self-Diagnose — bot tự dò lỗi runtime 🐞
+
+- **Bật/tắt**: Dashboard → Admin → thẻ **"Self-Diagnose — bot tự dò lỗi"** (chỉ chủ bot). Mặc định TẮT.
+- **Cách hoạt động**: khi bot gặp lỗi runtime (`unhandledRejection` / `uncaughtException`), lỗi + stack trace + đoạn code liên quan (chỉ file trong `bot/src`, KHÔNG chứa token/env) được gửi cho AI (Mimo V2.5 qua Kira — free 30M tokens/ngày riêng cho việc học, không đụng hạn mức Groq) để chẩn đoán nguyên nhân gốc + đề xuất bản vá dạng diff.
+- **Kết quả đăng vào kênh log chung** (tối đa 3 server đầu có log channel): mức độ (nghiêm trọng/trung bình/nhẹ), nguyên nhân, cách sửa, bản vá đề xuất. **Bot KHÔNG tự sửa code, KHÔNG tự restart** — chủ bot đọc đề xuất rồi sửa thủ công.
+- **Chống đốt token**: cùng 1 lỗi (cùng vị trí ném) chỉ chẩn đoán 1 lần/giờ; tối đa 5 lượt/giờ; chỉ 1 lượt AI chạy đồng thời; không log channel hoặc AI chưa cấu hình → bỏ qua hoàn toàn (0 chi phí).
+- Flag bật/tắt đi nhờ batch tick 60s sẵn có (`bot_tick:getPendingJobs`) — không thêm call Convex. Thống kê (số lượt + lần gần nhất) hiển thị ngay trong thẻ Admin.
+
 ## Raid Intel — thu thập dữ liệu + săn lùng nguồn cơn raid 🎯
 
 - **Tự thu thập dữ liệu huấn luyện**: mỗi vụ raid/nuke được xử lý, bot ghi một **mẫu có cấu trúc** lên Convex (`raidSamples` — giữ 500 mẫu/server): module, số lượt, cửa sổ, ngưỡng, AI verdict (raid/individual/benign + độ tin cậy), hồ sơ cụm tài khoản (số acc, tuổi acc trung bình, avatar trùng nhau, thời gian vào rải rác), kết quả săn nguồn cơn. Dashboard → **Chống nuke/raid → Raid Intel** hiển thị số mẫu + các vụ gần đây.

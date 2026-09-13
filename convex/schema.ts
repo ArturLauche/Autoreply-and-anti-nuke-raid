@@ -452,6 +452,12 @@ export default defineSchema({
     threatManualLearnRequested: v.optional(v.boolean()),
     threatManualLearnAt: v.optional(v.number()),
     threatManualLearnBy: v.optional(v.string()),
+    /** Self-Diagnose: bot tự chẩn đoán lỗi runtime qua AI (Mimo/Kira) + đăng đề xuất vá vào kênh log. Owner bật/tắt trên Admin web. */
+    selfDiagnoseEnabled: v.optional(v.boolean()),
+    /** Self-Diagnose: thời điểm chẩn đoán gần nhất (để hiển thị trên web + chống lặp). */
+    selfDiagnoseLastAt: v.optional(v.number()),
+    /** Self-Diagnose: số lượt chẩn đoán đã chạy (hiển thị thống kê trên web). */
+    selfDiagnoseRuns: v.optional(v.number()),
     /** Chìa khóa bot (botAuth): SHA-256("protogon-bot-key::" + OWNER_SEED) — chủ bot đặt 1 lần qua Admin web. Khi có giá trị, mọi function bot-side yêu cầu botKey khớp. */
     botKeySeed: v.optional(v.string()),
     /** Seed cho chìa khóa chức năng (botFunc): các action nguy hiểm (OAuth exchange, AI chat) yêu cầu funcKey. */

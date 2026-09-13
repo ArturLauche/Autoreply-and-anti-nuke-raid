@@ -1,5 +1,13 @@
 import { type QueryCtx, type MutationCtx } from "./_generated/server";
 
+/** Phiên đăng nhập hết hạn sau 30 ngày — token bị đánh cắp không dùng được vĩnh viễn. */
+export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** Phiên đã quá hạn chưa (so với createdAt của phiên). */
+export function sessionExpired(session: { createdAt: number }): boolean {
+  return Date.now() - session.createdAt > SESSION_TTL_MS;
+}
+
 /** Resolve the logged-in user from a session token, or null. */
 export async function getUserByToken(
   ctx: QueryCtx | MutationCtx,
@@ -10,7 +18,7 @@ export async function getUserByToken(
     .query("sessions")
     .withIndex("by_token", (q) => q.eq("token", token))
     .first();
-  if (!session) return null;
+  if (!session || sessionExpired(session)) return null;
   return await ctx.db.get(session.userId);
 }
 

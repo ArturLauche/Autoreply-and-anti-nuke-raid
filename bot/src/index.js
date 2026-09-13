@@ -174,6 +174,12 @@ client.once("clientReady", async () => {
   // Chỉ chạy khi chủ bot bật trên web Admin. Học từ khóa scam → dùng miễn phí vĩnh viễn.
   require("./research").setupResearch(client, store);
 
+  // Self-Diagnose — bắt unhandledRejection/uncaughtException toàn cục, gửi AI
+  // (chuỗi research Kira/Mimo) chẩn đoán + đăng ĐỀ XUẤT vá vào kênh log. Chỉ
+  // chạy khi owner bật trên Admin web (flag đi nhờ batch tick 60s sẵn có).
+  // Flag cập nhật từng lượt tick qua setEnabledFromJobs (xem setupTick dưới).
+  selfDiagnose.attach(client, store);
+
   // Health check heartbeat — mỗi 60s (monitor web thấy trạng thái bot gần realtime)
   const heartbeatInterval = setInterval(() => {
     const memberCount = client.guilds.cache.reduce((a, g) => a + (g.memberCount ?? 0), 0);
@@ -192,11 +198,15 @@ client.once("clientReady", async () => {
 });
 
 // --- Global error handlers ---
+// Self-Diagnose: khi bot online, các lỗi này cũng được gửi AI (chuỗi research
+// Kira/Mimo) chẩn đoán + đăng đề xuất vá vào kênh log (chỉ khi owner bật).
+// diagnoseError giữ nguyên console.error cũ — console vẫn in đủ để pm2 logs đọc.
+const selfDiagnose = require("./handlers/selfDiagnose");
 process.on("unhandledRejection", (reason) => {
-  console.error("[unhandled]", reason?.message || reason);
+  selfDiagnose.diagnoseError("unhandledRejection", reason).catch(() => {});
 });
 process.on("uncaughtException", (err) => {
-  console.error("[uncaught]", err.message);
+  selfDiagnose.diagnoseError("uncaughtException", err).catch(() => {});
   // Don't exit — PM2 will handle restarts
 });
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBotStatus, type BotStatus } from "./useBotStatus";
 
 /** Điểm cuối Convex dùng để đo độ trễ thực (khớp URL backend chọn trong main.tsx). */
@@ -63,7 +63,11 @@ export interface BotMonitor {
 
 /**
  * Giám sát bot dùng chung (trang Monitor + cửa sổ Admin): trạng thái phản ứng,
- * đo độ trễ thật mỗi 5 giây, nhật ký sự cố, và khung giờ cập nhật theo giờ VN.
+ * đo độ trễ thật, nhật ký sự cố, và khung giờ cập nhật theo giờ VN.
+ *
+ * Tiết kiệm hạn mức Convex: mỗi tick là 1 function call — trên điện thoại
+ * (pointer: coarse) giãn chu kỳ tối thiểu 15s; một tab mở 24/7 còn ~86k calls/tháng
+ * thay vì ~518k. Tab ẩn thì dừng hẳn vòng đo.
  */
 export function useBotMonitor(intervalMs = 5000): BotMonitor {
   const status = useBotStatus();
@@ -72,6 +76,16 @@ export function useBotMonitor(intervalMs = 5000): BotMonitor {
   const [incidents, setIncidents] = useState<MonitorIncident[]>([]);
   const [nonce, setNonce] = useState(0);
   const timerRef = useRef<number>(0);
+
+  // Điện thoại/máy tính bảng: chu kỳ tối thiểu 15s — dashboard vẫn mượt mà
+  // nhưng không đốt hạn mức Convex free (1M calls/tháng).
+  const effectiveInterval = useMemo(() => {
+    const coarse =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(pointer: coarse)").matches;
+    return Math.max(intervalMs, coarse ? 15_000 : intervalMs);
+  }, [intervalMs]);
 
   const tick = useCallback(async () => {
     try {
@@ -96,12 +110,12 @@ export function useBotMonitor(intervalMs = 5000): BotMonitor {
     // Chỉ đo khi tab ĐANG hiển thị — tab ẩn (người dùng chuyển app trên điện
     // thoại) thì dừng vòng đo, tránh đốt hạn mức Convex vô ích.
     if (document.hidden) return;
-    timerRef.current = window.setInterval(() => void tick(), intervalMs);
+    timerRef.current = window.setInterval(() => void tick(), effectiveInterval);
     const onVisible = () => {
       window.clearInterval(timerRef.current);
       if (!document.hidden) {
         void tick();
-        timerRef.current = window.setInterval(() => void tick(), intervalMs);
+        timerRef.current = window.setInterval(() => void tick(), effectiveInterval);
       }
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -109,7 +123,7 @@ export function useBotMonitor(intervalMs = 5000): BotMonitor {
       window.clearInterval(timerRef.current);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [tick, intervalMs, nonce]);
+  }, [tick, effectiveInterval, nonce]);
 
   const refresh = useCallback(() => setNonce((n) => n + 1), []);
 

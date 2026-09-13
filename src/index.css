@@ -280,4 +280,18 @@
     background: hsl(342 92% 60%);
     transform: rotate(45deg);
   }
+
+  /* Mở rộng vùng chạm tới chuẩn ≥44px trên mobile mà không đổi kích thước hiển thị.
+     Dùng cho Switch/toggle nhỏ —Radix vẫn nhận click bình thường vì ::after là phần tử con. */
+  @media (pointer: coarse) {
+    .touch-target {
+      position: relative;
+    }
+    .touch-target::after {
+      content: "";
+      position: absolute;
+      inset: -12px;
+      border-radius: 12px;
+    }
+  }
 }

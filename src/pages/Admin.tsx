@@ -30,6 +30,8 @@ function AdminContent() {
   const threat = useQuery(api.threatIntel.getSettings, { token });
   const researchHistory = useQuery(api.threatIntel.getResearchHistory, { token });
   const setThreat = useMutation(api.threatIntel.setResearchSettings);
+  const diag = useQuery(api.selfDiagnose.getSettings, { token });
+  const setDiag = useMutation(api.selfDiagnose.setEnabled);
   const removeThreatKw = useMutation(api.threatIntel.removeKeyword);
   const requestLearn = useMutation(api.threatIntel.requestManualLearn);
   const setSecrets = useMutation(api.hidden.setBotSecrets);
@@ -186,6 +188,10 @@ function AdminContent() {
                 onRefresh={refresh}
                 showRefresh
               />
+              <SelfDiagnoseCard
+                diag={diag}
+                onToggle={(enabled) => setDiag({ token, enabled }).catch(() => {})}
+              />
               <ThreatIntelCard
                 threat={threat}
                 history={researchHistory}
@@ -276,6 +282,75 @@ export default function Admin() {
     <RequireAuth>
       <AdminContent />
     </RequireAuth>
+  );
+}
+
+/**
+ * Self-Diagnose — bot tự chẩn đoán lỗi runtime qua AI (Kira/Mimo V2.5) và đăng
+ * ĐỀ XUẤT vá (không tự áp, không tự restart) vào kênh log Discord. Bật/tắt tại đây.
+ */
+function SelfDiagnoseCard({
+  diag,
+  onToggle,
+}: {
+  diag:
+    | { enabled: boolean; lastAt: number | null; runs: number }
+    | undefined
+    | null;
+  onToggle: (enabled: boolean) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-danger/15 text-danger">
+            <Bug className="h-4 w-4" />
+          </span>
+          <div>
+            <h3 className="font-display text-sm font-bold">Self-Diagnose — bot tự dò lỗi</h3>
+            <p className="text-[11px] text-muted-foreground">
+              AI chẩn đoán lỗi runtime · đề xuất vá vào kênh log (không tự sửa)
+            </p>
+          </div>
+        </div>
+        <label className="flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-[hsl(var(--primary))]"
+            checked={!!diag?.enabled}
+            onChange={(e) => onToggle(e.target.checked)}
+          />
+          <span className="text-xs font-semibold">{diag?.enabled ? "Đang bật" : "Đang tắt"}</span>
+        </label>
+      </div>
+
+      <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+        Khi bật, mỗi khi bot gặp lỗi runtime (unhandled rejection / uncaught
+        exception), lỗi + đoạn code liên quan được gửi cho AI (Mimo V2.5 qua Kira —
+        free 30M tokens/ngày riêng cho việc học) để chẩn đoán nguyên nhân và đề
+        xuất bản vá dạng diff. KẾT QUẢ CHỈ LÀ ĐỀ XUẤT đăng vào kênh log — bot
+        không tự sửa code, không tự restart. Cùng 1 lỗi chỉ chẩn đoán 1 lần/giờ.
+      </p>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+        <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
+          <span className="text-muted-foreground">Lượt chẩn đoán gần nhất:</span>{" "}
+          <b>
+            {diag?.lastAt
+              ? new Date(diag.lastAt).toLocaleString("vi-VN", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  day: "2-digit",
+                  month: "2-digit",
+                })
+              : "chưa có"}
+          </b>
+        </div>
+        <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
+          <span className="text-muted-foreground">Tổng lượt:</span> <b>{diag?.runs ?? 0}</b>
+        </div>
+      </div>
+    </div>
   );
 }
 
