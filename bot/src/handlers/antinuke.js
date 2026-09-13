@@ -1,5 +1,4 @@
-const { AuditLogEvent, PermissionFlagsBits, Colors, UserFlags } = require("discord.js");
-const { logEmbed, sendLog } = require("../util");
+const { AuditLogEvent, PermissionFlagsBits, Colors, UserFlags } = require("discord.js");const { logEmbed, sendLog } = require("../util");
 const { sendCaseLog, CASE_LABEL } = require("../caseLog");
 const { isLocked, markLocked, lockGuild, unlockGuild } = require("../lockdown");
 const {
@@ -10,6 +9,7 @@ const {
 } = require("../heat");
 const { actionsOf, memberPunishOf, cleanupMessages } = require("../moduleActions");
 const aiClient = require("../ai");
+const { emergencyRaidAlert } = require("./incidentReport");
 const {
   messageFingerprint,
   isExternalAppSpam,
@@ -110,6 +110,37 @@ const IMMEDIATE_BOT_NUKE = new Set([
   "massBotAdd",
   "externalAppRaid",
 ]);
+
+/**
+ * Bot THÀNH VIÊN LÂU NĂM / XÁC MINH — coi như bot hợp lệ được mời chính thức.
+ * Bot hợp lệ (Carl-bot, Dyno, MEE6, Wick, Security bot…) cũng BAN bot spam,
+ * PURGE tin nhắn, TẠO/XÓA webhook — đây là công việc logging/moderation bình
+ * thường, KHÔNG phải nuke. Trước đây mọi bot trigger module trong
+ * IMMEDIATE_BOT_NUKE bị ban ngay ở lần đầu (ngưỡng 1) → ban oan bot xác minh.
+ * Quy tắc mới: bot chỉ bị xử lý NGAY khi nó MỚI vào server (một trong các dấu
+ * hiệu bot nuke: vừa được thêm + hành vi phá hủy tức thì). Bot đã ở lại server
+ * lâu (>= 7 ngày) hoặc có tick VerifiedBot → đi theo NGƯỠNG BÌNH THƯỜNG của
+ * module như người dùng (thủ phạm thật vẫn bị phạt, không còn ban oan).
+ */
+const TRUSTED_BOT_MIN_AGE_MS = 7 * 86_400_000;
+
+/** Bot thành viên được coi là tin cậy: tick xác minh hoặc đã ở lại server >= 7 ngày. */
+function isTrustedBotMember(member, guild) {
+  if (!member) return false;
+  const user = member.user ?? member;
+  if (user?.bot !== true) return false;
+  // Bot xác minh bởi Discord (tick) — luôn tin cậy.
+  if (typeof user.flags?.has === "function" && user.flags.has(UserFlags.VerifiedBot)) return true;
+  // Bot đã ở lại server đủ lâu = được mời từ trước, không phải bot nuke vừa được thêm.
+  const joinedAt = member.joinedTimestamp;
+  if (typeof joinedAt === "number" && Date.now() - joinedAt >= TRUSTED_BOT_MIN_AGE_MS) return true;
+  // Fallback: guild.members.cache có sẵn thông tin join time đầy đủ hơn.
+  const cached = guild?.members?.cache?.get(member.id);
+  if (cached && typeof cached.joinedTimestamp === "number" && Date.now() - cached.joinedTimestamp >= TRUSTED_BOT_MIN_AGE_MS) {
+    return true;
+  }
+  return false;
+}
 
 // Tin nhắn "giả blank": chỉ gồm khoảng trắng / ký tự ẩn (zero-width) / xuống dòng.
 const BLANK_ONLY_RE = /^[\s\u200b-\u200d\u2060\ufeff\u00a0]+$/;
@@ -1031,6 +1062,14 @@ module.exports = function createAntiNuke(client, store, heat) {
     });
     await sendLog(guild, config, embed, "raid");
 
+    // BÁO CÁO KHẨN: AI quét chat + tổng hợp tình hình → cảnh báo mọi người
+    // (tối đa 1 lần / 5 phút / server, fire-and-forget).
+    emergencyRaidAlert(client, store, guild, {
+      summary: `External app raid — ${count} app trong ${moduleCfg.windowSeconds}s`,
+      reason: reason,
+      lockdownActive: isLocked(guild.id),
+    }).catch(() => {});
+
     // Gửi embed case log kiểu Carl-bot tới kênh log moderation (dùng đúng biến local)
     if (firstPunishedUserId) {
       try {
@@ -1537,17 +1576,28 @@ module.exports = function createAntiNuke(client, store, heat) {
     if (executor && (executor.id === client.user.id || isExempt(executor, moduleCfg, config))) {
       return; // whitelisted / self — fully ignore
     }
-    // Bỏ qua bot logging/app hợp pháp tạo webhook (Carl-bot, MEE6, Dyno…)
-    if (module === 'massWebhookCreate' && isKnownLoggingBot(executor)) {
-      return; // logging app tạo webhook cho log — không phải raid
+    // Bỏ qua bot logging/app hợp pháp (Carl-bot, MEE6, Dyno, Wick…): chúng tạo
+    // webhook, ban bot spam, purge tin nhắn — công việc moderation/log bình thường,
+    // áp dụng cho MỌI module nuke (trước đây chỉ miễn massWebhookCreate nên Carl-bot
+    // ban bot raid bị massBan xử lý oan).
+    if (isKnownLoggingBot(executor)) {
+      return; // bot logging hợp pháp — không phải nuke
     }
 
     const count = record(guild.id, module, moduleCfg);
     // Bot gây hại: hạ ngưỡng xuống 1 — bot nuke bị xử lý NGAY ở lần đầu,
     // không chờ đủ ngưỡng như người dùng (audit vẫn cho biết thủ phạm là bot).
-    const executorIsBot = executor?.bot === true;
+    // Bot gây hại (vừa được thêm vào server): xử lý NGAY ở lần đầu.
+    // Bot tin cậy (xác minh / đã ở lại server >= 7 ngày — Carl-bot, Dyno, Wick…)
+    // làm moderation bình thường → đi theo ngưỡng thường, không bị ban oan.
+    const executorMember = executor
+      ? await guild.members.fetch(executor.id).catch(() => null)
+      : null;
+    const executorIsHostileBot =
+      executor?.bot === true &&
+      !isTrustedBotMember(executorMember ?? executor, guild);
     const effectiveThreshold =
-      executorIsBot && IMMEDIATE_BOT_NUKE.has(module) ? 1 : moduleCfg.threshold;
+      executorIsHostileBot && IMMEDIATE_BOT_NUKE.has(module) ? 1 : moduleCfg.threshold;
     if (executor && count < effectiveThreshold) return;
     if (!executor) return; // can't attribute, can't punish — stay quiet
     // Chong lap: thu pham do da bi xu ly cho cung module o vua roi (audit log
@@ -1560,14 +1610,16 @@ module.exports = function createAntiNuke(client, store, heat) {
     let punishChosen;
     const actions = actionsOf(moduleCfg);
     try {
-      const member = await guild.members.fetch(executor.id).catch(() => null);
+      const member = executorMember;
       const reason = `[Protogon AntiNuke] ${MODULE_LABELS[module]}: ${count} lượt trong ${moduleCfg.windowSeconds}s (ngưỡng ${moduleCfg.threshold})`;
       if (member) {
         const res = await punishWithHeat(guild, member, moduleCfg, reason);
         action = res.action;
         punishCaseNumber = res.caseNumber;
         punishChosen = res.chosen;
-      } else if (actions.includes("ban")) {
+      } else if (actions.includes("ban") && executorIsHostileBot) {
+        // Chỉ ban executor ngoài server khi chắc chắn là bot gây hại — bot tin cậy
+        // (xác minh / ở lại lâu) tạm không fetch được member thì bỏ qua, không ban oan.
         try {
           await guild.members.ban(executor.id, { reason });
           action = "đã ban";
@@ -1577,13 +1629,16 @@ module.exports = function createAntiNuke(client, store, heat) {
       }
       await maybeLockdown(guild, config);
       // purgeMessages: xóa hàng loạt tin nhắn của thủ phạm trên toàn guild (giới hạn).
-      if (actions.includes("purgeMessages")) {
+      // KHÔNG purge khi thủ phạm là bot tin cậy (bot log ghi log qua webhook — purge
+      // sẽ xóa sạch log) và luôn bỏ qua tin nhắn của chính bot này.
+      if (actions.includes("purgeMessages") && !isTrustedBotMember(executorMember ?? executor, guild)) {
         const cleanup = await cleanupMessages({
           guild,
           channel: null,
           userId: executor.id,
           actions: ["purgeMessages"],
           triggerMessage: null,
+          skipUserIds: [client.user.id],
         });
         if (cleanup) action = `${action} · ${cleanup}`;
       }
@@ -1885,6 +1940,12 @@ module.exports = function createAntiNuke(client, store, heat) {
         action = res.action;
         caseNumber = res.caseNumber;
         await maybeLockdown(message.guild, config);
+        // AI xác nhận raid → cảnh báo khẩn cho server (fire-and-forget).
+        emergencyRaidAlert(client, store, message.guild, {
+          summary: "AI xác nhận raid (spam) — " + fresh.length + " tin trong " + cfg.windowSeconds + "s",
+          reason,
+          lockdownActive: isLocked(message.guild.id),
+        }).catch(() => {});
       } else if (isBenign) {
         // Dương tính giả: chỉ xóa tin nhắn, không phạt, không cộng nhiệt.
         action = "bỏ qua (AI: benign)";
@@ -2204,9 +2265,17 @@ module.exports = function createAntiNuke(client, store, heat) {
     const count = record(guild.id, module, moduleCfg);
     // Bot gây hại: hạ ngưỡng xuống 1 — bot nuke bị xử lý NGAY ở lần đầu,
     // không chờ đủ ngưỡng như người dùng (audit vẫn cho biết thủ phạm là bot).
-    const executorIsBot = executor?.bot === true;
+    // Bot gây hại (vừa được thêm vào server): xử lý NGAY ở lần đầu.
+    // Bot tin cậy (xác minh / đã ở lại server >= 7 ngày — Carl-bot, Dyno, Wick…)
+    // làm moderation bình thường → đi theo ngưỡng thường, không bị ban oan.
+    const executorMember = executor
+      ? await guild.members.fetch(executor.id).catch(() => null)
+      : null;
+    const executorIsHostileBot =
+      executor?.bot === true &&
+      !isTrustedBotMember(executorMember ?? executor, guild);
     const effectiveThreshold =
-      executorIsBot && IMMEDIATE_BOT_NUKE.has(module) ? 1 : moduleCfg.threshold;
+      executorIsHostileBot && IMMEDIATE_BOT_NUKE.has(module) ? 1 : moduleCfg.threshold;
     if (executor && count < effectiveThreshold) return;
     if (!executor) return;
     // Chong lap (giong handleAttributeEvent): 1 hanh vi = 1 phat + 1 case log.
@@ -2218,14 +2287,15 @@ module.exports = function createAntiNuke(client, store, heat) {
     let punishCaseNum = undefined;
     const actions = actionsOf(moduleCfg);
     try {
-      const member = await guild.members.fetch(executor.id).catch(() => null);
+      const member = executorMember;
       const reason = `[Protogon AntiNuke] ${MODULE_LABELS[module]}: ${count} lượt trong ${moduleCfg.windowSeconds}s (ngưỡng ${moduleCfg.threshold})`;
       if (member) {
         const res = await punishWithHeat(guild, member, moduleCfg, reason);
         action = res.action;
         punishType = res.chosen;
         punishCaseNum = res.caseNumber;
-      } else if (actions.includes("ban")) {
+      } else if (actions.includes("ban") && executorIsHostileBot) {
+        // Chỉ ban bot gây hại xác nhận — bot tin cậy không bị ban oan.
         try {
           await guild.members.ban(executor.id, { reason });
           action = "đã ban";
@@ -2234,14 +2304,16 @@ module.exports = function createAntiNuke(client, store, heat) {
         }
       }
       await maybeLockdown(guild, config);
-      // purgeMessages: xóa hàng loạt tin nhắn của thủ phạm trên toàn guild (giới hạn).
-      if (actions.includes("purgeMessages")) {
+      // KHÔNG purge khi thủ phạm là bot tin cậy (giữ nguyên log webhook) +
+      // luôn bỏ qua tin nhắn của chính bot này.
+      if (actions.includes("purgeMessages") && !isTrustedBotMember(executorMember ?? executor, guild)) {
         const cleanup = await cleanupMessages({
           guild,
           channel: null,
           userId: executor.id,
           actions: ["purgeMessages"],
           triggerMessage: null,
+          skipUserIds: [client.user.id],
         });
         if (cleanup) action = `${action} · ${cleanup}`;
       }
@@ -2281,6 +2353,15 @@ module.exports = function createAntiNuke(client, store, heat) {
       footer: "Protogon · Anti Nuke/Raid",
     });
     await sendLog(guild, config, embed);
+
+    // BÁO CÁO KHẨN cho các module nuke cấu trúc (ban/kick/xóa kênh hàng loạt…).
+    if (IMMEDIATE_BOT_NUKE.has(module) || module === "massJoin") {
+      emergencyRaidAlert(client, store, guild, {
+        summary: MODULE_LABELS[module] + " — " + count + " lượt trong " + moduleCfg.windowSeconds + "s",
+        reason: reason,
+        lockdownActive: isLocked(guild.id),
+      }).catch(() => {});
+    }
 
     // Gửi embed case log kiểu Carl-bot tới kênh log moderation
     if (punishType) {

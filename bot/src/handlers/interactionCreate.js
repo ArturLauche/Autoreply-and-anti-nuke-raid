@@ -65,6 +65,7 @@ function parsePairs(pairsRaw, guild) {
 
 const { genCaptcha, setCode } = require("../captchaStore");
 const { analyzeNewMember, executePunishment, buildRiskEmbed } = require("../altDetection");
+const { reportInteractive } = require("./incidentReport");
 
 // Rate limiting for verify attempts: Map<userId, { attempts: number, lastAttemptAt: number }>
 const verifyAttempts = new Map();
@@ -273,6 +274,12 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
   }
 
   switch (name) {
+    case "report": {
+      // Báo cáo tình hình: AI quét hàng trăm tin nhắn + dữ liệu phạt 24h, công
+      // bố kết quả cho server (mọi thành viên đều được dùng).
+      return reportInteractive(client, store, interaction);
+    }
+
     case "ping": {
       const ws = Math.round(client.ws.ping);
       return interaction.reply({ content: `🏓 Pong! **${ws}ms** (WebSocket)`, ephemeral: true });
@@ -291,6 +298,7 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
             "**Giveaway** — `/giveaway start <tên> <giải thưởng> <thời lượng>`, `/giveaway list`, `/giveaway end`",
             "**Reaction Role** — `/reactionrole create <kênh> <tên> <cặp emoji:role>`, `/reactionrole add`, `/reactionrole edit`, `/reactionrole remove`, `/reactionrole delete`",
             "**Backup server** — `/backup now` (tạo + đẩy GitHub chủ bot), `/backup list`, `/backup restore <số>`, `/backup auto <2-30>` (tự động định kỳ) — phòng khi server bị nuke phá sập",
+            "**Báo cáo AI** — `/report [ghi chú]`: AI đọc hàng trăm tin nhắn gần đây + dữ liệu phạt 24h → báo cáo raid/nuke hoặc bot phạt nhầm, công bố cho server",
             "**Xác minh** — `/verify setup` (kênh + role), `/verify toggle`",
             "**Cấu hình** — `/setup log-channel`, `/setup mod-role`, `/setup admin-role`, `/prefix set`",
             "**Khác** — `/ping`",

@@ -130,8 +130,34 @@ async function sendLog(guild, guildConfig, embed, eventType, meta = {}) {
   // cầu: webhook mặc định chỉ hoạt động sau khi chủ server set kênh log.
   if (!guildConfig || (!guildConfig.logChannelId && !guildConfig.modLogChannelId)) return;
   const et = eventType || inferEventType(embed);
-  const targetChannel = guildConfig.modLogChannelId ?? guildConfig.logChannelId;
-  // Toàn bộ log gửi qua webhook — KHÔNG fallback kênh thường.
+  // Log chung (anti nuke/raid, join, settings…) → KÊNH LOG CHUNG là đích chính.
+  // Trước đây embed cảnh báo raid/nuke được đẩy qua webhook "Protogon Log" — do
+  // webhook eventTypes "all" nên nó nhận MỌI hạng mục kể cả khi nằm ở kênh hình
+  // phạt → log raid/nuke spam nhầm kênh phạt thay vì kênh log chung.
+  const targetChannel = guildConfig.logChannelId ?? guildConfig.modLogChannelId;
+  // Cảnh báo quan trọng (raid/nuke) luôn ưu tiên ĐÚNG kênh log chung: chỉ dùng
+  // webhook nếu webhook đó nằm TRONG kênh log chung; nếu không gửi thẳng kênh.
+  const critical = et === "raid" || et === "antinuke";
+  if (critical) {
+    const hub = require("./webhookHub");
+    const matched = await hub.matchFor(guild.id, et).catch(() => []);
+    const sameChannel = matched.filter((w) => w.channelId === targetChannel);
+    if (sameChannel.length > 0) {
+      let sent = 0;
+      for (const wh of sameChannel) {
+        try {
+          await hub.send(wh, embed, { guildName: guild.name, ...meta });
+          sent++;
+        } catch {
+          // webhook hỏng — thử webhook khác cùng kênh
+        }
+      }
+      if (sent > 0) return;
+    }
+    // Webhook không nằm ở kênh log chung → gửi trực tiếp kênh log chung.
+    return await sendToChannel(guild, targetChannel, embed);
+  }
+  // Hạng mục còn lại: giữ hành vi webhook cũ.
   await deliverViaWebhooks(guild, et, embed, meta, targetChannel);
 }
 

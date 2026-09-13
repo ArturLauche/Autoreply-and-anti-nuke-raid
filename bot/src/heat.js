@@ -75,6 +75,16 @@ async function punishMember(guild, member, punishType, reason, timeoutSeconds = 
       result = "đã cố cảnh báo (DM đóng)";
     }
   } else {
+    // CHỐNG BAN NHẦM BOT HỢP LỆ: bot xác minh (tick) hoặc đã ở lại server >= 7
+    // ngày là bot được mời chính thức (Carl-bot, Dyno, Wick…) — không bao giờ
+    // ban/kick, hạ xuống timeout. Chỉ bot MỚI (bot nuke vừa được thêm) bị ban thẳng.
+    const user = member?.user ?? member;
+    const isBot = user?.bot === true;
+    const verified = typeof user?.flags?.has === "function" && user.flags.has(4) /* UserFlags.VerifiedBot */;
+    const joinedLong = typeof member?.joinedTimestamp === "number" && Date.now() - member.joinedTimestamp >= 7 * 86_400_000;
+    if (isBot && (verified || joinedLong) && (punishType === "ban" || punishType === "kick")) {
+      punishType = "timeout";
+    }
     try {
       if (punishType === "kick") {
         await member.kick(reason);

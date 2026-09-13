@@ -21,6 +21,7 @@ const {
 
 const { isLocked, markLocked, unlockGuild } = require("../lockdown");
 const { emojiKeyOf } = require("../handlers/hidden");
+const { reportInteractive } = require("../handlers/incidentReport");
 
 const MODULES = [
   "massBan",
@@ -61,6 +62,22 @@ function noPerm(message) {
   );
 }
 
+/** !report — AI đọc chat + dữ liệu phạt, công bố báo cáo tình hình server. */
+async function handleReport(client, message, args, config, store) {
+  return reportInteractive(client, store, {
+    guild: message.guild,
+    channel: message.channel,
+    author: message.author,
+    user: message.author,
+    reply: (payload) =>
+      message.reply(typeof payload === "string" ? payload : payload),
+    options: {
+      getString: (name) =>
+        name === "note" || name === "ghichu" ? args.join(" ") || null : null,
+    },
+  });
+}
+
 async function handleHelp(client, message) {
   const embed = new EmbedBuilder()
     .setColor(Colors.Aqua)
@@ -95,6 +112,7 @@ async function handleHelp(client, message) {
         "!unban @user            - gỡ ban",
         "!unwarn @user           - gỡ toàn bộ warn tích lũy",
         "!purge <số>            - xóa hàng loạt tin nhắn",
+        "!report [ghi chú]      - AI quét chat + phạt → báo cáo tình hình server",
         "!giveaway start <Tên> | <Giải thưởng> | <thời lượng>",
         "!giveaway list | end <tên>",
         "!reactionrole list      - danh sách bảng reaction role",
@@ -1051,6 +1069,7 @@ async function handleVerify(client, message, args, config, store) {
 module.exports = {
   help: handleHelp,
   ping: handlePing,
+  report: handleReport,
   prefix: handlePrefix,
   autoreply: handleAutoReply,
   antinuke: handleAntinuke,

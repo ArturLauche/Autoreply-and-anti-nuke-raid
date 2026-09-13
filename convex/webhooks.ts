@@ -79,6 +79,8 @@ export const botGetWebhooks = query({
         name: w.name,
         webhookId: w.webhookId!,
         token: w.token!,
+        /** Kênh webhook đang nằm — bot dùng để định tuyến log đúng hạng mục. */
+        channelId: w.channelId,
         color: w.color ?? null,
         contentTemplate: w.contentTemplate ?? null,
         eventTypes: w.eventTypes,

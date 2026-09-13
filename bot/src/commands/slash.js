@@ -372,6 +372,18 @@ const commands = [
     ],
   },
   {
+    name: "report",
+    description: "Báo cáo tình hình server — AI đọc chat dò raid/nuke hoặc phạt nhầm",
+    options: [
+      {
+        name: "ghichu",
+        description: "Ghi chú thêm cho AI (VD: bot vừa ban oan @abc)",
+        type: 3,
+        required: false,
+      },
+    ],
+  },
+  {
     name: "setup",
     description: "Cấu hình nhanh bot cho server",
     options: [

@@ -138,8 +138,20 @@ bun install            # hoặc npm install
 | `DISCORD_TOKEN` | ✅ | Bot token — Developer Portal → *Bot* → *Reset Token* |
 | `DISCORD_CLIENT_ID` | ✅ | Application ID (Client ID) — dùng để đăng ký slash commands |
 | `CONVEX_URL` | ✅ | URL Convex. Dev local: `http://127.0.0.1:3210`. Production: `https://<tên-deployment>.convex.cloud` |
+| `BOT_KEY` | ✅ (khi dashboard đặt OWNER_SEED) | Seed bí mật của bot — phải KHỚP với OWNER_SEED đã đặt trong Dashboard → Admin → "Chìa khóa bảo mật API". Bot tự tính SHA-256 làm chìa gọi mọi function bot-side |
 | `CONVEX_DEPLOY_KEY` | production | Deploy key (quyền ghi) — Convex dashboard → *Deployments → Keys*. Bản dev local không cần |
+| `GROQ_API_KEY` | khuyến nghị | AI miễn phí (console.groq.com) — dùng cho phân loại raid realtime + `/report` khi Kira thiếu |
+| `KIRA_API_KEY` | khuyến nghị | Kira AI (kiraai.vn) free 30M tokens/ngày trên Mimo V2.5 — DÀNH RIÊNG cho research/học hỏi + AI tổng hợp `/report` và cảnh báo khẩn |
+| `KIRA_BASE_URL` / `KIRA_MODEL` | ❌ | Mặc định `https://kiraai.vn/api/v1` / `mimo-v2.5-free` |
+| `NVIDIA_API_KEY` | ❌ | NVIDIA NIM (build.nvidia.com, free 40 RPM) — fallback AI (`NVIDIA_MODEL` override model) |
+| `DEEPSEEK_NIM_KEY` | ❌ | NIM key riêng cho model DeepSeek — fallback AI (`DEEPSEEK_NIM_MODEL` override) |
+| `SAMBANOVA_API_KEY` | ❌ | SambaNova free — fallback AI |
+| `AI_API_KEY` + `AI_BASE_URL` | ❌ | Gateway tùy chỉnh tương thích OpenAI (`AI_MODEL` override model) |
+| `OPENAI_API_KEY` | ❌ | Fallback trả phí (cấu hình cuối cùng trong chuỗi AI, `OPENAI_MODEL` override model) |
+| `BACKUP_ENCRYPT_KEY` | ❌ | Mã hóa file backup đối xứng (đặt thì backup/restore được mã hóa) |
 | `AUTO_REGISTER_COMMANDS` | ❌ | `true` (mặc định) để tự đăng ký slash commands khi bot khởi động |
+
+> Biến phía **web/Convex** (không đặt trong bot/.env): `OWNER_SEED`, `FUNC_SEED`, `GITHUB_TOKEN`, `DISCORD_CLIENT_SECRET`, `OAUTH_REDIRECT_URI`, `DASHBOARD_URL`, `DISCORD_INVITE`, `FACEBOOK_URL` — đặt qua Convex env (Dashboard/Keys).
 
 ### Bật các Privileged Intents trong Developer Portal
 

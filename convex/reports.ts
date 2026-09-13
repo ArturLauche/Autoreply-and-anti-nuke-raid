@@ -130,6 +130,37 @@ export const getDailyEvents = query({
 /** Sự kiện chống nuke của MỘT guild từ mốc `since` (dùng cho báo cáo hằng ngày).
  * Per-guild thay vì query global: chỉ chạy khi guild thực sự đến hạn báo cáo
  * (tiết kiệm hàng triệu reads/tháng khi nhiều guild). */
+/** Hành động mod gần đây của MỘT guild (bot-side, botKey) — dùng cho /report:
+ * AI đọc lại các phạt gần nhất để nhận xét xem bot có phạt nhầm hay không.
+ */
+export const getGuildModActions = query({
+  args: {
+    guildId: v.string(),
+    since: v.number(),
+    limit: v.optional(v.number()),
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { botKey, guildId, since, limit }) => {
+    await requireBotKey(ctx, botKey);
+    const actions = await ctx.db
+      .query("modActions")
+      .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId).gte("createdAt", since))
+      .order("desc")
+      .take(Math.min(limit ?? 60, 100));
+    return actions.map((a) => ({
+      action: a.action,
+      targetId: a.targetId ?? null,
+      targetName: a.targetName ?? null,
+      executorId: a.executorId ?? null,
+      executorName: a.executorName ?? null,
+      reason: a.reason ?? null,
+      details: a.details ?? null,
+      caseNumber: a.caseNumber ?? null,
+      createdAt: a.createdAt,
+    }));
+  },
+});
+
 export const getGuildEvents = query({
   args: { guildId: v.string(), since: v.number(), limit: v.optional(v.number()),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */

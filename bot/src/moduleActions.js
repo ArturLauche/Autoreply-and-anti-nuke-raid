@@ -28,12 +28,13 @@ function memberPunishOf(actions, fallback = "warn") {
 }
 
 /** Xóa hàng loạt tin nhắn của một người trong một kênh (giới hạn 100 tin/lần). */
-async function purgeChannelMessages(channel, userId, limit = 100) {
+async function purgeChannelMessages(channel, userId, limit = 100, skipUserIds = []) {
   try {
     if (!channel || !channel.isTextBased || !channel.isTextBased() || channel.isDMBased?.()) return 0;
     const fetched = await channel.messages.fetch({ limit });
+    const skip = new Set(skipUserIds);
     const targets = [...fetched.values()].filter(
-      (m) => m.author?.id === userId && m.deletable,
+      (m) => m.author?.id === userId && !skip.has(m.author.id) && m.deletable,
     );
     if (targets.length === 0) return 0;
     if (targets.length === 1) {
@@ -54,7 +55,7 @@ async function purgeChannelMessages(channel, userId, limit = 100) {
  *                    (nếu có channel) hoặc quét giới hạn các kênh văn bản của guild.
  * Trả về chuỗi mô tả (vd "xóa 1 tin phát hiện + purge 12 tin liên quan") hoặc "".
  */
-async function cleanupMessages({ guild, channel, userId, actions, triggerMessage }) {
+async function cleanupMessages({ guild, channel, userId, actions, triggerMessage, skipUserIds = [] }) {
   const parts = [];
   if (actions.includes("deleteMessages") && triggerMessage?.deletable) {
     try {
@@ -67,7 +68,7 @@ async function cleanupMessages({ guild, channel, userId, actions, triggerMessage
   if (actions.includes("purgeMessages") && userId) {
     let purged = 0;
     if (channel && channel.isTextBased && channel.isTextBased() && !channel.isDMBased?.()) {
-      purged = await purgeChannelMessages(channel, userId);
+      purged = await purgeChannelMessages(channel, userId, 100, skipUserIds);
     } else if (guild) {
       // Không có kênh cụ thể (sự kiện nuke/raid) → quét giới hạn các kênh văn bản.
       let total = 0;
@@ -75,7 +76,7 @@ async function cleanupMessages({ guild, channel, userId, actions, triggerMessage
         .filter((c) => c.isTextBased && c.isTextBased() && !c.isDMBased?.() && c.viewable)
         .first(8) || [];
       for (const c of textChannels) {
-        total += await purgeChannelMessages(c, userId, 50);
+        total += await purgeChannelMessages(c, userId, 50, skipUserIds);
       }
       purged = total;
     }
