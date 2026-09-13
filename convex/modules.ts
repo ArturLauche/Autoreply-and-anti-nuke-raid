@@ -153,6 +153,14 @@ export const ANTI_NUKE_MODULES = [
     heat: 20,
   },
   {
+    module: "botHitAndRun",
+    label: "Chống bot vào-rồi-rời ngay (hit-and-run)",
+    threshold: 1,
+    windowSeconds: 10,
+    punish: "ban",
+    heat: 30,
+  },
+  {
     module: "externalAppRaid",
     label: "Chống raid bằng ứng dụng ngoài (external app)",
     threshold: 2,

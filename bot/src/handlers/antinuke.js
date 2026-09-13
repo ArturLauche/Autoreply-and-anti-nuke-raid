@@ -40,6 +40,7 @@ const MODULE_LABELS = {
   massNickname: "Đổi biệt danh hàng loạt",
   massEmoji: "Tạo emoji/sticker hàng loạt",
   massBotAdd: "Thêm bot hàng loạt",
+  botHitAndRun: "Bot vào-rồi-rời (hit-and-run)",
   externalAppRaid: "Raid bằng ứng dụng ngoài (External App)",
   massInviteCreate: "Tạo link mời hàng loạt",
   guildTamper: "Đổi cấu hình server",
@@ -93,6 +94,7 @@ const NUKE_MODULES = new Set([
   "massNickname",
   "massEmoji",
   "massBotAdd",
+  "botHitAndRun",
   "externalAppRaid",
   "massInviteCreate",
   "guildTamper",
@@ -114,8 +116,26 @@ const IMMEDIATE_BOT_NUKE = new Set([
   "massWebhookCreate",
   "adminSelfGrant",
   "massBotAdd",
+  "botHitAndRun",
   "externalAppRaid",
 ]);
+
+/**
+ * Bot hit-and-run: bot MỚI được thêm vào server rồi TỰ RỜI ngay — dấu hiệu
+ * kinh điển của bot nuke (thực hiện phá hoại rồi rời để dọn dấu vết, né audit
+ * log và né lệnh phạt). Pure function, test được.
+ * CHỈ tính là hit-and-run khi: rời đúng là bot, khoảng thêm→rời trong cửa sổ,
+ * và bot KHÔNG tin cậy (không tick xác minh). Mod/bot khác kick (có audit
+ * MemberKick) và bot logging hợp pháp được loại ở tầng gọi.
+ */
+const HIT_AND_RUN_WINDOW_MS = 10 * 60_000; // 10 phút
+function botHitAndRunVerdict({ addedAt, leftAt, trusted, isBot }) {
+  if (!isBot) return false;
+  if (!addedAt) return false;
+  if (leftAt - addedAt > HIT_AND_RUN_WINDOW_MS) return false;
+  if (trusted) return false;
+  return true;
+}
 
 /**
  * Bot THÀNH VIÊN LÂU NĂM / XÁC MINH — coi như bot hợp lệ được mời chính thức.
@@ -196,6 +216,8 @@ const DEFAULT_MODULE_CFG = {
   massNickname: { threshold: 6, windowSeconds: 15, punish: "kick", timeoutSeconds: 600 },
   massEmoji: { threshold: 3, windowSeconds: 10, punish: "ban", timeoutSeconds: 600 },
   massBotAdd: { threshold: 3, windowSeconds: 10, punish: "kick", timeoutSeconds: 600 },
+  // botHitAndRun CỐ Ý không có fallback mặc định — module mới phải qua botEnsureModules
+  // (mặc định TẮT) và chủ server tự bật, đúng nguyên tắc "update không đổi setup cũ".
   externalAppRaid: { threshold: 2, windowSeconds: 15, punish: "kick", timeoutSeconds: 600 },
   massInviteCreate: { threshold: 5, windowSeconds: 10, punish: "ban", timeoutSeconds: 600 },
   guildTamper: { threshold: 2, windowSeconds: 10, punish: "ban", timeoutSeconds: 600 },
@@ -280,6 +302,9 @@ module.exports = function createAntiNuke(client, store, heat) {
   const appMsgSamples = new Map(); // `${guildId}:${appId}` -> [{content, ts, id, channelId}] (spam message từ app)
   const buttonClickEvents = new Map(); // `${guildId}:${messageId}` -> {appId, channelId, clicks:[{userId, ts}]} (raid nút bấm)
   const lastConfigs = new Map(); // guildId -> config (đã đọc gần nhất)
+  // Bot hit-and-run: `${guildId}:${botId}` -> addedAt (ms). Ghi khi BotAdd (audit log
+  // guildMemberAdd của bot), xóa khi bot rời — nếu rời trong cửa sổ → botHitAndRun.
+  const botAddTimes = new Map();
   // Chống log "chồng chặp" (trùng lặp):
   //  - appUserHandledAt: người dùng app vừa bị xử lý bởi 1 tầng (audit IntegrationCreate
   //    hoặc tầng tin nhắn app) trong cửa sổ → tầng còn lại bỏ qua, không phạt/log trùng.
@@ -387,6 +412,9 @@ module.exports = function createAntiNuke(client, store, heat) {
       const fresh = arr.filter((j) => j.ts >= stale);
       if (fresh.length === 0) joiners.delete(guildId);
       else joiners.set(guildId, fresh);
+    }
+    for (const [key, ts] of botAddTimes) {
+      if (now - ts > 900_000) botAddTimes.delete(key);
     }
     for (const [key, arr] of spamBuckets) {
       const guildId = key.split(":")[0];
@@ -1708,6 +1736,86 @@ module.exports = function createAntiNuke(client, store, heat) {
     }
   }
 
+  /**
+   * Bot hit-and-run: bot vừa được thêm (BotAdd) rồi TỰ RỜI trong cửa sổ —
+   * không có audit kick (loại trường hợp mod/bot khác kick), không phải bot
+   * logging hợp pháp, không tin cậy → xử lý qua pipeline chuẩn.
+   */
+  async function handleHitAndRunLeave(member, kickExecutor) {
+    try {
+      const user = member.user ?? {};
+      if (user.bot !== true) return; // chỉ bot
+      const guild = member.guild;
+      if (!guild) return;
+      const key = `${guild.id}:${member.id}`;
+      const addedAt = botAddTimes.get(key);
+      botAddTimes.delete(key); // một lần rời là hết — không dùng lại entry cũ
+      if (!addedAt || kickExecutor) return; // thiếu thời điểm thêm / bị kick → không kết luận
+      if (isKnownLoggingBot(user)) return; // bot logging tự gỡ cấu hình là việc bình thường
+      const trusted = isTrustedBotMember(member, guild);
+      if (!botHitAndRunVerdict({ addedAt, leftAt: Date.now(), trusted, isBot: true })) return;
+
+      const config = await store.getConfig(guild.id);
+      if (!config || !config.antinukeEnabled) return;
+      const moduleCfg = config.modules.find((m) => m.module === "botHitAndRun");
+      if (!moduleCfg || !moduleCfg.enabled) return;
+      if (isExempt(member, moduleCfg, config)) return;
+
+      const staySec = Math.max(1, Math.round((Date.now() - addedAt) / 1000));
+      const reason = `[Protogon AntiNuke] ${MODULE_LABELS.botHitAndRun}: bot rời server sau ${staySec}s kể từ khi được thêm`;
+      let action = "đã ghi nhận";
+      let punishCaseNumber;
+      let punishChosen;
+      try {
+        const res = await punishWithHeat(guild, member, moduleCfg, reason);
+        action = res.action;
+        punishCaseNumber = res.caseNumber;
+        punishChosen = res.chosen;
+      } catch {
+        action = "không thể xử lý";
+      }
+      await maybeLockdown(guild, config);
+      await recordEvent(guild.id, {
+        module: "botHitAndRun",
+        executorId: member.id,
+        executorName: user.username ?? undefined,
+        action,
+        count: 1,
+        windowSeconds: moduleCfg.windowSeconds,
+        threshold: moduleCfg.threshold,
+        punish: moduleCfg.punish,
+      });
+      const embed = logEmbed({
+        title: `🚨 Anti Nuke/Raid: ${MODULE_LABELS.botHitAndRun}`,
+        description: `Bot vào server rồi TỰ RỜI ngay sau **${staySec} giây** — mẫu bot nuke kinh điển (phá hoại xong rời để dọn dấu vết, né audit log).`,
+        color: Colors.Red,
+        fields: [
+          { name: "Bot", value: `<@${member.id}> (${user.tag ?? member.id})`, inline: true },
+          { name: "Xử lý", value: action.slice(0, 1000), inline: true },
+          { name: "Module", value: "`botHitAndRun`", inline: true },
+        ],
+        footer: "Protogon · Anti Nuke/Raid",
+      });
+      await sendLog(guild, config, embed);
+      if (punishChosen) {
+        try {
+          await sendCaseLog({
+            guild,
+            guildConfig: config,
+            action: punishChosen,
+            caseNumber: punishCaseNumber,
+            offender: { id: member.id, username: user.username || member.id },
+            reason: "[AntiNuke] botHitAndRun: tự rời ngay sau khi được thêm",
+            executor: null,
+          });
+        } catch (e) {
+          console.error("[antinuke:hitAndRun:caseLog]", e.message);
+        }
+      }
+    } catch (e) {
+      console.error("[antinuke:hitAndRun]", e.message);
+    }
+  }
   async function handleRaidJoin(member) {
     const guild = member.guild;
     const config = await store.getConfig(guild.id);
@@ -2514,14 +2622,18 @@ module.exports = function createAntiNuke(client, store, heat) {
     client.on("guildMemberRemove", async (member) => {
       // Only treat as a kick when the audit log shows a kick for this member.
       const executor = await auditExecutor(member.guild, AuditLogEvent.MemberKick, member.id).catch(() => null);
-      if (!executor) return;
-      await handleAttributeEvent({
-        guild: member.guild,
-        module: "massKick",
-        eventType: AuditLogEvent.MemberKick,
-        targetId: member.id,
-        describeTarget: `<@${member.id}>`,
-      }).catch((e) => console.error("[antinuke:kick]", e.message));
+      if (executor) {
+        await handleAttributeEvent({
+          guild: member.guild,
+          module: "massKick",
+          eventType: AuditLogEvent.MemberKick,
+          targetId: member.id,
+          describeTarget: `<@${member.id}>`,
+        }).catch((e) => console.error("[antinuke:kick]", e.message));
+        return; // bị mod/bot khác kick — không phải tự rời
+      }
+      // Không có audit kick → có thể bot tự rời: kiểm hit-and-run.
+      await handleHitAndRunLeave(member, null).catch((e) => console.error("[antinuke:hitAndRun]", e.message));
     });
 
     client.on("channelCreate", (channel) => {
@@ -2570,6 +2682,12 @@ module.exports = function createAntiNuke(client, store, heat) {
 
     client.on("guildMemberAdd", (member) => {
       void handleRaidJoin(member).catch((e) => console.error("[antinuke:join]", e.message));
+      // Bot mới được thêm: ghi thời điểm cho module botHitAndRun (vào-rồi-rời).
+      try {
+        if ((member.user?.bot ?? member.bot) === true) {
+          botAddTimes.set(`${member.guild.id}:${member.id}`, Date.now());
+        }
+      } catch {}
     });
 
     client.on("messageCreate", (message) => {
@@ -2614,3 +2732,4 @@ module.exports.memberSuspicionScore = memberSuspicionScore;
 module.exports.isExempt = isExempt;
 module.exports.isTrustedBotMember = isTrustedBotMember;
 module.exports.isKnownLoggingBot = isKnownLoggingBot;
+module.exports.botHitAndRunVerdict = botHitAndRunVerdict;

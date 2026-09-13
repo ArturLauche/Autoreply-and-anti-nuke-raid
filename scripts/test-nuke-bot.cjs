@@ -29,6 +29,7 @@ const {
   isExempt,
   isTrustedBotMember,
   isKnownLoggingBot,
+  botHitAndRunVerdict,
   IMMEDIATE_BOT_NUKE,
 } = (() => {
   const m = require("../bot/src/handlers/antinuke.js");
@@ -151,6 +152,18 @@ console.log("=== H. Edge cases an toàn ===");
   check("H1 member null → không exempt (kéo về nhánh xử lý an toàn)", !isExempt(null, {}, {}));
   check("H2 user không phải bot → không trusted", !isTrustedBotMember({ user: { bot: false } }, guild));
   check("H3 member thiếu joinedTimestamp + guild không cache → không trusted (an toàn)", !isTrustedBotMember({ user: { bot: true }, joinedTimestamp: undefined }, guild));
+}
+
+console.log("=== I. Bot hit-and-run (vào-rồi-rời ngay) ===");
+{
+  const t0 = now - 60_000; // thêm 1 phút trước
+  check("I1 bot lạ vào 60s rồi tự rời → HIT-AND-RUN", botHitAndRunVerdict({ addedAt: t0, leftAt: now, trusted: false, isBot: true }));
+  check("I2 vào 30 phút mới rời (quá cửa sổ 10 phút) → không tính", !botHitAndRunVerdict({ addedAt: now - 30 * 60_000, leftAt: now, trusted: false, isBot: true }));
+  check("I3 bot tin cậy (verify/ở lại lâu) tự rời → KHÔNG phạt", !botHitAndRunVerdict({ addedAt: t0, leftAt: now, trusted: true, isBot: true }));
+  check("I4 người thật rời → không liên quan module này", !botHitAndRunVerdict({ addedAt: t0, leftAt: now, trusted: false, isBot: false }));
+  check("I5 thiếu thời điểm thêm (bot join trước khi bot restart) → bỏ qua", !botHitAndRunVerdict({ addedAt: null, leftAt: now, trusted: false, isBot: true }));
+  check("I6 vào 10:01 mới rời (biên trên cửa sổ) → không tính", !botHitAndRunVerdict({ addedAt: now - 10 * 60_000 - 1, leftAt: now, trusted: false, isBot: true }));
+  check("I7 vào đúng biên 10:00 → tính", botHitAndRunVerdict({ addedAt: now - 10 * 60_000, leftAt: now, trusted: false, isBot: true }));
 }
 
 console.log(`\n${pass}/${pass + fail} PASS`);

@@ -34,6 +34,7 @@ const MODULE_LABELS: Record<string, string> = {
   massRoleAssign: "Gán role",
   adminSelfGrant: "Tự cấp quyền",
   massBotAdd: "Thêm bot",
+  botHitAndRun: "Bot hit-and-run",
   massInviteCreate: "Tạo invite",
   guildTamper: "Đổi cấu hình",
   spam: "Spam",
