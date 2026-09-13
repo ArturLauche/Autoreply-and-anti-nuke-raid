@@ -64,9 +64,12 @@ const KNOWN_LOGGING_BOTS = [
 ];
 
 function isKnownLoggingBot(executor) {
-  const name = (executor?.username || '').toLowerCase();
-  const tag = (executor?.tag || '').toLowerCase();
-  return KNOWN_LOGGING_BOTS.some(b => name.includes(b) || tag.includes(b));
+  // Chuẩn hóa: lowercase + bỏ dấu ngăn cách (-, _, space) rồi so CHÍNH XÁC —
+  // so khớp includes trước đây bị lách bằng tên giả "carlbotfan"/"freecarlbot"
+  // (bot nuke mượn tên bot logging để được bỏ qua toàn bộ anti-nuke).
+  const norm = (s) => (s || "").toLowerCase().replace(/[-_\s]+/g, "");
+  const known = new Set(KNOWN_LOGGING_BOTS.map(norm));
+  return known.has(norm(executor?.username)) || known.has(norm(executor?.tag));
 }
 
 // Module nuke/raid: phạt trực tiếp, KHÔNG cộng nhiệt (chỉ có hình phạt gốc).
@@ -102,9 +105,12 @@ const IMMEDIATE_BOT_NUKE = new Set([
   "massBan",
   "massKick",
   "massChannelDelete",
+  "massChannelCreate",
   "massRoleDelete",
+  "massRoleCreate",
   "massMessageDelete",
   "massThreadDelete",
+  "massThreadCreate",
   "massWebhookCreate",
   "adminSelfGrant",
   "massBotAdd",
@@ -139,6 +145,30 @@ function isTrustedBotMember(member, guild) {
   if (cached && typeof cached.joinedTimestamp === "number" && Date.now() - cached.joinedTimestamp >= TRUSTED_BOT_MIN_AGE_MS) {
     return true;
   }
+  return false;
+}
+
+/**
+ * Người DÙNG được miễn xử lý cho 1 module? (pure function, test được)
+ * Người admin thật được miễn thao tác quản trị thường ngày; còn BOT có quyền
+ * Administrator thì KHÔNG được miễn — bot nuke được mời với quyền admin
+ * chính là đối tượng cần cấm, không phải "quản trị viên tin cậy".
+ * Whitelist role/người dùng (toàn cục hoặc theo module) vẫn được tôn trọng
+ * kể cả với bot — owner chủ động whitelist là quyết định cuối cùng.
+ */
+function isExempt(member, moduleCfg, guildConfig) {
+  if (!member) return false;
+  // An toàn kiểu: executor từ audit log là User (không có .guild/.roles) —
+  // truy cập liều lĩnh trước đây làm crash cả handler → mất luôn lệnh phạt.
+  const isBotMember = member.user?.bot === true || member.bot === true;
+  if (member.guild?.ownerId && member.id === member.guild.ownerId) return true;
+  if (!isBotMember && member.permissions?.has?.(PermissionFlagsBits.Administrator)) return true;
+  if ((guildConfig?.adminRoles || []).some((id) => member.roles?.cache.has(id))) return true;
+  if ((guildConfig?.modRoles || []).some((id) => member.roles?.cache.has(id))) return true;
+  // Whitelist toàn cục: role/người dùng được miễn trừ khỏi mọi module nuke/raid/moderation.
+  if ((guildConfig?.whitelistRoles || []).some((id) => member.roles?.cache.has(id))) return true;
+  if ((guildConfig?.whitelistUsers || []).includes(member.id)) return true;
+  if ((moduleCfg?.whitelistRoles || []).some((id) => member.roles?.cache.has(id))) return true;
   return false;
 }
 
@@ -294,7 +324,6 @@ module.exports = function createAntiNuke(client, store, heat) {
     return !!hit && Date.now() - hit.ts < hit.ms;
   }
 
-  /** Người dùng app vừa bị xử lý ở tầng khác trong cửa sổ? (chống log trùng) */
   function appUserHandledRecently(guildId, userId, windowMs) {
     if (!userId) return false;
     const ts = appUserHandledAt.get(`${guildId}:${userId}`);
@@ -313,24 +342,6 @@ module.exports = function createAntiNuke(client, store, heat) {
     return arr.filter((j) => j.ts >= cutoff).length;
   }
 
-  function isExempt(member, moduleCfg, guildConfig) {
-    if (!member) return false;
-    // An toàn kiểu: executor từ audit log là User (không có .guild/.roles) —
-    // truy cập liều lĩnh trước đây làm crash cả handler → mất luôn lệnh phạt.
-    const isBotMember = member.user?.bot === true || member.bot === true;
-    if (member.guild?.ownerId && member.id === member.guild.ownerId) return true;
-    // Người admin thật được miễn thao tác quản trị thường ngày; còn BOT có quyền
-    // Administrator thì KHÔNG được miễn — bot nuke được mời với quyền admin
-    // chính là đối tượng cần cấm, không phải "quản trị viên tin cậy".
-    if (!isBotMember && member.permissions?.has?.(PermissionFlagsBits.Administrator)) return true;
-    if ((guildConfig?.adminRoles || []).some((id) => member.roles?.cache.has(id))) return true;
-    if ((guildConfig?.modRoles || []).some((id) => member.roles?.cache.has(id))) return true;
-    // Whitelist toàn cục: role/người dùng được miễn trừ khỏi mọi module nuke/raid/moderation.
-    if ((guildConfig?.whitelistRoles || []).some((id) => member.roles?.cache.has(id))) return true;
-    if ((guildConfig?.whitelistUsers || []).includes(member.id)) return true;
-    if ((moduleCfg?.whitelistRoles || []).some((id) => member.roles?.cache.has(id))) return true;
-    return false;
-  }
 
   async function auditExecutor(guild, eventType, targetId) {
     try {
@@ -2600,3 +2611,6 @@ module.exports.messageFingerprint = messageFingerprint;
 module.exports.isExternalAppSpam = isExternalAppSpam;
 module.exports.joinClusterSuspicion = joinClusterSuspicion;
 module.exports.memberSuspicionScore = memberSuspicionScore;
+module.exports.isExempt = isExempt;
+module.exports.isTrustedBotMember = isTrustedBotMember;
+module.exports.isKnownLoggingBot = isKnownLoggingBot;
