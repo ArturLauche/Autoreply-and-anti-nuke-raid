@@ -41,6 +41,7 @@ const MODULE_LABELS = {
   massEmoji: "Tạo emoji/sticker hàng loạt",
   massBotAdd: "Thêm bot hàng loạt",
   botHitAndRun: "Bot vào-rồi-rời (hit-and-run)",
+  suspiciousBotAlert: "Bot lạ mới vào server",
   externalAppRaid: "Raid bằng ứng dụng ngoài (External App)",
   massInviteCreate: "Tạo link mời hàng loạt",
   guildTamper: "Đổi cấu hình server",
@@ -129,6 +130,24 @@ const IMMEDIATE_BOT_NUKE = new Set([
  * MemberKick) và bot logging hợp pháp được loại ở tầng gọi.
  */
 const HIT_AND_RUN_WINDOW_MS = 10 * 60_000; // 10 phút
+
+/**
+ * Phân loại bot MỚI ĐƯỢC THÊM vào server (pure function, test được):
+ * - "logging"  : bot logging hợp pháp theo tên (Carl-bot, MEE6…) → bỏ qua.
+ * - "verified" : có tick VerifiedBot của Discord → bỏ qua.
+ * - "unknown"  : bot lạ — đáng cảnh báo. Kèm cờ youngAcc (acc < 30 ngày)
+ *   để cảnh báo mạnh hơn (bot nuke thường dùng acc/bot application mới tạo).
+ */
+function strangeBotVerdict({ user, now = Date.now() }) {
+  if (!user || user.bot !== true) return { alert: false, kind: "not-bot" };
+  if (isKnownLoggingBot(user)) return { alert: false, kind: "logging" };
+  const verified =
+    typeof user.flags?.has === "function" && user.flags.has(UserFlags.VerifiedBot);
+  if (verified) return { alert: false, kind: "verified" };
+  const ageDays = user.createdAt ? (now - user.createdAt) / 86_400_000 : NaN;
+  const youngAcc = Number.isFinite(ageDays) && ageDays < 30;
+  return { alert: true, kind: youngAcc ? "unknown-young" : "unknown", youngAcc };
+}
 function botHitAndRunVerdict({ addedAt, leftAt, trusted, isBot }) {
   if (!isBot) return false;
   if (!addedAt) return false;
@@ -1741,6 +1760,75 @@ module.exports = function createAntiNuke(client, store, heat) {
    * không có audit kick (loại trường hợp mod/bot khác kick), không phải bot
    * logging hợp pháp, không tin cậy → xử lý qua pipeline chuẩn.
    */
+  /**
+   * Cảnh báo bot lạ mới được thêm vào server — CHỈ CẢNH BÁO, không phạt.
+   * Bỏ qua: bot logging hợp pháp, bot có tick xác minh, bot được whitelist.
+   * Bot lạ có acc < 30 ngày được cảnh báo mạnh hơn (mẫu bot nuke điển hình).
+   */
+  async function handleSuspiciousBotJoin(member) {
+    try {
+      const user = member.user ?? {};
+      if (user.bot !== true) return;
+      const verdict = strangeBotVerdict({ user });
+      if (!verdict.alert) return;
+      const guild = member.guild;
+      if (!guild) return;
+
+      const config = await store.getConfig(guild.id);
+      if (!config || !config.antinukeEnabled) return;
+      const moduleCfg = config.modules.find((m) => m.module === "suspiciousBotAlert");
+      if (!moduleCfg || !moduleCfg.enabled) return;
+      if (isExempt(member, moduleCfg, config)) return;
+      // Chống spam cảnh báo: cùng 1 bot vào/ra liên tục trong 10 phút chỉ cảnh báo 1 lần.
+      if (wasHandled(guild.id, "suspiciousBotAlert", member.id)) return;
+      markHandled(guild.id, "suspiciousBotAlert", member.id, 10 * 60_000);
+
+      // Ai đã thêm bot này vào? (audit BotAdd theo target = bot)
+      const adder = await auditExecutor(guild, AuditLogEvent.BotAdd, member.id).catch(() => null);
+
+      const ageDays = user.createdAt ? Math.floor((Date.now() - user.createdAt) / 86_400_000) : null;
+      const perms = member.permissions;
+      const flags = [];
+      if (perms?.has?.(PermissionFlagsBits.Administrator)) flags.push("⚠️ Administrator");
+      else {
+        if (perms?.has?.(PermissionFlagsBits.ManageGuild)) flags.push("Manage Server");
+        if (perms?.has?.(PermissionFlagsBits.ManageRoles)) flags.push("Manage Roles");
+        if (perms?.has?.(PermissionFlagsBits.ManageWebhooks)) flags.push("Manage Webhooks");
+        if (perms?.has?.(PermissionFlagsBits.BanMembers)) flags.push("Ban Members");
+      }
+      const permText = flags.length > 0 ? flags.join(", ") : "quyền thường";
+
+      const embed = logEmbed({
+        title: `👁️ Bot lạ mới vào server: ${user.username ?? member.id}`,
+        description: verdict.youngAcc
+          ? "Bot KHÔNG rõ nguồn gốc với **tài khoản application dưới 30 ngày tuổi** — mẫu phổ biến của bot nuke/scam. Theo dõi sát: nếu nó tự rời ngay, module hit-and-run sẽ xử lý."
+          : "Bot chưa rõ nguồn gốc (không có tick xác minh Discord). Nếu đây là bot bạn tin cậy, thêm nó vào **Whitelist** để tắt cảnh báo." +
+            " Nếu bot tự rời ngay sau khi được thêm, module hit-and-run sẽ tự xử lý.",
+        color: verdict.youngAcc ? Colors.Orange : Colors.Yellow,
+        fields: [
+          { name: "Bot", value: `<@${member.id}> (${user.tag ?? member.id})`, inline: true },
+          { name: "Người thêm", value: adder ? `<@${adder.id}>` : "không rõ", inline: true },
+          { name: "Tuổi tài khoản bot", value: ageDays !== null ? `${ageDays} ngày` : "không rõ", inline: true },
+          { name: "Quyền trong server", value: permText.slice(0, 1000), inline: false },
+          { name: "Tick xác minh", value: "❌ Không (bot chưa được Discord xác minh)", inline: true },
+        ],
+        footer: "Protogon · Cảnh báo sơ bộ (không phạt)",
+      });
+      await sendLog(guild, config, embed, "antinuke");
+      await recordEvent(guild.id, {
+        module: "suspiciousBotAlert",
+        executorId: member.id,
+        executorName: user.username ?? undefined,
+        action: "đã cảnh báo (không phạt)",
+        count: 1,
+        windowSeconds: moduleCfg.windowSeconds,
+        threshold: moduleCfg.threshold,
+        punish: "warn",
+      });
+    } catch (e) {
+      console.error("[antinuke:botAlert]", e.message);
+    }
+  }
   async function handleHitAndRunLeave(member, kickExecutor) {
     try {
       const user = member.user ?? {};
@@ -2688,6 +2776,8 @@ module.exports = function createAntiNuke(client, store, heat) {
           botAddTimes.set(`${member.guild.id}:${member.id}`, Date.now());
         }
       } catch {}
+      // Cảnh báo bot lạ (suspiciousBotAlert) — chỉ cảnh báo, không phạt.
+      void handleSuspiciousBotJoin(member).catch((e) => console.error("[antinuke:botAlert]", e.message));
     });
 
     client.on("messageCreate", (message) => {
@@ -2733,3 +2823,4 @@ module.exports.isExempt = isExempt;
 module.exports.isTrustedBotMember = isTrustedBotMember;
 module.exports.isKnownLoggingBot = isKnownLoggingBot;
 module.exports.botHitAndRunVerdict = botHitAndRunVerdict;
+module.exports.strangeBotVerdict = strangeBotVerdict;

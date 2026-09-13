@@ -97,6 +97,7 @@ export const DEFAULT_MODULE_ACTIONS: Record<string, ModuleAction[]> = {
   massEmoji: ["ban"],
   massBotAdd: ["kick"],
   botHitAndRun: ["ban"],
+  suspiciousBotAlert: ["warn"],
   externalAppRaid: ["kick"],
   massInviteCreate: ["ban"],
   guildTamper: ["ban"],
@@ -294,6 +295,16 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
     defaultPunish: "kick",
     defaultHeat: 20,
   },
+  suspiciousBotAlert: {
+    label: "Cảnh báo bot lạ",
+    description:
+      "Bot chưa biết được thêm vào server — bot đăng cảnh báo kèm chi tiết tài khoản (tuổi acc, tick xác minh, quyền, người thêm). CHỈ CẢNH BÁO, không phạt; kết hợp với module hit-and-run để bắt trọn vòng đời bot nuke",
+    group: "Thành viên & quyền",
+    defaultThreshold: 1,
+    defaultWindowSeconds: 10,
+    defaultPunish: "warn",
+    defaultHeat: 0,
+  },
   botHitAndRun: {
     label: "Bot vào-rồi-rời (hit-and-run)",
     description:
@@ -428,6 +439,7 @@ export const ANTINUKE_ORDER = [
   "massEmoji",
   "massBotAdd",
   "botHitAndRun",
+  "suspiciousBotAlert",
   "externalAppRaid",
   "massInviteCreate",
   "guildTamper",
@@ -463,6 +475,7 @@ export const NUKE_MODULES = [
   "massEmoji",
   "massBotAdd",
   "botHitAndRun",
+  "suspiciousBotAlert",
   "externalAppRaid",
   "massInviteCreate",
   "guildTamper",

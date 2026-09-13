@@ -35,6 +35,7 @@ const MODULE_LABELS: Record<string, string> = {
   adminSelfGrant: "Tự cấp quyền",
   massBotAdd: "Thêm bot",
   botHitAndRun: "Bot hit-and-run",
+  suspiciousBotAlert: "Bot lạ",
   massInviteCreate: "Tạo invite",
   guildTamper: "Đổi cấu hình",
   spam: "Spam",

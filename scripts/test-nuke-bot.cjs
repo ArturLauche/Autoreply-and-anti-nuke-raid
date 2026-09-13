@@ -30,6 +30,7 @@ const {
   isTrustedBotMember,
   isKnownLoggingBot,
   botHitAndRunVerdict,
+  strangeBotVerdict,
   IMMEDIATE_BOT_NUKE,
 } = (() => {
   const m = require("../bot/src/handlers/antinuke.js");
@@ -164,6 +165,28 @@ console.log("=== I. Bot hit-and-run (vào-rồi-rời ngay) ===");
   check("I5 thiếu thời điểm thêm (bot join trước khi bot restart) → bỏ qua", !botHitAndRunVerdict({ addedAt: null, leftAt: now, trusted: false, isBot: true }));
   check("I6 vào 10:01 mới rời (biên trên cửa sổ) → không tính", !botHitAndRunVerdict({ addedAt: now - 10 * 60_000 - 1, leftAt: now, trusted: false, isBot: true }));
   check("I7 vào đúng biên 10:00 → tính", botHitAndRunVerdict({ addedAt: now - 10 * 60_000, leftAt: now, trusted: false, isBot: true }));
+}
+
+console.log("=== J. Cảnh báo bot lạ (suspiciousBotAlert) ===");
+{
+  const mkBotUser = (opts = {}) => ({
+    bot: true,
+    username: opts.username ?? "SomeBot",
+    tag: opts.tag ?? "SomeBot#0001",
+    createdAt: opts.ageDays !== undefined ? now - opts.ageDays * DAY : now - 365 * DAY,
+    flags: { has: (f) => (opts.verified ? f === VERIFIED_BIT : false) },
+  });
+  const v1 = strangeBotVerdict({ user: mkBotUser({ username: "SuperNukeBot", tag: "SuperNukeBot#6666", ageDays: 3 }) });
+  check("J1 bot lạ acc 3 ngày → cảnh báo + cờ young", v1.alert && v1.kind === "unknown-young" && v1.youngAcc === true);
+  const v2 = strangeBotVerdict({ user: mkBotUser({ username: "OldTool", tag: "OldTool#1234", ageDays: 500 }) });
+  check("J2 bot lạ acc 500 ngày → vẫn cảnh báo nhưng không cờ young", v2.alert && v2.kind === "unknown" && !v2.youngAcc);
+  const v3 = strangeBotVerdict({ user: mkBotUser({ username: "Carl-bot", tag: "Carl-bot#0001", ageDays: 3 }) });
+  check("J3 bot logging hợp pháp → KHÔNG cảnh báo", !v3.alert && v3.kind === "logging");
+  const v4 = strangeBotVerdict({ user: mkBotUser({ verified: true, ageDays: 3 }) });
+  check("J4 bot có tick xác minh → KHÔNG cảnh báo", !v4.alert && v4.kind === "verified");
+  const v5 = strangeBotVerdict({ user: { bot: false } });
+  check("J5 người thường → không liên quan", !v5.alert);
+  check("J6 user null → an toàn", !strangeBotVerdict({ user: null }).alert);
 }
 
 console.log(`\n${pass}/${pass + fail} PASS`);

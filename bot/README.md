@@ -221,6 +221,7 @@ Muốn đăng ký lại slash commands thủ công: `bun run register`.
 | `massEmoji` | Tạo emoji/sticker hàng loạt | 3 lượt/10s → ban |
 | `massBotAdd` | Thêm bot hàng loạt | 3 lượt/10s → kick |
 | `botHitAndRun` | Bot vào-rồi-rời ngay (hit-and-run) | tự rời trong 10 phút sau khi được thêm → ban |
+| `suspiciousBotAlert` | Cảnh báo bot lạ mới vào | chỉ cảnh báo (tuổi acc/quyền/người thêm), không phạt — mặc định tắt |
 | `massInviteCreate` | Tạo link mời hàng loạt (chuẩn bị raid) | 5 lượt/10s → ban |
 | `guildTamper` | Đổi cấu hình server (tên/icon/MFA/verification) | 2 lượt/10s → ban |
 | `spam` | Spam tin nhắn | 6 tin/10s → tạm khóa 5 phút |

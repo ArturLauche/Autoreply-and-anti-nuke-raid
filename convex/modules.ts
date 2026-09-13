@@ -161,6 +161,17 @@ export const ANTI_NUKE_MODULES = [
     heat: 30,
   },
   {
+    module: "suspiciousBotAlert",
+    label: "Cảnh báo bot lạ mới vào server",
+    threshold: 1,
+    windowSeconds: 10,
+    punish: "warn",
+    heat: 0,
+    // Module CHỈ CẢNH BÁO: không phạt, không cộng nhiệt — bot lạ được thêm vào
+    // server là tín hiệu đáng lưu ý (đặc biệt khi kèm quyền cao) nhưng chưa chắc
+    // đã có hành vi nuke. Mặc định TẮT cho tới khi chủ server bật trên dashboard.
+  },
+  {
     module: "externalAppRaid",
     label: "Chống raid bằng ứng dụng ngoài (external app)",
     threshold: 2,
