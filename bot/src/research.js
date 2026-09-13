@@ -243,7 +243,7 @@ async function learnFromIncidents(store) {
  * Một lượt nghiên cứu: tải nguồn mở → trích từ khóa heuristic → (đôi khi) AI tổng hợp
  * → hợp nhất với intel cũ → lưu Convex + trả kết quả.
  */
-async function runResearch(store) {
+async function runResearch(store, opts = {}) {
   const intel = await store.client.query("threatIntel:botGetIntel", {}).catch(() => null);
   const previousKeywords = intel?.keywords ?? [];
   const now = Date.now();
@@ -334,6 +334,8 @@ async function runResearch(store) {
         aiUsed,
         nextRunAt: now + RESEARCH_INTERVAL_MS,
         learnedFromIncidents: incidentKeywords.length,
+        trigger: opts.trigger === "manual" ? "manual" : "auto",
+        requestedBy: opts.requestedBy,
       })
       .catch(() => null);
   }
@@ -344,6 +346,7 @@ async function runResearch(store) {
     newPhrases: newPhrases.length,
     aiUsed,
     summary,
+    totalKeywords: previousKeywords.length + newKeywords.length,
   };
 }
 
@@ -359,6 +362,22 @@ function setupResearch(client, store) {
     if (running) return;
     running = true;
     try {
+      // HỌC THỦ CÔNG: cờ từ web Admin / lệnh /research learn — nhận + xóa cờ
+      // rồi chạy NGAY (không đợi đến hạn 4h). Mutation trả null khi không có cờ
+      // → 1 mutation rẻ mỗi 4h, không thêm polling.
+      const manual = await store.client
+        .mutation("threatIntel:botClaimManualLearn", {})
+        .catch(() => null);
+      if (manual) {
+        const res = await runResearch(store, { trigger: "manual", requestedBy: manual.requestedBy });
+        console.log(
+          `[research:manual] by=${manual.requestedBy} sources=${res.sources.length} newKw=${res.newKeywords} newPhrases=${res.newPhrases} ai=${res.aiUsed}`,
+        );
+        // Báo kết quả vào kênh log chung của các server bot đang ở (tối đa 3).
+        await notifyManualResult(client, store, res, manual.requestedBy).catch(() => {});
+        return;
+      }
+
       const intel = await store.client.query("threatIntel:botGetIntel", {}).catch(() => null);
       if (!intel?.researchEnabled) {
         // Bị tắt trên web → không tốn bất kỳ chi phí nào.
@@ -379,8 +398,60 @@ function setupResearch(client, store) {
   };
 
   setTimeout(() => tick().catch(() => {}), 5 * 60 * 1000).unref?.();
-  const interval = setInterval(() => tick().catch(() => {}), RESEARCH_INTERVAL_MS);
+  // Vòng 10 phút: đủ nhanh cho học thủ công (≤10 phút chờ) mà vẫn rẻ (1 mutation/lượt).
+  setTimeout(() => tick().catch(() => {}), 60_000).unref?.();
+  const interval = setInterval(() => tick().catch(() => {}), 10 * 60_000);
   interval.unref?.();
+  // Vòng 4h định kỳ giữ nguyên cho lượt tự động.
+  const slowInterval = setInterval(() => tick().catch(() => {}), RESEARCH_INTERVAL_MS);
+  slowInterval.unref?.();
 }
 
-module.exports = { setupResearch, runResearch };
+/**
+ * Chạy 1 lượt học THỦ CÔNG ngay lập tức (cho lệnh /research learn).
+ * Trả kết quả để command hiển thị — KHÔNG đợi vòng tick 10 phút.
+ * Đặt sẵn cờ request trước khi chạy để cooldown web 2 phút nhất quán; nếu cờ
+ * đã có (web vừa bấm) thì giữ nguyên, bot đang chạy sẽ bỏ qua cờ này vì
+ * learnNow đã tự xử lý xong trước đó.
+ */
+async function learnNow(store, requestedBy) {
+  // Đặt cờ (nếu chưa có) để đồng bộ cooldown — lỗi im lặng nếu đã có.
+  await store.client
+    .mutation("threatIntel:requestManualLearn", { requestedBy })
+    .catch(() => null);
+  // Xóa cờ ngay — learnNow chạy trực tiếp, không cần tick nhận lại.
+  await store.client
+    .mutation("threatIntel:botClaimManualLearn", {})
+    .catch(() => null);
+  return runResearch(store, { trigger: "manual", requestedBy });
+}
+
+/** Thông báo kết quả học thủ công vào kênh log chung (tối đa 3 server). */
+async function notifyManualResult(client, store, res, requestedBy) {
+  const { logEmbed, sendLog, Colors } = require("./util");
+  const guilds = [...client.guilds.cache.values()].slice(0, 3);
+  for (const guild of guilds) {
+    try {
+      const config = await store.getConfig(guild.id);
+      if (!config) continue;
+      const embed = logEmbed({
+        title: "🧠 Bot đã hoàn thành lượt học thủ công",
+        description: requestedBy ? `Người yêu cầu: **${requestedBy}**` : undefined,
+        color: Colors.Blurple,
+        fields: [
+          { name: "Nguồn đã tải", value: String(res.sources.length || 0), inline: true },
+          { name: "Từ khóa mới", value: String(res.newKeywords), inline: true },
+          { name: "Cụm từ mới", value: String(res.newPhrases), inline: true },
+          { name: "Tổng đang nhớ", value: `${res.totalKeywords} từ khóa`, inline: true },
+          { name: "AI tổng hợp", value: res.aiUsed ? "✅ Có (Mimo V2.5)" : "⚙️ Không (heuristics)", inline: true },
+        ],
+        footer: "Protogon · Threat Intel",
+      });
+      await sendLog(guild, config, embed, "general");
+    } catch {
+      // guild chưa set log — bỏ qua
+    }
+  }
+}
+
+module.exports = { setupResearch, runResearch, learnNow };

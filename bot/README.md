@@ -232,6 +232,14 @@ Muốn đăng ký lại slash commands thủ công: `bun run register`.
 - **Khóa kênh khi raid**: khi vượt ngưỡng bất kỳ module nào, bot chặn thành viên gửi tin (và voice) qua overwrite của role @everyone, tự mở lại sau `lockdownMinutes` hoặc khi dùng `/antinuke unlock`. Bot cần quyền **Manage Channels**.
 - Chủ server, role có quyền **Administrator**, role **Mod/Admin** đã cấu hình và role nằm trong *whitelist* của module được miễn trừ. Riêng module **`adminSelfGrant`** chỉ miễn trừ owner / Administrator / role Admin — kẻ leo thang đặc quyền thường đang là mod nên KHÔNG được miễn.
 
+## Threat Intel — bot tự học (/research)
+
+- `/research status` hoặc `!research` — tiến độ học: số từ khóa/cụm từ đang nhớ, tổng lượt, nguồn lượt trước, tóm tắt AI.
+- `/research learn` hoặc `!research learn` — **học thủ công ngay** (chỉ mod/admin): tải nguồn mở + AI tổng hợp (Mimo V2.5 qua Kira, không ăn hạn mức Groq). Kết quả ghi vào lịch sử + log server.
+- `/research history` hoặc `!research history` — 10 lượt học gần nhất (thủ công/tự động, AI hay heuristics, số từ khóa mới).
+- Dashboard → Admin: bảng "Threat Intel — bot tự học" hiện tiến độ + lịch sử + nút **Học ngay**.
+- Ghi nhớ: từ khóa học được hợp nhất vào bộ lọc malware — dùng miễn phí vĩnh viễn (0 token khi lọc).
+
 ## Raid Intel — thu thập dữ liệu + săn lùng nguồn cơn raid 🎯
 
 - **Tự thu thập dữ liệu huấn luyện**: mỗi vụ raid/nuke được xử lý, bot ghi một **mẫu có cấu trúc** lên Convex (`raidSamples` — giữ 500 mẫu/server): module, số lượt, cửa sổ, ngưỡng, AI verdict (raid/individual/benign + độ tin cậy), hồ sơ cụm tài khoản (số acc, tuổi acc trung bình, avatar trùng nhau, thời gian vào rải rác), kết quả săn nguồn cơn. Dashboard → **Chống nuke/raid → Raid Intel** hiển thị số mẫu + các vụ gần đây.

@@ -372,6 +372,19 @@ const commands = [
     ],
   },
   {
+    name: "research",
+    description: "Theo dõi tiến độ học tập của bot (Threat Intel)",
+    options: [
+      { name: "status", description: "Xem tiến độ học: số từ khóa đã nhớ, lượt nghiên cứu, nguồn", type: 1 },
+      {
+        name: "learn",
+        description: "Kích hoạt bot học NGAY từ nguồn mở + AI (thủ công)",
+        type: 1,
+      },
+      { name: "history", description: "Xem 10 lượt học gần nhất", type: 1 },
+    ],
+  },
+  {
     name: "report",
     description: "Báo cáo tình hình server — AI đọc chat dò raid/nuke hoặc phạt nhầm",
     options: [

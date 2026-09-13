@@ -149,6 +149,8 @@ export const getGuild = query({
         lockdownRequested: guild.lockdownRequested ?? false,
         dailyReportEnabled: guild.dailyReportEnabled ?? true,
         lastReportAt: guild.lastReportAt ?? null,
+        emergencyAlertEnabled: guild.emergencyAlertEnabled ?? true,
+        logPingEveryone: guild.logPingEveryone ?? true,
         badWords: guild.badWords ?? [],
         heatEnabled: guild.heatEnabled ?? HEAT_DEFAULTS.enabled,
         heatDecayPerMin: decayPerMin,
@@ -312,6 +314,8 @@ export const getBotConfig = query({
       lockdownUntil: guild.lockdownUntil ?? null,
       lockdownRequested: guild.lockdownRequested ?? false,
       dailyReportEnabled: guild.dailyReportEnabled ?? true,
+      emergencyAlertEnabled: guild.emergencyAlertEnabled ?? true,
+      logPingEveryone: guild.logPingEveryone ?? true,
       restoreRolesEnabled: guild.restoreRolesEnabled ?? true,
       restoreChannelsEnabled: guild.restoreChannelsEnabled ?? true,
       restoreMessagesEnabled: guild.restoreMessagesEnabled ?? true,
@@ -412,6 +416,8 @@ export const updateSettings = mutation({
     modRoles: v.optional(v.array(v.string())),
     adminRoles: v.optional(v.array(v.string())),
     dailyReportEnabled: v.optional(v.boolean()),
+    emergencyAlertEnabled: v.optional(v.boolean()),
+    logPingEveryone: v.optional(v.boolean()),
     badWords: v.optional(v.array(v.string())),
     heatEnabled: v.optional(v.boolean()),
     heatDecayPerMin: v.optional(v.number()),
@@ -461,6 +467,8 @@ export const updateSettings = mutation({
       patch.theme = args.theme;
     }
     if (args.dailyReportEnabled !== undefined) patch.dailyReportEnabled = args.dailyReportEnabled;
+    if (args.emergencyAlertEnabled !== undefined) patch.emergencyAlertEnabled = args.emergencyAlertEnabled;
+    if (args.logPingEveryone !== undefined) patch.logPingEveryone = args.logPingEveryone;
     if (args.raidHuntEnabled !== undefined) patch.raidHuntEnabled = args.raidHuntEnabled;
     if (args.raidHuntBanSuspects !== undefined) patch.raidHuntBanSuspects = args.raidHuntBanSuspects;
     if (args.prefix !== undefined) {

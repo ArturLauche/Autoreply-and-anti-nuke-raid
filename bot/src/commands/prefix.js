@@ -22,6 +22,7 @@ const {
 const { isLocked, markLocked, unlockGuild } = require("../lockdown");
 const { emojiKeyOf } = require("../handlers/hidden");
 const { reportInteractive } = require("../handlers/incidentReport");
+const researchHandlers = require("../handlers/researchCommands");
 
 const MODULES = [
   "massBan",
@@ -60,6 +61,19 @@ function noPerm(message) {
   return message.reply(
     "❌ Bạn cần quyền **Quản lý server** (Manage Guild) để dùng lệnh này.",
   );
+}
+
+/** !research — tiến độ học tập của bot + học thủ công + lịch sử. */
+async function handleResearch(client, message, args, config, store) {
+  return researchHandlers.handleResearch(client, store, {
+    guild: message.guild,
+    channel: message.channel,
+    member: message.member,
+    author: message.author,
+    user: message.author,
+    args,
+    reply: (payload) => message.reply(typeof payload === "string" ? payload : payload),
+  });
 }
 
 /** !report — AI đọc chat + dữ liệu phạt, công bố báo cáo tình hình server. */
@@ -113,6 +127,7 @@ async function handleHelp(client, message) {
         "!unwarn @user           - gỡ toàn bộ warn tích lũy",
         "!purge <số>            - xóa hàng loạt tin nhắn",
         "!report [ghi chú]      - AI quét chat + phạt → báo cáo tình hình server",
+        "!research              - tiến độ học tập của bot (status|learn|history)",
         "!giveaway start <Tên> | <Giải thưởng> | <thời lượng>",
         "!giveaway list | end <tên>",
         "!reactionrole list      - danh sách bảng reaction role",
@@ -1070,6 +1085,7 @@ module.exports = {
   help: handleHelp,
   ping: handlePing,
   report: handleReport,
+  research: handleResearch,
   prefix: handlePrefix,
   autoreply: handleAutoReply,
   antinuke: handleAntinuke,

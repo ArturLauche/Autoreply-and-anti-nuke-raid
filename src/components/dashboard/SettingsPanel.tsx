@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import {
   BarChart3,
+  BellRing,
   Command,
   Hash,
   KeyRound,
@@ -10,6 +11,7 @@ import {
   Save,
   Shield,
   ShieldHalf,
+  Siren,
   Trash2,
   Users,
   Webhook,
@@ -70,6 +72,32 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
         dailyReportEnabled: v,
       });
       toast.success(v ? "Đã bật báo cáo hàng ngày" : "Đã tắt báo cáo hàng ngày");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+    }
+  }
+
+  async function toggleEmergencyAlert(v: boolean) {
+    try {
+      await updateSettings({
+        token: TOKEN(),
+        guildId: data.guild.discordId,
+        emergencyAlertEnabled: v,
+      });
+      toast.success(v ? "Đã bật cảnh báo khẩn" : "Đã tắt cảnh báo khẩn");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+    }
+  }
+
+  async function togglePingEveryone(v: boolean) {
+    try {
+      await updateSettings({
+        token: TOKEN(),
+        guildId: data.guild.discordId,
+        logPingEveryone: v,
+      });
+      toast.success(v ? "Đã bật ping @everyone" : "Đã tắt ping @everyone");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Lưu thất bại");
     }
@@ -202,6 +230,39 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                 <Switch
                   checked={data.guild.dailyReportEnabled}
                   onCheckedChange={toggleDailyReport}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-secondary/30 px-3 py-2.5">
+                <div>
+                  <p className="text-sm font-medium">
+                    <Siren className="mr-1.5 inline h-4 w-4 text-red-500" />
+                    Cảnh báo khẩn khi raid/nuke
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Khi bot xác nhận raid/nuke: AI quét chat rồi gửi tin CẢNH BÁO KHẨN
+                    (kèm báo cáo tình hình, lệnh <code className="font-mono">/report</code>) vào kênh log chung
+                  </p>
+                </div>
+                <Switch
+                  checked={data.guild.emergencyAlertEnabled}
+                  onCheckedChange={toggleEmergencyAlert}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-secondary/30 px-3 py-2.5">
+                <div>
+                  <p className="text-sm font-medium">
+                    <BellRing className="mr-1.5 inline h-4 w-4 text-amber-500" />
+                    Ping @everyone khi cảnh báo khẩn
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Tắt nếu không muốn cảnh báo làm phiền toàn bộ thành viên (mod vẫn thấy log)
+                  </p>
+                </div>
+                <Switch
+                  checked={data.guild.logPingEveryone}
+                  onCheckedChange={togglePingEveryone}
                 />
               </div>
 

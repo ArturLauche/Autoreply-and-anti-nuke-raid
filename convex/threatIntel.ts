@@ -58,6 +58,14 @@ export const getSettings = query({
       lastSources: status?.threatResearchLastSources ?? [],
       totalRuns: status?.threatResearchRuns ?? 0,
       nextRunHintMs: status?.threatResearchNextRunAt ?? null,
+      // Tiến độ học lượt gần nhất (bảng "Bot đã học được gì").
+      lastNewKeywords: status?.threatResearchLastNewKeywords ?? null,
+      lastNewPhrases: status?.threatResearchLastNewPhrases ?? null,
+      lastSourceCount: status?.threatResearchLastSourceCount ?? null,
+      // Học thủ công.
+      manualPending: status?.threatManualLearnRequested ?? false,
+      manualLastAt: status?.threatManualLearnAt ?? null,
+      manualLastBy: status?.threatManualLearnBy ?? null,
     };
   },
 });
@@ -118,6 +126,12 @@ export const botSetResearchRun = mutation({
     nextRunAt: v.number(),
     /** Từ khóa từ các vụ raid thật (ambient learning) — gộp chung vào keywords. */
     learnedFromIncidents: v.optional(v.number()),
+    /** "auto" (định kỳ) | "manual" (/research learn hoặc nút web). */
+    trigger: v.optional(v.string()),
+    /** Người yêu cầu học thủ công (username) — chỉ với trigger manual. */
+    requestedBy: v.optional(v.string()),
+    /** Chìa khóa bot (botAuth). */
+    botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const status = await getBotStatus(ctx);
@@ -148,6 +162,10 @@ export const botSetResearchRun = mutation({
       threatResearchLastSources: cleanArray(args.sources, 8),
       threatKeywords: keywords,
       threatScamPhrases: scamPhrases,
+      // Tiến độ học của lượt này (hiển thị bảng "Bot đã học được gì" trên web).
+      threatResearchLastNewKeywords: Math.min(args.keywords.length, 20),
+      threatResearchLastNewPhrases: Math.min(args.scamPhrases.length, 10),
+      threatResearchLastSourceCount: Math.min(args.sources.length, 8),
     };
     if (args.summary) patch.threatResearchLastSummary = clean(args.summary, 700);
     if (args.aiUsed !== undefined) patch.threatResearchLastAiUsed = args.aiUsed;
@@ -165,6 +183,27 @@ export const botSetResearchRun = mutation({
         ...patch,
       });
     }
+    // Ghi lịch sử học (bảng researchRuns) — 1 row/lượt, tự dọn giữ 50 row mới.
+    await ctx.db.insert("researchRuns", {
+      trigger: args.trigger === "manual" ? "manual" : "auto",
+      sources: cleanArray(args.sources, 8),
+      newKeywords: Math.min(args.keywords.length, 20),
+      newPhrases: Math.min(args.scamPhrases.length, 10),
+      aiUsed: args.aiUsed === true,
+      summary: args.summary ? clean(args.summary, 700) : undefined,
+      totalKeywords: keywords.length,
+      totalPhrases: scamPhrases.length,
+      learnedFromIncidents: args.learnedFromIncidents,
+      requestedBy: args.requestedBy ? clean(args.requestedBy, 60) : undefined,
+      createdAt: now,
+    });
+    // Dọn row cũ — giữ 50 row mới nhất (bảng luôn nhỏ, reads rẻ).
+    const allRuns = await ctx.db
+      .query("researchRuns")
+      .withIndex("by_createdAt", (q) => q.lt("createdAt", now + 1000))
+      .order("desc")
+      .take(100);
+    for (const row of allRuns.slice(50)) await ctx.db.delete(row._id);
     return { ok: true, keywords, scamPhrases };
   },
 });
@@ -251,5 +290,115 @@ export const sampleStats = query({
         .slice(0, 8)
         .map(([module, count]) => ({ module, count })),
     };
+  },
+});
+
+/**
+ * Web Admin + bot — lịch sử học tập gần đây (bảng researchRuns, 20 row mới).
+ * Chủ bot (token) HOẶC bot (botKey) đọc được. 1 query rẻ (index, take 20).
+ */
+export const getResearchHistory = query({
+  args: {
+    token: v.optional(v.string()),
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { token, botKey }) => {
+    let isOwner = false;
+    if (token) {
+      const user = await getUserByToken(ctx, token);
+      if (!user) return [];
+      const owner = await ctx.db
+        .query("botStatus")
+        .withIndex("by_kind", (q) => q.eq("kind", "status"))
+        .first();
+      if (owner?.ownerDiscordId && owner.ownerDiscordId !== user.discordId) return [];
+      isOwner = true;
+    } else {
+      await requireBotKey(ctx, botKey);
+      isOwner = true;
+    }
+    if (!isOwner) return [];
+    const rows = await ctx.db
+      .query("researchRuns")
+      .withIndex("by_createdAt", (q) => q.gt("createdAt", 0))
+      .order("desc")
+      .take(20);
+    return rows.map((r) => ({
+      trigger: r.trigger,
+      sources: r.sources,
+      newKeywords: r.newKeywords,
+      newPhrases: r.newPhrases,
+      aiUsed: r.aiUsed,
+      summary: r.summary ?? null,
+      totalKeywords: r.totalKeywords,
+      totalPhrases: r.totalPhrases,
+      learnedFromIncidents: r.learnedFromIncidents ?? 0,
+      requestedBy: r.requestedBy ?? null,
+      createdAt: r.createdAt,
+    }));
+  },
+});
+
+/**
+ * Web Admin / bot — YÊU CẦU học thủ công: đặt cờ threatManualLearnRequested
+ * trong botStatus; vòng tick của bot nhận cờ (getPendingJobs batch sẵn có,
+ * KHÔNG thêm polling mới) rồi chạy runResearch ngay. Cooldown 2 phút chống spam.
+ */
+export const requestManualLearn = mutation({
+  args: {
+    /** Token web (chủ bot) — hoặc bot gọi bằng botKey. */
+    token: v.optional(v.string()),
+    botKey: v.optional(v.string()),
+    requestedBy: v.optional(v.string()),
+  },
+  handler: async (ctx, { token, botKey, requestedBy }) => {
+    // Cho phép 2 đường: web (token chủ bot) hoặc bot (botKey) — lệnh /research learn.
+    let isOwner = false;
+    if (token) {
+      const user = await getUserByToken(ctx, token);
+      if (!user) throw new Error("Vui lòng đăng nhập");
+      const owner = await ctx.db
+        .query("botStatus")
+        .withIndex("by_kind", (q) => q.eq("kind", "status"))
+        .first();
+      if (owner?.ownerDiscordId && owner.ownerDiscordId !== user.discordId) {
+        throw new Error("Chỉ admin sở hữu bot mới được kích hoạt học thủ công 🔒");
+      }
+      isOwner = true;
+    } else {
+      await requireBotKey(ctx, botKey);
+    }
+    const status = await getBotStatus(ctx);
+    if (!status) return { ok: false, error: "Bot chưa từng online — không thể kích hoạt" };
+    if (status.threatManualLearnRequested) {
+      return { ok: false, error: "Một lượt học thủ công đã được yêu cầu — bot đang xử lý" };
+    }
+    const lastManual = status.threatManualLearnAt ?? 0;
+    if (Date.now() - lastManual < 2 * 60_000) {
+      return { ok: false, error: "Vừa học xong — thử lại sau ít phút để tiết kiệm token" };
+    }
+    await ctx.db.patch(status._id, {
+      threatManualLearnRequested: true,
+      threatManualLearnBy: clean(requestedBy, 60) || (isOwner ? "web-admin" : "bot"),
+    });
+    return { ok: true };
+  },
+});
+
+/**
+ * Bot — nhận + XÓA cờ học thủ công (gọi trong tick batch sẵn có).
+ * Trả null khi không có yêu cầu → bot không tốn mutation thừa.
+ */
+export const botClaimManualLearn = mutation({
+  args: { botKey: v.optional(v.string()) },
+  handler: async (ctx, { botKey }) => {
+    await requireBotKey(ctx, botKey);
+    const status = await getBotStatus(ctx);
+    if (!status?.threatManualLearnRequested) return null;
+    await ctx.db.patch(status._id, {
+      threatManualLearnRequested: false,
+      threatManualLearnAt: Date.now(),
+    });
+    return { requestedBy: status.threatManualLearnBy ?? "admin" };
   },
 });

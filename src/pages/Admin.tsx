@@ -9,6 +9,7 @@ import {
   Gauge,
   GraduationCap,
   Loader2,
+  Play,
   Server,
   ShieldCheck,
   X,
@@ -27,8 +28,10 @@ function AdminContent() {
   const { status, latency, avg, incidents, lastUpdate, nextUpdate, refresh } =
     useBotMonitor(15000);
   const threat = useQuery(api.threatIntel.getSettings, { token });
+  const researchHistory = useQuery(api.threatIntel.getResearchHistory, { token });
   const setThreat = useMutation(api.threatIntel.setResearchSettings);
   const removeThreatKw = useMutation(api.threatIntel.removeKeyword);
+  const requestLearn = useMutation(api.threatIntel.requestManualLearn);
   const setSecrets = useMutation(api.hidden.setBotSecrets);
   const [ownerSeedInput, setOwnerSeedInput] = useState("");
   const [secretMsg, setSecretMsg] = useState<string | null>(null);
@@ -185,6 +188,7 @@ function AdminContent() {
               />
               <ThreatIntelCard
                 threat={threat}
+                history={researchHistory}
                 onToggle={(enabled) =>
                   setThreat({ token, enabled }).catch(() => {})
                 }
@@ -194,6 +198,14 @@ function AdminContent() {
                 onRemove={(keyword, kind) =>
                   removeThreatKw({ token, keyword, kind }).catch(() => {})
                 }
+                onLearnNow={async () => {
+                  try {
+                    const res = await requestLearn({ token, requestedBy: "web-admin" });
+                    return res;
+                  } catch (e) {
+                    return { ok: false, error: e instanceof Error ? e.message : "Lỗi kết nối" };
+                  }
+                }}
               />
               <div className="rounded-xl border border-border bg-card p-4">
                 <p className="flex items-center gap-1.5 font-display text-sm font-bold">
@@ -274,9 +286,11 @@ export default function Admin() {
  */
 function ThreatIntelCard({
   threat,
+  history,
   onToggle,
   onToggleAi,
   onRemove,
+  onLearnNow,
 }: {
   threat:
     | {
@@ -288,13 +302,51 @@ function ThreatIntelCard({
         lastSources: string[];
         totalRuns: number;
         lastSummary?: string | null;
+        lastNewKeywords?: number | null;
+        lastNewPhrases?: number | null;
+        lastSourceCount?: number | null;
+        manualPending?: boolean;
+        manualLastAt?: number | null;
+        manualLastBy?: string | null;
       }
     | undefined
     | null;
+  history:
+    | Array<{
+        trigger: string;
+        sources: string[];
+        newKeywords: number;
+        newPhrases: number;
+        aiUsed: boolean;
+        summary: string | null;
+        totalKeywords: number;
+        totalPhrases: number;
+        requestedBy: string | null;
+        createdAt: number;
+      }>
+    | undefined;
   onToggle: (enabled: boolean) => void;
   onToggleAi: (aiWeeklyEnabled: boolean) => void;
   onRemove: (keyword: string, kind: "keyword" | "phrase") => void;
+  onLearnNow: () => Promise<{ ok: boolean; error?: string }>;
 }) {
+  const [learning, setLearning] = useState(false);
+  const [learnMsg, setLearnMsg] = useState<string | null>(null);
+
+  async function handleLearnNow() {
+    setLearning(true);
+    setLearnMsg(null);
+    try {
+      const res = await onLearnNow();
+      setLearnMsg(
+        res.ok
+          ? "✅ Đã gửi yêu cầu — bot sẽ học ngay (xem kết quả trong lịch sử bên dưới, tối đa ~10 phút)"
+          : `⚠️ ${res.error ?? "Không gửi được yêu cầu"}`,
+      );
+    } finally {
+      setLearning(false);
+    }
+  }
   const lastRun = threat?.lastRunAt
     ? new Date(threat.lastRunAt).toLocaleString("vi-VN", {
         hour: "2-digit",
@@ -355,8 +407,16 @@ function ThreatIntelCard({
         <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
           <span className="text-muted-foreground">Tổng lượt:</span> <b>{threat?.totalRuns ?? 0}</b>
         </div>
+        <div className="rounded-lg bg-emerald-500/10 px-2.5 py-1.5">
+          <span className="text-muted-foreground">Từ khóa mới lượt trước:</span>{" "}
+          <b className="text-emerald-600">+{threat?.lastNewKeywords ?? 0}</b>
+        </div>
+        <div className="rounded-lg bg-emerald-500/10 px-2.5 py-1.5">
+          <span className="text-muted-foreground">Cụm từ mới:</span>{" "}
+          <b className="text-emerald-600">+{threat?.lastNewPhrases ?? 0}</b>
+        </div>
         <div className="col-span-2 rounded-lg bg-secondary/40 px-2.5 py-1.5">
-          <span className="text-muted-foreground">Nguồn lượt trước:</span>{" "}
+          <span className="text-muted-foreground">Nguồn lượt trước ({threat?.lastSourceCount ?? 0}):</span>{" "}
           <b>{threat?.lastSources?.length ? threat.lastSources.join(", ") : "—"}</b>
         </div>
         {threat?.lastSummary && (
@@ -365,6 +425,63 @@ function ThreatIntelCard({
           </div>
         )}
       </div>
+
+      {/* Học thủ công */}
+      <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold text-foreground">🖐️ Học thủ công</p>
+            <p className="text-[11px] text-muted-foreground">
+              Kích hoạt bot học NGAY từ nguồn mở + AI tổng hợp. Lần cuối:{" "}
+              {threat?.manualLastAt ? new Date(threat.manualLastAt).toLocaleString("vi-VN") : "chưa có"}
+              {threat?.manualLastBy ? ` · bởi ${threat.manualLastBy}` : ""}
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={learning || threat?.manualPending}
+            onClick={handleLearnNow}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+          >
+            {learning || threat?.manualPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Play className="h-3.5 w-3.5" />
+            )}
+            {threat?.manualPending ? "Bot đang học…" : learning ? "Đang gửi…" : "Học ngay"}
+          </button>
+        </div>
+        {learnMsg && <p className="mt-2 text-[11px] text-muted-foreground">{learnMsg}</p>}
+      </div>
+
+      {/* Lịch sử học tập */}
+      {history && history.length > 0 && (
+        <div className="mt-3">
+          <p className="mb-1.5 text-[11px] font-semibold text-foreground">
+            Lịch sử học ({history.length} lượt gần nhất)
+          </p>
+          <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg bg-secondary/30 p-2">
+            {history.map((r) => (
+              <div key={r.createdAt} className="flex items-center justify-between gap-2 text-[11px]">
+                <span className="text-muted-foreground">
+                  {new Date(r.createdAt).toLocaleString("vi-VN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    day: "2-digit",
+                    month: "2-digit",
+                  })}{" "}
+                  · {r.trigger === "manual" ? "🖐️" : "⏱️"}
+                  {r.requestedBy ? ` ${r.requestedBy}` : ""}
+                </span>
+                <span className="font-medium">
+                  <b className="text-emerald-600">+{r.newKeywords}</b> từ khóa{" "}
+                  {r.aiUsed && <span title="AI tổng hợp (Mimo V2.5)">🧠</span>} · nhớ {r.totalKeywords}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mt-3">
         <p className="mb-1.5 text-[11px] font-semibold text-foreground">

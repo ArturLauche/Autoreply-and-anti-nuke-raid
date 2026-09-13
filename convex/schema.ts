@@ -91,6 +91,10 @@ export default defineSchema({
     lockdownRequested: v.optional(v.boolean()),
     dailyReportEnabled: v.optional(v.boolean()),
     lastReportAt: v.optional(v.number()),
+    /** AI Incident Report: bật/tắt cảnh báo khẩn khi raid/nuke được xác nhận. */
+    emergencyAlertEnabled: v.optional(v.boolean()),
+    /** AI Incident Report: cảnh báo khẩn có ping @everyone không. */
+    logPingEveryone: v.optional(v.boolean()),
     badWords: v.optional(v.array(v.string())),
     heatEnabled: v.optional(v.boolean()),
     heatDecayPerMin: v.optional(v.number()),
@@ -440,6 +444,14 @@ export default defineSchema({
     threatKeywords: v.optional(v.array(v.string())),
     /** Threat Intel: cụm từ scam nhiều từ học được (vd "free gift redeem"). */
     threatScamPhrases: v.optional(v.array(v.string())),
+    /** Tiến độ học của lượt gần nhất: số từ khóa/cụm từ mới + nguồn tải được. */
+    threatResearchLastNewKeywords: v.optional(v.number()),
+    threatResearchLastNewPhrases: v.optional(v.number()),
+    threatResearchLastSourceCount: v.optional(v.number()),
+    /** Học thủ công: cờ yêu cầu (/research learn hoặc nút web) + thời điểm + người yêu cầu. */
+    threatManualLearnRequested: v.optional(v.boolean()),
+    threatManualLearnAt: v.optional(v.number()),
+    threatManualLearnBy: v.optional(v.string()),
     /** Chìa khóa bot (botAuth): SHA-256("protogon-bot-key::" + OWNER_SEED) — chủ bot đặt 1 lần qua Admin web. Khi có giá trị, mọi function bot-side yêu cầu botKey khớp. */
     botKeySeed: v.optional(v.string()),
     /** Seed cho chìa khóa chức năng (botFunc): các action nguy hiểm (OAuth exchange, AI chat) yêu cầu funcKey. */
@@ -536,4 +548,32 @@ export default defineSchema({
     .index("by_guildId", ["guildId"])
     .index("by_guildId_joinedAt", ["guildId", "joinedAt"])
     .index("by_guildId_riskScore", ["guildId", "riskScore"]),
+
+  /**
+   * researchRuns — lịch sử học tập của bot (Threat Intel). 1 row = 1 lượt nghiên
+   * cứu (tự động mỗi 4h HOẶC thủ công từ lệnh /research learn / web Admin).
+   * Giữ tối đa ~50 row mới nhất (mutation tự dọn cũ) — bảng luôn nhỏ, reads rẻ.
+   */
+  researchRuns: defineTable({
+    /** "auto" (định kỳ 4h) | "manual" (/research learn hoặc nút web). */
+    trigger: v.string(),
+    /** Nguồn đã tải thành công (reddit-*, cisa-kev, raid-incidents…). */
+    sources: v.array(v.string()),
+    /** Số từ khóa / cụm từ MỚI học được trong lượt này. */
+    newKeywords: v.number(),
+    newPhrases: v.number(),
+    /** AI có tổng hợp trong lượt này không (tốn token Kira/Mimo). */
+    aiUsed: v.boolean(),
+    /** Tóm tắt xu hướng AI (nếu có). */
+    summary: v.optional(v.string()),
+    /** Tổng số từ khóa bot đang nhớ sau lượt này (tiến độ ghi nhớ). */
+    totalKeywords: v.number(),
+    totalPhrases: v.number(),
+    /** Số từ khóa học từ raid thật (ambient learning). */
+    learnedFromIncidents: v.optional(v.number()),
+    /** Người yêu cầu học thủ công (username Discord) — null khi tự động. */
+    requestedBy: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_createdAt", ["createdAt"]),
 });

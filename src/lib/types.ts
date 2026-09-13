@@ -130,6 +130,8 @@ export interface GuildData {
     lockdownRequested: boolean;
     dailyReportEnabled: boolean;
     lastReportAt: number | null;
+    emergencyAlertEnabled: boolean;
+    logPingEveryone: boolean;
     badWords: string[];
     heatEnabled: boolean;
     heatDecayPerMin: number;
