@@ -52,6 +52,8 @@ let threatPhrases = [];
 let threatLoadedAt = 0;
 let threatLoading = false;
 const THREAT_REFRESH_MS = 10 * 60 * 1000;
+/** Domain độc từ URLhaus (threatEngine nạp) — so khớp trực tiếp khi quét link. */
+let urlhausDomains = new Set();
 
 /** Tải intel từ Convex (fire-and-forget, không bao giờ làm fail quét tin nhắn). */
 function refreshThreatIntel(store) {
@@ -158,6 +160,10 @@ function findMaliciousLink(content) {
       .split(/[/?#]/)[0]
       .toLowerCase();
     if (MALICIOUS_DOMAINS.includes(host)) return { kind: "domain", value: host };
+    // URLhaus (abuse.ch) — domain malware mới được threatEngine nạp mỗi giờ.
+    if (urlhausDomains.size > 0 && urlhausDomains.has(host)) {
+      return { kind: "urlhaus-domain", value: host };
+    }
     if (/^\d{1,3}(\.\d{1,3}){3}(:\d+)?$/.test(host)) {
       return { kind: "ip", value: host }; // link IP trực tiếp — nghi ngờ
     }
@@ -186,6 +192,10 @@ function findDangerousAttachment(attachments) {
 async function punishFlow(client, message, moduleCfg, config, heat, reason, detail, count) {
   const member = message.member;
   if (!member) return;
+  // Ghi mẫu cho n-gram engine (threat intel cục bộ học cấu trúc spam biến thể).
+  try {
+    require("../threatEngine").noteFlaggedMessage(message.content, message.guild?.id, "filter");
+  } catch {}
 
   const s = heatSettings(config);
   const heatRes = await heat.add(
@@ -443,4 +453,8 @@ module.exports._setThreatIntelForTest = (keywords, phrases) => {
   threatKeywords = keywords || [];
   threatPhrases = phrases || [];
   threatLoadedAt = Date.now();
+};
+/** Hook threatEngine + test: nạp danh sách domain URLhaus (Set/array hostname). */
+module.exports._setUrlhausDomainsForTest = (domains) => {
+  urlhausDomains = new Set(domains || []);
 };

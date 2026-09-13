@@ -2055,6 +2055,10 @@ module.exports = function createAntiNuke(client, store, heat) {
     if (fresh.length < moduleCfg.threshold) return;
 
     spamBuckets.delete(key); // reset after punishing
+    // Ghi mẫu tin nhắn spam cho n-gram engine (threat intel cục bộ, 0 token).
+    try {
+      require("../threatEngine").noteFlaggedMessage(message.content, message.guild.id, "spam");
+    } catch {}
     const samples = (recentMessages.get(key) ?? []).map((m) => m.content.slice(0, 200));
     const ai = await aiClassify(
       message.guild,

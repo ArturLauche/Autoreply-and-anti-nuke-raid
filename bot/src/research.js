@@ -26,8 +26,15 @@
  * ============================================================
  */
 
-const RESEARCH_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 giờ — 6 lần/ngày
+/**
+ * Chu kỳ research — mặc định 1 GIỜ (24 lượt/ngày, fetch + parse chạy trên VPS:
+ * tận dụng CPU nhàn rỗi thay vì idle). Override bằng env RESEARCH_INTERVAL_MS
+ * (ms) — vd 7200000 = 2 giờ.
+ */
+const RESEARCH_INTERVAL_MS = Math.max(30 * 60 * 1000, Number(process.env.RESEARCH_INTERVAL_MS) || 60 * 60 * 1000);
 const AI_WEEKLY_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // AI bắt buộc mỗi 7 ngày
+/** Digest tuần (AI tổng hợp xu hướng đăng kênh log cho admin) — mỗi 7 ngày. */
+const DIGEST_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_KEYWORDS_PER_RUN = 20;
 const NEW_KEYWORD_AI_THRESHOLD = 8; // chỉ AI nếu heuristic tìm được ≥ 8 từ mới
@@ -74,6 +81,11 @@ const OPEN_SOURCES = [
     name: "cisa-kev",
     url: "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
     kind: "cisa",
+  },
+  {
+    name: "urlhaus",
+    url: "https://urlhaus.abuse.ch/downloads/recent/",
+    kind: "urlhaus",
   },
 ];
 
@@ -180,6 +192,28 @@ async function researchCisa(source) {
 }
 
 /**
+ * Tải feed URLhaus qua threatEngine (có cache 30 phút — không fetch trùng với
+ * vòng engine 1h) → trích từ khóa từ hostname đáng nghi + malware-family tags.
+ */
+async function researchUrlhaus() {
+  try {
+    const engine = require("./threatEngine");
+    const ok = await engine.refreshUrlhaus(null);
+    if (!ok) return null;
+    const hosts = engine.getUrlhausHosts();
+    if (!hosts.length) return null;
+    // Host đáng nghi: chứa số hoặc gạch nối hoặc dài ≥ 8 (họ domain malware hay vậy).
+    const keywords = hosts
+      .slice(-400)
+      .filter((h) => /\d/.test(h) || /-/.test(h) || h.length >= 12)
+      .slice(0, 8);
+    return { keywords, phrases: [], cves: [] };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Gọi AI tổng hợp — dùng chuỗi research riêng (Kira/Mimo V2.5 free 30M
  * tokens/ngày đứng trước; không ăn hạn mức Groq/NVIDIA của chống raid).
  * Trả về { keywords, phrases, summary } hoặc null.
@@ -247,6 +281,8 @@ async function runResearch(store, opts = {}) {
   const intel = await store.client.query("threatIntel:botGetIntel", {}).catch(() => null);
   const previousKeywords = intel?.keywords ?? [];
   const now = Date.now();
+  // Client Discord (nếu có) — setupResearch gán vào; dùng cho postDigestToLog.
+  const digestClient = runResearch._client ?? null;
 
   const sourcesUsed = [];
   let allKeywords = [];
@@ -259,6 +295,7 @@ async function runResearch(store, opts = {}) {
       let res = null;
       if (source.kind === "reddit") res = await researchReddit(source);
       else if (source.kind === "cisa") res = await researchCisa(source);
+      else if (source.kind === "urlhaus") res = await researchUrlhaus();
       if (!res) continue;
       sourcesUsed.push(source.name);
       allKeywords.push(...(res.keywords ?? []));
@@ -322,7 +359,47 @@ async function runResearch(store, opts = {}) {
     }
   }
 
-  // 5. Lưu Convex (chỉ khi có gì đó mới)
+  // 5. AI REVIEW TỪ KHÓA (khi web Admin yêu cầu cờ): nhờ AI rà lại danh sách
+  // từ khóa đang nhớ, chỉ ra từ KHÔNG NÊN dùng (quá phổ biến → ban nhầm).
+  // Kết quả chỉ là ĐỀ XUẤT (suspects) — chủ bot xem trên Admin rồi tự xóa.
+  try {
+    const engine = require("./threatEngine");
+    const reviewFlag = await store.client
+      .mutation("threatIntel:botClaimAiReview", {})
+      .catch(() => null);
+    if (reviewFlag) {
+      const suspects = await aiReviewKeywords(previousKeywords);
+      if (suspects.length > 0) {
+        await store.client
+          .mutation("threatIntel:botSetKeywordReview", { suspects })
+          .catch(() => null);
+      }
+    }
+  } catch {
+    // review là tính năng phụ — không làm fail lượt research
+  }
+
+  // 6. Digest tuần: AI tổng hợp xu hướng nguy cơ (từ khóa + cụm từ + nguồn)
+  // và đăng 1 embed vào kênh log chung — admin nắm tình hình không cần mở web.
+  try {
+    // Thời điểm digest lưu trong botStatus qua botSetResearchMeta — đọc bằng
+    // botGetIntel? Không có trường đó trong botGetIntel → dùng mốc process-wide.
+    const digestDue = now - (globalThis.__protogonLastDigest ?? 0) >= DIGEST_INTERVAL_MS;
+    if (digestDue && (previousKeywords.length > 0 || newKeywords.length > 0)) {
+      const digest = await buildWeeklyDigest([...previousKeywords, ...newKeywords].slice(0, 40), newPhrases.slice(0, 8));
+      if (digest) {
+        globalThis.__protogonLastDigest = now;
+        await store.client
+          .mutation("threatIntel:botSetResearchMeta", { digest })
+          .catch(() => null);
+        await postDigestToLog(digestClient, digest).catch(() => {});
+      }
+    }
+  } catch {
+    // digest là tính năng phụ — không làm fail lượt research
+  }
+
+  // 7. Lưu Convex (chỉ khi có gì đó mới)
   const hasNew = newKeywords.length > 0 || newPhrases.length > 0 || aiUsed;
   if (hasNew || sourcesUsed.length > 0) {
     await store.client
@@ -357,6 +434,8 @@ async function runResearch(store, opts = {}) {
  * Chạy 1 lượt đầu sau 5 phút (đợi Convex ổn định), sau đó lặp mỗi 4 giờ.
  */
 function setupResearch(client, store) {
+  // Lưu client cho postDigestToLog (digest tuần) — runResearch chạy trong tick.
+  runResearch._client = client;
   let running = false;
   const tick = async () => {
     if (running) return;
@@ -454,4 +533,93 @@ async function notifyManualResult(client, store, res, requestedBy) {
   }
 }
 
-module.exports = { setupResearch, runResearch, learnNow };
+/**
+ * AI review từ khóa: nhờ Mimo rà danh sách, trả từ khóa có nguy cơ ban nhầm.
+ * Trả [{ keyword, benignHits }] — benignHits ước lượng độ "phổ biến" 0-100.
+ */
+async function aiReviewKeywords(keywords) {
+  if (!Array.isArray(keywords) || keywords.length === 0) return [];
+  try {
+    const aiClient = require("./ai");
+    if (!aiClient.researchAvailable()) return [];
+    const raw = await aiClient.researchChat(
+      [
+        {
+          role: "system",
+          content:
+            'Bạn là chuyên gia an ninh Discord. Nhận danh sách từ khóa scam bot đang dùng để bắt tin nhắn xấu. Trả về CHỈ các từ khóa CẦN LOẠI vì quá phổ biến trong hội thoại thường xuyên (vd "password", "account", "steam") — có nguy cơ bot phạt oan thành viên vô tội. Chỉ trả JSON thuần: {"suspects":[{"keyword":"...","benignHits":<số 0-100 ước lượng độ phổ biến>}]}. Không có gì cần loại → {"suspects":[]}.',
+        },
+        { role: "user", content: keywords.join(", ") },
+      ],
+      { maxTokens: 500, temperature: 0.1 },
+    );
+    const m = raw?.match(/\{[\s\S]*\}/);
+    if (!m) return [];
+    const parsed = JSON.parse(m[0]);
+    const list = Array.isArray(parsed?.suspects) ? parsed.suspects : [];
+    return list
+      .filter((s) => s && typeof s.keyword === "string")
+      .slice(0, 15)
+      .map((s) => ({ keyword: String(s.keyword).slice(0, 80), benignHits: Math.max(0, Math.min(100, Number(s.benignHits) || 0)) }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Weekly digest: AI tổng hợp xu hướng nguy cơ 2-3 câu — đăng kênh log cho admin.
+ */
+async function buildWeeklyDigest(keywords, phrases) {
+  try {
+    const aiClient = require("./ai");
+    if (!aiClient.researchAvailable()) return null;
+    const raw = await aiClient.researchChat(
+      [
+        {
+          role: "system",
+          content:
+            'Bạn là chuyên gia an ninh Discord. Dựa trên từ khóa/cụm từ scam bot đã học tuần này, viết DIGEST 2-3 câu tiếng Việt về xu hướng đe dọa nổi bật (kiểu tấn công, mục tiêu, lời khuyên ngắn cho admin server). Không liệt kê máy móc — tổng hợp ý nghĩa.',
+        },
+        {
+          role: "user",
+          content: `Từ khóa: ${keywords.join(", ")}\nCụm từ: ${phrases.join(" | ") || "(không có)"}`,
+        },
+      ],
+      { maxTokens: 400, temperature: 0.3 },
+    );
+    return raw ? String(raw).trim().slice(0, 700) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Đăng digest vào kênh log chung của tối đa 3 server. */
+async function postDigestToLog(client, digest) {
+  if (!client?.guilds?.cache) return;
+  const { logEmbed, sendLog, Colors } = require("./util");
+  const embed = logEmbed({
+    title: "🧠 Threat Digest tuần — xu hướng đe dọa",
+    description: String(digest).slice(0, 700),
+    color: Colors.Blurple,
+    footer: "Protogon · Threat Intel",
+  });
+  let sent = 0;
+  for (const guild of client.guilds.cache.values()) {
+    if (sent >= 3) break;
+    try {
+      const config = await store.getConfig(guild.id);
+      if (!config) continue;
+      await sendLog(guild, config, embed, "general");
+      sent++;
+    } catch {
+      // guild chưa set log — bỏ qua
+    }
+  }
+}
+
+/** Trích từ khóa heuristic từ 1 đoạn text (dùng bởi threatEngine backfill). */
+function extractKeywordsFromText(text, max = 10) {
+  return extractKeywords(text, max);
+}
+
+module.exports = { setupResearch, runResearch, learnNow, extractKeywordsFromText };

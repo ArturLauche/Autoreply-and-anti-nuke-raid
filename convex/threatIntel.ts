@@ -66,6 +66,14 @@ export const getSettings = query({
       manualPending: status?.threatManualLearnRequested ?? false,
       manualLastAt: status?.threatManualLearnAt ?? null,
       manualLastBy: status?.threatManualLearnBy ?? null,
+      // Digest tuần + AI review từ khóa + engine cục bộ (n-gram, URLhaus).
+      digestLast: status?.threatDigestLast ?? null,
+      digestLastAt: status?.threatDigestLastAt ?? null,
+      keywordReviewAt: status?.threatKeywordReviewAt ?? null,
+      keywordReviewSuspects: status?.threatKeywordReviewSuspects ?? [],
+      aiReviewPending: status?.threatAiReviewRequested ?? false,
+      urlhausDomains: status?.threatUrlhausDomains ?? 0,
+      ngramClusters: status?.threatNgramClusters ?? 0,
     };
   },
 });
@@ -403,5 +411,73 @@ export const botClaimManualLearn = mutation({
       threatManualLearnAt: Date.now(),
     });
     return { requestedBy: status.threatManualLearnBy ?? "admin" };
+  },
+});
+
+/**
+ * Bot — CỜ yêu cầu AI review từ khóa (đặt từ web Admin). Nhận + xóa cờ
+ * (pattern botClaimManualLearn) — đi nhờ tick research 1h sẵn có.
+ */
+export const botClaimAiReview = mutation({
+  args: { botKey: v.optional(v.string()) },
+  handler: async (ctx, { botKey }) => {
+    await requireBotKey(ctx, botKey);
+    const status = await getBotStatus(ctx);
+    if (!status?.threatAiReviewRequested) return null;
+    await ctx.db.patch(status._id, { threatAiReviewRequested: false });
+    return { ok: true };
+  },
+});
+
+/**
+ * Bot — lưu kết quả AI review từ khóa: danh sách từ khóa đáng ngờ
+ * (từ khóa quá phổ biến có nguy cơ gây ban nhầm). ĐỀ XUẤT thôi — không tự xóa;
+ * chủ bot xem trên Admin rồi quyết định xóa qua removeKeyword.
+ */
+export const botSetKeywordReview = mutation({
+  args: {
+    botKey: v.optional(v.string()),
+    suspects: v.array(v.object({ keyword: v.string(), benignHits: v.number() })),
+  },
+  handler: async (ctx, { botKey, suspects }) => {
+    await requireBotKey(ctx, botKey);
+    const status = await getBotStatus(ctx);
+    if (!status) return { ok: false };
+    await ctx.db.patch(status._id, {
+      threatKeywordReviewSuspects: suspects
+        .slice(0, 15)
+        .map((s) => ({ keyword: clean(s.keyword, 80), benignHits: Math.max(0, Math.min(9999, s.benignHits | 0)) }))
+        .filter((s) => s.keyword),
+      threatKeywordReviewAt: Date.now(),
+    });
+    return { ok: true };
+  },
+});
+
+/**
+ * Bot — lưu digest tuần (AI tổng hợp xu hướng nguy cơ) + meta engine cục bộ
+ * (số domain URLhaus đang nhớ, số cụm n-gram phát hiện được). 1 patch rẻ/lượt.
+ */
+export const botSetResearchMeta = mutation({
+  args: {
+    botKey: v.optional(v.string()),
+    digest: v.optional(v.string()),
+    urlhausDomains: v.optional(v.number()),
+    ngramClusters: v.optional(v.number()),
+  },
+  handler: async (ctx, { botKey, digest, urlhausDomains, ngramClusters }) => {
+    await requireBotKey(ctx, botKey);
+    const status = await getBotStatus(ctx);
+    if (!status) return { ok: false };
+    const patch: Record<string, unknown> = {};
+    if (digest) {
+      patch.threatDigestLast = clean(digest, 700);
+      patch.threatDigestLastAt = Date.now();
+    }
+    if (urlhausDomains !== undefined) patch.threatUrlhausDomains = Math.max(0, Math.min(50000, urlhausDomains | 0));
+    if (ngramClusters !== undefined) patch.threatNgramClusters = Math.max(0, Math.min(5000, ngramClusters | 0));
+    if (Object.keys(patch).length === 0) return { ok: false };
+    await ctx.db.patch(status._id, patch);
+    return { ok: true };
   },
 });

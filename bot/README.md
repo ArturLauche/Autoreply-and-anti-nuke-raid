@@ -239,6 +239,21 @@ Muốn đăng ký lại slash commands thủ công: `bun run register`.
 - `/research history` hoặc `!research history` — 10 lượt học gần nhất (thủ công/tự động, AI hay heuristics, số từ khóa mới).
 - Dashboard → Admin: bảng "Threat Intel — bot tự học" hiện tiến độ + lịch sử + nút **Học ngay**.
 - Ghi nhớ: từ khóa học được hợp nhất vào bộ lọc malware — dùng miễn phí vĩnh viễn (0 token khi lọc).
+- **Chu kỳ nghiên cứu mặc định 1 giờ/lượt** (tăng từ 4 giờ — tận dụng CPU nhàn rỗi của VPS). Chỉnh bằng env `RESEARCH_INTERVAL_MS` (ms) trên VPS.
+
+## Threat Engine cục bộ — VPS tự phân tích, 0 token AI 🚀
+
+Các vòng chạy hoàn toàn trên VPS (không tốn Convex ops đáng kể, không token AI):
+
+1. **URLhaus Monitor** (mỗi giờ): tải feed domain/URL độc của abuse.ch (free) → nạp vào filters — chặn link malware mới trước khi ai báo. Meta (số domain đang nhớ) hiển thị trên Admin.
+2. **N-gram Clustering** (mỗi 30 phút): quét tin nhắn spam/phishing đã bị flag (in-memory trên VPS, tự dọn 48h, KHÔNG ghi nội dung tin nhắn lên Convex/Discord) bằng trigram + Jaccard similarity → phát hiện **spam biến thể** ("fr33 n1tro", chèn ký tự ẩn) → sinh từ khóa wildcard mới tự động.
+3. **Self-test regex** (mỗi 30 phút): recompile + thử từ khóa trên mẫu flagged — bắt regex hỏng/hiệu năng kém sớm.
+4. **Backfill** (1 lần sau khi online): quét lại toàn bộ raidSamples lịch sử đào thêm từ khóa đã bỏ sót.
+
+## Weekly Digest + AI Review từ khóa 🧠
+
+- **Digest tuần**: AI (Mimo V2.5 qua Kira — free) tổng hợp xu hướng đe dọa 2-3 câu → tự đăng kênh log + lưu hiển thị trên Admin. Mỗi 7 ngày 1 lần (~400 tokens/lượt).
+- **AI review từ khóa** (bấm nút trên Admin): Mimo rà lại danh sách từ khóa bot đang nhớ → chỉ ra từ **quá phổ biến có nguy cơ ban nhầm**. Kết quả chỉ là ĐỀ XUẤT (suspects + độ phổ biến ước lượng) — chủ bot xem rồi tự xóa bằng removeKeyword. Không tự xóa hộ.
 
 ## Self-Diagnose — bot tự dò lỗi runtime 🐞
 

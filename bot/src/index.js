@@ -174,6 +174,11 @@ client.once("clientReady", async () => {
   // Chỉ chạy khi chủ bot bật trên web Admin. Học từ khóa scam → dùng miễn phí vĩnh viễn.
   require("./research").setupResearch(client, store);
 
+  // Threat Engine cục bộ — URLhaus feed (mỗi giờ), n-gram clustering (30 phút),
+  // self-test regex, backfill raidSamples (1 lần). Toàn bộ chạy trên VPS: 0 token AI,
+  // tận dụng CPU nhàn rỗi. URLhaus nạp vào filters chặn link malware mới.
+  require("./threatEngine").setupThreatEngine(store);
+
   // Self-Diagnose — bắt unhandledRejection/uncaughtException toàn cục, gửi AI
   // (chuỗi research Kira/Mimo) chẩn đoán + đăng ĐỀ XUẤT vá vào kênh log. Chỉ
   // chạy khi owner bật trên Admin web (flag đi nhờ batch tick 60s sẵn có).
