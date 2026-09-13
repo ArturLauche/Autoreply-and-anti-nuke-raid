@@ -100,6 +100,7 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
               onChange={setWhitelistRoles}
               placeholder="Chọn role miễn trừ…"
               emptyLabel="Chưa có role được đồng bộ"
+              searchPlaceholder="Gõ tên role để tìm nhanh…"
             />
             <p className="mt-3 text-xs text-muted-foreground">
               Role Mod / Admin đã cấu hình trong Cài đặt vẫn hoạt động riêng — danh sách này

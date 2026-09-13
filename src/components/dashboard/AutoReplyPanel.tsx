@@ -305,6 +305,7 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
                 onChange={(v) => setForm({ ...form, channels: v })}
                 placeholder="Tất cả kênh"
                 emptyLabel="Chưa có kênh nào được đồng bộ"
+                searchPlaceholder="Gõ tên kênh để tìm nhanh…"
               />
             </div>
 

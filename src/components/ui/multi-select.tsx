@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Check, ChevronDown, X } from "lucide-react";
+import { Check, ChevronDown, Search, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 export interface MultiSelectOption {
@@ -14,18 +14,29 @@ interface MultiSelectProps {
   onChange: (value: string[]) => void;
   placeholder?: string;
   emptyLabel?: string;
+  /** Nhãn cho ô tìm kiếm (vd: "Tìm role…"). Ẩn ô tìm nếu không truyền. */
+  searchPlaceholder?: string;
   className?: string;
 }
 
+/**
+ * MultiSelect có ô TRA CỨU (tìm kiếm) — lọc danh sách theo từ khóa khi bấm mở.
+ * Danh sách đã chọn luôn hiển thị trước (kể cả khi đang lọc) để không mất dấu
+ * lựa chọn hiện có. So khớp KHÔNG DẤU (bỏ dấu tiếng Việt) + không phân biệt
+ * hoa/thường: gõ "mod" ra "Mod", "quản trị"…
+ */
 export function MultiSelect({
   options,
   value,
   onChange,
   placeholder = "Chọn…",
   emptyLabel = "Không có lựa chọn",
+  searchPlaceholder,
   className,
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const [inputEl, setInputEl] = React.useState<HTMLInputElement | null>(null);
   const ref = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -36,9 +47,34 @@ export function MultiSelect({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
+  // Tự focus ô tìm kiếm khi mở dropdown.
+  React.useEffect(() => {
+    if (open) {
+      const t = setTimeout(() => inputEl?.focus(), 10);
+      return () => clearTimeout(t);
+    }
+    setQuery("");
+  }, [open, inputEl]);
+
   const toggle = (v: string) => {
     onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
   };
+
+  /** Chuẩn hoá: bỏ dấu tiếng Việt + lowercase — để "quản trị" khớp "Quản Trị". */
+  const norm = (s: string) =>
+    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
+
+  const q = norm(query.trim());
+  const selectedSet = new Set(value);
+  // Đã chọn hiển thị trước; đang lọc thì chỉ hiện khớp (cả đã chọn lẫn chưa).
+  const filtered = options
+    .filter((o) => q === "" || norm(o.label).includes(q) || norm(o.sublabel ?? "").includes(q))
+    .sort((a, b) => {
+      const sa = selectedSet.has(a.value) ? 0 : 1;
+      const sb = selectedSet.has(b.value) ? 0 : 1;
+      if (sa !== sb) return sa - sb;
+      return a.label.localeCompare(b.label, "vi");
+    });
 
   return (
     <div ref={ref} className={cn("relative", className)}>
@@ -81,37 +117,67 @@ export function MultiSelect({
       </button>
 
       {open && (
-        <div className="absolute z-40 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-xl">
-          {options.length === 0 && (
-            <div className="px-3 py-2 text-sm text-muted-foreground">{emptyLabel}</div>
+        <div className="absolute z-40 mt-1 w-full rounded-xl border border-border bg-popover shadow-xl">
+          {/* Ô tra cứu — hiện khi có searchPlaceholder và danh sách đủ dài */}
+          {searchPlaceholder && options.length > 6 && (
+            <div className="sticky top-0 flex items-center gap-2 border-b border-border bg-popover p-2 rounded-t-xl">
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <input
+                ref={setInputEl}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={searchPlaceholder}
+                className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="text-muted-foreground hover:text-foreground"
+                  aria-label="Xóa tìm kiếm"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           )}
-          {options.map((opt) => {
-            const selected = value.includes(opt.value);
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => toggle(opt.value)}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-accent",
-                  selected && "text-primary",
-                )}
-              >
-                <span
+          <div className="max-h-60 overflow-y-auto p-1">
+            {options.length === 0 && (
+              <div className="px-3 py-2 text-sm text-muted-foreground">{emptyLabel}</div>
+            )}
+            {options.length > 0 && filtered.length === 0 && (
+              <div className="px-3 py-2 text-sm text-muted-foreground">
+                Không khớp "{query}"
+              </div>
+            )}
+            {filtered.map((opt) => {
+              const selected = value.includes(opt.value);
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => toggle(opt.value)}
                   className={cn(
-                    "flex h-4 w-4 items-center justify-center rounded border",
-                    selected ? "border-primary bg-primary text-primary-foreground" : "border-input",
+                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-accent",
+                    selected && "text-primary",
                   )}
                 >
-                  {selected && <Check className="h-3 w-3" />}
-                </span>
-                <span className="flex-1 truncate">{opt.label}</span>
-                {opt.sublabel && (
-                  <span className="text-xs text-muted-foreground">{opt.sublabel}</span>
-                )}
-              </button>
-            );
-          })}
+                  <span
+                    className={cn(
+                      "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                      selected ? "border-primary bg-primary text-primary-foreground" : "border-input",
+                    )}
+                  >
+                    {selected && <Check className="h-3 w-3" />}
+                  </span>
+                  <span className="flex-1 truncate">{opt.label}</span>
+                  {opt.sublabel && (
+                    <span className="text-xs text-muted-foreground">{opt.sublabel}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

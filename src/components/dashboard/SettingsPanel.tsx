@@ -375,6 +375,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                     onChange={setModRoles}
                     placeholder="Chọn role mod…"
                     emptyLabel="Chưa có role được đồng bộ"
+                    searchPlaceholder="Gõ tên role để tìm nhanh…"
                   />
                   <p className="text-[11px] text-muted-foreground">
                     Miễn trừ chống nuke và quản lý rule auto reply trong Discord.
@@ -390,6 +391,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                     onChange={setAdminRoles}
                     placeholder="Chọn role admin…"
                     emptyLabel="Chưa có role được đồng bộ"
+                    searchPlaceholder="Gõ tên role để tìm nhanh…"
                   />
                   <p className="text-[11px] text-muted-foreground">
                     Miễn trừ hoàn toàn khỏi mọi module chống nuke.

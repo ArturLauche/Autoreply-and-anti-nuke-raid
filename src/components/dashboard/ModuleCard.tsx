@@ -387,6 +387,7 @@ export default function ModuleCard({
               onChange={(v) => patchModule(module, { whitelistRoles: v })}
               placeholder="Không có — tất cả role đều bị kiểm tra"
               emptyLabel="Chưa có role được đồng bộ"
+              searchPlaceholder="Gõ tên role để tìm nhanh…"
             />
           </div>
         </CardContent>
