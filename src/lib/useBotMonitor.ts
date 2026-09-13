@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useBotStatus, type BotStatus } from "./useBotStatus";
 
-/** Điểm cuối Convex dùng để đo độ trễ thực (khớp URL backend production trong main.tsx). */
-const PING_URL = "https://accomplished-chipmunk-74.convex.cloud/api/query";
+/** Điểm cuối Convex dùng để đo độ trễ thực (khớp URL backend chọn trong main.tsx). */
+const configuredUrl = import.meta.env.VITE_CONVEX_URL ?? "";
+const isLocalDevUrl = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredUrl);
+const PING_URL =
+  !configuredUrl || isLocalDevUrl
+    ? "https://accomplished-chipmunk-74.convex.cloud/api/query"
+    : `${configuredUrl.replace(/\/$/, "")}/api/query`;
 
 export const LATENCY_FAST = 300;
 export const LATENCY_SLOW = 800;
@@ -88,8 +93,22 @@ export function useBotMonitor(intervalMs = 5000): BotMonitor {
 
   useEffect(() => {
     void tick();
+    // Chỉ đo khi tab ĐANG hiển thị — tab ẩn (người dùng chuyển app trên điện
+    // thoại) thì dừng vòng đo, tránh đốt hạn mức Convex vô ích.
+    if (document.hidden) return;
     timerRef.current = window.setInterval(() => void tick(), intervalMs);
-    return () => window.clearInterval(timerRef.current);
+    const onVisible = () => {
+      window.clearInterval(timerRef.current);
+      if (!document.hidden) {
+        void tick();
+        timerRef.current = window.setInterval(() => void tick(), intervalMs);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timerRef.current);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [tick, intervalMs, nonce]);
 
   const refresh = useCallback(() => setNonce((n) => n + 1), []);

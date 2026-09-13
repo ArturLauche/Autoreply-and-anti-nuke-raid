@@ -1,5 +1,6 @@
 import { action, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { getUserByToken, canManageGuild } from "./auth";
 import { requireBotKey } from "./botAuth";
 
@@ -170,9 +171,17 @@ export const updateDefaultWebhook = mutation({
       .first();
     if (!wh) throw new Error("Server chưa có webhook mặc định — hãy set kênh log trước");
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
-    if (eventTypes !== undefined) patch.eventTypes = eventTypes;
+    if (eventTypes !== undefined) {
+      // Cap độ dài + số phần tử: chống phình document (Convex 1 MB) và lạm dụng lưu trữ.
+      patch.eventTypes = eventTypes
+        .map((t) => t.trim().slice(0, 30))
+        .filter(Boolean)
+        .slice(0, 30);
+    }
     if (color !== undefined) patch.color = color;
-    if (contentTemplate !== undefined) patch.contentTemplate = contentTemplate;
+    if (contentTemplate !== undefined) {
+      patch.contentTemplate = contentTemplate ? contentTemplate.slice(0, 2000) : undefined;
+    }
     await ctx.db.patch(wh._id, patch);
     return { ok: true };
   },
@@ -180,9 +189,19 @@ export const updateDefaultWebhook = mutation({
 
 /* ======================== Discord Webhook Sender (discohook.org style) ======================== */
 
-/** Gửi embed qua Discord Webhook URL — chạy server-side để tránh CORS. */
+/**
+ * Gửi embed qua Discord Webhook URL — chạy server-side để tránh CORS.
+ *
+ * Bảo mật SSRF: URL bị chặn CHẶT theo allowlist Discord webhook (id 17-20 chữ số
+ * + token 60-68 ký tự word-char) → không thể trỏ sang IP nội bộ, localhost,
+ * cloud metadata (169.254.169.254), hay domain khác để quét nội network.
+ * Chỉ người dùng ĐÃ đăng nhập mới gọi được (mutation token) — chặn cả lạm dụng
+ * làm cầu nối spam ẩn danh.
+ */
 export const sendEmbed = action({
   args: {
+    /** Token phiên đăng nhập (sessions) — bắt buộc để dùng sender server-side. */
+    token: v.string(),
     webhookUrl: v.string(),
     content: v.optional(v.string()),
     username: v.optional(v.string()),
@@ -220,8 +239,12 @@ export const sendEmbed = action({
       }),
     ),
   },
-  handler: async (_ctx, { webhookUrl, content, username, avatarUrl, embeds }) => {
-    // Validate Discord webhook URL
+  handler: async (ctx, { token, webhookUrl, content, username, avatarUrl, embeds }) => {
+    // Yêu cầu đăng nhập: ai không có phiên hợp lệ thì không được dùng server làm cầu nối.
+    const user = await ctx.runQuery(internal.sessionHardening.getUserByTokenInternal, { token });
+    if (!user) throw new Error("Vui lòng đăng nhập để gửi webhook");
+    // Validate Discord webhook URL — allowlist chặt (SSRF: chặn mọi host khác,
+    // mọi scheme khác https, và token sai định dạng).
     if (
       !/^https:\/\/discord\.com\/api\/webhooks\/\d{17,20}\/[\w-]{60,68}(\?wait=\d+)?$/.test(
         webhookUrl,

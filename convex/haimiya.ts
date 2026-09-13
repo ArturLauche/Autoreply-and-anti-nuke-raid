@@ -9,7 +9,9 @@ declare const process: {
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { requireFuncKey } from "./botFunc";
+import { requireBotKey } from "./botAuth";
 
 /** Kiến thức cốt lõi về Protogon — dùng làm system prompt cho AI thật. */
 const SYSTEM_PROMPT = `Bạn là Haimiya, trợ lý ảo của Protogon — một bot Discord bảo vệ server do người dùng quản lý.
@@ -122,6 +124,9 @@ function aiProvider(): { key: string; baseUrl: string; model: string } | null {
   return null;
 }
 
+/** Rate-limit trong bộ nhớ cho haimiya.ask: identity → mốc gọi gần đây (60s window). */
+const askBuckets = new Map<string, { calls: number[] }>();
+
 export const ask = action({
   args: {
     messages: v.array(
@@ -130,16 +135,57 @@ export const ask = action({
         content: v.string(),
       }),
     ),
+    /** Token phiên đăng nhập web (sessions) — bắt buộc nếu chưa đặt FUNC_SEED. */
+    token: v.optional(v.string()),
     /** Chìa khóa chức năng (botFunc) — chống lạm dụng lượt gọi AI free tier khi đã cấu hình FUNC_SEED. */
     funcKey: v.optional(v.string()),
   },
-  handler: async (_ctx, { messages, funcKey }) => {
+  handler: async (ctx, { messages, token, funcKey }) => {
     requireFuncKey(funcKey, process.env.FUNC_SEED);
+    // Khi chưa cấu hình FUNC_SEED: vẫn yêu cầu ĐĂNG NHẬP — kẻ ngoài không thể
+    // đốt lượt gọi AI free tier của deployment (trước đây action mở hoàn toàn).
+    let rateIdentity = "anon";
+    if (!process.env.FUNC_SEED) {
+      const me = token
+        ? await ctx.runQuery(internal.sessionHardening.getUserByTokenInternal, { token })
+        : null;
+      if (!me) throw new Error("Vui lòng đăng nhập để trò chuyện với Haimiya");
+      rateIdentity = me.discordId;
+    } else {
+      // funcKey hợp lệ: vẫn giới hạn theo hiệu chỉnh SHA của key (tránh đốt token).
+      rateIdentity = "func:" + (funcKey ? funcKey.slice(0, 16) : "bare");
+    }
+    // Rate limit chống đốt hạn mức AI free: tối đa 20 lần/phút trên một identity.
+    // Bộ nhớ trong chỉ tồn tại trên 1 instance action — đủ chặn spam thủ công &
+    // script nhanh; bot/preset hệ thống KHÔNG đi qua đường này.
+    const nowMs = Date.now();
+    const windowMs = 60_000;
+    const bucket = askBuckets.get(rateIdentity);
+    if (bucket) {
+      bucket.calls = bucket.calls.filter((t) => nowMs - t < windowMs);
+      if (bucket.calls.length >= 20) {
+        throw new Error("Bạn đang gửi quá nhanh — thử lại sau ít phút nhé ⏳");
+      }
+      bucket.calls.push(nowMs);
+    } else {
+      askBuckets.set(rateIdentity, { calls: [nowMs] });
+    }
+    if (askBuckets.size > 500) {
+      // Dọn bucket cũ để không rò rỉ bộ nhớ.
+      for (const [k, b] of askBuckets) {
+        if (b.calls.every((t) => nowMs - t > windowMs)) askBuckets.delete(k);
+      }
+    }
+    // Cap kích thước đầu vào: mỗi tin nhắn ≤ 2.000 ký tự, tối đa 8 tin —
+    // chặn payload khổng lồ làm tốn token hệ thống prompt.
+    const safeMessages = messages
+      .slice(-8)
+      .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
     const p = aiProvider();
     if (!p) return { reply: "", offline: true };
-    const last = messages[messages.length - 1];
+    const last = safeMessages[safeMessages.length - 1];
     if (!last?.content?.trim()) return { reply: "", offline: true };
-    const history = messages.slice(-8).map((m) => ({ role: m.role, content: m.content }));
+    const history = safeMessages;
     try {
       const res = await fetch(`${p.baseUrl}/chat/completions`, {
         method: "POST",
@@ -184,18 +230,24 @@ export const classifyViolation = action({
     sampleMessages: v.array(v.string()),
     recentJoins: v.optional(v.number()),
     memberCount: v.optional(v.number()),
+    /** Chìa khóa bot (botAuth) — CHỈ bot process được gọi action này. */
+    botKey: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    // CHỈ bot được gọi: phân loại/điều tra xảy ra phía process bot (nguồn dữ liệu
+    // tin cậy) — không cho client web tự gọi để đốt lượt AI free tier.
+    await requireBotKey(ctx, args.botKey);
     const p = aiProvider();
     if (!p) return { classification: "individual", confidence: 0.5, reason: "AI chưa cấu hình", suggestPunish: undefined, offline: true };
     const samples = (args.sampleMessages || []).slice(0, 6).map((s) => s.slice(0, 200));
+    const guildNameSafe = args.guildName ? String(args.guildName).slice(0, 120) : undefined;
     const system = `Bạn là chuyên gia an ninh Discord. Phân loại một sự kiện vi phạm vừa xảy ra:
 - "raid": tấn công có tổ chức / tự động — bot-account, hàng loạt tài khoản cùng lúc, nội dung lặp lại giống hệt nhau, tin nhắn cực dài hoặc giả blank (chỉ khoảng trắng / ký tự ẩn) gây nhiễu loạn kênh, hoặc kết hợp với làn sóng thành viên mới vào.
 - "individual": chỉ một thành viên vi phạm nhẹ (spam bình thường, nói tục, gửi nhanh vài tin) — xử lý moderation thông thường.
 - "benign": có thể là dương tính giả, không cần phạt.
 Chỉ trả lời JSON thuần (không markdown) dạng: {"classification": "raid|individual|benign", "confidence": 0-1, "reason": "ngắn gọn tiếng Việt", "suggestPunish": "warn|timeout|kick|ban|null"}`;
     const user = `Sự kiện: module \"${args.module}\" — ${args.count} lần trong ${args.windowSeconds}s (ngưỡng ${args.threshold}).
-Server: ${args.guildName ?? "?"} (${args.memberCount ?? "?"} thành viên).
+Server: ${guildNameSafe ?? "?"} (${args.memberCount ?? "?"} thành viên).
 Thành viên mới gần đây: ${args.recentJoins ?? 0}.
 Mẫu tin nhắn:\n${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).join("\n") : "(không có)"}`;
     try {
@@ -260,8 +312,11 @@ export const analyzeRaid = action({
     threshold: v.number(),
     clusterProfile: v.optional(v.string()),
     recentActions: v.optional(v.string()),
+    /** Chìa khóa bot (botAuth) — CHỈ bot process được gọi action này. */
+    botKey: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    await requireBotKey(ctx, args.botKey);
     const p = aiProvider();
     if (!p) {
       return { coordinated: null, confidence: 0, reasoning: "AI chưa cấu hình", sourceHint: null, offline: true };
@@ -271,9 +326,9 @@ Phân tích dữ liệu một vụ tấn công server vừa xảy ra và trả l
 - "coordinated": vụ này có phải tấn công PHỐI HỢP (raid/nuke) hay chỉ là cá nhân vi phạm.
 - "sourceHint": ai là nghi phạm NGUỒN CƠN đứng sau (tài khoản chủ mưu)? Gợi ý: acc cũ nhất trong cụm, người có avatar/username giống các tài khoản khác, người tạo invite, kẻ thực hiện hành vi phá hoại trong audit log. Trả null nếu chưa đủ tín hiệu.
 - Chỉ trả lời JSON thuần (không markdown): {"coordinated": true|false|null, "confidence": 0-1, "reasoning": "ngắn gọn tiếng Việt", "sourceHint": "username hoặc null"}`;
-    const user = `Vụ: module \"${args.module}\" — ${args.count} lần trong ${args.windowSeconds}s (ngưỡng ${args.threshold}). Server: ${args.guildName ?? "?"}.
-Hồ sơ cụm tài khoản:\n${args.clusterProfile || "(không có)"}
-Chuỗi hành vi gần đây:\n${args.recentActions || "(không có)"}`;
+    const user = `Vụ: module \"${args.module}\" — ${args.count} lần trong ${args.windowSeconds}s (ngưỡng ${args.threshold}). Server: ${args.guildName ? String(args.guildName).slice(0, 120) : "?"}.
+Hồ sơ cụm tài khoản:\n${args.clusterProfile ? String(args.clusterProfile).slice(0, 2000) : "(không có)"}
+Chuỗi hành vi gần đây:\n${args.recentActions ? String(args.recentActions).slice(0, 2000) : "(không có)"}`;
     try {
       const res = await fetch(`${p.baseUrl}/chat/completions`, {
         method: "POST",
@@ -333,11 +388,13 @@ export const analyzeExternalApp = action({
     appProfile: v.optional(v.string()),
     recentJoins: v.optional(v.number()),
     memberCount: v.optional(v.number()),
-    // botKey: script chẩn đoán chèn chìa khóa vào mọi call — chấp nhận và bỏ qua
-    // (action phân tích AI, không ghi dữ liệu nhạy cảm).
+    // botKey: script chẩn đoán chèn chìa khóa vào mọi call — phân tích AI
+    // (không ghi dữ liệu nhạy cảm) nhưng vẫn CHỈ bot/script có key được gọi
+    // để không đốt lượt AI free tier từ bên ngoài.
     botKey: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    await requireBotKey(ctx, args.botKey);
     const p = aiProvider();
     if (!p) {
       return { isRaid: null, confidence: 0, reason: "AI chưa cấu hình", offline: true };
@@ -359,8 +416,8 @@ PHÂN TÍCH hồ sơ kết nối app / tin nhắn app vừa xảy ra và xác đ
 - isRaid=false: chỉ một vài người dùng/ứng dụng bình thường kết nối (vd mod thử app mới, app quen thuộc) hoặc app gửi tin hoạt động hợp lệ (nhạc, leveling, thông báo — không có tín hiệu spam ở trên).
 - Trả null nếu chưa đủ thông tin để kết luận.
 Chỉ trả lời JSON thuần (không markdown): {"isRaid": true|false|null, "confidence": 0-1, "reason": "ngắn gọn tiếng Việt"}`;
-    const user = `Vụ: ${args.count} kết nối app ngoài trong ${args.windowSeconds}s (ngưỡng ${args.threshold}). Server: ${args.guildName ?? "?"} (${args.memberCount ?? "?"} thành viên). Thành viên mới gần đây: ${args.recentJoins ?? 0}.
-Hồ sơ kết nối / tin nhắn app:\n${args.appProfile || "(không có)"}`;
+    const user = `Vụ: ${args.count} kết nối app ngoài trong ${args.windowSeconds}s (ngưỡng ${args.threshold}). Server: ${args.guildName ? String(args.guildName).slice(0, 120) : "?"} (${args.memberCount ?? "?"} thành viên). Thành viên mới gần đây: ${args.recentJoins ?? 0}.
+Hồ sơ kết nối / tin nhắn app:\n${args.appProfile ? String(args.appProfile).slice(0, 2000) : "(không có)"}`;
     try {
       const res = await fetch(`${p.baseUrl}/chat/completions`, {
         method: "POST",

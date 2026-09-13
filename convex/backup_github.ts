@@ -28,6 +28,14 @@ export const githubPush = action({
   },
   handler: async (ctx, args) => {
     await requireBotKey(ctx, args.botKey);
+    // Validate input trước khi đẩy lên GitHub: guildId là Discord snowflake,
+    // backupJson giới hạn ~8 MB (khớp MAX_IMPORT_FILE_BYTES của backup.ts).
+    if (!/^\d{15,20}$/.test(args.guildId)) {
+      return { ok: false, error: "guildId không hợp lệ" };
+    }
+    if (!args.backupJson || args.backupJson.length > 8_400_000) {
+      return { ok: false, error: "Nội dung backup quá lớn hoặc rỗng" };
+    }
     const token = process.env.GITHUB_TOKEN;
     if (!token) {
       return { ok: false, error: "GITHUB_TOKEN chưa được cấu hình trong Keys" };

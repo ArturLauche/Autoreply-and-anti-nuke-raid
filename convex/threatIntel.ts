@@ -33,9 +33,21 @@ const cleanArray = (arr: string[] | undefined, max = 40) =>
 /** Row duy nhất của bảng botStatus (đọc helper từ hidden.ts). */
 
 export const getSettings = query({
-  args: {},
-  handler: async (ctx) => {
+  // Chỉ chủ bot (đăng nhập web) được đọc — panel Admin. Trước đây mở công khai:
+  // kẻ ngoài có thể dò từ khóa scam + trạng thái nghiên cứu (recon cho spam).
+  args: { token: v.string() },
+  handler: async (ctx, { token }) => {
+    const user = await getUserByToken(ctx, token);
+    if (!user) return null;
     const status = await getBotStatus(ctx);
+    if (!status) return null;
+    const owner = await ctx.db
+      .query("botStatus")
+      .withIndex("by_kind", (q) => q.eq("kind", "status"))
+      .first();
+    if (owner?.ownerDiscordId && owner.ownerDiscordId !== user.discordId) {
+      return null;
+    }
     return {
       researchEnabled: status?.threatResearchEnabled ?? false,
       aiWeeklyEnabled: status?.threatResearchAiWeekly ?? true,
@@ -214,10 +226,19 @@ export const removeKeyword = mutation({
   },
 });
 
-/** Thống kê mẫu raid đã thu thập (hiển thị trong panel Admin). */
+/** Thống kê mẫu raid đã thu thập (hiển thị trong panel Admin — chỉ chủ bot). */
 export const sampleStats = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { token: v.string() },
+  handler: async (ctx, { token }) => {
+    const user = await getUserByToken(ctx, token);
+    if (!user) return { total: 0, last30d: 0, byModule: [] };
+    const owner = await ctx.db
+      .query("botStatus")
+      .withIndex("by_kind", (q) => q.eq("kind", "status"))
+      .first();
+    if (owner?.ownerDiscordId && owner.ownerDiscordId !== user.discordId) {
+      return { total: 0, last30d: 0, byModule: [] };
+    }
     const all = await ctx.db.query("raidSamples").collect();
     const byModule = new Map<string, number>();
     for (const s of all) byModule.set(s.module, (byModule.get(s.module) ?? 0) + 1);

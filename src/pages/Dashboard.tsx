@@ -41,7 +41,10 @@ import { toast } from "sonner";
 export default function Dashboard() {
   const navigate = useNavigate();
   const token = getSessionToken();
-  const me = useQuery(api.sessions.me, { token }) as MeData | null | undefined;
+  const me = useQuery(
+    api.sessions.me,
+    token ? ({ token } as { token: string }) : "skip",
+  ) as MeData | null | undefined;
   const logout = useMutation(api.sessions.logout);
   // Làm mới danh sách server qua action server-side: server tự hỏi Discord
   // /users/@me/guilds bằng access token — client không tự báo danh sách.

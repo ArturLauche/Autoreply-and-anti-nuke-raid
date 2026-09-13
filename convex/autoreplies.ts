@@ -12,6 +12,36 @@ async function assertManage(ctx: MutationCtx, token: string, guildId: string) {
   return guild!;
 }
 
+/** Giới hạn dữ liệu rule auto reply: chống phình document + spam lưu trữ. */
+const MAX_RULES_PER_GUILD = 50;
+
+function cleanRuleInput(input: {
+  keywords: string[];
+  response: string;
+  channels: string[];
+  cooldownSeconds: number;
+}) {
+  const keywords = [
+    ...new Set(
+      input.keywords
+        .map((k) => k.trim().slice(0, 60))
+        .filter(Boolean)
+        .slice(0, 30),
+    ),
+  ];
+  const response = input.response.trim().slice(0, 2000);
+  const channels = [
+    ...new Set(
+      input.channels
+        .map((c) => c.trim())
+        .filter((c) => /^\d{15,20}$/.test(c))
+        .slice(0, 100),
+    ),
+  ];
+  if (!response) throw new Error("Nội dung trả lời không được để trống");
+  return { keywords, response, channels, cooldownSeconds: Math.max(0, Math.min(86400, Math.floor(input.cooldownSeconds))) };
+}
+
 export const add = mutation({
   args: {
     token: v.string(),
@@ -28,9 +58,16 @@ export const add = mutation({
     if (!/^[a-z0-9_-]{1,32}$/i.test(args.name)) {
       throw new Error("Tên rule chỉ gồm chữ, số, _ hoặc - (tối đa 32 ký tự)");
     }
-    if (!args.response.trim()) throw new Error("Nội dung trả lời không được để trống");
-    if (args.triggerType === "keyword" && args.keywords.length === 0) {
+    const clean = cleanRuleInput(args);
+    if (args.triggerType === "keyword" && clean.keywords.length === 0) {
       throw new Error("Cần ít nhất một từ khóa");
+    }
+    const total = await ctx.db
+      .query("autoReplies")
+      .withIndex("by_guildId", (q) => q.eq("guildId", args.guildId))
+      .collect();
+    if (total.length >= MAX_RULES_PER_GUILD) {
+      throw new Error(`Tối đa ${MAX_RULES_PER_GUILD} rule auto reply mỗi server`);
     }
     const dup = await ctx.db
       .query("autoReplies")
@@ -42,10 +79,10 @@ export const add = mutation({
       guildId: args.guildId,
       name: args.name,
       triggerType: args.triggerType,
-      keywords: args.keywords.map((k) => k.trim()).filter(Boolean),
-      response: args.response,
-      channels: args.channels,
-      cooldownSeconds: Math.max(0, Math.min(86400, args.cooldownSeconds)),
+      keywords: clean.keywords,
+      response: clean.response,
+      channels: clean.channels,
+      cooldownSeconds: clean.cooldownSeconds,
       enabled: true,
       createdAt: now,
       updatedAt: now,
@@ -86,13 +123,29 @@ export const update = mutation({
     if (args.name !== undefined) patch.name = args.name;
     if (args.triggerType !== undefined) patch.triggerType = args.triggerType;
     if (args.keywords !== undefined) {
-      patch.keywords = args.keywords.map((k) => k.trim()).filter(Boolean);
+      patch.keywords = [
+        ...new Set(
+          args.keywords
+            .map((k) => k.trim().slice(0, 60))
+            .filter(Boolean)
+            .slice(0, 30),
+        ),
+      ];
     }
     if (args.response !== undefined) {
       if (!args.response.trim()) throw new Error("Nội dung trả lời không được để trống");
-      patch.response = args.response;
+      patch.response = args.response.trim().slice(0, 2000);
     }
-    if (args.channels !== undefined) patch.channels = args.channels;
+    if (args.channels !== undefined) {
+      patch.channels = [
+        ...new Set(
+          args.channels
+            .map((c) => c.trim())
+            .filter((c) => /^\d{15,20}$/.test(c))
+            .slice(0, 100),
+        ),
+      ];
+    }
     if (args.cooldownSeconds !== undefined) {
       patch.cooldownSeconds = Math.max(0, Math.min(86400, args.cooldownSeconds));
     }

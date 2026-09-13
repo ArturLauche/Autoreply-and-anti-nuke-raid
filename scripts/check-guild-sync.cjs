@@ -41,6 +41,10 @@ const { ConvexHttpClient } = require("../bot/node_modules/convex/browser");
     "| cách đây:", status.lastHeartbeat ? Math.round((Date.now() - status.lastHeartbeat) / 1000) + "s" : null);
 
   const stats = await client.query("guilds:botGuildStats");
+  if (!stats) {
+    console.log("\n⚠️ guilds:botGuildStats trả về null — cần BOT_KEY (bot/.env) hoặc token chủ bot.");
+    process.exit(1);
+  }
   const missing = (status.guildCount ?? 0) - stats.inGuild;
   console.log("\nguilds trong Convex:");
   console.log("  tổng:", stats.total);

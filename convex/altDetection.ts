@@ -60,8 +60,28 @@ export const updateAltConfig = mutation({
     if (args.altMaxRiskScore !== undefined) patch.altMaxRiskScore = Math.max(10, Math.min(100, args.altMaxRiskScore));
     if (args.altPunish !== undefined) patch.altPunish = args.altPunish;
     if (args.altVpnMode !== undefined) patch.altVpnMode = args.altVpnMode;
-    if (args.altWhitelistRoles !== undefined) patch.altWhitelistRoles = args.altWhitelistRoles;
-    if (args.altWhitelistUsers !== undefined) patch.altWhitelistUsers = args.altWhitelistUsers;
+    if (args.altWhitelistRoles !== undefined) {
+      // Validate: chỉ nhận Discord snowflake ID hợp lệ, tối đa 100 — chống nhét
+      // dữ liệu rác/phình document qua mutation công khai.
+      patch.altWhitelistRoles = [
+        ...new Set(
+          args.altWhitelistRoles
+            .map((id) => id.trim())
+            .filter((id) => /^\d{15,20}$/.test(id))
+            .slice(0, 100),
+        ),
+      ];
+    }
+    if (args.altWhitelistUsers !== undefined) {
+      patch.altWhitelistUsers = [
+        ...new Set(
+          args.altWhitelistUsers
+            .map((id) => id.trim())
+            .filter((id) => /^\d{15,20}$/.test(id))
+            .slice(0, 100),
+        ),
+      ];
+    }
     if (args.altSafeMode !== undefined) patch.altSafeMode = args.altSafeMode;
     await ctx.db.patch(guild._id, patch);
     return { ok: true };

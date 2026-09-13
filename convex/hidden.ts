@@ -278,8 +278,15 @@ export const setBotBranding = mutation({
     await requireGuild(ctx, token, guildId);
     await requireBotOwner(ctx, user);
     const status = await getBotStatus(ctx);
-    const clean = (u: string | null | undefined) =>
-      u ? u.trim().slice(0, 2000) : undefined;
+    // Chỉ nhận URL http(s) (hoặc Convex storage) — chặn javascript:/data:/vbscript:
+    // bị render vào <img> công khai trên landing + dashboard.
+    const clean = (u: string | null | undefined) => {
+      if (!u) return undefined;
+      const s = u.trim().slice(0, 2000);
+      if (!s) return undefined;
+      if (!/^https:\/\//i.test(s) && !s.startsWith("blob:")) return undefined;
+      return s;
+    };
     const patch: Record<string, unknown> = {};
     if (botAvatarUrl !== undefined) patch.botAvatarUrl = clean(botAvatarUrl);
     if (haimiyaAvatarUrl !== undefined) patch.haimiyaAvatarUrl = clean(haimiyaAvatarUrl);

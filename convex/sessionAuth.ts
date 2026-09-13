@@ -16,6 +16,25 @@ const DISCORD_API = "https://discord.com/api/v10";
 const PERM_MANAGE_GUILD = 0x20;
 
 /**
+ * redirect_uri phải khớp CHÍNH XÁC một trong những URL đăng ký trong Discord
+ * Developer Portal (/discord/callback trên domain dashboard). Chặn kẻ xấu trao đổi
+ * code theo redirect_uri tùy ý ( authorization code bị kẹp có thể bị gửi tới
+ * endpoint attacker-controlled và trao đổi thành access token).
+ */
+function assertAllowedRedirectUri(uri: string): void {
+  const ALLOWED = [
+    process.env.OAUTH_REDIRECT_URI,
+    process.env.DASHBOARD_URL
+      ? `${process.env.DASHBOARD_URL.replace(/\/+$/, "")}/discord/callback`
+      : undefined,
+  ].filter((u): u is string => !!u);
+  if (ALLOWED.length === 0) return; // chưa cấu hình → giữ back-compat (như trước đây)
+  if (!ALLOWED.includes(uri)) {
+    throw new Error("redirect_uri không nằm trong danh sách cho phép");
+  }
+}
+
+/**
  * Trao đổi code OAuth Discord + tạo phiên đăng nhập NGAY TRÊN SERVER.
  *
  * Trước đây web tự gọi Discord API bằng clientId công khai (PKCE không cần
@@ -41,6 +60,7 @@ export const exchangeAndLogin = action({
   },
   handler: async (ctx, { code, codeVerifier, redirectUri, funcKey }) => {
     requireFuncKey(funcKey, process.env.FUNC_SEED);
+    assertAllowedRedirectUri(redirectUri);
 
     const clientId = process.env.DISCORD_CLIENT_ID;
     const clientSecret = process.env.DISCORD_CLIENT_SECRET;

@@ -46,7 +46,8 @@ export default function Taskbar() {
   const status = useBotStatus();
   const { discordInvite, facebookUrl } = usePublicConfig();
   const token = getSessionToken();
-  const isOwner = useQuery(api.status.isOwner, { token });
+  // Chưa đăng nhập → skip subscription (tiết kiệm hạn mức, tránh re-subscribe vô nghĩa).
+  const isOwner = useQuery(api.status.isOwner, token ? { token } : "skip");
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");

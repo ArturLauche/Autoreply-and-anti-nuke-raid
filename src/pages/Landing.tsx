@@ -57,7 +57,11 @@ function Nav() {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const token = getSessionToken();
-  const me = useQuery(api.sessions.me, { token }) as MeData | null | undefined;
+  // Chưa đăng nhập → skip subscription, không tốn lần đọc hạn mức.
+  const me = useQuery(
+    api.sessions.me,
+    token ? { token } : "skip",
+  ) as MeData | null | undefined;
   const logout = useMutation(api.sessions.logout);
   const avatar = me?.user
     ? discordAvatarUrl({ id: me.user.discordId, avatar: me.user.avatar })

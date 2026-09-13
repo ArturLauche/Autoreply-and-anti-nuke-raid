@@ -23,10 +23,10 @@ import { cn } from "../lib/utils";
 
 function AdminContent() {
   const token = getSessionToken();
-  const isOwner = useQuery(api.status.isOwner, { token });
+  const isOwner = useQuery(api.status.isOwner, token ? { token } : "skip");
   const { status, latency, avg, incidents, lastUpdate, nextUpdate, refresh } =
-    useBotMonitor(5000);
-  const threat = useQuery(api.threatIntel.getSettings);
+    useBotMonitor(15000);
+  const threat = useQuery(api.threatIntel.getSettings, { token });
   const setThreat = useMutation(api.threatIntel.setResearchSettings);
   const removeThreatKw = useMutation(api.threatIntel.removeKeyword);
   const setSecrets = useMutation(api.hidden.setBotSecrets);

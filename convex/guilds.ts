@@ -499,8 +499,14 @@ export const updateSettings = mutation({
         .slice(0, 100);
       patch.whitelistRoles = [...new Set(ids)];
     }
-    if (args.modRoles !== undefined) patch.modRoles = args.modRoles;
-    if (args.adminRoles !== undefined) patch.adminRoles = args.adminRoles;
+    if (args.modRoles !== undefined) {
+      // Validate: chỉ Discord snowflake ID hợp lệ, tối đa 50 — mod/admin role là
+      // dữ liệu quyết định AI được miễn trừ phạt chống nuke nên phải sạch.
+      patch.modRoles = [...new Set(args.modRoles.map((id) => id.trim()).filter((id) => /^\d{15,20}$/.test(id)).slice(0, 50))];
+    }
+    if (args.adminRoles !== undefined) {
+      patch.adminRoles = [...new Set(args.adminRoles.map((id) => id.trim()).filter((id) => /^\d{15,20}$/.test(id)).slice(0, 50))];
+    }
     if (args.badWords !== undefined) {
       if (args.badWords.length > 100) throw new Error("Tối đa 100 từ ngữ xấu");
       const words = args.badWords
@@ -845,11 +851,28 @@ export const botGuildGone = mutation({
   },
 });
 
-/** Chẩn đoán sức khỏe sync: số guild đang hiển thị / đã ẩn / heartbeat cũ (không lộ id). */
+/** Chẩn đoán sức khỏe sync: số guild đang hiển thị / đã ẩn / heartbeat cũ (không lộ id).
+ *  Chỉ bot (botKey) hoặc chủ bot đăng nhập web được gọi — trước đây quét toàn bộ
+ *  bảng guilds mở công khai, tốn hạn mức mỗi lần gọi. */
 export const botGuildStats = query({
-  // botKey: script chẩn đoán chèn chìa khóa vào mọi call — chấp nhận và bỏ qua an toàn.
-  args: { botKey: v.optional(v.string()) },
-  handler: async (ctx, _args) => {
+  args: {
+    botKey: v.optional(v.string()),
+    token: v.optional(v.string()),
+  },
+  handler: async (ctx, { botKey, token }) => {
+    if (botKey) {
+      await requireBotKey(ctx, botKey);
+    } else if (token) {
+      const user = await getUserByToken(ctx, token);
+      if (!user) return null;
+      const owner = await ctx.db
+        .query("botStatus")
+        .withIndex("by_kind", (q) => q.eq("kind", "status"))
+        .first();
+      if (owner?.ownerDiscordId && owner.ownerDiscordId !== user.discordId) return null;
+    } else {
+      return null;
+    }
     const all = await ctx.db.query("guilds").collect();
     const now = Date.now();
     let inGuild = 0;

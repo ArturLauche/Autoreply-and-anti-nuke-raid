@@ -214,6 +214,25 @@
     will-change: transform, opacity;
   }
 
+  /* Người dùng bật "giảm chuyển động" (iOS/Android/desktop): tắt hiệu ứng
+     cánh hoa + heart-flow để tiết kiệm pin và tránh chóng mặt. */
+  @media (prefers-reduced-motion: reduce) {
+    .petal {
+      animation: none;
+      opacity: 0;
+    }
+    .heat-swirl {
+      animation: none;
+    }
+  }
+
+  /* Điện thoại: giảm số hiệu ứng nặng, tối ưu pin. */
+  @media (max-width: 640px) {
+    .petal {
+      box-shadow: none;
+    }
+  }
+
   /* Thanh nhiệt xoáy: xanh → vàng → đỏ chảy liên tục */
   @keyframes heat-flow {
     0% {

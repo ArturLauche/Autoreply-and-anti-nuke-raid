@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
 import { Send, Sparkles, X } from "lucide-react";
 import { api } from "../../convex/_generated/api";
+import { getSessionToken } from "../lib/discord";
 import { askHaimiya, GREETING, QUICK_QUESTIONS } from "../lib/haimiya";
 import { useBranding } from "../lib/useBranding";
 import { cn } from "../lib/utils";
@@ -188,9 +189,20 @@ export default function HaimiyaChat({
       // ignore — gửi không funcKey (server miễn check khi chưa đặt FUNC_SEED).
     }
     try {
-      const res = await askAI({ messages: history, funcKey });
+      // Token phiên (nếu đã đăng nhập) — backend yêu cầu khi chưa cấu hình FUNC_SEED.
+      let token: string | undefined;
+      try {
+        token = getSessionToken() || undefined;
+      } catch {
+        token = undefined;
+      }
+      const res = await askAI({ messages: history, funcKey, token });
       if (res && !res.offline && res.reply) return res.reply;
-    } catch {
+    } catch (e) {
+      // Rate-limit server trả lỗi rõ ràng → hiển thị cho người dùng thay vì
+      // im lặng rơi về kiến thức cục bộ (giúp họ hiểu vì sao AI im lặng).
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("quá nhanh")) return `[giới-hạn] ${msg}`;
       // fallback to local knowledge.
     }
     return null;
@@ -213,7 +225,12 @@ export default function HaimiyaChat({
         }));
 
       const aiReply = await getAIResponse(history);
-      if (aiReply) {
+      if (aiReply?.startsWith("[giới-hạn]")) {
+        setMessages((m) => [
+          ...m,
+          { role: "haimiya", text: aiReply.replace("[giới-hạn] ", "⏳ ") },
+        ]);
+      } else if (aiReply) {
         setMessages((m) => [...m, { role: "haimiya", text: aiReply }]);
       } else {
         // Fallback: bộ kiến thức cục bộ.
@@ -259,6 +276,10 @@ export default function HaimiyaChat({
             "fixed bottom-5 right-5 z-50 flex w-[min(94vw,24rem)] flex-col overflow-hidden rounded-2xl",
             "border border-primary/30 bg-card/95 shadow-2xl backdrop-blur",
             "animate-in fade-in-0 zoom-in-95 duration-200",
+            // Mobile: chiếm gần hết màn hình, tự co khi bàn phím mở (dvh) và
+            // né vùng pin/tay cầm (env safe-area).
+            "max-h-[min(80dvh,34rem)] h-[min(80dvh,34rem)]",
+            "max-[400px]:bottom-2 max-[400px]:right-2",
           )}
         >
           {/* Header */}
@@ -287,7 +308,7 @@ export default function HaimiyaChat({
           </div>
 
           {/* Tin nhắn */}
-          <div className="h-[22rem] space-y-3 overflow-y-auto px-4 py-4">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4">
             {messages.map((m, i) => (
               <div
                 key={i}
@@ -337,7 +358,10 @@ export default function HaimiyaChat({
           </div>
 
           {/* Input */}
-          <div className="border-t border-border/70 p-3">
+          <div
+            className="border-t border-border/70 p-3"
+            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          >
             <div className="flex items-center gap-2 rounded-xl border border-border bg-background/70 px-3 py-2 focus-within:border-primary/50">
               <input
                 value={input}

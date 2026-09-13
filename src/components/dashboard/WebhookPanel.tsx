@@ -252,6 +252,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
       const hasEmbed = Object.keys(embedPayload).length > 0;
 
       await sendEmbed({
+        token,
         webhookUrl: webhookUrl.trim(),
         content: content.trim() || undefined,
         username: username.trim() || undefined,

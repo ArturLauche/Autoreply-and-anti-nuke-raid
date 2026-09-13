@@ -74,7 +74,7 @@ function LatencyChart({ samples }: { samples: number[] }) {
 
 export default function Monitor() {
   const { status, latency, history, avg, incidents, lastUpdate, nextUpdate, refresh } =
-    useBotMonitor(5000);
+    useBotMonitor(15000);
 
   const lat = latency ?? avg;
   const rate = lat !== null ? latencyLabel(lat) : null;

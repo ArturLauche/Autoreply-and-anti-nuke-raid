@@ -32,7 +32,12 @@ export default function CherryBlossom({
   count?: number;
   className?: string;
 }) {
-  const petals = useMemo(() => makePetals(count), [count]);
+  // Điện thoại: hiển thị ít cánh hoa hơn (≈60%) — nhẹ hơn cho GPU/pin.
+  const isSmallScreen =
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(max-width: 640px)").matches;
+  const effectiveCount = isSmallScreen ? Math.max(6, Math.round(count * 0.6)) : count;
+  const petals = useMemo(() => makePetals(effectiveCount), [effectiveCount]);
 
   return (
     <div

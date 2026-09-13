@@ -34,6 +34,9 @@ const AI_ENV_KEYS = [
 
 function clearAIEnv() {
   for (const k of AI_ENV_KEYS) delete process.env[k];
+  // Đảm bảo luồng test đi qua check đăng nhập (không nhánh FUNC_SEED).
+  delete process.env.FUNC_SEED;
+  delete process.env.OWNER_SEED;
 }
 
 type ReqInfo = { host: string; model?: string; system?: string; history?: unknown[] };
@@ -58,7 +61,22 @@ function mockFetch(reply = "Chào bạn! Mình là Haimiya.", status = 200) {
   }) as typeof fetch;
 }
 
-const okReply = async () => (await askHandler(null as any, { messages: [{ role: "user", content: "xin chào" }] })) as any;
+// Token giả: handler check đăng nhập chỉ khi FUNC_SEED chưa đặt — trong test
+// env đó chưa đặt nên cần "me" tra được qua internal query (mock ctx.runQuery).
+const ctxMock = {
+  runQuery: async (_fn: unknown, args: { token: string }) => {
+    if (args?.token === "test-session-token") {
+      return { discordId: "123456789012345678", username: "tester" };
+    }
+    return null;
+  },
+} as any;
+
+const okReply = async () =>
+  (await askHandler(ctxMock, {
+    messages: [{ role: "user", content: "xin chào" }],
+    token: "test-session-token",
+  })) as any;
 
 (async () => {
   console.log("A) Không có key nào → offline, không gọi API:");
@@ -117,7 +135,7 @@ const okReply = async () => (await askHandler(null as any, { messages: [{ role: 
     role: i % 2 === 0 ? ("user" as const) : ("assistant" as const),
     content: `msg-${i}`,
   }));
-  await askHandler(null as any, { messages: longHistory });
+  await askHandler(ctxMock, { messages: longHistory, token: "test-session-token" });
   const hist = requests[0]?.history as any[];
   check("chỉ gửi 8 tin gần nhất", hist.length === 8);
   check("tin đầu là msg-4 (cắt 4 tin cũ)", hist[0]?.content === "msg-4");
@@ -129,7 +147,9 @@ const okReply = async () => (await askHandler(null as any, { messages: [{ role: 
   mockFetch(
     JSON.stringify({ classification: "raid", confidence: 0.9, reason: "lặp nội dung", suggestPunish: "ban" }),
   );
-  const cls = (await classifyHandler(null as any, {
+  // classifyViolation giờ CHỈ bot có botKey được gọi — ctx không có "db" + runQuery
+  // trả null (không có botKeySeed) → rơi vào nhánh back-compat, check được bỏ qua.
+  const cls = (await classifyHandler(ctxMock, {
     guildId: "g1",
     module: "spam",
     count: 10,
@@ -146,7 +166,7 @@ const okReply = async () => (await askHandler(null as any, { messages: [{ role: 
   // Không key → individual + offline (hành vi an toàn)
   clearAIEnv();
   mockFetch();
-  const cls2 = (await classifyHandler(null as any, {
+  const cls2 = (await classifyHandler(ctxMock, {
     guildId: "g1",
     module: "spam",
     count: 10,

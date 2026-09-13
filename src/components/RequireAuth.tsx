@@ -7,7 +7,8 @@ import { Loader2 } from "lucide-react";
 export default function RequireAuth({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const token = getSessionToken();
-  const me = useQuery(api.sessions.me, { token });
+  // Chưa đăng nhập → skip (RequireAuth sẽ chuyển hướng sang /auth ngay).
+  const me = useQuery(api.sessions.me, token ? { token } : "skip");
 
   if (me === undefined) {
     return (
