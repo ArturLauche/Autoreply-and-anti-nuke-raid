@@ -744,6 +744,34 @@ export const botClaimBackup = mutation({
   },
 });
 
+/**
+ * Bot báo lỗi khôi phục — dashboard hiển thị lý do rõ ràng thay vì im lặng.
+ * Xóa cờ restore (người dùng bấm lại sau khi khắc phục: bot online đủ quyền,
+ * backup còn đọc được…).
+ */
+export const botReportRestoreError = mutation({
+  args: { guildId: v.string(), error: v.string(),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()), },
+  handler: async (ctx, { botKey, guildId, error }) => {
+    await requireBotKeyStrict(ctx, botKey);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) return { ok: true };
+    await ctx.db.patch(guild._id, {
+      restoreRequested: false,
+      restoreBackupId: undefined,
+      restoreClaimedAt: undefined,
+      restoreError: String(error || "Lỗi không xác định").slice(0, 300),
+      restoreErrorAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    return { ok: true };
+  },
+});
+
 /** Bot xóa cờ yêu cầu backup/khôi phục sau khi đã xử lý xong. */
 export const botClearBackup = mutation({
   args: {
@@ -789,6 +817,9 @@ export const botClearBackup = mutation({
       patch.restoreRequested = false;
       patch.restoreBackupId = undefined;
       patch.restoreClaimedAt = undefined;
+      patch.restoreError = undefined;
+      patch.restoreErrorAt = undefined;
+      patch.restoreFinishedAt = Date.now();
     }
     await ctx.db.patch(guild._id, patch);
     return { ok: true };

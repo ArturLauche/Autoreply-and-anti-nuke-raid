@@ -60,6 +60,11 @@ export default defineSchema({
     restoreRequested: v.optional(v.boolean()),
     restoreBackupId: v.optional(v.id("guildBackups")),
     restoreClaimedAt: v.optional(v.number()),
+    /** Lỗi khôi phục gần nhất (bot báo lại — dashboard hiển thị thay vì im lặng). */
+    restoreError: v.optional(v.string()),
+    restoreErrorAt: v.optional(v.number()),
+    /** Mốc khôi phục hoàn tất gần nhất — dashboard hiển thị kết quả thay vì người dùng tự đoán. */
+    restoreFinishedAt: v.optional(v.number()),
     /** Web bật/tắt khôi phục role khi restore (áp dụng cho backup Protogon lẫn file bot nuke). */
     restoreRolesEnabled: v.optional(v.boolean()),
     /** Web bật/tắt khôi phục emoji/sticker khi restore (áp dụng cho backup Protogon lẫn file bot nuke). */

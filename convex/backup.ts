@@ -150,6 +150,8 @@ export const requestRestore = mutation({
       restoreRequested: true,
       restoreBackupId: backupId,
       restoreClaimedAt: undefined,
+      restoreError: undefined,
+      restoreErrorAt: undefined,
       updatedAt: Date.now(),
     });
     return { ok: true };
@@ -264,6 +266,12 @@ export const importStatus = query({
       fileName: guild.importFileName ?? null,
       error: guild.importError ?? null,
       errorAt: guild.importErrorAt ?? null,
+      // Trạng thái khôi phục (nút "Khôi phục vào server này") — web hiển thị
+      // tiến trình / lỗi thay vì người dùng bấm xong chờ mãi không thấy gì.
+      restoreRequested: !!guild.restoreRequested,
+      restoreError: guild.restoreError ?? null,
+      restoreErrorAt: guild.restoreErrorAt ?? null,
+      restoreFinishedAt: guild.restoreFinishedAt ?? null,
       updatedAt: guild.updatedAt,
       botOnline,
       botVersion: status?.version ?? null,

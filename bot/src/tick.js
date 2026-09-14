@@ -96,18 +96,29 @@ async function runBackupJobs(client, store, items) {
       }
     } catch (e) {
       console.error(`[tick:backup:${item.kind}] ${item.guildId}:`, e.message);
-      // Import: báo lỗi lên dashboard để người dùng thấy lý do; backup/restore:
-      // xóa cờ như cũ (không có màn hình chờ).
-      const reportKind =
-        item.kind === "import" ? "bot_writes:botReportImportError" : "bot_writes:botClearBackup";
-      await store.client
-        .mutation(reportKind, {
-          guildId: item.guildId,
-          ...(item.kind === "import"
-            ? { error: String(e?.message || "Lỗi không xác định").slice(0, 300) }
-            : { kind: item.kind }),
-        })
-        .catch(() => {});
+      // Import/restore: báo lỗi lên dashboard để người dùng thấy lý do thay vì
+      // chờ mãi không thấy gì; backup: xóa cờ như cũ (đã có embed/skip notice).
+      // Restore trước đây xóa cờ IM LẶNG — người dùng bấm "Khôi phục" xong
+      // không bao giờ biết vì sao không có gì xảy ra.
+      if (item.kind === "import") {
+        await store.client
+          .mutation("bot_writes:botReportImportError", {
+            guildId: item.guildId,
+            error: String(e?.message || "Lỗi không xác định").slice(0, 300),
+          })
+          .catch(() => {});
+      } else if (item.kind === "restore") {
+        await store.client
+          .mutation("bot_writes:botReportRestoreError", {
+            guildId: item.guildId,
+            error: String(e?.message || "Lỗi không xác định").slice(0, 300),
+          })
+          .catch(() => {});
+      } else {
+        await store.client
+          .mutation("bot_writes:botClearBackup", { guildId: item.guildId, kind: item.kind })
+          .catch(() => {});
+      }
     } finally {
       backupInFlight.delete(key);
     }
@@ -180,4 +191,4 @@ function setupTick(client, store) {
   });
 }
 
-module.exports = { setupTick };
+module.exports = { setupTick, runBackupJobs, runTickOnce };

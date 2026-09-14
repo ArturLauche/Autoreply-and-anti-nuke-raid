@@ -74,6 +74,10 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         fileName: string | null;
         error: string | null;
         errorAt: number | null;
+        restoreRequested: boolean;
+        restoreError: string | null;
+        restoreErrorAt: number | null;
+        restoreFinishedAt: number | null;
         botOnline: boolean;
         botVersion: string | null;
         botGuildCount: number;
@@ -81,6 +85,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
       }
     | null
     | undefined;
+  // Theo dõi yêu cầu khôi phục (nút "Khôi phục vào server này") — bot xử lý xong
+  // hoặc lỗi sẽ hiển thị ngay thay vì người dùng chờ không biết kết quả.
+  const [restoreWatch, setRestoreWatch] = useState<null | { startedAt: number }>(null);
 
   const refresh = () => setRefreshAt((n) => n + 1);
 
@@ -126,6 +133,49 @@ export default function BackupPanel({ data }: { data: GuildData }) {
     }, 180_000);
     return () => window.clearTimeout(timer);
   }, [importWatch, importStatus]);
+
+  // Bot báo lỗi khôi phục / xử lý xong cờ restore → hiện ngay kết quả.
+  // Quá 3 phút chưa xong → cảnh báo chẩn đoán (bot offline / bản cũ) thay vì treo.
+  useEffect(() => {
+    if (!restoreWatch || importStatus === undefined || importStatus === null) return;
+    if (importStatus.restoreError) {
+      toast.error(`Khôi phục thất bại: ${importStatus.restoreError}`, {
+        description:
+          "Bot đã dừng giữa chừng. Kiểm tra bot còn trong server + đủ quyền Administrator rồi thử khôi phục lại.",
+        duration: 12000,
+      });
+      setRestoreWatch(null);
+      refresh();
+    } else if (!importStatus.restoreRequested) {
+      const fresh = parseBotVersion(importStatus.botVersion) >= MIN_IMPORT_BOT_VERSION;
+      if (fresh) {
+        toast.success("Bot đã khôi phục xong", {
+          description: "Role, kênh, tin nhắn và emoji/sticker đã được tạo lại theo backup. Kiểm tra embed xác nhận trong kênh log.",
+        });
+      } else {
+        toast.info("Yêu cầu khôi phục đã được xử lý", {
+          description: `Bot đang chạy bản cũ (${importStatus.botVersion || "không rõ"}) — hãy kiểm tra server trực tiếp và cập nhật bot lên bản mới nhất (v${MIN_IMPORT_BOT_VERSION}+).`,
+        });
+      }
+      setRestoreWatch(null);
+      window.setTimeout(refresh, 2500);
+    }
+  }, [restoreWatch, importStatus]);
+
+  // Restore chờ quá 3 phút → cảnh báo thay vì treo vô thời hạn.
+  useEffect(() => {
+    if (!restoreWatch) return;
+    const timer = window.setTimeout(() => {
+      if (Date.now() - restoreWatch.startedAt > 180_000) {
+        const hint =
+          importStatus?.botOnline === false
+            ? "Bot đang OFFLINE — khởi động bot trên host rồi bấm Khôi phục lại."
+            : "Bot online nhưng chưa xử lý xong — server lớn kèm tin nhắn có thể mất vài phút; nếu quá lâu hãy cập nhật bot lên bản mới nhất.";
+        toast.warning("Bot vẫn chưa xử lý xong khôi phục", { description: hint, duration: 10000 });
+      }
+    }, 180_000);
+    return () => window.clearTimeout(timer);
+  }, [restoreWatch, importStatus]);
 
   async function createBackup() {
     // Bot OFFLINE → yêu cầu sẽ không bao giờ được xử lý (bot quét mỗi ~20-60s);
@@ -285,8 +335,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         guildId: data.guild.discordId,
         backupId: backup._id,
       });
+      setRestoreWatch({ startedAt: Date.now() });
       toast.success("Đã yêu cầu khôi phục — bot thực hiện trong ~1 phút", {
-        description: "Role, quyền role và kênh sẽ được tạo lại theo backup.",
+        description: "Role, quyền role và kênh sẽ được tạo lại theo backup. Kết quả sẽ hiện ở đây.",
       });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Thất bại");
@@ -304,9 +355,30 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         <p className="text-sm text-muted-foreground">
           Chụp cấu trúc server (role, quyền role, kênh + quyền kênh) lên{" "}
           <b className="text-foreground">đám mây GitHub</b>. Khi server bị nuke/raid phá sập hoàn
-          toàn, mời bot vào <b className="text-foreground">server phụ</b> rồi khôi phục lại từ
+          toàn, mời bot vào          <b className="text-foreground">server phụ</b> rồi khôi phục lại từ
           backup.
         </p>
+
+        {/* Trạng thái khôi phục: lỗi lần trước / đang chạy — người dùng bấm
+            "Khôi phục vào server này" xong PHẢI thấy kết quả, không chờ mù mờ. */}
+        {importStatus && importStatus.restoreError && (
+          <p className="mt-3 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              Lần khôi phục trước <b>thất bại</b>: {importStatus.restoreError} — khắc phục (bot còn
+              trong server, đủ quyền Administrator) rồi bấm Khôi phục lại.
+            </span>
+          </p>
+        )}
+        {importStatus && importStatus.restoreRequested && (
+          <p className="mt-3 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-primary">
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+            <span>
+              Đang khôi phục vào server này… server lớn kèm tin nhắn có thể mất vài phút. Kết quả sẽ
+              hiện ở đây và trong kênh log.
+            </span>
+          </p>
+        )}
       </div>
 
       {/* Tạo backup */}
@@ -446,6 +518,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
               </span>
             </p>
           )}
+
           <p className="text-[11px] text-muted-foreground">
             Giới hạn file <b className="text-foreground">8 MB</b> (gồm cả media — file được giữ trong đám mây, không
             nhét vào bộ nhớ bot). Bot giữ nguyên role/kênh có sẵn của server hiện tại — chỉ thêm mới theo file, không
