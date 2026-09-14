@@ -1,7 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild, guildAccessibleBy } from "./auth";
-import { requireBotKey } from "./botAuth";
+import { requireBotKeyStrict } from "./botAuth";
 import {
   ANTI_NUKE_MODULES,
   HEAT_DEFAULTS,
@@ -183,17 +183,6 @@ export const getGuild = query({
         verifySendPanel: guild.verifySendPanel ?? false,
       },
       heatStates,
-      autoReplies: autoReplies.map((r) => ({
-        _id: r._id,
-        name: r.name,
-        triggerType: r.triggerType,
-        keywords: r.keywords,
-        response: r.response,
-        channels: r.channels,
-        cooldownSeconds: r.cooldownSeconds,
-        enabled: r.enabled,
-        createdAt: r.createdAt,
-      })),
       modules: modules.map((m) => ({
         module: m.module,
         enabled: m.enabled,
@@ -215,17 +204,21 @@ export const getGuild = query({
         color: r.color,
         position: r.position,
       })),
-      panels: panels.map((p) => ({
-        _id: p._id,
-        channelId: p.channelId,
-        label: p.label,
-        description: p.description ?? null,
-        thumbnailUrl: p.thumbnailUrl ?? null,
-        entries: p.entries,
-        messageId: p.messageId ?? "",
-        enabled: p.enabled,
-        createdAt: p.createdAt,
-      })),
+      // TÍNH NĂNG ẨN — chỉ trả cho CHỦ BOT (lỗ hổng cũ: mọi manager xem được,
+      // trong khi API tạo/xóa lại chỉ cho owner → dữ liệu lệch trạng thái + lộ nội dung).
+      panels: isBotOwner
+        ? panels.map((p) => ({
+            _id: p._id,
+            channelId: p.channelId,
+            label: p.label,
+            description: p.description ?? null,
+            thumbnailUrl: p.thumbnailUrl ?? null,
+            entries: p.entries,
+            messageId: p.messageId ?? "",
+            enabled: p.enabled,
+            createdAt: p.createdAt,
+          }))
+        : [],
       modActions: modActions.map((m) => ({
         _id: m._id,
         action: m.action,
@@ -238,27 +231,43 @@ export const getGuild = query({
         caseNumber: m.caseNumber ?? null,
         createdAt: m.createdAt,
       })),
-      giveaways: giveaways.map((g) => ({
-        _id: g._id,
-        channelId: g.channelId,
-        title: g.title,
-        prize: g.prize,
-        winnerCount: g.winnerCount,
-        durationMinutes: g.durationMinutes,
-        endsAt: g.endsAt,
-        dmWinners: g.dmWinners,
-        requiredRoleId: g.requiredRoleId ?? null,
-        prizeRoleId: g.prizeRoleId ?? null,
-        template: g.template ?? "default",
-        message: g.message ?? null,
-        imageUrl: g.imageUrl ?? null,
-        endMessage: g.endMessage ?? null,
-        status: g.status,
-        messageId: g.messageId ?? "",
-        entriesCount: g.entries.length,
-        winners: g.winners,
-        createdAt: g.createdAt,
-      })),
+      giveaways: isBotOwner
+        ? giveaways.map((g) => ({
+            _id: g._id,
+            channelId: g.channelId,
+            title: g.title,
+            prize: g.prize,
+            winnerCount: g.winnerCount,
+            durationMinutes: g.durationMinutes,
+            endsAt: g.endsAt,
+            dmWinners: g.dmWinners,
+            requiredRoleId: g.requiredRoleId ?? null,
+            prizeRoleId: g.prizeRoleId ?? null,
+            template: g.template ?? "default",
+            message: g.message ?? null,
+            imageUrl: g.imageUrl ?? null,
+            endMessage: g.endMessage ?? null,
+            status: g.status,
+            messageId: g.messageId ?? "",
+            entriesCount: g.entries.length,
+            winners: g.winners,
+            createdAt: g.createdAt,
+          }))
+        : [],
+      // Auto-reply là tính năng ẩn (botCreate khi setup) → chỉ owner xem được.
+      autoReplies: isBotOwner
+        ? autoReplies.map((r) => ({
+            _id: r._id,
+            name: r.name,
+            triggerType: r.triggerType,
+            keywords: r.keywords,
+            response: r.response,
+            channels: r.channels,
+            cooldownSeconds: r.cooldownSeconds,
+            enabled: r.enabled,
+            createdAt: r.createdAt,
+          }))
+        : [],
     };
   },
 });
@@ -269,7 +278,7 @@ export const getBotConfig = query({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -698,7 +707,7 @@ export const setAntinukeGlobal = mutation({
 export const getVerifySendPanelGuilds = query({
   args: { botKey: v.optional(v.string()) },
   handler: async (ctx, { botKey }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const guilds = await ctx.db.query("guilds").collect();
     return guilds
       .filter((g) => g.verifySendPanel === true && g.verifyEnabled && g.verifyChannelId)
@@ -718,7 +727,7 @@ export const clearVerifySendPanel = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -750,7 +759,7 @@ export const botSyncGuilds = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, { botKey, guilds, trustedFullList }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const now = Date.now();
     const present = new Set(guilds.map((g) => g.id));
     for (const g of guilds) {
@@ -861,7 +870,7 @@ export const botGuildGone = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -882,7 +891,7 @@ export const botGuildStats = query({
   },
   handler: async (ctx, { botKey, token }) => {
     if (botKey) {
-      await requireBotKey(ctx, botKey);
+      await requireBotKeyStrict(ctx, botKey);
     } else if (token) {
       const user = await getUserByToken(ctx, token);
       if (!user) return null;
@@ -931,7 +940,7 @@ export const botHeartbeat = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     const now = Date.now();
     const existing = await ctx.db
       .query("botStatus")
@@ -976,7 +985,7 @@ export const syncChannels = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, { botKey, guildId, channels }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const old = await ctx.db
       .query("guildChannels")
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
@@ -1004,7 +1013,7 @@ export const syncRoles = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, { botKey, guildId, roles }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const old = await ctx.db
       .query("guildRoles")
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))

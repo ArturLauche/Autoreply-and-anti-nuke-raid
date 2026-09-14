@@ -11,7 +11,7 @@ import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { requireFuncKey } from "./botFunc";
-import { requireBotKey } from "./botAuth";
+import { requireBotKeyStrict } from "./botAuth";
 
 /** Kiến thức cốt lõi về Protogon — dùng làm system prompt cho AI thật. */
 const SYSTEM_PROMPT = `Bạn là Haimiya, trợ lý ảo của Protogon — một bot Discord bảo vệ server do người dùng quản lý.
@@ -236,7 +236,7 @@ export const classifyViolation = action({
   handler: async (ctx, args) => {
     // CHỈ bot được gọi: phân loại/điều tra xảy ra phía process bot (nguồn dữ liệu
     // tin cậy) — không cho client web tự gọi để đốt lượt AI free tier.
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     const p = aiProvider();
     if (!p) return { classification: "individual", confidence: 0.5, reason: "AI chưa cấu hình", suggestPunish: undefined, offline: true };
     const samples = (args.sampleMessages || []).slice(0, 6).map((s) => s.slice(0, 200));
@@ -316,7 +316,7 @@ export const analyzeRaid = action({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     const p = aiProvider();
     if (!p) {
       return { coordinated: null, confidence: 0, reasoning: "AI chưa cấu hình", sourceHint: null, offline: true };
@@ -394,7 +394,7 @@ export const analyzeExternalApp = action({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     const p = aiProvider();
     if (!p) {
       return { isRaid: null, confidence: 0, reason: "AI chưa cấu hình", offline: true };

@@ -1,7 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild, guildAccessibleBy } from "./auth";
-import { requireBotKey } from "./botAuth";
+import { requireBotKeyStrict } from "./botAuth";
 
 /**
  * Backup server → đám mây GitHub.
@@ -66,7 +66,7 @@ export const listGuild = query({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const backups = await ctx.db
       .query("guildBackups")
       .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId))
@@ -342,7 +342,7 @@ export const setRestoreOptions = mutation({
 export const botGetDueAuto = query({
   args: { botKey: v.optional(v.string()) },
   handler: async (ctx, { botKey }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const now = Date.now();
     const all = await ctx.db.query("guilds").collect();
     const due: { guildId: string; days: number }[] = [];
@@ -370,7 +370,7 @@ export const botGetLastChecksum = query({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const last = await ctx.db
       .query("guildBackups")
       .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId))
@@ -388,7 +388,7 @@ export const botGetLastChecksum = query({
 export const botGetPending = query({
   args: { botKey: v.optional(v.string()) },
   handler: async (ctx, { botKey }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const out: {
       kind: string;
       guildId: string;

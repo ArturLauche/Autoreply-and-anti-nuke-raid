@@ -138,7 +138,7 @@ bun install            # hoặc npm install
 | `DISCORD_TOKEN` | ✅ | Bot token — Developer Portal → *Bot* → *Reset Token* |
 | `DISCORD_CLIENT_ID` | ✅ | Application ID (Client ID) — dùng để đăng ký slash commands |
 | `CONVEX_URL` | ✅ | URL Convex. Dev local: `http://127.0.0.1:3210`. Production: `https://<tên-deployment>.convex.cloud` |
-| `BOT_KEY` | ✅ (khi dashboard đặt OWNER_SEED) | Seed bí mật của bot — phải KHỚP với OWNER_SEED đã đặt trong Dashboard → Admin → "Chìa khóa bảo mật API". Bot tự tính SHA-256 làm chìa gọi mọi function bot-side |
+| `BOT_KEY` | tự động | Chìa khóa bot-side. Khi thiếu, bot **tự cấp phát lúc khởi động** (bootstrap: xác minh DISCORD_TOKEN với Discord API → nhận key random → lưu cache file `.bot-key`). Có thể đặt thủ công bằng seed bất kỳ khớp với "Chìa khóa bảo mật API" trong Dashboard → Admin |
 | `CONVEX_DEPLOY_KEY` | production | Deploy key (quyền ghi) — Convex dashboard → *Deployments → Keys*. Bản dev local không cần |
 | `GROQ_API_KEY` | khuyến nghị | AI miễn phí (console.groq.com) — dùng cho phân loại raid realtime + `/report` khi Kira thiếu |
 | `KIRA_API_KEY` | khuyến nghị | Kira AI (kiraai.vn) free 30M tokens/ngày trên Mimo V2.5 — DÀNH RIÊNG cho research/học hỏi + AI tổng hợp `/report` và cảnh báo khẩn |
@@ -151,7 +151,9 @@ bun install            # hoặc npm install
 | `BACKUP_ENCRYPT_KEY` | ❌ | Mã hóa file backup đối xứng (đặt thì backup/restore được mã hóa) |
 | `AUTO_REGISTER_COMMANDS` | ❌ | `true` (mặc định) để tự đăng ký slash commands khi bot khởi động |
 
-> Biến phía **web/Convex** (không đặt trong bot/.env): `OWNER_SEED`, `FUNC_SEED`, `GITHUB_TOKEN`, `DISCORD_CLIENT_SECRET`, `OAUTH_REDIRECT_URI`, `DASHBOARD_URL`, `DISCORD_INVITE`, `FACEBOOK_URL` — đặt qua Convex env (Dashboard/Keys).
+> Biến phía **web/Convex** (không đặt trong bot/.env): `FUNC_SEED`, `GITHUB_TOKEN`, `DISCORD_CLIENT_SECRET`, `OAUTH_REDIRECT_URI`, `DASHBOARD_URL`, `DISCORD_INVITE`, `FACEBOOK_URL` — đặt qua Convex env (Dashboard/Keys).
+>
+> 🔐 **Cơ chế chìa khóa bot**: mọi function bot-side (heartbeat, backup, sync, hidden jobs…) yêu cầu `botKey`. Không có `BOT_KEY` trong .env → bot tự bootstrap (xác minh token bot thật với Discord) và cache key vào `bot/.bot-key` (quyền 600, đã gitignore). Kẻ ngoài không có token bot thì không cấp được key → không đọc được backup, không giả mạo được dữ liệu bot-side. File `.bot-key` bị mất → bot tự bootstrap lại (cooldown 10 phút).
 
 ### Bật các Privileged Intents trong Developer Portal
 

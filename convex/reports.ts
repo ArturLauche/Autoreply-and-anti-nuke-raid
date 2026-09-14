@@ -2,7 +2,7 @@ import { query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild } from "./auth";
-import { requireBotKey } from "./botAuth";
+import { requireBotKeyStrict } from "./botAuth";
 
 const EVENT_FIELDS = (e: {
   module: string;
@@ -100,7 +100,7 @@ export const historyForGuild = query({
 export const botListGuildIds = query({
   args: { botKey: v.optional(v.string()) },
   handler: async (ctx, { botKey }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const guilds = await ctx.db.query("guilds").collect();
     return guilds
       .filter((g) => g.botInGuild)
@@ -117,7 +117,7 @@ export const getDailyEvents = query({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, { botKey, since }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const events = await ctx.db
       .query("antinukeEvents")
       .withIndex("by_createdAt", (q) => q.gte("createdAt", since))
@@ -141,7 +141,7 @@ export const getGuildModActions = query({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, { botKey, guildId, since, limit }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const actions = await ctx.db
       .query("modActions")
       .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId).gte("createdAt", since))
@@ -166,7 +166,7 @@ export const getGuildEvents = query({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId, since, limit }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const events = await ctx.db
       .query("antinukeEvents")
       .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId).gte("createdAt", since))

@@ -119,6 +119,9 @@ export default defineSchema({
       v.union(v.literal("timeout"), v.literal("kick"), v.literal("ban")),
     ),
     hiddenPasswordHash: v.optional(v.string()),
+    /** Rate-limit dò mật khẩu ẩn: lần thử gần nhất + số lần SAI liên tiếp. */
+    hiddenVerifyLastAt: v.optional(v.number()),
+    hiddenVerifyFails: v.optional(v.number()),
     /** Chủ đề màu riêng cho web của server (key trong SERVER_THEMES). */
     theme: v.optional(v.string()),
     dmTargetUserId: v.optional(v.string()),
@@ -472,6 +475,12 @@ export default defineSchema({
     selfDiagnoseRuns: v.optional(v.number()),
     /** Chìa khóa bot (botAuth): SHA-256("protogon-bot-key::" + OWNER_SEED) — chủ bot đặt 1 lần qua Admin web. Khi có giá trị, mọi function bot-side yêu cầu botKey khớp. */
     botKeySeed: v.optional(v.string()),
+    /** Lần bootstrap (tự cấp phát botKey) thành công gần nhất — chống xoay key dồn dập. */
+    lastBootstrapAt: v.optional(v.number()),
+    /** Lần bot gọi bootstrap gần nhất (kể cả thất bại) — chống dùng action làm relay spam Discord API. */
+    lastBootstrapAttemptAt: v.optional(v.number()),
+    /** Application ID của bot thật (xác minh qua Discord API lúc bootstrap). */
+    botApplicationId: v.optional(v.string()),
     /** Seed cho chìa khóa chức năng (botFunc): các action nguy hiểm (OAuth exchange, AI chat) yêu cầu funcKey. */
     funcSeed: v.optional(v.string()),
   }).index("by_kind", ["kind"]),

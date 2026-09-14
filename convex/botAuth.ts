@@ -1,4 +1,4 @@
-import { type QueryCtx, type MutationCtx, type ActionCtx } from "./_generated/server";
+import { type QueryCtx, type MutationCtx, type ActionCtx, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getBotStatus } from "./hidden";
 import { sha256Hex } from "./sha256";
@@ -51,5 +51,44 @@ export async function requireBotKey(
   }
 }
 
+/**
+ * BẢO MẬT CAO: giống requireBotKey nhưng KHÔNG có back-compat.
+ * Dùng cho các function hủy diệt nếu bị giả mạo: lưu/xóa/claim backup, đồng bộ
+ * guild/kênh/role, ghi nhận chủ sở hữu bot… Khi botKeySeed đã đặt mà caller
+ * không có chìa khóa đúng → từ chối tuyệt đối (kể cả khi seed chưa đặt, function
+ * này vẫn yêu cầu botKey khớp seed ngay khi seed xuất hiện — vì vậy bot phải chạy
+ * bootstrap trước, xem botBootstrap.ts).
+ */
+export async function requireBotKeyStrict(
+  ctx: QueryCtx | MutationCtx | ActionCtx,
+  botKey: string | undefined,
+): Promise<void> {
+  const status = "db" in ctx
+    ? await getBotStatus(ctx)
+    : await ctx.runQuery(internal.hidden.getBotStatusInternal);
+  const seed = status?.botKeySeed;
+  if (!seed) {
+    // Seed chưa được cấp phát — bot thật phải chạy bootstrap (botBootstrap.ts)
+    // trước khi dùng các function bảo mật cao. Từ chối để không có cửa hậu.
+    throw new Error("Chìa khóa bot chưa được cấp phát — bot cần kết nối bản mới để tự cấp phát (bootstrap)");
+  }
+  if (!botKey || computeBotKey(botKey) !== seed) {
+    throw new Error("Chìa khóa bot không hợp lệ (botKey)");
+  }
+}
+
 /** Sinh chuỗi botKey từ OWNER_SEED — dùng ở Admin web (chỉ chủ bot) + trên VPS. */
 export { KEY_PREFIX };
+
+/** (internal) Bot hỏi: seed đã cấp phát chưa? Không lộ seed — chỉ trả cờ + applicationId. */
+export const getBotKeyStatusInternal = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const status = await getBotStatus(ctx);
+    return {
+      seeded: !!status?.botKeySeed,
+      botApplicationId: status?.botApplicationId ?? null,
+      lastBootstrapAt: status?.lastBootstrapAt ?? null,
+    };
+  },
+});

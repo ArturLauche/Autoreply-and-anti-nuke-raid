@@ -1,7 +1,7 @@
 import { mutation, query, internalQuery, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild } from "./auth";
-import { computeBotKey, requireBotKey } from "./botAuth";
+import { computeBotKey, requireBotKeyStrict } from "./botAuth";
 import { hashHiddenPassword } from "./sha256";
 
 async function requireGuild(ctx: QueryCtx | MutationCtx, token: string, guildId: string) {
@@ -42,7 +42,10 @@ async function ownerIsValid(ctx: QueryCtx | MutationCtx, ownerId: string | undef
   return !!user;
 }
 
-/** Chỉ admin SỞ HỮU bot mới được tương tác mật khẩu / tính năng ẩn. */
+/**
+ * Chỉ admin SỞ HỮU bot mới được tương tác mật khẩu / tính năng ẩn.
+ * (Panel reaction role, giveaway, DM, auto-reply ẩn, branding…)
+ */
 async function requireBotOwner(ctx: QueryCtx | MutationCtx, user: { discordId: string } | null) {
   if (!user) throw new Error("Vui lòng đăng nhập");
   const status = await getBotStatus(ctx);
@@ -52,6 +55,19 @@ async function requireBotOwner(ctx: QueryCtx | MutationCtx, user: { discordId: s
   }
   // Chưa có chủ sở hữu (hoặc owner cũ không hợp lệ) → người đặt mật khẩu đầu tiên là chủ bot.
   return status;
+}
+
+/**
+ * Kết hợp: quản lý server + LÀ CHỦ SỞ HỮU BOT.
+ * Tính năng ẩn (panel/giveaway/DM) phải qua cổng này — lỗ hổng cũ chỉ kiểm
+ * "quản lý server" nên mod của server tự tạo được panel/giveaway/DM mà không
+ * cần mở khóa tính năng ẩn.
+ */
+async function requireHiddenManage(ctx: QueryCtx | MutationCtx, token: string, guildId: string) {
+  const user = await getUserByToken(ctx, token);
+  const guild = await requireGuild(ctx, token, guildId);
+  await requireBotOwner(ctx, user);
+  return guild;
 }
 
 /**
@@ -152,7 +168,7 @@ export async function buildHiddenJobs(ctx: QueryCtx) {
 export const getBotHiddenJobs = query({
   args: { botKey: v.optional(v.string()) },
   handler: async (ctx, { botKey }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     return await buildHiddenJobs(ctx);
   },
 });
@@ -162,7 +178,7 @@ export const getBotHidden = query({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -236,7 +252,7 @@ export const botSetOwner = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, { botKey, ownerId, ownerName, ownerAvatarUrl }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     if (!/^\d{15,20}$/.test(ownerId)) return { ok: false };
     const status = await getBotStatus(ctx);
     if (status?.ownerDiscordId && (await ownerIsValid(ctx, status.ownerDiscordId))) {
@@ -380,6 +396,9 @@ export const setHiddenPassword = mutation({
     }
     await ctx.db.patch(guild._id, {
       hiddenPasswordHash: hashHiddenPassword(password, guildId),
+      // Đổi mật khẩu → reset bộ đếm dò (nếu có).
+      hiddenVerifyFails: undefined,
+      hiddenVerifyLastAt: undefined,
       updatedAt: Date.now(),
     });
     return { ok: true, cleared: false };
@@ -405,12 +424,15 @@ async function setOwnerId(ctx: MutationCtx, ownerId: string) {
   }
 }
 
-/** Kiểm tra mật khẩu mở khóa tính năng ẩn — CHỈ chủ sở hữu bot. */
+/** Kiểm tra mật khẩu mở khóa tính năng ẩn — CHỈ chủ sở hữu bot + chống dò (5 lần sai / 10 phút). */
+const HIDDEN_VERIFY_MAX_FAILS = 5;
+const HIDDEN_VERIFY_WINDOW_MS = 10 * 60_000;
 export const verifyHiddenPassword = mutation({
   args: { token: v.string(), guildId: v.string(), password: v.string() },
   handler: async (ctx, { token, guildId, password }) => {
     const user = await getUserByToken(ctx, token);
     await requireGuild(ctx, token, guildId);
+    // Người không phải chủ bot → coi như sai (không tiết lộ sự tồn tại của mật khẩu).
     try {
       await requireBotOwner(ctx, user);
     } catch {
@@ -421,7 +443,27 @@ export const verifyHiddenPassword = mutation({
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
       .first();
     if (!guild?.hiddenPasswordHash) return false;
-    return hashHiddenPassword(password, guildId) === guild.hiddenPasswordHash;
+    // Rate-limit dò mật khẩu: quá 5 lần SAI trong 10 phút → khóa thử trong đủ 10 phút.
+    const now = Date.now();
+    const fails = guild.hiddenVerifyFails ?? 0;
+    const lastAt = guild.hiddenVerifyLastAt ?? 0;
+    const windowExpired = now - lastAt >= HIDDEN_VERIFY_WINDOW_MS;
+    if (!windowExpired && fails >= HIDDEN_VERIFY_MAX_FAILS) {
+      const waitSec = Math.ceil((HIDDEN_VERIFY_WINDOW_MS - (now - lastAt)) / 1000);
+      throw new Error(`Đã thử sai quá nhiều lần — thử lại sau ${waitSec} giây`);
+    }
+    const ok = hashHiddenPassword(password, guildId) === guild.hiddenPasswordHash;
+    if (ok) {
+      if (fails > 0) {
+        await ctx.db.patch(guild._id, { hiddenVerifyFails: undefined, hiddenVerifyLastAt: undefined });
+      }
+      return true;
+    }
+    await ctx.db.patch(guild._id, {
+      hiddenVerifyFails: windowExpired ? 1 : fails + 1,
+      hiddenVerifyLastAt: now,
+    });
+    return false;
   },
 });
 
@@ -476,7 +518,7 @@ export const createPanel = mutation({
     entries: v.array(v.object({ emoji: v.string(), roleId: v.string() })),
   },
   handler: async (ctx, { token, guildId, channelId, label, description, thumbnailUrl, entries }) => {
-    await requireGuild(ctx, token, guildId);
+    await requireHiddenManage(ctx, token, guildId);
     const clean = cleanPanelInput({ label, description, thumbnailUrl, entries });
     const existing = await ctx.db
       .query("reactionRolePanels")
@@ -509,7 +551,7 @@ export const botCreatePanel = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, { botKey, guildId, channelId, label, description, thumbnailUrl, entries }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const clean = cleanPanelInput({ label, description, thumbnailUrl, entries });
     const existing = await ctx.db
       .query("reactionRolePanels")
@@ -544,7 +586,7 @@ export const updatePanel = mutation({
     entries: v.optional(v.array(v.object({ emoji: v.string(), roleId: v.string() }))),
   },
   handler: async (ctx, { token, guildId, panelId, label, description, thumbnailUrl, entries }) => {
-    await requireGuild(ctx, token, guildId);
+    await requireHiddenManage(ctx, token, guildId);
     const panel = await ctx.db.get(panelId);
     if (!panel || panel.guildId !== guildId) throw new Error("Không tìm thấy bảng reaction role");
     const patch: Record<string, unknown> = { updatedAt: Date.now(), messageId: undefined };
@@ -585,7 +627,7 @@ export const botUpdatePanel = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, { botKey, guildId, panelId, label, description, thumbnailUrl, entries }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const panel = await ctx.db.get(panelId);
     if (!panel || panel.guildId !== guildId) throw new Error("Không tìm thấy bảng reaction role");
     const patch: Record<string, unknown> = { updatedAt: Date.now(), messageId: undefined };
@@ -616,7 +658,7 @@ export const botUpdatePanel = mutation({
 export const deletePanel = mutation({
   args: { token: v.string(), guildId: v.string(), panelId: v.id("reactionRolePanels") },
   handler: async (ctx, { token, guildId, panelId }) => {
-    await requireGuild(ctx, token, guildId);
+    await requireHiddenManage(ctx, token, guildId);
     const panel = await ctx.db.get(panelId);
     if (!panel || panel.guildId !== guildId) throw new Error("Không tìm thấy bảng reaction role");
     await ctx.db.delete(panelId);
@@ -630,7 +672,7 @@ export const botDeletePanel = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId, panelId }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const panel = await ctx.db.get(panelId);
     if (!panel || panel.guildId !== guildId) throw new Error("Không tìm thấy bảng reaction role");
     await ctx.db.delete(panelId);
@@ -641,7 +683,7 @@ export const botDeletePanel = mutation({
 export const togglePanel = mutation({
   args: { token: v.string(), guildId: v.string(), panelId: v.id("reactionRolePanels") },
   handler: async (ctx, { token, guildId, panelId }) => {
-    await requireGuild(ctx, token, guildId);
+    await requireHiddenManage(ctx, token, guildId);
     const panel = await ctx.db.get(panelId);
     if (!panel || panel.guildId !== guildId) throw new Error("Không tìm thấy bảng reaction role");
     await ctx.db.patch(panelId, { enabled: !panel.enabled, updatedAt: Date.now() });
@@ -658,7 +700,7 @@ export const panelPosted = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, { botKey, panelId, messageId }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const panel = await ctx.db.get(panelId);
     if (!panel) return;
     await ctx.db.patch(panelId, { messageId, updatedAt: Date.now() });
@@ -778,7 +820,7 @@ export const createGiveaway = mutation({
     endMessage: v.optional(v.string()),
   },
   handler: async (ctx, { token, guildId, channelId, ...rest }) => {
-    await requireGuild(ctx, token, guildId);
+    await requireHiddenManage(ctx, token, guildId);
     const clean = cleanGiveawayInput(rest);
     const active = await ctx.db
       .query("giveaways")
@@ -821,7 +863,7 @@ export const botCreateGiveaway = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, { botKey, guildId, channelId, ...rest }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const clean = cleanGiveawayInput(rest);
     const active = await ctx.db
       .query("giveaways")
@@ -850,7 +892,7 @@ export const botGiveawayEndNow = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId, title }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const giveaway = await ctx.db
       .query("giveaways")
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
@@ -870,7 +912,7 @@ export const botGiveawayEndNow = mutation({
 export const cancelGiveaway = mutation({
   args: { token: v.string(), guildId: v.string(), giveawayId: v.id("giveaways") },
   handler: async (ctx, { token, guildId, giveawayId }) => {
-    await requireGuild(ctx, token, guildId);
+    await requireHiddenManage(ctx, token, guildId);
     const giveaway = await ctx.db.get(giveawayId);
     if (!giveaway || giveaway.guildId !== guildId) throw new Error("Không tìm thấy giveaway");
     if (giveaway.status === "active") {
@@ -886,7 +928,7 @@ export const giveawayPosted = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, giveawayId, messageId }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const giveaway = await ctx.db.get(giveawayId);
     if (!giveaway) return;
     await ctx.db.patch(giveawayId, { messageId });
@@ -899,7 +941,7 @@ export const giveawayEnter = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, giveawayId, userId, username }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const giveaway = await ctx.db.get(giveawayId);
     if (!giveaway || giveaway.status !== "active" || !giveaway.messageId) return { ok: false };
     if (giveaway.entries.some((e) => e.userId === userId)) return { ok: false };
@@ -919,7 +961,7 @@ export const giveawayEnd = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, { botKey, giveawayId, winners }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const giveaway = await ctx.db.get(giveawayId);
     if (!giveaway || giveaway.status !== "active") return;
     await ctx.db.patch(giveawayId, { status: "ended", winners });
@@ -936,7 +978,7 @@ export const requestDm = mutation({
     message: v.string(),
   },
   handler: async (ctx, { token, guildId, userId, username, message }) => {
-    const guild = await requireGuild(ctx, token, guildId);
+    const guild = await requireHiddenManage(ctx, token, guildId);
     if (!/^\d{15,20}$/.test(userId)) throw new Error("ID người dùng không hợp lệ");
     const clean = message.trim().slice(0, 2000);
     if (!clean) throw new Error("Cần nhập nội dung tin nhắn");
@@ -957,7 +999,7 @@ export const botClearDm = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))

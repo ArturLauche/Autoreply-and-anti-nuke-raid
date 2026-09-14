@@ -2,7 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken } from "./auth";
 import { getBotStatus } from "./hidden";
-import { requireBotKey } from "./botAuth";
+import { requireBotKeyStrict } from "./botAuth";
 
 /**
  * Threat Intel — bộ não học hỏi của bot: lưu kết quả nghiên cứu định kỳ từ nguồn
@@ -147,7 +147,7 @@ export const botSetResearchRun = mutation({
   handler: async (ctx, args) => {
     // CHỈ bot được ghi intel: kẻ ngoài gọi công khai sẽ ĐỘC intel (giả từ khóa
     // scam → bot lọc nhầm thành viên thật = đầu độc dữ liệu) + đốt hạn mức ghi.
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     const status = await getBotStatus(ctx);
     const now = Date.now();
     // Hợp nhất từ khóa: giữ tối đa 60 keywords + 40 phrases, ưu tiên mới nhất.
@@ -229,7 +229,7 @@ export const botGetIntel = query({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, { botKey }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const status = await getBotStatus(ctx);
     const now = Date.now();
     return {
@@ -329,7 +329,7 @@ export const getResearchHistory = query({
       if (owner?.ownerDiscordId && owner.ownerDiscordId !== user.discordId) return [];
       isOwner = true;
     } else {
-      await requireBotKey(ctx, botKey);
+      await requireBotKeyStrict(ctx, botKey);
       isOwner = true;
     }
     if (!isOwner) return [];
@@ -381,7 +381,7 @@ export const requestManualLearn = mutation({
       }
       isOwner = true;
     } else {
-      await requireBotKey(ctx, botKey);
+      await requireBotKeyStrict(ctx, botKey);
     }
     const status = await getBotStatus(ctx);
     if (!status) return { ok: false, error: "Bot chưa từng online — không thể kích hoạt" };
@@ -407,7 +407,7 @@ export const requestManualLearn = mutation({
 export const botClaimManualLearn = mutation({
   args: { botKey: v.optional(v.string()) },
   handler: async (ctx, { botKey }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const status = await getBotStatus(ctx);
     if (!status?.threatManualLearnRequested) return null;
     await ctx.db.patch(status._id, {
@@ -425,7 +425,7 @@ export const botClaimManualLearn = mutation({
 export const botClaimAiReview = mutation({
   args: { botKey: v.optional(v.string()) },
   handler: async (ctx, { botKey }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const status = await getBotStatus(ctx);
     if (!status?.threatAiReviewRequested) return null;
     await ctx.db.patch(status._id, { threatAiReviewRequested: false });
@@ -444,7 +444,7 @@ export const botSetKeywordReview = mutation({
     suspects: v.array(v.object({ keyword: v.string(), benignHits: v.number() })),
   },
   handler: async (ctx, { botKey, suspects }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const status = await getBotStatus(ctx);
     if (!status) return { ok: false };
     await ctx.db.patch(status._id, {
@@ -470,7 +470,7 @@ export const botSetResearchMeta = mutation({
     ngramClusters: v.optional(v.number()),
   },
   handler: async (ctx, { botKey, digest, urlhausDomains, ngramClusters }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const status = await getBotStatus(ctx);
     if (!status) return { ok: false };
     const patch: Record<string, unknown> = {};

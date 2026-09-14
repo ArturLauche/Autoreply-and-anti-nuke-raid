@@ -58,11 +58,16 @@ class ConvexStore {
     // ngoài không có BOT_KEY thì không gọi được các function bot-side. Proxy
     // phải bọc cả `action` (vd backup_github:githubPush) — nếu không, các call
     // action của bot sẽ vỡ khi BOT_KEY đã cấu hình.
+    // Ngoài ra proxy CHỜ ensureBotKey() trước mỗi call: bot thiếu BOT_KEY tự
+    // bootstrap (xác minh Discord token) rồi mọi call tiếp theo có key — không
+    // bị rơi vào trạng thái "call không key bị từ chối".
     const self = this;
+    this._rawClient = this.client; // client thô — dùng bên trong bootstrap (tránh đệ quy proxy)
     this.client = new Proxy(this.client, {
       get(target, prop) {
         if (prop !== "query" && prop !== "mutation" && prop !== "action") return target[prop];
-        return function (fnName, args) {
+        return async function (fnName, args) {
+          await self.ensureBotKey();
           const payload = args && typeof args === "object" ? { ...args } : {};
           if (self.botKey && payload.botKey === undefined) {
             payload.botKey = self.botKey;
@@ -76,6 +81,56 @@ class ConvexStore {
     if (process.env.BOT_KEY) {
       this.botKey = process.env.BOT_KEY.trim();
     }
+  }
+
+  /**
+   * TỰ CẤP PHÁT CHÌA KHÓA (bootstrap): khi BOT_KEY chưa cấu hình, bot gọi action
+   * `botBootstrapAction:requestBotKey` với DISCORD_TOKEN — Convex xác minh token
+   * qua Discord API rồi cấp botKey random (server chỉ lưu BĂM). Kẻ ngoài không
+   * có token bot → không cấp được key → không gọi được các function bot-side.
+   * Key được cache ở file (700) để restart không phải bootstrap lại (cooldown 10 phút).
+   * Đặt BOT_KEY trong .env vẫn được ưu tiên (key tĩnh chủ động quản lý).
+   */
+  async ensureBotKey() {
+    if (this.botKey) return this.botKey;
+    if (this._botKeyPromise) return this._botKeyPromise;
+    this._botKeyPromise = (async () => {
+      try {
+        const fs = require("fs");
+        const path = require("path");
+        const keyFile = path.join(process.cwd(), ".bot-key");
+        if (fs.existsSync(keyFile)) {
+          const cached = fs.readFileSync(keyFile, "utf8").trim();
+          if (/^[0-9a-f]{64}$/.test(cached)) {
+            this.botKey = cached;
+            console.log("[auth] Đã nạp botKey từ cache .bot-key");
+            return this.botKey;
+          }
+        }
+        const token = process.env.DISCORD_TOKEN;
+        if (!token) throw new Error("Thiếu DISCORD_TOKEN để bootstrap");
+        // Dùng RAW client — proxy sẽ chờ _botKeyPromise (chính promise này) → deadlock nếu đi qua proxy.
+        const res = await this._rawClient.action("botBootstrapAction:requestBotKey", { botToken: token });
+        if (res && res.ok && res.botKey) {
+          this.botKey = res.botKey;
+          try {
+            fs.writeFileSync(keyFile, this.botKey + "\n", { mode: 0o600 });
+          } catch {}
+          console.log("[auth] ✅ Đã tự cấp phát botKey (bootstrap) — lưu cache .bot-key");
+          return this.botKey;
+        }
+        throw new Error(res?.error || "bootstrap từ chối");
+      } catch (e) {
+        console.error("[auth] Bootstrap botKey thất bại:", e?.message || e);
+        console.error("[auth] → Các function bảo mật cao (backup, sync…) sẽ bị từ chối cho tới khi bootstrap thành công.");
+        console.error("[auth] → Kiểm tra DISCORD_TOKEN/CONVEX_URL rồi khởi động lại bot.");
+        return null;
+      } finally {
+        // Cho phép thử lại sau 5 phút nếu thất bại.
+        setTimeout(() => { this._botKeyPromise = null; }, 5 * 60_000).unref?.();
+      }
+    })();
+    return this._botKeyPromise;
   }
 
   /**
@@ -162,6 +217,11 @@ class ConvexStore {
   /** Simple query wrapper with retry. */
   async query(name, args) {
     return withRetry(() => this.client.query(name, args), `query:${name}`);
+  }
+
+  /** Simple action wrapper with retry. */
+  async action(name, args) {
+    return withRetry(() => this.client.action(name, args), `action:${name}`);
   }
 }
 

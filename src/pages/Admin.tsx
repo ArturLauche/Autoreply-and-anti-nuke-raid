@@ -221,11 +221,12 @@ function AdminContent() {
                   <ShieldCheck className="h-4 w-4 text-emerald-600" /> Chìa khóa bảo mật API
                 </p>
                 <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                  Đặt seed bí mật → server lưu bản băm. Khi đã đặt, MỌI lệnh của bot
-                  yêu cầu chìa khóa khớp — kẻ ngoài không thể giả mạo
-                  heartbeat/backup/lockdown. Trên VPS dán <b>CÙNG seed này</b> vào biến
-                  <code className="mx-1 rounded bg-muted px-1 py-0.5 text-[11px]">BOT_KEY</code>
-                  trong bot/.env rồi <code className="rounded bg-muted px-1 py-0.5 text-[11px]">pm2 restart protogon-bot</code>.
+                  Khi đã đặt seed, MỌI lệnh của bot yêu cầu chìa khóa khớp — kẻ ngoài
+                  không thể giả mạo heartbeat/backup/lockdown. Trên VPS dán giá trị seed
+                  VỪA NHẬP vào biến <code className="mx-1 rounded bg-muted px-1 py-0.5 text-[11px]">BOT_KEY</code>
+                  {" "}trong bot/.env rồi <code className="rounded bg-muted px-1 py-0.5 text-[11px]">pm2 restart protogon-bot</code>.
+                  Bot chưa có BOT_KEY sẽ <b>tự cấp phát chìa khóa an toàn</b> khi khởi động
+                  (xác minh token Discord thật) — không cần thao tác gì thêm.
                 </p>
                 <div className="mt-3 flex gap-2">
                   <input

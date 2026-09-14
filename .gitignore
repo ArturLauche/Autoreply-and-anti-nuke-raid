@@ -6,6 +6,7 @@ isolate/
 .env.*.local
 bot/node_modules
 bot/.env
+bot/.bot-key
 bot/*.zip
 .convex
 *.tsbuildinfo

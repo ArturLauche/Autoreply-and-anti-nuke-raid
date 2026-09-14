@@ -2,7 +2,7 @@ import { action, mutation, query, type MutationCtx, type QueryCtx } from "./_gen
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { getUserByToken, canManageGuild } from "./auth";
-import { requireBotKey } from "./botAuth";
+import { requireBotKeyStrict } from "./botAuth";
 
 async function requireGuild(ctx: QueryCtx | MutationCtx, token: string, guildId: string) {
   const user = await getUserByToken(ctx, token);
@@ -67,7 +67,7 @@ export const botGetWebhooks = query({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const rows = await ctx.db
       .query("guildWebhooks")
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
@@ -100,7 +100,7 @@ export const botDefaultWebhookReady = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, { botKey, guildId, channelId, discordWebhookId, token }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const existing = await ctx.db
       .query("guildWebhooks")
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
@@ -141,7 +141,7 @@ export const botDefaultWebhookDeleted = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const rows = await ctx.db
       .query("guildWebhooks")
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))

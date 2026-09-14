@@ -2,6 +2,10 @@
 // Chạy: node scripts/test-research.cjs
 const path = require("path");
 
+// Ghim interval 4h cho test này (mặc định code hiện là 1h — tính năng tăng CPU;
+// env override của bot cho phép ghim để assertion về nextRunAt ổn định).
+process.env.RESEARCH_INTERVAL_MS = String(4 * 3600 * 1000);
+
 const realFetch = globalThis.fetch;
 
 // --- Fake nguồn mở: Reddit JSON + CISA KEV JSON ---
@@ -109,7 +113,7 @@ const research = require("../bot/src/research.js");
       (saved.args.keywords || []).some((k) => k.includes("token-stealer") || k.includes("phishing")),
     );
     check("CVE được lưu thành phrase", (saved.args.scamPhrases || []).some((p) => p.startsWith("cve-")));
-    check("nextRunAt là 4 giờ sau", saved.args.nextRunAt - Date.now() > 3.9 * 3600 * 1000);
+    check("nextRunAt là 4 giờ sau (interval ghim qua env)", saved.args.nextRunAt - Date.now() > 3.9 * 3600 * 1000);
   }
 
   // Lượt 2: intel cũ giờ chứa từ khóa vừa lưu → không học lại từ khóa cũ (không spam).

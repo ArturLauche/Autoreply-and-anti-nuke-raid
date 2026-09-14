@@ -1,7 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild } from "./auth";
-import { requireBotKey } from "./botAuth";
+import { requireBotKeyStrict } from "./botAuth";
 
 /** Alt detection configuration per guild. */
 export const getAltConfig = query({
@@ -108,7 +108,7 @@ export const recordJoin = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     const now = Date.now();
     // Store join record
     await ctx.db.insert("memberJoins", {
@@ -155,7 +155,7 @@ export const markJoinPunished = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, args) => {
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     const rec = await ctx.db
       .query("memberJoins")
       .withIndex("by_guildId_joinedAt", (q) => q.eq("guildId", args.guildId))
@@ -177,7 +177,7 @@ export const botGetJoinHistory = query({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, args) => {
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     const joins = await ctx.db
       .query("memberJoins")
       .withIndex("by_guildId_joinedAt", (q) => q.eq("guildId", args.guildId))

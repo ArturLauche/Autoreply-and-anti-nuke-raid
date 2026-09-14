@@ -1,7 +1,7 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { ANTI_NUKE_MODULES, isAntiNukeModule } from "./modules";
-import { requireBotKey } from "./botAuth";
+import { requireBotKeyStrict } from "./botAuth";
 
 const ALLOWED_ACTIONS = [
   "warn",
@@ -50,7 +50,7 @@ export const botUpdateSettings = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", args.guildId))
@@ -98,7 +98,7 @@ export const botAutoReplyUpsert = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     if (!/^[a-z0-9_-]{1,32}$/i.test(args.name)) throw new Error("Tên rule không hợp lệ");
     const now = Date.now();
     const existing = await ctx.db
@@ -141,7 +141,7 @@ export const botAutoReplyRemove = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId, name }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const existing = await ctx.db
       .query("autoReplies")
       .withIndex("by_guildId_name", (q) => q.eq("guildId", guildId).eq("name", name))
@@ -170,7 +170,7 @@ export const botModuleUpdate = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     if (!isAntiNukeModule(args.module)) throw new Error("Module không hợp lệ");
     const mod = await ctx.db
       .query("antinukeModules")
@@ -226,7 +226,7 @@ export const botUpdateLockdown = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", args.guildId))
@@ -253,7 +253,7 @@ export const botLockState = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, { botKey, guildId, until, requested }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -284,7 +284,7 @@ export const botRecordAntinukeEvent = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     // Chống log "chồng chặp" trên dashboard: bot có thể kích hoạt 2 tầng cho cùng 1 vụ
     // (vd tầng audit IntegrationCreate + tầng tin nhắn app, hoặc pattern spam lặp lại trong
     // cửa sổ). Cùng guild + module + thủ phạm + count + ngưỡng ghi lại trong 5 giây
@@ -356,7 +356,7 @@ export const botRecordHeatBatch = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     for (const e of args.entries) {
       const existing = await ctx.db
         .query("heatStates")
@@ -397,7 +397,7 @@ export const botClearHeatReset = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -419,7 +419,7 @@ export const botSetReportAt = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId, at }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -437,7 +437,7 @@ export const botEnsureModules = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -477,7 +477,7 @@ export const botSetAntinuke = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId, enabled }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -502,7 +502,7 @@ export const botRecordHeat = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     const existing = await ctx.db
       .query("heatStates")
       .withIndex("by_guildId_userId", (q) =>
@@ -561,7 +561,7 @@ export const botStoreBackup = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     const now = Date.now();
     const backupId = await ctx.db.insert("guildBackups", {
       guildId: args.guildId,
@@ -605,7 +605,7 @@ export const botSetBackupGithub = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, backupId, url }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const backup = await ctx.db.get(backupId);
     if (!backup) return { ok: true };
     await ctx.db.patch(backup._id, {
@@ -622,7 +622,7 @@ export const botSetAutoBackup = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId, days }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -643,7 +643,7 @@ export const botSetBackupRequest = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId, pushToGithub }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -666,7 +666,7 @@ export const botSetRestoreRequest = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId, backupId }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -703,7 +703,7 @@ export const botClaimBackup = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, { botKey, guildId, kind }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -755,7 +755,7 @@ export const botClearBackup = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, { botKey, guildId, kind, storeOk }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -805,7 +805,7 @@ export const botReportImportError = mutation({
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
   handler: async (ctx, { botKey, guildId, error }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
@@ -848,7 +848,7 @@ export const botRestoreSettings = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", args.guildId))
@@ -883,7 +883,7 @@ export const botRecordModAction = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     const now = Date.now();
     // Số case tăng dần của server (kiểu Carl-bot): bắt đầu từ số case đã có nếu chưa ghi.
     const guild = await ctx.db
@@ -983,7 +983,7 @@ export const botRecordRaidSample = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     // Chống log "chồng chặp" trên tab Raid external app / Raid Intel: cùng guild + module +
     // count + ngưỡng ghi lại trong 5 giây → cùng 1 vụ (bot kích hoạt 2 tầng), bỏ qua.
     const recent = await ctx.db

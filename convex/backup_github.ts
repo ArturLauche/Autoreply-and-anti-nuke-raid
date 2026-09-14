@@ -10,7 +10,7 @@ declare const process: {
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
 import { v } from "convex/values";
-import { requireBotKey } from "./botAuth";
+import { requireBotKeyStrict } from "./botAuth";
 
 /**
  * Đẩy backup lên đám mây GitHub dưới dạng Gist riêng tư (không cần repo).
@@ -27,7 +27,7 @@ export const githubPush = action({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireBotKey(ctx, args.botKey);
+    await requireBotKeyStrict(ctx, args.botKey);
     // Validate input trước khi đẩy lên GitHub: guildId là Discord snowflake.
     if (!/^\d{15,20}$/.test(args.guildId)) {
       return { ok: false, error: "guildId không hợp lệ" };

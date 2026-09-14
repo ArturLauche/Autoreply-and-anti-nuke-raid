@@ -1,7 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken } from "./auth";
-import { requireBotKey } from "./botAuth";
+import { requireBotKeyStrict } from "./botAuth";
 
 /**
  * Trạng thái tổng thể của bot (công khai, không nhạy cảm): online hay không,
@@ -33,7 +33,7 @@ export const heartbeat = mutation({
     botKey: v.optional(v.string()),
   },
   handler: async (ctx, { botKey, online, guildCount, memberCount, version }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const now = Date.now();
     const status = await ctx.db
       .query("botStatus")

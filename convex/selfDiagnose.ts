@@ -2,7 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken } from "./auth";
 import { getBotStatus } from "./hidden";
-import { requireBotKey } from "./botAuth";
+import { requireBotKeyStrict } from "./botAuth";
 
 /**
  * Self-Diagnose — bot tự chẩn đoán lỗi runtime qua AI (chuỗi research:
@@ -98,7 +98,7 @@ export const botRecordDiagnose = mutation({
     summary: v.optional(v.string()),
   },
   handler: async (ctx, { botKey, fingerprint, severity, summary }) => {
-    await requireBotKey(ctx, botKey);
+    await requireBotKeyStrict(ctx, botKey);
     const status = await getBotStatus(ctx);
     if (!status) return { ok: false };
     const clean = (s: string | undefined, max: number) =>

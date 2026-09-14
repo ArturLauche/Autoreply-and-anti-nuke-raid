@@ -16,6 +16,8 @@ import type * as autoreplies from "../autoreplies.js";
 import type * as backup from "../backup.js";
 import type * as backup_github from "../backup_github.js";
 import type * as botAuth from "../botAuth.js";
+import type * as botBootstrap from "../botBootstrap.js";
+import type * as botBootstrapAction from "../botBootstrapAction.js";
 import type * as botFunc from "../botFunc.js";
 import type * as bot_tick from "../bot_tick.js";
 import type * as bot_writes from "../bot_writes.js";
@@ -49,6 +51,8 @@ declare const fullApi: ApiFromModules<{
   backup: typeof backup;
   backup_github: typeof backup_github;
   botAuth: typeof botAuth;
+  botBootstrap: typeof botBootstrap;
+  botBootstrapAction: typeof botBootstrapAction;
   botFunc: typeof botFunc;
   bot_tick: typeof bot_tick;
   bot_writes: typeof bot_writes;
