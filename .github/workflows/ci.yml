@@ -1,0 +1,46 @@
+name: CI — Test & Typecheck
+
+# Chạy TOÀN BỘ test suites + typecheck trên mọi push/PR vào main.
+# Chặn merge khi fail — không cho code vỡ lọt vào main (trước đây deploy
+# Convex tự chạy mà không qua test nào).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Cài dependencies (root + bot)
+        run: |
+          bun install --frozen-lockfile
+          (cd bot && bun install --frozen-lockfile)
+      - name: Typecheck (web + convex)
+        run: bun run typecheck
+      - name: Chạy toàn bộ test suites
+        run: bun run test
+
+  # Deploy Convex chỉ chạy KHI test đã pass — tách job, depends_on test.
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Deploy to Convex production
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: |
+          if [ -z "$CONVEX_DEPLOY_KEY" ]; then
+            echo "::error::Thiếu secret CONVEX_DEPLOY_KEY — vào GitHub repo → Settings → Secrets and variables → Actions → New repository secret → tên CONVEX_DEPLOY_KEY → dán key tạo ở Convex dashboard (Deployment settings → Deploy keys → Generate, bật deployment:deploy)."
+            exit 1
+          fi
+          npx convex deploy

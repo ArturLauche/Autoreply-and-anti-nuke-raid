@@ -1,6 +1,10 @@
 # Protogon Bot — Auto Reply & Anti Nuke Raid
 
+[![CI — Test & Typecheck](https://github.com/wiothemilo-lang/Autoreply-and-anti-nuke-raid/actions/workflows/ci.yml/badge.svg)](https://github.com/wiothemilo-lang/Autoreply-and-anti-nuke-raid/actions/workflows/ci.yml)
+
 Bot Discord tự động trả lời tin nhắn thành viên theo **từ khóa** hoặc khi bị **tag @mention** (nội dung do bạn tùy chỉnh), hỗ trợ đầy đủ **prefix (`!`) + slash commands**, kèm hệ thống **chống nuke/raid** bật tắt từng phần theo ý mod & owner — tất cả quản lý qua một **dashboard web** tùy chỉnh.
+
+> **Chất lượng**: 19 test suites (~370 assertion, chạy 6s) · typecheck sạch · CI chặn merge khi fail · deploy Convex chỉ sau khi test pass (`bun run test` để chạy local).
 
 ## Kiến trúc
 
