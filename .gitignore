@@ -15,3 +15,6 @@ bot/*.zip
 
 # Coverage report (sinh bởi c8 — chỉ xem local/CI artifact)
 coverage/
+
+# Mock discord.js sinh tạm khi chạy test suites
+bot/test-djs-mock.cjs
