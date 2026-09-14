@@ -189,10 +189,12 @@ export default function ModuleCard({
   }
 
   return (
-    <Card className={cn("overflow-hidden", !config.enabled && "opacity-60")}>
+    // KHÔNG dùng overflow-hidden: dropdown chọn role bị cắt mất phần dưới trên
+    // mobile. Bo góc giữ bằng rounded trên Card + rounded-r riêng cho header.
+    <Card className={cn(!config.enabled && "opacity-60")}>
       {/* Header — 1 dòng tóm tắt, bấm để mở cấu hình */}
       <div
-        className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/40"
+        className="flex cursor-pointer items-center gap-3 rounded-t-xl px-4 py-3 transition-colors hover:bg-accent/40"
         onClick={() => setOpen((o) => !o)}
         role="button"
         aria-expanded={open}
@@ -244,7 +246,9 @@ export default function ModuleCard({
       {/* Cấu hình mở rộng */}
       {open && (
         <CardContent className="grid gap-3 border-t border-border/60 px-4 py-3">
-          <div className={cn("grid gap-3", compact ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-4")}>
+          {/* Mobile: 1 cột — ô số bị nén 2 cột trên màn hình hẹp là khó chạm/sửa.
+              sm trở lên: giữ 2/4 cột như cũ. */}
+          <div className={cn("grid gap-3", compact ? "grid-cols-2 max-sm:grid-cols-1" : "grid-cols-2 sm:grid-cols-4 max-sm:grid-cols-1")}>
             <div className="grid gap-1">
               <Label className="text-[11px] text-muted-foreground">
                 Ngưỡng ({unit})
@@ -253,7 +257,7 @@ export default function ModuleCard({
                 value={config.threshold}
                 min={1}
                 onCommit={(n) => patchModule(module, { threshold: n })}
-                className="h-8 text-sm"
+                className="h-8 max-sm:h-10 max-sm:text-base"
               />
             </div>
             <div className="grid gap-1">
@@ -263,7 +267,7 @@ export default function ModuleCard({
                 min={1}
                 max={3600}
                 onCommit={(n) => patchModule(module, { windowSeconds: n })}
-                className="h-8 text-sm"
+                className="h-8 max-sm:h-10 max-sm:text-base"
               />
             </div>
             {showHeat && (
@@ -274,7 +278,7 @@ export default function ModuleCard({
                   min={1}
                   max={100}
                   onCommit={(n) => patchModule(module, { heat: n })}
-                  className="h-8 text-sm"
+                  className="h-8 max-sm:h-10 max-sm:text-base"
                 />
               </div>
             )}
@@ -286,7 +290,7 @@ export default function ModuleCard({
                   min={1}
                   max={86400}
                   onCommit={(n) => patchModule(module, { timeoutSeconds: n })}
-                  className="h-8 text-sm"
+                  className="h-8 max-sm:h-10 max-sm:text-base"
                 />
               </div>
             )}

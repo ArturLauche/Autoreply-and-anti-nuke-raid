@@ -256,8 +256,9 @@ export default function HaimiyaChat({
           "group fixed bottom-5 right-5 z-30 flex items-center gap-2 rounded-full",
           "border border-white/50 bg-gradient-to-br from-[#ff8fab] to-[#f2629e] p-0.5 pr-1",
           "shadow-[0_8px_30px_-6px_hsl(342_92%_66%/0.6)] transition-transform hover:scale-105",
-          // Mobile: nút nhỏ hơn + cao hơn để không che nút save cuối panel.
-          "max-sm:bottom-20 max-sm:right-4",
+          // Mobile: nút nhỏ hơn + cao hơn để không che nút save cuối panel
+          // + né vùng pin/tay cầm (safe-area cho máy tai thỏ).
+          "max-sm:bottom-20 max-sm:right-4 max-sm:[right:max(1rem,env(safe-area-inset-right))]",
           open && "pointer-events-none opacity-0",
         )}
       >

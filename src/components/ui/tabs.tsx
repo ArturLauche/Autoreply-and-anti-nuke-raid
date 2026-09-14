@@ -12,6 +12,8 @@ const TabsList = React.forwardRef<
     ref={ref}
     className={cn(
       "inline-flex h-11 items-center justify-center rounded-xl border border-border bg-secondary/40 p-1 text-muted-foreground",
+      // Mobile: danh sách tab nhiều mục cuộn ngang mượt + ẩn scrollbar (như app).
+      "max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
       className,
     )}
     {...props}

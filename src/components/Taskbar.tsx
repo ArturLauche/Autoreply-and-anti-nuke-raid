@@ -73,7 +73,9 @@ export default function Taskbar() {
           // Desktop: thanh dọc chạy dọc mép trái
           "left-0 top-3 bottom-3 w-12 rounded-r-2xl",
           // Mobile: nút nhỏ gọn ở góc dưới trái (không che nội dung)
+          // + né vùng gestures/pin của máy tai thỏ (safe-area).
           "left-3 bottom-3 top-auto h-12 w-12 rounded-2xl",
+          "max-md:[left:max(0.75rem,env(safe-area-inset-left))] max-md:[bottom:max(0.75rem,env(safe-area-inset-bottom))]",
           "md:left-0 md:top-3 md:bottom-3 md:h-auto md:w-12 md:rounded-r-2xl",
           "bg-gradient-to-br from-white/95 via-white/40 to-white/0 p-[2px]",
           "drop-shadow-[0_0_14px_rgba(255,255,255,0.55)]",

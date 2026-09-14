@@ -132,30 +132,32 @@ export default function GuildPage() {
       <HaimiyaChat position="dashboard" />
       <div className="relative z-10">
       <header className="border-b border-border/60 bg-background/70 backdrop-blur">
-        <div className="container py-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
+        <div className="container py-4 sm:py-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
               <Link
                 to="/dashboard"
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
                 <ArrowLeft className="h-4 w-4" />
               </Link>
               {icon ? (
-                <img src={icon} alt="" className="h-12 w-12 rounded-2xl" />
+                <img src={icon} alt="" className="h-12 w-12 shrink-0 rounded-2xl max-sm:h-10 max-sm:w-10" />
               ) : (
-                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary font-display text-lg font-bold text-muted-foreground">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-secondary font-display text-lg font-bold text-muted-foreground max-sm:h-10 max-sm:w-10">
                   {data.guild.name.slice(0, 2).toUpperCase()}
                 </span>
               )}
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <span className="rounded-xl bg-gradient-to-br from-white/95 via-white/45 to-white/0 p-[2px] drop-shadow-[0_0_10px_rgba(255,255,255,0.7)]">
+              <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span className="shrink-0 rounded-xl bg-gradient-to-br from-white/95 via-white/45 to-white/0 p-[2px] drop-shadow-[0_0_10px_rgba(255,255,255,0.7)] max-sm:hidden">
                     <BotLogo className="h-10 w-10 ring-2 ring-primary/25" fallbackClassName="h-6 w-6" />
                   </span>
-                  <h1 className="font-display text-2xl font-bold tracking-tight">{data.guild.name}</h1>
+                  <h1 className="min-w-0 truncate font-display text-2xl font-bold tracking-tight max-sm:text-lg">
+                    {data.guild.name}
+                  </h1>
                 </div>
-                <div className="mt-1 flex flex-wrap items-center gap-2">
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 max-sm:gap-1">
                   <Badge variant="outline" className="font-mono">{data.guild.prefix} prefix</Badge>
                   <Badge variant="secondary">
                     {data.guild.memberCount?.toLocaleString("vi-VN") ?? "?"} thành viên
@@ -182,11 +184,16 @@ export default function GuildPage() {
         </div>
       </header>
 
-      <main className="container py-4 max-sm:pb-32 sm:py-8">
+      <main className="container py-4 max-sm:px-3 max-sm:pb-32 sm:py-8">
         <div className="grid gap-6 lg:grid-cols-[230px_1fr]">
           {/* Sidebar */}
           <aside className="h-fit lg:sticky lg:top-6">
-            <nav className="flex gap-1 overflow-x-auto rounded-xl border border-border bg-card/50 p-1.5 lg:flex-col lg:overflow-visible">
+            {/* Mobile: nav cuộn ngang 1 hàng — ẩn thanh cuộn, thêm mũi tên chỉ
+                còn mục bên phải; cuộn bằng tay quét tự nhiên trên điện thoại. */}
+            <nav
+              className="-mx-4 flex gap-1 overflow-x-auto rounded-xl border border-border bg-card/50 p-1.5 px-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:mx-0 lg:flex-col lg:overflow-visible lg:px-1.5"
+              aria-label="Điều hướng bảng điều khiển"
+            >
               {NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
                 const active = section === item.key;
@@ -202,12 +209,13 @@ export default function GuildPage() {
                     className={cn(
                       "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                       // Touch target ≥ 44px trên mobile (max-sm:py-2.5).
+                      "max-sm:gap-1.5 max-sm:px-2.5 max-sm:py-2",
                       active
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "text-muted-foreground hover:bg-accent hover:text-foreground",
                     )}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-4 w-4 shrink-0" />
                     {item.label}
                   </button>
                 );

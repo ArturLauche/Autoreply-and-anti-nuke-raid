@@ -55,7 +55,7 @@ export default function ModActionsPanel({ data }: { data: GuildData }) {
             Chưa có hình phạt nào — mọi thứ đang yên bình 🎉
           </div>
         ) : (
-          <div className="mt-4 overflow-x-auto">
+          <div className="mt-4 -mx-1 overflow-x-auto px-1 [scrollbar-width:thin]">
             <table className="w-full min-w-[720px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">

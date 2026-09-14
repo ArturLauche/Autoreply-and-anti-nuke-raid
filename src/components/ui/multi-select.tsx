@@ -39,12 +39,19 @@ export function MultiSelect({
   const [inputEl, setInputEl] = React.useState<HTMLInputElement | null>(null);
   const ref = React.useRef<HTMLDivElement>(null);
 
+  // Đóng khi chạm/bấm NGOÀI — phải nghe cả pointerdown (mobile touch không
+  // phát mousedown theo cách chứa đúng e.target trên vài trình duyệt) lẫn
+  // touchstart để dropdown không bị kẹt mở trên điện thoại.
   React.useEffect(() => {
-    function onDocClick(e: MouseEvent) {
+    function outside(e: Event) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
+    document.addEventListener("mousedown", outside);
+    document.addEventListener("touchstart", outside, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", outside);
+      document.removeEventListener("touchstart", outside);
+    };
   }, []);
 
   // Tự focus ô tìm kiếm khi mở dropdown.
@@ -117,7 +124,9 @@ export function MultiSelect({
       </button>
 
       {open && (
-        <div className="absolute z-40 mt-1 w-full rounded-xl border border-border bg-popover shadow-xl">
+        // z-40 phải cao hơn header sticky (z-40) → z-[60] để dropdown không bị
+        // header che khi widget nằm sát mép trên. max-sm: giữ trong màn hình.
+        <div className="absolute z-[60] mt-1 w-full rounded-xl border border-border bg-popover shadow-xl">
           {/* Ô tra cứu — hiện khi có searchPlaceholder và danh sách đủ dài */}
           {searchPlaceholder && options.length > 6 && (
             <div className="sticky top-0 flex items-center gap-2 border-b border-border bg-popover p-2 rounded-t-xl">
@@ -141,7 +150,7 @@ export function MultiSelect({
               )}
             </div>
           )}
-          <div className="max-h-60 overflow-y-auto p-1">
+          <div className="max-h-60 overflow-y-auto p-1 max-sm:max-h-[min(45dvh,16rem)]">
             {options.length === 0 && (
               <div className="px-3 py-2 text-sm text-muted-foreground">{emptyLabel}</div>
             )}

@@ -97,6 +97,24 @@
     overflow-x: clip;
   }
 
+  /* Mobile: chống double-tap zoom khi bấm nhanh nút/toggle (trải nghiệm app-like).
+     Vẫn giữ pinch-zoom cho trợ năng — chỉ chặn zoom do tap nhanh. */
+  @media (pointer: coarse) {
+    button, a, input, select, textarea, label, [role="button"] {
+      touch-action: manipulation;
+    }
+  }
+
+  /* Điện thoại tai thỏ: nút nổi không bị chạm vào vùng pin/gestures. */
+  @supports (padding: env(safe-area-inset-right)) {
+    @media (max-width: 767px) {
+      .floating-safe-right {
+        right: max(1rem, env(safe-area-inset-right));
+        bottom: max(5rem, calc(env(safe-area-inset-bottom) + 5rem));
+      }
+    }
+  }
+
   body {
     @apply text-foreground antialiased;
     /* Nền mix: hồng anh đào chuyển dần sang xanh trời (tương phản rõ hơn) */
