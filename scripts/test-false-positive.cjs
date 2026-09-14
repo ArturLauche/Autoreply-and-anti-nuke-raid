@@ -1,6 +1,6 @@
 // Test gate chống ban nhầm: joinClusterSuspicion (cụm) + memberSuspicionScore
 // (cá nhân trong cụm hỗn hợp). Pure functions — chạy: node scripts/test-false-positive.cjs
-const { joinClusterSuspicion, memberSuspicionScore } = require("../bot/src/handlers/antinuke.js");
+const { joinClusterSuspicion, memberSuspicionScore } = require("../bot/src/handlers/antinuke");
 
 let pass = 0;
 let fail = 0;

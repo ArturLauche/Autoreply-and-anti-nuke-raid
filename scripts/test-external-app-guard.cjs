@@ -1,4 +1,4 @@
-const { messageFingerprint, isExternalAppSpam } = require("../bot/src/handlers/antinuke.js");
+const { messageFingerprint, isExternalAppSpam } = require("../bot/src/handlers/antinuke");
 const { appNameSuspicion, isExternalAppTarget, buttonRaidSignal } = require("../bot/src/externalAppGuard");
 
 let pass = 0;

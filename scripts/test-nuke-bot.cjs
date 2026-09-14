@@ -33,7 +33,7 @@ const {
   strangeBotVerdict,
   IMMEDIATE_BOT_NUKE,
 } = (() => {
-  const m = require("../bot/src/handlers/antinuke.js");
+  const m = require("../bot/src/handlers/antinuke");
   return { ...m, IMMEDIATE_BOT_NUKE: m.IMMEDIATE_BOT_NUKE ?? null };
 })();
 
