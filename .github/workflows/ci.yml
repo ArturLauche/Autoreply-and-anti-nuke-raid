@@ -17,8 +17,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - name: Cài dependencies (root — test tự mock discord.js, không cần deps bot)
-        run: bun install --frozen-lockfile
+      - name: Cài dependencies (root + bot — 4 suites cần discord.js thật)
+        run: |
+          bun install --frozen-lockfile
+          (cd bot && bun install --no-save)
       - name: Typecheck (web + convex)
         run: bun run typecheck
       - name: Chạy toàn bộ test suites
