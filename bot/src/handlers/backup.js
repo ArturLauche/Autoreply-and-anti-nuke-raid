@@ -560,8 +560,12 @@ function sanitizeEmojiName(name) {
 /**
  * Tạo lại emoji từ backup (URL CDN hoặc raw base64 nhúng trong file bot nuke).
  * Tên được chuẩn hóa theo quy tắc Discord; mỗi emoji lỗi chỉ bỏ qua riêng lẻ.
+ * Tên hàm là recreateEmojis (KHÔNG phải restoreEmojis) — trước đây trùng với
+ * hằng boolean restoreEmojis trong restoreCore làm CRASH mọi restore mặc định
+ * (TypeError: restoreEmojis is not a function) ngay sau khi phát lại tin nhắn:
+ * không tạo emoji/sticker, không áp settings, không gửi embed hoàn tất.
  */
-async function restoreEmojis(guild, backup) {
+async function recreateEmojis(guild, backup) {
   let created = 0;
   const list = backup.emojis || [];
   for (let i = 0; i < list.length; i++) {
@@ -1464,7 +1468,7 @@ async function restoreCore(client, store, guildId, backup, { backupName, source 
   const channelMap = restoreChannels ? await createChannels(guild, backup, roleMap) : new Map();
   const replayed = restoreMessages ? await replayMessages(guild, backup, channelMap) : 0;
   // Emoji + sticker: tải ảnh/file về và tạo lại thật (best-effort, lỗi từng cái bỏ qua).
-  const emojisCreated = restoreEmojis ? await restoreEmojis(guild, backup) : 0;
+  const emojisCreated = restoreEmojis ? await recreateEmojis(guild, backup) : 0;
   const stickersCreated = restoreEmojis ? await restoreStickers(guild, backup) : 0;
 
   // Áp lại cấu hình cơ bản với id mới (role/kênh đã được map sang server này).
