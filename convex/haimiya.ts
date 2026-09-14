@@ -31,11 +31,14 @@ KIẾN THỨC CHUYÊN SÂU VỀ PROTOGON (dùng khi được hỏi về bot):
 - Hệ thống nhiệt độ 4 giai đoạn: vi phạm cộng điểm nhiệt (0-100), ngưỡng mặc định cảnh báo 25, tạm khóa 40, kick 70, ban 90; hạ nhiệt theo phút, tái phạm bị nhân nhiệt (mặc định x2 trong 30 phút). Warn tích lũy: đủ N lần (mặc định 3 trong 60 phút) tự tăng cấp hình phạt.
 - Moderation: chống spam tin nhắn, spam mention, từ ngữ xấu, spam ảnh/file, chặn link mời Discord, chống link độc hại + file nguy hiểm (.exe .scr .bat .msi .vbs .ps1 .jar .apk .hta).
 - Join Gate: cổng vào server chống selfbot — chặn tài khoản quá mới, không avatar, không huy hiệu, chặn lượt vào khi đang raid; có danh sách trắng.
-- Chống nuke/raid: 8 module (ban/kick hàng loạt, raid thành viên, tạo/xóa kênh, tạo/xóa role, xóa tin hàng loạt) — phạt trực tiếp, không cộng nhiệt; có khóa kênh tự động (lockdown).
+- Chống nuke/raid: 24 module (ban/kick/raid thành viên hàng loạt, tạo/xóa/đổi tên kênh, tạo/xóa/sửa role, gán role & biệt danh hàng loạt, xóa tin nhắn, webhook, thread, emoji, tự cấp quyền quản trị, bot lạ, raid app ngoài, invite, can thiệp cấu hình server, bot hit-and-run) — phạt trực tiếp theo audit log, không cộng nhiệt; có khóa kênh tự động (lockdown), cảnh báo bot lạ mới vào, kèm 8 module auto-moderation nội dung (spam, mass message, blank noise, mention, badword, attachment, invite, malware) theo nhiệt độ vi phạm.
 - Công cụ Mod: /mod timeout, /mod kick, /mod ban, /mod purge (lệnh text: !timeout !kick !ban !purge) — ghi đầy đủ lý do + người thực hiện vào kênh log và bảng hình phạt trên dashboard.
 - Giveaway: /giveaway start hoặc !giveaway start, hoặc tạo trên dashboard — 4 mẫu tin nhắn (mặc định, sang trọng, VIP, nhanh gọn), chèn ảnh, lời dẫn tùy chỉnh, yêu cầu role tham gia, role thưởng tự cấp cho người thắng, DM người thắng tùy chọn.
 - Reaction Role: thành viên bấm emoji tự nhận/gỡ role; tối đa 10 bảng x 20 cặp; tạo/chỉnh bảng bằng dashboard hoặc lệnh /reactionrole create/add/remove/edit/delete + !reactionrole.
-- Gửi DM trực tiếp: admin nhập User ID + nội dung, bot nhắn riêng trong ~30 giây.
+- Gửi DM trực tiếp: admin nhập User ID + nội dung, bot nhắn riêng trong ~1 phút.
+- Backup server: /backup hoặc !backup — chụp role, kênh, quyền, tin nhắn kèm media, emoji/sticker; bản nén đẩy GitHub Gist chủ bot; tự động backup 2–30 ngày; khôi phục vào server khác, nhập cả file backup bot nuke (.msc).
+- Báo cáo khẩn: /report + !report — AI dò hàng trăm tin nhắn gần nhất để báo raid/nuke hoặc lỗi phạt nhầm của bot cho cả server.
+- Threat Intel: bot tự học từ nguồn an ninh mỗi giờ (/research status|learn|history), dùng từ khóa mới miễn phí trong bộ lọc link độc hại.
 - Auto Reply: rule theo từ khóa hoặc @mention, hỗ trợ {user}, {username}, cooldown.
 - Tính năng ẩn: khu vực trên dashboard chỉ admin sở hữu bot mới được mở khóa bằng mật khẩu (reaction role, giveaway, gửi DM, auto reply, tùy chỉnh giao diện).
 - Tùy chỉnh giao diện: đổi avatar bot + avatar Haimiya ngay trên web, và chủ đề màu riêng cho từng server trong Cài đặt.

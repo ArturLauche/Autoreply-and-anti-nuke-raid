@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import {
+  Archive,
   ArrowRight,
   Bot,
   Bug,
@@ -15,6 +16,7 @@ import {
   LayoutDashboard,
   Lock,
   MessageCircle,
+  Megaphone,
   MessageSquareReply,
   ShieldAlert,
   ShieldCheck,
@@ -368,13 +370,23 @@ function Features() {
     },
     {
       icon: ShieldAlert,
-      title: "Chống nuke & raid",
-      desc: "8 module phát hiện ban/kick hàng loạt, raid thành viên, tạo/xóa kênh, role, xóa tin — phạt trực tiếp + khóa kênh tự động khi bị tấn công.",
+      title: "Chống nuke & raid — 24 module",
+      desc: "Ban/kick hàng loạt, raid thành viên, phá kênh/role, webhook spam, bot lạ vào-rồi-rời (hit-and-run), tự cấp quyền quản trị… — phạt trực tiếp + khóa kênh tự động khi bị tấn công.",
     },
     {
       icon: Gavel,
       title: "Công cụ Mod",
       desc: "/mod timeout · kick · ban · purge — ghi đầy đủ lý do + người thực hiện vào kênh log. Lệnh text: !timeout !kick !ban !purge.",
+    },
+    {
+      icon: Archive,
+      title: "Backup & khôi phục server",
+      desc: "Chụp toàn bộ server (role, kênh, tin nhắn kèm media, emoji), bản nén đẩy lên GitHub Gist, tự động backup định kỳ 2–30 ngày. Khôi phục vào server khác hoặc nhập cả file backup bot nuke (.msc).",
+    },
+    {
+      icon: Megaphone,
+      title: "Báo cáo khẩn & report",
+      desc: "/report và !report cho mod: khi có raid/nuke hoặc bot phạt nhầm, AI Mimu v2.5 dò hàng trăm tin nhắn gần nhất để hiểu tình huống và đưa ra báo cáo rõ ràng cho cả server.",
     },
   ];
   return (
@@ -394,7 +406,7 @@ function Features() {
             Bảo vệ toàn diện & <span className="text-gradient-sakura">giao tiếp</span> cho server của bạn
           </motion.h2>
           <motion.p variants={fadeUp} className="mt-4 text-muted-foreground">
-            Từ tự trả lời thông minh đến 14 module bảo vệ — Protogon canh server 24/7 và cấu hình mọi thứ qua dashboard trực quan, có trợ lý Haimiya sẵn sàng giải đáp.
+            Từ tự trả lời thông minh đến 32 module bảo vệ (24 chống nuke + 8 auto-mod) — Protogon canh server 24/7 và cấu hình mọi thứ qua dashboard trực quan, có trợ lý Haimiya sẵn sàng giải đáp.
           </motion.p>
         </motion.div>
 
@@ -429,7 +441,7 @@ function Features() {
           {[
             { icon: Crown, t: "Warn tích lũy", d: "Đủ N lần warn → tự tăng cấp hình phạt" },
             { icon: LayoutDashboard, t: "Bảng nhiệt & warn", d: "Xem từng thành viên, xóa nhiệt 1 cú nhấn" },
-            { icon: Zap, t: "Đồng bộ tự động", d: "Chỉnh trên web → bot áp dụng trong vài phút" },
+            { icon: Zap, t: "Đồng bộ tự động", d: "Chỉnh trên web → bot áp dụng sau ~1 phút" },
             { icon: Timer, t: "Báo cáo hàng ngày", d: "Tóm tắt sự kiện, nhiệt & warn gửi vào kênh log" },
           ].map((b) => (
             <div key={b.t} className="flex items-start gap-3">
@@ -535,12 +547,14 @@ function HeatLadder() {
 function AntiNuke() {
   const nukeModules = [
     "Chống ban hàng loạt", "Chống kick hàng loạt", "Chống raid thành viên",
-    "Chống tạo kênh spam", "Chống xóa kênh hàng loạt", "Chống tạo role spam",
-    "Chống xóa role hàng loạt", "Chống xóa tin hàng loạt",
+    "Chống tạo/xóa kênh", "Chống tạo/xóa thread", "Chống tạo webhook hàng loạt",
+    "Chống xóa tin hàng loạt", "Chống tạo/xóa role", "Tự cấp quyền quản trị",
+    "Chống thêm bot hàng loạt", "Cảnh báo bot lạ", "Bot vào-rồi-rời",
   ];
   const modModules = [
-    "Chống spam tin nhắn", "Chống spam mention", "Lọc từ ngữ xấu",
-    "Chống spam ảnh/file", "Chặn link mời Discord", "Chặn link độc hại & file nguy hiểm",
+    "Chống spam tin nhắn", "Chống lặp tin nhắn", "Chống tin rỗng/nhiễu",
+    "Chống spam mention", "Chống spam ảnh/file", "Lọc từ ngữ xấu",
+    "Chặn link mời Discord", "Chặn link độc hại & file nguy hiểm",
   ];
   return (
     <section id="antinuke" className="relative overflow-hidden py-24">
@@ -553,14 +567,14 @@ function AntiNuke() {
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.6 }}
           >
-            <Badge variant="danger" className="mb-4"><ShieldAlert className="h-3.5 w-3.5" /> Phòng thủ 14 module</Badge>
+            <Badge variant="danger" className="mb-4"><ShieldAlert className="h-3.5 w-3.5" /> Phòng thủ 32 module</Badge>
             <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
               Chặn đứng kẻ phá hoại <br />
               trước khi <span className="text-gradient-sakura">server sụp đổ</span>
             </h2>
             <p className="mt-4 max-w-lg text-muted-foreground">
-              Hai lớp phòng thủ: <b className="text-foreground">Anti Nuke</b> canh cấu trúc server (ban/kick hàng loạt, phá kênh, phá role…) và{" "}
-              <b className="text-foreground">Moderation</b> lọc nội dung độc hại mỗi ngày. Vượt ngưỡng → xác định thủ phạm qua audit log, phạt theo cài đặt và cảnh báo real-time tới kênh log.
+              Hai lớp phòng thủ: <b className="text-foreground">Anti Nuke</b> (24 module) canh cấu trúc server (ban/kick hàng loạt, phá kênh, phá role…) và{" "}
+              <b className="text-foreground">Moderation</b> (8 module) lọc nội dung độc hại mỗi ngày. Vượt ngưỡng → xác định thủ phạm qua audit log, phạt theo cài đặt và cảnh báo real-time tới kênh log.
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
               {["Phạt trực tiếp", "Khóa kênh khi raid", "Miễn trừ role", "Kênh log riêng", "Báo cáo hàng ngày"].map((t) => (
@@ -585,7 +599,7 @@ function AntiNuke() {
               <div className="flex items-center gap-2 font-display font-semibold">
                 <ShieldCheck className="h-5 w-5 text-primary" /> Module đang bảo vệ
               </div>
-              <Badge variant="success">14/14 bật</Badge>
+              <Badge variant="success">32/32 bật</Badge>
             </div>
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               🛡️ Anti Nuke / Raid — phạt trực tiếp
@@ -613,7 +627,10 @@ function AntiNuke() {
                 </div>
               ))}
             </div>
-            <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-100/70">
+            <p className="mb-3 mt-3 text-center text-[11px] text-muted-foreground">
+              …và 12 module chống nuke khác — xem đầy đủ trong dashboard.
+            </p>
+            <div className="mt-0 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-100/70">
               <span className="font-semibold text-amber-300">🔒 Khóa kênh khi raid:</span> vượt ngưỡng bất kỳ module nào → bot chặn thành viên gửi tin trong toàn server, tự mở lại sau vài phút hoặc khi mod dùng <code className="font-mono">/antinuke unlock</code>.
             </div>
           </motion.div>
@@ -706,13 +723,13 @@ function HowItWorks() {
       n: "02",
       icon: ShieldCheck,
       title: "Mời bot vào server",
-      desc: "Nhấn Mời bot, chọn server của bạn — Protogon tự động tạo cấu hình mặc định an toàn với đủ 14 module.",
+      desc: "Nhấn Mời bot, chọn server của bạn — Protogon tự tạo cấu hình mặc định an toàn với đầy đủ 32 module bật sẵn, chỉnh sửa mọi thứ sau đó bất cứ lúc nào.",
     },
     {
       n: "03",
       icon: LayoutDashboard,
       title: "Cấu hình trên dashboard",
-      desc: "Thêm rule trả lời, chỉnh nhiệt độ & warn, bật Join Gate, chọn hình phạt — mọi thứ hiệu lực trong vài phút.",
+      desc: "Thêm rule trả lời, chỉnh nhiệt độ & warn, bật Join Gate, chọn hình phạt — mọi thứ hiệu lực sau ~1 phút.",
     },
   ];
   return (
@@ -775,7 +792,7 @@ function CtaBanner() {
               Sẵn sàng để Haimiya <br className="hidden md:block" /> hỗ trợ bạn quản lý server?
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-              Đăng nhập bằng Discord, mời Protogon vào server — nhiệt độ, Join Gate, lọc nội dung, chống nuke và trợ lý ảo bật ngay lập tức. Miễn phí cho mọi server.
+              Đăng nhập bằng Discord, mời Protogon vào server — bật nhiệt độ, Join Gate, lọc nội dung và 32 module chống nuke ngay trên dashboard, có trợ lý ảo Haimiya đồng hành. Miễn phí cho mọi server.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <DashboardCta>
@@ -853,7 +870,7 @@ export default function Landing() {
                   <b className="text-foreground">nhiệt độ 4 giai đoạn</b> kèm warn tích lũy,{" "}
                   <b className="text-foreground">Join Gate chống selfbot</b>,{" "}
                   <b className="text-foreground">chặn link độc hại & file nguy hiểm</b> và{" "}
-                  <b className="text-foreground">14 module bảo vệ</b> canh server 24/7.
+                  <b className="text-foreground">32 module bảo vệ</b> canh server 24/7.
                 </motion.p>
                 <motion.div
                   initial={{ opacity: 0, y: 24 }}
@@ -879,7 +896,7 @@ export default function Landing() {
                   className="mx-auto mt-10 grid max-w-md grid-cols-3 gap-4 border-t border-border pt-6 lg:mx-0"
                 >
                   {[
-                    ["14", "Module bảo vệ"],
+                    ["32", "Module bảo vệ"],
                     ["4", "Giai đoạn nhiệt"],
                     ["24/7", "Giám sát tự động"],
                   ].map(([v, l]) => (

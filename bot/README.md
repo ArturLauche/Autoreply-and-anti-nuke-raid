@@ -195,7 +195,7 @@ Muốn đăng ký lại slash commands thủ công: `bun run register`.
 | `!backup restore <số>` \| `!restore <số>` | Khôi phục cấu trúc server từ backup |
 | `!backup auto <2-30> \| off` | Bật/tắt tự động backup mỗi N ngày (tối thiểu 2, tối đa 30) |
 
-**Slash commands:** `/help`, `/ping`, `/prefix set`, `/autoreply add|edit|list|remove`, `/antinuke status|on|off|module|unlock|lockdown`, `/backup now|list|restore|auto`, `/setup log-channel|mod-role|admin-role`.
+**Slash commands:** `/help`, `/ping`, `/prefix set`, `/autoreply add|edit|list|remove`, `/antinuke status|on|off|module|unlock|lockdown`, `/backup now|list|restore|auto`, `/setup log-channel|mod-role|admin-role`, `/report`, `/research status|learn|history`, `/badword add|remove|list`, `/heat status`, `/mod timeout|kick|ban|purge|unban|untimeout|unwarn`, `/verify setup`, `/giveaway`, `/reactionrole` (tương đương prefix `!`).
 
 > **Ai được tạo/sửa auto reply?** — Mod (quyền Manage Guild), Administrator, **hoặc** người có role **Mod/Admin** được cấu hình qua `/setup mod-role` / `/setup admin-role`. Chạy `/autoreply add` với tên rule đã tồn tại = cập nhật lại rule đó.
 

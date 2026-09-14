@@ -447,7 +447,7 @@ function ThreatIntelCard({
           <div>
             <h3 className="font-display text-sm font-bold">Threat Intel — bot tự học</h3>
             <p className="text-[11px] text-muted-foreground">
-              Tải nguồn mở mỗi 4h (0 token) · AI ≤ 1 lần/tuần
+              Tải nguồn mở mỗi giờ (0 token) · AI ≤ 1 lần/tuần
             </p>
           </div>
         </div>
@@ -465,7 +465,7 @@ function ThreatIntelCard({
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-        Khi bật, bot tải tin an ninh công khai (Reddit security, CISA KEV) mỗi 4 giờ,
+        Khi bật, bot tải tin an ninh công khai (Reddit security, CISA KEV) mỗi giờ,
         học từ khóa scam mới và dùng MIỄN PHÍ vĩnh viễn trong bộ lọc link độc hại.
         Từ khóa sai có thể bấm xóa bên dưới. Chi phí: gần như 0 — không cần key thêm.
       </p>

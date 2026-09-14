@@ -498,7 +498,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                         </b>
                       </>
                     ) : (
-                      "Bật lên là bot chụp bản đầu tiên trong vài phút, sau đó lặp lại theo chu kỳ."
+                      "Bật lên là bot chụp bản đầu tiên trong khoảng 1 phút, sau đó lặp lại theo chu kỳ bạn chọn."
                     )
                   ) : (
                     "Đang tắt — bot chỉ backup khi bạn bấm “Backup ngay” hoặc dùng lệnh."
