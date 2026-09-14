@@ -120,9 +120,14 @@ async function syncAll(client, store) {
   // TỐI ƯU USAGE: gộp heartbeat botStatus vào CHÍNH mutation botSyncGuilds
   // (trước đây 2 mutation riêng mỗi phút = 2x calls). botHeartbeat mutation
   // vẫn giữ trên Convex để backward-compat nhưng bot không gọi nữa.
+  // TỐI ƯU I/O: patch guild row chỉ khi dữ liệu ĐỔI (name/icon/memberCount) —
+  // lastHeartbeat per-guild refresh theo chu kỳ dài (mỗi 5 sync ≈ 10 phút) thay
+  // vì ghi lại toàn row mỗi phút (guild row ~90 fields → nguồn I/O lớn nhất).
+  const refreshHeartbeat = runCounter % 5 === 0;
   await store.client.mutation("guilds:botSyncGuilds", {
     guilds,
     trustedFullList,
+    refreshHeartbeat,
     globalStatus: {
       guildCount: count,
       memberCount,

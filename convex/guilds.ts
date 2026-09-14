@@ -803,10 +803,17 @@ export const botSyncGuilds = mutation({
         ownerAvatarUrl: v.optional(v.string()),
       }),
     ),
+    /**
+     * TỐI ƯU I/O: khi false (mặc định), guild row CHỈ được patch khi dữ liệu thật
+     * sự khác bản đang lưu (name/icon/memberCount) — bỏ ghi lặp mỗi phút của
+     * guild row ~90 fields (nguồn Database I/O lớn nhất, ~60 MB/ngày trước vá).
+     * lastHeartbeat per-guild chỉ refresh theo chu kỳ refreshHeartbeat của bot.
+     */
+    refreshHeartbeat: v.optional(v.boolean()),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()),
   },
-  handler: async (ctx, { botKey, guilds, trustedFullList, globalStatus }) => {
+  handler: async (ctx, { botKey, guilds, trustedFullList, globalStatus, refreshHeartbeat }) => {
     await requireBotKeyStrict(ctx, botKey);
     const now = Date.now();
     const present = new Set(guilds.map((g) => g.id));
@@ -816,14 +823,23 @@ export const botSyncGuilds = mutation({
         .withIndex("by_discordId", (q) => q.eq("discordId", g.id))
         .first();
       if (existing) {
-        await ctx.db.patch(existing._id, {
-          name: g.name,
-          icon: g.icon,
-          memberCount: g.memberCount,
-          botInGuild: true,
-          lastHeartbeat: now,
-          updatedAt: now,
-        });
+        // Patch CHỈ khi có khác biệt thật (hoặc đến chu kỳ refresh heartbeat) —
+        // bỏ ghi lặp 1-2KB/guild/phút khi mọi thứ y nguyên.
+        const changed =
+          existing.name !== g.name ||
+          existing.icon !== g.icon ||
+          existing.memberCount !== g.memberCount ||
+          !existing.botInGuild;
+        if (changed || refreshHeartbeat === true) {
+          await ctx.db.patch(existing._id, {
+            name: g.name,
+            icon: g.icon,
+            memberCount: g.memberCount,
+            botInGuild: true,
+            lastHeartbeat: now,
+            updatedAt: now,
+          });
+        }
       } else {
         const id = await ctx.db.insert("guilds", {
           discordId: g.id,

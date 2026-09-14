@@ -6,7 +6,10 @@ const { ConvexHttpClient } = require("convex/browser");
 // verify panel) dùng TTL ngắn 30s để nút bấm trên dashboard có tác dụng nhanh.
 // Ngoài ra getConfig(guildId, { force: true }) luôn đọc mới — dùng cho các chỗ
 // cần kết quả tức thì (mở khóa kênh, xóa nhiệt, gửi panel, backup ngay).
-const CONFIG_TTL_MS = 300_000;
+// TỐI ƯU I/O: 600s (trước 300s) — getBotConfig đọc guild row + modules +
+// autoreplies + giveaways mỗi lần miss cache; guild có cờ chờ vẫn cache ngắn 30s
+// nên thao tác dashboard không chậm. Giảm 50% reads nhóm này.
+const CONFIG_TTL_MS = 600_000;
 const CONFIG_TTL_PENDING_MS = 30_000;
 const MAX_RETRIES = 3;
 const BASE_RETRY_DELAY_MS = 500;

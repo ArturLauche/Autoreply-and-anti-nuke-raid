@@ -18,7 +18,10 @@
  *  - backup       → backup.runBackup / runRestore / runImportRestore + claim
  */
 
-const TICK_INTERVAL_MS = 60_000;
+// TỐI ƯU I/O: 120s (trước 60s) — các cờ backup/restore/panel vẫn xử lý trong
+// ~2 phút, đủ nhanh cho trải nghiệm; giảm 50% reads của batch query (mỗi lượt
+// collect() toàn bảng guilds/panels/giveaways là nguồn I/O lớn).
+const TICK_INTERVAL_MS = 120_000;
 /** Sau khi batch lỗi, tránh gọi lại batch trong khoảng này (dùng fallback). */
 const BATCH_RETRY_AFTER_MS = 10 * 60_000;
 
@@ -183,7 +186,7 @@ async function runTickOnce(client, store) {
 function setupTick(client, store) {
   client.once("ready", () => {
     // Chạy ngay 1 lượt sau 15s (đợi gateway ổn định) — việc chờ từ lúc bot
-    // offline (backup/panel/webhook log) được xử lý sớm, không đợi 60s.
+    // offline (backup/panel/webhook log) được xử lý sớm, không đợi hết chu kỳ.
     setTimeout(() => runTickOnce(client, store).catch(() => {}), 15_000).unref?.();
     const interval = setInterval(() => {
       runTickOnce(client, store).catch((e) => console.error("[tick]", e?.message || e));
