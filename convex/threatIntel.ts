@@ -244,6 +244,8 @@ export const botGetIntel = query({
       researchEnabled: status?.threatResearchEnabled ?? false,
       aiWeeklyEnabled: status?.threatResearchAiWeekly ?? true,
       notifyEnabled: status?.researchNotifyEnabled ?? false,
+      /** Cờ học thủ công đang chờ (bot đọc query trước, chỉ mutation claim khi có). */
+      manualLearnPending: status?.threatManualLearnRequested ?? false,
       nextRunAt: status?.threatResearchNextRunAt ?? null,
       lastRunAt: status?.threatResearchLastRunAt ?? null,
       lastAiUsed: status?.threatResearchLastAiUsed ?? false,

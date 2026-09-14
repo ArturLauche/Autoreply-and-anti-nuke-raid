@@ -117,8 +117,10 @@ client.once("clientReady", async () => {
       } catch (e) {
         console.error("[sync]", e.message);
       }
-      // 60s — dashboard đồng bộ guild mới/kicked bot nhanh hơn (trước 120s).
-      setTimeout(runSyncLoop, 60_000);
+      // TỐI ƯU USAGE: 120s (trước 60s) — guild MỚI/kick vẫn sync TỨC THÌ qua
+      // sự kiện guildCreate/guildDelete (syncOne/markGone), vòng này chỉ nhịp
+      // nền cho metadata; giảm 50% calls nhóm này (~43k→21.6k/tháng).
+      setTimeout(runSyncLoop, 120_000);
     })();
   };
   setTimeout(() => {
@@ -185,11 +187,15 @@ client.once("clientReady", async () => {
   // Flag cập nhật từng lượt tick qua setEnabledFromJobs (xem setupTick dưới).
   selfDiagnose.attach(client, store);
 
-  // Health check heartbeat — mỗi 60s (monitor web thấy trạng thái bot gần realtime)
+  // TỐI ƯU USAGE: KHÔNG còn vòng heartbeat 60s riêng (status:heartbeat) — nó
+  // trùng 100% với guild sync loop 60s (đã gộp heartbeat vào botSyncGuilds qua
+  // globalStatus). Vòng riêng cũ đốt ~43k function calls/tháng cho thông tin
+  // y hệt. sendHeartbeat chỉ còn là FALLBACK khi sync loop lỗi liên tiếp.
   const heartbeatInterval = setInterval(() => {
+    if (guildSync.isSyncHealthy()) return; // sync loop đang sống → không cần
     const memberCount = client.guilds.cache.reduce((a, g) => a + (g.memberCount ?? 0), 0);
     store.sendHeartbeat(client.guilds.cache.size, memberCount).catch(() => {});
-  }, 60_000);
+  }, 5 * 60_000);
   heartbeatInterval.unref();
 
   // Memory monitoring — mỗi 30 phút (nhẹ nhàng)

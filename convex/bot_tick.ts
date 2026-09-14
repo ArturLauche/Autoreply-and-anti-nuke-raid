@@ -77,13 +77,19 @@ export const getPendingJobs = query({
       }
     }
 
-    // Cấu hình self-diagnose (bot tự chẩn đoán lỗi qua AI) — đi nhờ batch query
-    // sẵn có, bot không cần thêm call riêng.
+    // Cấu hình self-diagnose (bot tự chẩn đoán lỗi qua AI) + cờ học thủ công /
+    // AI review Threat Intel — đi nhờ batch query sẵn có, bot không cần thêm
+    // call mutation "claim mù" mỗi 10 phút nữa (tiết kiệm ~4.3k calls/tháng).
     const status = await getBotStatus(ctx);
     const selfDiagnose = {
       enabled: status?.selfDiagnoseEnabled ?? false,
     };
+    const threatFlags = {
+      selfDiagnoseEnabled: status?.selfDiagnoseEnabled ?? false,
+      manualLearn: status?.threatManualLearnRequested ? { requestedBy: status.threatManualLearnBy ?? "admin" } : null,
+      aiReview: !!status?.threatAiReviewRequested,
+    };
 
-    return { hidden, verifyPanels, backups, selfDiagnose };
+    return { hidden, verifyPanels, backups, selfDiagnose, threatFlags };
   },
 });

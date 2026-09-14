@@ -14,6 +14,12 @@ let firstRun = true;
 let lastTrustedCount = 0;
 let lowCountStreak = 0;
 let runCounter = 0;
+let lastSyncOkAt = 0; // mốc lần sync thành công gần nhất (isSyncHealthy)
+
+/** Sync loop còn sống không (thành công trong 10 phút)? — heartbeat fallback chỉ chạy khi FALSE. */
+function isSyncHealthy() {
+  return Date.now() - lastSyncOkAt < 10 * 60_000;
+}
 
 // Cache for change detection — avoids redundant mutations
 const prevGuildData = new Map(); // guildId -> { name, icon, memberCount, channelHash, roleHash }
@@ -89,8 +95,6 @@ async function syncAll(client, store) {
   firstRun = false;
   if (trustedFullList) lastTrustedCount = count;
 
-  await store.client.mutation("guilds:botSyncGuilds", { guilds, trustedFullList });
-
   // Owner info — fetch once per sync cycle
   let ownerName;
   let ownerAvatarUrl;
@@ -113,15 +117,25 @@ async function syncAll(client, store) {
   // (bot_tick:getPendingJobs, gửi + luôn clear cờ kể cả khi kênh hỏng).
   // Tránh query trùng lặp mỗi vòng sync (tiết kiệm operations).
 
-  await store.client.mutation("guilds:botHeartbeat", {
-    guildCount: count,
-    memberCount,
-    version: "v60",
-    ownerName,
-    ownerAvatarUrl,
+  // TỐI ƯU USAGE: gộp heartbeat botStatus vào CHÍNH mutation botSyncGuilds
+  // (trước đây 2 mutation riêng mỗi phút = 2x calls). botHeartbeat mutation
+  // vẫn giữ trên Convex để backward-compat nhưng bot không gọi nữa.
+  await store.client.mutation("guilds:botSyncGuilds", {
+    guilds,
+    trustedFullList,
+    globalStatus: {
+      guildCount: count,
+      memberCount,
+      version: "v60",
+      ownerName,
+      ownerAvatarUrl,
+    },
   });
+  lastSyncOkAt = Date.now();
   return { count, trustedFullList };
 }
+
+module.exports = { syncAll, syncOne, markGone, ensureModules, isSyncHealthy };
 
 /** Upsert nhanh 1 guild vừa mời bot — sync NGAY tên/icon/thành viên + channels + roles.
  *  Previously only synced basic info, causing empty dropdowns on web dashboard
@@ -190,5 +204,3 @@ async function ensureModules(client, store) {
     }
   }
 }
-
-module.exports = { syncAll, syncOne, markGone, ensureModules };

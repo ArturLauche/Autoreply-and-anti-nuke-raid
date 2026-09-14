@@ -790,10 +790,23 @@ export const botSyncGuilds = mutation({
      * mặt quá 10 phút (không phải lỗi thoáng qua).
      */
     trustedFullList: v.optional(v.boolean()),
+    /**
+     * TỐI ƯU USAGE: trạng thái toàn cục bot (heartbeat) gộp vào mutation này —
+     * bot chỉ cần 1 call/phút thay vì 2 (botSyncGuilds + botHeartbeat riêng).
+     */
+    globalStatus: v.optional(
+      v.object({
+        guildCount: v.number(),
+        memberCount: v.number(),
+        version: v.string(),
+        ownerName: v.optional(v.string()),
+        ownerAvatarUrl: v.optional(v.string()),
+      }),
+    ),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()),
   },
-  handler: async (ctx, { botKey, guilds, trustedFullList }) => {
+  handler: async (ctx, { botKey, guilds, trustedFullList, globalStatus }) => {
     await requireBotKeyStrict(ctx, botKey);
     const now = Date.now();
     const present = new Set(guilds.map((g) => g.id));
@@ -893,6 +906,40 @@ export const botSyncGuilds = mutation({
         if (present.has(guild.discordId)) continue;
         if (now - (guild.lastHeartbeat ?? 0) < 10 * 60_000) continue;
         await ctx.db.patch(guild._id, { botInGuild: false, updatedAt: now });
+      }
+    }
+    // Heartbeat toàn cục gộp chung (TỐI ƯU USAGE): cùng logic guilds:botHeartbeat
+    // nhưng không tốn thêm 1 function call/phút riêng biệt nữa.
+    if (globalStatus) {
+      const status = await ctx.db
+        .query("botStatus")
+        .withIndex("by_kind", (q) => q.eq("kind", "status"))
+        .first();
+      const statusPatch: Record<string, unknown> = {
+        online: true,
+        guildCount: globalStatus.guildCount,
+        memberCount: globalStatus.memberCount,
+        lastHeartbeat: now,
+        version: globalStatus.version,
+      };
+      if (globalStatus.ownerName !== undefined)
+        statusPatch.ownerName = globalStatus.ownerName.slice(0, 120);
+      if (globalStatus.ownerAvatarUrl !== undefined)
+        statusPatch.ownerAvatarUrl = globalStatus.ownerAvatarUrl.slice(0, 2000);
+      if (status) {
+        await ctx.db.patch(status._id, statusPatch);
+      } else {
+        await ctx.db.insert("botStatus", {
+          kind: "status",
+          online: true,
+          guildCount: globalStatus.guildCount,
+          memberCount: globalStatus.memberCount,
+          lastHeartbeat: now,
+          startedAt: now,
+          version: globalStatus.version,
+          ownerName: globalStatus.ownerName?.slice(0, 120),
+          ownerAvatarUrl: globalStatus.ownerAvatarUrl?.slice(0, 2000),
+        });
       }
     }
     return { ok: true };

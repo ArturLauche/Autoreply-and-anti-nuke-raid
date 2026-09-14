@@ -50,7 +50,7 @@ const check = (label, ok) => {
   const ti = fs.readFileSync(path.join(__dirname, "..", "convex", "threatIntel.ts"), "utf8");
   check("getSettings trả notifyEnabled", ti.includes("notifyEnabled: status?.researchNotifyEnabled ?? false"));
   check("setResearchSettings nhận notifyEnabled", /notifyEnabled: v\.optional\(v\.boolean\(\)\)/.test(ti));
-  check("botGetIntel trả notifyEnabled cho bot", /notifyEnabled: status\?\.researchNotifyEnabled \?\? false,\s*\n\s*nextRunAt/.test(ti));
+  check("botGetIntel trả notifyEnabled cho bot", ti.includes("notifyEnabled: status?.researchNotifyEnabled ?? false,"));
 
   const research = fs.readFileSync(path.join(__dirname, "..", "bot", "src", "research.js"), "utf8");
   check("runResearch đọc cờ notifyEnabled", research.includes("notifyEnabled: intel?.notifyEnabled === true"));

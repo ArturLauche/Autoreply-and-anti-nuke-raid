@@ -26,7 +26,7 @@ function AdminContent() {
   const token = getSessionToken();
   const isOwner = useQuery(api.status.isOwner, token ? { token } : "skip");
   const { status, latency, avg, incidents, lastUpdate, nextUpdate, refresh } =
-    useBotMonitor(15000);
+    useBotMonitor(60000);
   const threat = useQuery(api.threatIntel.getSettings, { token });
   const researchHistory = useQuery(api.threatIntel.getResearchHistory, { token });
   const setThreat = useMutation(api.threatIntel.setResearchSettings);

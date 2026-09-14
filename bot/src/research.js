@@ -447,27 +447,33 @@ function setupResearch(client, store) {
     running = true;
     let trigger = null; // "manual" | "auto" — để báo lỗi về đúng ngữ cảnh
     try {
-      // HỌC THỦ CÔNG: cờ từ web Admin / lệnh /research learn — nhận + xóa cờ
-      // rồi chạy NGAY (không đợi đến hạn 4h). Mutation trả null khi không có cờ
-      // → 1 mutation rẻ mỗi 4h, không thêm polling.
-      const manual = await store.client
-        .mutation("threatIntel:botClaimManualLearn", {})
-        .catch(() => null);
-      if (manual) {
-        trigger = "manual";
-        const res = await runResearch(store, { trigger: "manual", requestedBy: manual.requestedBy });
-        console.log(
-          `[research:manual] by=${manual.requestedBy} sources=${res.sources.length} newKw=${res.newKeywords} newPhrases=${res.newPhrases} ai=${res.aiUsed}`,
-        );
-        // Báo kết quả vào kênh log chung — CHỈ khi chủ bot bật "thông báo học tập"
-        // trên Admin (mặc định TẮT để không làm spam kênh log).
-        if (res.notifyEnabled) {
-          await notifyManualResult(client, store, res, manual.requestedBy).catch(() => {});
+      // TỐI ƯU USAGE: đọc cờ qua QUERY read-only trước (botGetIntel), chỉ mutation
+      // claim khi cờ THẬT SỰ có — trước đây mutation claim mù mỗi 10 phút đốt
+      // ~4.3k calls/tháng dù 99% lượt không có việc gì.
+      const preIntel = await store.client.query("threatIntel:botGetIntel", {}).catch(() => null);
+      if (preIntel?.manualLearnPending) {
+        // HỌC THỦ CÔNG: cờ từ web Admin / lệnh /research learn — nhận + xóa cờ
+        // rồi chạy NGAY (không đợi đến hạn 4h).
+        const manual = await store.client
+          .mutation("threatIntel:botClaimManualLearn", {})
+          .catch(() => null);
+        if (manual) {
+          trigger = "manual";
+          const res = await runResearch(store, { trigger: "manual", requestedBy: manual.requestedBy });
+          console.log(
+            `[research:manual] by=${manual.requestedBy} sources=${res.sources.length} newKw=${res.newKeywords} newPhrases=${res.newPhrases} ai=${res.aiUsed}`,
+          );
+          // Báo kết quả vào kênh log chung — CHỈ khi chủ bot bật "thông báo học tập"
+          // trên Admin (mặc định TẮT để không làm spam kênh log).
+          if (res.notifyEnabled) {
+            await notifyManualResult(client, store, res, manual.requestedBy).catch(() => {});
+          }
+          return;
         }
-        return;
       }
 
-      const intel = await store.client.query("threatIntel:botGetIntel", {}).catch(() => null);
+      // Dùng lại kết quả query đã có (không query lần 2 — mỗi call là 1 usage).
+      const intel = preIntel;
       if (!intel?.researchEnabled) {
         // Bị tắt trên web → không tốn bất kỳ chi phí nào.
         return;

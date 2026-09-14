@@ -65,9 +65,10 @@ export interface BotMonitor {
  * Giám sát bot dùng chung (trang Monitor + cửa sổ Admin): trạng thái phản ứng,
  * đo độ trễ thật, nhật ký sự cố, và khung giờ cập nhật theo giờ VN.
  *
- * Tiết kiệm hạn mức Convex: mỗi tick là 1 function call — trên điện thoại
- * (pointer: coarse) giãn chu kỳ tối thiểu 15s; một tab mở 24/7 còn ~86k calls/tháng
- * thay vì ~518k. Tab ẩn thì dừng hẳn vòng đo.
+ * TỐI ƯU USAGE (Convex free 1M calls/tháng): status dùng SUBSCRIPTION reactive
+ * (useBotStatus — 0 call khi dữ liệu không đổi); riêng vòng đo latency dùng
+ * HTTP POST mù và là call thật ⇒ giãn tối thiểu 30s (một tab mở 24/7 chỉ còn
+ * ~43k calls/tháng), tab ẩn thì dừng hẳn vòng đo.
  */
 export function useBotMonitor(intervalMs = 5000): BotMonitor {
   const status = useBotStatus();
@@ -77,15 +78,12 @@ export function useBotMonitor(intervalMs = 5000): BotMonitor {
   const [nonce, setNonce] = useState(0);
   const timerRef = useRef<number>(0);
 
-  // Điện thoại/máy tính bảng: chu kỳ tối thiểu 15s — dashboard vẫn mượt mà
-  // nhưng không đốt hạn mức Convex free (1M calls/tháng).
-  const effectiveInterval = useMemo(() => {
-    const coarse =
-      typeof window !== "undefined" &&
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(pointer: coarse)").matches;
-    return Math.max(intervalMs, coarse ? 15_000 : intervalMs);
-  }, [intervalMs]);
+  // Chu kỳ đo latency tối thiểu 30s (đủ mượt cho biểu đồ — status vẫn realtime
+  // qua subscription). Trước đây 5-15s ⇒ một tab mở 24/7 đốt tới 518k calls/tháng.
+  const effectiveInterval = useMemo(
+    () => Math.max(intervalMs, 30_000),
+    [intervalMs],
+  );
 
   const tick = useCallback(async () => {
     try {
