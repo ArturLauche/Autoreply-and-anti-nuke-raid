@@ -28,13 +28,23 @@ export const githubPush = action({
   },
   handler: async (ctx, args) => {
     await requireBotKey(ctx, args.botKey);
-    // Validate input trước khi đẩy lên GitHub: guildId là Discord snowflake,
-    // backupJson giới hạn ~8 MB (khớp MAX_IMPORT_FILE_BYTES của backup.ts).
+    // Validate input trước khi đẩy lên GitHub: guildId là Discord snowflake.
     if (!/^\d{15,20}$/.test(args.guildId)) {
       return { ok: false, error: "guildId không hợp lệ" };
     }
-    if (!args.backupJson || args.backupJson.length > 8_400_000) {
-      return { ok: false, error: "Nội dung backup quá lớn hoặc rỗng" };
+    // Nội dung nén zlib (tiền tố "z:") giảm 60-80% — chấp nhận tới ~2.5 MB
+    // (bung ra ~8 MB, khớp MAX_IMPORT_FILE_BYTES). JSON thuần chỉ tới 900 KB
+    // (giới hạn file Gist 900KB của GitHub) — trước đây JSON lớn bị từ chối
+    // với lỗi "GitHub lỗi 413" mà bot không giải thích được.
+    const isCompressed = args.backupJson.startsWith("z:");
+    const maxLen = isCompressed ? 2_500_000 : 900_000;
+    if (!args.backupJson || args.backupJson.length > maxLen) {
+      return {
+        ok: false,
+        error: isCompressed
+          ? "Nội dung backup quá lớn hoặc rỗng (kể cả sau khi nén)"
+          : "Nội dung backup quá lớn — hãy bật nén (bot bản mới tự nén) hoặc bỏ bớt tin nhắn/media",
+      };
     }
     const token = process.env.GITHUB_TOKEN;
     if (!token) {
@@ -42,7 +52,7 @@ export const githubPush = action({
     }
     const label = (args.guildName || args.guildId).slice(0, 60);
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const filename = `protogon-backup-${args.guildId}-${stamp}.json`;
+    const filename = `protogon-backup-${args.guildId}-${stamp}${isCompressed ? ".zlib" : ""}.json`;
     let res: Response;
     try {
       res = await fetch("https://api.github.com/gists", {
@@ -77,6 +87,6 @@ export const githubPush = action({
         url,
       });
     }
-    return { ok: true, url: url ?? null };
+    return { ok: true, url: url ?? null, compressed: isCompressed };
   },
 });

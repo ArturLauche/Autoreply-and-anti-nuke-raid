@@ -84,6 +84,9 @@ async function runBackupJobs(client, store, items) {
         await backupMod.runBackup(client, store, item.guildId, {
           pushToGithub: !!item.pushToGithub,
           includeMessages: !!item.includeMessages,
+          // Yêu cầu đến từ người dùng (dashboard/lệnh) hoặc lịch tự động —
+          // nếu bị skip vì "không thay đổi" thì phải thông báo, không im lặng.
+          skipNotice: true,
         });
       } else if (item.kind === "restore") {
         await backupMod.runRestore(client, store, item.guildId, item.backupJson, item.guildName);

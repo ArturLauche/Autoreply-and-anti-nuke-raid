@@ -690,7 +690,10 @@ export const botSetRestoreRequest = mutation({
 /**
  * Bot giành quyền xử lý một yêu cầu backup/khôi phục (chống lặp).
  * Chỉ bot claim THÀNH CÔNG mới được chạy; lượt quét khác/instance khác
- * gọi tới trong 2 phút sẽ bị từ chối và bỏ qua, không tạo backup trùng.
+ * gọi tới trong 10 phút sẽ bị từ chối và bỏ qua. Cửa sổ phải CHE ĐỦ thời gian
+ * chạy thật (server lớn: backup ~2-5 phút, restore kèm media có thể > 10 phút
+ * với rate limit webhook) — trước đây 2 phút bị quá ngắn: bot khác/lượt restart
+ * cướp quyền giữa chừng và chạy lại từ đầu (tạo backup trùng / restore lặp).
  */
 export const botClaimBackup = mutation({
   args: {
@@ -711,7 +714,7 @@ export const botClaimBackup = mutation({
       if (!guild.backupRequested) return { ok: false, reason: "no_request" };
       if (
         guild.backupClaimedAt !== undefined &&
-        now - guild.backupClaimedAt < 120_000
+        now - guild.backupClaimedAt < 600_000
       ) {
         return { ok: false, reason: "in_flight" };
       }
@@ -722,7 +725,7 @@ export const botClaimBackup = mutation({
       if (!guild.importRestoreRequested) return { ok: false, reason: "no_request" };
       if (
         guild.restoreClaimedAt !== undefined &&
-        now - guild.restoreClaimedAt < 120_000
+        now - guild.restoreClaimedAt < 600_000
       ) {
         return { ok: false, reason: "in_flight" };
       }
@@ -732,7 +735,7 @@ export const botClaimBackup = mutation({
     if (!guild.restoreRequested) return { ok: false, reason: "no_request" };
     if (
       guild.restoreClaimedAt !== undefined &&
-      now - guild.restoreClaimedAt < 120_000
+      now - guild.restoreClaimedAt < 600_000
     ) {
       return { ok: false, reason: "in_flight" };
     }

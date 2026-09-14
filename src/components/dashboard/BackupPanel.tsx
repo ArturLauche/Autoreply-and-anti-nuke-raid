@@ -128,6 +128,16 @@ export default function BackupPanel({ data }: { data: GuildData }) {
   }, [importWatch, importStatus]);
 
   async function createBackup() {
+    // Bot OFFLINE → yêu cầu sẽ không bao giờ được xử lý (bot quét mỗi ~20-60s);
+    // cảnh báo NGAY thay vì để người dùng chờ vô ích và tưởng "backup hỏng".
+    if (importStatus && importStatus.botOnline === false) {
+      toast.error("Bot đang OFFLINE — không thể backup lúc này", {
+        description:
+          "Bot không gửi heartbeat (offline > 3 phút). Hãy khởi động bot trên host (pm2 start protogon-bot / bật lại service) rồi bấm Backup ngay sau khi bot online.",
+        duration: 8000,
+      });
+      return;
+    }
     setBusy("backup");
     try {
       await requestBackup({
@@ -250,6 +260,15 @@ export default function BackupPanel({ data }: { data: GuildData }) {
   }
 
   async function restore(backup: BackupInfo) {
+    // Bot OFFLINE → yêu cầu khôi phục sẽ nằm chờ vô hạn — chặn sớm với lý do rõ ràng.
+    if (importStatus && importStatus.botOnline === false) {
+      toast.error("Bot đang OFFLINE — không thể khôi phục lúc này", {
+        description:
+          "Bot không gửi heartbeat. Hãy khởi động bot trên host rồi thử khôi phục lại sau khi bot online.",
+        duration: 8000,
+      });
+      return;
+    }
     const skipNote = [
       !restoreRoles ? "role (đã tắt trong Tùy chỉnh khôi phục)" : null,
       !restoreEmojis ? "emoji/sticker (đã tắt trong Tùy chỉnh khôi phục)" : null,

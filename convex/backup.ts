@@ -358,7 +358,11 @@ export const botGetDueAuto = query({
 });
 
 /**
- * Bot đọc checksum snapshot gần nhất (để bỏ qua backup không thay đổi).
+ * Bot đọc thông tin bản backup gần nhất (để so khớp incremental):
+ * - backupSnapshotChecksum: checksum "ổn định" → trùng là server KHÔNG ĐỔI (bỏ qua);
+ * - backupMessageCount: > 0 nghĩa là bản gần nhất có kèm tin nhắn → backup
+ *   tự động kế thừa chế độ này để so checksum CÙNG PHƯƠNG THỨC (không thì
+ *   server không đổi vẫn tạo bản trùng lặp / bỏ nhầm bản mới).
  * Trả về null khi server chưa có backup nào.
  */
 export const botGetLastChecksum = query({
@@ -372,7 +376,11 @@ export const botGetLastChecksum = query({
       .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId))
       .order("desc")
       .first();
-    return last ? { backupSnapshotChecksum: last.backupSnapshotChecksum ?? null } : null;
+    if (!last) return null;
+    return {
+      backupSnapshotChecksum: last.backupSnapshotChecksum ?? null,
+      backupMessageCount: last.messageCount ?? 0,
+    };
   },
 });
 

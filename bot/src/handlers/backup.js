@@ -270,7 +270,13 @@ async function snapshotWithSettings(client, store, guildId, includeMessages) {
   return { snapshot, guild };
 }
 
-/** Đẩy backup JSON lên GitHub Gist thông qua action Convex (cần GITHUB_TOKEN). */
+/**
+ * Đẩy backup lên GitHub Gist thông qua action Convex (cần GITHUB_TOKEN).
+ * backupJson PHẢI là bản ĐÃ NÉN (compressAndEncryptBackup) — Gist giới hạn
+ * file 900 KB, JSON backup server lớn vượt xa con số đó và bị GitHub từ chối
+ * (HTTP 413) → chủ server tưởng backup xong mà trên Gist không có gì. Bản nén
+ * zlib ("z:...") giảm 60-80% và được restore/import nhận diện ngược lại được.
+ */
 async function pushToGithub(store, { guildId, backupId, backupJson, guildName }) {
   try {
     const res = await store.client.action("backup_github:githubPush", {
@@ -286,7 +292,7 @@ async function pushToGithub(store, { guildId, backupId, backupJson, guildName })
 }
 
 async function runBackup(client, store, guildId, opts = {}) {
-  const { pushToGithub = false, includeMessages = false } = opts;
+  const { pushToGithub = false, includeMessages = false, skipNotice = false } = opts;
   const { snapshot, guild } = await snapshotWithSettings(client, store, guildId, includeMessages);
   const json = JSON.stringify(snapshot);
 
@@ -304,6 +310,29 @@ async function runBackup(client, store, guildId, opts = {}) {
       await store.client
         .mutation("bot_writes:botClearBackup", { guildId, kind: "backup", storeOk: true })
         .catch(() => {});
+      // Người dùng bấm "Backup ngay" chủ động → phải có thông báo, không im lặng
+      // (im lặng khiến họ tưởng backup không hoạt động). Backup tự động theo lịch
+      // vẫn im lặng như cũ để không spam kênh log.
+      if (skipNotice) {
+        try {
+          const g = client.guilds.cache.get(guildId);
+          if (g) {
+            await sendToLog(
+              g,
+              logEmbed({
+                title: "💾 Backup bỏ qua — server không có thay đổi",
+                description:
+                  "Cấu trúc server **hoàn toàn giống** bản backup gần nhất (role, kênh, emoji, sticker, cấu hình đều không đổi) nên không tạo bản trùng lặp. Bật **Kèm tin nhắn** để backup tính cả nội dung tin nhắn (nội dung tin mới được so sánh khi đã bật).",
+                color: Colors.Yellow,
+                footer: "Protogon · Backup",
+              }),
+              store,
+            );
+          }
+        } catch {
+          // không gửi được log — bỏ qua
+        }
+      }
       return;
     }
   } catch {
@@ -340,11 +369,12 @@ async function runBackup(client, store, guildId, opts = {}) {
     const res = await pushToGithub(store, {
       guildId,
       backupId,
-      backupJson: json,
+      // Gửi bản ĐÃ NÉN — Gist giới hạn 900 KB, JSON thô của server lớn bị từ chối.
+      backupJson,
       guildName: snapshot.guildName,
     });
     githubLine = res?.ok
-      ? `đã đẩy GitHub: ${res.url || "xem dashboard"}`
+      ? `đã đẩy GitHub${res.compressed ? " (bản nén zlib — nạp lại bằng bot Protogon)" : ""}: ${res.url || "xem dashboard"}`
       : `GitHub thất bại: ${res?.error || "lỗi"}`;
   } else if (pushToGithub && !backupId) {
     githubLine = "lưu Convex thất bại → bỏ qua GitHub";
@@ -1327,6 +1357,17 @@ function decodeEncryptedMsc(parsed) {
  */
 function normalizeBackupFile(content) {
   let text = String(content || "").replace(/^\uFEFF/, "").trim();
+  // Bản backup của chính Protogon (nén zlib "z:" / nén+mã hóa "e:" — tải từ Gist
+  // GitHub hoặc file tải từ nơi khác): bung nén + giải mã TRƯỚC khi parse JSON.
+  // Trước đây file Gist nén import vào server phụ bị lỗi "Không đọc được file
+  // backup" dù file hoàn toàn hợp lệ.
+  if (/^z:/.test(text) || /^e:/.test(text)) {
+    try {
+      text = decompressAndDecryptBackup(text);
+    } catch {
+      // không bung được (key sai / file hỏng) — vẫn thử các bước parse bên dưới
+    }
+  }
   // Gỡ tiền tố base64 thường gặp: data:application/json;base64, / base64:// / base64: / b64:
   const prefixed = text.match(/^(?:data:application\/(?:json|octet-stream)[^,]*;base64,|base64:\/\/|base64:|b64:)(.+)$/is);
   if (prefixed) text = prefixed[1].trim();
@@ -1639,6 +1680,7 @@ async function pollBackups(client, store) {
         await runBackup(client, store, item.guildId, {
           pushToGithub: !!item.pushToGithub,
           includeMessages: !!item.includeMessages,
+          skipNotice: true,
         });
       } else if (item.kind === "restore") {
         await runRestore(client, store, item.guildId, item.backupJson, item.guildName);
@@ -1666,8 +1708,11 @@ async function pollBackups(client, store) {
 }
 
 /**
- * Quét định kỳ (mỗi giờ): tìm server đã bật lịch tự động backup (2-30 ngày)
- * và đã đến hạn → đặt cờ yêu cầu để vòng quét 20s thực hiện (đẩy lên GitHub chủ bot).
+ * Bot quét mỗi giờ: tìm server đã bật lịch tự động backup (2-30 ngày) và đã đến
+ * hạn → đặt cờ yêu cầu để vòng tick thực hiện (đẩy lên GitHub chủ bot).
+ * "Kèm tin nhắn" của bản auto theo bản backup gần nhất của từng server (đọc
+ * backupMessageCount từ backup:botGetLastChecksum), để incremental backup so
+ * checksum cùng chế độ — không tạo bản trùng lặp khi server không đổi.
  */
 async function autoBackupSweep(client, store) {
   let due;
@@ -1680,9 +1725,18 @@ async function autoBackupSweep(client, store) {
   if (!due || due.length === 0) return;
   for (const item of due) {
     try {
+      // Đồng bộ lựa chọn "Kèm tin nhắn" theo BẢN BACKUP GẦN NHẤT của server:
+      // bản gần nhất có tin nhắn (messageCount > 0) → auto backup cũng kèm tin.
+      // Quan trọng cho incremental: checksum snapshot phải cùng chế độ với bản
+      // trước, ngược lại server không đổi vẫn tạo bản trùng lặp (hoặc bỏ nhầm).
+      const last = await store.client
+        .query("backup:botGetLastChecksum", { guildId: item.guildId })
+        .catch(() => null);
+      const includeMessages = (last?.backupMessageCount ?? 0) > 0;
       await store.client.mutation("bot_writes:botSetBackupRequest", {
         guildId: item.guildId,
         pushToGithub: true,
+        includeMessages,
       });
       console.log(`[backup:auto] ${item.guildId}: lịch mỗi ${item.days} ngày → đã đặt yêu cầu backup`);
     } catch (e) {

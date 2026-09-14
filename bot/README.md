@@ -275,10 +275,11 @@ Các vòng chạy hoàn toàn trên VPS (không tốn Convex ops đáng kể, kh
 
 - Dashboard → **Backup server** → bấm **Backup ngay** (tùy chọn đẩy lên GitHub), hoặc dùng lệnh trong Discord: `!backup` / `/backup now`, `!backup list` / `/backup list`, `!backup restore <số>` / `/backup restore <số>`.
 - Bot chụp toàn bộ **role** (tên, màu, hoist, mentionable, quyền), **kênh** (danh mục, văn bản, thoại… kèm quyền truy cập từng kênh) và cấu hình cơ bản (prefix, từ ngữ xấu, role mod/admin, kênh log).
-- Backup lưu vào Convex (giữ 3 bản mới nhất/server — bản cũ hơn tự bị xóa) và đẩy thành **Gist riêng tư** trên GitHub qua action `backup_github:githubPush` — cần biến `GITHUB_TOKEN` (quyền `gist`) của **chủ sở hữu bot** trong **Keys** của Convex. **Token này dùng chung cho MỌI server** — các owner server khác không cần dán token riêng.
+- Backup lưu vào Convex (giữ 3 bản mới nhất/server — bản cũ hơn tự bị xóa) và đẩy thành **Gist riêng tư** trên GitHub qua action `backup_github:githubPush` — cần biến `GITHUB_TOKEN` (quyền `gist`) của **chủ sở hữu bot** trong **Keys** của Convex. **Token này dùng chung cho MỌI server** — các owner server khác không cần dán token riêng. Backup được **nén zlib trước khi đẩy** (Gist giới hạn file 900KB — JSON thô của server lớn bị GitHub từ chối); file Gist nén tải về vẫn nạp lại được qua phần import của dashboard.
 - **Tự động backup định kỳ** (mặc định mỗi 7 ngày khi server mới thêm bot): bật/tắt + chỉnh số ngày (2–30) trong dashboard **Backup server**, hoặc lệnh `!backup auto <2-30|off>` / `/backup auto <số ngày>`. Bot quét mỗi giờ, đã đến hạn thì tự chụp + đẩy lên GitHub của chủ bot.
 - Khi server bị nuke/raid phá sập: mời bot vào **server phụ** → dashboard → **Backup** → bấm **Khôi phục vào server này** (hoặc `!backup restore <số>` trong server phụ). Bot tạo lại role (quyền đã được giới hạn theo quyền hiện có của bot), danh mục, kênh + overwrite, rồi áp lại cấu hình với id mới. Các role/kênh có sẵn của server phụ được giữ nguyên.
 - Bot quét yêu cầu backup/khôi phục mỗi ~20 giây.
+- **Incremental backup**: server không đổi so với bản gần nhất (checksum snapshot trùng) → bỏ qua để đỡ tốn. Backup chủ động (dashboard/lệnh) khi bị bỏ qua sẽ **thông báo rõ** vào kênh log "Backup bỏ qua — server không có thay đổi"; backup tự động vẫn im lặng. Chế độ "kèm tin nhắn" của backup tự động **kế thừa bản gần nhất** của từng server để so checksum cùng phương thức.
 
 ## Hệ thống log — gộp chung kiểu Carl-bot
 
