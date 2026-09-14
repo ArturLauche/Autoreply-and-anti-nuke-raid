@@ -4,7 +4,7 @@
 
 Bot Discord tự động trả lời tin nhắn thành viên theo **từ khóa** hoặc khi bị **tag @mention** (nội dung do bạn tùy chỉnh), hỗ trợ đầy đủ **prefix (`!`) + slash commands**, kèm hệ thống **chống nuke/raid** bật tắt từng phần theo ý mod & owner — tất cả quản lý qua một **dashboard web** tùy chỉnh.
 
-> **Chất lượng**: 19 test suites (~370 assertion, chạy 6s) · typecheck sạch · CI chặn merge khi fail · deploy Convex chỉ sau khi test pass (`bun run test` để chạy local).
+> **Chất lượng**: 19 test suites (~370 assertion, chạy 6s) · coverage đo bằng c8 (38% dòng / 71% hàm / 63% nhánh — engine bảo mật được che tốt nhất) · typecheck sạch · CI chặn merge khi fail · deploy Convex chỉ sau khi test pass (`bun run test` để chạy local).
 
 ## Kiến trúc
 
@@ -85,6 +85,29 @@ Bot tự đăng ký slash commands và đồng bộ server/kênh/role lên Conve
 - ⌨️ **Prefix + slash**: `!help !ping !prefix !autoreply !antinuke !heat !badword !setlog !backup !report !research` và tương đương `/…` (kèm `/backup now|list|restore|auto` để tạo/liệt kê/khôi phục + tự động backup định kỳ server ngay trong Discord).
 - ♻️ **Tùy chỉnh khôi phục (Backup server → Tùy chỉnh khôi phục)**: bật/tắt từng phần **role** và **emoji/sticker** khi bot khôi phục — đồng bộ bot ↔ web, áp dụng cho **cả backup Protogon lẫn file backup của bot nuke** (.msc/.json tải lên). Phần tắt sẽ được bỏ qua khi restore; kênh, tin nhắn + media vẫn xử lý bình thường.
 - 🖥️ **Dashboard**: server list, tổng quan, quản lý rule, chống nuke, cài đặt — áp dụng tự động sau ~1 phút.
+
+## Kiểm thử & Coverage
+
+```bash
+bun run test            # chạy toàn bộ 19 suites (~6s, thoát khác 0 nếu fail)
+bun run test:coverage   # chạy test + đo coverage (báo cáo HTML tại coverage/)
+```
+
+Coverage được đo bằng [`c8`](https://github.com/bcoe/c8) (V8 native, không phải đo giả): mỗi dòng/hàm/nhánh của `bot/src` bị đánh dấu **đã chạy qua hay chưa** trong lúc test. Con số hiện tại:
+
+| Chỉ số | Giá trị | Ý nghĩa |
+|---|---|---|
+| Dòng | 38.5% | ~5,000/13,000 dòng bot được test chạm tới |
+| Hàm | 70.8% | 70% hàm được **gọi thật** (không chỉ import) |
+| Nhánh (if/else) | 62.7% | cả hai phía true/false của hầu hết điều kiện đã được kiểm |
+
+**Bản đồ nhiệt theo file** (phần quan trọng nhất):
+
+- ✅ **≥ 88%**: `threatEngine` (88.7%), `selfDiagnose` (88.9%), `researchCommands` (92%), `filters` (92%), `externalAppGuard` (95.2%), `flaggedMessages` (96.6%), `caseLog` (100%) — **engine auto-mod & threat intel là phần được bảo vệ dày nhất**, đúng chỗ dễ gây phạt oan thành viên.
+- ⚠️ **50–76%**: `backup` (76%), `util` (75%), `research` (72%), `heat` (67%), `backupUtils` (66%), `hidden` (59%), `tick` (58%), `guildSync` (50%) — luồng chính có test nhưng còn nhánh hiếm gặp chưa phủ.
+- 🔴 **0–19%**: `antinuke` (11%), `lockdown` (15%), `incidentReport` (19%), và các file entry-point (`interactionCreate`, `messageCreate`, `altDetection`…) — phần lớn là code cần Discord runtime thật; `antinuke` đang có suite riêng (35 assertion mock) nhưng chỉ chạm 11% dòng vì file quá lớn — lý do chính để tách monolith.
+
+Coverage **không phải điểm số để đẹp**: nó chỉ ra chính xác nơi thiếu test. Ví dụ nhánh `endError`/`dmError` mới vá gần đây đã được `test-silent-error-reporting` phủ ngay sau khi viết. `.c8rc.json` đặt ngưỡng tối thiểu (lines 25 / functions 55 / branches 45) — nếu code mới làm rớt coverage xuống dưới ngưỡng, `bun run test:coverage` thất bại, chặn regress trước khi commit.
 
 ## Phát triển
 

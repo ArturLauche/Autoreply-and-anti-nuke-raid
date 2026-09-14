@@ -12,3 +12,6 @@ bot/*.zip
 *.tsbuildinfo
 *.log
 .DS_Store
+
+# Coverage report (sinh bởi c8 — chỉ xem local/CI artifact)
+coverage/

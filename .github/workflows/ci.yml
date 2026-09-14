@@ -23,8 +23,31 @@ jobs:
           (cd bot && bun install --no-save)
       - name: Typecheck (web + convex)
         run: bun run typecheck
-      - name: Chạy toàn bộ test suites
-        run: bun run test
+      - name: Chạy toàn bộ test suites + đo coverage (c8)
+        run: bun run test:coverage
+      - name: Tóm tắt coverage vào Job Summary
+        if: always()
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            echo "## 📊 Coverage" >> $GITHUB_STEP_SUMMARY
+            node -e "
+              const s = require('./coverage/coverage-summary.json').total;
+              const pct = (n) => n.pct + '%';
+              console.log('| Chỉ số | Giá trị |');
+              console.log('|---|---|');
+              console.log('| Statements | ' + pct(s.statements) + ' |');
+              console.log('| Branches | ' + pct(s.branches) + ' |');
+              console.log('| Functions | ' + pct(s.functions) + ' |');
+              console.log('| Lines | ' + pct(s.lines) + ' |');
+            " >> $GITHUB_STEP_SUMMARY
+          fi
+      - name: Upload báo cáo HTML (xem local bằng artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 14
 
   # Deploy Convex chỉ chạy KHI test đã pass — tách job, depends_on test.
   deploy:

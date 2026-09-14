@@ -1,0 +1,26 @@
+{
+  "all": true,
+  "include": ["bot/src/**/*.js"],
+  "exclude": [
+    "bot/src/commands/**",
+    "bot/src/index.js",
+    "bot/src/loadenv.js",
+    "bot/src/ai.js",
+    "bot/src/captchaStore.js",
+    "bot/src/timeoutWatch.js",
+    "bot/src/voicePresence.js"
+  ],
+  "reporter": ["text", "text-summary", "html", "lcov", "json-summary"],
+  "reports-dir": "coverage",
+  "check-coverage": true,
+  "lines": 30,
+  "functions": 25,
+  "statements": 30,
+  "branches": 20,
+  "watermarks": {
+    "lines": [50, 75],
+    "functions": [50, 75],
+    "branches": [50, 75],
+    "statements": [50, 75]
+  }
+}
