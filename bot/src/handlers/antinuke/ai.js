@@ -4,7 +4,7 @@
  */
 const aiClient = require("../../ai");
 
-module.exports = function createAntiNukeLayer({ client, store, heat, state, core, ai, raidIntel, externalApp }) {
+module.exports = function createAntiNukeLayer({ state }) {
   const { joiners } = state.state;
 
   /** Gọi AI phân loại sự kiện raid vs cá nhân. Trả về null khi AI không có.
@@ -37,7 +37,15 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
   /** Gọi AI phân tích cụm raid (best-effort, 6s timeout). Trả null khi AI offline.
    *  Chạy TRỰC TIẾP từ process bot — không tốn Convex actions.
    */
-  async function aiAnalyzeRaid(guild, module, count, windowSeconds, threshold, clusterProfile, recentActions) {
+  async function aiAnalyzeRaid(
+    guild,
+    module,
+    count,
+    windowSeconds,
+    threshold,
+    clusterProfile,
+    recentActions,
+  ) {
     try {
       if (!aiClient.aiAvailable()) return null;
       const res = await Promise.race([
@@ -62,7 +70,14 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
   /** Gọi AI xác định chuỗi kết nối external app có phải raid không (best-effort, 6s timeout).
    *  Chạy TRỰC TIẾP từ process bot — không tốn Convex actions.
    */
-  async function aiAnalyzeExternalApp(guild, count, windowSeconds, threshold, appProfile, recentJoins) {
+  async function aiAnalyzeExternalApp(
+    guild,
+    count,
+    windowSeconds,
+    threshold,
+    appProfile,
+    recentJoins,
+  ) {
     try {
       if (!aiClient.aiAvailable()) return null;
       const res = await Promise.race([
@@ -110,7 +125,9 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
     const burst = sortedTs.length > 1 ? (sortedTs[sortedTs.length - 1] - sortedTs[0]) / 1000 : 0;
     return {
       clusterMemberCount: cluster.length,
-      clusterAvgAccountAgeDays: ages.length ? Math.round(ages.reduce((a, b) => a + b, 0) / ages.length) : undefined,
+      clusterAvgAccountAgeDays: ages.length
+        ? Math.round(ages.reduce((a, b) => a + b, 0) / ages.length)
+        : undefined,
       clusterSharedAvatarCount: shared,
       clusterJoinBurstSeconds: Math.round(burst),
     };

@@ -1,4 +1,9 @@
-import { type QueryCtx, type MutationCtx, type ActionCtx, internalQuery } from "./_generated/server";
+import {
+  type QueryCtx,
+  type MutationCtx,
+  type ActionCtx,
+  internalQuery,
+} from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getBotStatus } from "./hidden";
 import { sha256Hex } from "./sha256";
@@ -40,9 +45,10 @@ export async function requireBotKey(
   botKey: string | undefined,
 ): Promise<void> {
   // Action không có db trực tiếp — đọc seed qua internal query.
-  const status = "db" in ctx
-    ? await getBotStatus(ctx)
-    : await ctx.runQuery(internal.hidden.getBotStatusInternal);
+  const status =
+    "db" in ctx
+      ? await getBotStatus(ctx)
+      : await ctx.runQuery(internal.hidden.getBotStatusInternal);
   const seed = status?.botKeySeed;
   // Chưa cài seed → chưa kích hoạt (giữ back-compat với bot cũ).
   if (!seed) return;
@@ -63,14 +69,17 @@ export async function requireBotKeyStrict(
   ctx: QueryCtx | MutationCtx | ActionCtx,
   botKey: string | undefined,
 ): Promise<void> {
-  const status = "db" in ctx
-    ? await getBotStatus(ctx)
-    : await ctx.runQuery(internal.hidden.getBotStatusInternal);
+  const status =
+    "db" in ctx
+      ? await getBotStatus(ctx)
+      : await ctx.runQuery(internal.hidden.getBotStatusInternal);
   const seed = status?.botKeySeed;
   if (!seed) {
     // Seed chưa được cấp phát — bot thật phải chạy bootstrap (botBootstrap.ts)
     // trước khi dùng các function bảo mật cao. Từ chối để không có cửa hậu.
-    throw new Error("Chìa khóa bot chưa được cấp phát — bot cần kết nối bản mới để tự cấp phát (bootstrap)");
+    throw new Error(
+      "Chìa khóa bot chưa được cấp phát — bot cần kết nối bản mới để tự cấp phát (bootstrap)",
+    );
   }
   if (!botKey || computeBotKey(botKey) !== seed) {
     throw new Error("Chìa khóa bot không hợp lệ (botKey)");

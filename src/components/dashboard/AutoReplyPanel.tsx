@@ -165,14 +165,18 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
               <AtSign className="h-6 w-6" />
             </span>
             <p className="max-w-sm text-sm text-muted-foreground">
-              Chưa có rule nào. Tạo rule đầu tiên để bot trả lời khi ai đó nhắc từ khóa hoặc tag bot.
+              Chưa có rule nào. Tạo rule đầu tiên để bot trả lời khi ai đó nhắc từ khóa hoặc tag
+              bot.
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4">
           {data.autoReplies.map((rule) => (
-            <Card key={rule._id} className={`transition-opacity ${rule.enabled ? "" : "opacity-60"}`}>
+            <Card
+              key={rule._id}
+              className={`transition-opacity ${rule.enabled ? "" : "opacity-60"}`}
+            >
               <CardContent className="p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -199,7 +203,10 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
                     {rule.triggerType === "keyword" && (
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {rule.keywords.map((k) => (
-                          <span key={k} className="rounded-md bg-secondary px-2 py-0.5 font-mono text-xs text-primary">
+                          <span
+                            key={k}
+                            className="rounded-md bg-secondary px-2 py-0.5 font-mono text-xs text-primary"
+                          >
                             {k}
                           </span>
                         ))}
@@ -219,7 +226,12 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
                     <Button variant="ghost" size="icon-sm" onClick={() => openEdit(rule)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon-sm" className="text-danger hover:text-danger" onClick={() => handleDelete(rule)}>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-danger hover:text-danger"
+                      onClick={() => handleDelete(rule)}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -233,7 +245,9 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing ? `Chỉnh sửa "${editing.name}"` : "Thêm rule auto reply"}</DialogTitle>
+            <DialogTitle>
+              {editing ? `Chỉnh sửa "${editing.name}"` : "Thêm rule auto reply"}
+            </DialogTitle>
             <DialogDescription>
               Bot sẽ trả lời thành viên khi điều kiện kích hoạt được thỏa mãn.
             </DialogDescription>

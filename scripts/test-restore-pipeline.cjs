@@ -171,7 +171,9 @@ function makeBatchItem(overrides = {}) {
     const store = makeStore(flagDb);
     const { client, sent } = makeClient();
     await tick.runBackupJobs(client, store, [makeBatchItem()]);
-    const cleared = store._mutations.find((m) => m.name === "bot_writes:botClearBackup" && m.args.kind === "restore");
+    const cleared = store._mutations.find(
+      (m) => m.name === "bot_writes:botClearBackup" && m.args.kind === "restore",
+    );
     check("restore thành công → botClearBackup xóa cờ", !!cleared);
     check("restore thành công → embed xác nhận gửi kênh log", sent.length > 0);
     check("cờ restore về false sau khi xong", flagDb.restoreRequested === false);
@@ -186,10 +188,15 @@ function makeBatchItem(overrides = {}) {
     await tick.runBackupJobs(client, store, [makeBatchItem({ backupJson: "khong-doc-duoc{{{" })]);
     const reported = store._mutations.find((m) => m.name === "bot_writes:botReportRestoreError");
     check("restore lỗi → botReportRestoreError được gọi (trước đây im lặng)", !!reported);
-    check("lỗi có nội dung rõ ràng", typeof reported?.args?.error === "string" && reported.args.error.length > 3);
+    check(
+      "lỗi có nội dung rõ ràng",
+      typeof reported?.args?.error === "string" && reported.args.error.length > 3,
+    );
     check("restore lỗi → cờ bị xóa (không kẹt vĩnh viễn)", flagDb.restoreRequested === false);
     check("lỗi được ghi vào flagDb để dashboard hiển thị", typeof flagDb.restoreError === "string");
-    const wronglyCleared = store._mutations.find((m) => m.name === "bot_writes:botClearBackup" && m.args.kind === "restore");
+    const wronglyCleared = store._mutations.find(
+      (m) => m.name === "bot_writes:botClearBackup" && m.args.kind === "restore",
+    );
     check("restore lỗi KHÔNG được tính là hoàn tất (không botClearBackup)", !wronglyCleared);
   }
 
@@ -200,7 +207,10 @@ function makeBatchItem(overrides = {}) {
     const { client } = makeClient();
     await tick.runBackupJobs(client, store, [makeBatchItem()]);
     const report = store._mutations.find((m) => m.name === "bot_writes:botReportRestoreError");
-    check("in-flight 1 phút → lượt khác không chạy lại restore", !report && flagDb.restoreError === undefined);
+    check(
+      "in-flight 1 phút → lượt khác không chạy lại restore",
+      !report && flagDb.restoreError === undefined,
+    );
     check("in-flight → cờ vẫn giữ (đang chạy)", flagDb.restoreRequested === true);
   }
 
@@ -210,7 +220,10 @@ function makeBatchItem(overrides = {}) {
     const store = makeStore(flagDb);
     const { client } = makeClient();
     await tick.runBackupJobs(client, store, [makeBatchItem()]);
-    check("no_request → không claim, không mutation thừa", store._mutations.every((m) => m.name !== "bot_writes:botReportRestoreError"));
+    check(
+      "no_request → không claim, không mutation thừa",
+      store._mutations.every((m) => m.name !== "bot_writes:botReportRestoreError"),
+    );
   }
 
   // ---- 5. Import lỗi vẫn báo đúng như cũ (không regress) ----
@@ -219,7 +232,12 @@ function makeBatchItem(overrides = {}) {
     const store = makeStore(flagDb);
     const { client } = makeClient();
     await tick.runBackupJobs(client, store, [
-      { kind: "import", guildId: "999888777666555444", fileName: "bad.msc", fileContent: "{{{hỏng" },
+      {
+        kind: "import",
+        guildId: "999888777666555444",
+        fileName: "bad.msc",
+        fileContent: "{{{hỏng",
+      },
     ]);
     const importErr = store._mutations.find((m) => m.name === "bot_writes:botReportImportError");
     check("import lỗi → vẫn botReportImportError (không regress)", !!importErr);
@@ -227,13 +245,24 @@ function makeBatchItem(overrides = {}) {
 
   // ---- 6. Backup thường lỗi → báo botReportBackupError (không nuốt im lặng) ----
   {
-    const flagDb = makeFlagDb({ restoreRequested: false, backupRequested: true, backupClaimedAt: undefined });
+    const flagDb = makeFlagDb({
+      restoreRequested: false,
+      backupRequested: true,
+      backupClaimedAt: undefined,
+    });
     const store = makeStore(flagDb);
     const { client } = makeClient();
-    await tick.runBackupJobs(client, store, [makeBatchItem({ kind: "backup", backupJson: undefined })]);
+    await tick.runBackupJobs(client, store, [
+      makeBatchItem({ kind: "backup", backupJson: undefined }),
+    ]);
     const rep = store._mutations.find((m) => m.name === "bot_writes:botReportBackupError");
-    check("backup lỗi → botReportBackupError với lý do (không im lặng)", !!rep && typeof rep.args.error === "string" && rep.args.error.length > 0);
-    const cleared = store._mutations.find((m) => m.name === "bot_writes:botClearBackup" && m.args.kind === "backup");
+    check(
+      "backup lỗi → botReportBackupError với lý do (không im lặng)",
+      !!rep && typeof rep.args.error === "string" && rep.args.error.length > 0,
+    );
+    const cleared = store._mutations.find(
+      (m) => m.name === "bot_writes:botClearBackup" && m.args.kind === "backup",
+    );
     check("backup lỗi → KHÔNG xóa cờ như thể đã xong", !cleared);
   }
 

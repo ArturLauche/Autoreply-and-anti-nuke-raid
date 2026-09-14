@@ -248,11 +248,16 @@ export default function ModuleCard({
         <CardContent className="grid gap-3 border-t border-border/60 px-4 py-3">
           {/* Mobile: 1 cột — ô số bị nén 2 cột trên màn hình hẹp là khó chạm/sửa.
               sm trở lên: giữ 2/4 cột như cũ. */}
-          <div className={cn("grid gap-3", compact ? "grid-cols-2 max-sm:grid-cols-1" : "grid-cols-2 sm:grid-cols-4 max-sm:grid-cols-1")}>
+          <div
+            className={cn(
+              "grid gap-3",
+              compact
+                ? "grid-cols-2 max-sm:grid-cols-1"
+                : "grid-cols-2 sm:grid-cols-4 max-sm:grid-cols-1",
+            )}
+          >
             <div className="grid gap-1">
-              <Label className="text-[11px] text-muted-foreground">
-                Ngưỡng ({unit})
-              </Label>
+              <Label className="text-[11px] text-muted-foreground">Ngưỡng ({unit})</Label>
               <ModuleNumber
                 value={config.threshold}
                 min={1}
@@ -360,8 +365,18 @@ export default function ModuleCard({
                       )}
                     >
                       {active && (
-                        <svg viewBox="0 0 12 12" className="h-2 w-2" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M2.5 6.5l2.5 2.5 4.5-5.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <svg
+                          viewBox="0 0 12 12"
+                          className="h-2 w-2"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                        >
+                          <path
+                            d="M2.5 6.5l2.5 2.5 4.5-5.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
                         </svg>
                       )}
                     </span>
@@ -376,10 +391,7 @@ export default function ModuleCard({
             💡 <b className="text-foreground">Xóa tin phát hiện</b> = xóa ngay tin vi phạm ·{" "}
             <b className="text-foreground">Purge</b> = xóa hàng loạt tin liên quan vụ vi phạm.
             {showHeat ? (
-              <>
-                {" "}
-                Nhiệt tự giảm theo phút — đủ ngưỡng sẽ tự tăng cấp hình phạt.
-              </>
+              <> Nhiệt tự giảm theo phút — đủ ngưỡng sẽ tự tăng cấp hình phạt.</>
             ) : (
               <> ⚡ Phạt trực tiếp theo hành động đã chọn — không cộng nhiệt.</>
             )}

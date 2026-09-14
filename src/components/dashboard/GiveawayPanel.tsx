@@ -114,7 +114,8 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
               <Gift className="h-4 w-4 text-primary" /> Giveaway 🎉
             </h3>
             <p className="text-sm text-muted-foreground">
-              Chọn mẫu tin nhắn, chèn ảnh, tùy lời dẫn, cấp role thưởng tự động — bot chọn người thắng và thông báo.
+              Chọn mẫu tin nhắn, chèn ảnh, tùy lời dẫn, cấp role thưởng tự động — bot chọn người
+              thắng và thông báo.
             </p>
           </div>
           <Button onClick={() => setOpen(true)} disabled={active.length >= 5}>
@@ -224,8 +225,8 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
             <DialogHeader>
               <DialogTitle>Tạo giveaway mới</DialogTitle>
               <DialogDescription>
-                Bot gửi embed giveaway + phản ứng 🎉 theo mẫu bạn chọn (kèm ảnh nếu muốn). Hết giờ, bot tự chọn
-                người thắng, cấp role thưởng (nếu chọn) và thông báo.
+                Bot gửi embed giveaway + phản ứng 🎉 theo mẫu bạn chọn (kèm ảnh nếu muốn). Hết giờ,
+                bot tự chọn người thắng, cấp role thưởng (nếu chọn) và thông báo.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-3">
@@ -271,7 +272,9 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                     min={1}
                     max={20}
                     value={winnerCount}
-                    onChange={(e) => setWinnerCount(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                    onChange={(e) =>
+                      setWinnerCount(Math.max(1, Math.min(20, Number(e.target.value) || 1)))
+                    }
                   />
                 </div>
                 <div className="grid gap-1.5">
@@ -379,10 +382,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
               </div>
             </div>
             <DialogFooter>
-              <Button
-                onClick={handleCreate}
-                disabled={saving || !title || !prize || !channelId}
-              >
+              <Button onClick={handleCreate} disabled={saving || !title || !prize || !channelId}>
                 {saving ? "Đang tạo…" : "Tạo giveaway 🎉"}
               </Button>
             </DialogFooter>

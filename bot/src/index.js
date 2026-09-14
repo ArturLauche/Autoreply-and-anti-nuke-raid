@@ -19,13 +19,7 @@ if (!process.env.CONVEX_URL) {
   process.exit(1);
 }
 
-const {
-  Client,
-  GatewayIntentBits,
-  ActivityType,
-  Collection,
-  Partials,
-} = require("discord.js");
+const { Client, GatewayIntentBits, ActivityType, Collection, Partials } = require("discord.js");
 const ConvexStore = require("./convex");
 const { HeatTracker } = require("./heat");
 const guildSync = require("./handlers/guildSync");
@@ -52,7 +46,7 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildModeration,
   ],
-  makeCache: (manager) => {
+  makeCache: (_manager) => {
     // Use default Collection for all managers (full caching)
     return new Collection();
   },
@@ -82,7 +76,6 @@ client.once("clientReady", async () => {
 
   // Init heavy modules
   const antinuke = require("./handlers/antinuke")(client, store, heat);
-  const scanMessage = require("./handlers/filters");
   antinuke.attach();
   require("./timeoutWatch").attach(client, store);
   require("./handlers/hidden").setupHidden(client, store);
@@ -113,7 +106,9 @@ client.once("clientReady", async () => {
     void (async () => {
       try {
         const res = await guildSync.syncAll(client, store);
-        console.log(`[sync] ${res?.count ?? "?"} server${res?.trustedFullList === false ? " (cache thiếu)" : ""}`);
+        console.log(
+          `[sync] ${res?.count ?? "?"} server${res?.trustedFullList === false ? " (cache thiếu)" : ""}`,
+        );
       } catch (e) {
         console.error("[sync]", e.message);
       }
@@ -125,7 +120,11 @@ client.once("clientReady", async () => {
   };
   setTimeout(() => {
     void (async () => {
-      try { await guildSync.ensureModules(client, store); } catch (e) { console.error("[sync:ensure]", e.message); }
+      try {
+        await guildSync.ensureModules(client, store);
+      } catch (e) {
+        console.error("[sync:ensure]", e.message);
+      }
       runSyncLoop();
     })();
   }, 5_000);
@@ -133,7 +132,9 @@ client.once("clientReady", async () => {
   // Presence update — mỗi 60s (nhẹ: chỉ Discord cache, không gọi Convex)
   const presenceInterval = setInterval(() => {
     client.user.setPresence({
-      activities: [{ name: `${client.guilds.cache.size} server · /help`, type: ActivityType.Watching }],
+      activities: [
+        { name: `${client.guilds.cache.size} server · /help`, type: ActivityType.Watching },
+      ],
       status: "online",
     });
   }, 60_000);
@@ -141,7 +142,10 @@ client.once("clientReady", async () => {
 
   // Daily report — mỗi 15 phút (query per-guild chỉ khi đến hạn)
   const { runDailyReports } = require("./handlers/dailyReport");
-  setTimeout(() => runDailyReports(client, store, heat).catch((e) => console.error("[report]", e.message)), 15_000);
+  setTimeout(
+    () => runDailyReports(client, store, heat).catch((e) => console.error("[report]", e.message)),
+    15_000,
+  );
   const reportInterval = setInterval(
     () => runDailyReports(client, store, heat).catch((e) => console.error("[report]", e.message)),
     15 * 60 * 1000,
@@ -166,7 +170,10 @@ client.once("clientReady", async () => {
   // Auto backup — mỗi 1 giờ (đặt cờ yêu cầu; việc backup thực hiện trong tick).
   const pollBackups = require("./handlers/backup");
   const autoBackupInterval = setInterval(
-    () => pollBackups.autoBackupSweep(client, store).catch((e) => console.error("[backup:auto]", e.message)),
+    () =>
+      pollBackups
+        .autoBackupSweep(client, store)
+        .catch((e) => console.error("[backup:auto]", e.message)),
     1 * 60 * 60 * 1000,
   );
   autoBackupInterval.unref();
@@ -199,12 +206,15 @@ client.once("clientReady", async () => {
   heartbeatInterval.unref();
 
   // Memory monitoring — mỗi 30 phút (nhẹ nhàng)
-  const memMonitorInterval = setInterval(() => {
-    const mem = process.memoryUsage();
-    const rss = Math.round(mem.rss / 1024 / 1024);
-    const heap = Math.round(mem.heapUsed / 1024 / 1024);
-    if (rss > 500) console.warn(`[mem] RSS=${rss}MB, Heap=${heap}MB — cao bất thường!`);
-  }, 30 * 60 * 1000);
+  const memMonitorInterval = setInterval(
+    () => {
+      const mem = process.memoryUsage();
+      const rss = Math.round(mem.rss / 1024 / 1024);
+      const heap = Math.round(mem.heapUsed / 1024 / 1024);
+      if (rss > 500) console.warn(`[mem] RSS=${rss}MB, Heap=${heap}MB — cao bất thường!`);
+    },
+    30 * 60 * 1000,
+  );
   memMonitorInterval.unref();
 });
 
@@ -228,28 +238,42 @@ client.on("messageCreate", (m) => {
 });
 client.on("messageCreate", (m) => {
   if (m.author?.bot) return;
-  require("./handlers/filters")(client, m, store, heat).catch((e) => console.error("[filters]", e.message));
+  require("./handlers/filters")(client, m, store, heat).catch((e) =>
+    console.error("[filters]", e.message),
+  );
 });
 client.on("interactionCreate", (i) =>
   onInteractionCreate(client, i, store, heat).catch((e) => {
     console.error("[interaction]", e?.message || e);
     try {
-      if (!i.replied && !i.deferred && (i.isChatInputCommand() || i.isButton() || i.isStringSelectMenu())) {
+      if (
+        !i.replied &&
+        !i.deferred &&
+        (i.isChatInputCommand() || i.isButton() || i.isStringSelectMenu())
+      ) {
         i.reply({ content: "❌ Có lỗi xảy ra khi xử lý lệnh.", ephemeral: true }).catch(() => {});
       }
     } catch {}
   }),
 );
-client.on("guildMemberAdd", (m) => joinGate(client, m, store).catch((e) => console.error("[joinGate]", e.message)));
+client.on("guildMemberAdd", (m) =>
+  joinGate(client, m, store).catch((e) => console.error("[joinGate]", e.message)),
+);
 client.on("guildCreate", (guild) => {
   console.log(`[guildCreate] ${guild.name} (${guild.id}) — ${client.guilds.cache.size} server`);
-  guildSync.syncOne(client, store, guild.id).catch((e) => console.error(`[guildCreate:sync] ${guild.id}:`, e.message));
+  guildSync
+    .syncOne(client, store, guild.id)
+    .catch((e) => console.error(`[guildCreate:sync] ${guild.id}:`, e.message));
   // Đảm bảo server mới có đủ module antinuke mặc định (nếu botSyncGuilds bị lỗi).
-  guildSync.ensureModules(client, store).catch((e) => console.error(`[guildCreate:ensure] ${guild.id}:`, e.message));
+  guildSync
+    .ensureModules(client, store)
+    .catch((e) => console.error(`[guildCreate:ensure] ${guild.id}:`, e.message));
 });
 client.on("guildDelete", (guild) => {
   console.log(`[guildDelete] ${guild.name ?? guild.id} — ${client.guilds.cache.size} server`);
-  guildSync.markGone(client, store, guild.id).catch((e) => console.error(`[guildDelete:sync] ${guild.id}:`, e.message));
+  guildSync
+    .markGone(client, store, guild.id)
+    .catch((e) => console.error(`[guildDelete:sync] ${guild.id}:`, e.message));
 });
 
 // --- Voice Presence Tracking (weaker signal, NO fake IP) ---
@@ -314,7 +338,9 @@ const altScanInterval = setInterval(() => {
           console.log(`[altScan] ${guild.name}: found ${links.length} potential alt pairs`);
           // Log the top 3 to console
           for (const link of links.slice(0, 3)) {
-            console.log(`  - ${link.username1} <-> ${link.username2} (${link.similarity}% via ${link.reason})`);
+            console.log(
+              `  - ${link.username1} <-> ${link.username2} (${link.similarity}% via ${link.reason})`,
+            );
           }
         }
       } catch (e) {
@@ -332,5 +358,11 @@ client.login(process.env.DISCORD_TOKEN).catch((err) => {
 });
 
 // Graceful shutdown
-process.on("SIGINT", () => { client.destroy(); process.exit(0); });
-process.on("SIGTERM", () => { client.destroy(); process.exit(0); });
+process.on("SIGINT", () => {
+  client.destroy();
+  process.exit(0);
+});
+process.on("SIGTERM", () => {
+  client.destroy();
+  process.exit(0);
+});

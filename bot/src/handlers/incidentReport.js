@@ -42,14 +42,20 @@ const running = new Set();
 
 /** Cắt dài nhưng giữ nguyên từ (đẹp hơn khi dán vào prompt). */
 function clip(text, max) {
-  const s = String(text ?? "").replace(/\s+/g, " ").trim();
+  const s = String(text ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
   return s.length <= max ? s : `${s.slice(0, max - 1)}…`;
 }
 
 /** Định dạng tin nhắn thành dòng gọn cho AI. */
 function fmtMsg(m, idx) {
   const time = new Date(m.createdTimestamp).toISOString().slice(11, 16);
-  const content = m.content ? clip(m.content, 200) : m.embeds?.length ? "(embed)" : "(sticker/media)";
+  const content = m.content
+    ? clip(m.content, 200)
+    : m.embeds?.length
+      ? "(embed)"
+      : "(sticker/media)";
   return `${idx}. [${time}] ${m.author?.username ?? "?"}: ${content}`;
 }
 
@@ -59,11 +65,7 @@ function fmtMsg(m, idx) {
  */
 async function collectRecentMessages(guild, focusChannelId) {
   const textChannels = guild.channels.cache
-    .filter(
-      (c) =>
-        c.type === ChannelType.GuildText &&
-        c.viewable,
-    )
+    .filter((c) => c.type === ChannelType.GuildText && c.viewable)
     .sort((a, b) => (b.lastMessageId ?? 0) - (a.lastMessageId ?? 0))
     .first(MAX_CHANNELS);
 
@@ -106,12 +108,8 @@ async function collectFocusChannel(channel, maxLines = 120) {
 async function loadAuditData(store, guildId) {
   const since = Date.now() - 24 * 60 * 60 * 1000;
   const [events, modActions] = await Promise.all([
-    store.client
-      .query("reports:getGuildEvents", { guildId, since, limit: 60 })
-      .catch(() => []),
-    store.client
-      .query("reports:getGuildModActions", { guildId, since, limit: 50 })
-      .catch(() => []),
+    store.client.query("reports:getGuildEvents", { guildId, since, limit: 60 }).catch(() => []),
+    store.client.query("reports:getGuildModActions", { guildId, since, limit: 50 }).catch(() => []),
   ]);
   return { events: events ?? [], modActions: modActions ?? [] };
 }
@@ -137,7 +135,16 @@ function auditSummary(events, modActions) {
 }
 
 /** Prompt AI — Mimo V2.5 (Kira) đọc tình huống và viết báo cáo tiếng Việt. */
-function buildPrompt({ guildName, memberCount, focusLines, chatLines, eventsText, actionsText, userNote, lockdownActive }) {
+function buildPrompt({
+  guildName,
+  memberCount,
+  focusLines,
+  chatLines,
+  eventsText,
+  actionsText,
+  userNote,
+  lockdownActive,
+}) {
   const system = `Bạn là Trợ lý bảo mật của bot Protogon trong server Discord "${guildName}". Nhiệm vụ: đọc tình huống server và viết BÁO CÁO NGẮN tiếng Việt cho mọi thành viên.
 
 Bối cảnh: có thể đang có raid/nuke, hoặc thành viên khiếu nại rằng bot phạt nhầm. Hãy đối chiếu:
@@ -147,7 +154,10 @@ Bối cảnh: có thể đang có raid/nuke, hoặc thành viên khiếu nại r
 
 QUY TẮC VIẾT: đúng 3 mục "🛡️ An ninh", "⚖️ Đánh giá phạt", "💡 Khuyến nghị"; mỗi mục ≤ 4 dòng; nêu tên người cụ thể bằng @username khi có bằng chứng; không bịa sự kiện không có trong dữ liệu; giọng trung lập, không chỉ trích cá nhân.`;
 
-  const chatBlock = [...focusLines, ...chatLines].slice(0, MAX_MESSAGES).join("\n").slice(0, PROMPT_CHAR_BUDGET);
+  const chatBlock = [...focusLines, ...chatLines]
+    .slice(0, MAX_MESSAGES)
+    .join("\n")
+    .slice(0, PROMPT_CHAR_BUDGET);
   const user = `Trạng thái: ${memberCount ?? "?"} thành viên${lockdownActive ? " · 🔒 ĐANG KHÓA KÊNH (lockdown)" : ""}${userNote ? `\nGhi chú người báo cáo: ${clip(userNote, 300)}` : ""}
 === SỰ KIỆN ANTI-NUKE 24H ===
 ${eventsText}
@@ -184,12 +194,20 @@ function levelColor(level) {
 }
 
 /** Ghép báo cáo thành embed gửi server. */
-function buildReportEmbed({ guild, analysis, events, modActions, msgCount, aiUsed, userNote, requester, emergency, lockdownActive }) {
+function buildReportEmbed({
+  analysis,
+  events,
+  modActions,
+  msgCount,
+  aiUsed,
+  userNote,
+  requester,
+  emergency,
+  lockdownActive,
+}) {
   const level = analysis?.level ?? "calm";
   const color = levelColor(level);
-  const title = emergency
-    ? "🚨 CẢNH BÁO KHẨN — Tình hình server"
-    : "📋 Báo cáo tình hình server";
+  const title = emergency ? "🚨 CẢNH BÁO KHẨN — Tình hình server" : "📋 Báo cáo tình hình server";
 
   const evCount = events.length;
   const actCount = modActions.length;
@@ -210,7 +228,10 @@ function buildReportEmbed({ guild, analysis, events, modActions, msgCount, aiUse
     },
     {
       name: "💡 Khuyến nghị",
-      value: clip(analysis?.recommendation ?? "Tiếp tục quan sát; bật chống nuke và giữ log.", 1000),
+      value: clip(
+        analysis?.recommendation ?? "Tiếp tục quan sát; bật chống nuke và giữ log.",
+        1000,
+      ),
     },
     {
       name: "Dữ liệu",
@@ -289,7 +310,8 @@ async function emergencyRaidAlert(client, store, guild, info = {}) {
           .send({
             content: `🚨 **CẢNH BÁO KHẨN** — ${clip(info.summary ?? "phát hiện raid/nuke", 120)}${config.logPingEveryone !== false ? " @everyone" : ""}`,
             embeds: [embed],
-            allowedMentions: config.logPingEveryone !== false ? { parse: ["everyone"] } : { parse: [] },
+            allowedMentions:
+              config.logPingEveryone !== false ? { parse: ["everyone"] } : { parse: [] },
           })
           .then(() => true)
           .catch(() => false);
@@ -313,7 +335,7 @@ async function reportInteractive(client, store, source) {
   const user = source.user ?? source.author;
   const userNote =
     typeof source.options?.getString === "function"
-      ? source.options.getString("ghichu") ?? source.options.getString("note") ?? undefined
+      ? (source.options.getString("ghichu") ?? source.options.getString("note") ?? undefined)
       : undefined;
 
   // Cooldown per-guild.
@@ -325,7 +347,10 @@ async function reportInteractive(client, store, source) {
     return source.reply?.({ content: reply, ephemeral: true });
   }
   if (running.has(guild.id)) {
-    return source.reply?.({ content: "⏳ Một báo cáo khác đang chạy — chờ chút nhé.", ephemeral: true });
+    return source.reply?.({
+      content: "⏳ Một báo cáo khác đang chạy — chờ chút nhé.",
+      ephemeral: true,
+    });
   }
   running.add(guild.id);
   lastReportAt.set(guild.id, Date.now());
@@ -336,7 +361,9 @@ async function reportInteractive(client, store, source) {
     if (isSlash) {
       await source.deferReply().catch(() => {});
     } else {
-      await source.reply?.("🔍 **Đang quét** hàng trăm tin nhắn gần đây + dữ liệu phạt 24h…").catch(() => {});
+      await source
+        .reply?.("🔍 **Đang quét** hàng trăm tin nhắn gần đây + dữ liệu phạt 24h…")
+        .catch(() => {});
     }
 
     const config = await store.getConfig(guild.id);
@@ -423,14 +450,14 @@ function parseAnalysis(raw) {
   const sentences = lower.split(/[.!?\n]+/).filter((s) => s.trim().length > 0);
   const misfireRe = /phạt nhầm|phạt oan|bị phạt oan|nhầm lẫn|dương tính giả|misfire|gỡ phạt/;
   const raidRe = /raid|nuke|đang bị tấn công|tấn công có tổ chức|làn sóng/;
-  const negRe = /không (có|thấy|phát hiện|đánh giá|nhận thấy)|chưa có|ổn định|yên bình|đã (qua|dập tắt|kiểm soát|hạ nhiệt)/;
-  const hit = (re) =>
-    sentences.some((s) => re.test(s) && !negRe.test(s));
+  const negRe =
+    /không (có|thấy|phát hiện|đánh giá|nhận thấy)|chưa có|ổn định|yên bình|đã (qua|dập tắt|kiểm soát|hạ nhiệt)/;
+  const hit = (re) => sentences.some((s) => re.test(s) && !negRe.test(s));
   const raidHit = hit(raidRe);
   const misfireHit = hit(misfireRe);
   // Raid xác nhận quan trọng hơn misfire → ưu tiên raid khi cả hai cùng xuất hiện.
   const level = raidHit ? "raid" : misfireHit ? "misfire" : "calm";
-    return { level, security, punishmentReview, recommendation };
+  return { level, security, punishmentReview, recommendation };
 }
 
 module.exports = { reportInteractive, emergencyRaidAlert };

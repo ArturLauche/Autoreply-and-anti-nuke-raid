@@ -48,8 +48,8 @@ export default class RootErrorBoundary extends Component<Props, State> {
           </h1>
 
           <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-            Protogon không kết nối được với máy chủ dữ liệu (backend Convex đang trả lỗi).
-            Trang web sẽ hoạt động lại ngay khi máy chủ khỏe — bạn có thể thử tải lại.
+            Protogon không kết nối được với máy chủ dữ liệu (backend Convex đang trả lỗi). Trang web
+            sẽ hoạt động lại ngay khi máy chủ khỏe — bạn có thể thử tải lại.
           </p>
 
           {msg && (

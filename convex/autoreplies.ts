@@ -39,7 +39,12 @@ function cleanRuleInput(input: {
     ),
   ];
   if (!response) throw new Error("Nội dung trả lời không được để trống");
-  return { keywords, response, channels, cooldownSeconds: Math.max(0, Math.min(86400, Math.floor(input.cooldownSeconds))) };
+  return {
+    keywords,
+    response,
+    channels,
+    cooldownSeconds: Math.max(0, Math.min(86400, Math.floor(input.cooldownSeconds))),
+  };
 }
 
 export const add = mutation({
@@ -113,9 +118,7 @@ export const update = mutation({
       }
       const dup = await ctx.db
         .query("autoReplies")
-        .withIndex("by_guildId_name", (q) =>
-          q.eq("guildId", rule.guildId).eq("name", args.name!),
-        )
+        .withIndex("by_guildId_name", (q) => q.eq("guildId", rule.guildId).eq("name", args.name!))
         .first();
       if (dup && dup._id !== rule._id) throw new Error(`Đã có rule tên "${args.name}"`);
     }

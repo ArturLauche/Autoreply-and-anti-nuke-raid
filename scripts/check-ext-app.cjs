@@ -23,13 +23,18 @@ const { ConvexHttpClient } = require("../bot/node_modules/convex/browser");
   client.mutation = (fn, args) => _m(fn, withKey(args));
 
   const status = await client.query("status:botStatus");
-  console.log("botStatus:", JSON.stringify({
-    online: status.online,
-    guildCount: status.guildCount,
-    memberCount: status.memberCount,
-    lastHeartbeat: status.lastHeartbeat ? new Date(status.lastHeartbeat).toISOString() : null,
-    secondsSinceHeartbeat: status.lastHeartbeat ? Math.round((Date.now() - status.lastHeartbeat) / 1000) : null,
-  }));
+  console.log(
+    "botStatus:",
+    JSON.stringify({
+      online: status.online,
+      guildCount: status.guildCount,
+      memberCount: status.memberCount,
+      lastHeartbeat: status.lastHeartbeat ? new Date(status.lastHeartbeat).toISOString() : null,
+      secondsSinceHeartbeat: status.lastHeartbeat
+        ? Math.round((Date.now() - status.lastHeartbeat) / 1000)
+        : null,
+    }),
+  );
 
   const since = Date.now() - 14 * 24 * 3600 * 1000;
   const events = await client.query("reports:getDailyEvents", { since });
@@ -51,9 +56,12 @@ const { ConvexHttpClient } = require("../bot/node_modules/convex/browser");
       console.log(
         "-",
         new Date(e.createdAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }),
-        "| punish:", e.punish,
-        "| count:", e.count,
-        "| action:", String(e.action).slice(0, 120),
+        "| punish:",
+        e.punish,
+        "| count:",
+        e.count,
+        "| action:",
+        String(e.action).slice(0, 120),
       );
     }
   }

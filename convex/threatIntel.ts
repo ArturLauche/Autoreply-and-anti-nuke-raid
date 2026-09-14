@@ -259,7 +259,11 @@ export const botGetIntel = query({
 
 /** Bot xóa từ khóa sai/hỏng (nếu AI học nhầm) — gọi từ web Admin. */
 export const removeKeyword = mutation({
-  args: { token: v.string(), keyword: v.string(), kind: v.union(v.literal("keyword"), v.literal("phrase")) },
+  args: {
+    token: v.string(),
+    keyword: v.string(),
+    kind: v.union(v.literal("keyword"), v.literal("phrase")),
+  },
   handler: async (ctx, { token, keyword, kind }) => {
     const user = await getUserByToken(ctx, token);
     if (!user) throw new Error("Vui lòng đăng nhập");
@@ -461,7 +465,10 @@ export const botSetKeywordReview = mutation({
     await ctx.db.patch(status._id, {
       threatKeywordReviewSuspects: suspects
         .slice(0, 15)
-        .map((s) => ({ keyword: clean(s.keyword, 80), benignHits: Math.max(0, Math.min(9999, s.benignHits | 0)) }))
+        .map((s) => ({
+          keyword: clean(s.keyword, 80),
+          benignHits: Math.max(0, Math.min(9999, s.benignHits | 0)),
+        }))
         .filter((s) => s.keyword),
       threatKeywordReviewAt: Date.now(),
     });
@@ -491,8 +498,10 @@ export const botSetResearchMeta = mutation({
       patch.threatDigestLast = clean(digest, 700);
       patch.threatDigestLastAt = Date.now();
     }
-    if (urlhausDomains !== undefined) patch.threatUrlhausDomains = Math.max(0, Math.min(50000, urlhausDomains | 0));
-    if (ngramClusters !== undefined) patch.threatNgramClusters = Math.max(0, Math.min(5000, ngramClusters | 0));
+    if (urlhausDomains !== undefined)
+      patch.threatUrlhausDomains = Math.max(0, Math.min(50000, urlhausDomains | 0));
+    if (ngramClusters !== undefined)
+      patch.threatNgramClusters = Math.max(0, Math.min(5000, ngramClusters | 0));
     if (clearError) {
       patch.threatResearchLastError = undefined;
       patch.threatResearchLastErrorAt = undefined;
@@ -516,7 +525,11 @@ export const botReportResearchError = mutation({
     const status = await getBotStatus(ctx);
     if (!status) return { ok: false };
     await ctx.db.patch(status._id, {
-      threatResearchLastError: `${trigger ? `[${trigger}] ` : ""}${String(error || "Lỗi không xác định").slice(0, 260)}`.slice(0, 300),
+      threatResearchLastError:
+        `${trigger ? `[${trigger}] ` : ""}${String(error || "Lỗi không xác định").slice(0, 260)}`.slice(
+          0,
+          300,
+        ),
       threatResearchLastErrorAt: Date.now(),
     });
     return { ok: true };

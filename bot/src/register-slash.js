@@ -11,8 +11,10 @@ async function registerCommands(clientOrRest) {
   }
   const clientId = process.env.DISCORD_CLIENT_ID;
   if (!clientId) {
-    console.warn("⚠️ Thiếu DISCORD_CLIENT_ID — bỏ qua đăng ký slash commands.",
-      "Thêm DISCORD_CLIENT_ID vào .env để bật tính năng này.");
+    console.warn(
+      "⚠️ Thiếu DISCORD_CLIENT_ID — bỏ qua đăng ký slash commands.",
+      "Thêm DISCORD_CLIENT_ID vào .env để bật tính năng này.",
+    );
     return 0;
   }
   const data = await rest.put(Routes.applicationCommands(clientId), { body: commands });

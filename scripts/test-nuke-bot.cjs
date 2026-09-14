@@ -78,10 +78,18 @@ console.log("=== A. Bot nuke KHÔNG verify, MỚI vào server → phải bị x�
   const adminEvil = mkMember({ id: "evilbot2", joinedDaysAgo: 0.01, admin: true });
   check("A2 bot có quyền Administrator KHÔNG được miễn", !isExempt(adminEvil, {}, {}));
   check("A3 không phải trusted bot", !isTrustedBotMember(freshEvil, guild));
-  check("A4 massBan nằm trong IMMEDIATE_BOT_NUKE", !IMMEDIATE_BOT_NUKE || IMMEDIATE_BOT_NUKE.has("massBan") === (typeof IMMEDIATE_BOT_NUKE.has === "function" ? true : true) || true);
+  check(
+    "A4 massBan nằm trong IMMEDIATE_BOT_NUKE",
+    !IMMEDIATE_BOT_NUKE ||
+      IMMEDIATE_BOT_NUKE.has("massBan") ===
+        (typeof IMMEDIATE_BOT_NUKE.has === "function" ? true : true) ||
+      true,
+  );
 }
 
-console.log("=== B. Bot xác minh (VerifiedBot tick) → theo ngưỡng thường, không bị coi hostile ===");
+console.log(
+  "=== B. Bot xác minh (VerifiedBot tick) → theo ngưỡng thường, không bị coi hostile ===",
+);
 {
   const verified = mkMember({ id: "carlbot", verified: true, joinedDaysAgo: 0.01 });
   check("B1 là trusted bot", isTrustedBotMember(verified, guild));
@@ -136,8 +144,14 @@ console.log("=== F. Bot logging hợp pháp (theo tên) ===");
 {
   check("F1 Carl-bot nhận diện", isKnownLoggingBot({ username: "Carl-bot", tag: "Carl-bot#0001" }));
   check("F2 MEE6 nhận diện", isKnownLoggingBot({ username: "MEE6", tag: "MEE6#4876" }));
-  check("F3 bot nuke lạ KHÔNG nhận diện", !isKnownLoggingBot({ username: "FreeNitroGen", tag: "FreeNitroGen#1234" }));
-  check("F4 người thật không khớp", !isKnownLoggingBot({ username: "carlbotfan", tag: "carlbotfan#9999" }));
+  check(
+    "F3 bot nuke lạ KHÔNG nhận diện",
+    !isKnownLoggingBot({ username: "FreeNitroGen", tag: "FreeNitroGen#1234" }),
+  );
+  check(
+    "F4 người thật không khớp",
+    !isKnownLoggingBot({ username: "carlbotfan", tag: "carlbotfan#9999" }),
+  );
 }
 
 console.log("=== G. Executor là User thô từ audit log (không fetch được member) ===");
@@ -151,20 +165,52 @@ console.log("=== G. Executor là User thô từ audit log (không fetch được
 console.log("=== H. Edge cases an toàn ===");
 {
   check("H1 member null → không exempt (kéo về nhánh xử lý an toàn)", !isExempt(null, {}, {}));
-  check("H2 user không phải bot → không trusted", !isTrustedBotMember({ user: { bot: false } }, guild));
-  check("H3 member thiếu joinedTimestamp + guild không cache → không trusted (an toàn)", !isTrustedBotMember({ user: { bot: true }, joinedTimestamp: undefined }, guild));
+  check(
+    "H2 user không phải bot → không trusted",
+    !isTrustedBotMember({ user: { bot: false } }, guild),
+  );
+  check(
+    "H3 member thiếu joinedTimestamp + guild không cache → không trusted (an toàn)",
+    !isTrustedBotMember({ user: { bot: true }, joinedTimestamp: undefined }, guild),
+  );
 }
 
 console.log("=== I. Bot hit-and-run (vào-rồi-rời ngay) ===");
 {
   const t0 = now - 60_000; // thêm 1 phút trước
-  check("I1 bot lạ vào 60s rồi tự rời → HIT-AND-RUN", botHitAndRunVerdict({ addedAt: t0, leftAt: now, trusted: false, isBot: true }));
-  check("I2 vào 30 phút mới rời (quá cửa sổ 10 phút) → không tính", !botHitAndRunVerdict({ addedAt: now - 30 * 60_000, leftAt: now, trusted: false, isBot: true }));
-  check("I3 bot tin cậy (verify/ở lại lâu) tự rời → KHÔNG phạt", !botHitAndRunVerdict({ addedAt: t0, leftAt: now, trusted: true, isBot: true }));
-  check("I4 người thật rời → không liên quan module này", !botHitAndRunVerdict({ addedAt: t0, leftAt: now, trusted: false, isBot: false }));
-  check("I5 thiếu thời điểm thêm (bot join trước khi bot restart) → bỏ qua", !botHitAndRunVerdict({ addedAt: null, leftAt: now, trusted: false, isBot: true }));
-  check("I6 vào 10:01 mới rời (biên trên cửa sổ) → không tính", !botHitAndRunVerdict({ addedAt: now - 10 * 60_000 - 1, leftAt: now, trusted: false, isBot: true }));
-  check("I7 vào đúng biên 10:00 → tính", botHitAndRunVerdict({ addedAt: now - 10 * 60_000, leftAt: now, trusted: false, isBot: true }));
+  check(
+    "I1 bot lạ vào 60s rồi tự rời → HIT-AND-RUN",
+    botHitAndRunVerdict({ addedAt: t0, leftAt: now, trusted: false, isBot: true }),
+  );
+  check(
+    "I2 vào 30 phút mới rời (quá cửa sổ 10 phút) → không tính",
+    !botHitAndRunVerdict({ addedAt: now - 30 * 60_000, leftAt: now, trusted: false, isBot: true }),
+  );
+  check(
+    "I3 bot tin cậy (verify/ở lại lâu) tự rời → KHÔNG phạt",
+    !botHitAndRunVerdict({ addedAt: t0, leftAt: now, trusted: true, isBot: true }),
+  );
+  check(
+    "I4 người thật rời → không liên quan module này",
+    !botHitAndRunVerdict({ addedAt: t0, leftAt: now, trusted: false, isBot: false }),
+  );
+  check(
+    "I5 thiếu thời điểm thêm (bot join trước khi bot restart) → bỏ qua",
+    !botHitAndRunVerdict({ addedAt: null, leftAt: now, trusted: false, isBot: true }),
+  );
+  check(
+    "I6 vào 10:01 mới rời (biên trên cửa sổ) → không tính",
+    !botHitAndRunVerdict({
+      addedAt: now - 10 * 60_000 - 1,
+      leftAt: now,
+      trusted: false,
+      isBot: true,
+    }),
+  );
+  check(
+    "I7 vào đúng biên 10:00 → tính",
+    botHitAndRunVerdict({ addedAt: now - 10 * 60_000, leftAt: now, trusted: false, isBot: true }),
+  );
 }
 
 console.log("=== J. Cảnh báo bot lạ (suspiciousBotAlert) ===");
@@ -176,11 +222,23 @@ console.log("=== J. Cảnh báo bot lạ (suspiciousBotAlert) ===");
     createdAt: opts.ageDays !== undefined ? now - opts.ageDays * DAY : now - 365 * DAY,
     flags: { has: (f) => (opts.verified ? f === VERIFIED_BIT : false) },
   });
-  const v1 = strangeBotVerdict({ user: mkBotUser({ username: "SuperNukeBot", tag: "SuperNukeBot#6666", ageDays: 3 }) });
-  check("J1 bot lạ acc 3 ngày → cảnh báo + cờ young", v1.alert && v1.kind === "unknown-young" && v1.youngAcc === true);
-  const v2 = strangeBotVerdict({ user: mkBotUser({ username: "OldTool", tag: "OldTool#1234", ageDays: 500 }) });
-  check("J2 bot lạ acc 500 ngày → vẫn cảnh báo nhưng không cờ young", v2.alert && v2.kind === "unknown" && !v2.youngAcc);
-  const v3 = strangeBotVerdict({ user: mkBotUser({ username: "Carl-bot", tag: "Carl-bot#0001", ageDays: 3 }) });
+  const v1 = strangeBotVerdict({
+    user: mkBotUser({ username: "SuperNukeBot", tag: "SuperNukeBot#6666", ageDays: 3 }),
+  });
+  check(
+    "J1 bot lạ acc 3 ngày → cảnh báo + cờ young",
+    v1.alert && v1.kind === "unknown-young" && v1.youngAcc === true,
+  );
+  const v2 = strangeBotVerdict({
+    user: mkBotUser({ username: "OldTool", tag: "OldTool#1234", ageDays: 500 }),
+  });
+  check(
+    "J2 bot lạ acc 500 ngày → vẫn cảnh báo nhưng không cờ young",
+    v2.alert && v2.kind === "unknown" && !v2.youngAcc,
+  );
+  const v3 = strangeBotVerdict({
+    user: mkBotUser({ username: "Carl-bot", tag: "Carl-bot#0001", ageDays: 3 }),
+  });
   check("J3 bot logging hợp pháp → KHÔNG cảnh báo", !v3.alert && v3.kind === "logging");
   const v4 = strangeBotVerdict({ user: mkBotUser({ verified: true, ageDays: 3 }) });
   check("J4 bot có tick xác minh → KHÔNG cảnh báo", !v4.alert && v4.kind === "verified");

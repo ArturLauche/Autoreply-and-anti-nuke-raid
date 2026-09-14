@@ -83,7 +83,9 @@ function RecentEvents({ data }: { data: GuildData }) {
                         : ""}
                   </p>
                 </div>
-                <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(e.createdAt)}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {timeAgo(e.createdAt)}
+                </span>
               </li>
             ))}
           </ul>
@@ -135,7 +137,9 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
         {stats.map((s) => (
           <Card key={s.label} className="card-hover">
             <CardContent className="p-5">
-              <span className={`mb-3 flex h-10 w-10 items-center justify-center rounded-lg ${s.tone}`}>
+              <span
+                className={`mb-3 flex h-10 w-10 items-center justify-center rounded-lg ${s.tone}`}
+              >
                 <s.icon className="h-5 w-5" />
               </span>
               <p className="font-display text-2xl font-bold">{s.value}</p>
@@ -156,9 +160,9 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
               Mức an toàn của server
             </h3>
             <p className="text-sm text-muted-foreground">
-              Dựa trên tổng nhiệt độ & warn tích lũy của các thành viên. Vi phạm càng
-              nhiều, nhiệt càng cao và mức an toàn càng giảm — khi chạm ngưỡng, hình phạt
-              tự tăng cấp (cảnh báo → tạm khóa → kick → ban) và tái phạm sẽ bị nhân đôi nhiệt.
+              Dựa trên tổng nhiệt độ & warn tích lũy của các thành viên. Vi phạm càng nhiều, nhiệt
+              càng cao và mức an toàn càng giảm — khi chạm ngưỡng, hình phạt tự tăng cấp (cảnh báo →
+              tạm khóa → kick → ban) và tái phạm sẽ bị nhân đôi nhiệt.
             </p>
             <SafetyBar data={data} />
           </div>
@@ -228,8 +232,11 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
           <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
             <li className="flex gap-2">
               <span className="text-primary">•</span>
-              Rule auto reply dùng placeholder <code className="font-mono text-xs">{"{user}"}</code> để
-              tag người nhắn, <code className="font-mono text-xs">{"{username}"}</code> để lấy tên họ.
+              Rule auto reply dùng placeholder <code className="font-mono text-xs">
+                {"{user}"}
+              </code>{" "}
+              để tag người nhắn, <code className="font-mono text-xs">{"{username}"}</code> để lấy
+              tên họ.
             </li>
             <li className="flex gap-2">
               <span className="text-primary">•</span>

@@ -38,17 +38,41 @@ module.exports = {
 
 (async () => {
   // ---- Bộ đếm + store giả (mutation chỉ ghi nhận, không mạng) ----
-  const calls = { recordEvent: [], raidSample: [], modAction: [], ban: [], kick: [], timeout: [], dm: [], logs: [], cases: [], lockdown: [], webhookDeleted: [], msgDeleted: [] };
+  const calls = {
+    recordEvent: [],
+    raidSample: [],
+    modAction: [],
+    ban: [],
+    kick: [],
+    timeout: [],
+    dm: [],
+    logs: [],
+    cases: [],
+    lockdown: [],
+    webhookDeleted: [],
+    msgDeleted: [],
+  };
   const mutatedEvents = () => calls.recordEvent;
 
   let config = baseConfig();
   const store = {
-    client: { mutation: async (name, args) => {
-      if (name === "bot_writes:botRecordAntinukeEvent") { calls.recordEvent.push(args); return { caseNumber: 1 }; }
-      if (name === "bot_writes:botRecordRaidSample") { calls.raidSample.push(args); return {}; }
-      if (name === "bot_writes:botRecordModAction") { calls.modAction.push(args); return { caseNumber: 77 }; }
-      return {};
-    } },
+    client: {
+      mutation: async (name, args) => {
+        if (name === "bot_writes:botRecordAntinukeEvent") {
+          calls.recordEvent.push(args);
+          return { caseNumber: 1 };
+        }
+        if (name === "bot_writes:botRecordRaidSample") {
+          calls.raidSample.push(args);
+          return {};
+        }
+        if (name === "bot_writes:botRecordModAction") {
+          calls.modAction.push(args);
+          return { caseNumber: 77 };
+        }
+        return {};
+      },
+    },
     getConfig: async () => config,
   };
 
@@ -57,7 +81,16 @@ module.exports = {
       antinukeEnabled: true,
       lockdownEnabled: false,
       modules: [
-        { module: "externalAppRaid", enabled: true, threshold: 2, windowSeconds: 15, punish: "kick", timeoutSeconds: 600, whitelistRoles: [], actions: ["kick"] },
+        {
+          module: "externalAppRaid",
+          enabled: true,
+          threshold: 2,
+          windowSeconds: 15,
+          punish: "kick",
+          timeoutSeconds: 600,
+          whitelistRoles: [],
+          actions: ["kick"],
+        },
       ],
       whitelistUsers: [],
       whitelistRoles: [],
@@ -80,7 +113,11 @@ module.exports = {
       user: { id: "bot-self" },
       guilds: { cache: new Map() },
       on: () => {},
-      users: { fetch: async () => { throw new Error("unknown user"); } },
+      users: {
+        fetch: async () => {
+          throw new Error("unknown user");
+        },
+      },
     };
   }
 
@@ -95,35 +132,74 @@ module.exports = {
   const ai = createAi({ state });
   const raidIntel = createRaidIntel({ client, store, ai });
   const core = createEnforce({ client, store, heat, state });
-  const { handleExternalApp, handleExternalAppMessage, handleButtonRaid } = createExternalApp({ client, store, heat, state, core, ai, raidIntel });
+  const { handleExternalApp, handleExternalAppMessage, handleButtonRaid } = createExternalApp({
+    client,
+    store,
+    heat,
+    state,
+    core,
+    ai,
+    raidIntel,
+  });
 
   let pass = 0;
   let fail = 0;
   function check(cond, label) {
-    if (cond) { pass++; console.log("PASS", label); }
-    else { fail++; console.log("FAIL", label); }
+    if (cond) {
+      pass++;
+      console.log("PASS", label);
+    } else {
+      fail++;
+      console.log("FAIL", label);
+    }
   }
   const resetCalls = () => {
-    calls.recordEvent.length = 0; calls.raidSample.length = 0; calls.modAction.length = 0;
-    calls.ban.length = 0; calls.kick.length = 0; calls.timeout.length = 0; calls.dm.length = 0;
-    calls.logs.length = 0; calls.cases.length = 0; calls.lockdown.length = 0;
-    calls.webhookDeleted.length = 0; calls.msgDeleted.length = 0;
+    calls.recordEvent.length = 0;
+    calls.raidSample.length = 0;
+    calls.modAction.length = 0;
+    calls.ban.length = 0;
+    calls.kick.length = 0;
+    calls.timeout.length = 0;
+    calls.dm.length = 0;
+    calls.logs.length = 0;
+    calls.cases.length = 0;
+    calls.lockdown.length = 0;
+    calls.webhookDeleted.length = 0;
+    calls.msgDeleted.length = 0;
   };
 
   // ---- Mock member/guild ----
-  function makeMember(id, { bot = false, admin = false, freshAcc = false, verifiedTick = false } = {}) {
+  function makeMember(
+    id,
+    { bot = false, admin = false, freshAcc = false, verifiedTick = false } = {},
+  ) {
     const createdTs = freshAcc ? Date.now() - 2 * 86_400_000 : Date.now() - 3 * 365 * 86_400_000;
     const flags = { has: (f) => verifiedTick && String(f) === String(1n << 16n) };
     return {
       id,
-      user: { id, bot, username: id + "-name", tag: id + "-name#0001", createdTimestamp: createdTs, flags },
+      user: {
+        id,
+        bot,
+        username: id + "-name",
+        tag: id + "-name#0001",
+        createdTimestamp: createdTs,
+        flags,
+      },
       permissions: { has: (p) => admin && String(p) === String(1n << 3n) },
       roles: { cache: new Set() },
       joinedTimestamp: Date.now() - (freshAcc ? 60_000 : 30 * 86_400_000),
-      ban: async (opts) => { calls.ban.push({ id, reason: opts?.reason }); },
-      kick: async (reason) => { calls.kick.push({ id, reason }); },
-      timeout: async (ms, reason) => { calls.timeout.push({ id, ms, reason }); },
-      send: async (content) => { calls.dm.push({ id, content }); },
+      ban: async (opts) => {
+        calls.ban.push({ id, reason: opts?.reason });
+      },
+      kick: async (reason) => {
+        calls.kick.push({ id, reason });
+      },
+      timeout: async (ms, reason) => {
+        calls.timeout.push({ id, ms, reason });
+      },
+      send: async (content) => {
+        calls.dm.push({ id, content });
+      },
       guild: null,
     };
   }
@@ -156,16 +232,25 @@ module.exports = {
     resetCalls();
     const raider = makeMember("raider-1", { freshAcc: true });
     const guild = makeGuild({ membersMap: { "raider-1": raider } });
-    const entry = { executor: raider, target: { type: "discord", id: "app-9", name: "Free Nitro Generator" } };
+    const entry = {
+      executor: raider,
+      target: { type: "discord", id: "app-9", name: "Free Nitro Generator" },
+    };
     for (let i = 0; i < 3; i++) await handleExternalApp(entry, guild);
     const skip = mutatedEvents().find((e) => (e.action || "").includes("bỏ qua"));
     check(!skip, "T1: app scam + acc mới đủ nghi vấn — không bị bỏ qua là 'bình thường'");
     const punished = mutatedEvents().find((e) => e.punish && e.punish !== "none");
     check(!!punished, "T1: có ghi nhận xử phạt khi score >= 4 + đủ ngưỡng");
-    check(calls.kick.length + calls.ban.length + calls.timeout.length > 0, "T1: thành viên bị áp hình phạt thật");
+    check(
+      calls.kick.length + calls.ban.length + calls.timeout.length > 0,
+      "T1: thành viên bị áp hình phạt thật",
+    );
     const before = mutatedEvents().length;
     await handleExternalApp(entry, guild);
-    check(mutatedEvents().length === before, "T1: dedupe — IntegrationCreate kế tiếp trong window không log vụ mới");
+    check(
+      mutatedEvents().length === before,
+      "T1: dedupe — IntegrationCreate kế tiếp trong window không log vụ mới",
+    );
   }
 
   {
@@ -184,17 +269,26 @@ module.exports = {
     const guild = makeGuild({ membersMap: { "user-2": user, "app-bot-1": botMember } });
     const entry = { executor: user, target: { type: "discord", id: "app-bot-1", name: "SomeApp" } };
     for (let i = 0; i < 3; i++) await handleExternalApp(entry, guild);
-    check(mutatedEvents().length === 0, "T1: app có bot thành viên server → bỏ qua (thuộc massBotAdd)");
+    check(
+      mutatedEvents().length === 0,
+      "T1: app có bot thành viên server → bỏ qua (thuộc massBotAdd)",
+    );
   }
 
   {
     resetCalls();
     const user = makeMember("user-3");
     const client2 = makeClient();
-    client2.users.fetch = async () => ({ bot: true, flags: { has: (f) => String(f) === String(1n << 16n) } });
+    client2.users.fetch = async () => ({
+      bot: true,
+      flags: { has: (f) => String(f) === String(1n << 16n) },
+    });
     const guild = makeGuild({ membersMap: { "user-3": user } });
     guild.client = client2;
-    const entry = { executor: user, target: { type: "discord", id: "verified-app", name: "VerifiedApp" } };
+    const entry = {
+      executor: user,
+      target: { type: "discord", id: "verified-app", name: "VerifiedApp" },
+    };
     for (let i = 0; i < 3; i++) await handleExternalApp(entry, guild);
     check(mutatedEvents().length === 0, "T1: bot xác minh (tick) không bị coi là external app");
   }
@@ -203,9 +297,15 @@ module.exports = {
     resetCalls();
     const owner = makeMember("owner-1", { freshAcc: true });
     const guild = makeGuild({ membersMap: { "owner-1": owner } });
-    const entry = { executor: owner, target: { type: "discord", id: "app-x", name: "Free Nitro Generator" } };
+    const entry = {
+      executor: owner,
+      target: { type: "discord", id: "app-x", name: "Free Nitro Generator" },
+    };
     for (let i = 0; i < 3; i++) await handleExternalApp(entry, guild);
-    check(mutatedEvents().every((e) => e.punish === "none" || !e.punish), "T1: owner không bị phạt (exempt)");
+    check(
+      mutatedEvents().every((e) => e.punish === "none" || !e.punish),
+      "T1: owner không bị phạt (exempt)",
+    );
   }
 
   // ==== TẦNG 2: handleExternalAppMessage (spam qua webhook/bot) ====
@@ -215,7 +315,11 @@ module.exports = {
     return {
       guild,
       channel: { id: "ch-1", isDMBased: () => false, fetchWebhooks: async () => new Map() },
-      author: { id: "author-1", bot: !webhookId ? true : false, username: webhookId ? "EvilApp" : "BotName" },
+      author: {
+        id: "author-1",
+        bot: !webhookId ? true : false,
+        username: webhookId ? "EvilApp" : "BotName",
+      },
       webhookId,
       applicationId: null,
       content,
@@ -223,7 +327,9 @@ module.exports = {
       components: [],
       id: "m" + Math.random().toString(36).slice(2),
       deletable: true,
-      delete: async () => { calls.msgDeleted.push(1); },
+      delete: async () => {
+        calls.msgDeleted.push(1);
+      },
       member: null,
     };
   }
@@ -232,7 +338,9 @@ module.exports = {
     resetCalls();
     const guild = makeGuild({ membersMap: {} });
     for (let i = 0; i < 5; i++) {
-      await handleExternalAppMessage(makeMsg(guild, { webhookId: "wh-1", content: "FREE NITRO CLAIM NOW discord.gg/xyz" }));
+      await handleExternalAppMessage(
+        makeMsg(guild, { webhookId: "wh-1", content: "FREE NITRO CLAIM NOW discord.gg/xyz" }),
+      );
     }
     const evt = mutatedEvents().find((e) => e.module === "externalAppRaid");
     check(!!evt, "T2: webhook spam lặp nội dung + link mời bị phát hiện");
@@ -256,7 +364,9 @@ module.exports = {
     const guild = makeGuild({ membersMap: {} });
     config = baseConfig({ whitelistUsers: ["wh-ok"] });
     for (let i = 0; i < 6; i++) {
-      await handleExternalAppMessage(makeMsg(guild, { webhookId: "wh-ok", content: "FREE NITRO discord.gg/x spam " + i }));
+      await handleExternalAppMessage(
+        makeMsg(guild, { webhookId: "wh-ok", content: "FREE NITRO discord.gg/x spam " + i }),
+      );
     }
     check(mutatedEvents().length === 0, "T2: app trong whitelist không bị xử lý");
     config = baseConfig();
@@ -278,7 +388,9 @@ module.exports = {
         components: [{ components: [{ type: 2, label: "Claim", customId: "c1" }] }],
         channel: { id: "ch-9" },
         deletable: true,
-        delete: async () => { calls.msgDeleted.push(1); },
+        delete: async () => {
+          calls.msgDeleted.push(1);
+        },
       },
     };
   }
@@ -293,11 +405,20 @@ module.exports = {
     const evt = mutatedEvents().find((e) => e.module === "externalAppRaid");
     check(!!evt, "T3: spam bấm nút (4 lượt cùng người) bị phát hiện");
     check(calls.msgDeleted.length >= 1, "T3: tin mồi bị xóa");
-    check(calls.kick.length + calls.ban.length + calls.timeout.length > 0, "T3: kẻ spam bấm bị phạt");
-    check(!mutatedEvents().some((e) => (e.action || "").includes("làn sóng")), "T3: AI offline → không khóa kênh chỉ vì bấm nhiều");
+    check(
+      calls.kick.length + calls.ban.length + calls.timeout.length > 0,
+      "T3: kẻ spam bấm bị phạt",
+    );
+    check(
+      !mutatedEvents().some((e) => (e.action || "").includes("làn sóng")),
+      "T3: AI offline → không khóa kênh chỉ vì bấm nhiều",
+    );
     const before = mutatedEvents().length;
     await handleButtonRaid(makeInteraction(guild, { userId: "clicker-2", msgId: "m-spam" }));
-    check(mutatedEvents().length === before, "T3: debounce — vụ đã xử lý trong window không kích hoạt lại");
+    check(
+      mutatedEvents().length === before,
+      "T3: debounce — vụ đã xử lý trong window không kích hoạt lại",
+    );
   }
 
   {
@@ -306,7 +427,10 @@ module.exports = {
     const inter = makeInteraction(guild, { userId: "u-1", msgId: "m-clean" });
     inter.message.webhookId = null;
     for (let i = 0; i < 4; i++) await handleButtonRaid(inter);
-    check(mutatedEvents().length === 0, "T3: nút bấm trên tin bot được mời (không phải webhook) không bị soi");
+    check(
+      mutatedEvents().length === 0,
+      "T3: nút bấm trên tin bot được mời (không phải webhook) không bị soi",
+    );
   }
 
   {
@@ -317,7 +441,10 @@ module.exports = {
       await handleButtonRaid(makeInteraction(guild, { userId: "user-" + i, msgId: "m-game" }));
     }
     const evt = mutatedEvents().find((e) => e.module === "externalAppRaid");
-    check(!evt || evt.punish === "none", "T3: minigame đông người bấm — AI offline → không phạt/khóa kênh oan");
+    check(
+      !evt || evt.punish === "none",
+      "T3: minigame đông người bấm — AI offline → không phạt/khóa kênh oan",
+    );
   }
 
   console.log(`\nKết quả: ${pass} PASS, ${fail} FAIL`);

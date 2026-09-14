@@ -1,5 +1,9 @@
 const { messageFingerprint, isExternalAppSpam } = require("../bot/src/handlers/antinuke");
-const { appNameSuspicion, isExternalAppTarget, buttonRaidSignal } = require("../bot/src/externalAppGuard");
+const {
+  appNameSuspicion,
+  isExternalAppTarget,
+  buttonRaidSignal,
+} = require("../bot/src/externalAppGuard");
 
 let pass = 0;
 let fail = 0;
@@ -81,10 +85,16 @@ check("KHÔNG kích hoạt", r?.triggered === false, JSON.stringify(r));
 
 console.log("\n9) Caller contract — count phải khớp fresh.length (chống tái phát ReferenceError):");
 r = simulate([{ content: "X" }, { content: "X" }]);
-check("callerCount là số > 0, không phải undefined", typeof r?.callerCount === "number" && r.callerCount > 0, JSON.stringify(r));
+check(
+  "callerCount là số > 0, không phải undefined",
+  typeof r?.callerCount === "number" && r.callerCount > 0,
+  JSON.stringify(r),
+);
 check("callerCount khớp số tin trong cửa sổ", r?.callerCount === 2, JSON.stringify(r));
 
-console.log("\n10) Biến thể lặp GẦN GIỐNG (đổi số/emoji/URL mỗi tin để né filter) — trước đây KHÔNG phát hiện:");
+console.log(
+  "\n10) Biến thể lặp GẦN GIỐNG (đổi số/emoji/URL mỗi tin để né filter) — trước đây KHÔNG phát hiện:",
+);
 r = simulate([
   { content: "FREE NITRO GIVEAWAY claim now 1" },
   { content: "FREE NITRO GIVEAWAY claim now 2" },
@@ -94,38 +104,78 @@ check("3 tin gần giống → kích hoạt", r?.triggered === true, JSON.string
 check("similar >= 2 được báo", r?.similar >= 2, JSON.stringify(r));
 
 console.log("\n11) App spam @everyone/@here kèm quảng cáo:");
-r = simulate([{ content: "@everyone join my server now" }, { content: "@here free nitro giveaway" }]);
+r = simulate([
+  { content: "@everyone join my server now" },
+  { content: "@here free nitro giveaway" },
+]);
 check("2 tin có mention vượt ngưỡng → kích hoạt", r?.triggered === true, JSON.stringify(r));
 check("hasEveryone được báo", r?.hasEveryone === true, JSON.stringify(r));
 
 console.log("\n12) Từ khóa scam + link rút gọn (bit.ly/t.me...) — biến thể link lừa đảo:");
-r = simulate([{ content: "free nitro here https://bit.ly/abc" }, { content: "claim your reward now https://t.me/xyz" }]);
+r = simulate([
+  { content: "free nitro here https://bit.ly/abc" },
+  { content: "claim your reward now https://t.me/xyz" },
+]);
 check("2 tin scam + shortlink → kích hoạt", r?.triggered === true, JSON.stringify(r));
 check("hasShortlink được báo", r?.hasShortlink === true, JSON.stringify(r));
 check("scamHits >= 2 được báo", r?.scamHits >= 2, JSON.stringify(r));
 
 console.log("\n13) Embed gần giống (chỉ đổi số ở footer/field mỗi tin) — né fingerprint cũ:");
 r = simulate([
-  { content: "", embeds: [{ title: "🔥 LIMITED OFFER", description: "discord nitro gift", fields: [{ name: "Code", value: "A1" }] }] },
-  { content: "", embeds: [{ title: "🔥 LIMITED OFFER", description: "discord nitro gift", fields: [{ name: "Code", value: "B2" }] }] },
+  {
+    content: "",
+    embeds: [
+      {
+        title: "🔥 LIMITED OFFER",
+        description: "discord nitro gift",
+        fields: [{ name: "Code", value: "A1" }],
+      },
+    ],
+  },
+  {
+    content: "",
+    embeds: [
+      {
+        title: "🔥 LIMITED OFFER",
+        description: "discord nitro gift",
+        fields: [{ name: "Code", value: "B2" }],
+      },
+    ],
+  },
 ]);
 check("2 embed gần giống → kích hoạt", r?.triggered === true, JSON.stringify(r));
 
-console.log("\n14) Tên app đáng ngờ (giả mạo / scam / dạng máy) — dùng cho phát hiện trước ngưỡng:");
+console.log(
+  "\n14) Tên app đáng ngờ (giả mạo / scam / dạng máy) — dùng cho phát hiện trước ngưỡng:",
+);
 let a = appNameSuspicion("MEE6 Pro");
-check("\"MEE6 Pro\" → giả mạo app nổi tiếng", a.score >= 3 && a.parts.some((p) => p.includes("giả mạo")), JSON.stringify(a));
+check(
+  '"MEE6 Pro" → giả mạo app nổi tiếng',
+  a.score >= 3 && a.parts.some((p) => p.includes("giả mạo")),
+  JSON.stringify(a),
+);
 a = appNameSuspicion("Free Nitro Giveaway");
-check("\"Free Nitro Giveaway\" → từ khóa scam", a.score >= 3 && a.parts.some((p) => p.includes("scam")), JSON.stringify(a));
+check(
+  '"Free Nitro Giveaway" → từ khóa scam',
+  a.score >= 3 && a.parts.some((p) => p.includes("scam")),
+  JSON.stringify(a),
+);
 a = appNameSuspicion("MEE6");
-check("\"MEE6\" (app thật) → KHÔNG nghi", a.score === 0, JSON.stringify(a));
+check('"MEE6" (app thật) → KHÔNG nghi', a.score === 0, JSON.stringify(a));
 a = appNameSuspicion("App 48291375");
-check("\"App 48291375\" → tên dạng máy", a.score >= 1, JSON.stringify(a));
+check('"App 48291375" → tên dạng máy', a.score >= 1, JSON.stringify(a));
 
 console.log("\n15) Flood không nội dung trùng (bot bị lợi dụng gửi nhiều tin khác nhau):");
 r = simulate([{ content: "a" }, { content: "b" }, { content: "c" }, { content: "d" }]);
-check("flood 4 tin khác nhau → vẫn kích hoạt (xóa tin, không ban nhầm)", r?.triggered === true, JSON.stringify(r));
+check(
+  "flood 4 tin khác nhau → vẫn kích hoạt (xóa tin, không ban nhầm)",
+  r?.triggered === true,
+  JSON.stringify(r),
+);
 
-console.log("\n16) Phân biệt bot được mời chính thức vs EXTERNAL APP (không cần mời bot vào server):");
+console.log(
+  "\n16) Phân biệt bot được mời chính thức vs EXTERNAL APP (không cần mời bot vào server):",
+);
 // Tầng tin nhắn: bot user gửi tin (phải là thành viên) / webhook
 check(
   "Bot có tick (verified) là thành viên gửi tin → KHÔNG phải external app",
@@ -160,19 +210,45 @@ check(
 );
 check(
   "App có tick xác minh (verified bot) nhưng không fetch được thành viên → KHÔNG phải external app",
-  isExternalAppTarget({ integrationType: "discord", isGuildMember: false, hasVerifiedTick: true }) === false,
-  JSON.stringify(isExternalAppTarget({ integrationType: "discord", isGuildMember: false, hasVerifiedTick: true })),
+  isExternalAppTarget({
+    integrationType: "discord",
+    isGuildMember: false,
+    hasVerifiedTick: true,
+  }) === false,
+  JSON.stringify(
+    isExternalAppTarget({
+      integrationType: "discord",
+      isGuildMember: false,
+      hasVerifiedTick: true,
+    }),
+  ),
 );
 check(
   "App Discord kết nối từ ngoài, KHÔNG có bot thành viên, KHÔNG tick → external app",
-  isExternalAppTarget({ integrationType: "discord", isGuildMember: false, hasVerifiedTick: false }) === true,
-  JSON.stringify(isExternalAppTarget({ integrationType: "discord", isGuildMember: false, hasVerifiedTick: false })),
+  isExternalAppTarget({
+    integrationType: "discord",
+    isGuildMember: false,
+    hasVerifiedTick: false,
+  }) === true,
+  JSON.stringify(
+    isExternalAppTarget({
+      integrationType: "discord",
+      isGuildMember: false,
+      hasVerifiedTick: false,
+    }),
+  ),
 );
 
 console.log("\n17) Raid bằng NÚT BẤM (button spam) — tin app có component:");
 // Fingerprint phải bao gồm nút bấm để bắt flood tin app đăng nút làm mồi.
-const btnMsg1 = { content: "claim now", components: [{ components: [{ type: 2, label: "Claim", customId: "c1" }] }] };
-const btnMsg2 = { content: "claim now", components: [{ components: [{ type: 2, label: "Claim", customId: "c2" }] }] };
+const btnMsg1 = {
+  content: "claim now",
+  components: [{ components: [{ type: 2, label: "Claim", customId: "c1" }] }],
+};
+const btnMsg2 = {
+  content: "claim now",
+  components: [{ components: [{ type: 2, label: "Claim", customId: "c2" }] }],
+};
 check(
   "Fingerprint khác nhau khi customId nút khác nhau (bắt flood đổi nút né filter)",
   messageFingerprint(btnMsg1) !== messageFingerprint(btnMsg2),
@@ -180,25 +256,52 @@ check(
 );
 check(
   "Fingerprint giống nhau khi cùng nội dung + cùng nút",
-  messageFingerprint(btnMsg1) === messageFingerprint({ ...btnMsg1, components: [...btnMsg1.components] }),
+  messageFingerprint(btnMsg1) ===
+    messageFingerprint({ ...btnMsg1, components: [...btnMsg1.components] }),
   JSON.stringify(messageFingerprint(btnMsg1)),
 );
 r = simulate([
-  { content: "claim now", components: [{ components: [{ type: 2, label: "Claim", customId: "c1" }] }] },
-  { content: "claim now", components: [{ components: [{ type: 2, label: "Claim", customId: "c1" }] }] },
+  {
+    content: "claim now",
+    components: [{ components: [{ type: 2, label: "Claim", customId: "c1" }] }],
+  },
+  {
+    content: "claim now",
+    components: [{ components: [{ type: 2, label: "Claim", customId: "c1" }] }],
+  },
 ]);
 check("2 tin app có nút bấm trùng nội dung → kích hoạt", r?.triggered === true, JSON.stringify(r));
 // Tín hiệu bấm nút: 1 người spam bấm / làn sóng nhiều người bấm.
 let b = buttonRaidSignal({ totalClicks: 2, sameUserClicks: 2, threshold: 2 });
-check("2 lượt bấm (chưa đủ flood 6, chưa đủ 4 cùng người) → KHÔNG kích hoạt", b.triggered === false, JSON.stringify(b));
+check(
+  "2 lượt bấm (chưa đủ flood 6, chưa đủ 4 cùng người) → KHÔNG kích hoạt",
+  b.triggered === false,
+  JSON.stringify(b),
+);
 b = buttonRaidSignal({ totalClicks: 4, sameUserClicks: 4, threshold: 2 });
-check("1 người bấm 4 lần → spamClicker (kẻ spam bấm)", b.triggered === true && b.spamClicker === true, JSON.stringify(b));
+check(
+  "1 người bấm 4 lần → spamClicker (kẻ spam bấm)",
+  b.triggered === true && b.spamClicker === true,
+  JSON.stringify(b),
+);
 b = buttonRaidSignal({ totalClicks: 5, sameUserClicks: 5, threshold: 2 });
-check("5 lần cùng 1 người → vẫn spamClicker dù chưa đủ flood", b.triggered === true && b.spamClicker === true, JSON.stringify(b));
+check(
+  "5 lần cùng 1 người → vẫn spamClicker dù chưa đủ flood",
+  b.triggered === true && b.spamClicker === true,
+  JSON.stringify(b),
+);
 b = buttonRaidSignal({ totalClicks: 6, sameUserClicks: 1, threshold: 2 });
-check("6 lượt bấm khác người → clickFlood (làn sóng bấm)", b.triggered === true && b.clickFlood === true, JSON.stringify(b));
+check(
+  "6 lượt bấm khác người → clickFlood (làn sóng bấm)",
+  b.triggered === true && b.clickFlood === true,
+  JSON.stringify(b),
+);
 b = buttonRaidSignal({ totalClicks: 8, sameUserClicks: 3, threshold: 5 });
-check("ngưỡng 5: 8 lượt bấm → clickFlood", b.triggered === true && b.clickFlood === true, JSON.stringify(b));
+check(
+  "ngưỡng 5: 8 lượt bấm → clickFlood",
+  b.triggered === true && b.clickFlood === true,
+  JSON.stringify(b),
+);
 
 console.log(`\nKết quả: ${pass} đúng / ${fail} sai`);
 process.exit(fail > 0 ? 1 : 0);

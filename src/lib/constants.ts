@@ -18,7 +18,11 @@ export const MEMBER_PUNISH_OPTIONS: {
   hint: string;
 }[] = [
   { value: "warn", label: "Warn", hint: "Gửi cảnh báo riêng (DM) cho thành viên" },
-  { value: "timeout", label: "Tạm khóa (timeout)", hint: "Khóa tạm thời (đặt thời lượng bên dưới)" },
+  {
+    value: "timeout",
+    label: "Tạm khóa (timeout)",
+    hint: "Khóa tạm thời (đặt thời lượng bên dưới)",
+  },
   { value: "kick", label: "Kick", hint: "Đuổi thành viên khỏi server" },
   { value: "ban", label: "Ban", hint: "Cấm thành viên vĩnh viễn" },
 ];
@@ -345,7 +349,8 @@ export const ANTINUKE_MODULE_META: Record<string, ModuleMeta> = {
   },
   massMessage: {
     label: "Spam tin dài / lặp nội dung",
-    description: "Phát hiện spam tin nhắn cực dài hoặc lặp lại nội dung giống hệt — AI phân biệt raid hay cá nhân",
+    description:
+      "Phát hiện spam tin nhắn cực dài hoặc lặp lại nội dung giống hệt — AI phân biệt raid hay cá nhân",
     group: "Spam & nhiễu kênh",
     defaultThreshold: 4,
     defaultWindowSeconds: 15,
@@ -523,7 +528,14 @@ export const NUKE_GROUPS: { label: string; modules: string[] }[] = [
   },
   {
     label: "Role · Emoji · Server",
-    modules: ["massRoleCreate", "massRoleDelete", "massRoleEdit", "massEmoji", "massInviteCreate", "guildTamper"],
+    modules: [
+      "massRoleCreate",
+      "massRoleDelete",
+      "massRoleEdit",
+      "massEmoji",
+      "massInviteCreate",
+      "guildTamper",
+    ],
   },
 ];
 
@@ -559,12 +571,16 @@ export const PUNISH_NOTICE_LEVELS: {
   label: string;
   hint: string;
 }[] = [
-  { value: "none", label: "Không gửi tin nhắn", hint: "Bot im lặng sau khi trừng phạt (dashboard vẫn ghi nhận case)" },
+  {
+    value: "none",
+    label: "Không gửi tin nhắn",
+    hint: "Bot im lặng sau khi trừng phạt (dashboard vẫn ghi nhận case)",
+  },
   { value: "action", label: "Offender", hint: "Embed chỉ hiển thị Offender + hành động" },
   {
     value: "reason",
     label: "Offender + lý do",
-    hint: "Thêm dòng Reason (để trống → ghi \"không có lý do\")",
+    hint: 'Thêm dòng Reason (để trống → ghi "không có lý do")',
   },
   {
     value: "full",

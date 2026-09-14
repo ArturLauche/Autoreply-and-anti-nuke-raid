@@ -58,9 +58,7 @@ const MODULES = [
 ];
 
 function noPerm(message) {
-  return message.reply(
-    "❌ Bạn cần quyền **Quản lý server** (Manage Guild) để dùng lệnh này.",
-  );
+  return message.reply("❌ Bạn cần quyền **Quản lý server** (Manage Guild) để dùng lệnh này.");
 }
 
 /** !research — tiến độ học tập của bot + học thủ công + lịch sử. */
@@ -83,11 +81,9 @@ async function handleReport(client, message, args, config, store) {
     channel: message.channel,
     author: message.author,
     user: message.author,
-    reply: (payload) =>
-      message.reply(typeof payload === "string" ? payload : payload),
+    reply: (payload) => message.reply(typeof payload === "string" ? payload : payload),
     options: {
-      getString: (name) =>
-        name === "note" || name === "ghichu" ? args.join(" ") || null : null,
+      getString: (name) => (name === "note" || name === "ghichu" ? args.join(" ") || null : null),
     },
   });
 }
@@ -144,7 +140,9 @@ async function handleHelp(client, message) {
         "```",
       ].join("\n"),
     )
-    .setFooter({ text: "Slash command tương đương: /help /prefix /autoreply /antinuke /badword /heat /mod /giveaway /setup" });
+    .setFooter({
+      text: "Slash command tương đương: /help /prefix /autoreply /antinuke /badword /heat /mod /giveaway /setup",
+    });
   await message.reply({ embeds: [embed] });
 }
 
@@ -226,7 +224,14 @@ async function handleAutoReply(client, message, args, config, store) {
       name,
       triggerType: trigger === "mention" ? "mention" : "keyword",
       keywords:
-        trigger === "mention" ? [] : args.slice(3, pipeIndex).join(" ").split(",").map((k) => k.trim()).filter(Boolean),
+        trigger === "mention"
+          ? []
+          : args
+              .slice(3, pipeIndex)
+              .join(" ")
+              .split(",")
+              .map((k) => k.trim())
+              .filter(Boolean),
       response,
       channels: [],
       cooldownSeconds: 30,
@@ -253,7 +258,8 @@ async function handleAntinuke(client, message, args, config, store) {
   if (sub === "status" || !sub) {
     const modules = config.modules || [];
     const lines = modules.map(
-      (m) => `${m.enabled ? "✅" : "⏸️"} \`${m.module}\` — ngưỡng ${m.threshold} lần/${m.windowSeconds}s — ${m.punish}`,
+      (m) =>
+        `${m.enabled ? "✅" : "⏸️"} \`${m.module}\` — ngưỡng ${m.threshold} lần/${m.windowSeconds}s — ${m.punish}`,
     );
     const embed = new EmbedBuilder()
       .setColor(config.antinukeEnabled ? Colors.Green : Colors.Red)
@@ -290,9 +296,7 @@ async function handleAntinuke(client, message, args, config, store) {
     const name = args[1];
     const value = args[2]?.toLowerCase();
     if (!MODULES.includes(name) || !["on", "off"].includes(value)) {
-      return message.reply(
-        `Cú pháp: \`!antinuke module <${MODULES.join("|")}> <on|off>\``,
-      );
+      return message.reply(`Cú pháp: \`!antinuke module <${MODULES.join("|")}> <on|off>\``);
     }
     await store.client.mutation("bot_writes:botModuleUpdate", {
       guildId: message.guild.id,
@@ -331,12 +335,19 @@ async function handleBadword(client, message, args, config, store) {
 
   if (sub === "list" || !sub) {
     if (words.length === 0) {
-      return message.reply("Danh sách từ ngữ xấu đang trống — dùng `!badword add <từ>` hoặc dashboard.");
+      return message.reply(
+        "Danh sách từ ngữ xấu đang trống — dùng `!badword add <từ>` hoặc dashboard.",
+      );
     }
     const embed = new EmbedBuilder()
       .setColor(Colors.Aqua)
       .setTitle(`📋 Từ ngữ xấu (${words.length})`)
-      .setDescription(words.map((w) => `\`${w}\``).join(", ").slice(0, 4000));
+      .setDescription(
+        words
+          .map((w) => `\`${w}\``)
+          .join(", ")
+          .slice(0, 4000),
+      );
     return message.reply({ embeds: [embed] });
   }
 
@@ -372,7 +383,7 @@ async function handleBadword(client, message, args, config, store) {
   return message.reply("Cú pháp: `!badword add|remove|list`");
 }
 
-async function handleHeat(client, message, args, config, store) {
+async function handleHeat(client, message, args, config, _store) {
   const s = {
     enabled: config.heatEnabled !== false,
     decayPerMin: config.heatDecayPerMin ?? 3,
@@ -389,7 +400,13 @@ async function handleHeat(client, message, args, config, store) {
   const top = config.heatStates || [];
   const safety = config.safetyPercent ?? 100;
   const tier = (heat) =>
-    heat >= s.banAt ? "🚫 Ban" : heat >= s.kickAt ? "👢 Kick" : heat >= s.timeoutAt ? "⏸️ Tạm khóa" : "⚠️ Theo dõi";
+    heat >= s.banAt
+      ? "🚫 Ban"
+      : heat >= s.kickAt
+        ? "👢 Kick"
+        : heat >= s.timeoutAt
+          ? "⏸️ Tạm khóa"
+          : "⚠️ Theo dõi";
   const embed = new EmbedBuilder()
     .setColor(safety >= 70 ? Colors.Green : safety >= 40 ? Colors.Yellow : Colors.Red)
     .setTitle(`🌡️ Nhiệt độ vi phạm: ${safety}% an toàn`)
@@ -414,7 +431,10 @@ async function handleHeat(client, message, args, config, store) {
         .slice(0, 1024),
     });
   } else {
-    embed.addFields({ name: "Thành viên nóng nhất", value: "Chưa có vi phạm nào — server rất an toàn 🎉" });
+    embed.addFields({
+      name: "Thành viên nóng nhất",
+      value: "Chưa có vi phạm nào — server rất an toàn 🎉",
+    });
   }
   return message.reply({ embeds: [embed] });
 }
@@ -446,7 +466,9 @@ async function handleTimeout(client, message, args, config, store) {
   const minutes = parseDuration(args[1]);
   if (!member) return message.reply("Tag thành viên cần timeout: `!timeout @user 10m [lý do]`");
   if (!minutes) {
-    return message.reply("Thời lượng không hợp lệ (ví dụ: `10m`, `2h`, `1d`, hoặc số phút). Tối đa 7 ngày.");
+    return message.reply(
+      "Thời lượng không hợp lệ (ví dụ: `10m`, `2h`, `1d`, hoặc số phút). Tối đa 7 ngày.",
+    );
   }
   const reason = args.slice(2).join(" ").trim() || undefined;
   try {
@@ -591,7 +613,9 @@ async function handleGiveaway(client, message, args, config, store) {
   if (sub === "list") {
     const giveaways = config.giveaways || [];
     if (giveaways.length === 0) {
-      return message.reply("Chưa có giveaway nào — tạo bằng `!giveaway start` hoặc trên dashboard.");
+      return message.reply(
+        "Chưa có giveaway nào — tạo bằng `!giveaway start` hoặc trên dashboard.",
+      );
     }
     const lines = giveaways
       .slice(0, 20)
@@ -625,7 +649,11 @@ async function handleGiveaway(client, message, args, config, store) {
   if (sub === "start") {
     if (!canMod(message, config)) return needPerm(message.channel);
     // !giveaway start <Tên> | <Giải thưởng> | <thời lượng> [số người thắng]
-    const parts = args.slice(1).join(" ").split("|").map((p) => p.trim());
+    const parts = args
+      .slice(1)
+      .join(" ")
+      .split("|")
+      .map((p) => p.trim());
     if (parts.length < 3) {
       return message.reply(
         "Cú pháp: `!giveaway start <Tên> | <Giải thưởng> | <thời lượng: 5p, 1h, 1d, 60> [số người thắng, mặc định 1]`",
@@ -667,11 +695,19 @@ async function handleReactionRole(client, message, args, config, store) {
     .catch(() => null);
   const panels = hidden?.panels || [];
   const findPanel = (name) =>
-    panels.find((p) => p.label.toLowerCase() === String(name || "").trim().toLowerCase());
+    panels.find(
+      (p) =>
+        p.label.toLowerCase() ===
+        String(name || "")
+          .trim()
+          .toLowerCase(),
+    );
 
   if (sub === "list" || !sub) {
     if (panels.length === 0) {
-      return message.reply("Chưa có bảng reaction role nào — dùng `!reactionrole create` hoặc dashboard.");
+      return message.reply(
+        "Chưa có bảng reaction role nào — dùng `!reactionrole create` hoặc dashboard.",
+      );
     }
     const lines = panels.map((p) => {
       const ch = message.guild.channels.cache.get(p.channelId);
@@ -693,12 +729,14 @@ async function handleReactionRole(client, message, args, config, store) {
     if (pipe === -1) return message.reply(REACTION_ROLE_HELP);
     const channelPart = raw.slice(0, pipe).trim();
     const channel =
-      message.mentions.channels.first() ||
-      (message.guild.channels.cache.get(channelPart) || null);
+      message.mentions.channels.first() || message.guild.channels.cache.get(channelPart) || null;
     if (!channel?.isTextBased()) {
       return message.reply("Cần tag kênh gửi bảng, VD: `!reactionrole create #channel | Tên | …`");
     }
-    const parts = raw.slice(pipe + 1).split("|").map((s) => s.trim());
+    const parts = raw
+      .slice(pipe + 1)
+      .split("|")
+      .map((s) => s.trim());
     const label = parts[0];
     const description = parts[1] || undefined;
     const pairsRaw = parts[2];
@@ -732,10 +770,10 @@ async function handleReactionRole(client, message, args, config, store) {
     const label = args[1];
     const emoji = args[2];
     const role =
-      message.mentions.roles.first() ||
-      (args[3] ? message.guild.roles.cache.get(args[3]) : null);
+      message.mentions.roles.first() || (args[3] ? message.guild.roles.cache.get(args[3]) : null);
     const panel = findPanel(label);
-    if (!panel) return message.reply(`Không tìm thấy bảng "${label}" — dùng \`!reactionrole list\``);
+    if (!panel)
+      return message.reply(`Không tìm thấy bảng "${label}" — dùng \`!reactionrole list\``);
     if (!emoji) return message.reply("Cú pháp: `!reactionrole add <Tên> <emoji> <@role>`");
     if (!role) return message.reply("Cần tag role cần gán, VD: `!reactionrole add Tên ✅ @role`");
     if (panel.entries.some((e) => emojiKeyOf(e.emoji) === emojiKeyOf(emoji))) {
@@ -760,7 +798,8 @@ async function handleReactionRole(client, message, args, config, store) {
     const label = args[1];
     const emoji = args[2];
     const panel = findPanel(label);
-    if (!panel) return message.reply(`Không tìm thấy bảng "${label}" — dùng \`!reactionrole list\``);
+    if (!panel)
+      return message.reply(`Không tìm thấy bảng "${label}" — dùng \`!reactionrole list\``);
     if (!emoji) return message.reply("Cú pháp: `!reactionrole remove <Tên> <emoji>`");
     const next = panel.entries.filter((e) => emojiKeyOf(e.emoji) !== emojiKeyOf(emoji));
     if (next.length === panel.entries.length) {
@@ -785,12 +824,18 @@ async function handleReactionRole(client, message, args, config, store) {
     // !reactionrole edit <Tên> | <Mô tả mới> | <Thumbnail mới>   (dùng "-" để xóa)
     const label = args[1];
     const panel = findPanel(label);
-    if (!panel) return message.reply(`Không tìm thấy bảng "${label}" — dùng \`!reactionrole list\``);
-    const parts = args.slice(2).join(" ").split("|").map((s) => s.trim());
+    if (!panel)
+      return message.reply(`Không tìm thấy bảng "${label}" — dùng \`!reactionrole list\``);
+    const parts = args
+      .slice(2)
+      .join(" ")
+      .split("|")
+      .map((s) => s.trim());
     const patch = { guildId: message.guild.id, panelId: panel._id };
     if (parts[0] !== undefined && parts[0] !== "" && parts[0] !== "-") patch.description = parts[0];
     else if (parts[0] === "-") patch.description = null;
-    if (parts[1] !== undefined && parts[1] !== "" && parts[1] !== "-") patch.thumbnailUrl = parts[1];
+    if (parts[1] !== undefined && parts[1] !== "" && parts[1] !== "-")
+      patch.thumbnailUrl = parts[1];
     else if (parts[1] === "-") patch.thumbnailUrl = null;
     if (!("description" in patch) && !("thumbnailUrl" in patch)) {
       return message.reply(
@@ -811,7 +856,8 @@ async function handleReactionRole(client, message, args, config, store) {
   if (sub === "delete") {
     const label = args.slice(1).join(" ").trim();
     const panel = findPanel(label);
-    if (!panel) return message.reply(`Không tìm thấy bảng "${label}" — dùng \`!reactionrole list\``);
+    if (!panel)
+      return message.reply(`Không tìm thấy bảng "${label}" — dùng \`!reactionrole list\``);
     try {
       await store.client.mutation("hidden:botDeletePanel", {
         guildId: message.guild.id,
@@ -833,9 +879,7 @@ async function handleBackup(client, message, args, config, store) {
 
   // !backup list — danh sách backup của server này
   if (sub === "list") {
-    const list = await store.client
-      .query("backup:listGuild", { guildId })
-      .catch(() => null);
+    const list = await store.client.query("backup:listGuild", { guildId }).catch(() => null);
     if (!list || list.length === 0) {
       return message.reply(
         "Chưa có backup nào của server này — dùng `!backup now` để tạo bản đầu tiên.",
@@ -862,9 +906,7 @@ async function handleBackup(client, message, args, config, store) {
         "Cú pháp: `!backup restore <số thứ tự trong !backup list>` (1 = bản mới nhất)",
       );
     }
-    const list = await store.client
-      .query("backup:listGuild", { guildId })
-      .catch(() => null);
+    const list = await store.client.query("backup:listGuild", { guildId }).catch(() => null);
     if (!list || list.length === 0) {
       return message.reply("Chưa có backup nào của server này.");
     }
@@ -968,11 +1010,16 @@ function parseEmojiRolePairs(pairsRaw, message) {
     const idx = token.lastIndexOf(":");
     if (idx <= 0 || idx === token.length - 1) continue;
     const emoji = token.slice(0, idx).trim();
-    let roleId = token.slice(idx + 1).trim().replace(/^<@&(\d+)>$/, "$1");
+    let roleId = token
+      .slice(idx + 1)
+      .trim()
+      .replace(/^<@&(\d+)>$/, "$1");
     if (!emoji) continue;
     // Nếu role ghi bằng tên (không phải ID) thì thử tra trong cache.
     if (!/^\d{15,20}$/.test(roleId) && message) {
-      const role = message.guild.roles.cache.find((r) => r.name.toLowerCase() === roleId.toLowerCase());
+      const role = message.guild.roles.cache.find(
+        (r) => r.name.toLowerCase() === roleId.toLowerCase(),
+      );
       if (role) roleId = role.id;
     }
     if (!/^\d{15,20}$/.test(roleId)) continue;
@@ -995,13 +1042,19 @@ async function handleVerify(client, message, args, config, store) {
     const unverifiedRoleId = unverifiedMention.replace(/^<@&?(\d+)>$/, "$1");
     const verifiedRoleId = verifiedMention.replace(/^<@&?(\d+)>$/, "$1");
     if (!/^\d{15,20}$/.test(channelId)) {
-      return message.reply("❌ Cú pháp: `!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh [button|captcha]`");
+      return message.reply(
+        "❌ Cú pháp: `!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh [button|captcha]`",
+      );
     }
     if (!/^\d{15,20}$/.test(unverifiedRoleId)) {
-      return message.reply("❌ Cú pháp: `!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh [button|captcha]`");
+      return message.reply(
+        "❌ Cú pháp: `!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh [button|captcha]`",
+      );
     }
     if (!/^\d{15,20}$/.test(verifiedRoleId)) {
-      return message.reply("❌ Cú pháp: `!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh [button|captcha]`");
+      return message.reply(
+        "❌ Cú pháp: `!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh [button|captcha]`",
+      );
     }
     await store.client.mutation("bot_writes:botUpdateSettings", {
       guildId: message.guild.id,
@@ -1021,7 +1074,7 @@ async function handleVerify(client, message, args, config, store) {
           .setDescription(
             method === "captcha"
               ? "Nhấn nút bên dưới để nhận mã xác minh qua DM, sau đó nhập mã trong kênh này."
-              : "Nhấn nút bên dưới để xác minh và vào server."
+              : "Nhấn nút bên dưới để xác minh và vào server.",
           );
         const row = new ActionRowBuilder();
         if (method === "captcha") {
@@ -1044,7 +1097,9 @@ async function handleVerify(client, message, args, config, store) {
     } catch (e) {
       console.error(`[verify:setup:send] ${message.guild.id}:`, e.message);
     }
-    return message.reply(`✅ Đã thiết lập xác minh (${method === "captcha" ? "captcha" : "button"}).`);
+    return message.reply(
+      `✅ Đã thiết lập xác minh (${method === "captcha" ? "captcha" : "button"}).`,
+    );
   }
   if (sub === "on" || sub === "off") {
     if (!canManageGuild(message.member)) {
@@ -1071,13 +1126,15 @@ async function handleVerify(client, message, args, config, store) {
       verifyMethod: type,
     });
     store.invalidate(message.guild.id);
-    return message.reply(`✅ Đã đổi phương thức xác minh thành **${type === "captcha" ? "captcha — nhập mã DM" : "button — bấm nút"}**.`);
+    return message.reply(
+      `✅ Đã đổi phương thức xác minh thành **${type === "captcha" ? "captcha — nhập mã DM" : "button — bấm nút"}**.`,
+    );
   }
   return message.reply(
     "**Cú pháp:**\n" +
-      "`!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh [button\|captcha]` — thiết lập\n" +
+      "`!verify setup #kênh @role-chưa-xác-minh @role-đã-xác-minh [button|captcha]` — thiết lập\n" +
       "`!verify on/off` — bật/tắt\n" +
-      "`!verify method button\|captcha` — đổi phương thức",
+      "`!verify method button|captcha` — đổi phương thức",
   );
 }
 

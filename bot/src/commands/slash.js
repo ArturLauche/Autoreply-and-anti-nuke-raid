@@ -40,9 +40,24 @@ const commands = [
               { name: "Tag bot (@protogon)", value: "mention" },
             ],
           },
-          { name: "response", description: "Nội dung trả lời ({user} để tag)", type: 3, required: true },
-          { name: "keywords", description: "Từ khóa, phân cách bằng dấu phẩy", type: 3, required: false },
-          { name: "cooldown", description: "Cooldown giây (0 = không giới hạn)", type: 4, required: false },
+          {
+            name: "response",
+            description: "Nội dung trả lời ({user} để tag)",
+            type: 3,
+            required: true,
+          },
+          {
+            name: "keywords",
+            description: "Từ khóa, phân cách bằng dấu phẩy",
+            type: 3,
+            required: false,
+          },
+          {
+            name: "cooldown",
+            description: "Cooldown giây (0 = không giới hạn)",
+            type: 4,
+            required: false,
+          },
         ],
       },
       {
@@ -51,7 +66,12 @@ const commands = [
         type: 1,
         options: [
           { name: "name", description: "Tên rule cần sửa", type: 3, required: true },
-          { name: "response", description: "Nội dung trả lời mới ({user} để tag)", type: 3, required: false },
+          {
+            name: "response",
+            description: "Nội dung trả lời mới ({user} để tag)",
+            type: 3,
+            required: false,
+          },
           { name: "cooldown", description: "Cooldown giây mới", type: 4, required: false },
         ],
       },
@@ -93,9 +113,7 @@ const commands = [
         name: "lockdown",
         description: "Bật/tắt khóa kênh tự động khi raid",
         type: 1,
-        options: [
-          { name: "value", description: "on | off", type: 3, required: true },
-        ],
+        options: [{ name: "value", description: "on | off", type: 3, required: true }],
       },
     ],
   },
@@ -258,7 +276,9 @@ const commands = [
         name: "end",
         description: "Kết thúc giveaway sớm (bot chốt người thắng)",
         type: 1,
-        options: [{ name: "title", description: "Tên giveaway cần kết thúc", type: 3, required: true }],
+        options: [
+          { name: "title", description: "Tên giveaway cần kết thúc", type: 3, required: true },
+        ],
       },
     ],
   },
@@ -278,9 +298,24 @@ const commands = [
         options: [
           { name: "channel", description: "Kênh gửi bảng", type: 7, required: true },
           { name: "label", description: "Tên bảng", type: 3, required: true },
-          { name: "pairs", description: "Cặp emoji:role, cách nhau khoảng trắng (VD: ✅:123 ⭐:456)", type: 3, required: true },
-          { name: "description", description: "Nội dung / mô tả hiển thị trong embed", type: 3, required: false },
-          { name: "thumbnail", description: "URL ảnh thumbnail của bảng", type: 3, required: false },
+          {
+            name: "pairs",
+            description: "Cặp emoji:role, cách nhau khoảng trắng (VD: ✅:123 ⭐:456)",
+            type: 3,
+            required: true,
+          },
+          {
+            name: "description",
+            description: "Nội dung / mô tả hiển thị trong embed",
+            type: 3,
+            required: false,
+          },
+          {
+            name: "thumbnail",
+            description: "URL ảnh thumbnail của bảng",
+            type: 3,
+            required: false,
+          },
         ],
       },
       {
@@ -289,7 +324,12 @@ const commands = [
         type: 1,
         options: [
           { name: "label", description: "Tên bảng", type: 3, required: true },
-          { name: "emoji", description: "Emoji (unicode / <:name:id> / ID)", type: 3, required: true },
+          {
+            name: "emoji",
+            description: "Emoji (unicode / <:name:id> / ID)",
+            type: 3,
+            required: true,
+          },
           { name: "role", description: "Role cần gán khi bấm emoji", type: 8, required: true },
         ],
       },
@@ -309,8 +349,18 @@ const commands = [
         options: [
           { name: "label", description: "Tên bảng hiện tại", type: 3, required: true },
           { name: "new_label", description: "Tên bảng mới", type: 3, required: false },
-          { name: "description", description: "Mô tả mới (dùng (-) để xóa)", type: 3, required: false },
-          { name: "thumbnail", description: "URL thumbnail mới (dùng (-) để xóa)", type: 3, required: false },
+          {
+            name: "description",
+            description: "Mô tả mới (dùng (-) để xóa)",
+            type: 3,
+            required: false,
+          },
+          {
+            name: "thumbnail",
+            description: "URL thumbnail mới (dùng (-) để xóa)",
+            type: 3,
+            required: false,
+          },
         ],
       },
       {
@@ -375,7 +425,11 @@ const commands = [
     name: "research",
     description: "Theo dõi tiến độ học tập của bot (Threat Intel)",
     options: [
-      { name: "status", description: "Xem tiến độ học: số từ khóa đã nhớ, lượt nghiên cứu, nguồn", type: 1 },
+      {
+        name: "status",
+        description: "Xem tiến độ học: số từ khóa đã nhớ, lượt nghiên cứu, nguồn",
+        type: 1,
+      },
       {
         name: "learn",
         description: "Kích hoạt bot học NGAY từ nguồn mở + AI (thủ công)",
@@ -404,9 +458,7 @@ const commands = [
         name: "log-channel",
         description: "Chọn kênh nhận cảnh báo chống nuke",
         type: 1,
-        options: [
-          { name: "channel", description: "Kênh log", type: 7, required: true },
-        ],
+        options: [{ name: "channel", description: "Kênh log", type: 7, required: true }],
       },
       {
         name: "mod-role",
@@ -432,8 +484,18 @@ const commands = [
         type: 1,
         options: [
           { name: "channel", description: "Kênh hiển thị embed xác minh", type: 7, required: true },
-          { name: "unverified_role", description: "Role gán cho thành viên mới (chưa xác minh)", type: 8, required: true },
-          { name: "verified_role", description: "Role gán sau khi xác minh thành công", type: 8, required: true },
+          {
+            name: "unverified_role",
+            description: "Role gán cho thành viên mới (chưa xác minh)",
+            type: 8,
+            required: true,
+          },
+          {
+            name: "verified_role",
+            description: "Role gán sau khi xác minh thành công",
+            type: 8,
+            required: true,
+          },
           {
             name: "method",
             description: "Phương thức xác minh",

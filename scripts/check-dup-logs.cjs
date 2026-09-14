@@ -63,7 +63,11 @@ const { ConvexHttpClient } = require("../bot/node_modules/convex/browser");
       }
     }
   }
-  console.log(dupEvents === 0 ? "✅ Không có antinukeEvent trùng lặp" : `⚠️ ${dupEvents} cặp sự kiện trùng gần nhau`);
+  console.log(
+    dupEvents === 0
+      ? "✅ Không có antinukeEvent trùng lặp"
+      : `⚠️ ${dupEvents} cặp sự kiện trùng gần nhau`,
+  );
 
   // Các module xuất hiện + phân bố theo thời gian (xem có cụm spam log không).
   const moduleCount = {};
@@ -74,7 +78,11 @@ const { ConvexHttpClient } = require("../bot/node_modules/convex/browser");
   // nên chỉ ước lượng qua số case counter của từng guild nếu dữ liệu cho phép.
   try {
     const status = await client.query("status:botStatus");
-    console.log("\nbotStatus:", status.online ? "online" : "offline", `| ${status.guildCount} server · ${status.memberCount} thành viên`);
+    console.log(
+      "\nbotStatus:",
+      status.online ? "online" : "offline",
+      `| ${status.guildCount} server · ${status.memberCount} thành viên`,
+    );
   } catch (err) {
     console.log("botStatus lỗi:", err.message);
   }

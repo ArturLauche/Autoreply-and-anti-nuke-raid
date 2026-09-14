@@ -35,7 +35,9 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
       .map((s) => s.trim())
       .filter((s) => /^\d{15,20}$/.test(s));
     if (ids.length === 0) {
-      toast.error("Nhập ID Discord hợp lệ (15–20 chữ số), cách nhau bởi dấu phẩy hoặc khoảng trắng.");
+      toast.error(
+        "Nhập ID Discord hợp lệ (15–20 chữ số), cách nhau bởi dấu phẩy hoặc khoảng trắng.",
+      );
       return;
     }
     setWhitelistUsers((prev) => [...new Set([...prev, ...ids])].slice(0, 100));
@@ -71,9 +73,9 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
           <h2 className="font-display text-lg font-semibold">Whitelist của server này</h2>
           <p className="text-sm text-muted-foreground">
             Người dùng / role trong danh sách này sẽ <b className="text-foreground">không bị</b>{" "}
-            moderation, anti-raid và anti-nuke xử lý — <b className="text-foreground">chỉ áp dụng cho{" "}
-            {data.guild.name}</b>. Mỗi server dùng bot có danh sách whitelist riêng (local), không
-            chia sẻ giữa các server.
+            moderation, anti-raid và anti-nuke xử lý —{" "}
+            <b className="text-foreground">chỉ áp dụng cho {data.guild.name}</b>. Mỗi server dùng
+            bot có danh sách whitelist riêng (local), không chia sẻ giữa các server.
           </p>
         </div>
         <Button onClick={handleSave} disabled={saving}>
@@ -88,9 +90,9 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
               <Users className="h-4 w-4 text-primary" /> Role được miễn trừ
             </CardTitle>
             <CardDescription>
-              Thành viên sở hữu role này được bỏ qua toàn bộ kiểm tra moderation, anti-raid
-              và anti-nuke của <b className="text-foreground">server này</b> (kể cả raid/nuke phát
-              hiện qua AI). Role ở server khác không ảnh hưởng.
+              Thành viên sở hữu role này được bỏ qua toàn bộ kiểm tra moderation, anti-raid và
+              anti-nuke của <b className="text-foreground">server này</b> (kể cả raid/nuke phát hiện
+              qua AI). Role ở server khác không ảnh hưởng.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -103,8 +105,8 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
               searchPlaceholder="Gõ tên role để tìm nhanh…"
             />
             <p className="mt-3 text-xs text-muted-foreground">
-              Role Mod / Admin đã cấu hình trong Cài đặt vẫn hoạt động riêng — danh sách này
-              dành cho role tùy chỉnh (ví dụ: VIP, YouTuber, Staff…).
+              Role Mod / Admin đã cấu hình trong Cài đặt vẫn hoạt động riêng — danh sách này dành
+              cho role tùy chỉnh (ví dụ: VIP, YouTuber, Staff…).
             </p>
           </CardContent>
         </Card>
@@ -115,8 +117,8 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
               <UserCheck className="h-4 w-4 text-primary" /> Người dùng được miễn trừ
             </CardTitle>
             <CardDescription>
-              Nhập <b>ID Discord</b> của người dùng (bật Chế độ nhà phát triển trong Discord →
-              chuột phải tên người dùng → Sao chép ID người dùng) để họ không bị hệ thống xử lý{" "}
+              Nhập <b>ID Discord</b> của người dùng (bật Chế độ nhà phát triển trong Discord → chuột
+              phải tên người dùng → Sao chép ID người dùng) để họ không bị hệ thống xử lý{" "}
               <b className="text-foreground">tại server này</b>.
             </CardDescription>
           </CardHeader>
@@ -173,16 +175,17 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
           <div className="text-sm text-muted-foreground">
             <p className="font-semibold text-foreground">Nguyên tắc ưu tiên</p>
             <p className="mt-1">
-              Danh sách áp dụng cho <b className="text-foreground">toàn bộ module của server{" "}
-              {data.guild.name}</b>: spam, từ ngữ xấu, link mời, link độc hại, file nguy hiểm,
-              raid thành viên, ban/kick hàng loạt, tạo/xóa kênh &amp; role hàng loạt,
-              webhook/thread hàng loạt… Người dùng/role trong danh sách được bỏ qua hoàn toàn —
-              không cộng nhiệt, không xóa tin, không ban. Danh sách này <b className="text-foreground">không
-              ảnh hưởng đến các server khác</b> đang dùng bot.
+              Danh sách áp dụng cho{" "}
+              <b className="text-foreground">toàn bộ module của server {data.guild.name}</b>: spam,
+              từ ngữ xấu, link mời, link độc hại, file nguy hiểm, raid thành viên, ban/kick hàng
+              loạt, tạo/xóa kênh &amp; role hàng loạt, webhook/thread hàng loạt… Người dùng/role
+              trong danh sách được bỏ qua hoàn toàn — không cộng nhiệt, không xóa tin, không ban.
+              Danh sách này <b className="text-foreground">không ảnh hưởng đến các server khác</b>{" "}
+              đang dùng bot.
             </p>
             <p className="mt-1">
-              Lưu ý: whitelist không miễn trừ Join Gate (chống selfbot khi vào server) — tính
-              năng đó có danh sách trắng riêng trong mục Join Gate.
+              Lưu ý: whitelist không miễn trừ Join Gate (chống selfbot khi vào server) — tính năng
+              đó có danh sách trắng riêng trong mục Join Gate.
             </p>
           </div>
         </CardContent>

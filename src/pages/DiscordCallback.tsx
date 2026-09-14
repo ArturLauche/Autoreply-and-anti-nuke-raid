@@ -85,7 +85,11 @@ export default function DiscordCallback() {
         // Đăng nhập an toàn: server tự trao đổi code với Discord (kèm
         // client_secret) và tự tạo session token — client không thể giả mạo
         // danh tính hay tự cấp token cho mình.
-        const result = await exchangeAndLogin({ code, codeVerifier: verifier, redirectUri: window.location.origin + "/discord/callback" });
+        const result = await exchangeAndLogin({
+          code,
+          codeVerifier: verifier,
+          redirectUri: window.location.origin + "/discord/callback",
+        });
         // Lưu access token để dashboard tự làm mới danh sách server sau này.
         storeDiscordAccess({
           access_token: result.accessToken,

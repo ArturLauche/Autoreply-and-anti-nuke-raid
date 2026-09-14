@@ -10,7 +10,7 @@ const roots = ["convex", "bot/src", "src", "scripts"].filter((d) => fs.existsSyn
 const found = new Map(); // TÊN BIẾN -> danh sách file
 
 function walk(dir) {
-  let entries = [];
+  let entries;
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch {

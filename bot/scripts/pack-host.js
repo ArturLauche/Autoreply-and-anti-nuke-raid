@@ -51,5 +51,7 @@ try {
 const size = (fs.statSync(out).size / 1024 / 1024).toFixed(2);
 console.log(`\n✅ Đã tạo ${out} (${size} MB)`);
 console.log("   → 🔒 File .env KHÔNG được kèm vào zip (bảo mật).");
-console.log("   → Nhập biến môi trường trên panel host (Environment) hoặc tạo bot/.env trên server.");
+console.log(
+  "   → Nhập biến môi trường trên panel host (Environment) hoặc tạo bot/.env trên server.",
+);
 console.log("   → Wispbyte: panel Files → Upload zip → Unarchive → Start.");

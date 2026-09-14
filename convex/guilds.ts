@@ -15,7 +15,11 @@ function decayHeat(heat: number, updatedAt: number, decayPerMin: number) {
   return Math.max(0, Math.round(heat - elapsedMin * decayPerMin));
 }
 
-async function loadHeatStates(ctx: { db: import("./_generated/server").DatabaseReader }, guildId: string, decayPerMin: number) {
+async function loadHeatStates(
+  ctx: { db: import("./_generated/server").DatabaseReader },
+  guildId: string,
+  decayPerMin: number,
+) {
   const raw = await ctx.db
     .query("heatStates")
     .withIndex("by_guildId_heat", (q) => q.eq("guildId", guildId))
@@ -286,9 +290,11 @@ export const getGuild = query({
 
 /** Lightweight config bundle that the Discord bot fetches per guild. */
 export const getBotConfig = query({
-  args: { guildId: v.string(),
+  args: {
+    guildId: v.string(),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
@@ -480,7 +486,8 @@ export const updateSettings = mutation({
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", args.guildId))
       .first();
-    if (!guild || !canManageGuild(user, guild)) throw new Error("Không có quyền quản lý server này");
+    if (!guild || !canManageGuild(user, guild))
+      throw new Error("Không có quyền quản lý server này");
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.theme !== undefined) {
       const THEME_KEYS = ["pink", "rose", "orange", "amber", "green", "teal", "sky", "violet"];
@@ -488,10 +495,12 @@ export const updateSettings = mutation({
       patch.theme = args.theme;
     }
     if (args.dailyReportEnabled !== undefined) patch.dailyReportEnabled = args.dailyReportEnabled;
-    if (args.emergencyAlertEnabled !== undefined) patch.emergencyAlertEnabled = args.emergencyAlertEnabled;
+    if (args.emergencyAlertEnabled !== undefined)
+      patch.emergencyAlertEnabled = args.emergencyAlertEnabled;
     if (args.logPingEveryone !== undefined) patch.logPingEveryone = args.logPingEveryone;
     if (args.raidHuntEnabled !== undefined) patch.raidHuntEnabled = args.raidHuntEnabled;
-    if (args.raidHuntBanSuspects !== undefined) patch.raidHuntBanSuspects = args.raidHuntBanSuspects;
+    if (args.raidHuntBanSuspects !== undefined)
+      patch.raidHuntBanSuspects = args.raidHuntBanSuspects;
     if (args.prefix !== undefined) {
       if (!/^[!^$#&%]{1,3}$/.test(args.prefix)) {
         throw new Error("Prefix phải là 1-3 ký tự đặc biệt (ví dụ: !, ^, !! )");
@@ -531,10 +540,24 @@ export const updateSettings = mutation({
     if (args.modRoles !== undefined) {
       // Validate: chỉ Discord snowflake ID hợp lệ, tối đa 50 — mod/admin role là
       // dữ liệu quyết định AI được miễn trừ phạt chống nuke nên phải sạch.
-      patch.modRoles = [...new Set(args.modRoles.map((id) => id.trim()).filter((id) => /^\d{15,20}$/.test(id)).slice(0, 50))];
+      patch.modRoles = [
+        ...new Set(
+          args.modRoles
+            .map((id) => id.trim())
+            .filter((id) => /^\d{15,20}$/.test(id))
+            .slice(0, 50),
+        ),
+      ];
     }
     if (args.adminRoles !== undefined) {
-      patch.adminRoles = [...new Set(args.adminRoles.map((id) => id.trim()).filter((id) => /^\d{15,20}$/.test(id)).slice(0, 50))];
+      patch.adminRoles = [
+        ...new Set(
+          args.adminRoles
+            .map((id) => id.trim())
+            .filter((id) => /^\d{15,20}$/.test(id))
+            .slice(0, 50),
+        ),
+      ];
     }
     if (args.badWords !== undefined) {
       if (args.badWords.length > 100) throw new Error("Tối đa 100 từ ngữ xấu");
@@ -575,8 +598,10 @@ export const updateSettings = mutation({
     if (args.joinGateMinAgeDays !== undefined) {
       patch.joinGateMinAgeDays = Math.max(0, Math.min(3650, Math.floor(args.joinGateMinAgeDays)));
     }
-    if (args.joinGateRequireAvatar !== undefined) patch.joinGateRequireAvatar = args.joinGateRequireAvatar;
-    if (args.joinGateRequireFlag !== undefined) patch.joinGateRequireFlag = args.joinGateRequireFlag;
+    if (args.joinGateRequireAvatar !== undefined)
+      patch.joinGateRequireAvatar = args.joinGateRequireAvatar;
+    if (args.joinGateRequireFlag !== undefined)
+      patch.joinGateRequireFlag = args.joinGateRequireFlag;
     if (args.joinGateRaidKick !== undefined) patch.joinGateRaidKick = args.joinGateRaidKick;
     if (args.joinGatePunish !== undefined) patch.joinGatePunish = args.joinGatePunish;
     if (args.joinGateWhitelist !== undefined) {
@@ -601,13 +626,19 @@ export const updateSettings = mutation({
     if (args.warnStrikePunish !== undefined) patch.warnStrikePunish = args.warnStrikePunish;
     if (args.verifyEnabled !== undefined) patch.verifyEnabled = args.verifyEnabled;
     if (args.verifyMethod !== undefined) patch.verifyMethod = args.verifyMethod;
-    if (args.verifyChannelId !== undefined) patch.verifyChannelId = args.verifyChannelId || undefined;
-    if (args.unverifiedRoleId !== undefined) patch.unverifiedRoleId = args.unverifiedRoleId || undefined;
+    if (args.verifyChannelId !== undefined)
+      patch.verifyChannelId = args.verifyChannelId || undefined;
+    if (args.unverifiedRoleId !== undefined)
+      patch.unverifiedRoleId = args.unverifiedRoleId || undefined;
     if (args.verifiedRoleId !== undefined) patch.verifiedRoleId = args.verifiedRoleId || undefined;
-    if (args.verifyWelcomeEnabled !== undefined) patch.verifyWelcomeEnabled = args.verifyWelcomeEnabled;
-    if (args.verifyWelcomeTitle !== undefined) patch.verifyWelcomeTitle = args.verifyWelcomeTitle || undefined;
-    if (args.verifyWelcomeDescription !== undefined) patch.verifyWelcomeDescription = args.verifyWelcomeDescription || undefined;
-    if (args.verifyWelcomeColor !== undefined) patch.verifyWelcomeColor = args.verifyWelcomeColor || undefined;
+    if (args.verifyWelcomeEnabled !== undefined)
+      patch.verifyWelcomeEnabled = args.verifyWelcomeEnabled;
+    if (args.verifyWelcomeTitle !== undefined)
+      patch.verifyWelcomeTitle = args.verifyWelcomeTitle || undefined;
+    if (args.verifyWelcomeDescription !== undefined)
+      patch.verifyWelcomeDescription = args.verifyWelcomeDescription || undefined;
+    if (args.verifyWelcomeColor !== undefined)
+      patch.verifyWelcomeColor = args.verifyWelcomeColor || undefined;
     if (args.verifySendPanel !== undefined) patch.verifySendPanel = args.verifySendPanel;
     // Yêu cầu gửi panel mới → xóa lỗi cũ (đây là lần thử lại của người dùng).
     if (args.verifySendPanel === true) {
@@ -632,7 +663,8 @@ export const updateLockdown = mutation({
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
       .first();
-    if (!guild || !canManageGuild(user, guild)) throw new Error("Không có quyền quản lý server này");
+    if (!guild || !canManageGuild(user, guild))
+      throw new Error("Không có quyền quản lý server này");
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (enabled !== undefined) patch.lockdownEnabled = enabled;
     if (minutes !== undefined) {
@@ -682,7 +714,8 @@ export const requestUnlock = mutation({
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
       .first();
-    if (!guild || !canManageGuild(user, guild)) throw new Error("Không có quyền quản lý server này");
+    if (!guild || !canManageGuild(user, guild))
+      throw new Error("Không có quyền quản lý server này");
     await ctx.db.patch(guild._id, {
       lockdownRequested: true,
       updatedAt: Date.now(),
@@ -699,7 +732,8 @@ export const setAntinukeGlobal = mutation({
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
       .first();
-    if (!guild || !canManageGuild(user, guild)) throw new Error("Không có quyền quản lý server này");
+    if (!guild || !canManageGuild(user, guild))
+      throw new Error("Không có quyền quản lý server này");
     await ctx.db.patch(guild._id, { antinukeEnabled: enabled, updatedAt: Date.now() });
     // BẬT TOÀN BỘ = bật luôn mọi module con (ngưỡng/cấu hình từng module giữ
     // nguyên). TẮT TOÀN BỘ = chỉ tắt tổng (antinukeEnabled=false) — giữ nguyên
@@ -744,9 +778,12 @@ export const getVerifySendPanelGuilds = query({
  * không `error` → gửi thành công, xóa lỗi cũ (nếu có).
  */
 export const clearVerifySendPanel = mutation({
-  args: { guildId: v.string(), error: v.optional(v.string()),
+  args: {
+    guildId: v.string(),
+    error: v.optional(v.string()),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId, error }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
@@ -754,7 +791,8 @@ export const clearVerifySendPanel = mutation({
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
       .first();
     if (!guild) return;
-    await ctx.db.patch(guild._id,
+    await ctx.db.patch(
+      guild._id,
       error
         ? {
             verifySendPanel: false,
@@ -904,8 +942,7 @@ export const botSyncGuilds = mutation({
             windowSeconds: m.windowSeconds,
             punish: m.punish as "warn" | "kick" | "ban" | "timeout",
             whitelistRoles: [],
-            timeoutSeconds:
-              m.module === "spam" || m.module === "attachment" ? 300 : 600,
+            timeoutSeconds: m.module === "spam" || m.module === "attachment" ? 300 : 600,
             heat: m.heat,
             updatedAt: now,
           });
@@ -964,9 +1001,11 @@ export const botSyncGuilds = mutation({
 
 /** Bot bị kick khỏi guild → đánh dấu đúng guild đó (sự kiện guildDelete, không sweep toàn bộ). */
 export const botGuildGone = mutation({
-  args: { guildId: v.string(),
+  args: {
+    guildId: v.string(),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
@@ -1076,9 +1115,7 @@ export const botHeartbeat = mutation({
 export const syncChannels = mutation({
   args: {
     guildId: v.string(),
-    channels: v.array(
-      v.object({ channelId: v.string(), name: v.string(), type: v.number() }),
-    ),
+    channels: v.array(v.object({ channelId: v.string(), name: v.string(), type: v.number() })),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()),
   },

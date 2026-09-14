@@ -8,7 +8,6 @@ import { useBranding } from "../lib/useBranding";
 import { cn } from "../lib/utils";
 import { sha256Hex } from "../../convex/sha256";
 
-
 interface ChatMessage {
   role: "user" | "haimiya";
   text: string;
@@ -21,13 +20,7 @@ interface ChatMessage {
  * tóc bạc xanh, mắt xanh sáng, má hồng, răng nanh, choker đen.
  * Nếu truyền `src` (ảnh tùy chỉnh do admin sở hữu bot đặt) sẽ hiển thị ảnh đó thay SVG.
  */
-export function HaimiyaAvatar({
-  className,
-  src,
-}: {
-  className?: string;
-  src?: string | null;
-}) {
+export function HaimiyaAvatar({ className, src }: { className?: string; src?: string | null }) {
   const [failed, setFailed] = useState(false);
   if (src && !failed) {
     return (
@@ -96,8 +89,18 @@ export function HaimiyaAvatar({
         strokeLinecap="round"
       />
       {/* mắt xanh sáng, đồng tử hẹp */}
-      <path d="M21.5 34.5q4-4.5 8 0q-4 4.5-8 0z" fill="#4aa5ff" stroke="#12355e" strokeWidth="0.8" />
-      <path d="M34.5 34.5q4-4.5 8 0q-4 4.5-8 0z" fill="#4aa5ff" stroke="#12355e" strokeWidth="0.8" />
+      <path
+        d="M21.5 34.5q4-4.5 8 0q-4 4.5-8 0z"
+        fill="#4aa5ff"
+        stroke="#12355e"
+        strokeWidth="0.8"
+      />
+      <path
+        d="M34.5 34.5q4-4.5 8 0q-4 4.5-8 0z"
+        fill="#4aa5ff"
+        stroke="#12355e"
+        strokeWidth="0.8"
+      />
       <ellipse cx="25.5" cy="34.8" rx="1" ry="2.2" fill="#12355e" />
       <ellipse cx="38.5" cy="34.8" rx="1" ry="2.2" fill="#12355e" />
       <circle cx="24" cy="33.6" r="0.9" fill="#fff" opacity="0.9" />
@@ -113,7 +116,13 @@ export function HaimiyaAvatar({
         fill="none"
         strokeLinecap="round"
       />
-      <path d="M35 41.3l1.3 2.7 1.5-2.5z" fill="#fff" stroke="#c26a85" strokeWidth="0.6" strokeLinejoin="round" />
+      <path
+        d="M35 41.3l1.3 2.7 1.5-2.5z"
+        fill="#fff"
+        stroke="#c26a85"
+        strokeWidth="0.6"
+        strokeLinejoin="round"
+      />
       {/* choker đen + vòng kim loại */}
       <path d="M26.5 48h11" stroke="#2b2b38" strokeWidth="3" strokeLinecap="round" />
       <circle cx="32" cy="48" r="1.7" fill="none" stroke="#cfd6e4" strokeWidth="1.3" />
@@ -122,13 +131,7 @@ export function HaimiyaAvatar({
 }
 
 /** Avatar bot (logo) — dùng ảnh tùy chỉnh nếu có, ngược lại mặc định là Haimiya. */
-export function BotAvatar({
-  className,
-  src,
-}: {
-  className?: string;
-  src?: string | null;
-}) {
+export function BotAvatar({ className, src }: { className?: string; src?: string | null }) {
   return <HaimiyaAvatar className={className} src={src} />;
 }
 
@@ -175,7 +178,9 @@ export default function HaimiyaChat({
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, typing, open]);
 
-  async function getAIResponse(history: Array<{ role: "user" | "assistant"; content: string }>): Promise<string | null> {
+  async function getAIResponse(
+    history: Array<{ role: "user" | "assistant"; content: string }>,
+  ): Promise<string | null> {
     // Convex action — chạy qua Groq / NVIDIA NIM / SambaNova / OpenAI (key ở Keys tab).
     // funcKey: chìa khóa chống lạm dụng (SHA-256("protogon-func-key::" + FUNC_SEED)) —
     // chỉ gửi khi người dùng đã cấu hình FUNC_SEED trong localStorage.
@@ -215,33 +220,36 @@ export default function HaimiyaChat({
     setInput("");
     setTyping(true);
     window.clearTimeout(timerRef.current);
-    timerRef.current = window.setTimeout(async () => {
-      const history = messages
-        .concat([{ role: "user", text: q }])
-        .slice(-8)
-        .map((m) => ({
-          role: m.role === "user" ? ("user" as const) : ("assistant" as const),
-          content: m.text,
-        }));
+    timerRef.current = window.setTimeout(
+      async () => {
+        const history = messages
+          .concat([{ role: "user", text: q }])
+          .slice(-8)
+          .map((m) => ({
+            role: m.role === "user" ? ("user" as const) : ("assistant" as const),
+            content: m.text,
+          }));
 
-      const aiReply = await getAIResponse(history);
-      if (aiReply?.startsWith("[giới-hạn]")) {
-        setMessages((m) => [
-          ...m,
-          { role: "haimiya", text: aiReply.replace("[giới-hạn] ", "⏳ ") },
-        ]);
-      } else if (aiReply) {
-        setMessages((m) => [...m, { role: "haimiya", text: aiReply }]);
-      } else {
-        // Fallback: bộ kiến thức cục bộ.
-        const ans = askHaimiya(q);
-        setMessages((m) => [
-          ...m,
-          { role: "haimiya", text: ans.text, suggestions: ans.suggestions },
-        ]);
-      }
-      setTyping(false);
-    }, 650 + Math.random() * 500);
+        const aiReply = await getAIResponse(history);
+        if (aiReply?.startsWith("[giới-hạn]")) {
+          setMessages((m) => [
+            ...m,
+            { role: "haimiya", text: aiReply.replace("[giới-hạn] ", "⏳ ") },
+          ]);
+        } else if (aiReply) {
+          setMessages((m) => [...m, { role: "haimiya", text: aiReply }]);
+        } else {
+          // Fallback: bộ kiến thức cục bộ.
+          const ans = askHaimiya(q);
+          setMessages((m) => [
+            ...m,
+            { role: "haimiya", text: ans.text, suggestions: ans.suggestions },
+          ]);
+        }
+        setTyping(false);
+      },
+      650 + Math.random() * 500,
+    );
   }
 
   return (
@@ -269,9 +277,7 @@ export default function HaimiyaChat({
             <span className="relative inline-flex h-3 w-3 rounded-full border-2 border-white bg-emerald-400" />
           </span>
         </span>
-        <span className="hidden pr-2 text-sm font-bold text-[#3d0f22] sm:block">
-          Haimiya
-        </span>
+        <span className="hidden pr-2 text-sm font-bold text-[#3d0f22] sm:block">Haimiya</span>
       </button>
 
       {/* Cửa sổ chat */}
@@ -296,9 +302,7 @@ export default function HaimiyaChat({
               <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#f79fc6] bg-emerald-400" />
             </div>
             <div className="flex-1">
-              <p className="font-display text-sm font-bold leading-tight text-[#3d0f22]">
-                Haimiya
-              </p>
+              <p className="font-display text-sm font-bold leading-tight text-[#3d0f22]">Haimiya</p>
               <p className="text-[11px] font-medium text-[#5c1533]">
                 Trợ lý ảo của Protogon — giải đáp về bot, nhiệt độ, tính năng ẩn
               </p>

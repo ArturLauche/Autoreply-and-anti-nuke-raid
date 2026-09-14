@@ -57,23 +57,20 @@ function formatAge(createdAt: number) {
   return `${Math.floor(days / 365)} nam`;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AltConfigData = Record<string, any>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AltJoinData = Record<string, any>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AltStatsData = Record<string, any>;
 
 export default function AltDetectionPanel({ data }: { data: GuildData }) {
   const token = TOKEN();
   const guildId = data.guild.discordId;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const altConfig = useQuery(api.altDetection.getAltConfig, { token, guildId }) as AltConfigData | null | undefined;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recentJoins = useQuery(api.altDetection.getRecentJoins, { token, guildId, limit: 50 }) as AltJoinData[] | null | undefined;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const altStats = useQuery(api.altDetection.getAltStats, { token, guildId }) as AltStatsData | null | undefined;
+  const altConfig = useQuery(api.altDetection.getAltConfig, { token, guildId }) as
+    AltConfigData | null | undefined;
+  const recentJoins = useQuery(api.altDetection.getRecentJoins, { token, guildId, limit: 50 }) as
+    AltJoinData[] | null | undefined;
+  const altStats = useQuery(api.altDetection.getAltStats, { token, guildId }) as
+    AltStatsData | null | undefined;
 
   const updateConfig = useMutation(api.altDetection.updateAltConfig);
 
@@ -99,7 +96,11 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
   async function setPunish(punish: string) {
     setSaving(true);
     try {
-      await updateConfig({ token, guildId, altPunish: punish as "kick" | "ban" | "timeout" | "verify" });
+      await updateConfig({
+        token,
+        guildId,
+        altPunish: punish as "kick" | "ban" | "timeout" | "verify",
+      });
       toast.success(`Da doi hinh phat thanh ${punish}`);
     } catch (e: unknown) {
       toast.error((e as Error).message);
@@ -122,7 +123,11 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
     setSaving(true);
     try {
       await updateConfig({ token, guildId, altSafeMode: v });
-      toast.success(v ? "Đã bật chế độ an toàn — chỉ phạt khi có đủ bằng chứng" : "Đã tắt chế độ an toàn — phạt theo điểm rủi ro");
+      toast.success(
+        v
+          ? "Đã bật chế độ an toàn — chỉ phạt khi có đủ bằng chứng"
+          : "Đã tắt chế độ an toàn — phạt theo điểm rủi ro",
+      );
     } catch (e: unknown) {
       toast.error((e as Error).message);
     }
@@ -160,11 +165,7 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
             Phat hien va chan alt account, VPN/Proxy khi thanh vien moi tham gia server.
           </p>
         </div>
-        <Switch
-          checked={enabled}
-          onCheckedChange={toggleEnabled}
-          disabled={saving}
-        />
+        <Switch checked={enabled} onCheckedChange={toggleEnabled} disabled={saving} />
       </div>
 
       {/* Stats Cards */}
@@ -199,7 +200,9 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <AlertTriangle className="h-3 w-3 text-yellow-500" /> Tai khoan moi
               </p>
-              <p className="text-2xl font-bold mt-1 text-yellow-500">{altStats.newAccountCount ?? 0}</p>
+              <p className="text-2xl font-bold mt-1 text-yellow-500">
+                {altStats.newAccountCount ?? 0}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -254,7 +257,9 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
 
           {/* VPN Mode */}
           <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">Che do VPN/Proxy</label>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              Che do VPN/Proxy
+            </label>
             <div className="flex flex-wrap gap-2">
               {VPN_MODES.map((mode) => {
                 return (
@@ -266,16 +271,19 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
                     disabled={saving}
                   >
                     {mode.label}
-                    <span className="ml-1.5 text-xs text-muted-foreground hidden sm:inline">-- {mode.desc}</span>
+                    <span className="ml-1.5 text-xs text-muted-foreground hidden sm:inline">
+                      -- {mode.desc}
+                    </span>
                   </Button>
                 );
               })}
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              ⚠️ Discord không cung cấp địa chỉ IP của thành viên cho bot, nên việc phát hiện VPN/Proxy
-              trực tiếp là không khả thi với dữ liệu hiện tại. Hệ thống tập trung vào phát hiện alt account
-              bằng bằng chứng hành vi (tuổi tài khoản, tên/avatar trùng, lịch sử bị phạt, join cluster) —
-              đây là cách chặn account lạm dụng VPN hiệu quả nhất mà Discord cho phép.
+              ⚠️ Discord không cung cấp địa chỉ IP của thành viên cho bot, nên việc phát hiện
+              VPN/Proxy trực tiếp là không khả thi với dữ liệu hiện tại. Hệ thống tập trung vào phát
+              hiện alt account bằng bằng chứng hành vi (tuổi tài khoản, tên/avatar trùng, lịch sử bị
+              phạt, join cluster) — đây là cách chặn account lạm dụng VPN hiệu quả nhất mà Discord
+              cho phép.
             </p>
           </div>
 
@@ -288,17 +296,13 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
               <div>
                 <p className="text-sm font-semibold">Chế độ an toàn (chống chặn nhầm)</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Chỉ phạt khi có <b>đủ bằng chứng độc lập</b>: 2+ tín hiệu mạnh → phạt đúng cấu hình;
-                  1 tín hiệu → hạ cấp nhẹ hơn (ban → kick, kick → timeout); 0 tín hiệu → chỉ theo dõi.
-                  Tắt để phạt theo điểm rủi ro như cũ (dễ chặn nhầm hơn).
+                  Chỉ phạt khi có <b>đủ bằng chứng độc lập</b>: 2+ tín hiệu mạnh → phạt đúng cấu
+                  hình; 1 tín hiệu → hạ cấp nhẹ hơn (ban → kick, kick → timeout); 0 tín hiệu → chỉ
+                  theo dõi. Tắt để phạt theo điểm rủi ro như cũ (dễ chặn nhầm hơn).
                 </p>
               </div>
             </div>
-            <Switch
-              checked={safeMode}
-              onCheckedChange={setSafeMode}
-              disabled={saving}
-            />
+            <Switch checked={safeMode} onCheckedChange={setSafeMode} disabled={saving} />
           </div>
         </CardContent>
       </Card>
@@ -331,22 +335,31 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
                         <td className="py-2.5 pr-4">
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-foreground">{j.username}</span>
-                            <code className="text-xs text-muted-foreground">({(j.userId ?? "").slice(0, 8)}...)</code>
+                            <code className="text-xs text-muted-foreground">
+                              ({(j.userId ?? "").slice(0, 8)}...)
+                            </code>
                           </div>
                         </td>
                         <td className="py-2.5 pr-4 text-center">
-                          <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-bold ${riskColor(riskScore)}`}>
+                          <span
+                            className={`inline-block rounded-full border px-2 py-0.5 text-xs font-bold ${riskColor(riskScore)}`}
+                          >
                             {riskScore} -- {riskLabel(riskScore)}
                           </span>
                         </td>
                         <td className="py-2.5 pr-4 text-center">
-                          <span className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-bold ${(j.strongSignals ?? 0) >= 2 ? "bg-red-500/10 text-red-500 border border-red-500/30" : (j.strongSignals ?? 0) === 1 ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/30" : "bg-muted text-muted-foreground border border-border"}`}>
+                          <span
+                            className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-bold ${(j.strongSignals ?? 0) >= 2 ? "bg-red-500/10 text-red-500 border border-red-500/30" : (j.strongSignals ?? 0) === 1 ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/30" : "bg-muted text-muted-foreground border border-border"}`}
+                          >
                             {j.strongSignals ?? 0}
                           </span>
                         </td>
                         <td className="py-2.5 pr-4 text-center">
                           {j.action && j.action !== "pass" ? (
-                            <Badge variant="outline" className="text-[10px] text-red-500 border-red-500/30">
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] text-red-500 border-red-500/30"
+                            >
                               {j.action}
                             </Badge>
                           ) : (
@@ -358,7 +371,12 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
                         </td>
                         <td className="py-2.5 pr-4 text-center">
                           {j.isVPN ? (
-                            <Badge variant="outline" className="text-[10px] text-red-500 border-red-500/30">VPN</Badge>
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] text-red-500 border-red-500/30"
+                            >
+                              VPN
+                            </Badge>
                           ) : (
                             <span className="text-xs text-muted-foreground">--</span>
                           )}
@@ -366,7 +384,11 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
                         <td className="py-2.5">
                           <div className="flex flex-wrap gap-1">
                             {(j.riskFactors ?? []).map((f: string, i: number) => (
-                              <Badge key={i} variant="outline" className="text-[10px] text-muted-foreground">
+                              <Badge
+                                key={i}
+                                variant="outline"
+                                className="text-[10px] text-muted-foreground"
+                              >
                                 {f}
                               </Badge>
                             ))}

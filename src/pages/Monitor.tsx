@@ -1,21 +1,8 @@
 import { Link } from "react-router-dom";
-import {
-  Activity,
-  AlertTriangle,
-  ArrowLeft,
-  Gauge,
-  Server,
-  Users,
-  Wifi,
-} from "lucide-react";
+import { Activity, AlertTriangle, ArrowLeft, Gauge, Server, Users, Wifi } from "lucide-react";
 import CherryBlossom from "../components/CherryBlossom";
 import UpdateWindow from "../components/UpdateWindow";
-import {
-  INCIDENT_SLOW,
-  LATENCY_SLOW,
-  latencyLabel,
-  useBotMonitor,
-} from "../lib/useBotMonitor";
+import { INCIDENT_SLOW, LATENCY_SLOW, latencyLabel, useBotMonitor } from "../lib/useBotMonitor";
 import { cn } from "../lib/utils";
 
 /** Biểu đồ độ trễ dạng đường (SVG thuần, không cần thư viện). */
@@ -164,10 +151,8 @@ export default function Monitor() {
                     </h2>
                     <p className="text-xs text-muted-foreground">
                       Trung bình:{" "}
-                      <b className="text-foreground">
-                        {avg !== null ? `${avg} ms` : "—"}
-                      </b>{" "}
-                      · Tối đa:{" "}
+                      <b className="text-foreground">{avg !== null ? `${avg} ms` : "—"}</b> · Tối
+                      đa:{" "}
                       <b className="text-foreground">
                         {history.length > 0 ? `${Math.max(...history)} ms` : "—"}
                       </b>
@@ -176,9 +161,7 @@ export default function Monitor() {
                   <span
                     className={cn(
                       "rounded-full px-2.5 py-1 text-xs font-bold",
-                      rate
-                        ? `${rate.cls} bg-current/10`
-                        : "bg-muted text-muted-foreground",
+                      rate ? `${rate.cls} bg-current/10` : "bg-muted text-muted-foreground",
                     )}
                   >
                     {rate ? rate.label : "đang đo"}
@@ -240,16 +223,13 @@ export default function Monitor() {
               />
               <div className="rounded-xl border border-border bg-secondary/30 p-4 text-xs leading-relaxed text-muted-foreground">
                 <p className="mb-1 font-semibold text-foreground">ℹ️ Ghi chú</p>
-                <p>
-                  • Không hiển thị tên server — chỉ hiện số lượng để bảo mật.
+                <p>• Không hiển thị tên server — chỉ hiện số lượng để bảo mật.</p>
+                <p className="mt-1">
+                  • Trang Cửa sổ Admin (chỉ chủ sở hữu bot) chia sẻ khung giờ cập nhật này và theo
+                  dõi lỗi chi tiết hơn.
                 </p>
                 <p className="mt-1">
-                  • Trang Cửa sổ Admin (chỉ chủ sở hữu bot) chia sẻ khung giờ cập
-                  nhật này và theo dõi lỗi chi tiết hơn.
-                </p>
-                <p className="mt-1">
-                  • Giờ hiển thị theo <b className="text-foreground">giờ Việt Nam</b>{" "}
-                  (UTC+7).
+                  • Giờ hiển thị theo <b className="text-foreground">giờ Việt Nam</b> (UTC+7).
                 </p>
               </div>
             </div>

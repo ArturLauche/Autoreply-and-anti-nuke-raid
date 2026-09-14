@@ -34,10 +34,15 @@ for (const suite of suites) {
     });
     // Trích dòng tổng kết (pass/fail) nếu suite có in.
     const tail = out.trim().split("\n").slice(-1)[0];
-    console.log(`✅ ${suite.replace(/\.cjs$/, "")} (${((Date.now() - s0) / 1000).toFixed(1)}s) — ${tail}`);
+    console.log(
+      `✅ ${suite.replace(/\.cjs$/, "")} (${((Date.now() - s0) / 1000).toFixed(1)}s) — ${tail}`,
+    );
   } catch (e) {
     const out = `${e.stdout || ""}\n${e.stderr || ""}`;
-    const fails = out.split("\n").filter((l) => /^(FAIL|Error|ERROR)/.test(l.trim())).slice(0, 5);
+    const fails = out
+      .split("\n")
+      .filter((l) => /^(FAIL|Error|ERROR)/.test(l.trim()))
+      .slice(0, 5);
     console.error(`❌ ${suite.replace(/\.cjs$/, "")} — THẤT BẠI`);
     for (const f of fails) console.error(`   ${f}`);
     failed.push(suite);
@@ -45,7 +50,9 @@ for (const suite of suites) {
 }
 
 const secs = ((Date.now() - t0) / 1000).toFixed(1);
-console.log(`\n${failed.length === 0 ? "✅" : "❌"} ${suites.length - failed.length}/${suites.length} suites pass (${secs}s)`);
+console.log(
+  `\n${failed.length === 0 ? "✅" : "❌"} ${suites.length - failed.length}/${suites.length} suites pass (${secs}s)`,
+);
 if (failed.length > 0) {
   console.error(`Suites thất bại: ${failed.join(", ")}`);
   process.exit(1);

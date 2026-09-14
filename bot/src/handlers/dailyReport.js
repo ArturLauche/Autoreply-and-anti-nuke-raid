@@ -59,7 +59,11 @@ async function sendReport(guild, config, list, from, to, heat) {
             ? `${TIER_EMOJI[h.tier] || "🔥"} Nhiệt **${h.heat}/100**${h.tier ? ` (${h.tier})` : ""}`
             : "🔥 Nhiệt **0/100**";
         const strikePart = st && st.count > 0 ? ` ⚠️ Warn **${st.count}/${st.limit}**` : "";
-        return { userId: h.userId, heat: h.heat, line: `<@${h.userId}> — ${heatPart}${strikePart}` };
+        return {
+          userId: h.userId,
+          heat: h.heat,
+          line: `<@${h.userId}> — ${heatPart}${strikePart}`,
+        };
       })
       .sort((a, b) => b.heat - a.heat)
       .slice(0, 15)
@@ -74,7 +78,9 @@ async function sendReport(guild, config, list, from, to, heat) {
   if (list.length === 0) {
     embed
       .setColor(Colors.Green)
-      .setDescription(`${embed.data.description}\n\n🎉 **Server bình yên!** Không có sự kiện chống nuke nào trong kỳ báo cáo.`);
+      .setDescription(
+        `${embed.data.description}\n\n🎉 **Server bình yên!** Không có sự kiện chống nuke nào trong kỳ báo cáo.`,
+      );
   } else {
     const byModule = new Map();
     for (const e of list) {
@@ -106,7 +112,10 @@ async function sendReport(guild, config, list, from, to, heat) {
         ? [
             {
               name: "Thủ phạm thường xuyên",
-              value: top.map(([id, n]) => `<@${id}> — ${n} sự kiện`).join("\n").slice(0, 1024),
+              value: top
+                .map(([id, n]) => `<@${id}> — ${n} sự kiện`)
+                .join("\n")
+                .slice(0, 1024),
             },
           ]
         : []),

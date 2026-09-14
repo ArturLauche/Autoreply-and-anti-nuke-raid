@@ -13,13 +13,9 @@ import "./index.css";
 //    value is ignored and we fall back to the public Protogon production
 //    deployment. The deployed site therefore always talks to the real backend.
 const configuredUrl = import.meta.env.VITE_CONVEX_URL ?? "";
-const isLocalDevUrl = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(
-  configuredUrl,
-);
+const isLocalDevUrl = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredUrl);
 const convexUrl =
-  !configuredUrl || isLocalDevUrl
-    ? "https://accomplished-chipmunk-74.convex.cloud"
-    : configuredUrl;
+  !configuredUrl || isLocalDevUrl ? "https://accomplished-chipmunk-74.convex.cloud" : configuredUrl;
 
 const convex = new ConvexReactClient(convexUrl);
 

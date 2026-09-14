@@ -20,7 +20,10 @@ check("hỏi nhiệt độ → KHÔNG rơi vào fallback", !heat.text.includes("
 
 const antinuke = askHaimiya("anti nuke là gì, bot có chống raid không?");
 check("hỏi anti nuke/raid → khớp chủ đề", !antinuke.text.includes("chưa kết nối được"));
-check("trả lời anti nuke có nói về khóa kênh/lockdown hoặc module", /lockdown|khóa kênh|module|phạt/i.test(antinuke.text));
+check(
+  "trả lời anti nuke có nói về khóa kênh/lockdown hoặc module",
+  /lockdown|khóa kênh|module|phạt/i.test(antinuke.text),
+);
 
 // 2. Có dấu/không dấu/hoa thường đều khớp
 const upper = askHaimiya("CHỐNG NUKE RAID HOẠT ĐỘNG SAO?");
@@ -30,7 +33,10 @@ check("không dấu → vẫn khớp chủ đề nhiệt độ", !noDi.text.incl
 
 // 3. Tính năng riêng tư → phải từ chối tiết lộ
 const giveaway = askHaimiya("giveaway hoạt động sao?");
-check("hỏi giveaway → giữ nguyên tắc riêng tư", giveaway.text.includes("riêng tư") || giveaway.text.includes("không tiết lộ"));
+check(
+  "hỏi giveaway → giữ nguyên tắc riêng tư",
+  giveaway.text.includes("riêng tư") || giveaway.text.includes("không tiết lộ"),
+);
 
 // 4. Câu ngoài phạm vi → fallback lịch sự
 const fallback = askHaimiya("hôm nay thời tiết thế nào nhỉ");

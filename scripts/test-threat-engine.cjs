@@ -25,7 +25,6 @@ module.exports = { Colors: new Proxy({}, { get: () => 0x000000 }), EmbedBuilder,
 `,
 );
 
-const realFetch = globalThis.fetch;
 const mutations = [];
 let urlhausServed = false;
 
@@ -79,11 +78,29 @@ const store = {
 
   // ---- 1. flaggedMessages: ghi + lọc theo cửa sổ + sweep ----
   const now = Date.now();
-  check("ghi mẫu hợp lệ", flagged.noteFlaggedMessage("fr33 n1tr0 gift redeem now claim your reward here", "g1", "spam", now));
+  check(
+    "ghi mẫu hợp lệ",
+    flagged.noteFlaggedMessage(
+      "fr33 n1tr0 gift redeem now claim your reward here",
+      "g1",
+      "spam",
+      now,
+    ),
+  );
   check("bỏ tin quá ngắn", !flagged.noteFlaggedMessage("ngắn", "g1", "spam", now));
   check("bỏ tin quá dài", !flagged.noteFlaggedMessage("x".repeat(400), "g1", "spam", now));
-  flagged.noteFlaggedMessage("fr33 n1tr0 gift redeem now claim your reward here 2", "g1", "spam", now - 1000);
-  flagged.noteFlaggedMessage("completely different content about cooking pasta", "g1", "filter", now - 2000);
+  flagged.noteFlaggedMessage(
+    "fr33 n1tr0 gift redeem now claim your reward here 2",
+    "g1",
+    "spam",
+    now - 1000,
+  );
+  flagged.noteFlaggedMessage(
+    "completely different content about cooking pasta",
+    "g1",
+    "filter",
+    now - 2000,
+  );
   const recent = flagged.noteFlaggedMessages(now - 5000);
   check("lấy theo cửa sổ", recent.length === 3);
   check("mới nhất đầu", recent[0].ts >= recent[1].ts);
@@ -98,12 +115,20 @@ const store = {
   flagged.noteFlaggedMessage(spamA, "g1", "spam", now);
   flagged.noteFlaggedMessage(spamB, "g1", "spam", now);
   flagged.noteFlaggedMessage(spamC, "g1", "spam", now);
-  flagged.noteFlaggedMessage("completely different topic about cooking pasta today", "g1", "filter", now);
+  flagged.noteFlaggedMessage(
+    "completely different topic about cooking pasta today",
+    "g1",
+    "filter",
+    now,
+  );
 
   // ---- 2. N-gram clustering ----
   const clusters = engine.clusterFlagged(now);
   check("tìm được cụm spam biến thể (>=1)", clusters.length >= 1);
-  check("cụm có >= 3 thành viên", clusters.every((c) => c.members.length >= 3));
+  check(
+    "cụm có >= 3 thành viên",
+    clusters.every((c) => c.members.length >= 3),
+  );
   const kws = clusters.flatMap((c) => engine.keywordsFromCluster(c));
   check("sinh từ khóa wildcard", kws.length > 0 && kws.every((k) => k.length >= 5));
 
@@ -113,7 +138,10 @@ const store = {
   check("n-gram cycle chạy", typeof cycleRes.clusters === "number");
   check(
     "ghi botSetResearchRun khi có từ khóa mới",
-    mutations.some((m) => m.name === "threatIntel:botSetResearchRun" && m.args.sources.includes("ngram-clusters")),
+    mutations.some(
+      (m) =>
+        m.name === "threatIntel:botSetResearchRun" && m.args.sources.includes("ngram-clusters"),
+    ),
   );
 
   // ---- 4. URLhaus: fetch + parse + nạp filters + isUrlhausDomain ----
@@ -122,7 +150,10 @@ const store = {
   check("URLhaus fetch thành công", okUrlhaus === true && urlhausServed);
   check("trích đúng hostname", engine.isUrlhausDomain("http://verifypage-completed.info/x"));
   check("host lành không khớp", !engine.isUrlhausDomain("https://discord.com/invite/x"));
-  check("ghi meta urlhausDomains", mutations.some((m) => m.name === "threatIntel:botSetResearchMeta" && m.args.urlhausDomains > 0));
+  check(
+    "ghi meta urlhausDomains",
+    mutations.some((m) => m.name === "threatIntel:botSetResearchMeta" && m.args.urlhausDomains > 0),
+  );
   const filters = require("../bot/src/handlers/filters.js");
   filters._setUrlhausDomainsForTest(engine.getUrlhausHosts());
   const hit = filters.findMaliciousLink("vào http://dropbox-shared-files.casa/get lấy file nhé");
@@ -136,18 +167,27 @@ const store = {
   check("backfill chạy", typeof bf.keywords === "number");
   check(
     "backfill ghi botSetResearchRun nguồn backfill-samples",
-    mutations.some((m) => m.name === "threatIntel:botSetResearchRun" && m.args.sources.includes("backfill-samples")),
+    mutations.some(
+      (m) =>
+        m.name === "threatIntel:botSetResearchRun" && m.args.sources.includes("backfill-samples"),
+    ),
   );
 
   // ---- 6. Self-test keywords không vỡ ----
   const st = engine.selfTestKeywords();
-  check("self-test chạy không crash", typeof st.tested === "number" && typeof st.failed === "number");
+  check(
+    "self-test chạy không crash",
+    typeof st.tested === "number" && typeof st.failed === "number",
+  );
 
   // ---- 7. research.js: chu kỳ env override + nguồn urlhaus trong OPEN_SOURCES ----
   process.env.RESEARCH_INTERVAL_MS = "7200000";
   delete require.cache[require.resolve("../bot/src/research.js")];
-  const research = require("../bot/src/research.js");
-  const srcResearch = fs.readFileSync(path.join(__dirname, "..", "bot", "src", "research.js"), "utf8");
+  require("../bot/src/research.js");
+  const srcResearch = fs.readFileSync(
+    path.join(__dirname, "..", "bot", "src", "research.js"),
+    "utf8",
+  );
   check("research có nguồn urlhaus", srcResearch.includes('"urlhaus"'));
   check("research có digest", srcResearch.includes("buildWeeklyDigest"));
   check("research có AI review", srcResearch.includes("aiReviewKeywords"));

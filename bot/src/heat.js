@@ -82,8 +82,11 @@ async function punishMember(guild, member, punishType, reason, timeoutSeconds = 
     // vẫn bị ban; giờ hạ cấp bằng cách gọi timeout trực tiếp.)
     const user = member?.user ?? member;
     const isBot = user?.bot === true;
-    const verified = typeof user?.flags?.has === "function" && user.flags.has(4) /* UserFlags.VerifiedBot */;
-    const joinedLong = typeof member?.joinedTimestamp === "number" && Date.now() - member.joinedTimestamp >= 7 * 86_400_000;
+    const verified =
+      typeof user?.flags?.has === "function" && user.flags.has(4); /* UserFlags.VerifiedBot */
+    const joinedLong =
+      typeof member?.joinedTimestamp === "number" &&
+      Date.now() - member.joinedTimestamp >= 7 * 86_400_000;
     if (isBot && (verified || joinedLong) && (punishType === "ban" || punishType === "kick")) {
       const seconds = Math.max(1, Math.min(86400, Math.floor(timeoutSeconds || 300)));
       try {
@@ -235,7 +238,14 @@ class HeatTracker {
     });
     const warned = await this._maybeWarn(guildId, userId, heat, s);
     this._scheduleFlush(guildId);
-    return { heat, tier: tierFor(heat, s), added: heat - prev, warned, repeated, multiplier: s.repeatMultiplier };
+    return {
+      heat,
+      tier: tierFor(heat, s),
+      added: heat - prev,
+      warned,
+      repeated,
+      multiplier: s.repeatMultiplier,
+    };
   }
 
   /** Ghi nhận thời điểm bị phạt (để lần tái phạm sau nhân nhiệt). */
@@ -415,8 +425,7 @@ class HeatTracker {
       // thì xóa khỏi bộ nhớ (bảng Convex đã được botRecordHeatBatch dọn tương ứng).
       if (heat <= 0 && strikes <= 0) {
         const keepPunished =
-          !!entry?.lastPunishedAt &&
-          Date.now() - entry.lastPunishedAt < s.repeatWindowMin * MIN_MS;
+          !!entry?.lastPunishedAt && Date.now() - entry.lastPunishedAt < s.repeatWindowMin * MIN_MS;
         if (!keepPunished) {
           this.states.delete(key);
           this.warned.delete(key);

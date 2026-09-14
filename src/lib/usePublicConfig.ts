@@ -24,7 +24,9 @@ const CACHE_TTL_MS = 10 * 60_000;
 let cache: { data: PublicConfig; at: number } | null = null;
 let inflight: Promise<PublicConfig> | null = null;
 
-async function fetchConfig(load: () => Promise<Partial<PublicConfig> | null>): Promise<PublicConfig> {
+async function fetchConfig(
+  load: () => Promise<Partial<PublicConfig> | null>,
+): Promise<PublicConfig> {
   if (cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.data;
   if (!inflight) {
     inflight = load()
@@ -63,9 +65,7 @@ export function usePublicConfig(): {
   error: boolean;
 } {
   const load = useAction(api.public.publicConfig);
-  const [config, setConfig] = useState<PublicConfig | null>(
-    cache ? cache.data : null,
-  );
+  const [config, setConfig] = useState<PublicConfig | null>(cache ? cache.data : null);
   const [error, setError] = useState(false);
   useEffect(() => {
     let alive = true;

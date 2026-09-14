@@ -164,7 +164,14 @@ export default function AnalyticsPanel({ token, guildId }: AnalyticsPanelProps) 
                     style={{
                       width: `${h.heat}px`,
                       minWidth: "4px",
-                      backgroundColor: h.heat > 70 ? "#ef4444" : h.heat > 40 ? "#f97316" : h.heat > 25 ? "#eab308" : "#22c55e",
+                      backgroundColor:
+                        h.heat > 70
+                          ? "#ef4444"
+                          : h.heat > 40
+                            ? "#f97316"
+                            : h.heat > 25
+                              ? "#eab308"
+                              : "#22c55e",
                     }}
                   />
                   <span className="text-xs font-mono">{h.heat}</span>

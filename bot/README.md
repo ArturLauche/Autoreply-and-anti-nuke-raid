@@ -74,7 +74,7 @@ npx convex deploy         # đưa toàn bộ hàm + schema trong convex/ lên Co
 
 1. Vào **[dashboard.convex.dev](https://dashboard.convex.dev)** → chọn project của bạn.
 2. **URL deployment**: trang **Settings → URL and Deploy Key** hiển thị URL dạng `https://<tên>.convex.cloud` — đây là `CONVEX_URL` dùng cho client (chú ý: dùng **`.convex.cloud`**, không phải `.convex.site` — `.convex.site` chỉ dành cho HTTP routes tùy chỉnh, client gọi API ở `.convex.cloud`).
-3. **Deploy Key**: vào **Settings → Deploy Keys** (hoặc *Keys*) → **Generate a deploy key** → đặt tên (VD `bot`) → copy chuỗi key — đây là `CONVEX_DEPLOY_KEY` (cho bot quyền ghi dữ liệu).
+3. **Deploy Key**: vào **Settings → Deploy Keys** (hoặc _Keys_) → **Generate a deploy key** → đặt tên (VD `bot`) → copy chuỗi key — đây là `CONVEX_DEPLOY_KEY` (cho bot quyền ghi dữ liệu).
 
 ### Bước 4 — Điền vào Wispbyte
 
@@ -102,7 +102,7 @@ Chỉ cần làm 1 lần (tổng ~3 phút):
 1. **Convex dashboard** → chọn deployment `accomplished-chipmunk-74` → **Settings → Deploy Keys → Generate a deploy key** → đặt tên (VD `github-ci`) → bật quyền **`deployment:deploy`** → Generate → copy chuỗi key (dạng `prod:...|eyJ...`).
 2. **GitHub repo** → **Settings → Secrets and variables → Actions → New repository secret** → tên `CONVEX_DEPLOY_KEY` → dán key → Add secret.
 
-Xong! Từ đó push code lên `main` là backend tự cập nhật. Muốn deploy ngay không cần đổi code: vào tab **Actions** của repo → chọn workflow *Deploy Convex backend* → **Run workflow**.
+Xong! Từ đó push code lên `main` là backend tự cập nhật. Muốn deploy ngay không cần đổi code: vào tab **Actions** của repo → chọn workflow _Deploy Convex backend_ → **Run workflow**.
 
 > Cách thủ công (máy có tài khoản Convex): `npx convex login` rồi `npx convex deploy` tại thư mục gốc dự án.
 
@@ -133,23 +133,23 @@ bun install            # hoặc npm install
 
 ### Biến môi trường (file `.env`)
 
-| Biến | Bắt buộc | Mô tả |
-| --- | --- | --- |
-| `DISCORD_TOKEN` | ✅ | Bot token — Developer Portal → *Bot* → *Reset Token* |
-| `DISCORD_CLIENT_ID` | ✅ | Application ID (Client ID) — dùng để đăng ký slash commands |
-| `CONVEX_URL` | ✅ | URL Convex. Dev local: `http://127.0.0.1:3210`. Production: `https://<tên-deployment>.convex.cloud` |
-| `BOT_KEY` | tự động | Chìa khóa bot-side. Khi thiếu, bot **tự cấp phát lúc khởi động** (bootstrap: xác minh DISCORD_TOKEN với Discord API → nhận key random → lưu cache file `.bot-key`). Có thể đặt thủ công bằng seed bất kỳ khớp với "Chìa khóa bảo mật API" trong Dashboard → Admin |
-| `CONVEX_DEPLOY_KEY` | production | Deploy key (quyền ghi) — Convex dashboard → *Deployments → Keys*. Bản dev local không cần |
-| `GROQ_API_KEY` | khuyến nghị | AI miễn phí (console.groq.com) — dùng cho phân loại raid realtime + `/report` khi Kira thiếu |
-| `KIRA_API_KEY` | khuyến nghị | Kira AI (kiraai.vn) free 30M tokens/ngày trên Mimo V2.5 — DÀNH RIÊNG cho research/học hỏi + AI tổng hợp `/report` và cảnh báo khẩn |
-| `KIRA_BASE_URL` / `KIRA_MODEL` | ❌ | Mặc định `https://kiraai.vn/api/v1` / `mimo-v2.5-free` |
-| `NVIDIA_API_KEY` | ❌ | NVIDIA NIM (build.nvidia.com, free 40 RPM) — fallback AI (`NVIDIA_MODEL` override model) |
-| `DEEPSEEK_NIM_KEY` | ❌ | NIM key riêng cho model DeepSeek — fallback AI (`DEEPSEEK_NIM_MODEL` override) |
-| `SAMBANOVA_API_KEY` | ❌ | SambaNova free — fallback AI |
-| `AI_API_KEY` + `AI_BASE_URL` | ❌ | Gateway tùy chỉnh tương thích OpenAI (`AI_MODEL` override model) |
-| `OPENAI_API_KEY` | ❌ | Fallback trả phí (cấu hình cuối cùng trong chuỗi AI, `OPENAI_MODEL` override model) |
-| `BACKUP_ENCRYPT_KEY` | ❌ | Mã hóa file backup đối xứng (đặt thì backup/restore được mã hóa) |
-| `AUTO_REGISTER_COMMANDS` | ❌ | `true` (mặc định) để tự đăng ký slash commands khi bot khởi động |
+| Biến                           | Bắt buộc    | Mô tả                                                                                                                                                                                                                                                             |
+| ------------------------------ | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DISCORD_TOKEN`                | ✅          | Bot token — Developer Portal → _Bot_ → _Reset Token_                                                                                                                                                                                                              |
+| `DISCORD_CLIENT_ID`            | ✅          | Application ID (Client ID) — dùng để đăng ký slash commands                                                                                                                                                                                                       |
+| `CONVEX_URL`                   | ✅          | URL Convex. Dev local: `http://127.0.0.1:3210`. Production: `https://<tên-deployment>.convex.cloud`                                                                                                                                                               |
+| `BOT_KEY`                      | tự động     | Chìa khóa bot-side. Khi thiếu, bot **tự cấp phát lúc khởi động** (bootstrap: xác minh DISCORD_TOKEN với Discord API → nhận key random → lưu cache file `.bot-key`). Có thể đặt thủ công bằng seed bất kỳ khớp với "Chìa khóa bảo mật API" trong Dashboard → Admin |
+| `CONVEX_DEPLOY_KEY`            | production  | Deploy key (quyền ghi) — Convex dashboard → _Deployments → Keys_. Bản dev local không cần                                                                                                                                                                         |
+| `GROQ_API_KEY`                 | khuyến nghị | AI miễn phí (console.groq.com) — dùng cho phân loại raid realtime + `/report` khi Kira thiếu                                                                                                                                                                      |
+| `KIRA_API_KEY`                 | khuyến nghị | Kira AI (kiraai.vn) free 30M tokens/ngày trên Mimo V2.5 — DÀNH RIÊNG cho research/học hỏi + AI tổng hợp `/report` và cảnh báo khẩn                                                                                                                                |
+| `KIRA_BASE_URL` / `KIRA_MODEL` | ❌          | Mặc định `https://kiraai.vn/api/v1` / `mimo-v2.5-free`                                                                                                                                                                                                            |
+| `NVIDIA_API_KEY`               | ❌          | NVIDIA NIM (build.nvidia.com, free 40 RPM) — fallback AI (`NVIDIA_MODEL` override model)                                                                                                                                                                          |
+| `DEEPSEEK_NIM_KEY`             | ❌          | NIM key riêng cho model DeepSeek — fallback AI (`DEEPSEEK_NIM_MODEL` override)                                                                                                                                                                                    |
+| `SAMBANOVA_API_KEY`            | ❌          | SambaNova free — fallback AI                                                                                                                                                                                                                                      |
+| `AI_API_KEY` + `AI_BASE_URL`   | ❌          | Gateway tùy chỉnh tương thích OpenAI (`AI_MODEL` override model)                                                                                                                                                                                                  |
+| `OPENAI_API_KEY`               | ❌          | Fallback trả phí (cấu hình cuối cùng trong chuỗi AI, `OPENAI_MODEL` override model)                                                                                                                                                                               |
+| `BACKUP_ENCRYPT_KEY`           | ❌          | Mã hóa file backup đối xứng (đặt thì backup/restore được mã hóa)                                                                                                                                                                                                  |
+| `AUTO_REGISTER_COMMANDS`       | ❌          | `true` (mặc định) để tự đăng ký slash commands khi bot khởi động                                                                                                                                                                                                  |
 
 > Biến phía **web/Convex** (không đặt trong bot/.env): `FUNC_SEED`, `GITHUB_TOKEN`, `DISCORD_CLIENT_SECRET`, `OAUTH_REDIRECT_URI`, `DASHBOARD_URL`, `DISCORD_INVITE`, `FACEBOOK_URL` — đặt qua Convex env (Dashboard/Keys).
 >
@@ -175,25 +175,25 @@ Muốn đăng ký lại slash commands thủ công: `bun run register`.
 
 **Prefix (`!`)** — đổi bằng `!prefix set <kí tự>`:
 
-| Lệnh | Chức năng |
-| --- | --- |
-| `!help` | Danh sách lệnh |
-| `!ping` | Kiểm tra độ trễ |
-| `!prefix [set <prefix>]` | Xem / đổi prefix |
-| `!autoreply list` | Danh sách rule |
-| `!autoreply add <tên> keyword <từ khóa> \| <nội dung>` | Thêm rule theo từ khóa |
-| `!autoreply add <tên> mention \| <nội dung>` | Thêm rule kích hoạt khi tag bot |
-| `!autoreply remove <tên>` | Xóa rule |
-| `!antinuke on \| off \| status` | Bật / tắt / xem chống nuke |
-| `!antinuke module <tên> <on\|off>` | Bật tắt từng module |
-| `!antinuke unlock` | Mở khóa kênh ngay lập tức |
-| `!lockdown on \| off` | Bật/tắt khóa kênh tự động khi raid |
-| `!setlog #kênh` | Đặt kênh log chung (anti nuke/raid) |
-| `!backup` \| `!backup now` | Tạo backup server (đẩy lên GitHub của chủ bot) |
-| `!backup local` | Tạo backup chỉ lưu trên Convex (không đẩy GitHub) |
-| `!backup list` \| `!backuplist` | Danh sách backup của server |
-| `!backup restore <số>` \| `!restore <số>` | Khôi phục cấu trúc server từ backup |
-| `!backup auto <2-30> \| off` | Bật/tắt tự động backup mỗi N ngày (tối thiểu 2, tối đa 30) |
+| Lệnh                                                   | Chức năng                                                  |
+| ------------------------------------------------------ | ---------------------------------------------------------- |
+| `!help`                                                | Danh sách lệnh                                             |
+| `!ping`                                                | Kiểm tra độ trễ                                            |
+| `!prefix [set <prefix>]`                               | Xem / đổi prefix                                           |
+| `!autoreply list`                                      | Danh sách rule                                             |
+| `!autoreply add <tên> keyword <từ khóa> \| <nội dung>` | Thêm rule theo từ khóa                                     |
+| `!autoreply add <tên> mention \| <nội dung>`           | Thêm rule kích hoạt khi tag bot                            |
+| `!autoreply remove <tên>`                              | Xóa rule                                                   |
+| `!antinuke on \| off \| status`                        | Bật / tắt / xem chống nuke                                 |
+| `!antinuke module <tên> <on\|off>`                     | Bật tắt từng module                                        |
+| `!antinuke unlock`                                     | Mở khóa kênh ngay lập tức                                  |
+| `!lockdown on \| off`                                  | Bật/tắt khóa kênh tự động khi raid                         |
+| `!setlog #kênh`                                        | Đặt kênh log chung (anti nuke/raid)                        |
+| `!backup` \| `!backup now`                             | Tạo backup server (đẩy lên GitHub của chủ bot)             |
+| `!backup local`                                        | Tạo backup chỉ lưu trên Convex (không đẩy GitHub)          |
+| `!backup list` \| `!backuplist`                        | Danh sách backup của server                                |
+| `!backup restore <số>` \| `!restore <số>`              | Khôi phục cấu trúc server từ backup                        |
+| `!backup auto <2-30> \| off`                           | Bật/tắt tự động backup mỗi N ngày (tối thiểu 2, tối đa 30) |
 
 **Slash commands:** `/help`, `/ping`, `/prefix set`, `/autoreply add|edit|list|remove`, `/antinuke status|on|off|module|unlock|lockdown`, `/backup now|list|restore|auto`, `/setup log-channel|mod-role|admin-role`, `/report`, `/research status|learn|history`, `/badword add|remove|list`, `/heat status`, `/mod timeout|kick|ban|purge|unban|untimeout|unwarn`, `/verify setup`, `/giveaway`, `/reactionrole` (tương đương prefix `!`).
 
@@ -201,32 +201,32 @@ Muốn đăng ký lại slash commands thủ công: `bun run register`.
 
 ## Module chống nuke
 
-| Module | Phát hiện | Mặc định |
-| --- | --- | --- |
-| `massBan` | Ban hàng loạt | 5 lượt/10s → ban |
-| `massKick` | Kick hàng loạt | 5 lượt/10s → kick |
-| `massJoin` | Raid thành viên | 8 người/10s → kick |
-| `massChannelCreate` | Tạo kênh spam | 3 lượt/10s → ban |
-| `massChannelDelete` | Xóa kênh hàng loạt | 3 lượt/10s → ban |
-| `massRoleCreate` | Tạo role spam | 3 lượt/10s → ban |
-| `massRoleDelete` | Xóa role hàng loạt | 3 lượt/10s → ban |
-| `massMessageDelete` | Xóa tin hàng loạt | 3 lượt/10s → cảnh báo |
-| `massWebhookCreate` | Tạo webhook spam | 3 lượt/10s → ban |
-| `massThreadCreate` | Tạo thread spam | 3 lượt/10s → ban |
-| `massThreadDelete` | Xóa thread hàng loạt | 3 lượt/10s → ban |
-| `massChannelRename` | Sửa/đổi tên kênh hàng loạt | 3 lượt/10s → ban |
-| `massChannelOverwrite` | Thay đổi quyền kênh hàng loạt (permission bombing) | 3 lượt/10s → ban |
-| `massRoleEdit` | Sửa role hàng loạt (tên/màu/quyền) | 3 lượt/10s → ban |
-| `adminSelfGrant` | Tự cấp quyền quản trị (leo thang đặc quyền) | 1 lượt → ban |
-| `massRoleAssign` | Gán/gỡ role hàng loạt | 6 lượt/15s → kick |
-| `massNickname` | Đổi biệt danh hàng loạt | 6 lượt/15s → kick |
-| `massEmoji` | Tạo emoji/sticker hàng loạt | 3 lượt/10s → ban |
-| `massBotAdd` | Thêm bot hàng loạt | 3 lượt/10s → kick |
-| `botHitAndRun` | Bot vào-rồi-rời ngay (hit-and-run) | tự rời trong 10 phút sau khi được thêm → ban |
-| `suspiciousBotAlert` | Cảnh báo bot lạ mới vào | chỉ cảnh báo (tuổi acc/quyền/người thêm), không phạt — mặc định tắt |
-| `massInviteCreate` | Tạo link mời hàng loạt (chuẩn bị raid) | 5 lượt/10s → ban |
-| `guildTamper` | Đổi cấu hình server (tên/icon/MFA/verification) | 2 lượt/10s → ban |
-| `spam` | Spam tin nhắn | 6 tin/10s → tạm khóa 5 phút |
+| Module                 | Phát hiện                                          | Mặc định                                                            |
+| ---------------------- | -------------------------------------------------- | ------------------------------------------------------------------- |
+| `massBan`              | Ban hàng loạt                                      | 5 lượt/10s → ban                                                    |
+| `massKick`             | Kick hàng loạt                                     | 5 lượt/10s → kick                                                   |
+| `massJoin`             | Raid thành viên                                    | 8 người/10s → kick                                                  |
+| `massChannelCreate`    | Tạo kênh spam                                      | 3 lượt/10s → ban                                                    |
+| `massChannelDelete`    | Xóa kênh hàng loạt                                 | 3 lượt/10s → ban                                                    |
+| `massRoleCreate`       | Tạo role spam                                      | 3 lượt/10s → ban                                                    |
+| `massRoleDelete`       | Xóa role hàng loạt                                 | 3 lượt/10s → ban                                                    |
+| `massMessageDelete`    | Xóa tin hàng loạt                                  | 3 lượt/10s → cảnh báo                                               |
+| `massWebhookCreate`    | Tạo webhook spam                                   | 3 lượt/10s → ban                                                    |
+| `massThreadCreate`     | Tạo thread spam                                    | 3 lượt/10s → ban                                                    |
+| `massThreadDelete`     | Xóa thread hàng loạt                               | 3 lượt/10s → ban                                                    |
+| `massChannelRename`    | Sửa/đổi tên kênh hàng loạt                         | 3 lượt/10s → ban                                                    |
+| `massChannelOverwrite` | Thay đổi quyền kênh hàng loạt (permission bombing) | 3 lượt/10s → ban                                                    |
+| `massRoleEdit`         | Sửa role hàng loạt (tên/màu/quyền)                 | 3 lượt/10s → ban                                                    |
+| `adminSelfGrant`       | Tự cấp quyền quản trị (leo thang đặc quyền)        | 1 lượt → ban                                                        |
+| `massRoleAssign`       | Gán/gỡ role hàng loạt                              | 6 lượt/15s → kick                                                   |
+| `massNickname`         | Đổi biệt danh hàng loạt                            | 6 lượt/15s → kick                                                   |
+| `massEmoji`            | Tạo emoji/sticker hàng loạt                        | 3 lượt/10s → ban                                                    |
+| `massBotAdd`           | Thêm bot hàng loạt                                 | 3 lượt/10s → kick                                                   |
+| `botHitAndRun`         | Bot vào-rồi-rời ngay (hit-and-run)                 | tự rời trong 10 phút sau khi được thêm → ban                        |
+| `suspiciousBotAlert`   | Cảnh báo bot lạ mới vào                            | chỉ cảnh báo (tuổi acc/quyền/người thêm), không phạt — mặc định tắt |
+| `massInviteCreate`     | Tạo link mời hàng loạt (chuẩn bị raid)             | 5 lượt/10s → ban                                                    |
+| `guildTamper`          | Đổi cấu hình server (tên/icon/MFA/verification)    | 2 lượt/10s → ban                                                    |
+| `spam`                 | Spam tin nhắn                                      | 6 tin/10s → tạm khóa 5 phút                                         |
 
 - Thủ phạm được xác định qua **Audit Log**, ngưỡng + hình thức xử lý (cảnh báo/kick/ban/tạm khóa) chỉnh được trong dashboard hoặc lệnh bot.
 - **Hành động đa lựa chọn (dashboard → mỗi module)**: chọn cùng lúc hình phạt thành viên (warn/kick/ban/timeout — bot dùng hình phạt **mạnh nhất**) và hành động dọn tin nhắn:
@@ -234,7 +234,7 @@ Muốn đăng ký lại slash commands thủ công: `bun run register`.
   - `purgeMessages` — xóa **hàng loạt mọi tin nhắn liên quan** đến vụ vi phạm (ví dụ: toàn bộ tin spam trong cửa sổ phát hiện, hoặc tin của người bị ban trên các kênh văn bản).
   - Ví dụ: chọn `ban + purgeMessages` = ban người vi phạm và quét sạch tin của họ; chọn `timeout + deleteMessages` = tạm khóa và xóa ngay tin vừa gửi.
 - **Khóa kênh khi raid**: khi vượt ngưỡng bất kỳ module nào, bot chặn thành viên gửi tin (và voice) qua overwrite của role @everyone, tự mở lại sau `lockdownMinutes` hoặc khi dùng `/antinuke unlock`. Bot cần quyền **Manage Channels**.
-- Chủ server, role có quyền **Administrator**, role **Mod/Admin** đã cấu hình và role nằm trong *whitelist* của module được miễn trừ. Riêng module **`adminSelfGrant`** chỉ miễn trừ owner / Administrator / role Admin — kẻ leo thang đặc quyền thường đang là mod nên KHÔNG được miễn.
+- Chủ server, role có quyền **Administrator**, role **Mod/Admin** đã cấu hình và role nằm trong _whitelist_ của module được miễn trừ. Riêng module **`adminSelfGrant`** chỉ miễn trừ owner / Administrator / role Admin — kẻ leo thang đặc quyền thường đang là mod nên KHÔNG được miễn.
 
 ## Threat Intel — bot tự học (/research)
 
@@ -287,12 +287,13 @@ Các vòng chạy hoàn toàn trên VPS (không tốn Convex ops đáng kể, kh
 
 Log trong Discord chia **2 kênh** (chọn ở dashboard → **Cài đặt → Kênh log**):
 
-| Luồng | Kênh nhận | Định dạng |
-| --- | --- | --- |
-| 🛡️ **Anti nuke/raid** (ban/kick/join hàng loạt, tạo/xóa kênh/role hàng loạt, webhook/thread, xóa tin hàng loạt) | Kênh log chung (`logChannelId`) | Embed cảnh báo `Protogon · Anti Nuke/Raid` |
-| ⚙️ **Auto-mod + lệnh mod thủ công** (từ ngữ xấu, link mời, link độc hại/file nguy hiểm, spam mention, spam ảnh/file, spam tin nhắn, tin dài/blank · ban · timeout · kick · warn · gỡ hình phạt · purge · bot xóa tin) | **Gộp chung 1 kênh** — kênh log hành động mod (`modLogChannelId`; chưa đặt → kênh log chung) | Embed kiểu **Carl-bot**: tiêu đề `⏱️ Timeout | case 30`, dòng `Offender` / `Reason` / `Responsible moderator` + footer `ID: … • 00:49 2/8/26` |
+| Luồng                                                                                                                                                                                                                 | Kênh nhận                                                                                    | Định dạng                                    |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| 🛡️ **Anti nuke/raid** (ban/kick/join hàng loạt, tạo/xóa kênh/role hàng loạt, webhook/thread, xóa tin hàng loạt)                                                                                                       | Kênh log chung (`logChannelId`)                                                              | Embed cảnh báo `Protogon · Anti Nuke/Raid`   |
+| ⚙️ **Auto-mod + lệnh mod thủ công** (từ ngữ xấu, link mời, link độc hại/file nguy hiểm, spam mention, spam ảnh/file, spam tin nhắn, tin dài/blank · ban · timeout · kick · warn · gỡ hình phạt · purge · bot xóa tin) | **Gộp chung 1 kênh** — kênh log hành động mod (`modLogChannelId`; chưa đặt → kênh log chung) | Embed kiểu **Carl-bot**: tiêu đề `⏱️ Timeout | case 30`, dòng `Offender`/`Reason`/`Responsible moderator`+ footer`ID: … • 00:49 2/8/26` |
 
 Quy tắc hiển thị trên mỗi embed moderation:
+
 - **Responsible moderator**: bot tự động (auto-mod/anti nuke phạt) → tên bot; mod/owner dùng lệnh thủ công → **tên người dùng lệnh**.
 - **Reason**: auto-mod ghi lý do vi phạm cụ thể (vd “sử dụng từ ngữ xấu (giết)”); lệnh thủ công bỏ trống lý do → ghi **“không có lý do”** (không từ chối lệnh).
 - **case N**: số case tăng dần của server, hiển thị cả trên embed log lẫn dashboard (Bảng hình phạt).

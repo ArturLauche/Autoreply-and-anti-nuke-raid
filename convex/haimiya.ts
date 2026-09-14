@@ -241,7 +241,14 @@ export const classifyViolation = action({
     // tin cậy) — không cho client web tự gọi để đốt lượt AI free tier.
     await requireBotKeyStrict(ctx, args.botKey);
     const p = aiProvider();
-    if (!p) return { classification: "individual", confidence: 0.5, reason: "AI chưa cấu hình", suggestPunish: undefined, offline: true };
+    if (!p)
+      return {
+        classification: "individual",
+        confidence: 0.5,
+        reason: "AI chưa cấu hình",
+        suggestPunish: undefined,
+        offline: true,
+      };
     const samples = (args.sampleMessages || []).slice(0, 6).map((s) => s.slice(0, 200));
     const guildNameSafe = args.guildName ? String(args.guildName).slice(0, 120) : undefined;
     const system = `Bạn là chuyên gia an ninh Discord. Phân loại một sự kiện vi phạm vừa xảy ra:
@@ -271,7 +278,13 @@ Mẫu tin nhắn:\n${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).jo
         }),
       });
       if (!res.ok) {
-        return { classification: "individual", confidence: 0.5, reason: `AI lỗi (${res.status})`, suggestPunish: undefined, offline: true };
+        return {
+          classification: "individual",
+          confidence: 0.5,
+          reason: `AI lỗi (${res.status})`,
+          suggestPunish: undefined,
+          offline: true,
+        };
       }
       const data = (await res.json()) as {
         choices?: { message?: { content?: string } }[];
@@ -280,7 +293,13 @@ Mẫu tin nhắn:\n${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).jo
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
       if (!parsed || !["raid", "individual", "benign"].includes(parsed.classification)) {
-        return { classification: "individual", confidence: 0.5, reason: "AI trả về không hợp lệ", suggestPunish: undefined, offline: true };
+        return {
+          classification: "individual",
+          confidence: 0.5,
+          reason: "AI trả về không hợp lệ",
+          suggestPunish: undefined,
+          offline: true,
+        };
       }
       return {
         classification: parsed.classification,
@@ -292,7 +311,13 @@ Mẫu tin nhắn:\n${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).jo
         offline: false,
       };
     } catch {
-      return { classification: "individual", confidence: 0.5, reason: "AI không kết nối được", suggestPunish: undefined, offline: true };
+      return {
+        classification: "individual",
+        confidence: 0.5,
+        reason: "AI không kết nối được",
+        suggestPunish: undefined,
+        offline: true,
+      };
     }
   },
 });
@@ -322,7 +347,13 @@ export const analyzeRaid = action({
     await requireBotKeyStrict(ctx, args.botKey);
     const p = aiProvider();
     if (!p) {
-      return { coordinated: null, confidence: 0, reasoning: "AI chưa cấu hình", sourceHint: null, offline: true };
+      return {
+        coordinated: null,
+        confidence: 0,
+        reasoning: "AI chưa cấu hình",
+        sourceHint: null,
+        offline: true,
+      };
     }
     const system = `Bạn là chuyên gia an ninh Discord chuyên điều tra RAID/NUKE.
 Phân tích dữ liệu một vụ tấn công server vừa xảy ra và trả lời:
@@ -350,7 +381,13 @@ Chuỗi hành vi gần đây:\n${args.recentActions ? String(args.recentActions)
         }),
       });
       if (!res.ok) {
-        return { coordinated: null, confidence: 0, reasoning: `AI lỗi (${res.status})`, sourceHint: null, offline: true };
+        return {
+          coordinated: null,
+          confidence: 0,
+          reasoning: `AI lỗi (${res.status})`,
+          sourceHint: null,
+          offline: true,
+        };
       }
       const data = (await res.json()) as {
         choices?: { message?: { content?: string } }[];
@@ -359,7 +396,13 @@ Chuỗi hành vi gần đây:\n${args.recentActions ? String(args.recentActions)
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
       if (!parsed || typeof parsed.coordinated !== "boolean") {
-        return { coordinated: null, confidence: 0, reasoning: "AI trả về không hợp lệ", sourceHint: null, offline: true };
+        return {
+          coordinated: null,
+          confidence: 0,
+          reasoning: "AI trả về không hợp lệ",
+          sourceHint: null,
+          offline: true,
+        };
       }
       return {
         coordinated: parsed.coordinated,
@@ -369,7 +412,13 @@ Chuỗi hành vi gần đây:\n${args.recentActions ? String(args.recentActions)
         offline: false,
       };
     } catch {
-      return { coordinated: null, confidence: 0, reasoning: "AI không kết nối được", sourceHint: null, offline: true };
+      return {
+        coordinated: null,
+        confidence: 0,
+        reasoning: "AI không kết nối được",
+        sourceHint: null,
+        offline: true,
+      };
     }
   },
 });

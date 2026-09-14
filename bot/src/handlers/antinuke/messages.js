@@ -2,31 +2,22 @@
 /**
  Lớp tin nhắn: spam flood + mẫu gây nhiễu (tin dài/lặp/blank); webhook → External App Guard. 
  */
-const { sendCaseLog, CASE_LABEL } = require("../../caseLog");
-const { isLocked, markLocked, lockGuild, unlockGuild } = require("../../lockdown");
-const { heatSettings, punishMember, choosePunish, heatSummary } = require("../../heat");
-const { actionsOf, memberPunishOf, cleanupMessages } = require("../../moduleActions");
+const { sendCaseLog } = require("../../caseLog");
+const { isLocked } = require("../../lockdown");
+const { punishMember } = require("../../heat");
+const { actionsOf, cleanupMessages } = require("../../moduleActions");
 const { emergencyRaidAlert } = require("../incidentReport");
-const {
-  MODULE_LABELS,
-  KNOWN_LOGGING_BOTS,
-  isKnownLoggingBot,
-  NUKE_MODULES,
-  IMMEDIATE_BOT_NUKE,
-  strangeBotVerdict,
-  botHitAndRunVerdict,
-  isTrustedBotMember,
-  isExempt,
-  moduleCfgOf,
-  memberSuspicionScore,
-  joinClusterSuspicion,
-  messageFingerprint,
-  isExternalAppSpam,
-  LONG_MSG_LEN,
-  ZERO_WIDTH_RE,
-} = require("./shared");
+const { MODULE_LABELS, isExempt, LONG_MSG_LEN, ZERO_WIDTH_RE } = require("./shared");
 
-module.exports = function createAntiNukeLayer({ client, store, heat, state, core, ai, raidIntel, externalApp }) {
+module.exports = function createAntiNukeLayer({
+  client,
+  store,
+  state,
+  core,
+  ai,
+  raidIntel,
+  externalApp,
+}) {
   const { recordEvent } = state;
   const { spamBuckets, patternBuckets, recentMessages, lastConfigs } = state.state;
   const { punishWithHeat, maybeLockdown } = core;
@@ -119,7 +110,8 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
         await maybeLockdown(message.guild, config);
         // AI xác nhận raid → cảnh báo khẩn cho server (fire-and-forget).
         emergencyRaidAlert(client, store, message.guild, {
-          summary: "AI xác nhận raid (spam) — " + fresh.length + " tin trong " + cfg.windowSeconds + "s",
+          summary:
+            "AI xác nhận raid (spam) — " + fresh.length + " tin trong " + cfg.windowSeconds + "s",
           reason,
           lockdownActive: isLocked(message.guild.id),
         }).catch(() => {});
@@ -182,7 +174,11 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
             action: chosen === "none" ? "warn" : chosen,
             caseNumber,
             offender,
-            reason: `Tự động xử lý vì ${MODULE_LABELS[cfg.module]}: ${fresh.length} lần trong ${cfg.windowSeconds}s${isRaid ? ` — AI xác nhận raid (${ai?.reason ?? ""})` : ""}${cleanup ? ` · đã ${cleanup}` : ""}`.slice(0, 1000),
+            reason:
+              `Tự động xử lý vì ${MODULE_LABELS[cfg.module]}: ${fresh.length} lần trong ${cfg.windowSeconds}s${isRaid ? ` — AI xác nhận raid (${ai?.reason ?? ""})` : ""}${cleanup ? ` · đã ${cleanup}` : ""}`.slice(
+                0,
+                1000,
+              ),
             executor: null,
           });
         } catch (e) {
@@ -319,7 +315,11 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
           action: chosen === "none" ? "warn" : chosen,
           caseNumber,
           offender,
-          reason: `Tự động xử lý vì spam tin nhắn: ${fresh.length} tin trong ${moduleCfg.windowSeconds}s${isRaid ? ` — AI xác nhận raid (${ai?.reason ?? ""})` : ""}${cleanup ? ` · đã ${cleanup}` : ""}`.slice(0, 1000),
+          reason:
+            `Tự động xử lý vì spam tin nhắn: ${fresh.length} tin trong ${moduleCfg.windowSeconds}s${isRaid ? ` — AI xác nhận raid (${ai?.reason ?? ""})` : ""}${cleanup ? ` · đã ${cleanup}` : ""}`.slice(
+              0,
+              1000,
+            ),
           executor: null,
         });
       } catch (e) {

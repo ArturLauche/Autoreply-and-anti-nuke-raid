@@ -140,7 +140,11 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
           updateModule({ token: TOKEN(), guildId: data.guild.discordId, module: m, enabled }),
         ),
       );
-      toast.success(enabled ? `Đã bật nhóm (${modules.length} module)` : `Đã tắt nhóm (${modules.length} module)`);
+      toast.success(
+        enabled
+          ? `Đã bật nhóm (${modules.length} module)`
+          : `Đã tắt nhóm (${modules.length} module)`,
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Lưu thất bại");
     }
@@ -162,9 +166,8 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
   const enabledCount = NUKE_MODULES.filter((m) => configFor(m).enabled).length;
   const g = data.guild;
   const locked = g.lockdownUntil !== null && g.lockdownUntil > Date.now();
-  const minutesLeft = locked && g.lockdownUntil
-    ? Math.max(1, Math.ceil((g.lockdownUntil - Date.now()) / 60_000))
-    : 0;
+  const minutesLeft =
+    locked && g.lockdownUntil ? Math.max(1, Math.ceil((g.lockdownUntil - Date.now()) / 60_000)) : 0;
 
   return (
     <div className="space-y-4">
@@ -172,7 +175,8 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
         <div>
           <h2 className="font-display text-lg font-semibold">Chống nuke / raid</h2>
           <p className="text-sm text-muted-foreground">
-            Bảo vệ cấu trúc server khỏi các cuộc tấn công hàng loạt (ban, kick, tạo/xóa kênh & role…)
+            Bảo vệ cấu trúc server khỏi các cuộc tấn công hàng loạt (ban, kick, tạo/xóa kênh &
+            role…)
           </p>
         </div>
         <Card className="border-primary/30 bg-primary/5">
@@ -209,8 +213,8 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                 <div className="min-w-0">
                   <p className="font-display font-semibold">Khóa kênh khi bị raid</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Tự chặn gửi tin nhắn & voice khi phát hiện raid, mở lại sau khi hết giờ
-                    hoặc bằng <code className="font-mono text-xs">/antinuke unlock</code>.
+                    Tự chặn gửi tin nhắn & voice khi phát hiện raid, mở lại sau khi hết giờ hoặc
+                    bằng <code className="font-mono text-xs">/antinuke unlock</code>.
                   </p>
                 </div>
               </div>
@@ -264,8 +268,9 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                 <div className="min-w-0">
                   <p className="font-display font-semibold">Raid Intel — săn nguồn cơn raid 🎯</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Thu thập mẫu raid + AI phân tích để tìm <b className="text-foreground">kẻ chủ mưu</b>{" "}
-                    (acc trùng avatar/username, người tạo invite, audit log) rồi tự ban.
+                    Thu thập mẫu raid + AI phân tích để tìm{" "}
+                    <b className="text-foreground">kẻ chủ mưu</b> (acc trùng avatar/username, người
+                    tạo invite, audit log) rồi tự ban.
                   </p>
                 </div>
               </div>
@@ -344,8 +349,8 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                         {s.module}
                       </code>
                       <span className="text-muted-foreground">
-                        {s.count} lượt{s.clusterMemberCount ? ` · ${s.clusterMemberCount} acc` : ""} ·{" "}
-                        {timeAgo(s.createdAt)}
+                        {s.count} lượt{s.clusterMemberCount ? ` · ${s.clusterMemberCount} acc` : ""}{" "}
+                        · {timeAgo(s.createdAt)}
                       </span>
                       {s.aiClassification && (
                         <Badge
@@ -364,7 +369,9 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                       )}
                       {s.suspectedSourceName && (
                         <span className={s.banned ? "text-red-400" : "text-amber-400"}>
-                          {s.banned ? `🎯 đã ban nguồn cơn: ${s.suspectedSourceName}` : `nghi: ${s.suspectedSourceName}`}
+                          {s.banned
+                            ? `🎯 đã ban nguồn cơn: ${s.suspectedSourceName}`
+                            : `nghi: ${s.suspectedSourceName}`}
                         </span>
                       )}
                     </li>

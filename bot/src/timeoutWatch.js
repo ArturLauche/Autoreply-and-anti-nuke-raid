@@ -44,7 +44,9 @@ function scheduleTimer(guildId, userId, until) {
   timers.set(
     k,
     setTimeout(() => {
-      void onTimerFire(guildId, userId, until).catch((e) => console.error("[timeoutWatch:timer]", e?.message || e));
+      void onTimerFire(guildId, userId, until).catch((e) =>
+        console.error("[timeoutWatch:timer]", e?.message || e),
+      );
     }, delay),
   );
 }
@@ -58,9 +60,14 @@ async function onTimerFire(guildId, userId, until) {
     // Timer bị cap 32-bit với timeout rất dài — đặt lại cho tới hạn.
     timers.set(
       k,
-      setTimeout(() => {
-        void onTimerFire(guildId, userId, until).catch((e) => console.error("[timeoutWatch:timer]", e?.message || e));
-      }, Math.min(MAX_TIMER_MS, until - Date.now() + 1_500)),
+      setTimeout(
+        () => {
+          void onTimerFire(guildId, userId, until).catch((e) =>
+            console.error("[timeoutWatch:timer]", e?.message || e),
+          );
+        },
+        Math.min(MAX_TIMER_MS, until - Date.now() + 1_500),
+      ),
     );
     return;
   }

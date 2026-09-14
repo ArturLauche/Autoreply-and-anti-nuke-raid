@@ -36,7 +36,11 @@ async function lockGuild(client, guild, config, store) {
   let count = 0;
   for (const channel of guild.channels.cache.values()) {
     try {
-      if (channel.isTextBased && channel.isTextBased() && !(channel.isThread && channel.isThread())) {
+      if (
+        channel.isTextBased &&
+        channel.isTextBased() &&
+        !(channel.isThread && channel.isThread())
+      ) {
         await channel.permissionOverwrites.edit(everyone, { SendMessages: false });
         count++;
       } else if (channel.isVoiceBased && channel.isVoiceBased()) {
@@ -71,7 +75,9 @@ async function unlockGuild(client, guild, config, store) {
   for (const channel of guild.channels.cache.values()) {
     try {
       if (
-        (channel.isTextBased && channel.isTextBased() && !(channel.isThread && channel.isThread())) ||
+        (channel.isTextBased &&
+          channel.isTextBased() &&
+          !(channel.isThread && channel.isThread())) ||
         (channel.isVoiceBased && channel.isVoiceBased())
       ) {
         await channel.permissionOverwrites.edit(everyone, {

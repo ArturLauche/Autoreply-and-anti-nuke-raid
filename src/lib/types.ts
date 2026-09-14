@@ -37,13 +37,7 @@ export interface AutoReply {
 }
 
 /** Hành động bot có thể thực thi khi một module phát hiện vi phạm (chọn nhiều). */
-export type ModuleAction =
-  | "warn"
-  | "kick"
-  | "ban"
-  | "timeout"
-  | "deleteMessages"
-  | "purgeMessages";
+export type ModuleAction = "warn" | "kick" | "ban" | "timeout" | "deleteMessages" | "purgeMessages";
 
 /** Mức chi tiết thông báo sau khi bot trừng phạt thành viên (Moderation). */
 export type PunishNoticeLevel = "none" | "action" | "reason" | "full";

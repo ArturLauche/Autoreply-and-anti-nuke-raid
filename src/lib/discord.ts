@@ -25,7 +25,10 @@ export function setRememberLogin(remember: boolean): void {
   if (remember) {
     localStorage.setItem(
       SESSION_TOKEN_KEY,
-      JSON.stringify({ t: token, e: Date.now() + SESSION_EXPIRY_DAYS * 86400_000 } as StoredSession),
+      JSON.stringify({
+        t: token,
+        e: Date.now() + SESSION_EXPIRY_DAYS * 86400_000,
+      } as StoredSession),
     );
     sessionStorage.removeItem(SESSION_TOKEN_KEY);
   } else {
@@ -64,7 +67,10 @@ export function setSessionToken(token: string): void {
   if (remember) {
     localStorage.setItem(
       SESSION_TOKEN_KEY,
-      JSON.stringify({ t: token, e: Date.now() + SESSION_EXPIRY_DAYS * 86400_000 } as StoredSession),
+      JSON.stringify({
+        t: token,
+        e: Date.now() + SESSION_EXPIRY_DAYS * 86400_000,
+      } as StoredSession),
     );
   } else {
     sessionStorage.setItem(SESSION_TOKEN_KEY, token);
@@ -95,10 +101,7 @@ export function generateVerifier(): string {
 }
 
 export async function generateChallenge(verifier: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(verifier),
-  );
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
   return base64UrlEncode(new Uint8Array(digest));
 }
 
@@ -110,11 +113,7 @@ export function redirectUri(): string {
   return `${window.location.origin}/discord/callback`;
 }
 
-export function buildAuthorizeUrl(
-  clientId: string,
-  state: string,
-  challenge: string,
-): string {
+export function buildAuthorizeUrl(clientId: string, state: string, challenge: string): string {
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: "code",
@@ -260,9 +259,7 @@ export async function fetchDiscordUser(accessToken: string): Promise<DiscordUser
   return res.json();
 }
 
-export async function fetchDiscordGuilds(
-  accessToken: string,
-): Promise<DiscordGuild[]> {
+export async function fetchDiscordGuilds(accessToken: string): Promise<DiscordGuild[]> {
   const res = await fetch(`${DISCORD_API}/users/@me/guilds`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });

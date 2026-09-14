@@ -46,8 +46,8 @@ export default function DmPanel({ data }: { data: GuildData }) {
           <Mail className="h-4 w-4 text-primary" /> Gửi tin nhắn DM trực tiếp
         </h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Nhập ID người dùng Discord và nội dung — bot sẽ nhắn riêng cho họ. (Bật chế độ
-          developer trong Discord, bấm chuột phải vào người dùng → Copy User ID)
+          Nhập ID người dùng Discord và nội dung — bot sẽ nhắn riêng cho họ. (Bật chế độ developer
+          trong Discord, bấm chuột phải vào người dùng → Copy User ID)
         </p>
         <div className="mt-4 grid gap-3">
           <div className="grid gap-1.5">
@@ -85,7 +85,8 @@ export default function DmPanel({ data }: { data: GuildData }) {
               <p className="mt-0.5 opacity-90">{data.guild.dmError}</p>
               {data.guild.dmErrorAt ? (
                 <p className="mt-0.5 opacity-70">
-                  {new Date(data.guild.dmErrorAt).toLocaleString("vi-VN")} — thường do người nhận tắt DM hoặc không dùng chung server với bot
+                  {new Date(data.guild.dmErrorAt).toLocaleString("vi-VN")} — thường do người nhận
+                  tắt DM hoặc không dùng chung server với bot
                 </p>
               ) : null}
             </div>

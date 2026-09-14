@@ -1,16 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAction, useMutation, useQuery } from "convex/react";
-import {
-  Bot,
-  Loader2,
-  LogOut,
-  Plus,
-  RefreshCw,
-  Server,
-  ShieldAlert,
-  Users,
-} from "lucide-react";
+import { Bot, Loader2, LogOut, Plus, RefreshCw, Server, ShieldAlert, Users } from "lucide-react";
 import BotLogo from "../components/BotLogo";
 import { api } from "../../convex/_generated/api";
 import CherryBlossom from "../components/CherryBlossom";
@@ -41,10 +32,8 @@ import { toast } from "sonner";
 export default function Dashboard() {
   const navigate = useNavigate();
   const token = getSessionToken();
-  const me = useQuery(
-    api.sessions.me,
-    token ? ({ token } as { token: string }) : "skip",
-  ) as MeData | null | undefined;
+  const me = useQuery(api.sessions.me, token ? ({ token } as { token: string }) : "skip") as
+    MeData | null | undefined;
   const logout = useMutation(api.sessions.logout);
   // Làm mới danh sách server qua action server-side: server tự hỏi Discord
   // /users/@me/guilds bằng access token — client không tự báo danh sách.
@@ -92,7 +81,7 @@ export default function Dashboard() {
   // Khi mở dashboard: tự làm mới một lần để server mới mời bot hiện ra ngay.
   useEffect(() => {
     void startSilentRefresh(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Lưu ý: chỉ chạy 1 lần khi mở dashboard — startSilentRefresh đọc state hiện tại.
   }, [clientId, token]);
 
   // Xử lý kết quả quay về sau luồng làm mới im lặng.
@@ -145,20 +134,23 @@ export default function Dashboard() {
       <div className="relative z-10">
         <header className="sticky top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl">
           <div className="container flex h-16 items-center justify-between">
-            <button
-              onClick={() => navigate("/")}
-              className="flex items-center gap-2"
-            >
+            <button onClick={() => navigate("/")} className="flex items-center gap-2">
               <span className="rounded-lg bg-gradient-to-br from-white/95 via-white/45 to-white/0 p-[2px] drop-shadow-[0_0_10px_rgba(255,255,255,0.7)]">
                 <span className="flex h-9 w-9 items-center justify-center rounded-[7px] bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] p-0.5 shadow-[0_0_20px_-4px_hsl(342_92%_66%/0.8)]">
                   <BotLogo className="h-full w-full" />
                 </span>
               </span>
-              <span className="font-display text-lg font-bold">Protogon<span className="text-primary">.</span></span>
+              <span className="font-display text-lg font-bold">
+                Protogon<span className="text-primary">.</span>
+              </span>
             </button>
             <div className="flex items-center gap-3">
               {avatar ? (
-                <img src={avatar} alt={me.user.username} className="h-8 w-8 rounded-full ring-2 ring-primary/50" />
+                <img
+                  src={avatar}
+                  alt={me.user.username}
+                  className="h-8 w-8 rounded-full ring-2 ring-primary/50"
+                />
               ) : (
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary">
                   {me.user.username.slice(0, 1).toUpperCase()}
@@ -178,7 +170,8 @@ export default function Dashboard() {
           <div className="mb-8">
             <h1 className="font-display text-3xl font-bold tracking-tight">Bảng điều khiển 🌸</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Chọn server để cấu hình auto reply, nhiệt độ, Join Gate, chống nuke và các module bảo vệ.
+              Chọn server để cấu hình auto reply, nhiệt độ, Join Gate, chống nuke và các module bảo
+              vệ.
             </p>
           </div>
 
@@ -213,7 +206,9 @@ export default function Dashboard() {
                   <Users className="h-5 w-5" />
                 </span>
                 <div>
-                  <p className="text-2xl font-bold font-display">{totalMembers.toLocaleString("vi-VN")}</p>
+                  <p className="text-2xl font-bold font-display">
+                    {totalMembers.toLocaleString("vi-VN")}
+                  </p>
                   <p className="text-xs text-muted-foreground">Tổng thành viên</p>
                 </div>
               </CardContent>
@@ -286,15 +281,17 @@ export default function Dashboard() {
                           <div className="min-w-0 flex-1">
                             <p className="truncate font-display font-semibold">{guild.name}</p>
                             <p className="text-xs text-muted-foreground">
-                              {guild.memberCount?.toLocaleString("vi-VN") ?? "?"} thành viên · prefix{" "}
-                              <code className="font-mono text-primary">{guild.prefix}</code>
+                              {guild.memberCount?.toLocaleString("vi-VN") ?? "?"} thành viên ·
+                              prefix <code className="font-mono text-primary">{guild.prefix}</code>
                             </p>
                           </div>
                         </div>
                         <div className="mt-4 flex flex-wrap items-center gap-2">
                           {guild.botInGuild ? (
                             <Badge variant={online ? "success" : "secondary"}>
-                              <span className={`h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-muted-foreground"}`} />
+                              <span
+                                className={`h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-muted-foreground"}`}
+                              />
                               Bot {online ? "online" : "offline"}
                             </Badge>
                           ) : (

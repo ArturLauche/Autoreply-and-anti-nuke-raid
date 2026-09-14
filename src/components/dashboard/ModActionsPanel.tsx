@@ -102,7 +102,9 @@ export default function ModActionsPanel({ data }: { data: GuildData }) {
                       )}
                     </td>
                     <td className="py-2.5 pr-3">
-                      <p className="text-muted-foreground">{a.executorName || a.executorId || "—"}</p>
+                      <p className="text-muted-foreground">
+                        {a.executorName || a.executorId || "—"}
+                      </p>
                     </td>
                     <td className="py-2.5 pr-3 text-muted-foreground">
                       <p>{a.reason || a.details || "Không có"}</p>

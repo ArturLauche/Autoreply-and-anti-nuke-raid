@@ -41,14 +41,25 @@ const MODULE_LABELS = {
   malware: "Link độc hại & file nguy hiểm",
 };
 
-
 // Các bot logging/app phổ biến tạo webhook hợp pháp → bỏ qua massWebhookCreate
 const KNOWN_LOGGING_BOTS = [
-  'carl-bot', 'carlbot', 'carl bot',
-  'mee6', 'dyno', 'tatsu', 'probot', 'wumpus bot',
-  'wick', 'security bot', 'auto moderador',
-  'statbot', 'arcane', 'top.gg bot',
-  'disboard', 'xenon', 'sapphire',
+  "carl-bot",
+  "carlbot",
+  "carl bot",
+  "mee6",
+  "dyno",
+  "tatsu",
+  "probot",
+  "wumpus bot",
+  "wick",
+  "security bot",
+  "auto moderador",
+  "statbot",
+  "arcane",
+  "top.gg bot",
+  "disboard",
+  "xenon",
+  "sapphire",
 ];
 
 function isKnownLoggingBot(executor) {
@@ -127,8 +138,7 @@ const HIT_AND_RUN_WINDOW_MS = 10 * 60_000; // 10 phút
 function strangeBotVerdict({ user, now = Date.now() }) {
   if (!user || user.bot !== true) return { alert: false, kind: "not-bot" };
   if (isKnownLoggingBot(user)) return { alert: false, kind: "logging" };
-  const verified =
-    typeof user.flags?.has === "function" && user.flags.has(UserFlags.VerifiedBot);
+  const verified = typeof user.flags?.has === "function" && user.flags.has(UserFlags.VerifiedBot);
   if (verified) return { alert: false, kind: "verified" };
   const ageDays = user.createdAt ? (now - user.createdAt) / 86_400_000 : NaN;
   const youngAcc = Number.isFinite(ageDays) && ageDays < 30;
@@ -167,7 +177,11 @@ function isTrustedBotMember(member, guild) {
   if (typeof joinedAt === "number" && Date.now() - joinedAt >= TRUSTED_BOT_MIN_AGE_MS) return true;
   // Fallback: guild.members.cache có sẵn thông tin join time đầy đủ hơn.
   const cached = guild?.members?.cache?.get(member.id);
-  if (cached && typeof cached.joinedTimestamp === "number" && Date.now() - cached.joinedTimestamp >= TRUSTED_BOT_MIN_AGE_MS) {
+  if (
+    cached &&
+    typeof cached.joinedTimestamp === "number" &&
+    Date.now() - cached.joinedTimestamp >= TRUSTED_BOT_MIN_AGE_MS
+  ) {
     return true;
   }
   return false;
@@ -197,8 +211,6 @@ function isExempt(member, moduleCfg, guildConfig) {
   return false;
 }
 
-// Tin nhắn "giả blank": chỉ gồm khoảng trắng / ký tự ẩn (zero-width) / xuống dòng.
-const BLANK_ONLY_RE = /^[\s\u200b-\u200d\u2060\ufeff\u00a0]+$/;
 // Ký tự ẩn thường dùng để gây nhiễu.
 const ZERO_WIDTH_RE = /[\u200b-\u200d\u2060\ufeff]/g;
 // Ngưỡng độ dài coi là "tin dài cực dài" (Discord giới hạn 2000 ký tự).

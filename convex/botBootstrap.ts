@@ -38,7 +38,10 @@ export const markBootstrapAttempt = internalMutation({
     const gateOpen = !status || lastSuccess >= lastAttempt;
     if (!gateOpen && now - lastAttempt < ATTEMPT_COOLDOWN_MS) {
       const waitSec = Math.ceil((ATTEMPT_COOLDOWN_MS - (now - lastAttempt)) / 1000);
-      return { ok: false as const, error: `Vừa thử bootstrap gần đây — thử lại sau ${waitSec} giây` };
+      return {
+        ok: false as const,
+        error: `Vừa thử bootstrap gần đây — thử lại sau ${waitSec} giây`,
+      };
     }
     if (status) {
       await ctx.db.patch(status._id, { lastBootstrapAttemptAt: now });
@@ -65,7 +68,10 @@ export const storeBotKeySeed = internalMutation({
     const status = await getBotStatus(ctx);
     const now = Date.now();
     if (status && now - (status.lastBootstrapAt ?? 0) < BOOTSTRAP_COOLDOWN_MS) {
-      return { ok: false as const, error: "Vừa bootstrap thành công gần đây — thử lại sau ít phút" };
+      return {
+        ok: false as const,
+        error: "Vừa bootstrap thành công gần đây — thử lại sau ít phút",
+      };
     }
     const patch: Record<string, unknown> = { botKeySeed: seed, lastBootstrapAt: now };
     if (botApplicationId && /^\d{15,20}$/.test(botApplicationId)) {

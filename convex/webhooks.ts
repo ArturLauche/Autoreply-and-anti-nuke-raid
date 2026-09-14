@@ -53,7 +53,8 @@ export const toggleDefaultWebhook = mutation({
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
       .filter((q) => q.eq(q.field("isDefault"), true))
       .first();
-    if (!wh) throw new Error("Server chưa có webhook mặc định — set kênh log trong Cài đặt để bot tự tạo");
+    if (!wh)
+      throw new Error("Server chưa có webhook mặc định — set kênh log trong Cài đặt để bot tự tạo");
     await ctx.db.patch(wh._id, { enabled: !wh.enabled, updatedAt: Date.now() });
     return { ok: true, enabled: !wh.enabled };
   },
@@ -63,9 +64,11 @@ export const toggleDefaultWebhook = mutation({
 
 /** Bot tải webhooks (kèm token) của 1 guild để gửi log — cache ở phía bot. */
 export const botGetWebhooks = query({
-  args: { guildId: v.string(),
+  args: {
+    guildId: v.string(),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId }) => {
     await requireBotKeyStrict(ctx, botKey);
     const rows = await ctx.db
@@ -137,9 +140,11 @@ export const botDefaultWebhookReady = mutation({
 
 /** Bot báo đã gỡ webhook MẶC ĐỊNH (kênh log bị bỏ/đổi → xóa row). */
 export const botDefaultWebhookDeleted = mutation({
-  args: { guildId: v.string(),
+  args: {
+    guildId: v.string(),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId }) => {
     await requireBotKeyStrict(ctx, botKey);
     const rows = await ctx.db
@@ -260,7 +265,11 @@ export const sendEmbed = action({
     // Validate embed size (Discord limit: 6000 chars total across all embeds)
     let totalChars = 0;
     for (const e of embeds) {
-      totalChars += (e.title?.length ?? 0) + (e.description?.length ?? 0) + (e.author?.name?.length ?? 0) + (e.footer?.text?.length ?? 0);
+      totalChars +=
+        (e.title?.length ?? 0) +
+        (e.description?.length ?? 0) +
+        (e.author?.name?.length ?? 0) +
+        (e.footer?.text?.length ?? 0);
       for (const f of e.fields ?? []) {
         totalChars += f.name.length + f.value.length;
       }

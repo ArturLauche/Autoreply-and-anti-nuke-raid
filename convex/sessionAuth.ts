@@ -101,9 +101,7 @@ export const exchangeAndLogin = action({
     const clientSecret = process.env.DISCORD_CLIENT_SECRET;
     if (!clientId) throw new Error("DISCORD_CLIENT_ID chưa được cấu hình");
     if (!clientSecret) {
-      throw new Error(
-        "DISCORD_CLIENT_SECRET chưa được cấu hình — thêm trong Keys của deployment",
-      );
+      throw new Error("DISCORD_CLIENT_SECRET chưa được cấu hình — thêm trong Keys của deployment");
     }
 
     // 1. Trao đổi code lấy access token (server-side, kèm client_secret)

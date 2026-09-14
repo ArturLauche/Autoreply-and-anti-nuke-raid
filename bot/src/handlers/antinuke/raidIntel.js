@@ -3,26 +3,9 @@
  Raid Intel — săn lùng nguồn cơn raid + ghi mẫu dữ liệu huấn luyện lên Convex. 
  */
 const { AuditLogEvent } = require("discord.js");
-const {
-  MODULE_LABELS,
-  KNOWN_LOGGING_BOTS,
-  isKnownLoggingBot,
-  NUKE_MODULES,
-  IMMEDIATE_BOT_NUKE,
-  strangeBotVerdict,
-  botHitAndRunVerdict,
-  isTrustedBotMember,
-  isExempt,
-  moduleCfgOf,
-  memberSuspicionScore,
-  joinClusterSuspicion,
-  messageFingerprint,
-  isExternalAppSpam,
-  LONG_MSG_LEN,
-  ZERO_WIDTH_RE,
-} = require("./shared");
+const { isExempt } = require("./shared");
 
-module.exports = function createAntiNukeLayer({ client, store, heat, state, core, ai, raidIntel, externalApp }) {
+module.exports = function createAntiNukeLayer({ client, store, ai }) {
   const { aiAnalyzeRaid } = ai ?? {};
 
   /**
@@ -47,7 +30,8 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
     if (config?.raidHuntEnabled === false) {
       return { reason: "săn nguồn cơn đã tắt", banned: false, confidence: 0 };
     }
-    const hasData = (cluster && cluster.length > 0) || (extraExecutors && extraExecutors.length > 0);
+    const hasData =
+      (cluster && cluster.length > 0) || (extraExecutors && extraExecutors.length > 0);
     if (!hasData) return { reason: "chưa đủ tín hiệu", banned: false, confidence: 0 };
 
     const now = Date.now();
@@ -144,7 +128,10 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
       1,
       cluster
         .slice(0, 12)
-        .map((m, i) => `${i + 1}. ${m.username || "?"} (acc ${m.createdAt ? Math.round((now - m.createdAt) / 86_400_000) : "?"} ngày, avatar ${m.avatar ? "có" : "không"})`)
+        .map(
+          (m, i) =>
+            `${i + 1}. ${m.username || "?"} (acc ${m.createdAt ? Math.round((now - m.createdAt) / 86_400_000) : "?"} ngày, avatar ${m.avatar ? "có" : "không"})`,
+        )
         .join("\n"),
       auditExecutors.length
         ? `Người thực hiện phá hoại gần đây: ${auditExecutors.map((e) => e.username).join(", ")}`
@@ -164,7 +151,11 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
       return {
         suspectedSourceId: reportTop.id ?? undefined,
         suspectedSourceName: reportTop.username ?? undefined,
-        reason: `AI đánh giá KHÔNG phối hợp — chỉ ghi nhận, không ban (${(reportTop.parts || []).join(", ")})${ai.reasoning ? ` · AI: ${ai.reasoning}` : ""}`.slice(0, 500),
+        reason:
+          `AI đánh giá KHÔNG phối hợp — chỉ ghi nhận, không ban (${(reportTop.parts || []).join(", ")})${ai.reasoning ? ` · AI: ${ai.reasoning}` : ""}`.slice(
+            0,
+            500,
+          ),
         banned: false,
         confidence: Math.round(reportConfidence * 100) / 100,
       };
@@ -190,7 +181,11 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
     return {
       suspectedSourceId: top.id ?? undefined,
       suspectedSourceName: top.username ?? undefined,
-      reason: `điểm ${top.score} (${(top.parts || []).join(", ")})${ai?.reasoning ? ` · AI: ${ai.reasoning}` : ""}${bannedNames.length ? ` · đã ban: ${bannedNames.join(", ")}` : ""}`.slice(0, 500),
+      reason:
+        `điểm ${top.score} (${(top.parts || []).join(", ")})${ai?.reasoning ? ` · AI: ${ai.reasoning}` : ""}${bannedNames.length ? ` · đã ban: ${bannedNames.join(", ")}` : ""}`.slice(
+          0,
+          500,
+        ),
       banned: bannedNames.length > 0,
       confidence: Math.round(confidence * 100) / 100,
     };

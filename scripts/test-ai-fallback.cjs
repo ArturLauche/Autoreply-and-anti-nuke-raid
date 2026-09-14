@@ -38,14 +38,29 @@ Module.prototype.load = function (request) {
   }
   return origLoad.apply(this, arguments);
 };
-Object.defineProperty(process.env, "GROQ_API_KEY", { value: "fake-groq", configurable: true, writable: true, enumerable: true });
-Object.defineProperty(process.env, "DEEPSEEK_NIM_KEY", { value: "fake-nim", configurable: true, writable: true, enumerable: true });
+Object.defineProperty(process.env, "GROQ_API_KEY", {
+  value: "fake-groq",
+  configurable: true,
+  writable: true,
+  enumerable: true,
+});
+Object.defineProperty(process.env, "DEEPSEEK_NIM_KEY", {
+  value: "fake-nim",
+  configurable: true,
+  writable: true,
+  enumerable: true,
+});
 
 const ai = require("../bot/src/ai.js");
 
 // Case 1: Groq 429 → fallback sang DeepSeek NIM, nhận kết quả hợp lệ
-ai
-  .classifyViolation({ module: "massBan", count: 12, windowSeconds: 10, threshold: 5, sampleMessages: [] })
+ai.classifyViolation({
+  module: "massBan",
+  count: 12,
+  windowSeconds: 10,
+  threshold: 5,
+  sampleMessages: [],
+})
   .then((r) => {
     console.log("[case1: fallback] providers tried:", calls.join(" -> "));
     console.log("[case1: fallback] final:", JSON.stringify(r));
@@ -61,11 +76,28 @@ ai
         ok: true,
         status: 200,
         json: async () => ({
-          choices: [{ message: { content: JSON.stringify({ classification: "benign", confidence: 0.8, reason: "x", suggestPunish: null }) } }],
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  classification: "benign",
+                  confidence: 0.8,
+                  reason: "x",
+                  suggestPunish: null,
+                }),
+              },
+            },
+          ],
         }),
       };
     };
-    return ai.classifyViolation({ module: "spam", count: 3, windowSeconds: 10, threshold: 5, sampleMessages: [] });
+    return ai.classifyViolation({
+      module: "spam",
+      count: 3,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: [],
+    });
   })
   .then((r) => {
     console.log("[case2: first ok] providers tried:", calls.join(" -> "));
@@ -80,7 +112,13 @@ ai
       calls.push(new URL(url).host);
       return { ok: false, status: 500, json: async () => ({}) };
     };
-    return ai.classifyViolation({ module: "x", count: 2, windowSeconds: 5, threshold: 5, sampleMessages: [] });
+    return ai.classifyViolation({
+      module: "x",
+      count: 2,
+      windowSeconds: 5,
+      threshold: 5,
+      sampleMessages: [],
+    });
   })
   .then((r) => {
     console.log("[case3: all fail] providers tried:", calls.join(" -> "));

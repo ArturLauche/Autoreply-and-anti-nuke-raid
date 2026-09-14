@@ -1,7 +1,16 @@
 import { useCallback, useRef, useState, type RefObject } from "react";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
-import { BadgeCheck, Eye, Fingerprint, Hash, Mail, Send, ShieldCheck, ShieldOff } from "lucide-react";
+import {
+  BadgeCheck,
+  Eye,
+  Fingerprint,
+  Hash,
+  Mail,
+  Send,
+  ShieldCheck,
+  ShieldOff,
+} from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { Card, CardContent } from "../ui/card";
 import { Switch } from "../ui/switch";
@@ -74,10 +83,9 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
 
   // Welcome embed preview
   const previewTitle = localTitle || "🌸 Chào mừng bạn!";
-  const previewDesc =
-    (localDesc || "Bạn đã xác minh thành công. Chào mừng bạn đến với server!")
-      .replace(/\{user\}/g, "@thành viên")
-      .replace(/\{server\}/g, g.name || "Server");
+  const previewDesc = (localDesc || "Bạn đã xác minh thành công. Chào mừng bạn đến với server!")
+    .replace(/\{user\}/g, "@thành viên")
+    .replace(/\{server\}/g, g.name || "Server");
   const previewColor = localColor || "#f2629e";
 
   return (
@@ -109,7 +117,12 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
         </div>
         <Switch
           checked={g.verifyEnabled}
-          onCheckedChange={(v) => patch({ verifyEnabled: v }, v ? "Đã bật xác minh thành viên" : "Đã tắt xác minh thành viên")}
+          onCheckedChange={(v) =>
+            patch(
+              { verifyEnabled: v },
+              v ? "Đã bật xác minh thành viên" : "Đã tắt xác minh thành viên",
+            )
+          }
         />
       </div>
 
@@ -130,7 +143,12 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
           </div>
           <select
             value={g.verifyMethod}
-            onChange={(e) => patch({ verifyMethod: e.target.value as "button" | "captcha" }, "Đã đổi phương thức xác minh")}
+            onChange={(e) =>
+              patch(
+                { verifyMethod: e.target.value as "button" | "captcha" },
+                "Đã đổi phương thức xác minh",
+              )
+            }
             className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
           >
             <option value="button">🖱️ Button — bấm nút xác minh</option>
@@ -157,7 +175,12 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
               </div>
               <Switch
                 checked={g.verifyWelcomeEnabled}
-                onCheckedChange={(v) => patch({ verifyWelcomeEnabled: v }, v ? "Đã bật DM chào mừng" : "Đã tắt DM chào mừng")}
+                onCheckedChange={(v) =>
+                  patch(
+                    { verifyWelcomeEnabled: v },
+                    v ? "Đã bật DM chào mừng" : "Đã tắt DM chào mừng",
+                  )
+                }
               />
             </div>
 
@@ -195,21 +218,34 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
                   />
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-[10px] text-muted-foreground">Chèn:</span>
-                    {([
-                      ["{user}", "Tag thành viên"],
-                      ["{server}", "Tên server"],
-                    ] as const).map(([ph, label]) => (
+                    {(
+                      [
+                        ["{user}", "Tag thành viên"],
+                        ["{server}", "Tên server"],
+                      ] as const
+                    ).map(([ph, label]) => (
                       <button
                         key={ph}
                         type="button"
-                        onClick={() => insertPlaceholder(descRef, setLocalDesc, localDesc, flushDebounced, { verifyWelcomeDescription: null }, ph)}
+                        onClick={() =>
+                          insertPlaceholder(
+                            descRef,
+                            setLocalDesc,
+                            localDesc,
+                            flushDebounced,
+                            { verifyWelcomeDescription: null },
+                            ph,
+                          )
+                        }
                         className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[10px] font-mono text-foreground transition-colors hover:bg-primary/10 hover:text-primary"
                         title={label}
                       >
                         {ph}
                       </button>
                     ))}
-                    <span className="text-[10px] text-muted-foreground">— {"{user}"} để tag, {"{server}"} để tên server</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      — {"{user}"} để tag, {"{server}"} để tên server
+                    </span>
                   </div>
                 </div>
                 {/* Welcome color */}
@@ -239,7 +275,9 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
                       className="w-28 rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-mono"
                       maxLength={7}
                     />
-                    <span className="text-[10px] text-muted-foreground">để trống = màu mặc định</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      để trống = màu mặc định
+                    </span>
                   </div>
                 </div>
 
@@ -251,9 +289,14 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
                   <div className="overflow-hidden rounded-xl border border-border">
                     <div
                       className="px-4 py-3"
-                      style={{ backgroundColor: previewColor + "22", borderLeft: `4px solid ${previewColor}` }}
+                      style={{
+                        backgroundColor: previewColor + "22",
+                        borderLeft: `4px solid ${previewColor}`,
+                      }}
                     >
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tin nhắn trực tiếp từ Protogon</p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Tin nhắn trực tiếp từ Protogon
+                      </p>
                     </div>
                     <div className="border-t border-border bg-background/80 p-4">
                       <div className="flex items-start gap-3">
@@ -263,12 +306,20 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-semibold">Protogon</p>
-                            <Badge variant="secondary" className="text-[9px]">APP</Badge>
-                            <span className="text-[10px] text-muted-foreground">Hôm nay lúc 00:00</span>
+                            <Badge variant="secondary" className="text-[9px]">
+                              APP
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground">
+                              Hôm nay lúc 00:00
+                            </span>
                           </div>
                           <div className="mt-1 rounded-lg bg-muted/50 p-3">
-                            <p className="text-sm font-semibold" style={{ color: previewColor }}>{previewTitle}</p>
-                            <p className="mt-1 text-sm text-muted-foreground whitespace-pre-line">{previewDesc}</p>
+                            <p className="text-sm font-semibold" style={{ color: previewColor }}>
+                              {previewTitle}
+                            </p>
+                            <p className="mt-1 text-sm text-muted-foreground whitespace-pre-line">
+                              {previewDesc}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -288,7 +339,9 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
               </p>
               <select
                 value={g.verifyChannelId ?? ""}
-                onChange={(e) => patch({ verifyChannelId: e.target.value || null }, "Đã cập nhật kênh xác minh")}
+                onChange={(e) =>
+                  patch({ verifyChannelId: e.target.value || null }, "Đã cập nhật kênh xác minh")
+                }
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
               >
                 <option value="">— Chọn kênh —</option>
@@ -310,7 +363,12 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
               </p>
               <select
                 value={g.unverifiedRoleId ?? ""}
-                onChange={(e) => patch({ unverifiedRoleId: e.target.value || null }, "Đã cập nhật role chưa xác minh")}
+                onChange={(e) =>
+                  patch(
+                    { unverifiedRoleId: e.target.value || null },
+                    "Đã cập nhật role chưa xác minh",
+                  )
+                }
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
               >
                 <option value="">— Chọn role —</option>
@@ -332,7 +390,9 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
               </p>
               <select
                 value={g.verifiedRoleId ?? ""}
-                onChange={(e) => patch({ verifiedRoleId: e.target.value || null }, "Đã cập nhật role đã xác minh")}
+                onChange={(e) =>
+                  patch({ verifiedRoleId: e.target.value || null }, "Đã cập nhật role đã xác minh")
+                }
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
               >
                 <option value="">— Chọn role —</option>
@@ -347,11 +407,19 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
             {/* Config summary */}
             <div className="rounded-xl bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
               <p className="font-medium text-foreground">Cách hoạt động:</p>
-              <p>• Thành viên mới vào server → tự động nhận <b>role chưa xác minh</b>.</p>
-              <p>• Bot gửi embed trong <b>kênh xác minh</b> với nút / phản ứng để xác minh.</p>
-              <p>• Sau khi xác minh → gỡ role chưa xác minh, gán <b>role đã xác minh</b>.</p>
+              <p>
+                • Thành viên mới vào server → tự động nhận <b>role chưa xác minh</b>.
+              </p>
+              <p>
+                • Bot gửi embed trong <b>kênh xác minh</b> với nút / phản ứng để xác minh.
+              </p>
+              <p>
+                • Sau khi xác minh → gỡ role chưa xác minh, gán <b>role đã xác minh</b>.
+              </p>
               {g.verifyWelcomeEnabled && (
-                <p>• Bot gửi <b>DM chào mừng</b> với embed tùy chỉnh đến thành viên đã xác minh.</p>
+                <p>
+                  • Bot gửi <b>DM chào mừng</b> với embed tùy chỉnh đến thành viên đã xác minh.
+                </p>
               )}
             </div>
 
@@ -362,7 +430,8 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
                 <p className="mt-0.5 text-xs opacity-90">{g.verifyPanelError}</p>
                 {g.verifyPanelErrorAt ? (
                   <p className="mt-1 text-[11px] opacity-70">
-                    {new Date(g.verifyPanelErrorAt).toLocaleString("vi-VN")} — hãy sửa lỗi rồi bấm "Gửi panel xác minh vào kênh" lại
+                    {new Date(g.verifyPanelErrorAt).toLocaleString("vi-VN")} — hãy sửa lỗi rồi bấm
+                    "Gửi panel xác minh vào kênh" lại
                   </p>
                 ) : null}
               </div>
@@ -371,7 +440,9 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
             {/* Send panel button */}
             {g.verifyChannelId && (
               <button
-                onClick={() => patch({ verifySendPanel: true }, "Đã yêu cầu bot gửi panel xác minh!")}
+                onClick={() =>
+                  patch({ verifySendPanel: true }, "Đã yêu cầu bot gửi panel xác minh!")
+                }
                 className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 <Send className="h-4 w-4" />
@@ -414,9 +485,13 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
       <div className="rounded-xl bg-muted/50 p-4 text-xs text-muted-foreground space-y-1">
         <p className="font-medium text-foreground">💡 Lệnh nhanh:</p>
         <p>
-          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">/verify setup</code>{" "}
+          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">
+            /verify setup
+          </code>{" "}
           hoặc{" "}
-          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">!verify setup</code>{" "}
+          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">
+            !verify setup
+          </code>{" "}
           — thiết lập xác minh bằng lệnh Discord.
         </p>
       </div>

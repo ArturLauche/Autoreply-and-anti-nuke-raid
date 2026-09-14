@@ -81,7 +81,13 @@ function isValidWebhookUrl(url: string): boolean {
 
 function EmbedPreview({ embed }: { embed: EmbedData }) {
   const hasAnyContent =
-    embed.title || embed.description || embed.authorName || embed.footerText || embed.fields.length > 0 || embed.imageUrl || embed.thumbnailUrl;
+    embed.title ||
+    embed.description ||
+    embed.authorName ||
+    embed.footerText ||
+    embed.fields.length > 0 ||
+    embed.imageUrl ||
+    embed.thumbnailUrl;
 
   if (!hasAnyContent) {
     return (
@@ -104,7 +110,10 @@ function EmbedPreview({ embed }: { embed: EmbedData }) {
           onError={(e) => (e.currentTarget.style.display = "none")}
         />
       )}
-      <div className="min-w-0 flex-1 overflow-hidden rounded-lg border-l-4 bg-[#2b2d31]" style={{ borderColor: colorHex }}>
+      <div
+        className="min-w-0 flex-1 overflow-hidden rounded-lg border-l-4 bg-[#2b2d31]"
+        style={{ borderColor: colorHex }}
+      >
         {/* Author */}
         {embed.authorName && (
           <div className="flex items-center gap-1.5 px-3 pt-2">
@@ -125,11 +134,20 @@ function EmbedPreview({ embed }: { embed: EmbedData }) {
             {/* Title */}
             {embed.title && <p className="mb-1 text-sm font-semibold text-white">{embed.title}</p>}
             {/* Description */}
-            {embed.description && <p className="whitespace-pre-wrap text-xs text-[#dcddde]">{embed.description}</p>}
+            {embed.description && (
+              <p className="whitespace-pre-wrap text-xs text-[#dcddde]">{embed.description}</p>
+            )}
 
             {/* Fields */}
             {embed.fields.length > 0 && (
-              <div className="mt-2 grid gap-2" style={{ gridTemplateColumns: embed.fields.some((f) => f.inline) ? "repeat(auto-fill, minmax(120px, 1fr))" : "1fr" }}>
+              <div
+                className="mt-2 grid gap-2"
+                style={{
+                  gridTemplateColumns: embed.fields.some((f) => f.inline)
+                    ? "repeat(auto-fill, minmax(120px, 1fr))"
+                    : "1fr",
+                }}
+              >
                 {embed.fields.map((f, i) => (
                   <div key={i} className={f.inline ? "" : "col-span-full"}>
                     <p className="text-xs font-semibold text-white">{f.name || "Field"}</p>
@@ -175,7 +193,11 @@ function EmbedPreview({ embed }: { embed: EmbedData }) {
               />
             )}
             <span className="text-[11px] text-[#b5bac1]">{embed.footerText}</span>
-            {embed.timestamp && <span className="text-[11px] text-[#b5bac1]">• {new Date().toLocaleString("vi-VV")}</span>}
+            {embed.timestamp && (
+              <span className="text-[11px] text-[#b5bac1]">
+                • {new Date().toLocaleString("vi-VV")}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -215,7 +237,9 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
       return;
     }
     if (!isValidWebhookUrl(webhookUrl)) {
-      toast.error("URL webhook không hợp lệ — phải đúng định dạng discord.com/api/webhooks/{id}/{token}");
+      toast.error(
+        "URL webhook không hợp lệ — phải đúng định dạng discord.com/api/webhooks/{id}/{token}",
+      );
       return;
     }
 
@@ -229,7 +253,8 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
       if (embed.color) embedPayload.color = hexToDecimal(embed.color);
       if (embed.authorName) {
         const author: Record<string, string> = { name: embed.authorName };
-        if (embed.authorIconUrl && isValidUrl(embed.authorIconUrl)) author.icon_url = embed.authorIconUrl;
+        if (embed.authorIconUrl && isValidUrl(embed.authorIconUrl))
+          author.icon_url = embed.authorIconUrl;
         if (embed.authorUrl && isValidUrl(embed.authorUrl)) author.url = embed.authorUrl;
         embedPayload.author = author;
       }
@@ -240,11 +265,14 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
           inline: f.inline,
         }));
       }
-      if (embed.imageUrl && isValidUrl(embed.imageUrl)) embedPayload.image = { url: embed.imageUrl };
-      if (embed.thumbnailUrl && isValidUrl(embed.thumbnailUrl)) embedPayload.thumbnail = { url: embed.thumbnailUrl };
+      if (embed.imageUrl && isValidUrl(embed.imageUrl))
+        embedPayload.image = { url: embed.imageUrl };
+      if (embed.thumbnailUrl && isValidUrl(embed.thumbnailUrl))
+        embedPayload.thumbnail = { url: embed.thumbnailUrl };
       if (embed.footerText) {
         const footer: Record<string, string> = { text: embed.footerText };
-        if (embed.footerIconUrl && isValidUrl(embed.footerIconUrl)) footer.icon_url = embed.footerIconUrl;
+        if (embed.footerIconUrl && isValidUrl(embed.footerIconUrl))
+          footer.icon_url = embed.footerIconUrl;
         embedPayload.footer = footer;
       }
       if (embed.timestamp) embedPayload.timestamp = new Date().toISOString();
@@ -291,14 +319,16 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
                 <>
                   Tên <b className="text-foreground">{defaultWh.name}</b> · kênh{" "}
                   <b className="text-foreground">
-                    # {data.channels?.find((c) => c.channelId === defaultWh.channelId)?.name ?? "kênh đã bị xóa"}
+                    #{" "}
+                    {data.channels?.find((c) => c.channelId === defaultWh.channelId)?.name ??
+                      "kênh đã bị xóa"}
                   </b>{" "}
                   (theo Kênh log trong Cài đặt) · nhận mọi log hình phạt & anti nuke/raid.
                 </>
               ) : (
                 <>
-                  Chưa có — bot sẽ <b className="text-foreground">tự tạo trong ~1 phút</b> sau khi bạn{" "}
-                  <b className="text-foreground">set Kênh log</b> trong Cài đặt.
+                  Chưa có — bot sẽ <b className="text-foreground">tự tạo trong ~1 phút</b> sau khi
+                  bạn <b className="text-foreground">set Kênh log</b> trong Cài đặt.
                 </>
               )}
             </p>
@@ -318,7 +348,9 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
           )}
         </div>
         {defaultWh?.lastError && (
-          <p className="mt-2 rounded-lg bg-danger/10 px-3 py-2 text-xs text-red-500">⚠️ {defaultWh.lastError}</p>
+          <p className="mt-2 rounded-lg bg-danger/10 px-3 py-2 text-xs text-red-500">
+            ⚠️ {defaultWh.lastError}
+          </p>
         )}
       </div>
 
@@ -330,7 +362,8 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
             Discord Webhook Sender
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            Dán webhook URL từ Discord (Kênh → Tích hợp → Webhook → Tạo webhook), soạn nội dung & embed, bấm gửi.
+            Dán webhook URL từ Discord (Kênh → Tích hợp → Webhook → Tạo webhook), soạn nội dung &
+            embed, bấm gửi.
           </p>
         </div>
 
@@ -348,7 +381,9 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
           />
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="text-[11px] font-medium text-muted-foreground">Username ghi đè (tùy chọn)</label>
+              <label className="text-[11px] font-medium text-muted-foreground">
+                Username ghi đè (tùy chọn)
+              </label>
               <input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -357,7 +392,9 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
               />
             </div>
             <div>
-              <label className="text-[11px] font-medium text-muted-foreground">Avatar URL ghi đè (tùy chọn)</label>
+              <label className="text-[11px] font-medium text-muted-foreground">
+                Avatar URL ghi đè (tùy chọn)
+              </label>
               <input
                 value={avatarUrl}
                 onChange={(e) => setAvatarUrl(e.target.value)}
@@ -367,7 +404,9 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
             </div>
           </div>
           <div>
-            <label className="text-[11px] font-medium text-muted-foreground">Nội dung tin nhắn (tùy chọn — gửi cùng embed)</label>
+            <label className="text-[11px] font-medium text-muted-foreground">
+              Nội dung tin nhắn (tùy chọn — gửi cùng embed)
+            </label>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
@@ -451,18 +490,27 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
             {/* Fields */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Fields</label>
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Fields
+                </label>
                 <Button
                   variant="outline"
                   size="sm"
                   className="h-6 gap-1 text-[11px]"
-                  onClick={() => updateEmbed({ fields: [...embed.fields, { name: "", value: "", inline: false }] })}
+                  onClick={() =>
+                    updateEmbed({
+                      fields: [...embed.fields, { name: "", value: "", inline: false }],
+                    })
+                  }
                 >
                   <Plus className="h-3 w-3" /> Thêm
                 </Button>
               </div>
               {embed.fields.map((f, i) => (
-                <div key={i} className="rounded-lg border border-border/60 bg-secondary/30 p-2 space-y-1.5">
+                <div
+                  key={i}
+                  className="rounded-lg border border-border/60 bg-secondary/30 p-2 space-y-1.5"
+                >
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] text-muted-foreground">Field {i + 1}</span>
                     <button
@@ -553,7 +601,9 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
                 />
               </div>
               <div className="flex-1">
-                <label className="text-[11px] font-medium text-muted-foreground">Footer icon URL</label>
+                <label className="text-[11px] font-medium text-muted-foreground">
+                  Footer icon URL
+                </label>
                 <input
                   value={embed.footerIconUrl}
                   onChange={(e) => updateEmbed({ footerIconUrl: e.target.value })}
@@ -585,8 +635,16 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
                 <div className="h-10 w-10 shrink-0 rounded-full bg-[#5865F2]" />
                 <div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-sm font-semibold text-white">{username || "Protogon Bot"}</span>
-                    <span className="text-[11px] text-[#b5bac1]">Hôm nay lúc {new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</span>
+                    <span className="text-sm font-semibold text-white">
+                      {username || "Protogon Bot"}
+                    </span>
+                    <span className="text-[11px] text-[#b5bac1]">
+                      Hôm nay lúc{" "}
+                      {new Date().toLocaleTimeString("vi-VN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
                   </div>
                   {content && <p className="mt-0.5 text-sm text-[#dcddde]">{content}</p>}
                 </div>
@@ -600,17 +658,19 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
 
         {/* Send button + status */}
         <div className="flex items-center gap-3">
-          <Button
-            onClick={handleSend}
-            disabled={sending || !webhookUrl.trim()}
-            className="gap-2"
-          >
+          <Button onClick={handleSend} disabled={sending || !webhookUrl.trim()} className="gap-2">
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             {sending ? "Đang gửi..." : "Gửi embed"}
           </Button>
           {result && (
-            <span className={`flex items-center gap-1.5 text-xs ${result.ok ? "text-emerald-600" : "text-red-500"}`}>
-              {result.ok ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+            <span
+              className={`flex items-center gap-1.5 text-xs ${result.ok ? "text-emerald-600" : "text-red-500"}`}
+            >
+              {result.ok ? (
+                <CheckCircle2 className="h-4 w-4" />
+              ) : (
+                <AlertCircle className="h-4 w-4" />
+              )}
               {result.msg}
             </span>
           )}
@@ -619,10 +679,23 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
         {/* Tips */}
         <div className="rounded-xl border border-border/50 bg-secondary/30 p-4 text-xs leading-relaxed text-muted-foreground">
           <p className="mb-1 font-semibold text-foreground">💡 Hướng dẫn nhanh:</p>
-          <p>• Vào Discord → Kênh cần gửi → <b className="text-foreground">Tích hợp</b> → <b className="text-foreground">Webhook</b> → <b className="text-foreground">Tạo webhook</b> → Copy URL.</p>
-          <p className="mt-1">• Dán URL vào ô trên, soạn embed với tiêu đề, mô tả, màu sắc, fields... rồi bấm <b className="text-foreground">Gửi embed</b>.</p>
-          <p className="mt-1">• Webhook mặc định (Protogon Log) ở trên chỉ dùng để nhận log hình phạt & anti nuke từ bot — không liên quan đến embed sender.</p>
-          <p className="mt-1">• Hỗ trợ: author (tên + avatar + link), title, description, color hex, fields (tên + giá trị + inline), image, thumbnail, footer + icon, timestamp.</p>
+          <p>
+            • Vào Discord → Kênh cần gửi → <b className="text-foreground">Tích hợp</b> →{" "}
+            <b className="text-foreground">Webhook</b> →{" "}
+            <b className="text-foreground">Tạo webhook</b> → Copy URL.
+          </p>
+          <p className="mt-1">
+            • Dán URL vào ô trên, soạn embed với tiêu đề, mô tả, màu sắc, fields... rồi bấm{" "}
+            <b className="text-foreground">Gửi embed</b>.
+          </p>
+          <p className="mt-1">
+            • Webhook mặc định (Protogon Log) ở trên chỉ dùng để nhận log hình phạt & anti nuke từ
+            bot — không liên quan đến embed sender.
+          </p>
+          <p className="mt-1">
+            • Hỗ trợ: author (tên + avatar + link), title, description, color hex, fields (tên + giá
+            trị + inline), image, thumbnail, footer + icon, timestamp.
+          </p>
         </div>
       </div>
     </div>

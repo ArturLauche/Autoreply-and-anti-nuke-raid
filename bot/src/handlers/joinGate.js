@@ -1,7 +1,12 @@
 const { Colors } = require("discord.js");
 const { logEmbed, sendLog } = require("../util");
 const { isLocked } = require("../lockdown");
-const { analyzeNewMember, executePunishment, buildRiskEmbed, trackJoinForBurst, trackVoiceIp } = require("../altDetection");
+const {
+  analyzeNewMember,
+  executePunishment,
+  buildRiskEmbed,
+  trackJoinForBurst,
+} = require("../altDetection");
 
 const DAY_MS = 86_400_000;
 
@@ -52,7 +57,9 @@ async function assignUnverifiedRole(client, member, store) {
 module.exports = async function joinGate(client, member, store) {
   if (!member?.guild || member.user?.bot) return; // chỉ xét tài khoản người thật
   // Gán role unverified nếu verify đang bật
-  assignUnverifiedRole(client, member, store).catch((e) => console.error(`[assignUnverified]`, e.message));
+  assignUnverifiedRole(client, member, store).catch((e) =>
+    console.error(`[assignUnverified]`, e.message),
+  );
   let config;
   try {
     config = await store.getConfig(member.guild.id);
@@ -138,8 +145,19 @@ module.exports = async function joinGate(client, member, store) {
           description: `<@${member.id}> vừa tham gia nhưng **không vượt qua cổng vào** và đã bị xử lý.`,
           color: Colors.Red,
           fields: [
-            { name: "Thành viên", value: `<@${member.id}> (${member.user.username})`, inline: true },
-            { name: "Lý do", value: failures.map((f) => `• ${f}`).join("\n").slice(0, 1000), inline: false },
+            {
+              name: "Thành viên",
+              value: `<@${member.id}> (${member.user.username})`,
+              inline: true,
+            },
+            {
+              name: "Lý do",
+              value: failures
+                .map((f) => `• ${f}`)
+                .join("\n")
+                .slice(0, 1000),
+              inline: false,
+            },
             { name: "Xử lý", value: action, inline: true },
           ],
           footer: "Protogon Join Gate",
@@ -211,7 +229,9 @@ module.exports = async function joinGate(client, member, store) {
   try {
     const burst = trackJoinForBurst(member.guild.id, member.id, analysis.riskScore);
     if (burst.burstDetected) {
-      console.log(`[burst] ${member.guild.name}: BURST DETECTED! ${burst.count} joins, avg risk ${burst.avgRisk}`);
+      console.log(
+        `[burst] ${member.guild.name}: BURST DETECTED! ${burst.count} joins, avg risk ${burst.avgRisk}`,
+      );
       // Auto-lockdown: lock all text channels if not already locked
       try {
         const { isLocked, markLocked } = require("../lockdown");
@@ -221,15 +241,21 @@ module.exports = async function joinGate(client, member, store) {
           for (const [, ch] of member.guild.channels.cache) {
             if (ch.isTextBased() && !ch.isThread()) {
               try {
-                await ch.permissionOverwrites.edit(member.guild.id, { SendMessages: false }, "Protogon Auto-Lockdown: burst alt detection");
+                await ch.permissionOverwrites.edit(
+                  member.guild.id,
+                  { SendMessages: false },
+                  "Protogon Auto-Lockdown: burst alt detection",
+                );
               } catch {}
             }
           }
           // Update config for auto-unlock
-          await store.client.mutation("bot_writes:botUpdateLockdown", {
-            guildId: member.guild.id,
-            enabled: true,
-          }).catch(() => {});
+          await store.client
+            .mutation("bot_writes:botUpdateLockdown", {
+              guildId: member.guild.id,
+              enabled: true,
+            })
+            .catch(() => {});
 
           // Notify log channel
           const config2 = await store.getConfig(member.guild.id).catch(() => null);
@@ -243,7 +269,14 @@ module.exports = async function joinGate(client, member, store) {
               fields: [
                 { name: "Số lượng", value: `${burst.count} tài khoản`, inline: true },
                 { name: "Rủi ro TB", value: `${burst.avgRisk}/100`, inline: true },
-                { name: "Tài khoản", value: burst.userIds.slice(0, 10).map((id) => `<@${id}>`).join(", ").slice(0, 1000) },
+                {
+                  name: "Tài khoản",
+                  value: burst.userIds
+                    .slice(0, 10)
+                    .map((id) => `<@${id}>`)
+                    .join(", ")
+                    .slice(0, 1000),
+                },
               ],
               footer: "Protogon Auto-Lockdown",
             });

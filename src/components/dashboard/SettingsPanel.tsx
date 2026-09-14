@@ -53,7 +53,11 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
   });
   const updateDefaultWebhook = useMutation(api.webhooks.updateDefaultWebhook);
   const [webhookEventTypes, setWebhookEventTypes] = useState<string[]>([
-    "antinuke", "mod", "join", "leave", "general",
+    "antinuke",
+    "mod",
+    "join",
+    "leave",
+    "general",
   ]);
   const [webhookColor, setWebhookColor] = useState<string>("");
   const [webhookTemplate, setWebhookTemplate] = useState<string>("");
@@ -167,8 +171,8 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                   />
                   <p className="text-[11px] text-muted-foreground">
                     1–3 ký tự đặc biệt — lệnh text như{" "}
-                    <code className="font-mono text-primary">{prefix}help</code>. Slash command
-                    hoạt động độc lập.
+                    <code className="font-mono text-primary">{prefix}help</code>. Slash command hoạt
+                    động độc lập.
                   </p>
                 </div>
 
@@ -240,8 +244,8 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                     Cảnh báo khẩn khi raid/nuke
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    Khi bot xác nhận raid/nuke: AI quét chat rồi gửi tin CẢNH BÁO KHẨN
-                    (kèm báo cáo tình hình, lệnh <code className="font-mono">/report</code>) vào kênh log chung
+                    Khi bot xác nhận raid/nuke: AI quét chat rồi gửi tin CẢNH BÁO KHẨN (kèm báo cáo
+                    tình hình, lệnh <code className="font-mono">/report</code>) vào kênh log chung
                   </p>
                 </div>
                 <Switch
@@ -260,10 +264,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                     Tắt nếu không muốn cảnh báo làm phiền toàn bộ thành viên (mod vẫn thấy log)
                   </p>
                 </div>
-                <Switch
-                  checked={data.guild.logPingEveryone}
-                  onCheckedChange={togglePingEveryone}
-                />
+                <Switch checked={data.guild.logPingEveryone} onCheckedChange={togglePingEveryone} />
               </div>
 
               {/* ── Webhook Log Config ─────────────────────────────── */}
@@ -274,7 +275,8 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                     <p className="text-sm font-medium">Tùy chỉnh Webhook Log</p>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
-                    Webhook "{webhookData[0]?.name}" tự gửi log khi có sự kiện. Tùy chỉnh loại sự kiện, màu embed và nội dung kèm.
+                    Webhook "{webhookData[0]?.name}" tự gửi log khi có sự kiện. Tùy chỉnh loại sự
+                    kiện, màu embed và nội dung kèm.
                   </p>
                   <div className="grid gap-1.5">
                     <Label>Loại sự kiện nhận log</Label>
@@ -285,7 +287,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                           type="button"
                           onClick={() => {
                             setWebhookEventTypes((prev) =>
-                              prev.includes(et) ? prev.filter((e) => e !== et) : [...prev, et]
+                              prev.includes(et) ? prev.filter((e) => e !== et) : [...prev, et],
                             );
                           }}
                           className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
@@ -294,7 +296,17 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                               : "bg-background text-muted-foreground border-border hover:border-primary/50"
                           }`}
                         >
-                          {et === "antinuke" ? "🛡️ Chống nuke" : et === "mod" ? "⚙️ Moderation" : et === "join" ? "📥 Vào server" : et === "leave" ? "📤 Rời server" : et === "general" ? "📋 Chung" : "🌐 Tất cả"}
+                          {et === "antinuke"
+                            ? "🛡️ Chống nuke"
+                            : et === "mod"
+                              ? "⚙️ Moderation"
+                              : et === "join"
+                                ? "📥 Vào server"
+                                : et === "leave"
+                                  ? "📤 Rời server"
+                                  : et === "general"
+                                    ? "📋 Chung"
+                                    : "🌐 Tất cả"}
                         </button>
                       ))}
                     </div>
@@ -317,7 +329,8 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                         placeholder="{server} · {action} · {time}"
                       />
                       <p className="text-[10px] text-muted-foreground">
-                        Placeholder: {'{server}'} {'{time}'} {'{action}'} {'{reason}'} {'{user}'} {'{mod}'}
+                        Placeholder: {"{server}"} {"{time}"} {"{action}"} {"{reason}"} {"{user}"}{" "}
+                        {"{mod}"}
                       </p>
                     </div>
                   </div>
@@ -328,7 +341,9 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                       onClick={async () => {
                         setWebhookSaving(true);
                         try {
-                          const parsedColor = webhookColor ? parseInt(webhookColor.replace("#", ""), 16) : null;
+                          const parsedColor = webhookColor
+                            ? parseInt(webhookColor.replace("#", ""), 16)
+                            : null;
                           await updateDefaultWebhook({
                             token: TOKEN(),
                             guildId: data.guild.discordId,
@@ -424,12 +439,14 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
 
               {!data.guild.isBotOwner && (
                 <p className="rounded-lg bg-amber-500/10 px-3 py-2.5 text-xs text-amber-700">
-                  🔒 Bạn không phải admin sở hữu bot — chỉ chủ sở hữu bot mới được đặt / đổi /
-                  xóa mật khẩu này.
+                  🔒 Bạn không phải admin sở hữu bot — chỉ chủ sở hữu bot mới được đặt / đổi / xóa
+                  mật khẩu này.
                 </p>
               )}
 
-              <div className={data.guild.isBotOwner ? "space-y-3" : "pointer-events-none opacity-50"}>
+              <div
+                className={data.guild.isBotOwner ? "space-y-3" : "pointer-events-none opacity-50"}
+              >
                 <div className="grid gap-1.5">
                   <Label>Mật khẩu mới</Label>
                   <Input

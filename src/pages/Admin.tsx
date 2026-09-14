@@ -25,8 +25,7 @@ import { cn } from "../lib/utils";
 function AdminContent() {
   const token = getSessionToken();
   const isOwner = useQuery(api.status.isOwner, token ? { token } : "skip");
-  const { status, latency, avg, incidents, lastUpdate, nextUpdate, refresh } =
-    useBotMonitor(60000);
+  const { status, latency, avg, incidents, lastUpdate, nextUpdate, refresh } = useBotMonitor(60000);
   const threat = useQuery(api.threatIntel.getSettings, { token });
   const researchHistory = useQuery(api.threatIntel.getResearchHistory, { token });
   const setThreat = useMutation(api.threatIntel.setResearchSettings);
@@ -52,8 +51,8 @@ function AdminContent() {
         <Bug className="h-10 w-10 text-muted-foreground" />
         <p className="font-display text-lg font-semibold">Không có quyền truy cập</p>
         <p className="max-w-sm text-sm text-muted-foreground">
-          Cửa sổ Admin là khu vực riêng tư của chủ sở hữu bot — người dùng khác
-          không nhìn thấy và không vào được.
+          Cửa sổ Admin là khu vực riêng tư của chủ sở hữu bot — người dùng khác không nhìn thấy và
+          không vào được.
         </p>
         <Link to="/" className="text-sm text-primary hover:underline">
           ← Về trang chủ
@@ -111,11 +110,7 @@ function AdminContent() {
               <p className="mt-1.5 font-mono text-lg font-bold">
                 {lat !== null ? `${lat} ms` : "—"}
               </p>
-              {rate && (
-                <span className={cn("text-xs font-semibold", rate.cls)}>
-                  {rate.label}
-                </span>
-              )}
+              {rate && <span className={cn("text-xs font-semibold", rate.cls)}>{rate.label}</span>}
             </div>
             <div className="rounded-xl border border-border bg-card p-4">
               <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -132,11 +127,7 @@ function AdminContent() {
                   status?.online ? "text-emerald-600" : "text-red-500",
                 )}
               >
-                {status
-                  ? status.online
-                    ? "● Bot online"
-                    : "● Bot offline"
-                  : ""}
+                {status ? (status.online ? "● Bot online" : "● Bot offline") : ""}
               </p>
             </div>
           </div>
@@ -175,9 +166,9 @@ function AdminContent() {
                 </ul>
               )}
               <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-                Lưu ý: bản ghi sự cố được ghi nhận trong phiên xem này (mất kết nối
-                máy chủ, độ trễ quá cao). Để theo dõi xuyên suốt, hãy giữ trang này mở
-                hoặc kiểm tra kênh log trong Discord.
+                Lưu ý: bản ghi sự cố được ghi nhận trong phiên xem này (mất kết nối máy chủ, độ trễ
+                quá cao). Để theo dõi xuyên suốt, hãy giữ trang này mở hoặc kiểm tra kênh log trong
+                Discord.
               </p>
             </div>
 
@@ -195,9 +186,7 @@ function AdminContent() {
               <ThreatIntelCard
                 threat={threat}
                 history={researchHistory}
-                onToggle={(enabled) =>
-                  setThreat({ token, enabled }).catch(() => {})
-                }
+                onToggle={(enabled) => setThreat({ token, enabled }).catch(() => {})}
                 onToggleAi={(aiWeeklyEnabled) =>
                   setThreat({ token, aiWeeklyEnabled }).catch(() => {})
                 }
@@ -221,12 +210,15 @@ function AdminContent() {
                   <ShieldCheck className="h-4 w-4 text-emerald-600" /> Chìa khóa bảo mật API
                 </p>
                 <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                  Khi đã đặt seed, MỌI lệnh của bot yêu cầu chìa khóa khớp — kẻ ngoài
-                  không thể giả mạo heartbeat/backup/lockdown. Trên VPS dán giá trị seed
-                  VỪA NHẬP vào biến <code className="mx-1 rounded bg-muted px-1 py-0.5 text-[11px]">BOT_KEY</code>
-                  {" "}trong bot/.env rồi <code className="rounded bg-muted px-1 py-0.5 text-[11px]">pm2 restart protogon-bot</code>.
-                  Bot chưa có BOT_KEY sẽ <b>tự cấp phát chìa khóa an toàn</b> khi khởi động
-                  (xác minh token Discord thật) — không cần thao tác gì thêm.
+                  Khi đã đặt seed, MỌI lệnh của bot yêu cầu chìa khóa khớp — kẻ ngoài không thể giả
+                  mạo heartbeat/backup/lockdown. Trên VPS dán giá trị seed VỪA NHẬP vào biến{" "}
+                  <code className="mx-1 rounded bg-muted px-1 py-0.5 text-[11px]">BOT_KEY</code>{" "}
+                  trong bot/.env rồi{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+                    pm2 restart protogon-bot
+                  </code>
+                  . Bot chưa có BOT_KEY sẽ <b>tự cấp phát chìa khóa an toàn</b> khi khởi động (xác
+                  minh token Discord thật) — không cần thao tác gì thêm.
                 </p>
                 <div className="mt-3 flex gap-2">
                   <input
@@ -244,7 +236,11 @@ function AdminContent() {
                       try {
                         // Server tự băm seed và lưu bản băm — client không tính gì cả,
                         // và chính seed vừa nhập chính là giá trị BOT_KEY cần dán ở VPS.
-                        await setSecrets({ token, guildId: "__admin__", ownerSeed: ownerSeedInput.trim() });
+                        await setSecrets({
+                          token,
+                          guildId: "__admin__",
+                          ownerSeed: ownerSeedInput.trim(),
+                        });
                         setSecretMsg(
                           `Đã bật bảo vệ ✅ — dán giá trị seed VỪA NHẬP vào BOT_KEY trên VPS (không hiện lại ở đây).`,
                         );
@@ -268,9 +264,8 @@ function AdminContent() {
                 <p className="mb-1 font-semibold text-foreground">🔒 Quyền riêng tư</p>
                 <p>
                   Cửa sổ Admin chỉ hiển thị trong taskbar với{" "}
-                  <b className="text-foreground">chủ sở hữu bot</b> (khớp tài khoản
-                  Discord đã tạo bot). Người dùng khác không thấy nút này và không
-                  truy cập được trang này.
+                  <b className="text-foreground">chủ sở hữu bot</b> (khớp tài khoản Discord đã tạo
+                  bot). Người dùng khác không thấy nút này và không truy cập được trang này.
                 </p>
               </div>
             </div>
@@ -297,10 +292,7 @@ function SelfDiagnoseCard({
   diag,
   onToggle,
 }: {
-  diag:
-    | { enabled: boolean; lastAt: number | null; runs: number }
-    | undefined
-    | null;
+  diag: { enabled: boolean; lastAt: number | null; runs: number } | undefined | null;
   onToggle: (enabled: boolean) => void;
 }) {
   return (
@@ -329,11 +321,10 @@ function SelfDiagnoseCard({
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-        Khi bật, mỗi khi bot gặp lỗi runtime (unhandled rejection / uncaught
-        exception), lỗi + đoạn code liên quan được gửi cho AI (Mimo V2.5 qua Kira —
-        free 30M tokens/ngày riêng cho việc học) để chẩn đoán nguyên nhân và đề
-        xuất bản vá dạng diff. KẾT QUẢ CHỈ LÀ ĐỀ XUẤT đăng vào kênh log — bot
-        không tự sửa code, không tự restart. Cùng 1 lỗi chỉ chẩn đoán 1 lần/giờ.
+        Khi bật, mỗi khi bot gặp lỗi runtime (unhandled rejection / uncaught exception), lỗi + đoạn
+        code liên quan được gửi cho AI (Mimo V2.5 qua Kira — free 30M tokens/ngày riêng cho việc
+        học) để chẩn đoán nguyên nhân và đề xuất bản vá dạng diff. KẾT QUẢ CHỈ LÀ ĐỀ XUẤT đăng vào
+        kênh log — bot không tự sửa code, không tự restart. Cùng 1 lỗi chỉ chẩn đoán 1 lần/giờ.
       </p>
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
@@ -467,9 +458,9 @@ function ThreatIntelCard({
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-        Khi bật, bot tải tin an ninh công khai (Reddit security, CISA KEV) mỗi giờ,
-        học từ khóa scam mới và dùng MIỄN PHÍ vĩnh viễn trong bộ lọc link độc hại.
-        Từ khóa sai có thể bấm xóa bên dưới. Chi phí: gần như 0 — không cần key thêm.
+        Khi bật, bot tải tin an ninh công khai (Reddit security, CISA KEV) mỗi giờ, học từ khóa scam
+        mới và dùng MIỄN PHÍ vĩnh viễn trong bộ lọc link độc hại. Từ khóa sai có thể bấm xóa bên
+        dưới. Chi phí: gần như 0 — không cần key thêm.
       </p>
 
       {/* Lỗi lượt học gần nhất — bot báo lại thay vì treo "Bot đang học…" vĩnh viễn */}
@@ -492,8 +483,8 @@ function ThreatIntelCard({
           checked={threat?.aiWeeklyEnabled ?? true}
           onChange={(e) => onToggleAi(e.target.checked)}
         />
-        Cho phép AI tổng hợp (Mimo V2.5 qua Kira AI — free 30M tokens/ngày riêng cho
-        việc học; tổng hợp mỗi lượt khi có dữ liệu mới, không đụng hạn mức Groq/NVIDIA)
+        Cho phép AI tổng hợp (Mimo V2.5 qua Kira AI — free 30M tokens/ngày riêng cho việc học; tổng
+        hợp mỗi lượt khi có dữ liệu mới, không đụng hạn mức Groq/NVIDIA)
       </label>
 
       <label className="mt-1.5 flex cursor-pointer items-start gap-2 text-[11px] leading-relaxed">
@@ -503,9 +494,8 @@ function ThreatIntelCard({
           checked={!!threat?.notifyEnabled}
           onChange={(e) => onToggleNotify(e.target.checked)}
         />
-        Gửi thông báo học tập vào kênh log các server (kết quả lượt học thủ công +
-        digest tuần). MẶC ĐỊNH TẮT — bật khi muốn admin theo dõi bot học được gì
-        ngay trên Discord thay vì mở web.
+        Gửi thông báo học tập vào kênh log các server (kết quả lượt học thủ công + digest tuần). MẶC
+        ĐỊNH TẮT — bật khi muốn admin theo dõi bot học được gì ngay trên Discord thay vì mở web.
       </label>
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
@@ -525,7 +515,9 @@ function ThreatIntelCard({
           <b className="text-emerald-600">+{threat?.lastNewPhrases ?? 0}</b>
         </div>
         <div className="col-span-2 rounded-lg bg-secondary/40 px-2.5 py-1.5">
-          <span className="text-muted-foreground">Nguồn lượt trước ({threat?.lastSourceCount ?? 0}):</span>{" "}
+          <span className="text-muted-foreground">
+            Nguồn lượt trước ({threat?.lastSourceCount ?? 0}):
+          </span>{" "}
           <b>{threat?.lastSources?.length ? threat.lastSources.join(", ") : "—"}</b>
         </div>
         {threat?.lastSummary && (
@@ -542,7 +534,9 @@ function ThreatIntelCard({
             <p className="text-xs font-semibold text-foreground">🖐️ Học thủ công</p>
             <p className="text-[11px] text-muted-foreground">
               Kích hoạt bot học NGAY từ nguồn mở + AI tổng hợp. Lần cuối:{" "}
-              {threat?.manualLastAt ? new Date(threat.manualLastAt).toLocaleString("vi-VN") : "chưa có"}
+              {threat?.manualLastAt
+                ? new Date(threat.manualLastAt).toLocaleString("vi-VN")
+                : "chưa có"}
               {threat?.manualLastBy ? ` · bởi ${threat.manualLastBy}` : ""}
             </p>
           </div>
@@ -571,7 +565,10 @@ function ThreatIntelCard({
           </p>
           <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg bg-secondary/30 p-2">
             {history.map((r) => (
-              <div key={r.createdAt} className="flex items-center justify-between gap-2 text-[11px]">
+              <div
+                key={r.createdAt}
+                className="flex items-center justify-between gap-2 text-[11px]"
+              >
                 <span className="text-muted-foreground">
                   {new Date(r.createdAt).toLocaleString("vi-VN", {
                     hour: "2-digit",
@@ -584,7 +581,8 @@ function ThreatIntelCard({
                 </span>
                 <span className="font-medium">
                   <b className="text-emerald-600">+{r.newKeywords}</b> từ khóa{" "}
-                  {r.aiUsed && <span title="AI tổng hợp (Mimo V2.5)">🧠</span>} · nhớ {r.totalKeywords}
+                  {r.aiUsed && <span title="AI tổng hợp (Mimo V2.5)">🧠</span>} · nhớ{" "}
+                  {r.totalKeywords}
                 </span>
               </div>
             ))}
@@ -597,12 +595,12 @@ function ThreatIntelCard({
           Từ khóa đã học ({(threat?.keywords?.length ?? 0) + (threat?.scamPhrases?.length ?? 0)})
         </p>
         <div className="flex max-h-28 flex-wrap gap-1 overflow-y-auto">
-          {threat &&
-            (threat.keywords?.length ?? 0) + (threat.scamPhrases?.length ?? 0) === 0 && (
-              <span className="text-[11px] text-muted-foreground">
-                Chưa học được từ khóa nào — bật research và chờ lượt chạy đầu tiên (5 phút sau khi bot online).
-              </span>
-            )}
+          {threat && (threat.keywords?.length ?? 0) + (threat.scamPhrases?.length ?? 0) === 0 && (
+            <span className="text-[11px] text-muted-foreground">
+              Chưa học được từ khóa nào — bật research và chờ lượt chạy đầu tiên (5 phút sau khi bot
+              online).
+            </span>
+          )}
           {(threat?.keywords ?? []).map((k) => (
             <span
               key={`kw-${k}`}

@@ -1,16 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
-import {
-  MessageSquareQuote,
-  Pencil,
-  Plus,
-  Power,
-  Search,
-  Smile,
-  Trash2,
-  X,
-} from "lucide-react";
+import { MessageSquareQuote, Pencil, Plus, Power, Search, Smile, Trash2, X } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -38,16 +29,107 @@ interface EntryRow {
 
 /** Bộ emoji gợi ý — nhóm theo chủ đề để dễ chọn. */
 const EMOJI_CATEGORIES: { label: string; emojis: string[] }[] = [
-  { label: "Phổ biến", emojis: ["✅", "❌", "⭐", "🔥", "💯", "👍", "👎", "👀", "❤️", "🎉", "🎁", "🏆"] },
-  { label: "Cảm xúc", emojis: ["😀", "😄", "😁", "😂", "🤣", "😊", "😍", "🥰", "😎", "🤩", "😅", "😭", "😤", "🤔", "😴", "🙄"] },
-  { label: "Cử chỉ", emojis: ["👍", "👎", "👏", "🙌", "🙏", "🤝", "💪", "👋", "🤙", "✌️", "🤞", "👌"] },
-  { label: "Màu sắc", emojis: ["🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "⚫", "⚪", "🟤", "🔺", "🔻", "🔵"] },
-  { label: "Động vật", emojis: ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🦄"] },
-  { label: "Game & hoạt động", emojis: ["🎮", "🕹️", "🎯", "🎲", "🎳", "🎰", "🎪", "🛡️", "⚔️", "🏹", "🚀", "🏎️", "⚽", "🏀", "🏈", "🎾"] },
-  { label: "Âm nhạc & giải trí", emojis: ["🎵", "🎶", "🎤", "🎧", "🎸", "🎹", "🎬", "🎥", "📺", "📻", "🎨", "🖌️"] },
-  { label: "Khác", emojis: ["☕", "🍕", "🍔", "🌮", "🍣", "🍰", "🎂", "🍬", "💎", "💰", "📚", "✏️", "💡", "🔔", "📌", "🧩"] },
+  {
+    label: "Phổ biến",
+    emojis: ["✅", "❌", "⭐", "🔥", "💯", "👍", "👎", "👀", "❤️", "🎉", "🎁", "🏆"],
+  },
+  {
+    label: "Cảm xúc",
+    emojis: [
+      "😀",
+      "😄",
+      "😁",
+      "😂",
+      "🤣",
+      "😊",
+      "😍",
+      "🥰",
+      "😎",
+      "🤩",
+      "😅",
+      "😭",
+      "😤",
+      "🤔",
+      "😴",
+      "🙄",
+    ],
+  },
+  {
+    label: "Cử chỉ",
+    emojis: ["👍", "👎", "👏", "🙌", "🙏", "🤝", "💪", "👋", "🤙", "✌️", "🤞", "👌"],
+  },
+  {
+    label: "Màu sắc",
+    emojis: ["🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "⚫", "⚪", "🟤", "🔺", "🔻", "🔵"],
+  },
+  {
+    label: "Động vật",
+    emojis: [
+      "🐶",
+      "🐱",
+      "🐭",
+      "🐹",
+      "🐰",
+      "🦊",
+      "🐻",
+      "🐼",
+      "🐨",
+      "🐯",
+      "🦁",
+      "🐮",
+      "🐷",
+      "🐸",
+      "🐵",
+      "🦄",
+    ],
+  },
+  {
+    label: "Game & hoạt động",
+    emojis: [
+      "🎮",
+      "🕹️",
+      "🎯",
+      "🎲",
+      "🎳",
+      "🎰",
+      "🎪",
+      "🛡️",
+      "⚔️",
+      "🏹",
+      "🚀",
+      "🏎️",
+      "⚽",
+      "🏀",
+      "🏈",
+      "🎾",
+    ],
+  },
+  {
+    label: "Âm nhạc & giải trí",
+    emojis: ["🎵", "🎶", "🎤", "🎧", "🎸", "🎹", "🎬", "🎥", "📺", "📻", "🎨", "🖌️"],
+  },
+  {
+    label: "Khác",
+    emojis: [
+      "☕",
+      "🍕",
+      "🍔",
+      "🌮",
+      "🍣",
+      "🍰",
+      "🎂",
+      "🍬",
+      "💎",
+      "💰",
+      "📚",
+      "✏️",
+      "💡",
+      "🔔",
+      "📌",
+      "🧩",
+    ],
+  },
 ];
-
 
 /** Bảng chọn emoji: tìm kiếm + lưới gợi ý + nhập emoji tùy chỉnh (unicode / <:name:id> / ID). */
 function EmojiPicker({
@@ -67,7 +149,9 @@ function EmojiPicker({
     ? EMOJI_CATEGORIES.flatMap((c) =>
         c.label.toLowerCase().includes(q)
           ? c.emojis.map((e) => ({ group: c.label, emoji: e }))
-          : c.emojis.filter((e) => e.toLowerCase().includes(q)).map((e) => ({ group: c.label, emoji: e })),
+          : c.emojis
+              .filter((e) => e.toLowerCase().includes(q))
+              .map((e) => ({ group: c.label, emoji: e })),
       )
     : [];
 
@@ -123,7 +207,9 @@ function EmojiPicker({
             <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-border p-2">
               {EMOJI_CATEGORIES.map((cat) => (
                 <div key={cat.label}>
-                  <p className="px-1 pb-1 text-[11px] font-semibold text-muted-foreground">{cat.label}</p>
+                  <p className="px-1 pb-1 text-[11px] font-semibold text-muted-foreground">
+                    {cat.label}
+                  </p>
                   <div className="grid grid-cols-8 gap-1">
                     {cat.emojis.map((emoji) => (
                       <button
@@ -150,7 +236,11 @@ function EmojiPicker({
                   if (e.key === "Enter" && custom.trim()) pick(custom.trim());
                 }}
               />
-              <Button variant="outline" size="sm" onClick={() => custom.trim() && pick(custom.trim())}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => custom.trim() && pick(custom.trim())}
+              >
                 Dùng
               </Button>
             </div>
@@ -213,7 +303,11 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
     setDescription(p.description ?? "");
     setThumbnailUrl(p.thumbnailUrl ?? "");
     setChannelId(p.channelId);
-    setRows(p.entries.length > 0 ? p.entries.map((e) => ({ emoji: e.emoji, roleId: e.roleId })) : [{ emoji: "✅", roleId: "" }]);
+    setRows(
+      p.entries.length > 0
+        ? p.entries.map((e) => ({ emoji: e.emoji, roleId: e.roleId }))
+        : [{ emoji: "✅", roleId: "" }],
+    );
     setOpen(true);
   }
 
@@ -269,8 +363,8 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
               <MessageSquareQuote className="h-4 w-4 text-primary" /> Reaction Role
             </h3>
             <p className="text-sm text-muted-foreground">
-              Thành viên bấm emoji dưới tin nhắn để tự nhận / gỡ role. Chỉnh được tên, mô tả, thumbnail
-              và cặp emoji → role.
+              Thành viên bấm emoji dưới tin nhắn để tự nhận / gỡ role. Chỉnh được tên, mô tả,
+              thumbnail và cặp emoji → role.
             </p>
           </div>
           <Button onClick={openCreate}>
@@ -371,7 +465,9 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editingPanel ? "Sửa bảng reaction role" : "Tạo bảng reaction role"}</DialogTitle>
+              <DialogTitle>
+                {editingPanel ? "Sửa bảng reaction role" : "Tạo bảng reaction role"}
+              </DialogTitle>
               <DialogDescription>
                 {editingPanel
                   ? "Bot sẽ gửi bảng mới với nội dung đã chỉnh trong vòng ~1 phút (tin nhắn cũ vẫn còn)."
@@ -438,7 +534,10 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
                     <div key={i} className="flex items-center gap-2">
                       <Button
                         variant="outline"
-                        className={cn("h-10 w-12 shrink-0 text-xl", !row.emoji && "text-muted-foreground")}
+                        className={cn(
+                          "h-10 w-12 shrink-0 text-xl",
+                          !row.emoji && "text-muted-foreground",
+                        )}
                         title="Chọn emoji"
                         onClick={() => setPickerFor(i)}
                       >
@@ -485,7 +584,12 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
             <DialogFooter>
               <Button
                 onClick={handleSave}
-                disabled={saving || !label || (editingPanel ? false : !channelId) || rows.some((r) => !r.emoji || !r.roleId)}
+                disabled={
+                  saving ||
+                  !label ||
+                  (editingPanel ? false : !channelId) ||
+                  rows.some((r) => !r.emoji || !r.roleId)
+                }
               >
                 {saving ? "Đang lưu…" : editingPanel ? "Lưu thay đổi" : "Tạo bảng"}
               </Button>

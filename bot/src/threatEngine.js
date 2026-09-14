@@ -44,7 +44,6 @@ const SELFTEST_INTERVAL_MS = 30 * 60 * 1000;
 const BACKFILL_DELAY_MS = 10 * 60 * 1000;
 
 let urlhausDomains = new Set();
-let urlhausLoadedAt = 0;
 let engineStats = { urlhausDomains: 0, ngramClusters: 0, lastSelfTestOk: null };
 
 /* ============================================================
@@ -84,7 +83,6 @@ async function refreshUrlhaus(store) {
     }
     if (domains.size === 0) return false;
     urlhausDomains = domains;
-    urlhausLoadedAt = Date.now();
     engineStats.urlhausDomains = domains.size;
     // Đẩy sang filters (nạp ngay, không đợi refresh 10 phút).
     try {
@@ -110,7 +108,9 @@ async function refreshUrlhaus(store) {
 /** Link có trong danh sách domain độc URLhaus không? */
 function isUrlhausDomain(urlOrHost) {
   if (urlhausDomains.size === 0) return false;
-  const host = hostOf(String(urlOrHost).includes("://") ? String(urlOrHost) : `http://${urlOrHost}`);
+  const host = hostOf(
+    String(urlOrHost).includes("://") ? String(urlOrHost) : `http://${urlOrHost}`,
+  );
   return host ? urlhausDomains.has(host) : false;
 }
 
@@ -120,7 +120,11 @@ function isUrlhausDomain(urlOrHost) {
 
 /** Trigram shingles của 1 chuỗi. */
 function shingles(text) {
-  const t = String(text).toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+  const t = String(text)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   if (t.length < 6) return new Set();
   const s = new Set();
   for (let i = 0; i < t.length - 2; i++) s.add(t.slice(i, i + 3));
@@ -171,7 +175,19 @@ function clusterFlagged(now = Date.now()) {
  * Sinh từ khóa wildcard từ 1 cụm: đếm tần suất token (≥5 ký tự, không noise),
  * lấy top token xuất hiện trong ≥ 2/3 thành viên → từ khóa đặc trưng của cụm.
  */
-const NOISE = new Set(["discord", "server", "free", "nitro", "gift", "click", "link", "http", "https", "www", "com"]);
+const NOISE = new Set([
+  "discord",
+  "server",
+  "free",
+  "nitro",
+  "gift",
+  "click",
+  "link",
+  "http",
+  "https",
+  "www",
+  "com",
+]);
 function keywordsFromCluster(cluster, max = 3) {
   const n = cluster.members.length;
   const freq = new Map();
@@ -262,7 +278,9 @@ function selfTestKeywords() {
 /** Quét lại raidSamples lịch sử (1 lần sau khi online) — đào từ khóa bỏ sót. */
 async function backfillFromSamples(store) {
   try {
-    const samples = await store.client.query("antinuke:recentRaidSamples", { limit: 200 }).catch(() => null);
+    const samples = await store.client
+      .query("antinuke:recentRaidSamples", { limit: 200 })
+      .catch(() => null);
     if (!Array.isArray(samples) || samples.length === 0) return { keywords: 0 };
     const { extractKeywordsFromText } = require("./research");
     const all = [];

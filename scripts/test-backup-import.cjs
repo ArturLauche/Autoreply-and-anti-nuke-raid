@@ -48,9 +48,29 @@ let b = normalizeBackupFile(
 check("đọc được guildName", b.guildName === "Server A", b.guildName);
 check("đủ 3 role", b.roles.length === 3, String(b.roles.length));
 check("đủ 2 kênh", b.channels.length === 2, String(b.channels.length));
-check("giữ nguyên vị trí role", b.roles[0].position === 3 && b.roles[2].position === 5, JSON.stringify(b.roles.map((r) => r.position)));
-check("sortedRoles theo đúng thứ tự file (Member → Mod → Admin)", sortedRoles(b).map((r) => r.name).join(",") === "Member,Mod,Admin", sortedRoles(b).map((r) => r.name).join(","));
-check("sortedChannels danh mục trước kênh theo vị trí", sortedChannels(b).map((c) => c.name).join(",") === "Văn phòng,general", sortedChannels(b).map((c) => c.name).join(","));
+check(
+  "giữ nguyên vị trí role",
+  b.roles[0].position === 3 && b.roles[2].position === 5,
+  JSON.stringify(b.roles.map((r) => r.position)),
+);
+check(
+  "sortedRoles theo đúng thứ tự file (Member → Mod → Admin)",
+  sortedRoles(b)
+    .map((r) => r.name)
+    .join(",") === "Member,Mod,Admin",
+  sortedRoles(b)
+    .map((r) => r.name)
+    .join(","),
+);
+check(
+  "sortedChannels danh mục trước kênh theo vị trí",
+  sortedChannels(b)
+    .map((c) => c.name)
+    .join(",") === "Văn phòng,general",
+  sortedChannels(b)
+    .map((c) => c.name)
+    .join(","),
+);
 
 console.log("\n2) File có lớp bọc ngoài (data / guild / server):");
 b = normalizeBackupFile(
@@ -74,7 +94,11 @@ const raw = JSON.stringify({
   channels: [{ name: "general", type: "text", position: 0 }],
 });
 b = normalizeBackupFile(Buffer.from(raw).toString("base64"));
-check("giải mã base64 → 1 role + 1 kênh", b.roles.length === 1 && b.channels.length === 1, `${b.roles.length}/${b.channels.length}`);
+check(
+  "giải mã base64 → 1 role + 1 kênh",
+  b.roles.length === 1 && b.channels.length === 1,
+  `${b.roles.length}/${b.channels.length}`,
+);
 check("giữ quyền role", b.roles[0].permissions === "8", b.roles[0].permissions);
 
 console.log("\n4) Tin nhắn trong kênh (author dạng chuỗi + object, timestamp ISO/ms):");
@@ -88,19 +112,43 @@ b = normalizeBackupFile(
         type: 0,
         position: 0,
         messages: [
-          { content: "tin 1", author: { username: "Alice" }, timestamp: "2024-01-01T00:00:00.000Z" },
+          {
+            content: "tin 1",
+            author: { username: "Alice" },
+            timestamp: "2024-01-01T00:00:00.000Z",
+          },
           { content: "tin 2", author: "Bob", timestamp: 1704067200000 },
-          { content: "tin 3", author: { username: "Alice" }, timestamp: "2024-01-02T00:00:00.000Z" },
+          {
+            content: "tin 3",
+            author: { username: "Alice" },
+            timestamp: "2024-01-02T00:00:00.000Z",
+          },
         ],
       },
     ],
   }),
 );
-check("chuẩn hóa đủ 3 tin", b.channels[0].messages.length === 3, String(b.channels[0].messages?.length));
+check(
+  "chuẩn hóa đủ 3 tin",
+  b.channels[0].messages.length === 3,
+  String(b.channels[0].messages?.length),
+);
 check("messageCount = 3", countMessages(b) === 3, String(countMessages(b)));
-check("timestamp ISO + ms đều về ms", b.channels[0].messages.every((m) => Number.isFinite(m.timestamp)), JSON.stringify(b.channels[0].messages.map((m) => m.timestamp)));
-check("author object → username", b.channels[0].messages[0].authorName === "Alice", b.channels[0].messages[0].authorName);
-check("author chuỗi → giữ nguyên", b.channels[0].messages[1].authorName === "Bob", b.channels[0].messages[1].authorName);
+check(
+  "timestamp ISO + ms đều về ms",
+  b.channels[0].messages.every((m) => Number.isFinite(m.timestamp)),
+  JSON.stringify(b.channels[0].messages.map((m) => m.timestamp)),
+);
+check(
+  "author object → username",
+  b.channels[0].messages[0].authorName === "Alice",
+  b.channels[0].messages[0].authorName,
+);
+check(
+  "author chuỗi → giữ nguyên",
+  b.channels[0].messages[1].authorName === "Bob",
+  b.channels[0].messages[1].authorName,
+);
 const order = b.channels[0].messages.map((m) => m.content).join(",");
 check("thứ tự tin nhắn tăng dần theo thời gian", order === "tin 1,tin 2,tin 3", order);
 
@@ -108,7 +156,9 @@ console.log("\n5) Tên trường đa dạng (permission_overwrites, roleData, ch
 b = normalizeBackupFile(
   JSON.stringify({
     guild_id: "999",
-    roleData: [{ roleId: "x1", roleName: "Nuke Guard", permissions: 0, position: 4, colour: "#00ff00" }],
+    roleData: [
+      { roleId: "x1", roleName: "Nuke Guard", permissions: 0, position: 4, colour: "#00ff00" },
+    ],
     channelData: [
       {
         channel_id: "y1",
@@ -120,9 +170,21 @@ b = normalizeBackupFile(
     ],
   }),
 );
-check("roleData/roleId/roleName/colour → chuẩn hóa", b.roles.length === 1 && b.roles[0].name === "Nuke Guard" && b.roles[0].color === 0x00ff00, JSON.stringify(b.roles[0]));
-check("channel_id/channelName/channelType 'announcement' → 5", b.channels[0].type === 5, String(b.channels[0].type));
-check("overwrite giữ id/type/allow", b.channels[0].overwrites.length === 1 && b.channels[0].overwrites[0].allow === "1024", JSON.stringify(b.channels[0].overwrites));
+check(
+  "roleData/roleId/roleName/colour → chuẩn hóa",
+  b.roles.length === 1 && b.roles[0].name === "Nuke Guard" && b.roles[0].color === 0x00ff00,
+  JSON.stringify(b.roles[0]),
+);
+check(
+  "channel_id/channelName/channelType 'announcement' → 5",
+  b.channels[0].type === 5,
+  String(b.channels[0].type),
+);
+check(
+  "overwrite giữ id/type/allow",
+  b.channels[0].overwrites.length === 1 && b.channels[0].overwrites[0].allow === "1024",
+  JSON.stringify(b.channels[0].overwrites),
+);
 
 console.log("\n6) File hỏng:");
 let threw = false;
@@ -130,7 +192,11 @@ try {
   normalizeBackupFile("day khong phai json cung khong phai base64 !!!");
 } catch (e) {
   threw = true;
-  check("báo lỗi rõ ràng", /không đọc được file backup|không phải JSON/i.test(e.message), e.message);
+  check(
+    "báo lỗi rõ ràng",
+    /không đọc được file backup|không phải JSON/i.test(e.message),
+    e.message,
+  );
 }
 check("file hỏng → ném lỗi", threw);
 
@@ -155,7 +221,9 @@ b = normalizeBackupFile(
     ],
   }),
 );
-const names = sortedRoles(b).map((r) => r.name).join(",");
+const names = sortedRoles(b)
+  .map((r) => r.name)
+  .join(",");
 check("position ưu tiên, thiếu thì theo thứ tự file (B,D,A,C)", names === "B,D,A,C", names);
 
 console.log("\n9) Media — giữ nguyên khi import (URL + data URI base64) và tải về được:");
@@ -177,9 +245,7 @@ b = normalizeBackupFile(
           {
             content: "link",
             author: "B",
-            attachments: [
-              "https://cdn.discordapp.com/attachments/1/2/hinh%20x.png?ex=1&is=2",
-            ],
+            attachments: ["https://cdn.discordapp.com/attachments/1/2/hinh%20x.png?ex=1&is=2"],
           },
         ],
       },
@@ -199,8 +265,7 @@ check(
 );
 check(
   "nameFromUrl bỏ query, giải mã %20 → tên sạch",
-  nameFromUrl("https://cdn.discordapp.com/attachments/1/2/hinh%20x.png?ex=1&is=2") ===
-    "hinh_x.png",
+  nameFromUrl("https://cdn.discordapp.com/attachments/1/2/hinh%20x.png?ex=1&is=2") === "hinh_x.png",
   nameFromUrl("https://cdn.discordapp.com/attachments/1/2/hinh%20x.png?ex=1&is=2"),
 );
 
@@ -208,25 +273,52 @@ console.log("\n10) Emoji từ file bot nuke (chuỗi `<:name:id>` / `<a:...>` / 
 let e = normalizeEmoji("<:pepe:123>", 0);
 check("chuỗi <:name:id> → name/id", e && e.name === "pepe" && e.id === "123", JSON.stringify(e));
 e = normalizeEmoji("<a:boing:456>", 0);
-check("chuỗi <a:name:id> → animated", e && e.name === "boing" && e.animated === true, JSON.stringify(e));
+check(
+  "chuỗi <a:name:id> → animated",
+  e && e.name === "boing" && e.animated === true,
+  JSON.stringify(e),
+);
 e = normalizeEmoji("vip:789", 0);
 check("chuỗi name:id → name/id", e && e.name === "vip" && e.id === "789", JSON.stringify(e));
-e = normalizeEmoji({ name: "happy", url: "https://cdn.discordapp.com/emojis/1.png", animated: false }, 0);
-check("object có url → giữ url", e && e.name === "happy" && e.url === "https://cdn.discordapp.com/emojis/1.png", JSON.stringify(e));
+e = normalizeEmoji(
+  { name: "happy", url: "https://cdn.discordapp.com/emojis/1.png", animated: false },
+  0,
+);
+check(
+  "object có url → giữ url",
+  e && e.name === "happy" && e.url === "https://cdn.discordapp.com/emojis/1.png",
+  JSON.stringify(e),
+);
 e = normalizeEmoji({ emojiName: "wow", image: "data:image/png;base64,AAAA" }, 0);
-check("object có raw base64 (image) → raw", e && e.name === "wow" && e.raw === "data:image/png;base64,AAAA", JSON.stringify(e));
+check(
+  "object có raw base64 (image) → raw",
+  e && e.name === "wow" && e.raw === "data:image/png;base64,AAAA",
+  JSON.stringify(e),
+);
 check("emoji rỗng/null → null", normalizeEmoji("", 0) === null && normalizeEmoji(null, 0) === null);
 
 console.log("\n11) Sticker từ file bot nuke (URL chuỗi / object có tags + url):");
 let s = normalizeSticker("https://cdn.discordapp.com/stickers/1.png", 0);
-check("sticker URL chuỗi → url", s && s.url === "https://cdn.discordapp.com/stickers/1.png", JSON.stringify(s));
+check(
+  "sticker URL chuỗi → url",
+  s && s.url === "https://cdn.discordapp.com/stickers/1.png",
+  JSON.stringify(s),
+);
 s = normalizeSticker(
   { name: "cat", tags: "😀", url: "https://cdn.discordapp.com/stickers/2.png", formatType: 1 },
   0,
 );
-check("sticker object → name/tags/url/formatType", s && s.name === "cat" && s.tags === "😀" && s.formatType === 1, JSON.stringify(s));
+check(
+  "sticker object → name/tags/url/formatType",
+  s && s.name === "cat" && s.tags === "😀" && s.formatType === 1,
+  JSON.stringify(s),
+);
 s = normalizeSticker({ name: "dog", asset: "abc123" }, 0);
-check("sticker asset → url null (không chết)", s && s.url === null && s.name === "dog", JSON.stringify(s));
+check(
+  "sticker asset → url null (không chết)",
+  s && s.url === null && s.name === "dog",
+  JSON.stringify(s),
+);
 
 console.log("\n12) normalizeBackupFile đọc emoji/sticker từ file nuke (nhiều tên trường):");
 b = normalizeBackupFile(
@@ -246,11 +338,17 @@ check(
 check("file chỉ có emoji/sticker vẫn chấp nhận", b.roles.length === 0 && b.channels.length === 0);
 
 console.log("\n13) sanitizeEmojiName (Discord: 2-32 ký tự, chữ thường + _):");
-check("viết hoa + ký tự lạ → thường + _", sanitizeEmojiName("Pepe Hand") === "pepe_hand", sanitizeEmojiName("Pepe Hand"));
+check(
+  "viết hoa + ký tự lạ → thường + _",
+  sanitizeEmojiName("Pepe Hand") === "pepe_hand",
+  sanitizeEmojiName("Pepe Hand"),
+);
 check("tên 1 ký tự → ít nhất 2 ký tự", sanitizeEmojiName("x").length >= 2, sanitizeEmojiName("x"));
 check("tên > 32 ký tự → cắt về 32", sanitizeEmojiName("a".repeat(40)).length === 32);
 
-console.log("\n14) slimBackupForStore — bỏ base64 nặng khi lưu bản import (chống vượt 1 MB Convex):");
+console.log(
+  "\n14) slimBackupForStore — bỏ base64 nặng khi lưu bản import (chống vượt 1 MB Convex):",
+);
 const big = {
   guildName: "Server G",
   roles: [],
@@ -271,7 +369,13 @@ const big = {
     },
   ],
   emojis: [{ name: "wow", raw: "data:image/png;base64,BBB" }],
-  stickers: [{ name: "cat", raw: "data:image/png;base64,CCC", url: "https://cdn.discordapp.com/stickers/2.png" }],
+  stickers: [
+    {
+      name: "cat",
+      raw: "data:image/png;base64,CCC",
+      url: "https://cdn.discordapp.com/stickers/2.png",
+    },
+  ],
 };
 const slim = slimBackupForStore(big);
 check(
@@ -281,7 +385,11 @@ check(
   JSON.stringify(slim.channels[0].messages[0].attachments),
 );
 check("bỏ raw emoji", slim.emojis[0].raw === undefined, JSON.stringify(slim.emojis[0]));
-check("bỏ raw sticker, giữ url", slim.stickers[0].raw === undefined && slim.stickers[0].url !== null, JSON.stringify(slim.stickers[0]));
+check(
+  "bỏ raw sticker, giữ url",
+  slim.stickers[0].raw === undefined && slim.stickers[0].url !== null,
+  JSON.stringify(slim.stickers[0]),
+);
 check(
   "bản gốc KHÔNG bị sửa đổi (vẫn dùng để đăng media thật)",
   big.channels[0].messages[0].attachments[0].startsWith("data:") && big.emojis[0].raw !== undefined,
@@ -291,10 +399,18 @@ check(
 console.log("\n15) JSON nằm giữa văn bản thừa (dòng tiêu đề / trailer):");
 b = normalizeBackupFile(
   "MSC BACKUP v1.0 — file khong sua doi\n" +
-    JSON.stringify({ guildName: "Server H", roles: [{ name: "Mod" }], channels: [{ name: "general", type: 0 }] }) +
+    JSON.stringify({
+      guildName: "Server H",
+      roles: [{ name: "Mod" }],
+      channels: [{ name: "general", type: 0 }],
+    }) +
     "\n--- het file ---",
 );
-check("cắt được JSON giữa tiêu đề + trailer", b.roles.length === 1 && b.channels.length === 1, JSON.stringify({ r: b.roles.length, c: b.channels.length }));
+check(
+  "cắt được JSON giữa tiêu đề + trailer",
+  b.roles.length === 1 && b.channels.length === 1,
+  JSON.stringify({ r: b.roles.length, c: b.channels.length }),
+);
 
 console.log("\n16) Base64 có tiền tố (base64://, data:...;base64,) + URL-encode:");
 const raw16 = JSON.stringify({ guildName: "Server I", roles: [{ name: "Vip" }] });
@@ -305,7 +421,8 @@ check(
 );
 check(
   "data:application/json;base64, prefix",
-  normalizeBackupFile("data:application/json;base64," + Buffer.from(raw16).toString("base64")).roles[0].name === "Vip",
+  normalizeBackupFile("data:application/json;base64," + Buffer.from(raw16).toString("base64"))
+    .roles[0].name === "Vip",
   "",
 );
 check(
@@ -318,17 +435,26 @@ console.log("\n17) Roles/channels dạng OBJECT keyed-by-id (không phải array
 b = normalizeBackupFile(
   JSON.stringify({
     guildName: "Server J",
-    roles: { r1: { name: "Admin", permissions: "administrator,ban_members" }, r2: { name: "Member" } },
+    roles: {
+      r1: { name: "Admin", permissions: "administrator,ban_members" },
+      r2: { name: "Member" },
+    },
     channels: {
       c1: { name: "general", type: 0 },
       c2: { name: "Văn phòng", type: 4 },
     },
   }),
 );
-check("object roles → 2 role đúng thứ tự", b.roles.length === 2 && b.roles[0].name === "Admin", JSON.stringify(b.roles.map((r) => r.name)));
+check(
+  "object roles → 2 role đúng thứ tự",
+  b.roles.length === 2 && b.roles[0].name === "Admin",
+  JSON.stringify(b.roles.map((r) => r.name)),
+);
 check("object channels → 2 kênh", b.channels.length === 2, String(b.channels.length));
 
-console.log("\n18) Quyền lưu theo TÊN → bitfield (administrator/ban_members, view_channel/send_messages):");
+console.log(
+  "\n18) Quyền lưu theo TÊN → bitfield (administrator/ban_members, view_channel/send_messages):",
+);
 check(
   "administrator+ban_members → bitfield 12",
   b.roles[0].permissions === "12",
@@ -355,15 +481,29 @@ check(
 
 console.log("\n19) Wrapper sâu 5 lớp + wrapper chứa chuỗi JSON/base64 nhúng:");
 b = normalizeBackupFile(
-  JSON.stringify({ result: { data: { guild: { server: { backup: { snapshot: { roles: [{ name: "Deep" }] } } } } } } }),
+  JSON.stringify({
+    result: {
+      data: { guild: { server: { backup: { snapshot: { roles: [{ name: "Deep" }] } } } } },
+    },
+  }),
 );
-check("wrapper 5 lớp → đọc được role", b.roles.length === 1 && b.roles[0].name === "Deep", String(b.roles.length));
+check(
+  "wrapper 5 lớp → đọc được role",
+  b.roles.length === 1 && b.roles[0].name === "Deep",
+  String(b.roles.length),
+);
 const wrappedStr = JSON.stringify({
   ok: true,
-  content: Buffer.from(JSON.stringify({ guildName: "Server L", roles: [{ name: "Nested" }] })).toString("base64"),
+  content: Buffer.from(
+    JSON.stringify({ guildName: "Server L", roles: [{ name: "Nested" }] }),
+  ).toString("base64"),
 });
 b = normalizeBackupFile(wrappedStr);
-check("wrapper chứa chuỗi base64 nhúng → đệ quy đọc được", b.roles.length === 1 && b.roles[0].name === "Nested", JSON.stringify(b.roles));
+check(
+  "wrapper chứa chuỗi base64 nhúng → đệ quy đọc được",
+  b.roles.length === 1 && b.roles[0].name === "Nested",
+  JSON.stringify(b.roles),
+);
 
 /* ================= Định dạng mã hóa riêng của bot nuke: {alphabet, key, payload} ================= */
 
@@ -433,8 +573,7 @@ function base64CustomEncode(bytes, alphabet) {
     out += alphabet[(v >> 2) & 63] + alphabet[(v << 4) & 63];
   } else if (rem === 2) {
     const v = (arr[i] << 8) | arr[i + 1];
-    out +=
-      alphabet[(v >> 10) & 63] + alphabet[(v >> 4) & 63] + alphabet[(v << 2) & 63];
+    out += alphabet[(v >> 10) & 63] + alphabet[(v >> 4) & 63] + alphabet[(v << 2) & 63];
   }
   return out;
 }
@@ -592,10 +731,21 @@ const mscBackupObj = {
     try {
       const bb = normalizeBackupFile(wrapper);
       const ok =
-        bb.roles.length === 2 && bb.channels.length === 2 && bb.emojis.length === 1 && bb.roles[0].name === "Admin";
-      check(`giải mã định dạng mã hóa base64 tùy biến (${scheme}) → đủ role/kênh/emoji`, ok, JSON.stringify(bb));
+        bb.roles.length === 2 &&
+        bb.channels.length === 2 &&
+        bb.emojis.length === 1 &&
+        bb.roles[0].name === "Admin";
+      check(
+        `giải mã định dạng mã hóa base64 tùy biến (${scheme}) → đủ role/kênh/emoji`,
+        ok,
+        JSON.stringify(bb),
+      );
     } catch (e) {
-      check(`giải mã định dạng mã hóa base64 tùy biến (${scheme}) → đủ role/kênh/emoji`, false, e.message);
+      check(
+        `giải mã định dạng mã hóa base64 tùy biến (${scheme}) → đủ role/kênh/emoji`,
+        false,
+        e.message,
+      );
     }
   }
 }
@@ -607,16 +757,44 @@ const mscBackupObj = {
   const alphabet = makeAlphabet89();
   const key = "~k5V+n~E[U3=1uO._^C&~fQZj<FViV9*";
   const real = {
-    guild_id: 1527942433739116584,
+    guild_id: "1527942433739116584",
     name: "ྀ𝕷𝖎𝖈𝖆𝖋𝖎𝖓 ྀ🐱🚬",
     channels: [
-      { name: "Welcome", position: 0, type: "category", category_id: null, id: "111", permission_overwrites: [] },
-      { name: "general", position: 1, type: "text", category_id: "111", id: "222", permission_overwrites: [] },
+      {
+        name: "Welcome",
+        position: 0,
+        type: "category",
+        category_id: null,
+        id: "111",
+        permission_overwrites: [],
+      },
+      {
+        name: "general",
+        position: 1,
+        type: "text",
+        category_id: "111",
+        id: "222",
+        permission_overwrites: [],
+      },
       { name: "Voice", position: 2, type: "voice", category_id: "111", id: "333" },
     ],
     roles: [
-      { name: "Mem mới", position: 37, color: 1146986, permissions: "49152", hoist: false, mentionable: false },
-      { name: "Admin", position: 38, color: 0xff0000, permissions: "8", hoist: true, mentionable: false },
+      {
+        name: "Mem mới",
+        position: 37,
+        color: 1146986,
+        permissions: "49152",
+        hoist: false,
+        mentionable: false,
+      },
+      {
+        name: "Admin",
+        position: 38,
+        color: 0xff0000,
+        permissions: "8",
+        hoist: true,
+        mentionable: false,
+      },
     ],
     emojis: [
       "https://cdn.discordapp.com/emojis/1527953852601597982.png",
@@ -638,9 +816,17 @@ const mscBackupObj = {
       bb.emojis[0].name.startsWith("e1527953852601597982") &&
       bb.emojis[0].url === "https://cdn.discordapp.com/emojis/1527953852601597982.png" &&
       bb.emojis[1].animated === true;
-    check("sơ đồ đã xác minh (base64+Vigenère 89 ký tự) + shape file thật → đủ role/kênh/emoji", ok, JSON.stringify(bb));
+    check(
+      "sơ đồ đã xác minh (base64+Vigenère 89 ký tự) + shape file thật → đủ role/kênh/emoji",
+      ok,
+      JSON.stringify(bb),
+    );
   } catch (e) {
-    check("sơ đồ đã xác minh (base64+Vigenère 89 ký tự) + shape file thật → đủ role/kênh/emoji", false, e.message);
+    check(
+      "sơ đồ đã xác minh (base64+Vigenère 89 ký tự) + shape file thật → đủ role/kênh/emoji",
+      false,
+      e.message,
+    );
   }
 }
 
@@ -656,9 +842,22 @@ const mscBackupObj = {
         bb.channels.length === 32 &&
         bb.emojis.length === 91 &&
         bb.guildName.includes("𝕷𝖎𝖈𝖆𝖋𝖎𝖓");
-      check(`FILE .msc THẬT 2.5MB → 36 roles / 32 channels / 91 emojis / đúng tên server`, ok, JSON.stringify({ roles: bb.roles.length, channels: bb.channels.length, emojis: bb.emojis.length, name: bb.guildName }));
+      check(
+        `FILE .msc THẬT 2.5MB → 36 roles / 32 channels / 91 emojis / đúng tên server`,
+        ok,
+        JSON.stringify({
+          roles: bb.roles.length,
+          channels: bb.channels.length,
+          emojis: bb.emojis.length,
+          name: bb.guildName,
+        }),
+      );
     } catch (e) {
-      check(`FILE .msc THẬT 2.5MB → 36 roles / 32 channels / 91 emojis / đúng tên server`, false, e.message);
+      check(
+        `FILE .msc THẬT 2.5MB → 36 roles / 32 channels / 91 emojis / đúng tên server`,
+        false,
+        e.message,
+      );
     }
   } else {
     console.log("  ⏭️  bỏ qua test file .msc thật (/tmp/real-backup.msc không tồn tại)");

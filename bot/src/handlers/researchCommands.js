@@ -34,10 +34,7 @@ function memberOf(source) {
  * Ai cũng xem được — chỉ là thông tin học tập, không tốn gì khi đọc.
  */
 async function showStatus(client, store, source) {
-  const guild = source.guild;
-  const intel = await store.client
-    .query("threatIntel:botGetIntel", {})
-    .catch(() => null);
+  const intel = await store.client.query("threatIntel:botGetIntel", {}).catch(() => null);
 
   const embed = logEmbed({
     title: "🧠 Tiến độ học tập của bot",
@@ -61,7 +58,9 @@ async function showStatus(client, store, source) {
         name: "🌐 Nguồn lượt trước",
         value: intel?.sources?.length ? intel.sources.join(", ") : "—",
       },
-      ...(intel?.summary ? [{ name: "🧠 AI tổng hợp", value: String(intel.summary).slice(0, 1000) }] : []),
+      ...(intel?.summary
+        ? [{ name: "🧠 AI tổng hợp", value: String(intel.summary).slice(0, 1000) }]
+        : []),
     ],
     footer: "Protogon · Threat Intel — dùng /research learn để kích hoạt học ngay",
   });
@@ -77,10 +76,12 @@ async function learnNowCommand(client, store, source) {
   const guild = source.guild;
   const config = await store.getConfig(guild.id);
   const member = memberOf(source);
-  const isManager = member && (canManageGuild(member) || isAdmin(member) || canManageWithConfig(member, config));
+  const isManager =
+    member && (canManageGuild(member) || isAdmin(member) || canManageWithConfig(member, config));
   if (!isManager) {
     return source.reply?.({
-      content: "🔒 Chỉ **mod/admin** mới được kích hoạt lượt học thủ công (mỗi lượt có thể tốn token AI).",
+      content:
+        "🔒 Chỉ **mod/admin** mới được kích hoạt lượt học thủ công (mỗi lượt có thể tốn token AI).",
       ephemeral: true,
     });
   }
@@ -88,7 +89,10 @@ async function learnNowCommand(client, store, source) {
   const actor = actorOf(source);
   const isSlash = typeof source.deferReply === "function";
   if (isSlash) await source.deferReply().catch(() => {});
-  else await source.reply?.("🧠 **Đang kích hoạt lượt học** — tải nguồn mở + AI tổng hợp, chờ 10-40 giây…").catch(() => {});
+  else
+    await source
+      .reply?.("🧠 **Đang kích hoạt lượt học** — tải nguồn mở + AI tổng hợp, chờ 10-40 giây…")
+      .catch(() => {});
 
   try {
     const { learnNow } = require("../research");
@@ -99,12 +103,22 @@ async function learnNowCommand(client, store, source) {
       color: Colors.Blurple,
       description: `Người yêu cầu: **${actor?.username ?? "mod"}**`,
       fields: [
-        { name: "Nguồn đã tải", value: res.sources?.length ? res.sources.join(", ") : "—", inline: false },
+        {
+          name: "Nguồn đã tải",
+          value: res.sources?.length ? res.sources.join(", ") : "—",
+          inline: false,
+        },
         { name: "Từ khóa mới", value: String(res.newKeywords), inline: true },
         { name: "Cụm từ mới", value: String(res.newPhrases), inline: true },
         { name: "Tổng đang nhớ", value: `${res.totalKeywords} từ khóa`, inline: true },
-        { name: "AI tổng hợp", value: res.aiUsed ? "✅ Mimo V2.5 (Kira)" : "⚙️ Heuristics (0 token)", inline: true },
-        ...(res.summary ? [{ name: "🧠 AI nhận định", value: String(res.summary).slice(0, 1000) }] : []),
+        {
+          name: "AI tổng hợp",
+          value: res.aiUsed ? "✅ Mimo V2.5 (Kira)" : "⚙️ Heuristics (0 token)",
+          inline: true,
+        },
+        ...(res.summary
+          ? [{ name: "🧠 AI nhận định", value: String(res.summary).slice(0, 1000) }]
+          : []),
       ],
       footer: "Protogon · Threat Intel — từ khóa mới được dùng ngay trong bộ lọc malware",
     });
@@ -124,9 +138,7 @@ async function learnNowCommand(client, store, source) {
  */
 async function showHistory(client, store, source) {
   // Bot gọi bằng botKey (store proxy tự đính kèm) — query cho phép token hoặc botKey.
-  const history = await store.client
-    .query("threatIntel:getResearchHistory", {})
-    .catch(() => null);
+  const history = await store.client.query("threatIntel:getResearchHistory", {}).catch(() => null);
 
   if (!history) {
     const intel = await store.client.query("threatIntel:botGetIntel", {}).catch(() => null);
@@ -136,7 +148,9 @@ async function showHistory(client, store, source) {
   }
 
   if (!Array.isArray(history) || history.length === 0) {
-    return source.reply?.({ content: "📋 Chưa có lượt học nào được ghi nhận — dùng `/research learn` để bắt đầu." });
+    return source.reply?.({
+      content: "📋 Chưa có lượt học nào được ghi nhận — dùng `/research learn` để bắt đầu.",
+    });
   }
 
   const lines = history

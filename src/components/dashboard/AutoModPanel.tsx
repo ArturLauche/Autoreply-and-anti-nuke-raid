@@ -172,7 +172,12 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
       heatKickAt: field === "heatKickAt" ? n : tiers.kickAt,
       heatBanAt: field === "heatBanAt" ? n : tiers.banAt,
     };
-    setTiers({ warnAt: next.heatWarnAt, timeoutAt: next.heatTimeoutAt, kickAt: next.heatKickAt, banAt: next.heatBanAt });
+    setTiers({
+      warnAt: next.heatWarnAt,
+      timeoutAt: next.heatTimeoutAt,
+      kickAt: next.heatKickAt,
+      banAt: next.heatBanAt,
+    });
     await patchHeatSettings(next);
   }
 
@@ -220,7 +225,11 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
           updateModule({ token: TOKEN(), guildId: data.guild.discordId, module: m, enabled }),
         ),
       );
-      toast.success(enabled ? `Đã bật nhóm (${modules.length} module)` : `Đã tắt nhóm (${modules.length} module)`);
+      toast.success(
+        enabled
+          ? `Đã bật nhóm (${modules.length} module)`
+          : `Đã tắt nhóm (${modules.length} module)`,
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Lưu thất bại");
     }
@@ -234,8 +243,8 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
         <div>
           <h2 className="font-display text-lg font-semibold">Auto-mod nội dung</h2>
           <p className="text-sm text-muted-foreground">
-            Tự động kiểm duyệt: chống spam tin nhắn, mention, từ ngữ xấu, spam ảnh/file và chặn
-            link mời Discord
+            Tự động kiểm duyệt: chống spam tin nhắn, mention, từ ngữ xấu, spam ảnh/file và chặn link
+            mời Discord
           </p>
         </div>
         <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
@@ -256,11 +265,11 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                 <div>
                   <p className="font-display font-semibold">Hệ thống nhiệt độ vi phạm</p>
                   <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                    Mỗi vi phạm cộng điểm nhiệt theo cài đặt của module. Nhiệt độ tăng dần, tự
-                    giảm theo thời gian; khi chạm ngưỡng <b className="text-amber-400">warn</b>{" "}
-                    thành viên nhận cảnh báo riêng, rồi tự tăng cấp hình phạt:{" "}
-                    <b className="text-violet-400">tạm khóa</b> → <b className="text-orange-400">kick</b>{" "}
-                    → <b className="text-danger">ban</b>.
+                    Mỗi vi phạm cộng điểm nhiệt theo cài đặt của module. Nhiệt độ tăng dần, tự giảm
+                    theo thời gian; khi chạm ngưỡng <b className="text-amber-400">warn</b> thành
+                    viên nhận cảnh báo riêng, rồi tự tăng cấp hình phạt:{" "}
+                    <b className="text-violet-400">tạm khóa</b> →{" "}
+                    <b className="text-orange-400">kick</b> → <b className="text-danger">ban</b>.
                   </p>
                 </div>
               </div>
@@ -335,9 +344,11 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                 />
               </div>
               <p className="col-span-full text-xs text-muted-foreground">
-                Ngưỡng phải tăng dần: warn &lt; tạm khóa &lt; kick &lt; ban (tối đa 100 điểm).
-                Thành viên vừa bị phạt mà <b className="text-rose-400">tái phạm trong {repeat.windowMin} phút</b>{" "}
-                sẽ nhận <b className="text-rose-400">×{repeat.multiplier} điểm nhiệt</b> mỗi lần vi phạm — đầy thanh nhanh hơn.
+                Ngưỡng phải tăng dần: warn &lt; tạm khóa &lt; kick &lt; ban (tối đa 100 điểm). Thành
+                viên vừa bị phạt mà{" "}
+                <b className="text-rose-400">tái phạm trong {repeat.windowMin} phút</b> sẽ nhận{" "}
+                <b className="text-rose-400">×{repeat.multiplier} điểm nhiệt</b> mỗi lần vi phạm —
+                đầy thanh nhanh hơn.
               </p>
             </div>
           </div>
@@ -361,10 +372,10 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
             <div>
               <p className="font-display font-semibold">Warn tích lũy (tăng cấp hình phạt)</p>
               <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                Khi module dùng hình phạt <b className="text-foreground">Warn</b>, mỗi lần vi
-                phạm đếm <b className="text-foreground">1 warn</b>. Đủ số warn trong cửa sổ thời
-                gian, hình phạt tự <b className="text-amber-400">tăng cấp</b> lên mức nặng hơn —
-                song song với hệ thống nhiệt độ.
+                Khi module dùng hình phạt <b className="text-foreground">Warn</b>, mỗi lần vi phạm
+                đếm <b className="text-foreground">1 warn</b>. Đủ số warn trong cửa sổ thời gian,
+                hình phạt tự <b className="text-amber-400">tăng cấp</b> lên mức nặng hơn — song song
+                với hệ thống nhiệt độ.
               </p>
             </div>
           </div>
@@ -417,7 +428,8 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                         ? "kick"
                         : "ban"}
                   </b>{" "}
-                  (mặc định: {WARN_STRIKE_DEFAULTS.limit} warn / {WARN_STRIKE_DEFAULTS.windowMin} phút).
+                  (mặc định: {WARN_STRIKE_DEFAULTS.limit} warn / {WARN_STRIKE_DEFAULTS.windowMin}{" "}
+                  phút).
                 </>
               ) : (
                 <>Đang tắt — mọi module chỉ cảnh báo, không tăng cấp theo số lần warn.</>
@@ -439,8 +451,8 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                 <p className="font-display font-semibold">Danh sách từ ngữ xấu (bad word)</p>
                 <p className="mt-1 max-w-xl text-sm text-muted-foreground">
                   Khi module <b className="text-foreground">Lọc từ ngữ xấu</b> bật, tin nhắn chứa
-                  một trong các từ dưới đây sẽ bị xóa và xử lý tự động. Thêm từ bỏ trống để tắt
-                  lọc từ ngữ xấu.
+                  một trong các từ dưới đây sẽ bị xóa và xử lý tự động. Thêm từ bỏ trống để tắt lọc
+                  từ ngữ xấu.
                 </p>
               </div>
             </div>

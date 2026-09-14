@@ -81,7 +81,12 @@ function makeClient() {
   const g2 = makeGuild("222222222222222222", "B");
   return {
     client: {
-      guilds: { cache: new Map([[g1.id, g1], [g2.id, g2]]) },
+      guilds: {
+        cache: new Map([
+          [g1.id, g1],
+          [g2.id, g2],
+        ]),
+      },
       application: { fetch: async () => null },
       users: { fetch: async () => null },
     },
@@ -95,7 +100,10 @@ function makeClient() {
     const { client } = makeClient();
     await guildSync.syncAll(client, store);
     const names = store._mutations.map((m) => m.name);
-    check("syncAll → đúng 1 mutation botSyncGuilds (gộp heartbeat)", names.filter((n) => n === "guilds:botSyncGuilds").length === 1);
+    check(
+      "syncAll → đúng 1 mutation botSyncGuilds (gộp heartbeat)",
+      names.filter((n) => n === "guilds:botSyncGuilds").length === 1,
+    );
     check("syncAll → KHÔNG còn guilds:botHeartbeat riêng", !names.includes("guilds:botHeartbeat"));
     check("syncAll → KHÔNG status:heartbeat riêng", !names.includes("status:heartbeat"));
   }
@@ -107,10 +115,19 @@ function makeClient() {
     await guildSync.syncAll(client, store);
     const m = store._mutations.find((x) => x.name === "guilds:botSyncGuilds");
     const gs = m?.args?.globalStatus;
-    check("globalStatus có guildCount=2, memberCount=20, version", !!gs && gs.guildCount === 2 && gs.memberCount === 20 && typeof gs.version === "string");
-    check("globalStatus có ownerName/ownerAvatarUrl (fetch app owner)", "ownerName" in gs && "ownerAvatarUrl" in gs);
+    check(
+      "globalStatus có guildCount=2, memberCount=20, version",
+      !!gs && gs.guildCount === 2 && gs.memberCount === 20 && typeof gs.version === "string",
+    );
+    check(
+      "globalStatus có ownerName/ownerAvatarUrl (fetch app owner)",
+      "ownerName" in gs && "ownerAvatarUrl" in gs,
+    );
     check("guilds array đủ 2 server", Array.isArray(m.args.guilds) && m.args.guilds.length === 2);
-    check("refreshHeartbeat là boolean (bot điều khiển chu kỳ patch guild row)", typeof m.args.refreshHeartbeat === "boolean");
+    check(
+      "refreshHeartbeat là boolean (bot điều khiển chu kỳ patch guild row)",
+      typeof m.args.refreshHeartbeat === "boolean",
+    );
   }
 
   // 3. isSyncHealthy: false trên module MỚI (chưa sync) → true sau sync thành công
@@ -126,26 +143,47 @@ function makeClient() {
 
     const badStore = makeStore({ failSync: true });
     const { client: c2 } = makeClient();
-    let threw = false;
-    try { await guildSync.syncAll(c2, badStore); } catch { threw = true; }
+    try {
+      await guildSync.syncAll(c2, badStore);
+    } catch {
+      /* chủ đích: sync lỗi không được crash */
+    }
     check("sync lỗi → ném lỗi (caller tự bắt) hoặc nuốt, isSyncHealthy không đổi true", true);
   }
 
   // 4. Logic fallback trong index.js + các hằng số tối ưu I/O
   {
     const src = fs.readFileSync(path.join(__dirname, "..", "bot", "src", "index.js"), "utf8");
-    check("index.js: heartbeat fallback có guard isSyncHealthy()", src.includes("if (guildSync.isSyncHealthy()) return;"));
+    check(
+      "index.js: heartbeat fallback có guard isSyncHealthy()",
+      src.includes("if (guildSync.isSyncHealthy()) return;"),
+    );
     check("index.js: heartbeat fallback giãn 5 phút (300_000)", src.includes("5 * 60_000"));
-    check("index.js: sync loop 120s (tối ưu từ 60s)", src.includes("setTimeout(runSyncLoop, 120_000)"));
+    check(
+      "index.js: sync loop 120s (tối ưu từ 60s)",
+      src.includes("setTimeout(runSyncLoop, 120_000)"),
+    );
 
     const tickSrc = fs.readFileSync(path.join(__dirname, "..", "bot", "src", "tick.js"), "utf8");
-    check("tick.js: chu kỳ 120s (giảm 50% reads batch query)", tickSrc.includes("TICK_INTERVAL_MS = 120_000"));
+    check(
+      "tick.js: chu kỳ 120s (giảm 50% reads batch query)",
+      tickSrc.includes("TICK_INTERVAL_MS = 120_000"),
+    );
 
-    const convexSrc = fs.readFileSync(path.join(__dirname, "..", "bot", "src", "convex.js"), "utf8");
-    check("convex.js: CONFIG_TTL 600s (giảm 50% reads getConfig)", convexSrc.includes("CONFIG_TTL_MS = 600_000"));
+    const convexSrc = fs.readFileSync(
+      path.join(__dirname, "..", "bot", "src", "convex.js"),
+      "utf8",
+    );
+    check(
+      "convex.js: CONFIG_TTL 600s (giảm 50% reads getConfig)",
+      convexSrc.includes("CONFIG_TTL_MS = 600_000"),
+    );
 
     const gsConvex = fs.readFileSync(path.join(__dirname, "..", "convex", "guilds.ts"), "utf8");
-    check("guilds.ts: patch guild CHỈ khi changed hoặc refreshHeartbeat", gsConvex.includes("if (changed || refreshHeartbeat === true)"));
+    check(
+      "guilds.ts: patch guild CHỈ khi changed hoặc refreshHeartbeat",
+      gsConvex.includes("if (changed || refreshHeartbeat === true)"),
+    );
   }
 
   console.log(`\n${pass} pass, ${fail} fail`);

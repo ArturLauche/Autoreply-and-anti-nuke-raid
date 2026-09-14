@@ -11,21 +11,12 @@ import { getSessionToken } from "../../lib/discord";
 const TOKEN = () => getSessionToken();
 
 /** Nhiệt độ hiệu dụng sau khi trừ decay theo thời gian. */
-export function effectiveHeat(
-  heat: number,
-  updatedAt: number,
-  decayPerMin: number,
-): number {
+export function effectiveHeat(heat: number, updatedAt: number, decayPerMin: number): number {
   const elapsedMin = (Date.now() - updatedAt) / 60000;
   return Math.max(0, Math.round(heat - elapsedMin * decayPerMin));
 }
 
-export function tierOf(
-  heat: number,
-  timeoutAt: number,
-  kickAt: number,
-  banAt: number,
-): string {
+export function tierOf(heat: number, timeoutAt: number, kickAt: number, banAt: number): string {
   if (heat >= banAt) return "ban";
   if (heat >= kickAt) return "kick";
   if (heat >= timeoutAt) return "timeout";
@@ -64,11 +55,7 @@ export function SafetyBar({ data }: { data: GuildData }) {
         ? "from-amber-500 to-orange-400"
         : "from-red-500 to-rose-400";
   const barText =
-    safety >= 70
-      ? "text-emerald-400"
-      : safety >= 40
-        ? "text-amber-400"
-        : "text-red-400";
+    safety >= 70 ? "text-emerald-400" : safety >= 40 ? "text-amber-400" : "text-red-400";
 
   async function resetAll() {
     try {
@@ -152,9 +139,7 @@ export function TopOffenders({ data, limit = 5 }: { data: GuildData; limit?: num
           <li key={h.userId} className="rounded-lg bg-secondary/40 px-3 py-2">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium">
-                  {h.username || `<@${h.userId}>`}
-                </p>
+                <p className="truncate text-sm font-medium">{h.username || `<@${h.userId}>`}</p>
                 <p className="font-mono text-[11px] text-muted-foreground">{h.userId}</p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -240,7 +225,10 @@ export function HeatTable({ data, limit = 20 }: { data: GuildData; limit?: numbe
                   </p>
                   <div className="flex shrink-0 items-center gap-1.5">
                     {h.warnStrikes > 0 && (
-                      <Badge variant="secondary" className="gap-1 bg-amber-500/15 px-1.5 text-amber-400">
+                      <Badge
+                        variant="secondary"
+                        className="gap-1 bg-amber-500/15 px-1.5 text-amber-400"
+                      >
                         ⚠️ {h.warnStrikes}/{strikeLimit}
                       </Badge>
                     )}

@@ -55,7 +55,10 @@ console.log("Case 3b: cụm hỗn hợp — gate TỪNG tài khoản bảo vệ 
   const skipped = [...raid, ...real].filter((p) => memberSuspicionScore(p, now) < 3);
   check("chỉ phạt 5 acc raid", punished.length === 5);
   check("bỏ qua cả 3 thành viên thật", skipped.length === 3);
-  check("thành viên thật nằm hết trong skipped", skipped.every((p) => p.id.startsWith("u1")));
+  check(
+    "thành viên thật nằm hết trong skipped",
+    skipped.every((p) => p.id.startsWith("u1")),
+  );
 }
 
 console.log("Case 4: server viral — 1/8 acc mới (người quen mời bạn mới) → KHÔNG phạt");
@@ -65,7 +68,10 @@ console.log("Case 4: server viral — 1/8 acc mới (người quen mời bạn m
   const sus = joinClusterSuspicion([...real, ...oneNew], now);
   check("ratio < 0.5 → bỏ qua", sus.ratio < 0.5);
   // và gate cá nhân (ngưỡng 3) cũng không phạt ai
-  check("gate cá nhân: không ai đủ điểm 3", [...real, ...oneNew].every((p) => memberSuspicionScore(p, now) < 3));
+  check(
+    "gate cá nhân: không ai đủ điểm 3",
+    [...real, ...oneNew].every((p) => memberSuspicionScore(p, now) < 3),
+  );
 }
 
 console.log("Case 5: cụm rỗng / thiếu dữ liệu → bỏ qua an toàn");
@@ -93,7 +99,10 @@ console.log("Case 8: cụm hỗn hợp thật (raid bot + bạn bè thật mới
   const realNew = Array.from({ length: 2 }, (_, i) => mk(400 + i, 3, true, false)); // bạn thật, acc 3 ngày, có avatar → điểm 0
   const punished = [...raid, ...realNew].filter((p) => memberSuspicionScore(p, now) >= 3);
   check("chỉ 5 acc raid bị phạt", punished.length === 5);
-  check("bạn thật acc mới không bị phạt", realNew.every((p) => memberSuspicionScore(p, now) < 3));
+  check(
+    "bạn thật acc mới không bị phạt",
+    realNew.every((p) => memberSuspicionScore(p, now) < 3),
+  );
 }
 
 console.log(`\nKết quả: ${pass} PASS, ${fail} FAIL`);

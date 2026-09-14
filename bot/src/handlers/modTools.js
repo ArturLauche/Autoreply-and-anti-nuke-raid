@@ -10,7 +10,8 @@ function parseDuration(input) {
   const n = parseInt(m[1], 10);
   if (!Number.isFinite(n) || n <= 0) return null;
   const unit = (m[2] || "m").toLowerCase();
-  const minutes = unit === "s" ? Math.ceil(n / 60) : unit === "h" ? n * 60 : unit === "d" ? n * 1440 : n;
+  const minutes =
+    unit === "s" ? Math.ceil(n / 60) : unit === "h" ? n * 60 : unit === "d" ? n * 1440 : n;
   if (minutes > 10080) return null; // tối đa 7 ngày
   return Math.max(1, minutes);
 }
@@ -27,7 +28,9 @@ function canMod(messageOrInteraction, config) {
 }
 
 function needPerm(channel) {
-  return channel.send("❌ Bạn cần quyền **Quản lý server** hoặc role **Mod/Admin** được cấu hình để dùng lệnh này.");
+  return channel.send(
+    "❌ Bạn cần quyền **Quản lý server** hoặc role **Mod/Admin** được cấu hình để dùng lệnh này.",
+  );
 }
 
 /**
@@ -36,7 +39,12 @@ function needPerm(channel) {
  * ghi bảng hình phạt TRƯỚC để lấy số case, rồi gửi embed
  * "⏱️ Timeout | case N" với Offender / Reason / Responsible moderator.
  */
-async function logModAction(guild, guildConfig, { actionKey, target, executor, reason, extra = [] }, store) {
+async function logModAction(
+  guild,
+  guildConfig,
+  { actionKey, target, executor, reason, extra = [] },
+  store,
+) {
   // Ghi vào bảng hình phạt trên dashboard (nếu có store) → lấy số case.
   let caseNumber;
   if (store) {
@@ -53,7 +61,11 @@ async function logModAction(guild, guildConfig, { actionKey, target, executor, r
         executorId: executor?.id ?? undefined,
         executorName: executor?.username ?? undefined,
         reason: reason || undefined,
-        details: extra.map((f) => `${f.name}: ${f.value}`).join(" · ").slice(0, 200) || undefined,
+        details:
+          extra
+            .map((f) => `${f.name}: ${f.value}`)
+            .join(" · ")
+            .slice(0, 200) || undefined,
       });
       caseNumber = rec?.caseNumber;
     } catch (e) {
@@ -114,7 +126,10 @@ async function kickMember({ guild, member, executor, reason, guildConfig, store 
 }
 
 async function banMember({ guild, member, executor, reason, deleteDays, guildConfig, store }) {
-  await member.ban({ reason: reason || undefined, deleteMessageSeconds: (deleteDays || 0) * 86_400 });
+  await member.ban({
+    reason: reason || undefined,
+    deleteMessageSeconds: (deleteDays || 0) * 86_400,
+  });
   // Thông báo Moderation thủ công đã gộp vào embed case kiểu Carl-bot (sendCaseLog bên dưới) — không gửi embed thứ hai.
   await logModAction(
     guild,

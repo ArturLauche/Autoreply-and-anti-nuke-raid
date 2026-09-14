@@ -29,11 +29,22 @@ if (!LIVE) {
     const lines = userMsg.split("\n");
     const sampleOf = (l) => (l.match(/^\d+\. (.*)$/) || [])[1];
     const idx = lines.findIndex((l) => /^1\. /.test(l));
-    const identicalDup = idx >= 0 && lines[idx + 1] && sampleOf(lines[idx]) === sampleOf(lines[idx + 1]);
+    const identicalDup =
+      idx >= 0 && lines[idx + 1] && sampleOf(lines[idx]) === sampleOf(lines[idx + 1]);
     const isRaidish = identicalDup || /(JOIN MY SERVER|FREE NITRO|gg\/[\w]+)/i.test(userMsg);
     const verdict = isRaidish
-      ? { classification: "raid", confidence: 0.85, reason: "nội dung lặp + link mời", suggestPunish: "ban" }
-      : { classification: "individual", confidence: 0.7, reason: "chat đa dạng của nhiều người, không phối hợp", suggestPunish: null };
+      ? {
+          classification: "raid",
+          confidence: 0.85,
+          reason: "nội dung lặp + link mời",
+          suggestPunish: "ban",
+        }
+      : {
+          classification: "individual",
+          confidence: 0.7,
+          reason: "chat đa dạng của nhiều người, không phối hợp",
+          suggestPunish: null,
+        };
     return {
       ok: true,
       status: 200,
@@ -90,7 +101,9 @@ const raidChat = [
 const baseEvent = { module: "spam", count: 8, windowSeconds: 10, threshold: 6 };
 
 (async () => {
-  console.log(`Chế độ: ${LIVE ? "LIVE — gọi API AI thật" : "MOCK — kiểm tra đường quyết định + dữ liệu prompt"}\n`);
+  console.log(
+    `Chế độ: ${LIVE ? "LIVE — gọi API AI thật" : "MOCK — kiểm tra đường quyết định + dữ liệu prompt"}\n`,
+  );
 
   // 0) AI phải available (key được set, có provider)
   check("AI available (provider chain có provider)", ai.aiAvailable() === true);

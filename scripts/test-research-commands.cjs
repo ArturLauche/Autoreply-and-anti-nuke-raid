@@ -116,7 +116,10 @@ function makeSource({ canManage = true, sub = "status", isSlash = true } = {}) {
   await handleResearch({}, store, s1);
   const st = JSON.stringify(s1._replies);
   check("status: trả embed", s1._replies.length > 0 && st.includes("embeds"));
-  check("status: hiện số từ khóa", st.includes("Từ khóa đang nhớ") || st.includes("tokengrabber") === false);
+  check(
+    "status: hiện số từ khóa",
+    st.includes("Từ khóa đang nhớ") || st.includes("tokengrabber") === false,
+  );
 
   // 2. learn — mod được học
   const s2 = makeSource({ sub: "learn", canManage: true });
@@ -146,7 +149,10 @@ function makeSource({ canManage = true, sub = "status", isSlash = true } = {}) {
   check(
     "learnNow: trigger=manual + requestedBy",
     mutations.some(
-      (m) => m.name === "threatIntel:botSetResearchRun" && m.args.trigger === "manual" && m.args.requestedBy === "wio",
+      (m) =>
+        m.name === "threatIntel:botSetResearchRun" &&
+        m.args.trigger === "manual" &&
+        m.args.requestedBy === "wio",
     ),
   );
 

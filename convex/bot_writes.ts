@@ -18,7 +18,9 @@ function normalizeActions(raw: string[] | undefined): {
   actions: string[];
   strongest: "warn" | "kick" | "ban" | "timeout";
 } {
-  const actions = [...new Set((raw ?? []).filter((a) => (ALLOWED_ACTIONS as readonly string[]).includes(a)))].slice(0, 6);
+  const actions = [
+    ...new Set((raw ?? []).filter((a) => (ALLOWED_ACTIONS as readonly string[]).includes(a))),
+  ].slice(0, 6);
   const member = actions
     .filter((a) => ACTION_STRENGTH[a] != null)
     .sort((a, b) => ACTION_STRENGTH[b] - ACTION_STRENGTH[a]);
@@ -75,14 +77,15 @@ export const botUpdateSettings = mutation({
     }
     if (args.verifyEnabled !== undefined) patch.verifyEnabled = args.verifyEnabled;
     if (args.verifyMethod !== undefined) patch.verifyMethod = args.verifyMethod;
-    if (args.verifyChannelId !== undefined) patch.verifyChannelId = args.verifyChannelId ?? undefined;
-    if (args.unverifiedRoleId !== undefined) patch.unverifiedRoleId = args.unverifiedRoleId ?? undefined;
+    if (args.verifyChannelId !== undefined)
+      patch.verifyChannelId = args.verifyChannelId ?? undefined;
+    if (args.unverifiedRoleId !== undefined)
+      patch.unverifiedRoleId = args.unverifiedRoleId ?? undefined;
     if (args.verifiedRoleId !== undefined) patch.verifiedRoleId = args.verifiedRoleId ?? undefined;
     await ctx.db.patch(guild._id, patch);
     return { ok: true };
   },
 });
-
 
 export const botAutoReplyUpsert = mutation({
   args: {
@@ -103,9 +106,7 @@ export const botAutoReplyUpsert = mutation({
     const now = Date.now();
     const existing = await ctx.db
       .query("autoReplies")
-      .withIndex("by_guildId_name", (q) =>
-        q.eq("guildId", args.guildId).eq("name", args.name),
-      )
+      .withIndex("by_guildId_name", (q) => q.eq("guildId", args.guildId).eq("name", args.name))
       .first();
     if (existing) {
       await ctx.db.patch(existing._id, {
@@ -135,11 +136,13 @@ export const botAutoReplyUpsert = mutation({
   },
 });
 
-
 export const botAutoReplyRemove = mutation({
-  args: { guildId: v.string(), name: v.string(),
+  args: {
+    guildId: v.string(),
+    name: v.string(),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId, name }) => {
     await requireBotKeyStrict(ctx, botKey);
     const existing = await ctx.db
@@ -150,7 +153,6 @@ export const botAutoReplyRemove = mutation({
     return { ok: true };
   },
 });
-
 
 export const botModuleUpdate = mutation({
   args: {
@@ -174,9 +176,7 @@ export const botModuleUpdate = mutation({
     if (!isAntiNukeModule(args.module)) throw new Error("Module không hợp lệ");
     const mod = await ctx.db
       .query("antinukeModules")
-      .withIndex("by_guild_module", (q) =>
-        q.eq("guildId", args.guildId).eq("module", args.module),
-      )
+      .withIndex("by_guild_module", (q) => q.eq("guildId", args.guildId).eq("module", args.module))
       .first();
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.enabled !== undefined) patch.enabled = args.enabled;
@@ -216,7 +216,6 @@ export const botModuleUpdate = mutation({
   },
 });
 
-
 export const botUpdateLockdown = mutation({
   args: {
     guildId: v.string(),
@@ -242,7 +241,6 @@ export const botUpdateLockdown = mutation({
   },
 });
 
-
 /** Bot records the current lockdown state (until = unlock timestamp, requested = manual unlock flag). */
 export const botLockState = mutation({
   args: {
@@ -266,7 +264,6 @@ export const botLockState = mutation({
     return { ok: true };
   },
 });
-
 
 /** Bot records a punished anti-nuke event for daily reports. */
 export const botRecordAntinukeEvent = mutation({
@@ -334,7 +331,6 @@ export const botRecordAntinukeEvent = mutation({
   },
 });
 
-
 /**
  * Batch upsert nhiệt độ + warn tích lũy cho NHIỀU thành viên trong 1 mutation.
  * Bot gom toàn bộ member đang nóng của 1 guild vào đây (thay vì N mutation
@@ -360,9 +356,7 @@ export const botRecordHeatBatch = mutation({
     for (const e of args.entries) {
       const existing = await ctx.db
         .query("heatStates")
-        .withIndex("by_guildId_userId", (q) =>
-          q.eq("guildId", args.guildId).eq("userId", e.userId),
-        )
+        .withIndex("by_guildId_userId", (q) => q.eq("guildId", args.guildId).eq("userId", e.userId))
         .first();
       const strikes = Math.max(0, Math.floor(e.warnStrikes ?? 0));
       if (e.heat <= 0 && strikes <= 0) {
@@ -393,9 +387,11 @@ export const botRecordHeatBatch = mutation({
 
 /** Bot xóa cờ yêu cầu reset nhiệt sau khi đã dọn bộ nhớ. */
 export const botClearHeatReset = mutation({
-  args: { guildId: v.string(),
+  args: {
+    guildId: v.string(),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
@@ -412,12 +408,14 @@ export const botClearHeatReset = mutation({
   },
 });
 
-
 /** Bot records when the daily report for a guild was sent. */
 export const botSetReportAt = mutation({
-  args: { guildId: v.string(), at: v.number(),
+  args: {
+    guildId: v.string(),
+    at: v.number(),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId, at }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
@@ -430,12 +428,13 @@ export const botSetReportAt = mutation({
   },
 });
 
-
 /** Bot đảm bảo mọi module mặc định tồn tại cho một guild (thêm các module còn thiếu). */
 export const botEnsureModules = mutation({
-  args: { guildId: v.string(),
+  args: {
+    guildId: v.string(),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
@@ -461,8 +460,7 @@ export const botEnsureModules = mutation({
         windowSeconds: m.windowSeconds,
         punish: m.punish as "warn" | "kick" | "ban" | "timeout",
         whitelistRoles: [],
-        timeoutSeconds:
-          m.module === "spam" || m.module === "attachment" ? 300 : 600,
+        timeoutSeconds: m.module === "spam" || m.module === "attachment" ? 300 : 600,
         heat: m.heat,
         updatedAt: now,
       });
@@ -471,11 +469,13 @@ export const botEnsureModules = mutation({
   },
 });
 
-
 export const botSetAntinuke = mutation({
-  args: { guildId: v.string(), enabled: v.boolean(),
+  args: {
+    guildId: v.string(),
+    enabled: v.boolean(),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId, enabled }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
@@ -487,7 +487,6 @@ export const botSetAntinuke = mutation({
     return { ok: true };
   },
 });
-
 
 /** Bot upserts the current heat level + warn strikes of one user in a guild. */
 export const botRecordHeat = mutation({
@@ -536,7 +535,6 @@ export const botRecordHeat = mutation({
   },
 });
 
-
 /** Bot lưu một backup cấu trúc server vào bảng guildBackups (giữ tối đa 3 bản/server). */
 export const botStoreBackup = mutation({
   args: {
@@ -569,9 +567,12 @@ export const botStoreBackup = mutation({
       backupJson: args.backupJson,
       roleCount: Math.max(0, Math.floor(args.roleCount)),
       channelCount: Math.max(0, Math.floor(args.channelCount)),
-      emojiCount: args.emojiCount === undefined ? undefined : Math.max(0, Math.floor(args.emojiCount)),
-      stickerCount: args.stickerCount === undefined ? undefined : Math.max(0, Math.floor(args.stickerCount)),
-      messageCount: args.messageCount === undefined ? undefined : Math.max(0, Math.floor(args.messageCount)),
+      emojiCount:
+        args.emojiCount === undefined ? undefined : Math.max(0, Math.floor(args.emojiCount)),
+      stickerCount:
+        args.stickerCount === undefined ? undefined : Math.max(0, Math.floor(args.stickerCount)),
+      messageCount:
+        args.messageCount === undefined ? undefined : Math.max(0, Math.floor(args.messageCount)),
       source: args.source ?? undefined,
       backupChecksum: args.backupChecksum ?? undefined,
       backupCompressed: args.backupCompressed ?? undefined,
@@ -593,7 +594,10 @@ export const botStoreBackup = mutation({
       .query("guildBackups")
       .withIndex("by_guildId", (q) => q.eq("guildId", args.guildId))
       .collect();
-    const drop = all.sort((a, b) => b.createdAt - a.createdAt).slice(3).map((r) => r._id);
+    const drop = all
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(3)
+      .map((r) => r._id);
     for (const id of drop) await ctx.db.delete(id);
     return { ok: true, backupId };
   },
@@ -601,9 +605,12 @@ export const botStoreBackup = mutation({
 
 /** Action backup:githubPush cập nhật URL gist sau khi đẩy thành công. */
 export const botSetBackupGithub = mutation({
-  args: { backupId: v.id("guildBackups"), url: v.string(),
+  args: {
+    backupId: v.id("guildBackups"),
+    url: v.string(),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, backupId, url }) => {
     await requireBotKeyStrict(ctx, botKey);
     const backup = await ctx.db.get(backupId);
@@ -618,9 +625,12 @@ export const botSetBackupGithub = mutation({
 
 /** Bot (lệnh !backup auto / /backup auto) bật/tắt tự động backup theo số ngày (2-30, 0 = tắt). */
 export const botSetAutoBackup = mutation({
-  args: { guildId: v.string(), days: v.number(),
+  args: {
+    guildId: v.string(),
+    days: v.number(),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId, days }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
@@ -639,9 +649,12 @@ export const botSetAutoBackup = mutation({
 
 /** Bot (lệnh !backup / /backup) đặt cờ yêu cầu tạo backup — vòng quét 20s sẽ thực hiện. */
 export const botSetBackupRequest = mutation({
-  args: { guildId: v.string(), pushToGithub: v.optional(v.boolean()),
+  args: {
+    guildId: v.string(),
+    pushToGithub: v.optional(v.boolean()),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId, pushToGithub }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
@@ -662,9 +675,12 @@ export const botSetBackupRequest = mutation({
 
 /** Bot (lệnh !backup restore / /backup restore) đặt cờ khôi phục cho một backup của đúng guild đó. */
 export const botSetRestoreRequest = mutation({
-  args: { guildId: v.string(), backupId: v.id("guildBackups"),
+  args: {
+    guildId: v.string(),
+    backupId: v.id("guildBackups"),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId, backupId }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
@@ -712,10 +728,7 @@ export const botClaimBackup = mutation({
     const now = Date.now();
     if (kind === "backup") {
       if (!guild.backupRequested) return { ok: false, reason: "no_request" };
-      if (
-        guild.backupClaimedAt !== undefined &&
-        now - guild.backupClaimedAt < 600_000
-      ) {
+      if (guild.backupClaimedAt !== undefined && now - guild.backupClaimedAt < 600_000) {
         return { ok: false, reason: "in_flight" };
       }
       await ctx.db.patch(guild._id, { backupClaimedAt: now, updatedAt: now });
@@ -723,20 +736,14 @@ export const botClaimBackup = mutation({
     }
     if (kind === "import") {
       if (!guild.importRestoreRequested) return { ok: false, reason: "no_request" };
-      if (
-        guild.restoreClaimedAt !== undefined &&
-        now - guild.restoreClaimedAt < 600_000
-      ) {
+      if (guild.restoreClaimedAt !== undefined && now - guild.restoreClaimedAt < 600_000) {
         return { ok: false, reason: "in_flight" };
       }
       await ctx.db.patch(guild._id, { restoreClaimedAt: now, updatedAt: now });
       return { ok: true };
     }
     if (!guild.restoreRequested) return { ok: false, reason: "no_request" };
-    if (
-      guild.restoreClaimedAt !== undefined &&
-      now - guild.restoreClaimedAt < 600_000
-    ) {
+    if (guild.restoreClaimedAt !== undefined && now - guild.restoreClaimedAt < 600_000) {
       return { ok: false, reason: "in_flight" };
     }
     await ctx.db.patch(guild._id, { restoreClaimedAt: now, updatedAt: now });
@@ -750,9 +757,12 @@ export const botClaimBackup = mutation({
  * backup còn đọc được…).
  */
 export const botReportRestoreError = mutation({
-  args: { guildId: v.string(), error: v.string(),
+  args: {
+    guildId: v.string(),
+    error: v.string(),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId, error }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
@@ -834,9 +844,12 @@ export const botClearBackup = mutation({
  * đổi để lịch tự động có thể thử lại ở vòng sau.
  */
 export const botReportBackupError = mutation({
-  args: { guildId: v.string(), error: v.string(),
+  args: {
+    guildId: v.string(),
+    error: v.string(),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId, error }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
@@ -862,9 +875,12 @@ export const botReportBackupError = mutation({
  * web đọc qua backup:importStatus.
  */
 export const botReportImportError = mutation({
-  args: { guildId: v.string(), error: v.string(),
+  args: {
+    guildId: v.string(),
+    error: v.string(),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId, error }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
@@ -886,7 +902,10 @@ export const botReportImportError = mutation({
       try {
         await ctx.storage.delete(guild.importStorageId);
       } catch (e) {
-        console.error(`[backup:import:error:storage] ${guildId}:`, e instanceof Error ? e.message : e);
+        console.error(
+          `[backup:import:error:storage] ${guildId}:`,
+          e instanceof Error ? e.message : e,
+        );
       }
     }
     return { ok: true };
@@ -923,12 +942,12 @@ export const botRestoreSettings = mutation({
     if (args.modRoles !== undefined) patch.modRoles = args.modRoles.slice(0, 50);
     if (args.adminRoles !== undefined) patch.adminRoles = args.adminRoles.slice(0, 50);
     if (args.logChannelId !== undefined) patch.logChannelId = args.logChannelId ?? undefined;
-    if (args.modLogChannelId !== undefined) patch.modLogChannelId = args.modLogChannelId ?? undefined;
+    if (args.modLogChannelId !== undefined)
+      patch.modLogChannelId = args.modLogChannelId ?? undefined;
     await ctx.db.patch(guild._id, patch);
     return { ok: true };
   },
 });
-
 
 export const botRecordModAction = mutation({
   args: {
@@ -989,7 +1008,6 @@ export const botRecordModAction = mutation({
     return { ok: true, caseNumber };
   },
 });
-
 
 /** Bot ghi một mẫu dữ liệu raid/nuke (Raid Intel — dữ liệu huấn luyện). */
 export const botRecordRaidSample = mutation({

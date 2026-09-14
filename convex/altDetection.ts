@@ -39,7 +39,9 @@ export const updateAltConfig = mutation({
     vpnBlockEnabled: v.optional(v.boolean()),
     altMinAgeDays: v.optional(v.number()),
     altMaxRiskScore: v.optional(v.number()),
-    altPunish: v.optional(v.union(v.literal("kick"), v.literal("ban"), v.literal("timeout"), v.literal("verify"))),
+    altPunish: v.optional(
+      v.union(v.literal("kick"), v.literal("ban"), v.literal("timeout"), v.literal("verify")),
+    ),
     altVpnMode: v.optional(v.union(v.literal("strict"), v.literal("warn"), v.literal("off"))),
     altWhitelistRoles: v.optional(v.array(v.string())),
     altWhitelistUsers: v.optional(v.array(v.string())),
@@ -54,10 +56,13 @@ export const updateAltConfig = mutation({
       .first();
     if (!guild || !canManageGuild(user, guild)) throw new Error("Không có quyền");
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
-    if (args.altDetectionEnabled !== undefined) patch.altDetectionEnabled = args.altDetectionEnabled;
+    if (args.altDetectionEnabled !== undefined)
+      patch.altDetectionEnabled = args.altDetectionEnabled;
     if (args.vpnBlockEnabled !== undefined) patch.vpnBlockEnabled = args.vpnBlockEnabled;
-    if (args.altMinAgeDays !== undefined) patch.altMinAgeDays = Math.max(1, Math.min(365, args.altMinAgeDays));
-    if (args.altMaxRiskScore !== undefined) patch.altMaxRiskScore = Math.max(10, Math.min(100, args.altMaxRiskScore));
+    if (args.altMinAgeDays !== undefined)
+      patch.altMinAgeDays = Math.max(1, Math.min(365, args.altMinAgeDays));
+    if (args.altMaxRiskScore !== undefined)
+      patch.altMaxRiskScore = Math.max(10, Math.min(100, args.altMaxRiskScore));
     if (args.altPunish !== undefined) patch.altPunish = args.altPunish;
     if (args.altVpnMode !== undefined) patch.altVpnMode = args.altVpnMode;
     if (args.altWhitelistRoles !== undefined) {
@@ -151,9 +156,13 @@ export const recordJoin = mutation({
  * khác có thể đối chiếu (rejoin-evasion detection).
  */
 export const markJoinPunished = mutation({
-  args: { guildId: v.string(), userId: v.string(), action: v.string(),
+  args: {
+    guildId: v.string(),
+    userId: v.string(),
+    action: v.string(),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     await requireBotKeyStrict(ctx, args.botKey);
     const rec = await ctx.db
@@ -173,9 +182,12 @@ export const markJoinPunished = mutation({
 
 /** Lịch sử join gần đây cho bot (không cần token — bot chạy với deploy key). */
 export const botGetJoinHistory = query({
-  args: { guildId: v.string(), limit: v.optional(v.number()),
+  args: {
+    guildId: v.string(),
+    limit: v.optional(v.number()),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     await requireBotKeyStrict(ctx, args.botKey);
     const joins = await ctx.db
@@ -276,9 +288,10 @@ export const getAltStats = query({
       highRiskCount: highRisk.length,
       vpnCount: vpnUsers.length,
       newAccountCount: newAccounts.length,
-      avgRiskScore: recentJoins.length > 0
-        ? Math.round(recentJoins.reduce((a, j) => a + j.riskScore, 0) / recentJoins.length)
-        : 0,
+      avgRiskScore:
+        recentJoins.length > 0
+          ? Math.round(recentJoins.reduce((a, j) => a + j.riskScore, 0) / recentJoins.length)
+          : 0,
       topFactors,
     };
   },

@@ -15,12 +15,10 @@ async function handleAutoReply(client, message, config, store) {
     if (!rule.enabled) continue;
     if (!channelAllowed(rule, message)) continue;
 
-    let matched = false;
-    if (rule.triggerType === "mention") {
-      matched = mentioned;
-    } else {
-      matched = (rule.keywords || []).some((k) => k && content.includes(k.toLowerCase()));
-    }
+    const matched =
+      rule.triggerType === "mention"
+        ? mentioned
+        : (rule.keywords || []).some((k) => k && content.includes(k.toLowerCase()));
     if (!matched) continue;
 
     if (store.isCooledDown(message.guild.id, rule._id, rule.cooldownSeconds || 0)) continue;
@@ -64,7 +62,11 @@ module.exports = async function onMessageCreate(client, message, store, heat) {
   }
 
   // Captcha verify: nếu message là mã 6 chữ số trong kênh verify → kiểm tra
-  if (config.verifyEnabled && config.verifyMethod === "captcha" && config.verifyChannelId === message.channel.id) {
+  if (
+    config.verifyEnabled &&
+    config.verifyMethod === "captcha" &&
+    config.verifyChannelId === message.channel.id
+  ) {
     const content = message.content.trim();
     if (/^\d{6}$/.test(content)) {
       const member = message.member;
@@ -73,17 +75,24 @@ module.exports = async function onMessageCreate(client, message, store, heat) {
         if (result.ok) {
           // === ALT DETECTION AT VERIFY GATE (Double Counter style) ===
           // FIX: Fail-open if punishment fails (same fix as button verify)
-          let altBlocked = false;
           if (config.altDetectionEnabled) {
             try {
-              const { analyzeNewMember, executePunishment, buildRiskEmbed } = require("../altDetection");
-              const analysis = await analyzeNewMember(member, config, (guildId) => store.getConfig(guildId), store);
+              const {
+                analyzeNewMember,
+                executePunishment,
+                buildRiskEmbed,
+              } = require("../altDetection");
+              const analysis = await analyzeNewMember(
+                member,
+                config,
+                (guildId) => store.getConfig(guildId),
+                store,
+              );
               const maxRisk = config.altMaxRiskScore ?? 70;
               if (analysis.riskScore >= maxRisk && analysis.action !== "pass") {
                 const punishResult = await executePunishment(member, analysis, config);
                 // FIX: Fail-open — if punishment failed, allow verify
                 if (punishResult.executed) {
-                  altBlocked = true;
                   // Đánh dấu đã bị phạt để lần join sau đối chiếu (evasion detect).
                   await store.client
                     .mutation("altDetection:markJoinPunished", {
@@ -92,27 +101,38 @@ module.exports = async function onMessageCreate(client, message, store, heat) {
                       action: punishResult.action,
                     })
                     .catch(() => {});
-                  await message.reply({
-                    content: `❌ **Xác minh bị từ chối.** Tài khoản có rủi ro cao (**${analysis.riskScore}/100**). Đã xử lý: ${punishResult.action}`,
-                    failIfNotExists: false,
-                  }).catch(() => {});
+                  await message
+                    .reply({
+                      content: `❌ **Xác minh bị từ chối.** Tài khoản có rủi ro cao (**${analysis.riskScore}/100**). Đã xử lý: ${punishResult.action}`,
+                      failIfNotExists: false,
+                    })
+                    .catch(() => {});
                   const { sendLog } = require("../util");
                   const embed = buildRiskEmbed(member, analysis, punishResult);
                   embed.setTitle("🚫 Alt Detected at Verify Gate (Captcha)");
                   await sendLog(message.guild, config, embed).catch(() => {});
-                  await store.client.mutation("bot_writes:botRecordAntinukeEvent", {
-                    guildId: message.guild.id,
-                    module: "altDetection",
-                    executorId: member.id,
-                    executorName: member.user.username,
-                    action: `${punishResult.action} at verify gate (captcha) — risk: ${analysis.riskScore}/100 — ${analysis.riskFactors.join(", ")}`,
-                    count: 1, windowSeconds: 60, threshold: 1, punish: analysis.action,
-                  }).catch(() => {});
-                  console.log(`[verify:alt:captcha] ${message.guild.name}/${member.user.username} BLOCKED — risk=${analysis.riskScore}`);
+                  await store.client
+                    .mutation("bot_writes:botRecordAntinukeEvent", {
+                      guildId: message.guild.id,
+                      module: "altDetection",
+                      executorId: member.id,
+                      executorName: member.user.username,
+                      action: `${punishResult.action} at verify gate (captcha) — risk: ${analysis.riskScore}/100 — ${analysis.riskFactors.join(", ")}`,
+                      count: 1,
+                      windowSeconds: 60,
+                      threshold: 1,
+                      punish: analysis.action,
+                    })
+                    .catch(() => {});
+                  console.log(
+                    `[verify:alt:captcha] ${message.guild.name}/${member.user.username} BLOCKED — risk=${analysis.riskScore}`,
+                  );
                   setTimeout(() => message.delete().catch(() => {}), 3000);
                   return;
                 } else {
-                  console.log(`[verify:alt:captcha] ${message.guild.name}/${member.user.username} — punish FAILED (${punishResult.reason}), allowing verify (fail-open)`);
+                  console.log(
+                    `[verify:alt:captcha] ${message.guild.name}/${member.user.username} — punish FAILED (${punishResult.reason}), allowing verify (fail-open)`,
+                  );
                 }
               }
             } catch (e) {
@@ -121,16 +141,27 @@ module.exports = async function onMessageCreate(client, message, store, heat) {
           }
           // Normal verify
           try {
-            if (config.unverifiedRoleId) await member.roles.remove(config.unverifiedRoleId, "Xác minh thành công (captcha)");
-            if (config.verifiedRoleId) await member.roles.add(config.verifiedRoleId, "Xác minh thành công (captcha)");
-            await message.reply({ content: "✅ Mã chính xác! Bạn đã xác minh thành công.", failIfNotExists: false }).catch(() => {});
+            if (config.unverifiedRoleId)
+              await member.roles.remove(config.unverifiedRoleId, "Xác minh thành công (captcha)");
+            if (config.verifiedRoleId)
+              await member.roles.add(config.verifiedRoleId, "Xác minh thành công (captcha)");
+            await message
+              .reply({
+                content: "✅ Mã chính xác! Bạn đã xác minh thành công.",
+                failIfNotExists: false,
+              })
+              .catch(() => {});
             // DM chào mừng
             if (config.verifyWelcomeEnabled) {
               try {
                 const { EmbedBuilder } = require("discord.js");
                 const title = config.verifyWelcomeTitle || "🌸 Chào mừng bạn!";
-                let description = config.verifyWelcomeDescription || `Chào mừng bạn đến với **${message.guild.name}**! Bạn đã xác minh thành công.`;
-                description = description.replace(/{user}/g, `<@${member.id}>`).replace(/{server}/g, message.guild.name);
+                let description =
+                  config.verifyWelcomeDescription ||
+                  `Chào mừng bạn đến với **${message.guild.name}**! Bạn đã xác minh thành công.`;
+                description = description
+                  .replace(/{user}/g, `<@${member.id}>`)
+                  .replace(/{server}/g, message.guild.name);
                 const colorHex = config.verifyWelcomeColor || "#f2629e";
                 const colorInt = parseInt(colorHex.replace("#", ""), 16) || 0xf2629e;
                 const welcomeEmbed = new EmbedBuilder()
@@ -138,7 +169,10 @@ module.exports = async function onMessageCreate(client, message, store, heat) {
                   .setDescription(description)
                   .setColor(colorInt)
                   .setThumbnail(message.guild.iconURL({ size: 256 }) || null)
-                  .setFooter({ text: message.guild.name, iconURL: message.guild.iconURL({ size: 64 }) || undefined });
+                  .setFooter({
+                    text: message.guild.name,
+                    iconURL: message.guild.iconURL({ size: 64 }) || undefined,
+                  });
                 await member.send({ embeds: [welcomeEmbed] }).catch(() => {});
               } catch {}
             }
@@ -150,12 +184,22 @@ module.exports = async function onMessageCreate(client, message, store, heat) {
           return;
         }
         if (result.reason === "wrong") {
-          await message.reply({ content: "❌ Mã không đúng. Hãy bấm nút nhận mã mới và thử lại.", failIfNotExists: false }).catch(() => {});
+          await message
+            .reply({
+              content: "❌ Mã không đúng. Hãy bấm nút nhận mã mới và thử lại.",
+              failIfNotExists: false,
+            })
+            .catch(() => {});
           setTimeout(() => message.delete().catch(() => {}), 3000);
           return;
         }
         if (result.reason === "expired") {
-          await message.reply({ content: "⏰ Mã đã hết hạn. Hãy bấm nút nhận mã mới.", failIfNotExists: false }).catch(() => {});
+          await message
+            .reply({
+              content: "⏰ Mã đã hết hạn. Hãy bấm nút nhận mã mới.",
+              failIfNotExists: false,
+            })
+            .catch(() => {});
           setTimeout(() => message.delete().catch(() => {}), 3000);
           return;
         }

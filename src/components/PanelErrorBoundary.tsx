@@ -53,15 +53,15 @@ export default class PanelErrorBoundary extends Component<Props, State> {
             <div>
               <p className="font-display font-semibold">Không tải được nội dung mục này</p>
               <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                Có lỗi xảy ra khi kết nối với backend. Trang khác vẫn hoạt động bình thường —
-                bạn có thể chuyển sang mục khác ở sidebar.
+                Có lỗi xảy ra khi kết nối với backend. Trang khác vẫn hoạt động bình thường — bạn có
+                thể chuyển sang mục khác ở sidebar.
               </p>
               {isMissingFunction && (
                 <p className="mt-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-600">
-                  💡 Với mục <b>Backup server / Moderation</b>: backend Convex production đang
-                  chạy bản cũ, chưa có các hàm mới. Chủ dự án cần chạy{" "}
-                  <code className="font-mono">npx convex deploy</code> tại thư mục gốc dự án để
-                  cập nhật backend (xem hướng dẫn trong README).
+                  💡 Với mục <b>Backup server / Moderation</b>: backend Convex production đang chạy
+                  bản cũ, chưa có các hàm mới. Chủ dự án cần chạy{" "}
+                  <code className="font-mono">npx convex deploy</code> tại thư mục gốc dự án để cập
+                  nhật backend (xem hướng dẫn trong README).
                 </p>
               )}
               <p className="mt-2 max-w-xl break-words font-mono text-[11px] text-muted-foreground/70">

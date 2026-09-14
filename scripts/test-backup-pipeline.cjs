@@ -1,7 +1,6 @@
 // Test pipeline backup sau các bản fix (auto includeMessages, nén Gist, import 'z:', skip notice).
 // Chạy: node scripts/test-backup-pipeline.cjs — không mạng thật, không Convex thật, không Discord thật.
 const path = require("path");
-const zlib = require("zlib");
 
 const Module = require("module");
 const fs = require("fs");
@@ -65,10 +64,16 @@ const check = (label, ok) => {
     messageCount: 0,
   };
   const enc = utils.compressAndEncryptBackup(snapshot);
-  check("compressAndEncryptBackup nén thành 'z:...'", typeof enc.backupJson === "string" && enc.backupJson.startsWith("z:"));
+  check(
+    "compressAndEncryptBackup nén thành 'z:...'",
+    typeof enc.backupJson === "string" && enc.backupJson.startsWith("z:"),
+  );
   check("compressed=true", enc.compressed === true);
   const round = JSON.parse(utils.decompressAndDecryptBackup(enc.backupJson));
-  check("giải nén vòng tròn ra snapshot gốc", round.guildName === "Test Guild" && round.roles.length === 1);
+  check(
+    "giải nén vòng tròn ra snapshot gốc",
+    round.guildName === "Test Guild" && round.roles.length === 1,
+  );
 
   // ---- 2. Auto-backup đồng bộ includeMessages theo bản gần nhất (fix checksum lệch) ----
   const mutations = [];
@@ -78,7 +83,7 @@ const check = (label, ok) => {
         mutations.push({ name, args });
         return { ok: true, backupId: "bk1" };
       },
-      query: async (name, args = {}) => {
+      query: async (name, _args = {}) => {
         if (name === "backup:botGetDueAuto") {
           return [{ guildId: "123456789012345678", days: 7 }];
         }
@@ -104,7 +109,8 @@ const check = (label, ok) => {
   // Bản gần nhất KHÔNG tin nhắn → auto không kèm tin
   store.client.query = async (name) => {
     if (name === "backup:botGetDueAuto") return [{ guildId: "g2", days: 3 }];
-    if (name === "backup:botGetLastChecksum") return { backupSnapshotChecksum: "x", backupMessageCount: 0 };
+    if (name === "backup:botGetLastChecksum")
+      return { backupSnapshotChecksum: "x", backupMessageCount: 0 };
     return null;
   };
   mutations.length = 0;
@@ -125,7 +131,7 @@ const check = (label, ok) => {
 
   // ---- 3. Import file 'z:' (tải từ Gist) giờ đọc được ----
   const zContent = enc.backupJson;
-  let parsed = null;
+  let parsed;
   try {
     parsed = backup.normalizeBackupFile(zContent);
   } catch (e) {
@@ -135,10 +141,17 @@ const check = (label, ok) => {
     "import bản nén 'z:' của Protogon không còn lỗi 'Không đọc được file'",
     !parsed.error && parsed.guildName === "Test Guild",
   );
-  check("import 'z:' giữ đúng role + kênh", !parsed.error && parsed.roles[0]?.name === "Mod" && parsed.channels[0]?.name === "general");
+  check(
+    "import 'z:' giữ đúng role + kênh",
+    !parsed.error && parsed.roles[0]?.name === "Mod" && parsed.channels[0]?.name === "general",
+  );
 
   // JSON thường vẫn đọc bình thường (không bị reg)
-  const plainJson = JSON.stringify({ guildName: "Plain", roles: [{ id: "a", name: "A" }], channels: [] });
+  const plainJson = JSON.stringify({
+    guildName: "Plain",
+    roles: [{ id: "a", name: "A" }],
+    channels: [],
+  });
   const p2 = backup.normalizeBackupFile(plainJson);
   check("JSON thường vẫn đọc được", p2.guildName === "Plain");
 
@@ -146,8 +159,16 @@ const check = (label, ok) => {
   // Mô phỏng runBackup với checksum trùng: cần guild giả đủ để snapshot chạy.
   // (runBackup gọi sendToLog → sendLog thật sẽ lỗi im lặng; dùng embed capture qua store.getConfig null + guild không có webhook → an toàn.)
   // Kiểm qua nguồn: skipNotice chỉ được truyền khi web bấm chủ động — kiểm tham số tồn tại trong signature.
-  const src = fs.readFileSync(path.join(__dirname, "..", "bot", "src", "handlers", "backup.js"), "utf8");
-  check("runBackup có tham số skipNotice", /const \{ pushToGithub = false, includeMessages = false, skipNotice = false \} = opts;/.test(src));
+  const src = fs.readFileSync(
+    path.join(__dirname, "..", "bot", "src", "handlers", "backup.js"),
+    "utf8",
+  );
+  check(
+    "runBackup có tham số skipNotice",
+    /const \{\s*pushToGithub: pushToGithubOpt = false,\s*includeMessages = false,\s*skipNotice = false,?\s*\} = opts;/.test(
+      src,
+    ),
+  );
   check("skipNotice chỉ thông báo khi true (auto vẫn im lặng)", src.includes("if (skipNotice) {"));
 
   // ---- 5. pushToGithub gửi bản ĐÃ NÉN (không còn backupJson: json thô) ----

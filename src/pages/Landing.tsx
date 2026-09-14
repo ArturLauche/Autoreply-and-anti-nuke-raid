@@ -60,17 +60,12 @@ function Nav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const token = getSessionToken();
   // Chưa đăng nhập → skip subscription, không tốn lần đọc hạn mức.
-  const me = useQuery(
-    api.sessions.me,
-    token ? { token } : "skip",
-  ) as MeData | null | undefined;
+  const me = useQuery(api.sessions.me, token ? { token } : "skip") as MeData | null | undefined;
   const logout = useMutation(api.sessions.logout);
   const avatar = me?.user
     ? discordAvatarUrl({ id: me.user.discordId, avatar: me.user.avatar })
     : null;
-  const [remember, setRemember] = useState(
-    sessionStorage.getItem("wio_remember_login") !== "0",
-  );
+  const [remember, setRemember] = useState(sessionStorage.getItem("wio_remember_login") !== "0");
 
   async function handleLogout() {
     setMenuOpen(false);
@@ -96,10 +91,18 @@ function Nav() {
           </span>
         </Link>
         <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
-          <a href="#features" className="transition-colors hover:text-foreground">Tính năng</a>
-          <a href="#antinuke" className="transition-colors hover:text-foreground">Bảo vệ server</a>
-          <a href="#haimiya" className="transition-colors hover:text-foreground">Haimiya</a>
-          <a href="#how" className="transition-colors hover:text-foreground">Cách hoạt động</a>
+          <a href="#features" className="transition-colors hover:text-foreground">
+            Tính năng
+          </a>
+          <a href="#antinuke" className="transition-colors hover:text-foreground">
+            Bảo vệ server
+          </a>
+          <a href="#haimiya" className="transition-colors hover:text-foreground">
+            Haimiya
+          </a>
+          <a href="#how" className="transition-colors hover:text-foreground">
+            Cách hoạt động
+          </a>
         </nav>
         {me ? (
           <div className="relative">
@@ -108,7 +111,11 @@ function Nav() {
               className="flex items-center gap-2 rounded-full border border-border bg-card/70 py-1 pl-1 pr-2.5 transition-colors hover:bg-accent"
             >
               {avatar ? (
-                <img src={avatar} alt={me.user.username} className="h-8 w-8 rounded-full ring-2 ring-primary/40" />
+                <img
+                  src={avatar}
+                  alt={me.user.username}
+                  className="h-8 w-8 rounded-full ring-2 ring-primary/40"
+                />
               ) : (
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary">
                   {(me.user.globalName ?? me.user.username).slice(0, 1).toUpperCase()}
@@ -122,7 +129,9 @@ function Nav() {
             {menuOpen && (
               <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-border bg-card/95 p-2 shadow-2xl backdrop-blur">
                 <div className="border-b border-border/70 px-2.5 pb-2 pt-1">
-                  <p className="truncate text-sm font-bold">{me.user.globalName ?? me.user.username}</p>
+                  <p className="truncate text-sm font-bold">
+                    {me.user.globalName ?? me.user.username}
+                  </p>
                   <p className="truncate text-xs text-muted-foreground">{me.user.discordId}</p>
                 </div>
                 <Link
@@ -269,14 +278,21 @@ function HeroChatCard() {
           <span className="h-3 w-3 rounded-full bg-[#f23f43]" />
           <span className="h-3 w-3 rounded-full bg-[#f0b232]" />
           <span className="h-3 w-3 rounded-full bg-[#23a55a]" />
-          <span className="ml-3 text-xs font-medium text-white/40"># general · Protogon Bot 🌸</span>
+          <span className="ml-3 text-xs font-medium text-white/40">
+            # general · Protogon Bot 🌸
+          </span>
         </div>
         <div className="space-y-4 p-5 font-sans">
           {/* Auto reply */}
           <div className="flex items-end gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#5865f2] text-xs font-bold text-white">Huy</span>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#5865f2] text-xs font-bold text-white">
+              Huy
+            </span>
             <div className="max-w-[80%]">
-              <p className="mb-1 text-xs font-semibold text-white">huy_nguyen <span className="ml-1 font-normal text-white/40">Hôm nay chơi gì @protogon?</span></p>
+              <p className="mb-1 text-xs font-semibold text-white">
+                huy_nguyen{" "}
+                <span className="ml-1 font-normal text-white/40">Hôm nay chơi gì @protogon?</span>
+              </p>
               <div className="rounded-lg rounded-bl-none bg-[#2b2d31] px-3 py-2 text-sm text-white/90">
                 Hôm nay chơi gì? <span className="font-semibold text-[#ff8fab]">@protogon</span>
               </div>
@@ -287,9 +303,12 @@ function HeroChatCard() {
               <Bot className="h-5 w-5" />
             </span>
             <div className="max-w-[80%]">
-              <p className="mb-1 text-xs font-semibold text-white">Protogon <span className="ml-1 font-normal text-white/40">BOT</span></p>
+              <p className="mb-1 text-xs font-semibold text-white">
+                Protogon <span className="ml-1 font-normal text-white/40">BOT</span>
+              </p>
               <div className="rounded-lg rounded-bl-none border border-primary/40 bg-[#2b2d31] px-3 py-2 text-sm text-white/90">
-                Chào <span className="font-semibold text-primary">Huy</span>! Hôm nay thử một trận Valorant 5v5 nhé 🎮
+                Chào <span className="font-semibold text-primary">Huy</span>! Hôm nay thử một trận
+                Valorant 5v5 nhé 🎮
               </div>
               <div className="mt-1.5 flex items-center gap-1.5 text-xs text-white/40">
                 <Timer className="h-3 w-3" /> rule “game-night” · cooldown 30s
@@ -304,15 +323,24 @@ function HeroChatCard() {
             </div>
             <div className="mt-2 flex items-center gap-2">
               <div className="flex-1">
-                <HeatBar value={55} color="bg-gradient-to-r from-amber-500 via-pink-500 to-red-500" />
+                <HeatBar
+                  value={55}
+                  color="bg-gradient-to-r from-amber-500 via-pink-500 to-red-500"
+                />
                 <div className="mt-1 flex justify-between text-[10px] text-white/40">
-                  <span>warn 25</span><span>tạm khóa 40</span><span>kick 70</span><span>ban 90</span>
+                  <span>warn 25</span>
+                  <span>tạm khóa 40</span>
+                  <span>kick 70</span>
+                  <span>ban 90</span>
                 </div>
               </div>
-              <span className="shrink-0 rounded-md bg-pink-500/20 px-1.5 py-0.5 font-mono text-[10px] font-bold text-pink-300">55/100</span>
+              <span className="shrink-0 rounded-md bg-pink-500/20 px-1.5 py-0.5 font-mono text-[10px] font-bold text-pink-300">
+                55/100
+              </span>
             </div>
             <p className="mt-1.5 text-[11px] text-white/60">
-              Tái phạm trong 30 phút → nhiệt <b className="text-pink-300">×2</b> · đã gửi DM cảnh báo ⚠️
+              Tái phạm trong 30 phút → nhiệt <b className="text-pink-300">×2</b> · đã gửi DM cảnh
+              báo ⚠️
             </p>
           </div>
 
@@ -323,13 +351,17 @@ function HeroChatCard() {
             </div>
             <p className="mt-1 text-[11px] text-white/60">
               🚪 <span className="font-mono text-white/80">selfbot_9123</span> bị chặn: tài khoản{" "}
-              <b className="text-emerald-300">mới 2 ngày</b>, không avatar, không huy hiệu → đã kick.
+              <b className="text-emerald-300">mới 2 ngày</b>, không avatar, không huy hiệu → đã
+              kick.
             </p>
           </div>
         </div>
       </div>
       <div className="absolute -right-3 -top-3 animate-float">
-        <Badge variant="success" className="gap-1.5 border border-emerald-500/40 bg-[#0b1410] px-3 py-1 shadow-xl">
+        <Badge
+          variant="success"
+          className="gap-1.5 border border-emerald-500/40 bg-[#0b1410] px-3 py-1 shadow-xl"
+        >
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
@@ -400,13 +432,21 @@ function Features() {
           className="mx-auto max-w-2xl text-center"
         >
           <motion.div variants={fadeUp}>
-            <Badge className="mb-4"><Sparkles className="h-3.5 w-3.5" /> Mọi thứ trong một bot</Badge>
+            <Badge className="mb-4">
+              <Sparkles className="h-3.5 w-3.5" /> Mọi thứ trong một bot
+            </Badge>
           </motion.div>
-          <motion.h2 variants={fadeUp} className="font-display text-3xl font-bold tracking-tight md:text-5xl">
-            Bảo vệ toàn diện & <span className="text-gradient-sakura">giao tiếp</span> cho server của bạn
+          <motion.h2
+            variants={fadeUp}
+            className="font-display text-3xl font-bold tracking-tight md:text-5xl"
+          >
+            Bảo vệ toàn diện & <span className="text-gradient-sakura">giao tiếp</span> cho server
+            của bạn
           </motion.h2>
           <motion.p variants={fadeUp} className="mt-4 text-muted-foreground">
-            Từ tự trả lời thông minh đến 32 module bảo vệ (24 chống nuke + 8 auto-mod) — Protogon canh server 24/7 và cấu hình mọi thứ qua dashboard trực quan, có trợ lý Haimiya sẵn sàng giải đáp.
+            Từ tự trả lời thông minh đến 32 module bảo vệ (24 chống nuke + 8 auto-mod) — Protogon
+            canh server 24/7 và cấu hình mọi thứ qua dashboard trực quan, có trợ lý Haimiya sẵn sàng
+            giải đáp.
           </motion.p>
         </motion.div>
 
@@ -440,9 +480,17 @@ function Features() {
         >
           {[
             { icon: Crown, t: "Warn tích lũy", d: "Đủ N lần warn → tự tăng cấp hình phạt" },
-            { icon: LayoutDashboard, t: "Bảng nhiệt & warn", d: "Xem từng thành viên, xóa nhiệt 1 cú nhấn" },
+            {
+              icon: LayoutDashboard,
+              t: "Bảng nhiệt & warn",
+              d: "Xem từng thành viên, xóa nhiệt 1 cú nhấn",
+            },
             { icon: Zap, t: "Đồng bộ tự động", d: "Chỉnh trên web → bot áp dụng sau ~1 phút" },
-            { icon: Timer, t: "Báo cáo hàng ngày", d: "Tóm tắt sự kiện, nhiệt & warn gửi vào kênh log" },
+            {
+              icon: Timer,
+              t: "Báo cáo hàng ngày",
+              d: "Tóm tắt sự kiện, nhiệt & warn gửi vào kênh log",
+            },
           ].map((b) => (
             <div key={b.t} className="flex items-start gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -481,22 +529,30 @@ function HiddenFeatures() {
               <Lock className="h-3.5 w-3.5" /> Khu vực riêng tư — chỉ chủ sở hữu bot
             </Badge>
           </motion.div>
-          <motion.h2 variants={fadeUp} className="font-display text-3xl font-bold tracking-tight md:text-4xl">
+          <motion.h2
+            variants={fadeUp}
+            className="font-display text-3xl font-bold tracking-tight md:text-4xl"
+          >
             Một số khả năng <span className="text-gradient-sakura">đặc biệt</span>…
           </motion.h2>
           <motion.p variants={fadeUp} className="mx-auto mt-3 max-w-xl text-muted-foreground">
-            Ngoài những gì bạn thấy, Protogon còn giữ riêng một khu vực quyền lực chỉ chủ sở hữu
-            bot mở khóa được bằng mật khẩu bí mật — ngay trong dashboard, không cần cài thêm gì.
+            Ngoài những gì bạn thấy, Protogon còn giữ riêng một khu vực quyền lực chỉ chủ sở hữu bot
+            mở khóa được bằng mật khẩu bí mật — ngay trong dashboard, không cần cài thêm gì.
           </motion.p>
-          <motion.div variants={fadeUp} className="mt-6 flex flex-wrap items-center justify-center gap-2">
-            {["Chỉ dành chủ sở hữu bot", "Mở khóa bằng mật khẩu", "Được bảo vệ chặt chẽ"].map((t) => (
-              <span
-                key={t}
-                className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1 text-xs text-muted-foreground"
-              >
-                {t}
-              </span>
-            ))}
+          <motion.div
+            variants={fadeUp}
+            className="mt-6 flex flex-wrap items-center justify-center gap-2"
+          >
+            {["Chỉ dành chủ sở hữu bot", "Mở khóa bằng mật khẩu", "Được bảo vệ chặt chẽ"].map(
+              (t) => (
+                <span
+                  key={t}
+                  className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1 text-xs text-muted-foreground"
+                >
+                  {t}
+                </span>
+              ),
+            )}
           </motion.div>
         </motion.div>
       </div>
@@ -507,10 +563,34 @@ function HiddenFeatures() {
 /** Thang nhiệt 4 giai đoạn — trực quan + sinh động. */
 function HeatLadder() {
   const tiers = [
-    { label: "Cảnh báo", range: "25 → 39", color: "from-amber-400 to-yellow-300", text: "text-amber-400", bar: "bg-amber-500/70" },
-    { label: "Tạm khóa", range: "40 → 69", color: "from-pink-400 to-rose-300", text: "text-pink-400", bar: "bg-pink-500/70" },
-    { label: "Kick", range: "70 → 89", color: "from-orange-400 to-amber-300", text: "text-orange-400", bar: "bg-orange-500/70" },
-    { label: "Ban", range: "90 → 100", color: "from-red-400 to-rose-300", text: "text-red-400", bar: "bg-red-500/70" },
+    {
+      label: "Cảnh báo",
+      range: "25 → 39",
+      color: "from-amber-400 to-yellow-300",
+      text: "text-amber-400",
+      bar: "bg-amber-500/70",
+    },
+    {
+      label: "Tạm khóa",
+      range: "40 → 69",
+      color: "from-pink-400 to-rose-300",
+      text: "text-pink-400",
+      bar: "bg-pink-500/70",
+    },
+    {
+      label: "Kick",
+      range: "70 → 89",
+      color: "from-orange-400 to-amber-300",
+      text: "text-orange-400",
+      bar: "bg-orange-500/70",
+    },
+    {
+      label: "Ban",
+      range: "90 → 100",
+      color: "from-red-400 to-rose-300",
+      text: "text-red-400",
+      bar: "bg-red-500/70",
+    },
   ];
   return (
     <div className="rounded-xl border border-border bg-secondary/30 p-4">
@@ -532,13 +612,17 @@ function HeatLadder() {
               <span className="font-mono text-[10px] font-semibold text-black/60">{t.range}</span>
             </div>
             <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-black/20">
-              <div className={`h-full rounded-full ${t.bar}`} style={{ width: `${(i + 1) * 25}%` }} />
+              <div
+                className={`h-full rounded-full ${t.bar}`}
+                style={{ width: `${(i + 1) * 25}%` }}
+              />
             </div>
           </motion.div>
         ))}
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        Vừa bị phạt mà tái phạm → nhiệt nhân <b className="text-pink-400">×2</b> trong 30 phút. Warn tích lũy chạy song song: đủ 3 lần warn → tự tăng cấp.
+        Vừa bị phạt mà tái phạm → nhiệt nhân <b className="text-pink-400">×2</b> trong 30 phút. Warn
+        tích lũy chạy song song: đủ 3 lần warn → tự tăng cấp.
       </p>
     </div>
   );
@@ -546,15 +630,28 @@ function HeatLadder() {
 
 function AntiNuke() {
   const nukeModules = [
-    "Chống ban hàng loạt", "Chống kick hàng loạt", "Chống raid thành viên",
-    "Chống tạo/xóa kênh", "Chống tạo/xóa thread", "Chống tạo webhook hàng loạt",
-    "Chống xóa tin hàng loạt", "Chống tạo/xóa role", "Tự cấp quyền quản trị",
-    "Chống thêm bot hàng loạt", "Cảnh báo bot lạ", "Bot vào-rồi-rời",
+    "Chống ban hàng loạt",
+    "Chống kick hàng loạt",
+    "Chống raid thành viên",
+    "Chống tạo/xóa kênh",
+    "Chống tạo/xóa thread",
+    "Chống tạo webhook hàng loạt",
+    "Chống xóa tin hàng loạt",
+    "Chống tạo/xóa role",
+    "Tự cấp quyền quản trị",
+    "Chống thêm bot hàng loạt",
+    "Cảnh báo bot lạ",
+    "Bot vào-rồi-rời",
   ];
   const modModules = [
-    "Chống spam tin nhắn", "Chống lặp tin nhắn", "Chống tin rỗng/nhiễu",
-    "Chống spam mention", "Chống spam ảnh/file", "Lọc từ ngữ xấu",
-    "Chặn link mời Discord", "Chặn link độc hại & file nguy hiểm",
+    "Chống spam tin nhắn",
+    "Chống lặp tin nhắn",
+    "Chống tin rỗng/nhiễu",
+    "Chống spam mention",
+    "Chống spam ảnh/file",
+    "Lọc từ ngữ xấu",
+    "Chặn link mời Discord",
+    "Chặn link độc hại & file nguy hiểm",
   ];
   return (
     <section id="antinuke" className="relative overflow-hidden py-24">
@@ -567,18 +664,32 @@ function AntiNuke() {
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.6 }}
           >
-            <Badge variant="danger" className="mb-4"><ShieldAlert className="h-3.5 w-3.5" /> Phòng thủ 32 module</Badge>
+            <Badge variant="danger" className="mb-4">
+              <ShieldAlert className="h-3.5 w-3.5" /> Phòng thủ 32 module
+            </Badge>
             <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
               Chặn đứng kẻ phá hoại <br />
               trước khi <span className="text-gradient-sakura">server sụp đổ</span>
             </h2>
             <p className="mt-4 max-w-lg text-muted-foreground">
-              Hai lớp phòng thủ: <b className="text-foreground">Anti Nuke</b> (24 module) canh cấu trúc server (ban/kick hàng loạt, phá kênh, phá role…) và{" "}
-              <b className="text-foreground">Moderation</b> (8 module) lọc nội dung độc hại mỗi ngày. Vượt ngưỡng → xác định thủ phạm qua audit log, phạt theo cài đặt và cảnh báo real-time tới kênh log.
+              Hai lớp phòng thủ: <b className="text-foreground">Anti Nuke</b> (24 module) canh cấu
+              trúc server (ban/kick hàng loạt, phá kênh, phá role…) và{" "}
+              <b className="text-foreground">Moderation</b> (8 module) lọc nội dung độc hại mỗi
+              ngày. Vượt ngưỡng → xác định thủ phạm qua audit log, phạt theo cài đặt và cảnh báo
+              real-time tới kênh log.
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
-              {["Phạt trực tiếp", "Khóa kênh khi raid", "Miễn trừ role", "Kênh log riêng", "Báo cáo hàng ngày"].map((t) => (
-                <span key={t} className="rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs text-muted-foreground">
+              {[
+                "Phạt trực tiếp",
+                "Khóa kênh khi raid",
+                "Miễn trừ role",
+                "Kênh log riêng",
+                "Báo cáo hàng ngày",
+              ].map((t) => (
+                <span
+                  key={t}
+                  className="rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs text-muted-foreground"
+                >
                   {t}
                 </span>
               ))}
@@ -606,7 +717,10 @@ function AntiNuke() {
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               {nukeModules.map((m) => (
-                <div key={m} className="flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-3 py-2">
+                <div
+                  key={m}
+                  className="flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-3 py-2"
+                >
                   <span className="text-sm">{m}</span>
                   <span className="relative ml-2 flex h-4 w-7 items-center rounded-full bg-primary px-0.5">
                     <span className="ml-auto h-3 w-3 rounded-full bg-white" />
@@ -619,7 +733,10 @@ function AntiNuke() {
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               {modModules.map((m) => (
-                <div key={m} className="flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-3 py-2">
+                <div
+                  key={m}
+                  className="flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-3 py-2"
+                >
                   <span className="text-sm">{m}</span>
                   <span className="relative ml-2 flex h-4 w-7 items-center rounded-full bg-primary px-0.5">
                     <span className="ml-auto h-3 w-3 rounded-full bg-white" />
@@ -631,7 +748,9 @@ function AntiNuke() {
               …và 12 module chống nuke khác — xem đầy đủ trong dashboard.
             </p>
             <div className="mt-0 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-100/70">
-              <span className="font-semibold text-amber-300">🔒 Khóa kênh khi raid:</span> vượt ngưỡng bất kỳ module nào → bot chặn thành viên gửi tin trong toàn server, tự mở lại sau vài phút hoặc khi mod dùng <code className="font-mono">/antinuke unlock</code>.
+              <span className="font-semibold text-amber-300">🔒 Khóa kênh khi raid:</span> vượt
+              ngưỡng bất kỳ module nào → bot chặn thành viên gửi tin trong toàn server, tự mở lại
+              sau vài phút hoặc khi mod dùng <code className="font-mono">/antinuke unlock</code>.
             </div>
           </motion.div>
         </div>
@@ -653,14 +772,26 @@ function HaimiyaSection() {
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.6 }}
             className="order-2 lg:order-1"
-          >              <div className="relative mx-auto w-fit">
+          >
+            {" "}
+            <div className="relative mx-auto w-fit">
               <div className="absolute -inset-8 rounded-full bg-glow-sakura blur-2xl" />
               <div className="relative animate-float">
                 <div className="flex h-64 w-64 items-center justify-center rounded-full border-2 border-white/80 bg-gradient-to-br from-[#ffe0ed] via-[#fdf2f8] to-[#d6ecff] shadow-[0_24px_60px_-20px_hsl(342_60%_55%/0.45)]">
                   <SafeHaimiyaAvatar className="h-48 w-48" />
                 </div>
-                <span className="absolute -right-2 top-6 animate-float text-2xl" style={{ animationDelay: "0.6s" }}>🌸</span>
-                <span className="absolute -left-3 bottom-14 animate-float text-xl" style={{ animationDelay: "1.2s" }}>🎀</span>
+                <span
+                  className="absolute -right-2 top-6 animate-float text-2xl"
+                  style={{ animationDelay: "0.6s" }}
+                >
+                  🌸
+                </span>
+                <span
+                  className="absolute -left-3 bottom-14 animate-float text-xl"
+                  style={{ animationDelay: "1.2s" }}
+                >
+                  🎀
+                </span>
               </div>
             </div>
           </motion.div>
@@ -672,14 +803,17 @@ function HaimiyaSection() {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="order-1 lg:order-2"
           >
-            <Badge className="mb-4"><Heart className="h-3.5 w-3.5" /> Gặp gỡ trợ lý ảo</Badge>
+            <Badge className="mb-4">
+              <Heart className="h-3.5 w-3.5" /> Gặp gỡ trợ lý ảo
+            </Badge>
             <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
               Haimiya — <span className="text-gradient-sakura">trợ lý ảo đáng tin cậy</span>
             </h2>
             <p className="mt-4 max-w-lg text-muted-foreground">
               Lấy cảm hứng từ nhân vật "đáng sợ mà đáng yêu" — Haimiya là trợ lý ảo của Protogon,
-              luôn túc trực trên website và dashboard. Tôi giải đáp mọi thắc mắc về bot bằng tiếng Việt:
-              hệ thống nhiệt độ, warn tích lũy, Join Gate, chống nuke/raid, auto reply, cách host bot…
+              luôn túc trực trên website và dashboard. Tôi giải đáp mọi thắc mắc về bot bằng tiếng
+              Việt: hệ thống nhiệt độ, warn tích lũy, Join Gate, chống nuke/raid, auto reply, cách
+              host bot…
             </p>
             <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
               {[
@@ -688,16 +822,15 @@ function HaimiyaSection() {
                 "Trả lời rõ ràng, nghiêm túc — trên web lẫn trong dashboard",
               ].map((t) => (
                 <li key={t} className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs text-primary">🌸</span>
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs text-primary">
+                    🌸
+                  </span>
                   {t}
                 </li>
               ))}
             </ul>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button
-                size="lg"
-                onClick={() => window.dispatchEvent(new Event("haimiya-open"))}
-              >
+              <Button size="lg" onClick={() => window.dispatchEvent(new Event("haimiya-open"))}>
                 <MessageCircle className="h-4 w-4" /> Hỏi thử Haimiya ngay
               </Button>
               <DashboardCta variant="outline">
@@ -743,9 +876,14 @@ function HowItWorks() {
           className="mx-auto max-w-2xl text-center"
         >
           <motion.div variants={fadeUp}>
-            <Badge className="mb-4"><Zap className="h-3.5 w-3.5" /> Bắt đầu nhanh</Badge>
+            <Badge className="mb-4">
+              <Zap className="h-3.5 w-3.5" /> Bắt đầu nhanh
+            </Badge>
           </motion.div>
-          <motion.h2 variants={fadeUp} className="font-display text-3xl font-bold tracking-tight md:text-4xl">
+          <motion.h2
+            variants={fadeUp}
+            className="font-display text-3xl font-bold tracking-tight md:text-4xl"
+          >
             Hoạt động trong <span className="text-gradient-sakura">3 bước</span>
           </motion.h2>
         </motion.div>
@@ -792,13 +930,19 @@ function CtaBanner() {
               Sẵn sàng để Haimiya <br className="hidden md:block" /> hỗ trợ bạn quản lý server?
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-              Đăng nhập bằng Discord, mời Protogon vào server — bật nhiệt độ, Join Gate, lọc nội dung và 32 module chống nuke ngay trên dashboard, có trợ lý ảo Haimiya đồng hành. Miễn phí cho mọi server.
+              Đăng nhập bằng Discord, mời Protogon vào server — bật nhiệt độ, Join Gate, lọc nội
+              dung và 32 module chống nuke ngay trên dashboard, có trợ lý ảo Haimiya đồng hành. Miễn
+              phí cho mọi server.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <DashboardCta>
                 Bắt đầu ngay <ArrowRight className="h-4 w-4" />
               </DashboardCta>
-              <Button size="lg" variant="outline" onClick={() => window.dispatchEvent(new Event("haimiya-open"))}>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => window.dispatchEvent(new Event("haimiya-open"))}
+              >
                 <MessageCircle className="h-4 w-4" /> Trò chuyện với Haimiya
               </Button>
             </div>
@@ -866,9 +1010,9 @@ export default function Landing() {
                   transition={{ duration: 0.7, delay: 0.2 }}
                   className="mx-auto mt-5 max-w-lg text-center text-base text-muted-foreground sm:text-lg lg:mx-0 lg:text-left"
                 >
-                  Tag <span className="font-mono text-primary">@protogon</span> hoặc nhắc từ khóa — bot trả lời ngay. Hệ thống{" "}
-                  <b className="text-foreground">nhiệt độ 4 giai đoạn</b> kèm warn tích lũy,{" "}
-                  <b className="text-foreground">Join Gate chống selfbot</b>,{" "}
+                  Tag <span className="font-mono text-primary">@protogon</span> hoặc nhắc từ khóa —
+                  bot trả lời ngay. Hệ thống <b className="text-foreground">nhiệt độ 4 giai đoạn</b>{" "}
+                  kèm warn tích lũy, <b className="text-foreground">Join Gate chống selfbot</b>,{" "}
                   <b className="text-foreground">chặn link độc hại & file nguy hiểm</b> và{" "}
                   <b className="text-foreground">32 module bảo vệ</b> canh server 24/7.
                 </motion.p>
@@ -953,7 +1097,8 @@ export default function Landing() {
             </div>
             <div className="mt-6 flex flex-col items-center justify-between gap-3 border-t border-border/60 pt-6 md:flex-row">
               <p className="text-center text-sm text-muted-foreground">
-                © {new Date().getFullYear()} Protogon Bot · Tự trả lời thông minh, nhiệt độ vi phạm, Join Gate & phòng thủ chống raid cho Discord
+                © {new Date().getFullYear()} Protogon Bot · Tự trả lời thông minh, nhiệt độ vi phạm,
+                Join Gate & phòng thủ chống raid cho Discord
               </p>
               <SectionBoundary>
                 <FooterOwner />

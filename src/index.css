@@ -83,12 +83,13 @@
 
   html.dark body {
     background: linear-gradient(
-      160deg,
-      hsl(270 32% 12%) 0%,
-      hsl(272 28% 15%) 45%,
-      hsl(215 30% 14%) 75%,
-      hsl(210 34% 12%) 100%
-    ) fixed;
+        160deg,
+        hsl(270 32% 12%) 0%,
+        hsl(272 28% 15%) 45%,
+        hsl(215 30% 14%) 75%,
+        hsl(210 34% 12%) 100%
+      )
+      fixed;
   }
 
   /* Khóa tràn ngang toàn trang: không bao giờ có thanh cuộn ngang,
@@ -100,7 +101,13 @@
   /* Mobile: chống double-tap zoom khi bấm nhanh nút/toggle (trải nghiệm app-like).
      Vẫn giữ pinch-zoom cho trợ năng — chỉ chặn zoom do tap nhanh. */
   @media (pointer: coarse) {
-    button, a, input, select, textarea, label, [role="button"] {
+    button,
+    a,
+    input,
+    select,
+    textarea,
+    label,
+    [role="button"] {
       touch-action: manipulation;
     }
   }
@@ -119,12 +126,13 @@
     @apply text-foreground antialiased;
     /* Nền mix: hồng anh đào chuyển dần sang xanh trời (tương phản rõ hơn) */
     background: linear-gradient(
-      160deg,
-      hsl(342 100% 87%) 0%,
-      hsl(341 100% 92%) 20%,
-      hsl(218 100% 93%) 52%,
-      hsl(204 95% 81%) 100%
-    ) fixed;
+        160deg,
+        hsl(342 100% 87%) 0%,
+        hsl(341 100% 92%) 20%,
+        hsl(218 100% 93%) 52%,
+        hsl(204 95% 81%) 100%
+      )
+      fixed;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
@@ -163,19 +171,11 @@
   }
 
   .bg-glow-sakura {
-    background: radial-gradient(
-      46% 46% at 50% 0%,
-      hsl(342 95% 62% / 0.32) 0%,
-      transparent 70%
-    );
+    background: radial-gradient(46% 46% at 50% 0%, hsl(342 95% 62% / 0.32) 0%, transparent 70%);
   }
 
   .bg-glow-sky {
-    background: radial-gradient(
-      46% 46% at 50% 100%,
-      hsl(205 100% 60% / 0.36) 0%,
-      transparent 70%
-    );
+    background: radial-gradient(46% 46% at 50% 100%, hsl(205 100% 60% / 0.36) 0%, transparent 70%);
   }
 
   .text-gradient-sakura {
@@ -191,7 +191,10 @@
   }
 
   .card-hover {
-    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    transition:
+      transform 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
   }
   .card-hover:hover {
     transform: translateY(-2px);

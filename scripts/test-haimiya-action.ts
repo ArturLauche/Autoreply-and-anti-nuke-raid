@@ -92,10 +92,16 @@ const okReply = async () =>
   mockFetch();
   const r1 = await okReply();
   check("gọi api.groq.com", requests[0]?.host === "api.groq.com");
-  check("model Groq mặc định là llama-3.3-70b-versatile (không phải model không tồn tại)", requests[0]?.model === "llama-3.3-70b-versatile");
+  check(
+    "model Groq mặc định là llama-3.3-70b-versatile (không phải model không tồn tại)",
+    requests[0]?.model === "llama-3.3-70b-versatile",
+  );
   check("trả reply + offline: false", r1.offline === false && r1.reply.length > 0);
   check("system prompt có tên Haimiya", requests[0]?.system?.includes("Haimiya") === true);
-  check("system prompt có quy tắc xưng hô (không dùng 'em')", requests[0]?.system?.includes("QUY TẮC XƯNG HÔ") === true);
+  check(
+    "system prompt có quy tắc xưng hô (không dùng 'em')",
+    requests[0]?.system?.includes("QUY TẮC XƯNG HÔ") === true,
+  );
 
   console.log("\nC) Ưu tiên provider: custom gateway > Groq > NVIDIA > DeepSeek NIM:");
   clearAIEnv();
@@ -117,7 +123,10 @@ const okReply = async () =>
   (process.env as any).DEEPSEEK_NIM_KEY = "test-ds";
   mockFetch();
   await okReply();
-  check("DeepSeek NIM → integrate.api.nvidia.com", requests[0]?.host === "integrate.api.nvidia.com");
+  check(
+    "DeepSeek NIM → integrate.api.nvidia.com",
+    requests[0]?.host === "integrate.api.nvidia.com",
+  );
   check("model DeepSeek V4 Pro 0813", requests[0]?.model === "deepseek-ai/deepseek-v4-pro-0813");
 
   console.log("\nD) API lỗi (500) → offline, frontend fallback bộ kiến thức cục bộ:");
@@ -145,7 +154,12 @@ const okReply = async () =>
   clearAIEnv();
   (process.env as any).GROQ_API_KEY = "test-groq";
   mockFetch(
-    JSON.stringify({ classification: "raid", confidence: 0.9, reason: "lặp nội dung", suggestPunish: "ban" }),
+    JSON.stringify({
+      classification: "raid",
+      confidence: 0.9,
+      reason: "lặp nội dung",
+      suggestPunish: "ban",
+    }),
   );
   // classifyViolation giờ CHỈ bot có botKey được gọi — ctx không có "db" + runQuery
   // trả null (không có botKeySeed) → rơi vào nhánh back-compat, check được bỏ qua.
@@ -161,7 +175,10 @@ const okReply = async () =>
   })) as any;
   check("phân loại raid + confidence 0.9", cls.classification === "raid" && cls.confidence === 0.9);
   check("offline: false", cls.offline === false);
-  check("prompt có dữ liệu server + mẫu tin nhắn", requests[0]?.system?.includes("raḑ") === false && true);
+  check(
+    "prompt có dữ liệu server + mẫu tin nhắn",
+    requests[0]?.system?.includes("raḑ") === false && true,
+  );
 
   // Không key → individual + offline (hành vi an toàn)
   clearAIEnv();
@@ -174,7 +191,10 @@ const okReply = async () =>
     threshold: 6,
     sampleMessages: [],
   })) as any;
-  check("không key → individual + offline (an toàn, không ban)", cls2.classification === "individual" && cls2.offline === true);
+  check(
+    "không key → individual + offline (an toàn, không ban)",
+    cls2.classification === "individual" && cls2.offline === true,
+  );
 
   globalThis.fetch = realFetch;
   console.log(`\nKết quả tầng action AI: ${pass} PASS, ${fail} FAIL`);

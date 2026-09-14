@@ -115,10 +115,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
       setWhitelistInput("");
       return toast.info("ID này đã có trong danh sách trắng");
     }
-    await patch(
-      { joinGateWhitelist: [...current, id] },
-      `Đã thêm ${id} vào danh sách trắng`,
-    );
+    await patch({ joinGateWhitelist: [...current, id] }, `Đã thêm ${id} vào danh sách trắng`);
     setWhitelistInput("");
   }
 
@@ -145,7 +142,10 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
             Quét từng thành viên mới khi tham gia và tự động chặn tài khoản nghi selfbot
           </p>
         </div>
-        <Badge variant={g.joinGateEnabled ? "default" : "secondary"} className="gap-1.5 px-3 py-1.5">
+        <Badge
+          variant={g.joinGateEnabled ? "default" : "secondary"}
+          className="gap-1.5 px-3 py-1.5"
+        >
           <DoorOpen className="h-3.5 w-3.5" />
           {g.joinGateEnabled ? `Đang bật · ${activeChecks} tiêu chí` : "Đang tắt"}
         </Badge>
@@ -161,15 +161,17 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
             <div>
               <p className="font-display font-semibold">Bật Join Gate</p>
               <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                Khi bật, mọi thành viên mới đều được kiểm tra theo các tiêu chí bên dưới trước
-                khi ở lại server. Kẻ không đạt sẽ bị{" "}
-                <b className="text-foreground">kick hoặc ban</b> ngay lập tức.
+                Khi bật, mọi thành viên mới đều được kiểm tra theo các tiêu chí bên dưới trước khi ở
+                lại server. Kẻ không đạt sẽ bị <b className="text-foreground">kick hoặc ban</b> ngay
+                lập tức.
               </p>
             </div>
           </div>
           <Switch
             checked={g.joinGateEnabled}
-            onCheckedChange={(v) => patch({ joinGateEnabled: v }, v ? "Đã bật Join Gate" : "Đã tắt Join Gate")}
+            onCheckedChange={(v) =>
+              patch({ joinGateEnabled: v }, v ? "Đã bật Join Gate" : "Đã tắt Join Gate")
+            }
           />
         </CardContent>
       </Card>
@@ -231,8 +233,8 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
         />
         {locked && (
           <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
-            🔒 Server của bạn <b>đang bị khóa kênh</b> — nếu bật tiêu chí trên, mọi thành viên
-            mới sẽ bị xử lý ngay bây giờ.
+            🔒 Server của bạn <b>đang bị khóa kênh</b> — nếu bật tiêu chí trên, mọi thành viên mới
+            sẽ bị xử lý ngay bây giờ.
           </div>
         )}
 
@@ -308,13 +310,13 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
       <div className="rounded-xl border border-border bg-card/50 p-4 text-xs text-muted-foreground">
         <p className="mb-1 font-medium text-foreground">📌 Lưu ý quan trọng</p>
         <p>
-          • Discord <b>không cho bot đọc</b> trạng thái email/điện thoại đã xác thực, nên Join
-          Gate dùng các tín hiệu công khai (tuổi tài khoản, avatar, huy hiệu, trạng thái raid)
-          để nhận diện selfbot.
+          • Discord <b>không cho bot đọc</b> trạng thái email/điện thoại đã xác thực, nên Join Gate
+          dùng các tín hiệu công khai (tuổi tài khoản, avatar, huy hiệu, trạng thái raid) để nhận
+          diện selfbot.
         </p>
         <p className="mt-1">
-          • Bot cần quyền <b className="text-foreground">Kick/Ban thành viên</b> để xử lý.
-          Muốn cho một người cụ thể luôn vào, thêm ID của họ vào danh sách trắng phía trên.
+          • Bot cần quyền <b className="text-foreground">Kick/Ban thành viên</b> để xử lý. Muốn cho
+          một người cụ thể luôn vào, thêm ID của họ vào danh sách trắng phía trên.
         </p>
       </div>
     </div>

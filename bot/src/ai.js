@@ -134,11 +134,6 @@ function providerChain() {
   return chain;
 }
 
-/** Provider đầu tiên (để hiển thị nguồn phát hiện) hoặc null nếu không có key. */
-function provider() {
-  return providerChain()[0] ?? null;
-}
-
 /** Báo AI online hay không (để UI/log hiển thị đúng nguồn phát hiện). */
 function aiAvailable() {
   return providerChain().length > 0;
@@ -211,8 +206,22 @@ function extractJson(raw) {
  * Phân loại sự kiện vi phạm: raid / individual / benign.
  * Trả { classification, confidence, reason, suggestPunish, offline }.
  */
-async function classifyViolation({ module, count, windowSeconds, threshold, sampleMessages = [], recentJoins, memberCount }) {
-  if (!aiAvailable()) return { classification: "individual", confidence: 0.5, reason: "AI chưa cấu hình", offline: true };
+async function classifyViolation({
+  module,
+  count,
+  windowSeconds,
+  threshold,
+  sampleMessages = [],
+  recentJoins,
+  memberCount,
+}) {
+  if (!aiAvailable())
+    return {
+      classification: "individual",
+      confidence: 0.5,
+      reason: "AI chưa cấu hình",
+      offline: true,
+    };
   const samples = (sampleMessages || []).slice(0, 6).map((s) => String(s).slice(0, 200));
   const system = `Bạn là chuyên gia an ninh Discord. Phân loại một sự kiện vi phạm vừa xảy ra:
 - "raid": tấn công có tổ chức / tự động — bot-account, hàng loạt tài khoản cùng lúc, nội dung lặp lại giống hệt nhau, tin nhắn cực dài hoặc giả blank (chỉ khoảng trắng / ký tự ẩn) gây nhiễu loạn kênh, hoặc kết hợp với làn sóng thành viên mới vào.
@@ -232,7 +241,12 @@ ${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).join("\n") : "(không
   );
   const parsed = extractJson(raw);
   if (!parsed || !["raid", "individual", "benign"].includes(parsed.classification)) {
-    return { classification: "individual", confidence: 0.5, reason: "AI trả về không hợp lệ", offline: true };
+    return {
+      classification: "individual",
+      confidence: 0.5,
+      reason: "AI trả về không hợp lệ",
+      offline: true,
+    };
   }
   return {
     classification: parsed.classification,
@@ -249,8 +263,22 @@ ${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).join("\n") : "(không
  * Phân tích vụ raid: có phối hợp không + nghi phạm nguồn cơn.
  * Trả { coordinated, confidence, reasoning, sourceHint, offline }.
  */
-async function analyzeRaid({ module, count, windowSeconds, threshold, clusterProfile, recentActions }) {
-  if (!aiAvailable()) return { coordinated: null, confidence: 0, reasoning: "AI chưa cấu hình", sourceHint: null, offline: true };
+async function analyzeRaid({
+  module,
+  count,
+  windowSeconds,
+  threshold,
+  clusterProfile,
+  recentActions,
+}) {
+  if (!aiAvailable())
+    return {
+      coordinated: null,
+      confidence: 0,
+      reasoning: "AI chưa cấu hình",
+      sourceHint: null,
+      offline: true,
+    };
   const system = `Bạn là chuyên gia an ninh Discord chuyên điều tra RAID/NUKE.
 Phân tích dữ liệu một vụ tấn công server vừa xảy ra và trả lời:
 - "coordinated": vụ này có phải tấn công PHỐI HỢP (raid/nuke) hay chỉ là cá nhân vi phạm.
@@ -270,7 +298,13 @@ ${recentActions || "(không có)"}`;
   );
   const parsed = extractJson(raw);
   if (!parsed || typeof parsed.coordinated !== "boolean") {
-    return { coordinated: null, confidence: 0, reasoning: "AI trả về không hợp lệ", sourceHint: null, offline: true };
+    return {
+      coordinated: null,
+      confidence: 0,
+      reasoning: "AI trả về không hợp lệ",
+      sourceHint: null,
+      offline: true,
+    };
   }
   return {
     coordinated: parsed.coordinated,
@@ -285,8 +319,16 @@ ${recentActions || "(không có)"}`;
  * Xác định chuỗi kết nối external app có phải raid không.
  * Trả { isRaid, confidence, reason, offline }.
  */
-async function analyzeExternalApp({ count, windowSeconds, threshold, appProfile, recentJoins, memberCount }) {
-  if (!aiAvailable()) return { isRaid: null, confidence: 0, reason: "AI chưa cấu hình", offline: true };
+async function analyzeExternalApp({
+  count,
+  windowSeconds,
+  threshold,
+  appProfile,
+  recentJoins,
+  memberCount,
+}) {
+  if (!aiAvailable())
+    return { isRaid: null, confidence: 0, reason: "AI chưa cấu hình", offline: true };
   const system = `Bạn là chuyên gia an ninh Discord chuyên điều tra RAID bằng ỨNG DỤNG NGOÀI (external app / integration).
 
 "External app raid" là kỹ thuật tấn công server dùng ứng dụng Discord thay vì bot thành viên:
@@ -326,7 +368,15 @@ ${appProfile || "(không có)"}`;
   };
 }
 
-module.exports = { aiAvailable, classifyViolation, analyzeRaid, analyzeExternalApp, chatForResearch, researchChat, researchAvailable };
+module.exports = {
+  aiAvailable,
+  classifyViolation,
+  analyzeRaid,
+  analyzeExternalApp,
+  chatForResearch,
+  researchChat,
+  researchAvailable,
+};
 
 /**
  * Chat completions công khai — dành cho research.js (threat intel). Trả content

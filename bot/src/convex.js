@@ -25,13 +25,22 @@ async function withRetry(fn, label) {
     } catch (err) {
       const status = err?.statusCode ?? err?.status;
       const isRetryable =
-        !status || status >= 500 || status === 429 || err?.code === "ECONNRESET" || err?.code === "ETIMEDOUT";
+        !status ||
+        status >= 500 ||
+        status === 429 ||
+        err?.code === "ECONNRESET" ||
+        err?.code === "ETIMEDOUT";
       if (attempt === MAX_RETRIES || !isRetryable) {
-        console.error(`[convex:${label}] attempt ${attempt}/${MAX_RETRIES} failed:`, err?.message || err);
+        console.error(
+          `[convex:${label}] attempt ${attempt}/${MAX_RETRIES} failed:`,
+          err?.message || err,
+        );
         throw err;
       }
       const delay = BASE_RETRY_DELAY_MS * Math.pow(2, attempt - 1) + Math.random() * 200;
-      console.warn(`[convex:${label}] attempt ${attempt} failed, retrying in ${Math.round(delay)}ms...`);
+      console.warn(
+        `[convex:${label}] attempt ${attempt} failed, retrying in ${Math.round(delay)}ms...`,
+      );
       await new Promise((r) => setTimeout(r, delay));
     }
   }
@@ -43,7 +52,7 @@ class ConvexStore {
     if (!url) {
       throw new Error(
         "❌ CONVEX_URL không được để trống. " +
-        "Kiểm tra file .env ở thư mục bot hoặc biến môi trường trên VPS."
+          "Kiểm tra file .env ở thư mục bot hoặc biến môi trường trên VPS.",
       );
     }
     this.client = new ConvexHttpClient(url);
@@ -113,7 +122,9 @@ class ConvexStore {
         const token = process.env.DISCORD_TOKEN;
         if (!token) throw new Error("Thiếu DISCORD_TOKEN để bootstrap");
         // Dùng RAW client — proxy sẽ chờ _botKeyPromise (chính promise này) → deadlock nếu đi qua proxy.
-        const res = await this._rawClient.action("botBootstrapAction:requestBotKey", { botToken: token });
+        const res = await this._rawClient.action("botBootstrapAction:requestBotKey", {
+          botToken: token,
+        });
         if (res && res.ok && res.botKey) {
           this.botKey = res.botKey;
           try {
@@ -125,12 +136,16 @@ class ConvexStore {
         throw new Error(res?.error || "bootstrap từ chối");
       } catch (e) {
         console.error("[auth] Bootstrap botKey thất bại:", e?.message || e);
-        console.error("[auth] → Các function bảo mật cao (backup, sync…) sẽ bị từ chối cho tới khi bootstrap thành công.");
+        console.error(
+          "[auth] → Các function bảo mật cao (backup, sync…) sẽ bị từ chối cho tới khi bootstrap thành công.",
+        );
         console.error("[auth] → Kiểm tra DISCORD_TOKEN/CONVEX_URL rồi khởi động lại bot.");
         return null;
       } finally {
         // Cho phép thử lại sau 5 phút nếu thất bại.
-        setTimeout(() => { this._botKeyPromise = null; }, 5 * 60_000).unref?.();
+        setTimeout(() => {
+          this._botKeyPromise = null;
+        }, 5 * 60_000).unref?.();
       }
     })();
     return this._botKeyPromise;
@@ -158,7 +173,7 @@ class ConvexStore {
     try {
       const config = await withRetry(
         () => this.client.query("guilds:getBotConfig", { guildId }),
-        `getConfig:${guildId}`
+        `getConfig:${guildId}`,
       );
       this.cache.set(guildId, { config, fetchedAt: Date.now() });
       return config;
@@ -178,14 +193,15 @@ class ConvexStore {
   /** Send health check heartbeat to Convex. */
   async sendHeartbeat(guildCount, memberCount) {
     try {
-      await withRetry(() =>
-        this.client.mutation("status:heartbeat", {
-          online: true,
-          guildCount,
-          memberCount,
-          version: "3.0.0",
-        }),
-        "heartbeat"
+      await withRetry(
+        () =>
+          this.client.mutation("status:heartbeat", {
+            online: true,
+            guildCount,
+            memberCount,
+            version: "3.0.0",
+          }),
+        "heartbeat",
       );
       this._lastHeartbeat = Date.now();
       this._heartbeatOk = true;

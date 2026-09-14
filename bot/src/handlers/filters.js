@@ -15,26 +15,75 @@ const INVITE_RE = /(?:discord\.(?:gg|me)\/|discord(?:app)?\.com\/invite\/)[a-zA-
 
 // Danh sách domain scam/lừa đảo phổ biến (nitro giả, gift giả, crypto scam…)
 const MALICIOUS_DOMAINS = [
-  "discord-nitro.ru", "discordnitro.ru", "discord-gift.ru", "discordnitro.gift",
-  "nitro-gift.ru", "nitrogift.ru", "discordgift.site", "discord-giveaway.com",
-  "steam-gift.net", "steamgift.ru", "steam-gifts.com", "steam-giveaways.com",
-  "steam-keys.ru", "free-steam-keys.com", "csgo-gifts.ru", "csgofast.com",
-  "metamask-verify.com", "metamask-auth.com", "binance-airdrop.top",
-  "binance-claim.com", "coinbase-verify.com", "paypal-verify.cc",
-  "wallet-connect.verify", "uniswap-airdrop.site", "opensea-verify.com",
-  "discord-airdrop.com", "discord-verification.com", "discord-verify.com",
-  "discord-login.com", "discord-verify.net", "discordbot.help", "discord-hub.com",
-  "nitro-win.ru", "nitrowin.ru", "boost-gift.ru", "nitro-gift.site",
-  "get-nitro.com", "freе-nitro.com", "free-nitro.ru", "nitro.quest",
-  "discord.gift-claim.com", "claim-gift.ru", "gift-nitro.ru", "nitro-gift.ru",
-  "airdrop-token.top", "claim-airdrop.com", "crypto-claim.site",
-  "hypesquad-event.com", "xbox-gift.net", "psn-gift.net", "roblox-gift.net",
+  "discord-nitro.ru",
+  "discordnitro.ru",
+  "discord-gift.ru",
+  "discordnitro.gift",
+  "nitro-gift.ru",
+  "nitrogift.ru",
+  "discordgift.site",
+  "discord-giveaway.com",
+  "steam-gift.net",
+  "steamgift.ru",
+  "steam-gifts.com",
+  "steam-giveaways.com",
+  "steam-keys.ru",
+  "free-steam-keys.com",
+  "csgo-gifts.ru",
+  "csgofast.com",
+  "metamask-verify.com",
+  "metamask-auth.com",
+  "binance-airdrop.top",
+  "binance-claim.com",
+  "coinbase-verify.com",
+  "paypal-verify.cc",
+  "wallet-connect.verify",
+  "uniswap-airdrop.site",
+  "opensea-verify.com",
+  "discord-airdrop.com",
+  "discord-verification.com",
+  "discord-verify.com",
+  "discord-login.com",
+  "discord-verify.net",
+  "discordbot.help",
+  "discord-hub.com",
+  "nitro-win.ru",
+  "nitrowin.ru",
+  "boost-gift.ru",
+  "nitro-gift.site",
+  "get-nitro.com",
+  "freе-nitro.com",
+  "free-nitro.ru",
+  "nitro.quest",
+  "discord.gift-claim.com",
+  "claim-gift.ru",
+  "gift-nitro.ru",
+  "nitro-gift.ru",
+  "airdrop-token.top",
+  "claim-airdrop.com",
+  "crypto-claim.site",
+  "hypesquad-event.com",
+  "xbox-gift.net",
+  "psn-gift.net",
+  "roblox-gift.net",
 ].map((d) => d.toLowerCase());
 
 const DANGEROUS_EXTENSIONS = [
-  ".exe", ".scr", ".bat", ".cmd", ".msi", ".msp",
-  ".vbs", ".vbe", ".jse", ".hta", ".ps1", ".psm1",
-  ".apk", ".cpl", ".reg",
+  ".exe",
+  ".scr",
+  ".bat",
+  ".cmd",
+  ".msi",
+  ".msp",
+  ".vbs",
+  ".vbe",
+  ".jse",
+  ".hta",
+  ".ps1",
+  ".psm1",
+  ".apk",
+  ".cpl",
+  ".reg",
   // Đã loại bỏ: ".js" (dev upload file script là bình thường), ".com" (nhầm với
   // tên miền trong tên file) — hai đuôi này gây phạt oan nhiều hơn giá trị chặn.
 ];
@@ -71,8 +120,14 @@ function refreshThreatIntel(store) {
     .query("threatIntel:botGetIntel", {})
     .then((intel) => {
       if (intel) {
-        threatKeywords = (intel.keywords || []).slice(0, 60).map((k) => String(k).toLowerCase()).filter(Boolean);
-        threatPhrases = (intel.scamPhrases || []).slice(0, 40).map((p) => String(p).toLowerCase()).filter(Boolean);
+        threatKeywords = (intel.keywords || [])
+          .slice(0, 60)
+          .map((k) => String(k).toLowerCase())
+          .filter(Boolean);
+        threatPhrases = (intel.scamPhrases || [])
+          .slice(0, 40)
+          .map((p) => String(p).toLowerCase())
+          .filter(Boolean);
         threatLoadedAt = Date.now();
       }
     })
@@ -93,14 +148,16 @@ function findLearnedThreat(content) {
   // Cụm từ nhiều từ (vd "free gift redeem") — khớp nguyên cụm với RANH GIỚI TỪ
   // (tránh khớp nhầm "re-claim rewards" chứa "claim reward").
   for (const p of threatPhrases) {
-    if (p.length >= 6 && wordBoundaryRegex(p).test(lower)) return { kind: "intel-phrase", value: p };
+    if (p.length >= 6 && wordBoundaryRegex(p).test(lower))
+      return { kind: "intel-phrase", value: p };
   }
   // Từ khóa đơn: phải kèm link đáng ngờ (domain lạ) mới tính — tránh phạt người
   // dùng nhắc từ chung chung kèm link github/youtube/discord.
   const suspiciousLink = findSuspiciousLink(content);
   if (!suspiciousLink) return null;
   for (const k of threatKeywords) {
-    if (k.length >= 5 && wordBoundaryRegex(k).test(lower)) return { kind: "intel-keyword", value: k };
+    if (k.length >= 5 && wordBoundaryRegex(k).test(lower))
+      return { kind: "intel-keyword", value: k };
   }
   return null;
 }
@@ -137,16 +194,49 @@ function isExempt(member, config) {
  * lạ + từ khóa scam mới được coi là đáng ngờ.
  */
 const BENIGN_LINK_HOSTS = new Set([
-  "discord.com", "discord.gg", "discordapp.com", "github.com", "gitlab.com",
-  "youtube.com", "youtu.be", "google.com", "reddit.com", "stackoverflow.com",
-  "npmjs.com", "medium.com", "developer.mozilla.org", "wikipedia.org",
-  "canva.com", "imgur.com", "tenor.com", "spotify.com", "open.spotify.com",
-  "figma.com", "notion.so", "trello.com", "facebook.com", "instagram.com",
-  "tiktok.com", "x.com", "twitter.com", "vnexpress.net", "dantri.com.vn",
-  "tuoitre.vn", "thanhtra.com.vn", "microsoft.com", "apple.com", "cloudflare.com",
+  "discord.com",
+  "discord.gg",
+  "discordapp.com",
+  "github.com",
+  "gitlab.com",
+  "youtube.com",
+  "youtu.be",
+  "google.com",
+  "reddit.com",
+  "stackoverflow.com",
+  "npmjs.com",
+  "medium.com",
+  "developer.mozilla.org",
+  "wikipedia.org",
+  "canva.com",
+  "imgur.com",
+  "tenor.com",
+  "spotify.com",
+  "open.spotify.com",
+  "figma.com",
+  "notion.so",
+  "trello.com",
+  "facebook.com",
+  "instagram.com",
+  "tiktok.com",
+  "x.com",
+  "twitter.com",
+  "vnexpress.net",
+  "dantri.com.vn",
+  "tuoitre.vn",
+  "thanhtra.com.vn",
+  "microsoft.com",
+  "apple.com",
+  "cloudflare.com",
   // VN + dev thường dùng: shopee/lazada/tiki (mua bán), docs/drive google, github pages.
-  "shopee.vn", "lazada.vn", "tiki.vn", "github.io", "gitlab.io",
-  "docs.google.com", "drive.google.com", "discord.gg",
+  "shopee.vn",
+  "lazada.vn",
+  "tiki.vn",
+  "github.io",
+  "gitlab.io",
+  "docs.google.com",
+  "drive.google.com",
+  "discord.gg",
 ]);
 
 /** Link đầu tiên trong nội dung có domain KHÔNG nằm trong danh sách lành tính.
@@ -194,10 +284,14 @@ function findMaliciousLink(content) {
   //  - Chữ ký YẾU (giveaway, airdrop) + link TLD lạm dụng (.ru/.top/…) → phạt;
   //    link TLD thường (shopee.vn, blog .com…) → bỏ qua.
   if (findSuspiciousLink(content)) {
-    if (SCAM_STRONG_RE.test(content)) return { kind: "scam-keyword", value: "nội dung lừa đảo kèm link" };
+    if (SCAM_STRONG_RE.test(content))
+      return { kind: "scam-keyword", value: "nội dung lừa đảo kèm link" };
     const urls = content.match(/https?:\/\/[^\s<>"]+|www\.[^\s<>"]+/gi) || [];
-    const hasScammyTld = urls.some((u) => SCAMMY_TLD_RE.test(u.replace(/^https?:\/\//i, "").replace(/^www\./i, "")));
-    if (SCAM_WEAK_RE.test(content) && hasScammyTld) return { kind: "scam-keyword", value: "nội dung lừa đảo kèm link đáng ngờ" };
+    const hasScammyTld = urls.some((u) =>
+      SCAMMY_TLD_RE.test(u.replace(/^https?:\/\//i, "").replace(/^www\./i, "")),
+    );
+    if (SCAM_WEAK_RE.test(content) && hasScammyTld)
+      return { kind: "scam-keyword", value: "nội dung lừa đảo kèm link đáng ngờ" };
   }
   return null;
 }
@@ -307,7 +401,11 @@ async function punishFlow(client, message, moduleCfg, config, heat, reason, deta
       action: chosen,
       caseNumber,
       offender,
-      reason: `Tự động xử lý vì ${MODULE_LABELS[moduleCfg.module]}: ${detail}${strikeTag ? ` (${strikeTag.trim()})` : ""}${cleanup ? ` · đã ${cleanup}` : ""} · ${action}`.slice(0, 1000),
+      reason:
+        `Tự động xử lý vì ${MODULE_LABELS[moduleCfg.module]}: ${detail}${strikeTag ? ` (${strikeTag.trim()})` : ""}${cleanup ? ` · đã ${cleanup}` : ""} · ${action}`.slice(
+          0,
+          1000,
+        ),
       executor: null,
     });
   } catch (e) {
@@ -338,7 +436,11 @@ async function scanMessage(client, message, store, heat) {
     const match = message.content.match(INVITE_RE);
     if (match) {
       return punishFlow(
-        client, message, inviteCfg, config, heat,
+        client,
+        message,
+        inviteCfg,
+        config,
+        heat,
         `[Protogon] Chặn link mời Discord: ${match[0]}`,
         `Chứa link mời \`${match[0]}\``,
         1,
@@ -352,7 +454,11 @@ async function scanMessage(client, message, store, heat) {
     const bad = (config.badWords || []).find((w) => w && wordBoundaryRegex(w).test(lower));
     if (bad) {
       return punishFlow(
-        client, message, badwordCfg, config, heat,
+        client,
+        message,
+        badwordCfg,
+        config,
+        heat,
         `[Protogon] Từ ngữ xấu: "${bad}"`,
         `Chứa từ ngữ xấu \`${bad}\``,
         1,
@@ -367,7 +473,11 @@ async function scanMessage(client, message, store, heat) {
     const learned = findLearnedThreat(message.content);
     if (learned) {
       return punishFlow(
-        client, message, malwareCfg, config, heat,
+        client,
+        message,
+        malwareCfg,
+        config,
+        heat,
         `[Protogon] Nội dung lừa đảo (threat intel): "${learned.value}"`,
         `Khớp từ khóa scam bot tự học (\`${learned.kind}: ${learned.value}\`)`,
         1,
@@ -376,7 +486,11 @@ async function scanMessage(client, message, store, heat) {
     const hit = findMaliciousLink(message.content);
     if (hit) {
       return punishFlow(
-        client, message, malwareCfg, config, heat,
+        client,
+        message,
+        malwareCfg,
+        config,
+        heat,
         `[Protogon] Link độc hại: ${hit.value || hit.kind}`,
         `Chứa link/nội dung độc hại (\`${hit.kind}: ${hit.value || ""}\`)`,
         1,
@@ -389,7 +503,11 @@ async function scanMessage(client, message, store, heat) {
     const bad = findDangerousAttachment(message.attachments);
     if (bad) {
       return punishFlow(
-        client, message, malwareCfg, config, heat,
+        client,
+        message,
+        malwareCfg,
+        config,
+        heat,
         `[Protogon] File nguy hiểm: ${bad.name} (${bad.ext})`,
         `Đính kèm file nguy hiểm \`${bad.name}\` (\`${bad.ext}\`)`,
         1,
@@ -417,7 +535,11 @@ async function scanMessage(client, message, store, heat) {
       }
       mentionBuckets.delete(key);
       return punishFlow(
-        client, message, mentionCfg, config, heat,
+        client,
+        message,
+        mentionCfg,
+        config,
+        heat,
         `[Protogon] Spam mention: ${fresh.length} tin mention trong ${mentionCfg.windowSeconds || 10}s`,
         `<@${message.author.id}> đã gửi **${fresh.length} tin có mention** trong **${mentionCfg.windowSeconds || 10} giây** (ngưỡng ${mentionCfg.threshold || 10})`,
         fresh.length,
@@ -439,7 +561,11 @@ async function scanMessage(client, message, store, heat) {
     }
     attachmentBuckets.delete(key);
     return punishFlow(
-      client, message, attachmentCfg, config, heat,
+      client,
+      message,
+      attachmentCfg,
+      config,
+      heat,
       `[Protogon] Spam ảnh/file: ${fresh.length} tin đính kèm trong ${attachmentCfg.windowSeconds || 10}s`,
       `<@${message.author.id}> đã gửi **${fresh.length} tin có đính kèm** trong **${attachmentCfg.windowSeconds || 10} giây** (ngưỡng ${attachmentCfg.threshold || 5})`,
       fresh.length,

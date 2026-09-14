@@ -38,9 +38,7 @@ export default function Taskbar() {
     if (typeof window === "undefined") return "light";
     const saved = window.localStorage.getItem("protogon-theme");
     if (saved === "dark" || saved === "light") return saved;
-    return window.matchMedia?.("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   });
 
   const status = useBotStatus();
@@ -91,7 +89,9 @@ export default function Taskbar() {
           <span className="pointer-events-none absolute inset-y-0 left-1/2 w-1/3 -skew-x-12 bg-white/30 blur-md transition-transform duration-700 group-hover:translate-x-1" />
 
           {/* Hoa anh đào trên đỉnh (chỉ desktop) */}
-          <span className="relative mt-2 hidden animate-float text-sm leading-none md:block">🌸</span>
+          <span className="relative mt-2 hidden animate-float text-sm leading-none md:block">
+            🌸
+          </span>
 
           {/* Icon tròn phát sáng */}
           <span className="relative mt-3 flex h-11 w-11 items-center justify-center max-md:mt-0 max-md:h-full max-md:w-full">

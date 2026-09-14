@@ -86,7 +86,9 @@ export const getPendingJobs = query({
     };
     const threatFlags = {
       selfDiagnoseEnabled: status?.selfDiagnoseEnabled ?? false,
-      manualLearn: status?.threatManualLearnRequested ? { requestedBy: status.threatManualLearnBy ?? "admin" } : null,
+      manualLearn: status?.threatManualLearnRequested
+        ? { requestedBy: status.threatManualLearnBy ?? "admin" }
+        : null,
       aiReview: !!status?.threatAiReviewRequested,
     };
 

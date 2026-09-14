@@ -34,33 +34,69 @@ const check = (label, ok) => {
 (async () => {
   // ---- 1. Convex source: botEnsureModules mặc định TẮT (server mới) ----
   const bw = fs.readFileSync(path.join(__dirname, "..", "convex", "bot_writes.ts"), "utf8");
-  const ensureBlock = bw.slice(bw.indexOf("export const botEnsureModules"), bw.indexOf("export const botSetAntinuke"));
+  const ensureBlock = bw.slice(
+    bw.indexOf("export const botEnsureModules"),
+    bw.indexOf("export const botSetAntinuke"),
+  );
   check("botEnsureModules chèn module mới với enabled: false", /enabled: false/.test(ensureBlock));
-  check("botEnsureModules bỏ qua module đã có (không reset setup cũ)", /if \(have\.has\(m\.module\)\) continue;/.test(ensureBlock));
+  check(
+    "botEnsureModules bỏ qua module đã có (không reset setup cũ)",
+    /if \(have\.has\(m\.module\)\) continue;/.test(ensureBlock),
+  );
 
   // ---- 2. setAntinukeGlobal: BẬT = bật cả module con; TẮT = giữ nguyên ----
   const gs = fs.readFileSync(path.join(__dirname, "..", "convex", "guilds.ts"), "utf8");
-  const globalBlock = gs.slice(gs.indexOf("export const setAntinukeGlobal"), gs.indexOf("/* ------------------------- Bot-side sync"));
-  check("setAntinukeGlobal: bật global → bật mọi module con", /if \(enabled\) \{[\s\S]*?antinukeModules[\s\S]*?enabled: true/.test(globalBlock));
-  check("setAntinukeGlobal: chỉ patch module đang TẮT (giữ threshold/punish)", /if \(!m\.enabled\) await ctx\.db\.patch\(m\._id, \{ enabled: true/.test(globalBlock));
+  const globalBlock = gs.slice(
+    gs.indexOf("export const setAntinukeGlobal"),
+    gs.indexOf("/* ------------------------- Bot-side sync"),
+  );
+  check(
+    "setAntinukeGlobal: bật global → bật mọi module con",
+    /if \(enabled\) \{[\s\S]*?antinukeModules[\s\S]*?enabled: true/.test(globalBlock),
+  );
+  check(
+    "setAntinukeGlobal: chỉ patch module đang TẮT (giữ threshold/punish)",
+    /if \(!m\.enabled\) await ctx\.db\.patch\(m\._id, \{ enabled: true/.test(globalBlock),
+  );
 
   // ---- 3. notify flag: schema + threatIntel + research ----
   const schema = fs.readFileSync(path.join(__dirname, "..", "convex", "schema.ts"), "utf8");
   check("schema có researchNotifyEnabled", schema.includes("researchNotifyEnabled"));
   const ti = fs.readFileSync(path.join(__dirname, "..", "convex", "threatIntel.ts"), "utf8");
-  check("getSettings trả notifyEnabled", ti.includes("notifyEnabled: status?.researchNotifyEnabled ?? false"));
-  check("setResearchSettings nhận notifyEnabled", /notifyEnabled: v\.optional\(v\.boolean\(\)\)/.test(ti));
-  check("botGetIntel trả notifyEnabled cho bot", ti.includes("notifyEnabled: status?.researchNotifyEnabled ?? false,"));
+  check(
+    "getSettings trả notifyEnabled",
+    ti.includes("notifyEnabled: status?.researchNotifyEnabled ?? false"),
+  );
+  check(
+    "setResearchSettings nhận notifyEnabled",
+    /notifyEnabled: v\.optional\(v\.boolean\(\)\)/.test(ti),
+  );
+  check(
+    "botGetIntel trả notifyEnabled cho bot",
+    ti.includes("notifyEnabled: status?.researchNotifyEnabled ?? false,"),
+  );
 
   const research = fs.readFileSync(path.join(__dirname, "..", "bot", "src", "research.js"), "utf8");
-  check("runResearch đọc cờ notifyEnabled", research.includes("notifyEnabled: intel?.notifyEnabled === true"));
-  check("manual learn chỉ notify khi bật cờ", /if \(res\.notifyEnabled\) \{\s*\n\s*await notifyManualResult/.test(research));
-  check("digest cũng tôn trọng cờ notify", /if \(intel\?\.notifyEnabled === true\) \{\s*\n\s*await postDigestToLog/.test(research));
+  check(
+    "runResearch đọc cờ notifyEnabled",
+    research.includes("notifyEnabled: intel?.notifyEnabled === true"),
+  );
+  check(
+    "manual learn chỉ notify khi bật cờ",
+    /if \(res\.notifyEnabled\) \{\s*\n\s*await notifyManualResult/.test(research),
+  );
+  check(
+    "digest cũng tôn trọng cờ notify",
+    /if \(intel\?\.notifyEnabled === true\) \{\s*\n\s*await postDigestToLog/.test(research),
+  );
 
   // ---- 4. Admin UI: toggle thông báo học tập ----
   const admin = fs.readFileSync(path.join(__dirname, "..", "src", "pages", "Admin.tsx"), "utf8");
   check("Admin có onToggleNotify", admin.includes("onToggleNotify"));
-  check("Admin gọi setThreat với notifyEnabled", /setThreat\(\{ token, notifyEnabled \}\)/.test(admin));
+  check(
+    "Admin gọi setThreat với notifyEnabled",
+    /setThreat\(\{ token, notifyEnabled \}\)/.test(admin),
+  );
 
   // ---- 5. runResearch hoạt động đúng với notifyEnabled=false (mặc định) ----
   delete process.env.GROQ_API_KEY;
@@ -79,7 +115,9 @@ const check = (label, ok) => {
           JSON.stringify({
             data: {
               children: [
-                { data: { title: "new tokengrabber scam spreading - fake captcha steals password" } },
+                {
+                  data: { title: "new tokengrabber scam spreading - fake captcha steals password" },
+                },
               ],
             },
           }),
@@ -93,7 +131,13 @@ const check = (label, ok) => {
     client: {
       query: async (name) => {
         if (name === "threatIntel:botGetIntel") {
-          return { keywords: [], scamPhrases: [], researchEnabled: true, notifyEnabled: false, nextRunAt: 0 };
+          return {
+            keywords: [],
+            scamPhrases: [],
+            researchEnabled: true,
+            notifyEnabled: false,
+            nextRunAt: 0,
+          };
         }
         return null;
       },
@@ -107,11 +151,18 @@ const check = (label, ok) => {
   const res = await researchMod.runResearch(store);
   check("runResearch chạy được với intel tối thiểu", typeof res.newKeywords === "number");
   check("res.notifyEnabled = false khi intel chưa bật", res.notifyEnabled === false);
-  check("đã ghi botSetResearchRun", mutations.some((m) => m.name === "threatIntel:botSetResearchRun"));
+  check(
+    "đã ghi botSetResearchRun",
+    mutations.some((m) => m.name === "threatIntel:botSetResearchRun"),
+  );
 
   // notifyEnabled=true → cờ true
   store.client.query = async () => ({
-    keywords: [], scamPhrases: [], researchEnabled: true, notifyEnabled: true, nextRunAt: 0,
+    keywords: [],
+    scamPhrases: [],
+    researchEnabled: true,
+    notifyEnabled: true,
+    nextRunAt: 0,
   });
   const res2 = await researchMod.runResearch(store);
   check("res.notifyEnabled = true khi intel bật", res2.notifyEnabled === true);

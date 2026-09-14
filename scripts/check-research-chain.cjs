@@ -37,7 +37,13 @@ process.exit(failed ? 1 : 0);
 const scenarios = [
   {
     name: "no keys -> research offline",
-    env: { KIRA_API_KEY: null, GROQ_API_KEY: null, NVIDIA_API_KEY: null, AI_API_KEY: null, OPENAI_API_KEY: null },
+    env: {
+      KIRA_API_KEY: null,
+      GROQ_API_KEY: null,
+      NVIDIA_API_KEY: null,
+      AI_API_KEY: null,
+      OPENAI_API_KEY: null,
+    },
     expectAvailable: false,
   },
   {

@@ -2,29 +2,12 @@
 /**
  Lớp xử phạt chung: punishWithHeat (kết hợp nhiệt) + configOf + maybeLockdown. 
  */
-const { isLocked, markLocked, lockGuild, unlockGuild } = require("../../lockdown");
+const { isLocked, lockGuild } = require("../../lockdown");
 const { heatSettings, punishMember, choosePunish, heatSummary } = require("../../heat");
-const { actionsOf, memberPunishOf, cleanupMessages } = require("../../moduleActions");
-const {
-  MODULE_LABELS,
-  KNOWN_LOGGING_BOTS,
-  isKnownLoggingBot,
-  NUKE_MODULES,
-  IMMEDIATE_BOT_NUKE,
-  strangeBotVerdict,
-  botHitAndRunVerdict,
-  isTrustedBotMember,
-  isExempt,
-  moduleCfgOf,
-  memberSuspicionScore,
-  joinClusterSuspicion,
-  messageFingerprint,
-  isExternalAppSpam,
-  LONG_MSG_LEN,
-  ZERO_WIDTH_RE,
-} = require("./shared");
+const { actionsOf, memberPunishOf } = require("../../moduleActions");
+const { NUKE_MODULES } = require("./shared");
 
-module.exports = function createAntiNukeLayer({ client, store, heat, state, core, ai, raidIntel, externalApp }) {
+module.exports = function createAntiNukeLayer({ client, store, heat, state }) {
   const { lastConfigs } = state.state;
 
   /**
@@ -52,7 +35,14 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
     // nhiệt như người dùng (không "học" sau nhiều lần nhắc nhở). opts.direct tương tự.
     if (NUKE_MODULES.has(moduleCfg.module) || opts.direct || member?.user?.bot === true) {
       const chosen = base;
-      const res = await punishMember(guild, member, chosen, reason, moduleCfg.timeoutSeconds, store);
+      const res = await punishMember(
+        guild,
+        member,
+        chosen,
+        reason,
+        moduleCfg.timeoutSeconds,
+        store,
+      );
       return { action: res.action, caseNumber: res.caseNumber, chosen, heatRes: null };
     }
     const s = heatSettings(configOf(guild.id));

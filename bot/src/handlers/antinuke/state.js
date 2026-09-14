@@ -89,7 +89,6 @@ module.exports = function createAntiNukeState({ client, store }) {
     return arr.filter((j) => j.ts >= cutoff).length;
   }
 
-
   async function auditExecutor(guild, eventType, targetId) {
     try {
       const fetched = await guild.fetchAuditLogs({ type: eventType, limit: 5 });

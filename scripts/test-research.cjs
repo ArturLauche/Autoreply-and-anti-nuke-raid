@@ -1,6 +1,5 @@
 // Test research.js — threat intel pipeline với fetch + store GIẢ (không mạng thật).
 // Chạy: node scripts/test-research.cjs
-const path = require("path");
 
 // Ghim interval 4h cho test này (mặc định code hiện là 1h — tính năng tăng CPU;
 // env override của bot cho phép ghim để assertion về nextRunAt ổn định).
@@ -30,20 +29,34 @@ const redditJson = {
 };
 const cisaJson = {
   vulnerabilities: [
-    { cveID: "CVE-2026-12345", vendorProject: "ExampleSoft", product: "WebGate", shortDescription: "Remote code execution in WebGate panel allows full takeover" },
-    { cveID: "CVE-2026-67890", vendorProject: "HypotheticalCorp", product: "ChatRelay", shortDescription: "JWT bypass lets attacker impersonate webhook sender" },
+    {
+      cveID: "CVE-2026-12345",
+      vendorProject: "ExampleSoft",
+      product: "WebGate",
+      shortDescription: "Remote code execution in WebGate panel allows full takeover",
+    },
+    {
+      cveID: "CVE-2026-67890",
+      vendorProject: "HypotheticalCorp",
+      product: "ChatRelay",
+      shortDescription: "JWT bypass lets attacker impersonate webhook sender",
+    },
   ],
 };
 
-let researchQueries = 0;
 const mutations = [];
 
 const store = {
   client: {
     query: async (name) => {
       if (name === "threatIntel:botGetIntel") {
-        researchQueries++;
-        return { researchEnabled: true, aiWeeklyEnabled: true, nextRunAt: 0, lastRunAt: 0, keywords: ["alreadyknown"] };
+        return {
+          researchEnabled: true,
+          aiWeeklyEnabled: true,
+          nextRunAt: 0,
+          lastRunAt: 0,
+          keywords: ["alreadyknown"],
+        };
       }
       if (name === "antinuke:recentRaidSamples") {
         return [
@@ -99,7 +112,10 @@ const research = require("../bot/src/research.js");
   const res = await research.runResearch(store);
 
   console.log("[result]", JSON.stringify(res));
-  check("đã dùng nguồn reddit", res.sources.some((s) => s.startsWith("reddit")));
+  check(
+    "đã dùng nguồn reddit",
+    res.sources.some((s) => s.startsWith("reddit")),
+  );
   check("đã dùng nguồn cisa-kev", res.sources.includes("cisa-kev"));
   check("đã học từ raid-incidents", res.sources.includes("raid-incidents"));
   check("có từ khóa mới heuristic", res.newKeywords > 0);
@@ -110,10 +126,18 @@ const research = require("../bot/src/research.js");
   if (saved) {
     check(
       "keyword từ Reddit được lưu",
-      (saved.args.keywords || []).some((k) => k.includes("token-stealer") || k.includes("phishing")),
+      (saved.args.keywords || []).some(
+        (k) => k.includes("token-stealer") || k.includes("phishing"),
+      ),
     );
-    check("CVE được lưu thành phrase", (saved.args.scamPhrases || []).some((p) => p.startsWith("cve-")));
-    check("nextRunAt là 4 giờ sau (interval ghim qua env)", saved.args.nextRunAt - Date.now() > 3.9 * 3600 * 1000);
+    check(
+      "CVE được lưu thành phrase",
+      (saved.args.scamPhrases || []).some((p) => p.startsWith("cve-")),
+    );
+    check(
+      "nextRunAt là 4 giờ sau (interval ghim qua env)",
+      saved.args.nextRunAt - Date.now() > 3.9 * 3600 * 1000,
+    );
   }
 
   // Lượt 2: intel cũ giờ chứa từ khóa vừa lưu → không học lại từ khóa cũ (không spam).

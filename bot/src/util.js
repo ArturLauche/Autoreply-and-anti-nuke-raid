@@ -26,9 +26,7 @@ function canManageWithConfig(member, config) {
 
 /** Fill {user} / {username} placeholders in a response. */
 function fillPlaceholders(text, author) {
-  return text
-    .replaceAll("{user}", `<@${author.id}>`)
-    .replaceAll("{username}", author.username);
+  return text.replaceAll("{user}", `<@${author.id}>`).replaceAll("{username}", author.username);
 }
 
 function logEmbed({ title, description, color = Colors.Red, fields = [], footer }) {
@@ -169,7 +167,14 @@ async function sendLog(guild, guildConfig, embed, eventType, meta = {}) {
  * Fallback qua từng kênh: nếu kênh ưu tiên đã bị xóa/hỏng thì vẫn ghi được
  * (không để mất log case).
  */
-async function sendModLog(guild, guildConfig, embed, preferChannelId, eventType = "mod", meta = {}) {
+async function sendModLog(
+  guild,
+  guildConfig,
+  embed,
+  preferChannelId,
+  eventType = "mod",
+  meta = {},
+) {
   if (!guildConfig) return false;
   const targetChannel = preferChannelId ?? guildConfig.modLogChannelId ?? guildConfig.logChannelId;
   // Toàn bộ log gửi qua webhook — KHÔNG fallback kênh thường.

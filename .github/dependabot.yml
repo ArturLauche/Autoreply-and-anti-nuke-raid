@@ -1,0 +1,42 @@
+# Dependabot — tự tạo PR cập nhật dependencies (bản vá bảo mật lẫn version mới).
+#
+# Bot này là SẢN PHẨM BẢO MẬT: discord.js/convex cũ có thể mang CVE đã biết.
+# Dependabot quét weekly, group các bump nhỏ thành 1 PR để không loạn thông báo.
+version: 2
+updates:
+  # Web dashboard + Convex backend (bun.lock ở root)
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    labels:
+      - "dependencies"
+
+  # Bot Discord (discord.js, convex) — dependency riêng trong bot/
+  - package-ecosystem: "bun"
+    directory: "/bot"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    labels:
+      - "dependencies"
+
+  # GitHub Actions — giữ ci.yml dùng bản actions mới (actions/checkout v4, v5…)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "ci"

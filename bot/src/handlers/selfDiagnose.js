@@ -64,7 +64,9 @@ function fingerprintOf(reason) {
     .slice(0, 160)
     .toLowerCase()
     .replace(/\d+/g, "#");
-  const frames = String(reason?.stack ?? "").split("\n").map((l) => l.trim());
+  const frames = String(reason?.stack ?? "")
+    .split("\n")
+    .map((l) => l.trim());
   const botFrame = frames.find((l) => l.includes(".js") && l.includes("bot")) ?? frames[1] ?? "";
   const loc = (botFrame.match(/([^\s(/\\]+\.(?:js|cjs|mjs)):\d+:\d+/) || [])[1] ?? "unknown";
   return `${msg}::${loc}`.slice(0, 200);
@@ -84,7 +86,10 @@ function codeContextOf(reason) {
       const from = Math.max(0, lineNo - 6);
       const snippet = src
         .slice(from, lineNo + 4)
-        .map((l, i) => `${from + i + 1 === lineNo ? "→" : " "}${String(from + i + 1).padStart(5)}| ${l.slice(0, 160)}`)
+        .map(
+          (l, i) =>
+            `${from + i + 1 === lineNo ? "→" : " "}${String(from + i + 1).padStart(5)}| ${l.slice(0, 160)}`,
+        )
         .join("\n")
         .slice(0, 1200);
       return { file: path.basename(file), line: lineNo, snippet };
@@ -121,7 +126,8 @@ async function diagnoseError(kind, reason) {
       const last = recent.get(fp) ?? 0;
       if (Date.now() - last < COOLDOWN_MS) return; // lỗi đã chẩn đoán — không đốt token
       // Cap toàn cục: quá MAX_RUNS_PER_HOUR lượt khác nhau trong 1 giờ → dừng.
-      while (runTimestamps.length && Date.now() - runTimestamps[0] > COOLDOWN_MS) runTimestamps.shift();
+      while (runTimestamps.length && Date.now() - runTimestamps[0] > COOLDOWN_MS)
+        runTimestamps.shift();
       if (runTimestamps.length >= MAX_RUNS_PER_HOUR) return;
       // Đánh dấu TRƯỚC khi gọi AI: lỗi lặp vô hạn vẫn chỉ tốn tối đa 1 lượt AI/giờ.
       recent.set(fp, Date.now());
@@ -156,7 +162,9 @@ ${ctx ? `\nĐoạn code tại ${ctx.file}:${ctx.line}:\n${ctx.snippet}` : ""}`;
       const parsed = parseAiJson(raw);
       if (!parsed) return;
 
-      const severity = ["high", "medium", "low"].includes(parsed.severity) ? parsed.severity : "medium";
+      const severity = ["high", "medium", "low"].includes(parsed.severity)
+        ? parsed.severity
+        : "medium";
       const cause = String(parsed.cause ?? "").slice(0, 800);
       const fix = String(parsed.fix ?? "").slice(0, 800);
       const diff = String(parsed.diff ?? "").slice(0, 800);
@@ -184,7 +192,8 @@ ${ctx ? `\nĐoạn code tại ${ctx.file}:${ctx.line}:\n${ctx.snippet}` : ""}`;
 async function postProposal(kind, reason, { severity, cause, fix, diff }, ctx) {
   if (!client?.guilds?.cache) return;
   const { logEmbed, sendLog, Colors } = require("../util");
-  const color = severity === "high" ? Colors.Red : severity === "medium" ? Colors.Orange : Colors.Yellow;
+  const color =
+    severity === "high" ? Colors.Red : severity === "medium" ? Colors.Orange : Colors.Yellow;
   const fields = [
     { name: "Loại lỗi", value: String(kind).slice(0, 100), inline: true },
     { name: "Vị trí", value: ctx ? `\`${ctx.file}:${ctx.line}\`` : "không rõ", inline: true },
@@ -192,7 +201,12 @@ async function postProposal(kind, reason, { severity, cause, fix, diff }, ctx) {
     { name: "Nguyên nhân (AI)", value: cause || "—", inline: false },
     { name: "Cách sửa đề xuất", value: fix || "—", inline: false },
   ];
-  if (diff) fields.push({ name: "Diff đề xuất", value: `\`\`\`diff\n${diff.slice(0, 700)}\n\`\`\``, inline: false });
+  if (diff)
+    fields.push({
+      name: "Diff đề xuất",
+      value: `\`\`\`diff\n${diff.slice(0, 700)}\n\`\`\``,
+      inline: false,
+    });
   const embed = logEmbed({
     title: "🩺 Self-Diagnose: đề xuất vá lỗi runtime",
     description: `Lỗi: \`${String(reason?.message ?? reason ?? "").slice(0, 300)}\`\n⚠️ **Chỉ là ĐỀ XUẤT từ AI (Mimo V2.5)** — bot không tự sửa code. Người vận hành duyệt rồi áp dụng.`,

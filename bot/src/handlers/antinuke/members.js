@@ -4,29 +4,21 @@
  */
 const { AuditLogEvent, Colors, PermissionFlagsBits } = require("discord.js");
 const { logEmbed, sendLog } = require("../../util");
-const { sendCaseLog, CASE_LABEL } = require("../../caseLog");
-const { isLocked, markLocked, lockGuild, unlockGuild } = require("../../lockdown");
-const { actionsOf, memberPunishOf, cleanupMessages } = require("../../moduleActions");
+const { sendCaseLog } = require("../../caseLog");
+const { isLocked } = require("../../lockdown");
+const { actionsOf, cleanupMessages } = require("../../moduleActions");
 const {
   MODULE_LABELS,
-  KNOWN_LOGGING_BOTS,
   isKnownLoggingBot,
-  NUKE_MODULES,
-  IMMEDIATE_BOT_NUKE,
   strangeBotVerdict,
   botHitAndRunVerdict,
   isTrustedBotMember,
   isExempt,
-  moduleCfgOf,
   memberSuspicionScore,
   joinClusterSuspicion,
-  messageFingerprint,
-  isExternalAppSpam,
-  LONG_MSG_LEN,
-  ZERO_WIDTH_RE,
 } = require("./shared");
 
-module.exports = function createAntiNukeLayer({ client, store, heat, state, core, ai, raidIntel, externalApp }) {
+module.exports = function createAntiNukeLayer({ store, state, core, ai, raidIntel }) {
   const { recordEvent, markHandled, wasHandled, auditExecutor } = state;
   const { joiners, lastConfigs, botAddTimes } = state.state;
   const { punishWithHeat, maybeLockdown } = core;
@@ -59,7 +51,9 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
       // Ai đã thêm bot này vào? (audit BotAdd theo target = bot)
       const adder = await auditExecutor(guild, AuditLogEvent.BotAdd, member.id).catch(() => null);
 
-      const ageDays = user.createdAt ? Math.floor((Date.now() - user.createdAt) / 86_400_000) : null;
+      const ageDays = user.createdAt
+        ? Math.floor((Date.now() - user.createdAt) / 86_400_000)
+        : null;
       const perms = member.permissions;
       const flags = [];
       if (perms?.has?.(PermissionFlagsBits.Administrator)) flags.push("⚠️ Administrator");
@@ -81,9 +75,17 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
         fields: [
           { name: "Bot", value: `<@${member.id}> (${user.tag ?? member.id})`, inline: true },
           { name: "Người thêm", value: adder ? `<@${adder.id}>` : "không rõ", inline: true },
-          { name: "Tuổi tài khoản bot", value: ageDays !== null ? `${ageDays} ngày` : "không rõ", inline: true },
+          {
+            name: "Tuổi tài khoản bot",
+            value: ageDays !== null ? `${ageDays} ngày` : "không rõ",
+            inline: true,
+          },
           { name: "Quyền trong server", value: permText.slice(0, 1000), inline: false },
-          { name: "Tick xác minh", value: "❌ Không (bot chưa được Discord xác minh)", inline: true },
+          {
+            name: "Tick xác minh",
+            value: "❌ Không (bot chưa được Discord xác minh)",
+            inline: true,
+          },
         ],
         footer: "Protogon · Cảnh báo sơ bộ (không phạt)",
       });
@@ -226,7 +228,11 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
           description: `**${fresh.length}** thành viên vào trong **${moduleCfg.windowSeconds}s** nhưng hồ sơ tài khoản bình thường (nhiều khả năng tăng trưởng tự nhiên). Bot bỏ qua để tránh ban nhầm.`,
           color: Colors.Yellow,
           fields: [
-            { name: "Tài khoản đáng ngờ", value: `${sus.suspicious}/${sus.total || 0}`, inline: true },
+            {
+              name: "Tài khoản đáng ngờ",
+              value: `${sus.suspicious}/${sus.total || 0}`,
+              inline: true,
+            },
             { name: "Acc mới <7 ngày", value: String(sus.freshAccounts), inline: true },
             { name: "Nguồn", value: "🛡️ Tự động — gate chống ban nhầm", inline: true },
           ],
@@ -298,7 +304,9 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
       count: fresh.length,
       windowSeconds: moduleCfg.windowSeconds,
       threshold: moduleCfg.threshold,
-      action: results.length ? `xử lý ${results.length} tài khoản (${moduleCfg.punish})` : "không có tài khoản để xử lý",
+      action: results.length
+        ? `xử lý ${results.length} tài khoản (${moduleCfg.punish})`
+        : "không có tài khoản để xử lý",
       punish: moduleCfg.punish,
       lockdownTriggered: isLocked(guild.id),
       punishedCount: results.length,
@@ -329,7 +337,12 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
           : []),
         { name: "Nguồn", value: "🛡️ Bot tự động phát hiện (anti nuke/raid)", inline: true },
         ...(sourceHunt && sourceHunt.banned
-          ? [{ name: "Raid Intel", value: `🎯 Đã ban nguồn cơn nghi ngờ: **${sourceHunt.suspectedSourceName ?? "?"}** — ${sourceHunt.reason}` }]
+          ? [
+              {
+                name: "Raid Intel",
+                value: `🎯 Đã ban nguồn cơn nghi ngờ: **${sourceHunt.suspectedSourceName ?? "?"}** — ${sourceHunt.reason}`,
+              },
+            ]
           : []),
       ],
       footer: "Protogon · Anti Nuke/Raid",

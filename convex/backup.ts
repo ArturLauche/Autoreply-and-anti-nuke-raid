@@ -62,9 +62,11 @@ export const listMine = query({
 
 /** Bot (lệnh !backup / /backup) liệt kê backup của 1 server — chỉ cần guildId. */
 export const listGuild = query({
-  args: { guildId: v.string(),
+  args: {
+    guildId: v.string(),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId }) => {
     await requireBotKeyStrict(ctx, botKey);
     const backups = await ctx.db
@@ -177,7 +179,10 @@ export const generateImportUploadUrl = mutation({
     if (!guild || !canManageGuild(user, guild)) {
       throw new Error("Không có quyền quản lý server này");
     }
-    if (!guild.botInGuild) throw new Error("Bot chưa có trong server này — hãy mời bot vào trước khi tải file khôi phục");
+    if (!guild.botInGuild)
+      throw new Error(
+        "Bot chưa có trong server này — hãy mời bot vào trước khi tải file khôi phục",
+      );
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -324,7 +329,10 @@ export const setRestoreOptions = mutation({
     restoreMessages: v.optional(v.boolean()),
     restoreEmojis: v.optional(v.boolean()),
   },
-  handler: async (ctx, { token, guildId, restoreRoles, restoreChannels, restoreMessages, restoreEmojis }) => {
+  handler: async (
+    ctx,
+    { token, guildId, restoreRoles, restoreChannels, restoreMessages, restoreEmojis },
+  ) => {
     const user = await getUserByToken(ctx, token);
     const guild = await ctx.db
       .query("guilds")
@@ -381,9 +389,11 @@ export const botGetDueAuto = query({
  * Trả về null khi server chưa có backup nào.
  */
 export const botGetLastChecksum = query({
-  args: { guildId: v.string(),
+  args: {
+    guildId: v.string(),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId }) => {
     await requireBotKeyStrict(ctx, botKey);
     const last = await ctx.db

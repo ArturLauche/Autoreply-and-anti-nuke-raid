@@ -9,10 +9,7 @@ export function sessionExpired(session: { createdAt: number }): boolean {
 }
 
 /** Resolve the logged-in user from a session token, or null. */
-export async function getUserByToken(
-  ctx: QueryCtx | MutationCtx,
-  token: string,
-) {
+export async function getUserByToken(ctx: QueryCtx | MutationCtx, token: string) {
   if (!token) return null;
   const session = await ctx.db
     .query("sessions")

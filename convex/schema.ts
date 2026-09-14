@@ -163,7 +163,9 @@ export default defineSchema({
     /** Ngưỡng riskScore tối đa được chấp nhận (vượt thì bị kick/ban). */
     altMaxRiskScore: v.optional(v.number()),
     /** Hình phạt cho alt account: kick | ban | timeout | verify (gán lại unverified role). */
-    altPunish: v.optional(v.union(v.literal("kick"), v.literal("ban"), v.literal("timeout"), v.literal("verify"))),
+    altPunish: v.optional(
+      v.union(v.literal("kick"), v.literal("ban"), v.literal("timeout"), v.literal("verify")),
+    ),
     /** Timeout duration (phút) khi altPunish = timeout. */
     altTimeoutMinutes: v.optional(v.number()),
     /** Roles được miễn khỏi alt detection. */
@@ -257,12 +259,7 @@ export default defineSchema({
     enabled: v.boolean(),
     threshold: v.number(),
     windowSeconds: v.number(),
-    punish: v.union(
-      v.literal("warn"),
-      v.literal("kick"),
-      v.literal("ban"),
-      v.literal("timeout"),
-    ),
+    punish: v.union(v.literal("warn"), v.literal("kick"), v.literal("ban"), v.literal("timeout")),
     /** Hành động kết hợp: warn/kick/ban/timeout + deleteMessages/purgeMessages. */
     actions: v.optional(v.array(v.string())),
     timeoutSeconds: v.optional(v.number()),
@@ -626,6 +623,5 @@ export default defineSchema({
     /** Người yêu cầu học thủ công (username Discord) — null khi tự động. */
     requestedBy: v.optional(v.string()),
     createdAt: v.number(),
-  })
-    .index("by_createdAt", ["createdAt"]),
+  }).index("by_createdAt", ["createdAt"]),
 });

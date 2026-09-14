@@ -58,7 +58,12 @@ function fillTemplate(tpl, { guildName, action, reason, user, mod }) {
   if (!tpl) return "";
   const now = new Date();
   const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-  const clean = (s) => (s ? String(s).replace(/[\r\n]+/g, " ").slice(0, 120) : "—");
+  const clean = (s) =>
+    s
+      ? String(s)
+          .replace(/[\r\n]+/g, " ")
+          .slice(0, 120)
+      : "—";
   return tpl
     .replaceAll("{server}", guildName ?? "server")
     .replaceAll("{time}", time)
@@ -197,16 +202,22 @@ async function ensureDefaultWebhook(guild, channelId) {
   try {
     const channel = await guild.channels.fetch(channelId).catch(() => null);
     if (!channel || !channel.isTextBased()) {
-      console.warn(`[webhook:ensure] ${guildId}: kênh #${channelId} không tồn tại hoặc không phải text`);
+      console.warn(
+        `[webhook:ensure] ${guildId}: kênh #${channelId} không tồn tại hoặc không phải text`,
+      );
       return null;
     }
-    const created = await channel.createWebhook({
-      name: "Protogon Log",
-      avatar: (await resolveAvatar(client.user?.displayAvatarURL({ size: 256 }))) || undefined,
-    }).catch((e) => {
-      console.error(`[webhook:ensure] ${guildId}: không tạo được webhook — ${e.message} (kiểm tra quyền ManageWebhooks)`);
-      return null;
-    });
+    const created = await channel
+      .createWebhook({
+        name: "Protogon Log",
+        avatar: (await resolveAvatar(client.user?.displayAvatarURL({ size: 256 }))) || undefined,
+      })
+      .catch((e) => {
+        console.error(
+          `[webhook:ensure] ${guildId}: không tạo được webhook — ${e.message} (kiểm tra quyền ManageWebhooks)`,
+        );
+        return null;
+      });
     if (!created) return null;
 
     await store.client.mutation("webhooks:botDefaultWebhookReady", {

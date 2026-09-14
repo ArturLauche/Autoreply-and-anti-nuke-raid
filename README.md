@@ -26,7 +26,7 @@ Bot Discord tự động trả lời tin nhắn thành viên theo **từ khóa**
 
 - **Dashboard** (thư mục gốc): React + Vite + Tailwind + Convex. Đăng nhập bằng Discord (OAuth PKCE, không cần client secret), chọn server, cấu hình mọi thứ.
 - **Bot** (`bot/`): process Node.js standalone chạy 24/7 (máy bạn hoặc hosting). Đọc/ghi cấu hình qua Convex — dashboard và bot luôn đồng bộ trong ~1 phút.
-- **Backend** (`src/convex/`): schema + query/mutation. Mọi ghi dữ liệu từ dashboard được kiểm tra quyền *Manage Guild* (xác thực qua Discord OAuth); bot dùng các mutation riêng `bot-writes:*` bảo vệ bằng deploy key.
+- **Backend** (`src/convex/`): schema + query/mutation. Mọi ghi dữ liệu từ dashboard được kiểm tra quyền _Manage Guild_ (xác thực qua Discord OAuth); bot dùng các mutation riêng `bot-writes:*` bảo vệ bằng deploy key.
 
 ## Bắt đầu
 
@@ -40,12 +40,12 @@ Bot Discord tự động trả lời tin nhắn thành viên theo **từ khóa**
 
 Điền vào mục **API Keys** của dự án:
 
-| Key | Giá trị |
-| --- | --- |
-| `DISCORD_CLIENT_ID` | Application ID ở bước 1 (cần cho đăng nhập + link mời bot) |
+| Key                       | Giá trị                                                              |
+| ------------------------- | -------------------------------------------------------------------- |
+| `DISCORD_CLIENT_ID`       | Application ID ở bước 1 (cần cho đăng nhập + link mời bot)           |
 | `CONVEX_URL` (production) | URL deployment Convex khi deploy — set qua `freebuff-deploy env set` |
 
-Chạy preview → **Đăng nhập với Discord** → dán redirect URI `https://<địa chỉ preview>/discord/callback` vào ứng dụng Discord (*OAuth2 → Redirects*; với bản local thêm `http://localhost:5173/discord/callback`).
+Chạy preview → **Đăng nhập với Discord** → dán redirect URI `https://<địa chỉ preview>/discord/callback` vào ứng dụng Discord (_OAuth2 → Redirects_; với bản local thêm `http://localhost:5173/discord/callback`).
 
 ### 3. Chạy bot
 
@@ -89,25 +89,42 @@ Bot tự đăng ký slash commands và đồng bộ server/kênh/role lên Conve
 ## Kiểm thử & Coverage
 
 ```bash
-bun run test            # chạy toàn bộ 19 suites (~6s, thoát khác 0 nếu fail)
+bun run test            # chạy toàn bộ 20 suites (~6s, thoát khác 0 nếu fail)
 bun run test:coverage   # chạy test + đo coverage (báo cáo HTML tại coverage/)
 ```
 
 Coverage được đo bằng [`c8`](https://github.com/bcoe/c8) (V8 native, không phải đo giả): mỗi dòng/hàm/nhánh của `bot/src` bị đánh dấu **đã chạy qua hay chưa** trong lúc test. Con số hiện tại:
 
-| Chỉ số | Giá trị | Ý nghĩa |
-|---|---|---|
-| Dòng | 38.5% | ~5,000/13,000 dòng bot được test chạm tới |
-| Hàm | 70.8% | 70% hàm được **gọi thật** (không chỉ import) |
-| Nhánh (if/else) | 62.7% | cả hai phía true/false của hầu hết điều kiện đã được kiểm |
+| Chỉ số          | Giá trị | Ý nghĩa                                                    |
+| --------------- | ------- | ---------------------------------------------------------- |
+| Dòng            | 47.3%   | ~6,700/14,100 dòng bot được test chạm tới                  |
+| Hàm             | 72.0%   | 72% hàm được **gọi thật** (không chỉ import)               |
+| Nhánh (if/else) | 60.2%   | cả hai phía true/false của phần lớn điều kiện đã được kiểm |
 
 **Bản đồ nhiệt theo file** (phần quan trọng nhất):
 
-- ✅ **≥ 88%**: `threatEngine` (88.7%), `selfDiagnose` (88.9%), `researchCommands` (92%), `filters` (92%), `externalAppGuard` (95.2%), `flaggedMessages` (96.6%), `caseLog` (100%) — **engine auto-mod & threat intel là phần được bảo vệ dày nhất**, đúng chỗ dễ gây phạt oan thành viên.
-- ⚠️ **50–76%**: `backup` (76%), `util` (75%), `research` (72%), `heat` (67%), `backupUtils` (66%), `hidden` (59%), `tick` (58%), `guildSync` (50%) — luồng chính có test nhưng còn nhánh hiếm gặp chưa phủ.
-- 🔴 **0–19%**: `antinuke` (11%), `lockdown` (15%), `incidentReport` (19%), và các file entry-point (`interactionCreate`, `messageCreate`, `altDetection`…) — phần lớn là code cần Discord runtime thật; `antinuke` đang có suite riêng (35 assertion mock) nhưng chỉ chạm 11% dòng vì file quá lớn — lý do chính để tách monolith.
+- ✅ **≥ 85%**: `threatEngine` (88.7%), `selfDiagnose` (88.9%), `filters` (92%), `externalAppGuard` (95.2%), `externalApp` (87.9%), `antinuke/shared` (97%), `flaggedMessages` (96.6%), `caseLog` (100%) — **engine auto-mod, threat intel & External App Guard là phần được bảo vệ dày nhất**, đúng chỗ dễ gây phạt oan thành viên.
+- ⚠️ **50–76%**: `backup` (76%), `util` (75%), `research` (72%), `enforce` (73%), `raidIntel` (72%), `heat` (67%), `backupUtils` (66%), `hidden` (59%), `tick` (58%) — luồng chính có test nhưng còn nhánh hiếm gặp chưa phủ.
+- 🔴 **< 20%**: `antinuke/audit` (6.4% — pipeline xử lý mọi nuke cấu trúc, việc phủ test tiếp theo), `members`, `messages`, `lockdown`, `incidentReport` và các file entry-point (`interactionCreate`, `messageCreate`, `altDetection`) — phần lớn cần Discord runtime thật.
+
+**Chống regress bằng ngưỡng**: `.c8rc.json` đặt ngưỡng tối thiểu (lines 25 / functions 55 / branches 45) — nếu code mới làm rớt coverage xuống dưới ngưỡng, `bun run test:coverage` thất bại, chặn regress trước khi commit.
 
 Coverage **không phải điểm số để đẹp**: nó chỉ ra chính xác nơi thiếu test. Ví dụ nhánh `endError`/`dmError` mới vá gần đây đã được `test-silent-error-reporting` phủ ngay sau khi viết. `.c8rc.json` đặt ngưỡng tối thiểu (lines 25 / functions 55 / branches 45) — nếu code mới làm rớt coverage xuống dưới ngưỡng, `bun run test:coverage` thất bại, chặn regress trước khi commit.
+
+## Lint, Format & Dependencies
+
+```bash
+bun run lint            # ESLint — chặn bug tĩnh trước cả khi chạy test
+bun run lint:fix        # tự sửa những gì sửa được
+bun run format          # Prettier — format toàn repo
+bun run format:check    # CI dùng lệnh này để chặn code chưa format
+```
+
+**ESLint là lá chắn thứ hai (sau typecheck, trước test).** Rule `no-undef` trên phần bot CommonJS chặn chính xác loại bug nguy hiểm nhất với bot runtime: **gọi biến/hàm chưa import** — crash xảy ra đúng lúc raid thật xảy ra, ngay cả khi test vẫn xanh (test không đụng nhánh đó). Bằng chứng ngay ngày cấu hình: `no-undef` bắt được **3 bug crash thật** (biến `reason`/`channel`/`store` không tồn tại trong `antinuke/audit.js`, `hidden.js`, `research.js` — tàn dư của đợt tách file) và 1 **bug biến che khuất hàm cùng tên** trong `backup.js` (`pushToGithub` boolean option đè hàm `pushToGithub` — mọi backup đẩy GitHub sẽ TypeError).
+
+**Dependabot** (`.github/dependabot.yml`) quét weekly: root `bun`, `bot/` (discord.js, convex) và `github-actions` — tự tạo PR cập nhật, group các bump minor/patch thành 1 PR. Bot bảo mật không được để deps cũ.
+
+**Thứ tự gate trong CI**: `lint` (ESLint + Prettier) → `test` (20 suites + coverage + typecheck) → `deploy` Convex production. Job sau chỉ chạy khi job trước pass.
 
 ## Phát triển
 

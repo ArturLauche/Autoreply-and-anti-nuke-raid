@@ -21,9 +21,26 @@ module.exports = function createAntiNuke(client, store, heat) {
   const ai = createAntiNukeAi({ state });
   const raidIntel = createAntiNukeRaidIntel({ client, store, ai });
   const core = createAntiNukeEnforce({ client, store, heat, state });
-  const externalApp = createAntiNukeExternalApp({ client, store, heat, state, core, ai, raidIntel });
+  const externalApp = createAntiNukeExternalApp({
+    client,
+    store,
+    heat,
+    state,
+    core,
+    ai,
+    raidIntel,
+  });
   const members = createAntiNukeMembers({ client, store, heat, state, core, ai, raidIntel });
-  const messages = createAntiNukeMessages({ client, store, heat, state, core, ai, raidIntel, externalApp });
+  const messages = createAntiNukeMessages({
+    client,
+    store,
+    heat,
+    state,
+    core,
+    ai,
+    raidIntel,
+    externalApp,
+  });
   const audit = createAntiNukeAudit({ client, store, heat, state, core, ai, raidIntel });
 
   const { auditExecutor, sweepMemory } = state;
@@ -31,7 +48,14 @@ module.exports = function createAntiNuke(client, store, heat) {
   const { handleExternalApp, handleButtonRaid } = externalApp;
   const { handleSuspiciousBotJoin, handleHitAndRunLeave, handleRaidJoin } = members;
   const { handleSpam, handleMessagePatterns } = messages;
-  const { handleAttributeEvent, handleAuditEntry, routeAuditEntry, handleMessageBulk, tickUnlocks, tickHeatResets } = audit;
+  const {
+    handleAttributeEvent,
+    handleAuditEntry,
+    routeAuditEntry,
+    handleMessageBulk,
+    tickUnlocks,
+    tickHeatResets,
+  } = audit;
 
   function attach() {
     client.on("guildBanAdd", async (ban) => {
@@ -46,7 +70,9 @@ module.exports = function createAntiNuke(client, store, heat) {
 
     client.on("guildMemberRemove", async (member) => {
       // Only treat as a kick when the audit log shows a kick for this member.
-      const executor = await auditExecutor(member.guild, AuditLogEvent.MemberKick, member.id).catch(() => null);
+      const executor = await auditExecutor(member.guild, AuditLogEvent.MemberKick, member.id).catch(
+        () => null,
+      );
       if (executor) {
         await handleAttributeEvent({
           guild: member.guild,
@@ -58,7 +84,9 @@ module.exports = function createAntiNuke(client, store, heat) {
         return; // bị mod/bot khác kick — không phải tự rời
       }
       // Không có audit kick → có thể bot tự rời: kiểm hit-and-run.
-      await handleHitAndRunLeave(member, null).catch((e) => console.error("[antinuke:hitAndRun]", e.message));
+      await handleHitAndRunLeave(member, null).catch((e) =>
+        console.error("[antinuke:hitAndRun]", e.message),
+      );
     });
 
     client.on("channelCreate", (channel) => {
@@ -114,12 +142,16 @@ module.exports = function createAntiNuke(client, store, heat) {
         }
       } catch {}
       // Cảnh báo bot lạ (suspiciousBotAlert) — chỉ cảnh báo, không phạt.
-      void handleSuspiciousBotJoin(member).catch((e) => console.error("[antinuke:botAlert]", e.message));
+      void handleSuspiciousBotJoin(member).catch((e) =>
+        console.error("[antinuke:botAlert]", e.message),
+      );
     });
 
     client.on("messageCreate", (message) => {
       void handleSpam(message).catch((e) => console.error("[antinuke:spam]", e.message));
-      void handleMessagePatterns(message).catch((e) => console.error("[antinuke:pattern]", e.message));
+      void handleMessagePatterns(message).catch((e) =>
+        console.error("[antinuke:pattern]", e.message),
+      );
     });
 
     // Sự kiện audit log mới (discord.js >= 14.10) — định tuyến tất cả biến thể
@@ -152,7 +184,9 @@ module.exports = function createAntiNuke(client, store, heat) {
   // hành động của app, hoặc làn sóng người bấm cùng 1 tin app. Đăng ký listener ngay
   // khi module khởi tạo (factory chạy 1 lần) — không cần sửa hàm attach().
   client.on("interactionCreate", (interaction) => {
-    void handleButtonRaid(interaction).catch((e) => console.error("[antinuke:buttonRaid]", e.message));
+    void handleButtonRaid(interaction).catch((e) =>
+      console.error("[antinuke:buttonRaid]", e.message),
+    );
   });
 
   return { attach, sweepMemory: state.sweepMemory };

@@ -1,4 +1,10 @@
-const { EmbedBuilder, Colors, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const {
+  EmbedBuilder,
+  Colors,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+} = require("discord.js");
 const { canManageGuild, isAdmin, canManageWithConfig } = require("../util");
 const { isLocked, markLocked, unlockGuild } = require("../lockdown");
 const { emojiKeyOf } = require("./hidden");
@@ -37,7 +43,8 @@ const MODULES = [
 
 function needPerm(interaction) {
   return interaction.reply({
-    content: "❌ Bạn không có quyền dùng lệnh này — cần quyền **Quản lý server** hoặc role **Mod/Admin** được cấu hình qua `/setup`.",
+    content:
+      "❌ Bạn không có quyền dùng lệnh này — cần quyền **Quản lý server** hoặc role **Mod/Admin** được cấu hình qua `/setup`.",
     ephemeral: true,
   });
 }
@@ -51,7 +58,10 @@ function parsePairs(pairsRaw, guild) {
     const idx = token.lastIndexOf(":");
     if (idx <= 0 || idx === token.length - 1) continue;
     const emoji = token.slice(0, idx).trim();
-    let roleId = token.slice(idx + 1).trim().replace(/^<@&(\d+)>$/, "$1");
+    let roleId = token
+      .slice(idx + 1)
+      .trim()
+      .replace(/^<@&(\d+)>$/, "$1");
     if (!emoji) continue;
     if (!/^\d{15,20}$/.test(roleId)) {
       const role = guild?.roles.cache.find((r) => r.name.toLowerCase() === roleId.toLowerCase());
@@ -69,32 +79,21 @@ const { reportInteractive } = require("./incidentReport");
 const researchHandlers = require("./researchCommands");
 
 // Rate limiting for verify attempts: Map<userId, { attempts: number, lastAttemptAt: number }>
+// Trạng thái rate-limit xác minh (3 lần / 10 phút cho mỗi user). Hiện chưa có
+// nơi gọi hàm kiểm tra — dọn dẹp định kỳ bên dưới giữ Map sạch cho tương lai.
 const verifyAttempts = new Map();
-const VERIFY_RATE_LIMIT = 3; // Max attempts per 10 minutes
 const VERIFY_RATE_WINDOW_MS = 10 * 60 * 1000;
 
-function checkVerifyRateLimit(userId) {
-  const now = Date.now();
-  const data = verifyAttempts.get(userId);
-  if (!data || now - data.lastAttemptAt > VERIFY_RATE_WINDOW_MS) {
-    verifyAttempts.set(userId, { attempts: 1, lastAttemptAt: now });
-    return { allowed: true, remaining: VERIFY_RATE_LIMIT - 1 };
-  }
-  if (data.attempts >= VERIFY_RATE_LIMIT) {
-    return { allowed: false, remaining: 0, retryAfterMs: VERIFY_RATE_WINDOW_MS - (now - data.lastAttemptAt) };
-  }
-  data.attempts++;
-  data.lastAttemptAt = now;
-  return { allowed: true, remaining: VERIFY_RATE_LIMIT - data.attempts };
-}
-
 // Cleanup old entries every 5 minutes
-setInterval(() => {
-  const cutoff = Date.now() - VERIFY_RATE_WINDOW_MS;
-  for (const [userId, data] of verifyAttempts) {
-    if (data.lastAttemptAt < cutoff) verifyAttempts.delete(userId);
-  }
-}, 5 * 60 * 1000);
+setInterval(
+  () => {
+    const cutoff = Date.now() - VERIFY_RATE_WINDOW_MS;
+    for (const [userId, data] of verifyAttempts) {
+      if (data.lastAttemptAt < cutoff) verifyAttempts.delete(userId);
+    }
+  },
+  5 * 60 * 1000,
+);
 
 module.exports = async function onInteractionCreate(client, interaction, store, heat) {
   // Handle button interactions (verify_confirm + verify_request_captcha)
@@ -110,7 +109,9 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       if (!unverifiedRoleId) {
         return interaction.reply({ content: "❌ Chưa cấu hình role xác minh.", ephemeral: true });
       }
-      const member = guild.members.cache.get(interaction.user.id) || await guild.members.fetch(interaction.user.id).catch(() => null);
+      const member =
+        guild.members.cache.get(interaction.user.id) ||
+        (await guild.members.fetch(interaction.user.id).catch(() => null));
       if (!member) {
         return interaction.reply({ content: "❌ Không tìm thấy thành viên.", ephemeral: true });
       }
@@ -129,12 +130,14 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
           .setFooter({ text: "Mã hết hạn trong 5 phút. Nhập mã trong kênh xác minh để hoàn tất." });
         await member.send({ embeds: [dmEmbed] });
         return interaction.reply({
-          content: "✅ Đã gửi mã xác minh qua DM! Hãy kiểm tra tin nhắn trực tiếp và nhập mã trong kênh xác minh.",
+          content:
+            "✅ Đã gửi mã xác minh qua DM! Hãy kiểm tra tin nhắn trực tiếp và nhập mã trong kênh xác minh.",
           ephemeral: true,
         });
       } catch {
         return interaction.reply({
-          content: '❌ Không thể gửi DM — hãy bật "cho phép tin nhắn trực tiếp" từ thành viên server rồi thử lại.',
+          content:
+            '❌ Không thể gửi DM — hãy bật "cho phép tin nhắn trực tiếp" từ thành viên server rồi thử lại.',
           ephemeral: true,
         });
       }
@@ -151,21 +154,22 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       if (!unverifiedRoleId || !verifiedRoleId) {
         return interaction.reply({ content: "❌ Chưa cấu hình role xác minh.", ephemeral: true });
       }
-      const member = guild.members.cache.get(interaction.user.id) || await guild.members.fetch(interaction.user.id).catch(() => null);
+      const member =
+        guild.members.cache.get(interaction.user.id) ||
+        (await guild.members.fetch(interaction.user.id).catch(() => null));
       if (!member) {
         return interaction.reply({ content: "❌ Không tìm thấy thành viên.", ephemeral: true });
       }
       try {
         // === ALT DETECTION AT VERIFY GATE (Double Counter style) ===
-        // Re-run alt analysis at verify time for defense-in-depth.
-        // The guild member cache may have changed since join, so results
-        // can differ — that's acceptable. If punishment fails (e.g. missing
-        // permissions), we fail-open and allow verify instead of leaving
-        // the user stuck in limbo.
-        let altBanned = false;
         if (config.altDetectionEnabled) {
           try {
-            const analysis = await analyzeNewMember(member, config, (guildId) => store.getConfig(guildId), store);
+            const analysis = await analyzeNewMember(
+              member,
+              config,
+              (guildId) => store.getConfig(guildId),
+              store,
+            );
             const maxRisk = config.altMaxRiskScore ?? 70;
             if (analysis.riskScore >= maxRisk && analysis.action !== "pass") {
               // Execute punishment instead of verifying
@@ -174,11 +178,11 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
               // FIX: Fail-open — if punishment failed, allow verify anyway
               // instead of leaving user stuck (can't verify, can't be punished)
               if (!punishResult.executed) {
-                console.log(`[verify:alt] ${guild.name}/${member.user.username} — punish FAILED (${punishResult.reason}), allowing verify (fail-open)`);
+                console.log(
+                  `[verify:alt] ${guild.name}/${member.user.username} — punish FAILED (${punishResult.reason}), allowing verify (fail-open)`,
+                );
                 // Fall through to normal verify flow
               } else {
-                altBanned = true;
-
                 // Đánh dấu đã bị phạt để lần join sau đối chiếu (evasion detect).
                 await store.client
                   .mutation("altDetection:markJoinPunished", {
@@ -189,36 +193,42 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
                   .catch(() => {});
 
                 // Reply to user with reason
-                await interaction.reply({
-                  content: `❌ **Xác minh bị từ chối.** Tài khoản của bạn được đánh giá là có rủi ro cao (**${analysis.riskScore}/100**). Đã xử lý: ${punishResult.action}`,
-                  ephemeral: true,
-                }).catch(() => {});
+                await interaction
+                  .reply({
+                    content: `❌ **Xác minh bị từ chối.** Tài khoản của bạn được đánh giá là có rủi ro cao (**${analysis.riskScore}/100**). Đã xử lý: ${punishResult.action}`,
+                    ephemeral: true,
+                  })
+                  .catch(() => {});
 
                 // Log to mod channel
-                const { sendLog, logEmbed } = require("../util");
+                const { sendLog } = require("../util");
                 const embed = buildRiskEmbed(member, analysis, punishResult);
                 embed.setTitle("🚫 Alt Detected at Verify Gate");
                 embed.setDescription(
                   `<@${member.id}> tried to verify but was blocked as alt account.\n\n` +
-                  `**Risk Score:** ${analysis.riskScore}/100\n` +
-                  `**Factors:** ${analysis.riskFactors.join(", ")}`,
+                    `**Risk Score:** ${analysis.riskScore}/100\n` +
+                    `**Factors:** ${analysis.riskFactors.join(", ")}`,
                 );
                 await sendLog(guild, config, embed).catch(() => {});
 
                 // Record as antinuke event
-                await store.client.mutation("bot_writes:botRecordAntinukeEvent", {
-                  guildId: guild.id,
-                  module: "altDetection",
-                  executorId: member.id,
-                  executorName: member.user.username,
-                  action: `${punishResult.action} at verify gate — risk: ${analysis.riskScore}/100 — ${analysis.riskFactors.join(", ")}`,
-                  count: 1,
-                  windowSeconds: 60,
-                  threshold: 1,
-                  punish: analysis.action,
-                }).catch(() => {});
+                await store.client
+                  .mutation("bot_writes:botRecordAntinukeEvent", {
+                    guildId: guild.id,
+                    module: "altDetection",
+                    executorId: member.id,
+                    executorName: member.user.username,
+                    action: `${punishResult.action} at verify gate — risk: ${analysis.riskScore}/100 — ${analysis.riskFactors.join(", ")}`,
+                    count: 1,
+                    windowSeconds: 60,
+                    threshold: 1,
+                    punish: analysis.action,
+                  })
+                  .catch(() => {});
 
-                console.log(`[verify:alt] ${guild.name}/${member.user.username} BLOCKED at verify — risk=${analysis.riskScore} action=${punishResult.action}`);
+                console.log(
+                  `[verify:alt] ${guild.name}/${member.user.username} BLOCKED at verify — risk=${analysis.riskScore} action=${punishResult.action}`,
+                );
                 return;
               }
             }
@@ -235,13 +245,20 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         if (!member.roles.cache.has(verifiedRoleId)) {
           await member.roles.add(verifiedRoleId, "Xác minh thành công");
         }
-        await interaction.reply({ content: "✅ Đã xác minh thành công! Chào mừng bạn đến với server.", ephemeral: true });
+        await interaction.reply({
+          content: "✅ Đã xác minh thành công! Chào mừng bạn đến với server.",
+          ephemeral: true,
+        });
         // Gửi DM chào mừng nếu bật
         if (config.verifyWelcomeEnabled) {
           try {
             const title = config.verifyWelcomeTitle || "🌸 Chào mừng bạn!";
-            let description = config.verifyWelcomeDescription || `Chào mừng bạn đến với **${guild.name}**! Bạn đã xác minh thành công.`;
-            description = description.replace(/{user}/g, `<@${member.id}>`).replace(/{server}/g, guild.name);
+            let description =
+              config.verifyWelcomeDescription ||
+              `Chào mừng bạn đến với **${guild.name}**! Bạn đã xác minh thành công.`;
+            description = description
+              .replace(/{user}/g, `<@${member.id}>`)
+              .replace(/{server}/g, guild.name);
             const colorHex = config.verifyWelcomeColor || "#f2629e";
             const colorInt = parseInt(colorHex.replace("#", ""), 16) || 0xf2629e;
             const welcomeEmbed = new EmbedBuilder()
@@ -258,7 +275,9 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       } catch (e) {
         console.error(`[verify:button] ${guild.id}:`, e.message);
         if (!interaction.replied) {
-          await interaction.reply({ content: `❌ Lỗi xác minh: ${e.message}`, ephemeral: true }).catch(() => {});
+          await interaction
+            .reply({ content: `❌ Lỗi xác minh: ${e.message}`, ephemeral: true })
+            .catch(() => {});
         }
       }
       return;
@@ -298,7 +317,7 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
           [
             "**Auto Reply** — `/autoreply add` tạo rule từ khóa hoặc @mention, `/autoreply list`, `/autoreply remove`",
             "**Chống nuke** — `/antinuke status`, `/antinuke on|off`, `/antinuke module`, `/antinuke unlock`, `/antinuke lockdown`",
-            "**Lọc nội dung** — module \`badword\`, \`invite\`, \`attachment\`, \`mention\` (bật tắt trong `/antinuke module`) · `/badword add|remove|list` · `/heat status`",
+            "**Lọc nội dung** — module `badword`, `invite`, `attachment`, `mention` (bật tắt trong `/antinuke module`) · `/badword add|remove|list` · `/heat status`",
             "**Mod tools** — `/mod timeout @user 10m [lý do]`, `/mod untimeout`, `/mod kick`, `/mod ban`, `/mod unban`, `/mod unwarn`, `/mod purge` (ghi log lý do + người thực hiện)",
             "**Giveaway** — `/giveaway start <tên> <giải thưởng> <thời lượng>`, `/giveaway list`, `/giveaway end`",
             "**Reaction Role** — `/reactionrole create <kênh> <tên> <cặp emoji:role>`, `/reactionrole add`, `/reactionrole edit`, `/reactionrole remove`, `/reactionrole delete`",
@@ -327,7 +346,10 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
           ephemeral: true,
         });
       }
-      await store.client.mutation("bot_writes:botUpdateSettings", { guildId: guild.id, prefix: set });
+      await store.client.mutation("bot_writes:botUpdateSettings", {
+        guildId: guild.id,
+        prefix: set,
+      });
       store.invalidate(guild.id);
       return interaction.reply({
         content: `✅ Đã đổi prefix thành \`${set}\`. Lệnh text: \`${set}help\``,
@@ -368,7 +390,10 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
           guildId: guild.id,
           name,
           triggerType: trigger === "mention" ? "mention" : "keyword",
-          keywords: keywordsRaw.split(",").map((k) => k.trim()).filter(Boolean),
+          keywords: keywordsRaw
+            .split(",")
+            .map((k) => k.trim())
+            .filter(Boolean),
           response,
           channels: [],
           cooldownSeconds: Math.max(0, cooldown),
@@ -442,12 +467,21 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
 
       if (sub === "list") {
         if (words.length === 0) {
-          return interaction.reply({ content: "Danh sách từ ngữ xấu đang trống — dùng `/badword add` hoặc dashboard để thêm.", ephemeral: true });
+          return interaction.reply({
+            content:
+              "Danh sách từ ngữ xấu đang trống — dùng `/badword add` hoặc dashboard để thêm.",
+            ephemeral: true,
+          });
         }
         const embed = new EmbedBuilder()
           .setColor(Colors.Aqua)
           .setTitle(`📋 Danh sách từ ngữ xấu (${words.length})`)
-          .setDescription(words.map((w) => `\`${w}\``).join(", ").slice(0, 4000));
+          .setDescription(
+            words
+              .map((w) => `\`${w}\``)
+              .join(", ")
+              .slice(0, 4000),
+          );
         return interaction.reply({ embeds: [embed], ephemeral: true });
       }
 
@@ -455,12 +489,16 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
 
       if (sub === "add") {
         const word = interaction.options.getString("word", true).trim().toLowerCase();
-        if (!word) return interaction.reply({ content: "Từ ngữ không được để trống.", ephemeral: true });
+        if (!word)
+          return interaction.reply({ content: "Từ ngữ không được để trống.", ephemeral: true });
         if (word.length > 40) {
           return interaction.reply({ content: "Từ ngữ tối đa 40 ký tự.", ephemeral: true });
         }
         if (words.includes(word)) {
-          return interaction.reply({ content: `\`${word}\` đã có trong danh sách.`, ephemeral: true });
+          return interaction.reply({
+            content: `\`${word}\` đã có trong danh sách.`,
+            ephemeral: true,
+          });
         }
         if (words.length >= 100) {
           return interaction.reply({ content: "Danh sách đã đạt tối đa 100 từ.", ephemeral: true });
@@ -481,7 +519,10 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         const word = interaction.options.getString("word", true).trim().toLowerCase();
         const next = words.filter((w) => w !== word);
         if (next.length === words.length) {
-          return interaction.reply({ content: `Không tìm thấy \`${word}\` trong danh sách.`, ephemeral: true });
+          return interaction.reply({
+            content: `Không tìm thấy \`${word}\` trong danh sách.`,
+            ephemeral: true,
+          });
         }
         await store.client.mutation("bot_writes:botUpdateSettings", {
           guildId: guild.id,
@@ -513,7 +554,14 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       };
       const top = config?.heatStates || [];
       const safety = config?.safetyPercent ?? 100;
-      const tier = (heat) => (heat >= s.banAt ? "🚫 Ban" : heat >= s.kickAt ? "👢 Kick" : heat >= s.timeoutAt ? "⏸️ Tạm khóa" : "⚠️ Theo dõi");
+      const tier = (heat) =>
+        heat >= s.banAt
+          ? "🚫 Ban"
+          : heat >= s.kickAt
+            ? "👢 Kick"
+            : heat >= s.timeoutAt
+              ? "⏸️ Tạm khóa"
+              : "⚠️ Theo dõi";
       const embed = new EmbedBuilder()
         .setColor(safety >= 70 ? Colors.Green : safety >= 40 ? Colors.Yellow : Colors.Red)
         .setTitle(`🌡️ Nhiệt độ vi phạm: ${safety}% an toàn`)
@@ -538,7 +586,10 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
             .slice(0, 1024),
         });
       } else {
-        embed.addFields({ name: "Thành viên nóng nhất", value: "Chưa có vi phạm nào — server rất an toàn 🎉" });
+        embed.addFields({
+          name: "Thành viên nóng nhất",
+          value: "Chưa có vi phạm nào — server rất an toàn 🎉",
+        });
       }
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
@@ -550,7 +601,8 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         const config = await store.getConfig(guild.id);
         const modules = config?.modules || [];
         const lines = modules.map(
-          (m) => `${m.enabled ? "✅" : "⏸️"} \`${m.module}\` — ${m.threshold} lần/${m.windowSeconds}s — ${m.punish}`,
+          (m) =>
+            `${m.enabled ? "✅" : "⏸️"} \`${m.module}\` — ${m.threshold} lần/${m.windowSeconds}s — ${m.punish}`,
         );
         const embed = new EmbedBuilder()
           .setColor(config?.antinukeEnabled ? Colors.Green : Colors.Red)
@@ -559,7 +611,8 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         return interaction.reply({ embeds: [embed], ephemeral: true });
       }
 
-      if (!canManageGuild(interaction.member) && !isAdmin(interaction.member)) return needPerm(interaction);
+      if (!canManageGuild(interaction.member) && !isAdmin(interaction.member))
+        return needPerm(interaction);
 
       if (sub === "unlock") {
         if (!isLocked(guild.id)) {
@@ -591,9 +644,10 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         });
         store.invalidate(guild.id);
         return interaction.reply({
-          content: value === "on"
-            ? "✅ Khóa kênh tự động khi raid đã bật."
-            : "✅ Khóa kênh tự động khi raid đã tắt.",
+          content:
+            value === "on"
+              ? "✅ Khóa kênh tự động khi raid đã bật."
+              : "✅ Khóa kênh tự động khi raid đã tắt.",
           ephemeral: true,
         });
       }
@@ -663,7 +717,10 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
           });
           return interaction.reply({ content: `✅ ${out}`, ephemeral: true });
         } catch (e) {
-          return interaction.reply({ content: `❌ Không thể timeout: ${e.message}`, ephemeral: true });
+          return interaction.reply({
+            content: `❌ Không thể timeout: ${e.message}`,
+            ephemeral: true,
+          });
         }
       }
 
@@ -691,7 +748,10 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       if (sub === "ban") {
         const target = interaction.options.getMember("user");
         const reason = interaction.options.getString("reason") || undefined;
-        const deleteDays = Math.max(0, Math.min(7, interaction.options.getInteger("delete_days") ?? 0));
+        const deleteDays = Math.max(
+          0,
+          Math.min(7, interaction.options.getInteger("delete_days") ?? 0),
+        );
         if (!target) {
           return interaction.reply({ content: "Không tìm thấy thành viên đó.", ephemeral: true });
         }
@@ -714,10 +774,19 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       if (sub === "purge") {
         const count = interaction.options.getInteger("count", true);
         try {
-          const out = await purgeChannel(interaction.channel, count, interaction.user, config, store);
+          const out = await purgeChannel(
+            interaction.channel,
+            count,
+            interaction.user,
+            config,
+            store,
+          );
           return interaction.reply({ content: `✅ ${out}`, ephemeral: true });
         } catch (e) {
-          return interaction.reply({ content: `❌ Không thể purge: ${e.message}`, ephemeral: true });
+          return interaction.reply({
+            content: `❌ Không thể purge: ${e.message}`,
+            ephemeral: true,
+          });
         }
       }
 
@@ -738,7 +807,10 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
           });
           return interaction.reply({ content: `✅ ${out}`, ephemeral: true });
         } catch (e) {
-          return interaction.reply({ content: `❌ Không thể gỡ timeout: ${e.message}`, ephemeral: true });
+          return interaction.reply({
+            content: `❌ Không thể gỡ timeout: ${e.message}`,
+            ephemeral: true,
+          });
         }
       }
 
@@ -759,7 +831,10 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
           });
           return interaction.reply({ content: `✅ ${out}`, ephemeral: true });
         } catch (e) {
-          return interaction.reply({ content: `❌ Không thể gỡ ban: ${e.message}`, ephemeral: true });
+          return interaction.reply({
+            content: `❌ Không thể gỡ ban: ${e.message}`,
+            ephemeral: true,
+          });
         }
       }
 
@@ -781,7 +856,10 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
           });
           return interaction.reply({ content: `✅ ${out}`, ephemeral: true });
         } catch (e) {
-          return interaction.reply({ content: `❌ Không thể gỡ warn: ${e.message}`, ephemeral: true });
+          return interaction.reply({
+            content: `❌ Không thể gỡ warn: ${e.message}`,
+            ephemeral: true,
+          });
         }
       }
       return;
@@ -798,7 +876,10 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         }
         const lines = giveaways
           .slice(0, 20)
-          .map((g) => `${g.status === "active" ? "🎉" : "🏁"} **${g.title}** — ${g.entries?.length || 0} lượt tham gia`);
+          .map(
+            (g) =>
+              `${g.status === "active" ? "🎉" : "🏁"} **${g.title}** — ${g.entries?.length || 0} lượt tham gia`,
+          );
         const embed = new EmbedBuilder()
           .setColor(Colors.Aqua)
           .setTitle(`🎉 Giveaway (${giveaways.length})`)
@@ -812,7 +893,10 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         const title = interaction.options.getString("title", true);
         const prize = interaction.options.getString("prize", true);
         const minutes = parseDuration(interaction.options.getString("duration", true));
-        const winnerCount = Math.max(1, Math.min(20, interaction.options.getInteger("winners") ?? 1));
+        const winnerCount = Math.max(
+          1,
+          Math.min(20, interaction.options.getInteger("winners") ?? 1),
+        );
         const prizeRole = interaction.options.getRole("prize_role");
         if (!minutes) {
           return interaction.reply({
@@ -865,7 +949,13 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         .catch(() => null);
       const panels = hidden?.panels || [];
       const findPanel = (name) =>
-        panels.find((p) => p.label.toLowerCase() === String(name || "").trim().toLowerCase());
+        panels.find(
+          (p) =>
+            p.label.toLowerCase() ===
+            String(name || "")
+              .trim()
+              .toLowerCase(),
+        );
 
       if (sub === "list") {
         if (panels.length === 0) {
@@ -963,7 +1053,10 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         }
         const next = panel.entries.filter((e) => emojiKeyOf(e.emoji) !== emojiKeyOf(emoji));
         if (next.length === panel.entries.length) {
-          return interaction.reply({ content: "Không tìm thấy emoji này trong bảng.", ephemeral: true });
+          return interaction.reply({
+            content: "Không tìm thấy emoji này trong bảng.",
+            ephemeral: true,
+          });
         }
         try {
           await store.client.mutation("hidden:botUpdatePanel", {
@@ -1046,9 +1139,7 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       const guildId = guild.id;
 
       if (sub === "list") {
-        const list = await store.client
-          .query("backup:listGuild", { guildId })
-          .catch(() => null);
+        const list = await store.client.query("backup:listGuild", { guildId }).catch(() => null);
         if (!list || list.length === 0) {
           return interaction.reply({
             content: "Chưa có backup nào của server này — dùng `/backup now` để tạo bản đầu tiên.",
@@ -1070,9 +1161,7 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       if (sub === "restore") {
         if (!canManageGuild(interaction.member)) return needPerm(interaction);
         const idx = interaction.options.getInteger("index", true);
-        const list = await store.client
-          .query("backup:listGuild", { guildId })
-          .catch(() => null);
+        const list = await store.client.query("backup:listGuild", { guildId }).catch(() => null);
         const backup = list && list[idx - 1];
         if (!backup) {
           return interaction.reply({
@@ -1164,7 +1253,7 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
             .setDescription(
               method === "captcha"
                 ? "Nhấn nút bên dưới để nhận mã xác minh qua DM, sau đó nhập mã trong kênh này."
-                : "Nhấn nút bên dưới để xác minh và vào server."
+                : "Nhấn nút bên dưới để xác minh và vào server.",
             );
           const row = new ActionRowBuilder();
           if (method === "captcha") {
@@ -1211,7 +1300,10 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       if (sub === "method") {
         const type = interaction.options.getString("type", true);
         if (!["button", "captcha"].includes(type)) {
-          return interaction.reply({ content: "Phương thức phải là button hoặc captcha.", ephemeral: true });
+          return interaction.reply({
+            content: "Phương thức phải là button hoặc captcha.",
+            ephemeral: true,
+          });
         }
         await store.client.mutation("bot_writes:botUpdateSettings", {
           guildId: guild.id,
@@ -1278,7 +1370,8 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
     case "alt": {
       const sub = interaction.options.getSubcommand();
       const config = await store.getConfig(guild.id);
-      if (!canManageGuild(interaction.member) && !isAdmin(interaction.member)) return needPerm(interaction);
+      if (!canManageGuild(interaction.member) && !isAdmin(interaction.member))
+        return needPerm(interaction);
 
       if (sub === "status") {
         const enabled = config?.altDetectionEnabled ?? false;
@@ -1318,7 +1411,10 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       if (sub === "punish") {
         const type = interaction.options.getString("type", true);
         if (!["kick", "ban", "timeout", "verify"].includes(type)) {
-          return interaction.reply({ content: "Hình phạt phải là: kick, ban, timeout, hoặc verify.", ephemeral: true });
+          return interaction.reply({
+            content: "Hình phạt phải là: kick, ban, timeout, hoặc verify.",
+            ephemeral: true,
+          });
         }
         await store.client.mutation("bot_writes:botUpdateSettings", {
           guildId: guild.id,
@@ -1350,7 +1446,10 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       if (sub === "vpn") {
         const mode = interaction.options.getString("mode", true);
         if (!["strict", "warn", "off"].includes(mode)) {
-          return interaction.reply({ content: "Chế độ VPN phải là: strict, warn, hoặc off.", ephemeral: true });
+          return interaction.reply({
+            content: "Chế độ VPN phải là: strict, warn, hoặc off.",
+            ephemeral: true,
+          });
         }
         await store.client.mutation("bot_writes:botUpdateSettings", {
           guildId: guild.id,

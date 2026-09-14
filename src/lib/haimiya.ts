@@ -80,7 +80,14 @@ const TOPICS: Topic[] = [
   },
   {
     id: "dm",
-    keywords: ["gui dm", "dm truc tiep", "nhan tin rieng", "gui tin nhan rieng", "dm cho", "gui cho"],
+    keywords: [
+      "gui dm",
+      "dm truc tiep",
+      "nhan tin rieng",
+      "gui tin nhan rieng",
+      "dm cho",
+      "gui cho",
+    ],
     answer:
       "Khả năng nhắn tin trực tiếp nằm trong khu vực riêng tư dành cho chủ sở hữu bot 🔒 — tôi không tiết lộ chi tiết công khai. Nếu bạn là chủ sở hữu, hãy đăng nhập bằng tài khoản Discord đã tạo bot, đặt mật khẩu trong Cài đặt rồi mở khóa Tính năng ẩn trong sidebar.",
     suggestions: [
@@ -124,11 +131,7 @@ const TOPICS: Topic[] = [
     ],
     answer:
       "Mỗi server có thể chọn chủ đề màu riêng cho trang quản lý 🎨. Vào Cài đặt → mục Chủ đề màu của server: chọn 1 trong 8 màu (Hồng anh đào, Hồng đỏ, Cam hoàng hôn, Vàng hổ phách, Xanh lá, Xanh ngọc, Xanh trời, Tím oải hương) rồi bấm Áp dụng. Màu sẽ áp dụng ngay cho nút bấm, thẻ và sidebar của riêng server đó trên web.",
-    suggestions: [
-      "Đổi avatar bot ở đâu?",
-      "Bảng hình phạt là gì?",
-      "Công cụ mod gồm những gì?",
-    ],
+    suggestions: ["Đổi avatar bot ở đâu?", "Bảng hình phạt là gì?", "Công cụ mod gồm những gì?"],
   },
   {
     id: "punishments",
@@ -174,7 +177,13 @@ const TOPICS: Topic[] = [
   },
   {
     id: "remember",
-    keywords: ["luu dang nhap", "khong luu dang nhap", "nho dang nhap", "dang nhap lai", "nho mat khau"],
+    keywords: [
+      "luu dang nhap",
+      "khong luu dang nhap",
+      "nho dang nhap",
+      "dang nhap lai",
+      "nho mat khau",
+    ],
     answer:
       "Trang đăng nhập có tùy chọn lưu đăng nhập 🪪. Tích Lưu đăng nhập → phiên đăng nhập được giữ lại trên thiết bị, mở lại trình duyệt không cần đăng nhập lại. Chọn Không lưu đăng nhập → token chỉ sống trong tab hiện tại, đóng trình duyệt là phải đăng nhập lại — an toàn hơn khi dùng máy công cộng.",
     suggestions: [
@@ -219,11 +228,7 @@ const TOPICS: Topic[] = [
     ],
     answer:
       "Hệ thống nhiệt độ hoạt động theo thang điểm 0–100 🌡️. Mỗi vi phạm cộng điểm nhiệt theo cài đặt; ngưỡng mặc định: cảnh báo 25, tạm khóa 40, kick 70, ban 90. Khi chạm ngưỡng, bot tự xử lý (cảnh báo DM → tạm khóa → kick → ban). Nhiệt giảm dần theo phút (mặc định 3 điểm/phút) và nếu tái phạm trong cửa sổ (mặc định 30 phút) sẽ bị nhân nhiệt (mặc định x2). Tất cả ngưỡng đều chỉnh được trong Moderation.",
-    suggestions: [
-      "Warn tích lũy là gì?",
-      "Bảng hình phạt là gì?",
-      "Cách xem nhiệt của thành viên",
-    ],
+    suggestions: ["Warn tích lũy là gì?", "Bảng hình phạt là gì?", "Cách xem nhiệt của thành viên"],
   },
   {
     id: "warn",
@@ -238,7 +243,15 @@ const TOPICS: Topic[] = [
   },
   {
     id: "joingate",
-    keywords: ["join gate", "cong vao", "selfbot", "vào server", "vo server", "tai khoan moi", "check avatar"],
+    keywords: [
+      "join gate",
+      "cong vao",
+      "selfbot",
+      "vào server",
+      "vo server",
+      "tai khoan moi",
+      "check avatar",
+    ],
     answer:
       "Join Gate là cổng kiểm soát thành viên khi vào server 🚪. Bạn bật từng tùy chọn trong mục Join Gate: chặn tài khoản quá mới (số ngày tùy chỉnh), bắt buộc có avatar, bắt buộc có huy hiệu, và chặn toàn bộ lượt vào khi server đang bị raid. Có danh sách trắng để miễn trừ, và chọn hình phạt Kick hoặc Ban cho các trường hợp bị chặn.",
     suggestions: [
@@ -262,11 +275,7 @@ const TOPICS: Topic[] = [
     ],
     answer:
       "Module chống link độc hại & file nguy hiểm bảo vệ thành viên khỏi lừa đảo 🛡️. Bot phát hiện và xóa tin chứa: domain lừa đảo phổ biến (nitro giả, gift giả, crypto scam…), link IP trực tiếp, chữ ký nội dung scam, và file đuôi nguy hiểm (.exe .scr .bat .msi .vbs .ps1 .jar .apk .hta…). Mỗi lần phát hiện đều cảnh báo trong kênh log kèm tên file hoặc link.",
-    suggestions: [
-      "Chống nuke/raid là gì?",
-      "Moderation lọc những gì?",
-      "Bảng hình phạt là gì?",
-    ],
+    suggestions: ["Chống nuke/raid là gì?", "Moderation lọc những gì?", "Bảng hình phạt là gì?"],
   },
   {
     id: "moderation",
@@ -305,11 +314,7 @@ const TOPICS: Topic[] = [
     ],
     answer:
       "Chống nuke/raid bảo vệ cấu trúc server 🛡️ với 10 module nuke: ban hàng loạt, kick hàng loạt, raid thành viên, tạo kênh hàng loạt, xóa kênh hàng loạt, tạo role hàng loạt, xóa role hàng loạt, xóa tin hàng loạt, tạo webhook hàng loạt, tạo thread hàng loạt. Các module này phạt trực tiếp (warn/kick/ban/timeout), không cộng nhiệt. Bot có AI Guard 🧠 tự phân biệt đâu là raid/nuke thật sự (leo thang ban + khóa kênh) với vi phạm cá nhân (chỉ cộng nhiệt, moderation bình thường) — nhận diện cả spam tin dài cực dài, tin lặp nội dung và tin giả blank (toàn khoảng trắng/ký tự ẩn) gây nhiễu. Khi bị tấn công, bot tự khóa kênh (lockdown) và mở khóa bằng /antinuke unlock.",
-    suggestions: [
-      "Join Gate là gì?",
-      "Moderation lọc những gì?",
-      "Bảng hình phạt là gì?",
-    ],
+    suggestions: ["Join Gate là gì?", "Moderation lọc những gì?", "Bảng hình phạt là gì?"],
   },
   {
     id: "autoreply",
@@ -338,11 +343,7 @@ const TOPICS: Topic[] = [
     keywords: ["dashboard", "bang dieu khien", "trang quan ly", "web", "website", "giao dien web"],
     answer:
       "Dashboard là trang quản lý bot trên web 🖥️. Bạn đăng nhập bằng Discord, chọn server, rồi quản lý mọi thứ: Moderation (nhiệt độ, warn, lọc nội dung), Join Gate, Chống nuke/raid, Hình phạt, Tính năng ẩn và Cài đặt (prefix, kênh log, chủ đề màu). Thay đổi được bot áp dụng trong khoảng 3 phút.",
-    suggestions: [
-      "Cách đăng nhập dashboard",
-      "Chủ đề màu server là gì?",
-      "Bảng hình phạt là gì?",
-    ],
+    suggestions: ["Cách đăng nhập dashboard", "Chủ đề màu server là gì?", "Bảng hình phạt là gì?"],
   },
   {
     id: "commands",
@@ -371,11 +372,7 @@ const TOPICS: Topic[] = [
     keywords: ["hosting", "wispbyte", "bot hosting", "chay bot", "host", "zip", "deploy", "24/7"],
     answer:
       "Để bot chạy 24/7, bạn cần một hosting bot (ví dụ Wispbyte) 🚀. Quy trình: tải file zip bot từ nhánh host-deploy trên GitHub → vào hosting, xóa file cũ → upload zip mới → Unarchive → Restart. Mỗi lần có bản cập nhật, lặp lại đúng quy trình đó. Nhớ cấu hình đủ token Discord và khóa Convex trong file cấu hình.",
-    suggestions: [
-      "Cách đăng nhập dashboard",
-      "Bot có những lệnh nào?",
-      "Báo cáo hàng ngày là gì?",
-    ],
+    suggestions: ["Cách đăng nhập dashboard", "Bot có những lệnh nào?", "Báo cáo hàng ngày là gì?"],
   },
   {
     id: "pricing",
@@ -415,11 +412,7 @@ const TOPICS: Topic[] = [
     ],
     answer:
       "Đăng nhập rất nhanh 🪪. Bấm nút Đăng nhập với Discord ở góc phải trên cùng (hoặc nút Mở dashboard), Discord xác nhận quyền, xong là vào thẳng dashboard. Trang đăng nhập có tùy chọn Lưu đăng nhập / Không lưu đăng nhập. Chỉ server nào bạn có quyền quản lý mới hiện ra — nếu chưa thấy server, hãy mời bot vào server đó trước.",
-    suggestions: [
-      "Cách chạy bot trên hosting",
-      "Lưu đăng nhập là gì?",
-      "Bot có những lệnh nào?",
-    ],
+    suggestions: ["Cách chạy bot trên hosting", "Lưu đăng nhập là gì?", "Bot có những lệnh nào?"],
   },
 ];
 

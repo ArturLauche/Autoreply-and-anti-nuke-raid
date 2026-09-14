@@ -34,18 +34,14 @@ export default function CherryBlossom({
 }) {
   // Điện thoại: hiển thị ít cánh hoa hơn (≈60%) — nhẹ hơn cho GPU/pin.
   const isSmallScreen =
-    typeof window !== "undefined" &&
-    window.matchMedia?.("(max-width: 640px)").matches;
+    typeof window !== "undefined" && window.matchMedia?.("(max-width: 640px)").matches;
   const effectiveCount = isSmallScreen ? Math.max(6, Math.round(count * 0.6)) : count;
   const petals = useMemo(() => makePetals(effectiveCount), [effectiveCount]);
 
   return (
     <div
       aria-hidden
-      className={cn(
-        "pointer-events-none fixed inset-0 z-0 overflow-hidden",
-        className,
-      )}
+      className={cn("pointer-events-none fixed inset-0 z-0 overflow-hidden", className)}
     >
       {petals.map((p, i) => (
         <span

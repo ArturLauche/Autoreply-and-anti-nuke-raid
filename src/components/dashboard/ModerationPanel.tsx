@@ -7,13 +7,7 @@ import { Card, CardContent } from "../ui/card";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import {
   DEFAULT_PUNISH_NOTICE,
   PUNISH_NOTICE_ACTION_LABEL,
@@ -50,9 +44,7 @@ function previewFor(action: string, level: PunishNoticeLevel): string {
 
 export default function ModerationPanel({ data }: { data: GuildData }) {
   const updateSettings = useMutation(api.guilds.updateSettings);
-  const [channelId, setChannelId] = useState<string>(
-    data.guild.punishNoticeChannelId ?? "none",
-  );
+  const [channelId, setChannelId] = useState<string>(data.guild.punishNoticeChannelId ?? "none");
   const [saving, setSaving] = useState(false);
 
   const notice = {
@@ -85,8 +77,8 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
           </h2>
           <p className="text-sm text-muted-foreground">
             Tùy chỉnh <b className="text-foreground">embed moderation kiểu Carl-bot</b> bot gửi sau
-            khi đã trừng phạt thành viên vi phạm — đồng bộ cả kênh lẫn mức chi tiết, theo từng
-            hành động ban · timeout · warn · kick (cả tự động lẫn lệnh thủ công).
+            khi đã trừng phạt thành viên vi phạm — đồng bộ cả kênh lẫn mức chi tiết, theo từng hành
+            động ban · timeout · warn · kick (cả tự động lẫn lệnh thủ công).
           </p>
         </div>
         <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
@@ -107,9 +99,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                 <SelectValue placeholder="Chọn kênh" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">
-                  — Tự động dùng kênh log mod / log chung —
-                </SelectItem>
+                <SelectItem value="none">— Tự động dùng kênh log mod / log chung —</SelectItem>
                 {textChannels.map((c) => (
                   <SelectItem key={c.channelId} value={c.channelId}>
                     #{c.name}
@@ -118,8 +108,8 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
               </SelectContent>
             </Select>
             <p className="text-[11px] text-muted-foreground">
-              Nếu chọn “tự động”, bot ưu tiên kênh log hành động mod, rồi tới kênh log chung
-              (Cài đặt → Kênh log). Chưa có kênh log nào → không gửi được thông báo.
+              Nếu chọn “tự động”, bot ưu tiên kênh log hành động mod, rồi tới kênh log chung (Cài
+              đặt → Kênh log). Chưa có kênh log nào → không gửi được thông báo.
             </p>
           </div>
           <div className="flex items-end">
@@ -146,9 +136,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
             <Card key={action}>
               <CardContent className="p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-display font-semibold">
-                    {PUNISH_NOTICE_ACTION_LABEL[action]}
-                  </p>
+                  <p className="font-display font-semibold">{PUNISH_NOTICE_ACTION_LABEL[action]}</p>
                   <Badge className={cn("gap-1 px-2.5 py-1", LEVEL_BADGE[level])}>
                     {PUNISH_NOTICE_LEVELS.find((l) => l.value === level)?.label}
                   </Badge>
@@ -162,15 +150,22 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                     onValueChange={(v) =>
                       save({
                         punishNotice: {
-                          ban: action === "ban" ? (v as PunishNoticeLevel) : (notice.ban as PunishNoticeLevel),
+                          ban:
+                            action === "ban"
+                              ? (v as PunishNoticeLevel)
+                              : (notice.ban as PunishNoticeLevel),
                           timeout:
                             action === "timeout"
                               ? (v as PunishNoticeLevel)
                               : (notice.timeout as PunishNoticeLevel),
                           kick:
-                            action === "kick" ? (v as PunishNoticeLevel) : (notice.kick as PunishNoticeLevel),
+                            action === "kick"
+                              ? (v as PunishNoticeLevel)
+                              : (notice.kick as PunishNoticeLevel),
                           warn:
-                            action === "warn" ? (v as PunishNoticeLevel) : (notice.warn as PunishNoticeLevel),
+                            action === "warn"
+                              ? (v as PunishNoticeLevel)
+                              : (notice.warn as PunishNoticeLevel),
                         },
                       })
                     }
@@ -201,11 +196,11 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
 
       <p className="text-xs leading-relaxed text-muted-foreground">
         💡 Đây chính là embed <b className="text-foreground">duy nhất</b> bot gửi sau khi phạt — kể
-        cả <b className="text-foreground">tự động</b> (chống nuke / auto-mod — Responsible
-        moderator hiển thị là “Bot tự động”) lẫn <b className="text-foreground">thủ công</b> từ
-        lệnh <code className="font-mono">/mod</code> (hiển thị tên người thực hiện). Lý do để trống
-        → ghi “không có lý do”. Chọn <b>Không gửi tin nhắn</b> → bot không gửi embed nhưng dashboard
-        vẫn ghi nhận case. Embed xóa tin / purge luôn đầy đủ.
+        cả <b className="text-foreground">tự động</b> (chống nuke / auto-mod — Responsible moderator
+        hiển thị là “Bot tự động”) lẫn <b className="text-foreground">thủ công</b> từ lệnh{" "}
+        <code className="font-mono">/mod</code> (hiển thị tên người thực hiện). Lý do để trống → ghi
+        “không có lý do”. Chọn <b>Không gửi tin nhắn</b> → bot không gửi embed nhưng dashboard vẫn
+        ghi nhận case. Embed xóa tin / purge luôn đầy đủ.
       </p>
     </div>
   );

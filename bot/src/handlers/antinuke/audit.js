@@ -5,30 +5,20 @@
  */
 const { AuditLogEvent, Colors, PermissionFlagsBits } = require("discord.js");
 const { logEmbed, sendLog } = require("../../util");
-const { sendCaseLog, CASE_LABEL } = require("../../caseLog");
-const { isLocked, markLocked, lockGuild, unlockGuild } = require("../../lockdown");
-const { actionsOf, memberPunishOf, cleanupMessages } = require("../../moduleActions");
+const { sendCaseLog } = require("../../caseLog");
+const { isLocked, markLocked, unlockGuild } = require("../../lockdown");
+const { actionsOf, cleanupMessages } = require("../../moduleActions");
 const { emergencyRaidAlert } = require("../incidentReport");
 const {
   MODULE_LABELS,
-  KNOWN_LOGGING_BOTS,
   isKnownLoggingBot,
-  NUKE_MODULES,
   IMMEDIATE_BOT_NUKE,
-  strangeBotVerdict,
-  botHitAndRunVerdict,
   isTrustedBotMember,
   isExempt,
   moduleCfgOf,
-  memberSuspicionScore,
-  joinClusterSuspicion,
-  messageFingerprint,
-  isExternalAppSpam,
-  LONG_MSG_LEN,
-  ZERO_WIDTH_RE,
 } = require("./shared");
 
-module.exports = function createAntiNukeLayer({ client, store, heat, state, core, ai, raidIntel, externalApp }) {
+module.exports = function createAntiNukeLayer({ client, store, heat, state, core, ai, raidIntel }) {
   const { recordEvent, record, markHandled, wasHandled, auditExecutor } = state;
   const { joiners, lastConfigs, staleUnlockSwept } = state.state;
   const { punishWithHeat, maybeLockdown } = core;
@@ -82,7 +72,9 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
         if (!config || !config.heatResetRequested) continue;
         heat.resetGuild(guild.id, config.heatResetUserId || undefined);
         await store.client.mutation("bot_writes:botClearHeatReset", { guildId: guild.id });
-        console.log(`[heat:reset] ${guild.id} đã xóa nhiệt${config.heatResetUserId ? ` của ${config.heatResetUserId}` : " toàn bộ"}`);
+        console.log(
+          `[heat:reset] ${guild.id} đã xóa nhiệt${config.heatResetUserId ? ` của ${config.heatResetUserId}` : " toàn bộ"}`,
+        );
       } catch (err) {
         console.error(`[heat:reset] ${guild.id}:`, err.message);
       }
@@ -130,8 +122,7 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
       ? await guild.members.fetch(executor.id).catch(() => null)
       : null;
     const executorIsHostileBot =
-      executor?.bot === true &&
-      !isTrustedBotMember(executorMember ?? executor, guild);
+      executor?.bot === true && !isTrustedBotMember(executorMember ?? executor, guild);
     const effectiveThreshold =
       executorIsHostileBot && IMMEDIATE_BOT_NUKE.has(module) ? 1 : moduleCfg.threshold;
     if (executor && count < effectiveThreshold) return;
@@ -167,7 +158,10 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
       // purgeMessages: xóa hàng loạt tin nhắn của thủ phạm trên toàn guild (giới hạn).
       // KHÔNG purge khi thủ phạm là bot tin cậy (bot log ghi log qua webhook — purge
       // sẽ xóa sạch log) và luôn bỏ qua tin nhắn của chính bot này.
-      if (actions.includes("purgeMessages") && !isTrustedBotMember(executorMember ?? executor, guild)) {
+      if (
+        actions.includes("purgeMessages") &&
+        !isTrustedBotMember(executorMember ?? executor, guild)
+      ) {
         const cleanup = await cleanupMessages({
           guild,
           channel: null,
@@ -262,8 +256,7 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
             // Bot tự cấp/quyền admin là vector nuke — KHÔNG miễn cho bot.
             exempt =
               em.id === guild.ownerId ||
-              (em.user?.bot !== true &&
-                em.permissions.has(PermissionFlagsBits.Administrator)) ||
+              (em.user?.bot !== true && em.permissions.has(PermissionFlagsBits.Administrator)) ||
               (em.user?.bot !== true &&
                 (config?.adminRoles || []).some((id) => em.roles.cache.has(id)));
           } else {
@@ -284,8 +277,7 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
       ? await guild.members.fetch(executor.id).catch(() => null)
       : null;
     const executorIsHostileBot =
-      executor?.bot === true &&
-      !isTrustedBotMember(executorMember ?? executor, guild);
+      executor?.bot === true && !isTrustedBotMember(executorMember ?? executor, guild);
     const effectiveThreshold =
       executorIsHostileBot && IMMEDIATE_BOT_NUKE.has(module) ? 1 : moduleCfg.threshold;
     if (executor && count < effectiveThreshold) return;
@@ -318,7 +310,10 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
       await maybeLockdown(guild, config);
       // KHÔNG purge khi thủ phạm là bot tin cậy (giữ nguyên log webhook) +
       // luôn bỏ qua tin nhắn của chính bot này.
-      if (actions.includes("purgeMessages") && !isTrustedBotMember(executorMember ?? executor, guild)) {
+      if (
+        actions.includes("purgeMessages") &&
+        !isTrustedBotMember(executorMember ?? executor, guild)
+      ) {
         const cleanup = await cleanupMessages({
           guild,
           channel: null,
@@ -369,8 +364,9 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
     // BÁO CÁO KHẨN cho các module nuke cấu trúc (ban/kick/xóa kênh hàng loạt…).
     if (IMMEDIATE_BOT_NUKE.has(module) || module === "massJoin") {
       emergencyRaidAlert(client, store, guild, {
-        summary: MODULE_LABELS[module] + " — " + count + " lượt trong " + moduleCfg.windowSeconds + "s",
-        reason: reason,
+        summary:
+          MODULE_LABELS[module] + " — " + count + " lượt trong " + moduleCfg.windowSeconds + "s",
+        reason: "[Protogon AntiNuke] " + MODULE_LABELS[module],
         lockdownActive: isLocked(guild.id),
       }).catch(() => {});
     }
@@ -384,7 +380,14 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
           action: punishType,
           caseNumber: punishCaseNum,
           offender: { id: executor.id, username: executor.username || executor.id },
-          reason: "[AntiNuke] " + MODULE_LABELS[module] + ": " + count + " lượt/" + moduleCfg.windowSeconds + "s",
+          reason:
+            "[AntiNuke] " +
+            MODULE_LABELS[module] +
+            ": " +
+            count +
+            " lượt/" +
+            moduleCfg.windowSeconds +
+            "s",
           executor: null,
         });
       } catch (e) {
@@ -399,8 +402,15 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
    * tài khoản vào gần đây để tìm acc chủ mưu có liên quan.
    */
   async function afterStructuralEvent(guild, config, executor, moduleCfg, payload) {
-    const recentCluster = (joiners.get(guild.id) ?? []).slice(-12).map((j) => ({ id: j.id, joinedAt: j.ts }));
-    const sourceHunt = await huntRaidSource(guild, config, recentCluster, executor ? [executor] : []);
+    const recentCluster = (joiners.get(guild.id) ?? [])
+      .slice(-12)
+      .map((j) => ({ id: j.id, joinedAt: j.ts }));
+    const sourceHunt = await huntRaidSource(
+      guild,
+      config,
+      recentCluster,
+      executor ? [executor] : [],
+    );
     await recordRaidSample(guild, config, {
       module: moduleCfg.module,
       count: payload.count,
@@ -430,7 +440,10 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
         return { module: "massThreadDelete", describeTarget: `Xóa thread "#${t?.name ?? "?"}"` };
       case AuditLogEvent.ChannelUpdate: {
         if (changes.includes("permission_overwrites")) {
-          return { module: "massChannelOverwrite", describeTarget: `#${t?.name ?? "?"} — quyền kênh bị thay đổi` };
+          return {
+            module: "massChannelOverwrite",
+            describeTarget: `#${t?.name ?? "?"} — quyền kênh bị thay đổi`,
+          };
         }
         if (changes.some((k) => ["name", "position", "topic", "rate_limit_per_user"].includes(k))) {
           return { module: "massChannelRename", describeTarget: `#${t?.name ?? "?"} bị sửa` };
@@ -453,7 +466,8 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
         let grantedAdmin = false;
         let adminRoleName = "";
         for (const rid of addedRoles) {
-          const role = guild.roles.cache.get(rid) ?? (await guild.roles.fetch(rid).catch(() => null));
+          const role =
+            guild.roles.cache.get(rid) ?? (await guild.roles.fetch(rid).catch(() => null));
           if (
             role &&
             (role.permissions.has(PermissionFlagsBits.Administrator) ||
@@ -485,10 +499,20 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
         return { module: "massInviteCreate", describeTarget: "Tạo link mời mới" };
       case AuditLogEvent.GuildUpdate: {
         const tampered = changes.filter((k) =>
-          ["name", "icon_hash", "mfa_level", "verification_level", "region", "splash_hash"].includes(k),
+          [
+            "name",
+            "icon_hash",
+            "mfa_level",
+            "verification_level",
+            "region",
+            "splash_hash",
+          ].includes(k),
         );
         if (tampered.length > 0) {
-          return { module: "guildTamper", describeTarget: `Đổi cấu hình server (${tampered.join(", ")})` };
+          return {
+            module: "guildTamper",
+            describeTarget: `Đổi cấu hình server (${tampered.join(", ")})`,
+          };
         }
         return null;
       }
@@ -497,5 +521,13 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
     }
   }
 
-  return { handleAttributeEvent, handleAuditEntry, afterStructuralEvent, routeAuditEntry, handleMessageBulk, tickUnlocks, tickHeatResets };
+  return {
+    handleAttributeEvent,
+    handleAuditEntry,
+    afterStructuralEvent,
+    routeAuditEntry,
+    handleMessageBulk,
+    tickUnlocks,
+    tickHeatResets,
+  };
 };

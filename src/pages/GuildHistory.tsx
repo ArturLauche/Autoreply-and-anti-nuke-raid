@@ -17,7 +17,13 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 import { discordGuildIconUrl, getSessionToken } from "../lib/discord";
 import { ANTINUKE_MODULE_META, ANTINUKE_ORDER, PUNISH_LABEL } from "../lib/constants";
 import type { GuildData } from "../lib/types";
@@ -214,9 +220,7 @@ export default function GuildHistory() {
                       <Badge variant="outline">
                         {e.count} lượt · ngưỡng {e.threshold} trong {e.windowSeconds}s
                       </Badge>
-                      <Badge variant="secondary">
-                        {PUNISH_LABEL[e.punish] ?? e.punish}
-                      </Badge>
+                      <Badge variant="secondary">{PUNISH_LABEL[e.punish] ?? e.punish}</Badge>
                     </div>
                     <p className="mt-0.5 truncate text-sm text-muted-foreground">
                       {e.action}

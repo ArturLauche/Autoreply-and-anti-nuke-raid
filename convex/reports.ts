@@ -102,9 +102,7 @@ export const botListGuildIds = query({
   handler: async (ctx, { botKey }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guilds = await ctx.db.query("guilds").collect();
-    return guilds
-      .filter((g) => g.botInGuild)
-      .map((g) => ({ guildId: g.discordId, name: g.name }));
+    return guilds.filter((g) => g.botInGuild).map((g) => ({ guildId: g.discordId, name: g.name }));
   },
 });
 
@@ -162,9 +160,13 @@ export const getGuildModActions = query({
 });
 
 export const getGuildEvents = query({
-  args: { guildId: v.string(), since: v.number(), limit: v.optional(v.number()),
+  args: {
+    guildId: v.string(),
+    since: v.number(),
+    limit: v.optional(v.number()),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, guildId, since, limit }) => {
     await requireBotKeyStrict(ctx, botKey);
     const events = await ctx.db

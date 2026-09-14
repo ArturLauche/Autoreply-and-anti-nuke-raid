@@ -1,11 +1,9 @@
-const { EmbedBuilder, Colors, ChannelType, PermissionsBitField } = require("discord.js");
+const { Colors, ChannelType, PermissionsBitField } = require("discord.js");
 const zlib = require("zlib");
-const crypto = require("crypto");
 const { logEmbed, sendLog } = require("../util");
 const {
   compressAndEncryptBackup,
   decompressAndDecryptBackup,
-  computeChecksum,
   computeSnapshotChecksum,
   filterBackupComponents,
 } = require("../backupUtils");
@@ -56,7 +54,10 @@ const MIME_EXT = {
 };
 
 function extFromMime(mime) {
-  const key = String(mime || "").toLowerCase().split(";")[0].trim();
+  const key = String(mime || "")
+    .toLowerCase()
+    .split(";")[0]
+    .trim();
   return MIME_EXT[key] || "bin";
 }
 
@@ -141,7 +142,8 @@ async function captureChannelMessages(channel, limit) {
     const fetched = await channel.messages.fetch({ limit });
     const list = [...fetched.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
     for (const m of list) {
-      const attachments = (m.attachments?.size ?? 0) > 0 ? m.attachments.map((a) => a.url).slice(0, 3) : [];
+      const attachments =
+        (m.attachments?.size ?? 0) > 0 ? m.attachments.map((a) => a.url).slice(0, 3) : [];
       out.push({
         id: m.id,
         authorId: m.author?.id ?? null,
@@ -159,7 +161,6 @@ async function captureChannelMessages(channel, limit) {
 
 /** Chụp toàn bộ cấu trúc server thành object JSON (kèm tin nhắn nếu được yêu cầu). */
 async function snapshotGuild(guild, { includeMessages = false } = {}) {
-  const everyoneId = guild.id;
   const myBits = myPermissionBits(guild);
   const roles = [...guild.roles.cache.values()]
     .filter((r) => r.name !== "@everyone" && !r.managed)
@@ -277,7 +278,7 @@ async function snapshotWithSettings(client, store, guildId, includeMessages) {
  * (HTTP 413) → chủ server tưởng backup xong mà trên Gist không có gì. Bản nén
  * zlib ("z:...") giảm 60-80% và được restore/import nhận diện ngược lại được.
  */
-async function pushToGithub(store, { guildId, backupId, backupJson, guildName }) {
+async function pushBackupToGithub(store, { guildId, backupId, backupJson, guildName }) {
   try {
     const res = await store.client.action("backup_github:githubPush", {
       guildId,
@@ -292,9 +293,15 @@ async function pushToGithub(store, { guildId, backupId, backupJson, guildName })
 }
 
 async function runBackup(client, store, guildId, opts = {}) {
-  const { pushToGithub = false, includeMessages = false, skipNotice = false } = opts;
+  // LƯU Ý: option "pushToGithub" (boolean) TRÙNG TÊN với hàm pushBackupToGithub —
+  // trước đây const { pushToGithub = false } đã che khuất hàm cùng tên khiến lệnh
+  // gọi pushToGithub(store, …) ném TypeError (gọi boolean). Đã đổi tên option.
+  const {
+    pushToGithub: pushToGithubOpt = false,
+    includeMessages = false,
+    skipNotice = false,
+  } = opts;
   const { snapshot, guild } = await snapshotWithSettings(client, store, guildId, includeMessages);
-  const json = JSON.stringify(snapshot);
 
   // ─── Incremental backup: skip if unchanged ─────────────────────────────
   // So khớp checksum "ổn định" (không gồm timestamps/media): server không đổi
@@ -340,7 +347,7 @@ async function runBackup(client, store, guildId, opts = {}) {
   }
 
   // ─── Compress + encrypt backup ──────────────────────────────────────────
-  const { backupJson, compressed, checksum, snapshotChecksum, encrypted } = compressAndEncryptBackup(snapshot);
+  const { backupJson, compressed, checksum, encrypted } = compressAndEncryptBackup(snapshot);
 
   let backupId;
   try {
@@ -365,8 +372,8 @@ async function runBackup(client, store, guildId, opts = {}) {
   }
 
   let githubLine = "không đẩy GitHub";
-  if (pushToGithub && backupId) {
-    const res = await pushToGithub(store, {
+  if (pushToGithubOpt && backupId) {
+    const res = await pushBackupToGithub(store, {
       guildId,
       backupId,
       // Gửi bản ĐÃ NÉN — Gist giới hạn 900 KB, JSON thô của server lớn bị từ chối.
@@ -376,7 +383,7 @@ async function runBackup(client, store, guildId, opts = {}) {
     githubLine = res?.ok
       ? `đã đẩy GitHub${res.compressed ? " (bản nén zlib — nạp lại bằng bot Protogon)" : ""}: ${res.url || "xem dashboard"}`
       : `GitHub thất bại: ${res?.error || "lỗi"}`;
-  } else if (pushToGithub && !backupId) {
+  } else if (pushToGithubOpt && !backupId) {
     githubLine = "lưu Convex thất bại → bỏ qua GitHub";
   }
 
@@ -409,7 +416,9 @@ async function runBackup(client, store, guildId, opts = {}) {
     footer: "Protogon · Backup",
   });
   await sendToLog(guild, embed, store);
-  console.log(`[backup] ${guildId}: xong (${snapshot.roles.length} roles, ${snapshot.channels.length} channels, ${snapshot.emojis?.length ?? 0} emojis, ${snapshot.stickers?.length ?? 0} stickers, ${snapshot.messageCount ?? 0} messages) — ${githubLine}`);
+  console.log(
+    `[backup] ${guildId}: xong (${snapshot.roles.length} roles, ${snapshot.channels.length} channels, ${snapshot.emojis?.length ?? 0} emojis, ${snapshot.stickers?.length ?? 0} stickers, ${snapshot.messageCount ?? 0} messages) — ${githubLine}`,
+  );
 }
 
 /** Gửi embed tới kênh log của guild qua webhook (giống các handler khác). */
@@ -424,12 +433,16 @@ async function sendToLog(guild, embed, store) {
 
 /** Role theo đúng thứ tự vị trí trong backup (ổn định với role thiếu position). */
 function sortedRoles(backup) {
-  return (backup.roles || []).map((r, i) => ({ ...r, _i: i })).sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a._i - b._i);
+  return (backup.roles || [])
+    .map((r, i) => ({ ...r, _i: i }))
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a._i - b._i);
 }
 
 /** Kênh theo đúng thứ tự vị trí trong backup (ổn định với kênh thiếu position). */
 function sortedChannels(backup) {
-  return (backup.channels || []).map((c, i) => ({ ...c, _i: i })).sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a._i - b._i);
+  return (backup.channels || [])
+    .map((c, i) => ({ ...c, _i: i }))
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a._i - b._i);
 }
 
 /** Tạo lại role từ backup theo đúng thứ tự; trả về Map oldId -> newId. */
@@ -480,7 +493,6 @@ async function createRoles(guild, backup) {
 /** Tạo lại kênh từ backup theo đúng thứ tự + vị trí; trả về Map oldId -> newId. */
 async function createChannels(guild, backup, roleMap) {
   const map = new Map();
-  const channels = backup.channels || [];
   const sorted = sortedChannels(backup);
 
   const buildOpts = (ch) => {
@@ -511,7 +523,8 @@ async function createChannels(guild, backup, roleMap) {
 
   const setPosition = async (ch, newId) => {
     try {
-      const created = guild.channels.cache.get(newId) ?? (await guild.channels.fetch(newId).catch(() => null));
+      const created =
+        guild.channels.cache.get(newId) ?? (await guild.channels.fetch(newId).catch(() => null));
       if (created && Number.isFinite(ch.position)) {
         await created.setPosition(Math.max(0, Math.min(250, ch.position)));
       }
@@ -590,7 +603,9 @@ async function recreateEmojis(guild, backup) {
 
 /** Tên sticker: 2-30 ký tự (Discord). */
 function sanitizeStickerName(name) {
-  const n = String(name || "").trim().slice(0, 30);
+  const n = String(name || "")
+    .trim()
+    .slice(0, 30);
   if (n.length < 2) return `${n}_`.slice(0, 30);
   return n;
 }
@@ -657,7 +672,8 @@ async function replayMessages(guild, backup, channelMap) {
     if (msgs.length === 0) continue;
     const newId = channelMap.get(ch.id);
     if (!newId) continue;
-    const channel = guild.channels.cache.get(newId) ?? (await guild.channels.fetch(newId).catch(() => null));
+    const channel =
+      guild.channels.cache.get(newId) ?? (await guild.channels.fetch(newId).catch(() => null));
     if (!channel || !channel.isTextBased?.()) continue;
 
     let webhook = null;
@@ -682,7 +698,9 @@ async function replayMessages(guild, backup, channelMap) {
       }
       const attachLine = failedLines.map((u) => `\n📎 ${u}`).join("");
       const content = m.content || "";
-      const body = content ? `${content}${attachLine}` : attachLine || (files.length > 0 ? "" : "(tin không có nội dung)");
+      const body = content
+        ? `${content}${attachLine}`
+        : attachLine || (files.length > 0 ? "" : "(tin không có nội dung)");
       try {
         if (webhook) {
           const payload = {
@@ -711,7 +729,10 @@ async function replayMessages(guild, backup, channelMap) {
 
 /** Đếm tổng tin nhắn có trong backup. */
 function countMessages(backup) {
-  return (backup.channels || []).reduce((n, c) => n + (Array.isArray(c.messages) ? c.messages.length : 0), 0);
+  return (backup.channels || []).reduce(
+    (n, c) => n + (Array.isArray(c.messages) ? c.messages.length : 0),
+    0,
+  );
 }
 
 /* ------------------------- Nhập file backup .msc (bot nuke) ------------------------- */
@@ -794,7 +815,10 @@ function normalizeMessage(m) {
     timestamp: ts,
     content: str(m.content ?? m.text ?? m.message ?? "", "").slice(0, 2000),
     attachments: Array.isArray(m.attachments)
-      ? m.attachments.map((a) => (typeof a === "string" ? a : str(a?.url ?? a?.proxyUrl ?? "", ""))).filter(Boolean).slice(0, 3)
+      ? m.attachments
+          .map((a) => (typeof a === "string" ? a : str(a?.url ?? a?.proxyUrl ?? "", "")))
+          .filter(Boolean)
+          .slice(0, 3)
       : [],
   };
 }
@@ -821,13 +845,27 @@ function normalizeChannel(c, index) {
   if (!c || typeof c !== "object") return null;
   const name = str(c.name ?? c.channelName ?? c.channel_name ?? "", "");
   if (!name) return null;
-  const overwrites = Array.isArray(c.overwrites ?? c.permissionOverwrites ?? c.permission_overwrites ?? c.permissionOverwritesRaw ?? c.rolePermissions)
-    ? (c.overwrites ?? c.permissionOverwrites ?? c.permission_overwrites ?? c.permissionOverwritesRaw ?? c.rolePermissions)
+  const overwrites = Array.isArray(
+    c.overwrites ??
+      c.permissionOverwrites ??
+      c.permission_overwrites ??
+      c.permissionOverwritesRaw ??
+      c.rolePermissions,
+  )
+    ? (
+        c.overwrites ??
+        c.permissionOverwrites ??
+        c.permission_overwrites ??
+        c.permissionOverwritesRaw ??
+        c.rolePermissions
+      )
         .map(normalizeOverwrite)
         .filter(Boolean)
     : [];
   const messages = asArray(c.messages ?? c.messageData ?? c.msgs)
-    ? asArray(c.messages ?? c.messageData ?? c.msgs).map(normalizeMessage).filter(Boolean)
+    ? asArray(c.messages ?? c.messageData ?? c.msgs)
+        .map(normalizeMessage)
+        .filter(Boolean)
     : [];
   return {
     id: str(c.id ?? c.channelId ?? c.channel_id ?? `ch-${index}`, ""),
@@ -839,7 +877,14 @@ function normalizeChannel(c, index) {
     userLimit: c.userLimit ? num(c.userLimit, null) : null,
     position: num(c.position, index),
     parentId: str(
-      c.parentId ?? c.parent ?? c.parent_id ?? c.categoryId ?? c.category_id ?? c.category ?? c.parentChannelId ?? "",
+      c.parentId ??
+        c.parent ??
+        c.parent_id ??
+        c.categoryId ??
+        c.category_id ??
+        c.category ??
+        c.parentChannelId ??
+        "",
       null,
     ),
     overwrites,
@@ -869,8 +914,8 @@ function normalizeEmoji(e, index) {
         raw: null,
       };
     }
-    let name = "";
-    let id = "";
+    let name;
+    let id;
     const m = s.match(/^<a?:([a-zA-Z0-9_]+):(\d+)>$/);
     if (m) {
       name = m[1];
@@ -949,7 +994,10 @@ function normalizeSticker(s, index) {
     return {
       id: str(s.id ?? s.stickerId ?? s.sticker_id ?? `sticker-${index}`, ""),
       name: name.slice(0, 30),
-      description: s.description === null || s.description === undefined ? null : String(s.description).slice(0, 100),
+      description:
+        s.description === null || s.description === undefined
+          ? null
+          : String(s.description).slice(0, 100),
       tags: s.tags ?? s.tag ?? null,
       formatType: s.formatType ?? s.format_type ?? s.format ?? null,
       url,
@@ -965,7 +1013,9 @@ function permFlagValue(key) {
   if (!k) return null;
   const F = PermissionsBitField.Flags;
   if (F[k] !== undefined) return F[k];
-  const camel = k.replace(/_([a-z])/g, (_, c) => c.toUpperCase()).replace(/^([a-z])/, (c) => c.toUpperCase());
+  const camel = k
+    .replace(/_([a-z])/g, (_, c) => c.toUpperCase())
+    .replace(/^([a-z])/, (c) => c.toUpperCase());
   if (F[camel] !== undefined) return F[camel];
   const lower = k.toLowerCase();
   for (const fk of Object.keys(F)) {
@@ -1015,7 +1065,7 @@ function decodeB64Text(text) {
     const cleaned = String(text).replace(/\s+/g, "");
     if (cleaned.length < 8) return text;
     const out = Buffer.from(cleaned, "base64").toString("utf8");
-    return /[{\[}\]]/.test(out) ? out : text;
+    return /[{}[\]]/.test(out) ? out : text;
   } catch {
     return text;
   }
@@ -1090,7 +1140,7 @@ function findBackupPayload(node, depth = 0) {
       // mã hóa, base64 media…) chứ không phải wrapper JSON — bỏ qua cho nhanh.
       if (v.length > 1_000_000) continue;
       // Nhận chuỗi JSON trực tiếp HOẶC chuỗi base64 giải mã ra JSON.
-      const looksJsonish = /[{\[}\]]/.test(v) || decodeB64Text(v) !== v;
+      const looksJsonish = /[{}[\]]/.test(v) || decodeB64Text(v) !== v;
       if (looksJsonish) {
         try {
           const nested = normalizeBackupFile(v);
@@ -1172,7 +1222,8 @@ function mscDecodeCandidates({ alphabet, key, payload }) {
   alpha.forEach((c, i) => idx.set(c, i));
   const pIdx = [...payload].map((c) => idx.get(c));
   if (pIdx.some((v) => v === undefined)) return [];
-  const kIdx = typeof key === "string" ? [...key].map((c) => idx.get(c)).filter((v) => v !== undefined) : [];
+  const kIdx =
+    typeof key === "string" ? [...key].map((c) => idx.get(c)).filter((v) => v !== undefined) : [];
   const kAscii = typeof key === "string" ? Buffer.from(key, "latin1") : Buffer.alloc(0);
   const huge = payload.length > 300_000; // file rất lớn → giới hạn số ứng viên để không tốn RAM
 
@@ -1309,7 +1360,12 @@ function decodeVigenereB64({ alphabet, key, payload }) {
 }
 
 function decodeEncryptedMsc(parsed) {
-  if (!parsed || typeof parsed !== "object" || typeof parsed.alphabet !== "string" || typeof parsed.payload !== "string") {
+  if (
+    !parsed ||
+    typeof parsed !== "object" ||
+    typeof parsed.alphabet !== "string" ||
+    typeof parsed.payload !== "string"
+  ) {
     return null;
   }
   // 1) Sơ đồ đã xác minh trên file thật: base64 + Vigenère theo key trên bảng chữ 89 ký tự.
@@ -1320,7 +1376,7 @@ function decodeEncryptedMsc(parsed) {
     // rơi xuống các sơ đồ dự đoán bên dưới
   }
   // 2) Fallback: quét các sơ đồ base-N phổ biến khác (chưa xác minh file thật).
-  let candidates = [];
+  let candidates;
   try {
     candidates = mscDecodeCandidates(parsed);
   } catch {
@@ -1343,8 +1399,6 @@ function decodeEncryptedMsc(parsed) {
   return null;
 }
 
-
-
 /**
  * Chuẩn hóa nội dung file backup từ bot nuke khác (.msc / .json) về đúng shape
  * nội bộ của Protogon để chạy restore: { version, guildId, guildName, roles,
@@ -1360,7 +1414,9 @@ function decodeEncryptedMsc(parsed) {
  * Ném Error kèm lý do nếu không đọc được.
  */
 function normalizeBackupFile(content) {
-  let text = String(content || "").replace(/^\uFEFF/, "").trim();
+  let text = String(content || "")
+    .replace(/^\uFEFF/, "")
+    .trim();
   // Bản backup của chính Protogon (nén zlib "z:" / nén+mã hóa "e:" — tải từ Gist
   // GitHub hoặc file tải từ nơi khác): bung nén + giải mã TRƯỚC khi parse JSON.
   // Trước đây file Gist nén import vào server phụ bị lỗi "Không đọc được file
@@ -1373,7 +1429,9 @@ function normalizeBackupFile(content) {
     }
   }
   // Gỡ tiền tố base64 thường gặp: data:application/json;base64, / base64:// / base64: / b64:
-  const prefixed = text.match(/^(?:data:application\/(?:json|octet-stream)[^,]*;base64,|base64:\/\/|base64:|b64:)(.+)$/is);
+  const prefixed = text.match(
+    /^(?:data:application\/(?:json|octet-stream)[^,]*;base64,|base64:\/\/|base64:|b64:)(.+)$/is,
+  );
   if (prefixed) text = prefixed[1].trim();
   // URL-encode (có %7B… mà chưa có dấu { thật)
   if (!text.includes("{") && /%7B|%7D|%5B|%5D/i.test(text)) {
@@ -1396,7 +1454,9 @@ function normalizeBackupFile(content) {
   // File mã hóa theo định dạng riêng của bot nuke: {alphabet, key, payload}.
   // Ưu tiên nội dung plaintext nếu có; chỉ giải mã khi không tìm thấy role/kênh thật.
   const encryptedWrapper =
-    typeof parsed.alphabet === "string" && typeof parsed.payload === "string" && !findBackupPayload(parsed);
+    typeof parsed.alphabet === "string" &&
+    typeof parsed.payload === "string" &&
+    !findBackupPayload(parsed);
   if (encryptedWrapper) {
     const decoded = decodeEncryptedMsc(parsed);
     if (decoded) {
@@ -1417,11 +1477,24 @@ function normalizeBackupFile(content) {
   const rolesRaw = asArray(pickFirst(parsed, ["roles", "guildRoles", "rolesData", "roleData"]));
   const roles = rolesRaw ? rolesRaw.map(normalizeRole).filter(Boolean) : [];
   const channelsRaw = asArray(
-    pickFirst(parsed, ["channels", "guildChannels", "channelsData", "channelData", "guildChannelsData"]),
+    pickFirst(parsed, [
+      "channels",
+      "guildChannels",
+      "channelsData",
+      "channelData",
+      "guildChannelsData",
+    ]),
   );
   const channels = channelsRaw ? channelsRaw.map(normalizeChannel).filter(Boolean) : [];
   const emojisRaw = asArray(
-    pickFirst(parsed, ["emojis", "guildEmojis", "emojiData", "emojisData", "customEmojis", "emojiList"]),
+    pickFirst(parsed, [
+      "emojis",
+      "guildEmojis",
+      "emojiData",
+      "emojisData",
+      "customEmojis",
+      "emojiList",
+    ]),
   );
   const emojis = emojisRaw ? emojisRaw.map(normalizeEmoji).filter(Boolean) : [];
   const stickersRaw = asArray(
@@ -1435,7 +1508,15 @@ function normalizeBackupFile(content) {
   return {
     version: 4,
     guildId: str(parsed.guildId ?? parsed.id ?? parsed.serverId ?? parsed.guild_id ?? "", null),
-    guildName: str(parsed.guildName ?? parsed.guild_name ?? parsed.name ?? parsed.serverName ?? parsed.server_name ?? "", "server từ file backup"),
+    guildName: str(
+      parsed.guildName ??
+        parsed.guild_name ??
+        parsed.name ??
+        parsed.serverName ??
+        parsed.server_name ??
+        "",
+      "server từ file backup",
+    ),
     roles,
     channels,
     emojis,
@@ -1462,7 +1543,9 @@ async function restoreCore(client, store, guildId, backup, { backupName, source 
   const restoreMessages = cfg?.restoreMessagesEnabled !== false;
   const restoreEmojis = cfg?.restoreEmojisEnabled !== false;
   if (!restoreRoles || !restoreChannels || !restoreMessages || !restoreEmojis) {
-    console.log(`[backup:restore] ${guildId}: tùy chỉnh khôi phục — role=${restoreRoles ? "bật" : "TẮT"}, kênh=${restoreChannels ? "bật" : "TẮT"}, tin nhắn=${restoreMessages ? "bật" : "TẮT"}, emoji/sticker=${restoreEmojis ? "bật" : "TẮT"}`);
+    console.log(
+      `[backup:restore] ${guildId}: tùy chỉnh khôi phục — role=${restoreRoles ? "bật" : "TẮT"}, kênh=${restoreChannels ? "bật" : "TẮT"}, tin nhắn=${restoreMessages ? "bật" : "TẮT"}, emoji/sticker=${restoreEmojis ? "bật" : "TẮT"}`,
+    );
   }
   const roleMap = restoreRoles ? await createRoles(guild, backup) : new Map();
   const channelMap = restoreChannels ? await createChannels(guild, backup, roleMap) : new Map();
@@ -1489,7 +1572,10 @@ async function restoreCore(client, store, guildId, backup, { backupName, source 
     .catch((e) => console.error(`[backup:settings] ${guildId}:`, e.message));
 
   await store.client
-    .mutation("bot_writes:botClearBackup", { guildId, kind: source === "import" ? "import" : "restore" })
+    .mutation("bot_writes:botClearBackup", {
+      guildId,
+      kind: source === "import" ? "import" : "restore",
+    })
     .catch((e) => console.error("[backup:clear]", e.message));
 
   const fields = [];
@@ -1535,7 +1621,9 @@ async function restoreCore(client, store, guildId, backup, { backupName, source 
     footer: "Protogon · Backup",
   });
   await sendToLog(guild, embed, store);
-  console.log(`[backup:restore] ${guildId}: ${roleMap.size} roles, ${channelMap.size} channels, ${replayed} messages, ${emojisCreated} emojis, ${stickersCreated} stickers (${source}, restoreRoles=${restoreRoles}, restoreChannels=${restoreChannels}, restoreMessages=${restoreMessages}, restoreEmojis=${restoreEmojis})`);
+  console.log(
+    `[backup:restore] ${guildId}: ${roleMap.size} roles, ${channelMap.size} channels, ${replayed} messages, ${emojisCreated} emojis, ${stickersCreated} stickers (${source}, restoreRoles=${restoreRoles}, restoreChannels=${restoreChannels}, restoreMessages=${restoreMessages}, restoreEmojis=${restoreEmojis})`,
+  );
   return {
     roleCount: roleMap.size,
     channelCount: channelMap.size,
@@ -1549,12 +1637,19 @@ async function runRestore(client, store, guildId, backupJson, backupName, option
   let backup;
   try {
     let json = backupJson;
-    try { json = decompressAndDecryptBackup(backupJson); } catch {}
+    try {
+      json = decompressAndDecryptBackup(backupJson);
+    } catch {}
     backup = JSON.parse(json);
   } catch {
     throw new Error("Backup bi hong (khong doc duoc JSON)");
   }
-  if (options.restoreRoles === false || options.restoreChannels === false || options.restoreMessages === false || options.restoreEmojis === false) {
+  if (
+    options.restoreRoles === false ||
+    options.restoreChannels === false ||
+    options.restoreMessages === false ||
+    options.restoreEmojis === false
+  ) {
     backup = filterBackupComponents(backup, {
       roles: options.restoreRoles !== false,
       channels: options.restoreChannels !== false,
@@ -1579,7 +1674,9 @@ async function readImportContent(item) {
       );
     } catch (e) {
       if (e?.name === "AbortError" || e?.code === "ABORT_ERR") {
-        throw new Error("Tải file backup từ đám mây quá lâu (> 60 giây) — hãy thử lại");
+        throw new Error("Tải file backup từ đám mây quá lâu (> 60 giây) — hãy thử lại", {
+          cause: e,
+        });
       }
       throw e;
     } finally {
@@ -1617,7 +1714,10 @@ function slimBackupForStore(backup) {
 async function runImportRestore(client, store, guildId, fileContent, fileName) {
   const backup = normalizeBackupFile(fileContent);
   if (!backup.guildName || backup.guildName === "server từ file backup") {
-    backup.guildName = String(fileName || "backup.msc").replace(/\.(msc|json)$/i, "").slice(0, 100) || "server từ file backup";
+    backup.guildName =
+      String(fileName || "backup.msc")
+        .replace(/\.(msc|json)$/i, "")
+        .slice(0, 100) || "server từ file backup";
   }
   // Lưu bản đã chuẩn hóa (đã làm gọn blob base64) vào guildBackups để xem lại /
   // không mất dữ liệu — không nhét media nặng vào document (giới hạn 1 MB).
@@ -1702,7 +1802,9 @@ async function pollBackups(client, store) {
       await store.client
         .mutation(reportKind, {
           guildId: item.guildId,
-          ...(item.kind === "import" ? { error: String(e?.message || "Lỗi không xác định").slice(0, 300) } : { kind: item.kind }),
+          ...(item.kind === "import"
+            ? { error: String(e?.message || "Lỗi không xác định").slice(0, 300) }
+            : { kind: item.kind }),
         })
         .catch(() => {});
     } finally {
@@ -1742,23 +1844,30 @@ async function autoBackupSweep(client, store) {
         pushToGithub: true,
         includeMessages,
       });
-      console.log(`[backup:auto] ${item.guildId}: lịch mỗi ${item.days} ngày → đã đặt yêu cầu backup`);
+      console.log(
+        `[backup:auto] ${item.guildId}: lịch mỗi ${item.days} ngày → đã đặt yêu cầu backup`,
+      );
     } catch (e) {
       console.error(`[backup:auto] ${item.guildId}:`, e.message);
     }
   }
 }
 
-
 /**
  * Clone server structure to another server.
  * Takes a backup from one server and restores it on the target.
  */
-async function cloneToServer(client, store, sourceGuildId, targetGuildId, { componentFilter } = {}) {
+async function cloneToServer(
+  client,
+  store,
+  sourceGuildId,
+  targetGuildId,
+  { componentFilter } = {},
+) {
   const sourceGuild = client.guilds.cache.get(sourceGuildId);
-  if (!sourceGuild) throw new Error('Bot khong co trong server nguon');
+  if (!sourceGuild) throw new Error("Bot khong co trong server nguon");
   const targetGuild = client.guilds.cache.get(targetGuildId);
-  if (!targetGuild) throw new Error('Bot khong co trong server dich');
+  if (!targetGuild) throw new Error("Bot khong co trong server dich");
 
   // Take a snapshot of the source server
   const { snapshot } = await snapshotWithSettings(client, store, sourceGuildId, false);
@@ -1771,8 +1880,8 @@ async function cloneToServer(client, store, sourceGuildId, targetGuildId, { comp
 
   // Restore on the target server
   const result = await restoreCore(client, store, targetGuildId, backupData, {
-    backupName: sourceGuild.name + ' (clone)',
-    source: 'clone',
+    backupName: sourceGuild.name + " (clone)",
+    source: "clone",
   });
 
   return { ...result, sourceName: sourceGuild.name, targetName: targetGuild.name };

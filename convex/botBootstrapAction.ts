@@ -42,8 +42,7 @@ async function verifyDiscordBotToken(botToken: string) {
 }
 
 type BootstrapResult =
-  | { ok: true; botKey: string; applicationId: string }
-  | { ok: false; error: string };
+  { ok: true; botKey: string; applicationId: string } | { ok: false; error: string };
 
 /**
  * Hex ngẫu nhiên 32 bytes — dùng webcrypto global (có trong cả Node 18+ actions
@@ -86,8 +85,7 @@ export const requestBotKey = action({
 });
 
 type KeyStatusResult =
-  | { ok: true; seeded: boolean; applicationId: string | null }
-  | { ok: false; error: string };
+  { ok: true; seeded: boolean; applicationId: string | null } | { ok: false; error: string };
 
 /** Bot hỏi trạng thái seed trước khi bootstrap (tránh xoay key vô ích). */
 export const keyStatus = action({

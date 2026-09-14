@@ -16,7 +16,7 @@ const read = (p) => fs.readFileSync(path.join(__dirname, "..", p), "utf8");
 const botAuth = read("convex/botAuth.ts");
 check(
   "requireBotKeyStrict từ chối khi seed chưa cấp phát (không back-compat)",
-  botAuth.includes('throw new Error("Chìa khóa bot chưa được cấp phát'),
+  botAuth.includes("Chìa khóa bot chưa được cấp phát"),
 );
 check(
   "requireBotKeyStrict so khớp SHA-256(botKey) với seed",
@@ -48,12 +48,31 @@ for (const [p, desc] of sensitive) {
 
 // ===== 2. Bootstrap: chốt chặn là Discord token thật =====
 const bootstrapAction = read("convex/botBootstrapAction.ts");
-check("bootstrap là action PUBLIC (bot HTTP client gọi được)", /export const requestBotKey = action\(/.test(bootstrapAction));
-check("bootstrap xác minh token qua Discord API /users/@me", bootstrapAction.includes("discord.com/api/v10/users/@me"));
-check("bootstrap từ chối token không phải bot (data.bot !== true)", bootstrapAction.includes("data.bot !== true"));
-check("server chỉ lưu BĂM key (không lưu botKey thô)", read("convex/botBootstrap.ts").includes("botKeySeed: seed") && !/botKey:\s*v\.string\(\)/.test(read("convex/botBootstrap.ts")));
-check("key random 32 bytes bằng webcrypto (không seed tĩnh)", bootstrapAction.includes("crypto.getRandomValues"));
-check("attempt rate-limit chặn relay spam Discord API (1 lần thử/10 phút)", read("convex/botBootstrap.ts").includes("ATTEMPT_COOLDOWN_MS = 10 * 60_000"));
+check(
+  "bootstrap là action PUBLIC (bot HTTP client gọi được)",
+  /export const requestBotKey = action\(/.test(bootstrapAction),
+);
+check(
+  "bootstrap xác minh token qua Discord API /users/@me",
+  bootstrapAction.includes("discord.com/api/v10/users/@me"),
+);
+check(
+  "bootstrap từ chối token không phải bot (data.bot !== true)",
+  bootstrapAction.includes("data.bot !== true"),
+);
+check(
+  "server chỉ lưu BĂM key (không lưu botKey thô)",
+  read("convex/botBootstrap.ts").includes("botKeySeed: seed") &&
+    !/botKey:\s*v\.string\(\)/.test(read("convex/botBootstrap.ts")),
+);
+check(
+  "key random 32 bytes bằng webcrypto (không seed tĩnh)",
+  bootstrapAction.includes("crypto.getRandomValues"),
+);
+check(
+  "attempt rate-limit chặn relay spam Discord API (1 lần thử/10 phút)",
+  read("convex/botBootstrap.ts").includes("ATTEMPT_COOLDOWN_MS = 10 * 60_000"),
+);
 check(
   "xoay key: bootstrap lại được ngay sau khi seed thay (success >= attempt mở cổng)",
   read("convex/botBootstrap.ts").includes("lastSuccess >= lastAttempt"),
@@ -62,9 +81,15 @@ check(
 // ===== 3. Bot tự bootstrap + cache key an toàn =====
 const convexJs = read("bot/src/convex.js");
 check("bot tự bootstrap khi thiếu BOT_KEY (ensureBotKey)", convexJs.includes("ensureBotKey"));
-check("bot gọi bootstrap qua RAW client (tránh deadlock proxy)", convexJs.includes("this._rawClient.action"));
+check(
+  "bot gọi bootstrap qua RAW client (tránh deadlock proxy)",
+  convexJs.includes("this._rawClient.action"),
+);
 check("key cache vào file .bot-key quyền 600", convexJs.includes("mode: 0o600"));
-check("proxy chờ ensureBotKey trước MỌI call (không rơi trạng thái thiếu key)", /await self\.ensureBotKey\(\);/.test(convexJs));
+check(
+  "proxy chờ ensureBotKey trước MỌI call (không rơi trạng thái thiếu key)",
+  /await self\.ensureBotKey\(\);/.test(convexJs),
+);
 check("proxy bọc cả action (githubPush)", /prop !== "action"/.test(convexJs));
 const gitignore = read(".gitignore");
 check(".bot-key đã gitignore (key không vào git)", gitignore.includes("bot/.bot-key"));
@@ -72,30 +97,57 @@ check(".bot-key đã gitignore (key không vào git)", gitignore.includes("bot/.
 // ===== 4. Khoá tính năng ẩn: owner-gating server-side =====
 const hidden = read("convex/hidden.ts");
 const guilds = read("convex/guilds.ts");
-check("requireHiddenManage (guild manager + CHỦ BOT) tồn tại", hidden.includes("requireHiddenManage"));
-for (const fn of ["createPanel", "updatePanel", "deletePanel", "togglePanel", "createGiveaway", "cancelGiveaway", "requestDm"]) {
+check(
+  "requireHiddenManage (guild manager + CHỦ BOT) tồn tại",
+  hidden.includes("requireHiddenManage"),
+);
+for (const fn of [
+  "createPanel",
+  "updatePanel",
+  "deletePanel",
+  "togglePanel",
+  "createGiveaway",
+  "cancelGiveaway",
+  "requestDm",
+]) {
   // Đếm số lần requireGuild vẫn còn trong handler của fn đó — phải 0 (đã thay bằng requireHiddenManage)
   const seg = hidden.slice(hidden.indexOf(`export const ${fn} =`));
   const nextFn = seg.indexOf("export const", 20);
   const body = nextFn > 0 ? seg.slice(0, nextFn) : seg;
   check(
     `hidden.${fn} yêu cầu chủ bot (không chỉ manager)`,
-    body.includes("requireHiddenManage") && !/await requireGuild\(ctx, token, guildId\);/.test(body.replace("requireHiddenManage", "")),
+    body.includes("requireHiddenManage") &&
+      !/await requireGuild\(ctx, token, guildId\);/.test(body.replace("requireHiddenManage", "")),
   );
 }
 check(
   "getGuild chỉ trả panels cho isBotOwner",
-  guilds.includes("panels: isBotOwner") && guilds.includes("giveaways: isBotOwner") && guilds.includes("autoReplies: isBotOwner"),
+  guilds.includes("panels: isBotOwner") &&
+    guilds.includes("giveaways: isBotOwner") &&
+    guilds.includes("autoReplies: isBotOwner"),
 );
 
 // ===== 5. Rate-limit dò mật khẩu ẩn =====
-check("verifyHiddenPassword chặn sau 5 lần sai / 10 phút", hidden.includes("HIDDEN_VERIFY_MAX_FAILS = 5") && hidden.includes("HIDDEN_VERIFY_WINDOW_MS = 10 * 60_000"));
+check(
+  "verifyHiddenPassword chặn sau 5 lần sai / 10 phút",
+  hidden.includes("HIDDEN_VERIFY_MAX_FAILS = 5") &&
+    hidden.includes("HIDDEN_VERIFY_WINDOW_MS = 10 * 60_000"),
+);
 check("đổi mật khẩu reset bộ đếm dò", hidden.includes("hiddenVerifyFails: undefined"));
-check("schema có trường rate-limit", read("convex/schema.ts").includes("hiddenVerifyFails") && read("convex/schema.ts").includes("hiddenVerifyLastAt"));
+check(
+  "schema có trường rate-limit",
+  read("convex/schema.ts").includes("hiddenVerifyFails") &&
+    read("convex/schema.ts").includes("hiddenVerifyLastAt"),
+);
 
 // ===== 6. Schema bootstrap đầy đủ =====
 const schema = read("convex/schema.ts");
-check("schema botStatus có botKeySeed + lastBootstrapAt + botApplicationId", schema.includes("botKeySeed") && schema.includes("lastBootstrapAt") && schema.includes("botApplicationId"));
+check(
+  "schema botStatus có botKeySeed + lastBootstrapAt + botApplicationId",
+  schema.includes("botKeySeed") &&
+    schema.includes("lastBootstrapAt") &&
+    schema.includes("botApplicationId"),
+);
 
 // ===== 7. Test logic rate-limit (thuần) =====
 {
@@ -132,7 +184,10 @@ check("schema botStatus có botKeySeed + lastBootstrapAt + botApplicationId", sc
 }
 
 // ===== 8. Web Admin mô tả cơ chế mới =====
-check("Admin.tsx ghi rõ bot tự cấp phát chìa khóa", read("src/pages/Admin.tsx").includes("tự cấp phát chìa khóa an toàn"));
+check(
+  "Admin.tsx ghi rõ bot tự cấp phát chìa khóa",
+  read("src/pages/Admin.tsx").includes("tự cấp phát chìa khóa an toàn"),
+);
 check("README bot tài liệu cơ chế bootstrap", read("bot/README.md").includes("bot/.bot-key"));
 
 console.log(`\nKết quả security hardening: ${pass} PASS, ${fail} FAIL`);

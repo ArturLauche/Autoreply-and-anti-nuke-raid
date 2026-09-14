@@ -69,7 +69,11 @@ export function MultiSelect({
 
   /** Chuẩn hoá: bỏ dấu tiếng Việt + lowercase — để "quản trị" khớp "Quản Trị". */
   const norm = (s: string) =>
-    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
+    s
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/g, "d");
 
   const q = norm(query.trim());
   const selectedSet = new Set(value);
@@ -155,9 +159,7 @@ export function MultiSelect({
               <div className="px-3 py-2 text-sm text-muted-foreground">{emptyLabel}</div>
             )}
             {options.length > 0 && filtered.length === 0 && (
-              <div className="px-3 py-2 text-sm text-muted-foreground">
-                Không khớp "{query}"
-              </div>
+              <div className="px-3 py-2 text-sm text-muted-foreground">Không khớp "{query}"</div>
             )}
             {filtered.map((opt) => {
               const selected = value.includes(opt.value);
@@ -174,7 +176,9 @@ export function MultiSelect({
                   <span
                     className={cn(
                       "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
-                      selected ? "border-primary bg-primary text-primary-foreground" : "border-input",
+                      selected
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-input",
                     )}
                   >
                     {selected && <Check className="h-3 w-3" />}

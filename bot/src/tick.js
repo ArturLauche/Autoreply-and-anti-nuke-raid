@@ -62,7 +62,9 @@ async function readImportContent(item) {
       );
     } catch (e) {
       if (e?.name === "AbortError" || e?.code === "ABORT_ERR") {
-        throw new Error("Tải file backup từ đám mây quá lâu (> 60 giây) — hãy thử lại");
+        throw new Error("Tải file backup từ đám mây quá lâu (> 60 giây) — hãy thử lại", {
+          cause: e,
+        });
       }
       throw e;
     } finally {

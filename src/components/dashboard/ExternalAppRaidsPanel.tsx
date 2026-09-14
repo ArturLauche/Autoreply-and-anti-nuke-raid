@@ -55,9 +55,8 @@ function IncidentList({ guildId }: { guildId: string }) {
     );
   }
 
-  const uniqueApps = new Set(
-    incidents.flatMap((i) => i.apps.map((a) => a.appName).filter(Boolean)),
-  ).size;
+  const uniqueApps = new Set(incidents.flatMap((i) => i.apps.map((a) => a.appName).filter(Boolean)))
+    .size;
   const uniqueUsers = new Set(
     incidents.flatMap((i) => i.punished.map((p) => p.userId).filter(Boolean)),
   ).size;
@@ -70,10 +69,9 @@ function IncidentList({ guildId }: { guildId: string }) {
         <p className="mt-3 text-sm font-medium">Chưa có vụ raid external app nào bị chặn</p>
         <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
           Khi bot phát hiện loạt kết nối ứng dụng ngoài vượt ngưỡng module{" "}
-          <code className="font-mono text-[10px]">Raid bằng ứng dụng ngoài</code> (hoặc một app
-          đáng ngờ: giả mạo app nổi tiếng / tên scam / do acc mới kết nối / app spam
-          @everyone + link lừa đảo), vụ đó sẽ xuất hiện ở đây kèm AI verdict, ứng dụng và
-          người dùng đã bị xử lý.
+          <code className="font-mono text-[10px]">Raid bằng ứng dụng ngoài</code> (hoặc một app đáng
+          ngờ: giả mạo app nổi tiếng / tên scam / do acc mới kết nối / app spam @everyone + link lừa
+          đảo), vụ đó sẽ xuất hiện ở đây kèm AI verdict, ứng dụng và người dùng đã bị xử lý.
         </p>
       </div>
     );
@@ -94,7 +92,8 @@ function IncidentList({ guildId }: { guildId: string }) {
             <UserX className="h-3.5 w-3.5" /> Người dùng bị xử lý
           </p>
           <p className="mt-1 font-display text-lg font-bold">
-            {totalPunished} <span className="text-xs font-normal text-muted-foreground">({uniqueUsers} người)</span>
+            {totalPunished}{" "}
+            <span className="text-xs font-normal text-muted-foreground">({uniqueUsers} người)</span>
           </p>
         </div>
         <div className="rounded-xl border border-border bg-card p-3.5">
@@ -166,7 +165,10 @@ function IncidentList({ guildId }: { guildId: string }) {
                 ) : (
                   <ul className="space-y-1.5">
                     {s.apps.slice(0, 5).map((a, j) => (
-                      <li key={`${a.appName}-${j}`} className="flex flex-wrap items-center gap-1.5 text-xs">
+                      <li
+                        key={`${a.appName}-${j}`}
+                        className="flex flex-wrap items-center gap-1.5 text-xs"
+                      >
                         <span className="flex items-center gap-1.5 rounded-lg bg-secondary/50 px-2 py-1">
                           <Bot className="h-3 w-3 text-primary" />
                           <span className="font-mono text-[11px]">{a.appName ?? "?"}</span>
@@ -192,12 +194,17 @@ function IncidentList({ guildId }: { guildId: string }) {
                 </p>
                 {s.punished.length === 0 ? (
                   <p className="text-xs text-muted-foreground">
-                    {s.action && s.action.length > 0 ? "Chưa xác định được người dùng — chỉ ghi nhận" : "Không có"}
+                    {s.action && s.action.length > 0
+                      ? "Chưa xác định được người dùng — chỉ ghi nhận"
+                      : "Không có"}
                   </p>
                 ) : (
                   <ul className="space-y-1.5">
                     {s.punished.map((p, j) => (
-                      <li key={`${p.userId}-${j}`} className="flex flex-wrap items-center gap-1.5 text-xs">
+                      <li
+                        key={`${p.userId}-${j}`}
+                        className="flex flex-wrap items-center gap-1.5 text-xs"
+                      >
                         <span className="font-medium">{p.username ?? p.userId ?? "?"}</span>
                         <Badge
                           variant="secondary"
@@ -216,21 +223,14 @@ function IncidentList({ guildId }: { guildId: string }) {
             </div>
 
             {s.suspectedSourceName && (
-              <p
-                className={cn(
-                  "mt-3 text-xs",
-                  s.banned ? "text-red-400" : "text-amber-400",
-                )}
-              >
+              <p className={cn("mt-3 text-xs", s.banned ? "text-red-400" : "text-amber-400")}>
                 🎯 {s.banned ? "Đã ban nguồn cơn: " : "Nghi phạm nguồn cơn: "}
                 {s.suspectedSourceName}
                 {s.reason ? ` — ${s.reason}` : ""}
               </p>
             )}
             {s.aiReason && (
-              <p className="mt-1.5 text-[11px] italic text-muted-foreground">
-                🤖 {s.aiReason}
-              </p>
+              <p className="mt-1.5 text-[11px] italic text-muted-foreground">🤖 {s.aiReason}</p>
             )}
           </div>
         ))}
@@ -252,10 +252,10 @@ export default function ExternalAppRaidsPanel({ data }: { data: GuildData }) {
           <p className="max-w-2xl text-sm text-muted-foreground">
             Danh sách các vụ bot đã chặn khi loạt <b className="text-foreground">external app</b>{" "}
             (ứng dụng mở rộng) được kết nối ồ ạt hoặc app spam vào server — kèm{" "}
-            <b className="text-foreground">AI nhận diện</b> người dùng app có đang raid không. AI học hỏi
-            các dạng raid app ngoài (sockpuppet cài app, app giả mạo/tên scam, spam
-            @everyone/link lừa đảo, webhook spam) để chặn cả biến thể tương tự: app nào
-            được kết nối, ai đã bị xử lý.
+            <b className="text-foreground">AI nhận diện</b> người dùng app có đang raid không. AI
+            học hỏi các dạng raid app ngoài (sockpuppet cài app, app giả mạo/tên scam, spam
+            @everyone/link lừa đảo, webhook spam) để chặn cả biến thể tương tự: app nào được kết
+            nối, ai đã bị xử lý.
           </p>
         </div>
         <Button variant="secondary" size="sm" onClick={refresh} className="gap-1.5">

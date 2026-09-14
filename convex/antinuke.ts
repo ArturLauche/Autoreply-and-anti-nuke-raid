@@ -20,7 +20,9 @@ function normalizeActions(raw: string[] | undefined): {
   actions: string[];
   strongest: "warn" | "kick" | "ban" | "timeout";
 } {
-  const actions = [...new Set((raw ?? []).filter((a) => (ALLOWED_ACTIONS as readonly string[]).includes(a)))].slice(0, 6);
+  const actions = [
+    ...new Set((raw ?? []).filter((a) => (ALLOWED_ACTIONS as readonly string[]).includes(a))),
+  ].slice(0, 6);
   const member = actions
     .filter((a) => ACTION_STRENGTH[a] != null)
     .sort((a, b) => ACTION_STRENGTH[b] - ACTION_STRENGTH[a]);
@@ -55,9 +57,7 @@ export const updateModule = mutation({
 
     const mod = await ctx.db
       .query("antinukeModules")
-      .withIndex("by_guild_module", (q) =>
-        q.eq("guildId", args.guildId).eq("module", args.module),
-      )
+      .withIndex("by_guild_module", (q) => q.eq("guildId", args.guildId).eq("module", args.module))
       .first();
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.enabled !== undefined) patch.enabled = args.enabled;
@@ -205,9 +205,11 @@ export const externalAppRaids = query({
 
 /** Bot đọc các mẫu raid gần nhất (Raid Intel) — dùng cho ambient learning (0 token AI). */
 export const recentRaidSamples = query({
-  args: { limit: v.optional(v.number()),
+  args: {
+    limit: v.optional(v.number()),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
-    botKey: v.optional(v.string()), },
+    botKey: v.optional(v.string()),
+  },
   handler: async (ctx, { botKey, limit }) => {
     await requireBotKeyStrict(ctx, botKey);
     const rows = await ctx.db

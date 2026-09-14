@@ -104,10 +104,7 @@ function usernameSimilarity(u1, u2) {
   const longPrefix = sharedPrefixLen >= 5;
   if (longPrefix) {
     const shortSuffixDiff =
-      suffixA.length > 0 &&
-      suffixA.length <= 3 &&
-      suffixB.length > 0 &&
-      suffixB.length <= 3;
+      suffixA.length > 0 && suffixA.length <= 3 && suffixB.length > 0 && suffixB.length <= 3;
     const bothDigitSuffix = /^\d+$/.test(suffixA) && /^\d+$/.test(suffixB);
     if (shortSuffixDiff && !bothDigitSuffix) {
       return Math.min(80, baseScore);
@@ -121,7 +118,8 @@ function usernameSimilarity(u1, u2) {
 function isGeneratedUsername(username) {
   const clean = username.toLowerCase().replace(/[^a-z0-9]/g, "");
   // Pattern 1: random letters + 4 digits (e.g., "xkqe8291")
-  if (/^[a-z]{3,6}\d{3,6}$/.test(clean)) return { generated: true, pattern: "random_letters+digits" };
+  if (/^[a-z]{3,6}\d{3,6}$/.test(clean))
+    return { generated: true, pattern: "random_letters+digits" };
   // Pattern 2: two words + numbers (e.g., "CoolFox1234")
   if (/^[a-z]{2,10}[a-z]{2,10}\d{2,6}$/.test(clean)) {
     // Check if the letters part looks random (high consonant ratio)
@@ -141,37 +139,26 @@ function isGeneratedUsername(username) {
   return { generated: false, pattern: null };
 }
 
-// ——— Utility: analyze Discord flags ———
-function analyzeFlags(flags) {
-  if (!flags) return { score: 20, factors: ["no_flags"] };
-  const score = 0;
-  const factors = [];
-
-  // Hypesquad house badges = good signal
-  if (flags & 128) factors.push("hype_badge"); // HYPESQUAD_ONLINE_HOUSE_1
-  if (flags & 64) factors.push("hype_badge");
-  if (flags & 32) factors.push("hype_badge");
-
-  // Verified bot developer, early supporter = good signal
-  if (flags & 4) factors.push("verified_badge");
-  if (flags & 512) factors.push("early_supporter");
-
-  return { score, factors };
-}
-
 // ——— Utility: HTTP GET (for VPN check) ———
 function httpGet(url) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const mod = url.startsWith("https") ? https : http;
     const req = mod.get(url, { timeout: 5000 }, (res) => {
       let data = "";
       res.on("data", (chunk) => (data += chunk));
       res.on("end", () => {
-        try { resolve(JSON.parse(data)); } catch { resolve(null); }
+        try {
+          resolve(JSON.parse(data));
+        } catch {
+          resolve(null);
+        }
       });
     });
     req.on("error", () => resolve(null));
-    req.on("timeout", () => { req.destroy(); resolve(null); });
+    req.on("timeout", () => {
+      req.destroy();
+      resolve(null);
+    });
   });
 }
 
@@ -248,15 +235,18 @@ async function analyzeNewMember(member, config, getConfig, store) {
   }
   // Has Discord badges = verified user
   const flags = member.user.flags?.bitfield ?? 0;
-  if (flags & 128 || flags & 64 || flags & 32) { // HypeSquad
+  if (flags & 128 || flags & 64 || flags & 32) {
+    // HypeSquad
     positiveScore += 15;
     factors.push("✅ hypesquad_badge");
   }
-  if (flags & 4) { // Verified bot developer
+  if (flags & 4) {
+    // Verified bot developer
     positiveScore += 10;
     factors.push("✅ verified_dev_badge");
   }
-  if (flags & 512) { // Early supporter
+  if (flags & 512) {
+    // Early supporter
     positiveScore += 5;
     factors.push("✅ early_supporter");
   }
@@ -316,7 +306,11 @@ async function analyzeNewMember(member, config, getConfig, store) {
       // SKIP short usernames (3-4 chars) to avoid false positives on common names
       if (member.user.username.length < 5 || existingMember.user.username.length < 5) continue;
       // SKIP common Discord default names like "User123456"
-      if (/^user\d+$/i.test(member.user.username) || /^user\d+$/i.test(existingMember.user.username)) continue;
+      if (
+        /^user\d+$/i.test(member.user.username) ||
+        /^user\d+$/i.test(existingMember.user.username)
+      )
+        continue;
 
       const sim = usernameSimilarity(member.user.username, existingMember.user.username);
       if (sim > maxSimilarity) {
@@ -425,7 +419,7 @@ async function analyzeNewMember(member, config, getConfig, store) {
       }).length;
     } else {
       const recentMembers = member.guild.members.cache.filter((m) => {
-        if (m.joinedTimestamp && (now - m.joinedTimestamp) < joinWindowMs && m.id !== member.id) {
+        if (m.joinedTimestamp && now - m.joinedTimestamp < joinWindowMs && m.id !== member.id) {
           const mAge = (Date.now() - (m.user?.createdTimestamp ?? 0)) / DAY_MS;
           return mAge < 30 && !m.user?.avatar;
         }
@@ -448,7 +442,8 @@ async function analyzeNewMember(member, config, getConfig, store) {
     for (const [, ban] of bans) {
       if (ban.user.username.length < 5) continue;
       const banUserSim = usernameSimilarity(member.user.username, ban.user.username);
-      if (banUserSim >= 90) { // Require 90%+ match with banned users
+      if (banUserSim >= 90) {
+        // Require 90%+ match with banned users
         riskScore += 25;
         factors.push(`❌ matches_banned_user_${banUserSim}%`);
         break;
@@ -612,14 +607,25 @@ function buildRiskEmbed(member, analysis, punishResult) {
     .setDescription(`Phân tích rủi ro cho <@${member.id}>`)
     .addFields(
       { name: "Điểm rủi ro", value: `**${analysis.riskScore}/100**`, inline: true },
-      { name: "Hành động", value: punishResult?.executed ? `✅ ${punishResult.action}` : "✅ Pass", inline: true },
-      { name: "Tuổi tài khoản", value: `${Math.floor((Date.now() - member.user.createdTimestamp) / DAY_MS)} ngày`, inline: true },
+      {
+        name: "Hành động",
+        value: punishResult?.executed ? `✅ ${punishResult.action}` : "✅ Pass",
+        inline: true,
+      },
+      {
+        name: "Tuổi tài khoản",
+        value: `${Math.floor((Date.now() - member.user.createdTimestamp) / DAY_MS)} ngày`,
+        inline: true,
+      },
     );
 
   if (analysis.riskFactors.length > 0) {
     embed.addFields({
       name: "Yếu tố rủi ro",
-      value: analysis.riskFactors.map((f) => `• ${f}`).join("\n").slice(0, 1024),
+      value: analysis.riskFactors
+        .map((f) => `• ${f}`)
+        .join("\n")
+        .slice(0, 1024),
     });
   }
 
@@ -882,25 +888,28 @@ function scanGuildForAlts(guild, config) {
 }
 
 // Cleanup old voice data periodically (every hour)
-setInterval(() => {
-  const cutoff = Date.now() - 24 * 60 * 60 * 1000; // 24 hours
-  for (const [guildId, users] of voiceIpMap) {
-    for (const [userId, data] of users) {
-      if (data.joinedAt < cutoff) {
-        users.delete(userId);
-        const guildIps = ipToUsers.get(guildId);
-        if (guildIps) {
-          const set = guildIps.get(data.ip);
-          if (set) {
-            set.delete(userId);
-            if (set.size === 0) guildIps.delete(data.ip);
+setInterval(
+  () => {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000; // 24 hours
+    for (const [guildId, users] of voiceIpMap) {
+      for (const [userId, data] of users) {
+        if (data.joinedAt < cutoff) {
+          users.delete(userId);
+          const guildIps = ipToUsers.get(guildId);
+          if (guildIps) {
+            const set = guildIps.get(data.ip);
+            if (set) {
+              set.delete(userId);
+              if (set.size === 0) guildIps.delete(data.ip);
+            }
           }
         }
       }
+      if (users.size === 0) voiceIpMap.delete(guildId);
     }
-    if (users.size === 0) voiceIpMap.delete(guildId);
-  }
-}, 60 * 60 * 1000);
+  },
+  60 * 60 * 1000,
+);
 
 module.exports = {
   analyzeNewMember,

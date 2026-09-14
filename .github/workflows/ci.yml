@@ -1,8 +1,11 @@
-name: CI — Test & Typecheck
+name: CI — Lint, Test & Deploy
 
-# Chạy TOÀN BỘ test suites + typecheck trên mọi push/PR vào main.
+# Chạy lint + TOÀN BỘ test suites + typecheck trên mọi push/PR vào main.
 # Chặn merge khi fail — không cho code vỡ lọt vào main (trước đây deploy
 # Convex tự chạy mà không qua test nào).
+#
+# Job "lint" chạy TRƯỚC và song song với "test": no-undef chặn ngay loại bug
+# thiếu import / biến chưa khai báo — crash runtime mà test có thể không đụng tới.
 
 on:
   push:
@@ -12,7 +15,19 @@ on:
   workflow_dispatch:
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: ESLint (no-undef chặn bug thiếu import trước cả khi chạy test)
+        run: bun run lint
+      - name: Prettier (format thống nhất)
+        run: bun run format:check
+
   test:
+    needs: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -49,9 +64,9 @@ jobs:
           path: coverage/
           retention-days: 14
 
-  # Deploy Convex chỉ chạy KHI test đã pass — tách job, depends_on test.
+  # Deploy Convex chỉ chạy KHI lint + test đã pass — tách job, depends_on cả hai.
   deploy:
-    needs: test
+    needs: [lint, test]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:

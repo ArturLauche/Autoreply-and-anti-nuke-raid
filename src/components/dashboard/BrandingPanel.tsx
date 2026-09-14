@@ -84,7 +84,8 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
       } catch {
         // phản hồi không phải JSON
       }
-      if (!storageId) throw new Error("Không nhận được ID ảnh từ máy chủ — thử dán đường dẫn ảnh thay thế");
+      if (!storageId)
+        throw new Error("Không nhận được ID ảnh từ máy chủ — thử dán đường dẫn ảnh thay thế");
       const out = await saveBrandingUpload({
         token,
         guildId,
@@ -161,16 +162,17 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           {(["bot", "haimiya"] as Slot[]).map((slot) => (
-            <div
-              key={slot}
-              className="rounded-xl border border-border bg-secondary/30 p-4"
-            >
+            <div key={slot} className="rounded-xl border border-border bg-secondary/30 p-4">
               <div className="flex items-start gap-3">
                 <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/80 ring-2 ring-primary/30">
                   {slot === "haimiya" ? (
                     <HaimiyaAvatar className="h-16 w-16" src={current[slot]} />
                   ) : current[slot] ? (
-                    <img src={current[slot]} alt="Bot" className="h-14 w-14 rounded-full object-cover" />
+                    <img
+                      src={current[slot]}
+                      alt="Bot"
+                      className="h-14 w-14 rounded-full object-cover"
+                    />
                   ) : (
                     <HaimiyaAvatar className="h-16 w-16" />
                   )}
@@ -220,7 +222,8 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
         </div>
         <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
           <ImagePlus className="h-3.5 w-3.5 text-primary" />
-          Ảnh tải lên được lưu trong bộ nhớ đám mây của bot — áp dụng ngay toàn web (trang chủ, đăng nhập, dashboard, chat AI).
+          Ảnh tải lên được lưu trong bộ nhớ đám mây của bot — áp dụng ngay toàn web (trang chủ, đăng
+          nhập, dashboard, chat AI).
         </p>
         <input
           ref={fileRef}

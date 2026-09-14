@@ -36,13 +36,26 @@ const { ConvexHttpClient } = require("../bot/node_modules/convex/browser");
 
   const status = await client.query("status:botStatus");
   console.log("botStatus (heartbeat gần nhất):");
-  console.log("  online:", status.online, "| guildCount:", status.guildCount, "| memberCount:", status.memberCount);
-  console.log("  lastHeartbeat:", status.lastHeartbeat ? new Date(status.lastHeartbeat).toISOString() : null,
-    "| cách đây:", status.lastHeartbeat ? Math.round((Date.now() - status.lastHeartbeat) / 1000) + "s" : null);
+  console.log(
+    "  online:",
+    status.online,
+    "| guildCount:",
+    status.guildCount,
+    "| memberCount:",
+    status.memberCount,
+  );
+  console.log(
+    "  lastHeartbeat:",
+    status.lastHeartbeat ? new Date(status.lastHeartbeat).toISOString() : null,
+    "| cách đây:",
+    status.lastHeartbeat ? Math.round((Date.now() - status.lastHeartbeat) / 1000) + "s" : null,
+  );
 
   const stats = await client.query("guilds:botGuildStats");
   if (!stats) {
-    console.log("\n⚠️ guilds:botGuildStats trả về null — cần BOT_KEY (bot/.env) hoặc token chủ bot.");
+    console.log(
+      "\n⚠️ guilds:botGuildStats trả về null — cần BOT_KEY (bot/.env) hoặc token chủ bot.",
+    );
     process.exit(1);
   }
   const missing = (status.guildCount ?? 0) - stats.inGuild;
@@ -51,20 +64,30 @@ const { ConvexHttpClient } = require("../bot/node_modules/convex/browser");
   console.log("  đang hiển thị (botInGuild=true):", stats.inGuild);
   console.log("  đã ẩn (botInGuild=false):", stats.gone);
   console.log("  hiển thị nhưng heartbeat >15 phút:", stats.staleInGuild);
-  console.log("  heartbeat cũ nhất trong số đang hiển thị:",
-    stats.oldestHeartbeat ? Math.round((Date.now() - stats.oldestHeartbeat) / 60000) + " phút trước" : null);
+  console.log(
+    "  heartbeat cũ nhất trong số đang hiển thị:",
+    stats.oldestHeartbeat
+      ? Math.round((Date.now() - stats.oldestHeartbeat) / 60000) + " phút trước"
+      : null,
+  );
 
   if (stats.gone > 0) {
     console.log(`\n⚠️ Có ${stats.gone} guild bị ẩn — đây là số server "mất" trên dashboard.`);
     if (stats.gone > 500) {
-      console.log("   Nghi do sync chạy với cache guild thiếu (bot khởi động lại / gateway lấp dần).");
-      console.log("   Bản v43: sync chỉ sweep khi danh sách đầy đủ + vắng >10 phút → các server còn trong bot sẽ tự hiện lại.");
+      console.log(
+        "   Nghi do sync chạy với cache guild thiếu (bot khởi động lại / gateway lấp dần).",
+      );
+      console.log(
+        "   Bản v43: sync chỉ sweep khi danh sách đầy đủ + vắng >10 phút → các server còn trong bot sẽ tự hiện lại.",
+      );
     }
   } else {
     console.log("\n✅ Không có guild nào bị ẩn nhầm.");
   }
   if (missing > 0) {
-    console.log(`\n⚠️ Bot đang thấy ${status.guildCount} server nhưng Convex chỉ hiển thị ${stats.inGuild} — cache bot đang thiếu ${missing} guild.`);
+    console.log(
+      `\n⚠️ Bot đang thấy ${status.guildCount} server nhưng Convex chỉ hiển thị ${stats.inGuild} — cache bot đang thiếu ${missing} guild.`,
+    );
   }
 })().catch((err) => {
   console.log("ERROR:", err.message);

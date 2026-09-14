@@ -80,10 +80,7 @@ export function useBotMonitor(intervalMs = 5000): BotMonitor {
 
   // Chu kỳ đo latency tối thiểu 30s (đủ mượt cho biểu đồ — status vẫn realtime
   // qua subscription). Trước đây 5-15s ⇒ một tab mở 24/7 đốt tới 518k calls/tháng.
-  const effectiveInterval = useMemo(
-    () => Math.max(intervalMs, 30_000),
-    [intervalMs],
-  );
+  const effectiveInterval = useMemo(() => Math.max(intervalMs, 30_000), [intervalMs]);
 
   const tick = useCallback(async () => {
     try {
@@ -126,13 +123,10 @@ export function useBotMonitor(intervalMs = 5000): BotMonitor {
   const refresh = useCallback(() => setNonce((n) => n + 1), []);
 
   const avg =
-    history.length > 0
-      ? Math.round(history.reduce((a, b) => a + b, 0) / history.length)
-      : null;
+    history.length > 0 ? Math.round(history.reduce((a, b) => a + b, 0) / history.length) : null;
 
   const lastUpdate = status?.lastHeartbeat ?? null;
-  const nextUpdate =
-    lastUpdate !== null ? lastUpdate + SYNC_INTERVAL_MS : null;
+  const nextUpdate = lastUpdate !== null ? lastUpdate + SYNC_INTERVAL_MS : null;
 
   return { status, latency, history, avg, incidents, lastUpdate, nextUpdate, refresh };
 }

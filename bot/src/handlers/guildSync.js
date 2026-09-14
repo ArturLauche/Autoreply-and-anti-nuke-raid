@@ -29,7 +29,7 @@ function quickHash(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash |= 0;
   }
   return hash;
@@ -73,8 +73,11 @@ async function syncAll(client, store) {
       await store.client.mutation("guilds:syncChannels", { guildId: g.id, channels });
       await store.client.mutation("guilds:syncRoles", { guildId: g.id, roles });
       prevGuildData.set(g.id, {
-        name: g.name, icon: g.icon, memberCount: g.memberCount,
-        channelHash, roleHash,
+        name: g.name,
+        icon: g.icon,
+        memberCount: g.memberCount,
+        channelHash,
+        roleHash,
       });
     } catch (err) {
       console.error(`[sync] ${g.id}:`, err.message);
@@ -88,7 +91,8 @@ async function syncAll(client, store) {
     lowCountStreak = 0;
   } else {
     const droppedSharply =
-      lastTrustedCount > 0 && count < lastTrustedCount - Math.max(50, Math.round(lastTrustedCount * 0.1));
+      lastTrustedCount > 0 &&
+      count < lastTrustedCount - Math.max(50, Math.round(lastTrustedCount * 0.1));
     lowCountStreak = droppedSharply ? lowCountStreak + 1 : 0;
     trustedFullList = !firstRun && !(droppedSharply && lowCountStreak < 3);
   }
@@ -181,7 +185,9 @@ async function syncOne(client, store, guildId) {
       await store.client.mutation("guilds:syncRoles", { guildId, roles });
     }
     prevGuildData.set(guildId, {
-      name: g.name, icon: g.icon, memberCount: g.memberCount,
+      name: g.name,
+      icon: g.icon,
+      memberCount: g.memberCount,
       channelHash: quickHash(JSON.stringify(channels)),
       roleHash: quickHash(JSON.stringify(roles)),
     });

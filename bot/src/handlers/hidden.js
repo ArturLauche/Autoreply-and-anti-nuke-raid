@@ -10,8 +10,7 @@ const HIDDEN_COLOR = 0xf48fb1;
  */
 function emojiKeyOf(value) {
   const s = String(value || "").trim();
-  const custom =
-    /^<a?:[^:]+:(\d{15,20})>$/.exec(s) || /^[^:]+:(\d{15,20})$/.exec(s);
+  const custom = /^<a?:[^:]+:(\d{15,20})>$/.exec(s) || /^[^:]+:(\d{15,20})$/.exec(s);
   if (custom) return custom[1];
   return s.replace(/\uFE0F/g, "");
 }
@@ -35,9 +34,7 @@ async function resolveEmoji(client, emojiStr) {
   const key = emojiKeyOf(emojiStr);
   if (/^\d{15,20}$/.test(key)) {
     return (
-      client.emojis.cache.get(key) ??
-      (await client.emojis.fetch(key).catch(() => null)) ??
-      null
+      client.emojis.cache.get(key) ?? (await client.emojis.fetch(key).catch(() => null)) ?? null
     );
   }
   return key;
@@ -83,10 +80,7 @@ async function onReaction(client, store, reaction, user, removed) {
     // Giveaway entry (chỉ khi reaction 🎉 và đang active)
     if (!removed && reaction.emoji.name === GIVEAWAY_EMOJI) {
       const giveaway = hidden.giveaways.find(
-        (g) =>
-          g.status === "active" &&
-          g.messageId &&
-          g.messageId === reaction.message.id,
+        (g) => g.status === "active" && g.messageId && g.messageId === reaction.message.id,
       );
       if (giveaway && Date.now() < giveaway.endsAt) {
         let allowed = true;
@@ -209,41 +203,41 @@ async function postGiveaway(client, store, giveaway) {
       );
     }
     const t = templateOf(giveaway);
-  const embed = new EmbedBuilder()
-    .setColor(t.color)
-    .setTitle(`${t.emoji} ${t.header} — ${giveaway.title}`)
-    .setDescription(giveaway.message || giveaway.prize)
-    .addFields(
-      { name: "🏆 Giải thưởng", value: giveaway.prize, inline: false },
-      { name: "👥 Người thắng", value: `${giveaway.winnerCount}`, inline: true },
-      {
-        name: "⏰ Kết thúc",
-        value: `<t:${Math.floor(giveaway.endsAt / 1000)}:R>`,
+    const embed = new EmbedBuilder()
+      .setColor(t.color)
+      .setTitle(`${t.emoji} ${t.header} — ${giveaway.title}`)
+      .setDescription(giveaway.message || giveaway.prize)
+      .addFields(
+        { name: "🏆 Giải thưởng", value: giveaway.prize, inline: false },
+        { name: "👥 Người thắng", value: `${giveaway.winnerCount}`, inline: true },
+        {
+          name: "⏰ Kết thúc",
+          value: `<t:${Math.floor(giveaway.endsAt / 1000)}:R>`,
+          inline: true,
+        },
+      )
+      .setFooter({ text: t.footer });
+    if (giveaway.imageUrl) embed.setImage(giveaway.imageUrl);
+    if (giveaway.requiredRoleId) {
+      embed.addFields({
+        name: "Điều kiện",
+        value: `Chỉ dành cho <@&${giveaway.requiredRoleId}>`,
         inline: true,
-      },
-    )
-    .setFooter({ text: t.footer });
-  if (giveaway.imageUrl) embed.setImage(giveaway.imageUrl);
-  if (giveaway.requiredRoleId) {
-    embed.addFields({
-      name: "Điều kiện",
-      value: `Chỉ dành cho <@&${giveaway.requiredRoleId}>`,
-      inline: true,
+      });
+    }
+    if (giveaway.prizeRoleId) {
+      embed.addFields({
+        name: "🎖️ Giải thưởng đặc biệt",
+        value: `Người thắng được cấp role <@&${giveaway.prizeRoleId}>`,
+        inline: true,
+      });
+    }
+    const msg = await channel.send({ embeds: [embed] });
+    await msg.react(GIVEAWAY_EMOJI).catch(() => {});
+    await store.client.mutation("hidden:giveawayPosted", {
+      giveawayId: giveaway._id,
+      messageId: msg.id,
     });
-  }
-  if (giveaway.prizeRoleId) {
-    embed.addFields({
-      name: "🎖️ Giải thưởng đặc biệt",
-      value: `Người thắng được cấp role <@&${giveaway.prizeRoleId}>`,
-      inline: true,
-    });
-  }
-  const msg = await channel.send({ embeds: [embed] });
-  await msg.react(GIVEAWAY_EMOJI).catch(() => {});
-  await store.client.mutation("hidden:giveawayPosted", {
-    giveawayId: giveaway._id,
-    messageId: msg.id,
-  });
   } catch (e) {
     if (!/hidden:giveawayPosted/.test(String(e?.message))) {
       await store.client
@@ -312,7 +306,10 @@ async function endGiveaway(client, store, giveaway) {
   if (giveaway.prizeRoleId) {
     for (const w of winners) {
       try {
-        const member = await channel?.guild?.members.fetch(w.userId).catch(() => null);
+        const member = await client.channels
+          .fetch(giveaway.channelId)
+          .then((c) => c?.guild?.members.fetch(w.userId).catch(() => null))
+          .catch(() => null);
         if (member && !member.roles.cache.has(giveaway.prizeRoleId)) {
           await member.roles.add(giveaway.prizeRoleId);
         }
@@ -323,7 +320,9 @@ async function endGiveaway(client, store, giveaway) {
   }
 
   if (giveaway.dmWinners) {
-    const roleLine = giveaway.prizeRoleId ? `\n🎖️ Bạn đã được cấp role **<@&${giveaway.prizeRoleId}>** trên server!` : "";
+    const roleLine = giveaway.prizeRoleId
+      ? `\n🎖️ Bạn đã được cấp role **<@&${giveaway.prizeRoleId}>** trên server!`
+      : "";
     for (const w of winners) {
       try {
         const user = await client.users.fetch(w.userId);
@@ -417,7 +416,9 @@ async function processVerifyPanelItems(client, store, items) {
               .setStyle(ButtonStyle.Success),
       );
       await channel.send({ embeds: [embed], components: [row] });
-      console.log(`[hidden:verifyPanel] ${item.guildId}: đã gửi panel xác minh (${method}) tới #${channel.name}`);
+      console.log(
+        `[hidden:verifyPanel] ${item.guildId}: đã gửi panel xác minh (${method}) tới #${channel.name}`,
+      );
     } catch (e) {
       console.error(`[hidden:verifyPanel] ${item.guildId}:`, e.message);
       // Báo lý do lên dashboard — người dùng bấm "Gửi panel" xong sẽ thấy lỗi
@@ -499,4 +500,10 @@ function setupHidden(client, store) {
   });
 }
 
-module.exports = { setupHidden, processHiddenJobsData, processVerifyPanelItems, emojiKeyOf, resolveEmoji };
+module.exports = {
+  setupHidden,
+  processHiddenJobsData,
+  processVerifyPanelItems,
+  emojiKeyOf,
+  resolveEmoji,
+};

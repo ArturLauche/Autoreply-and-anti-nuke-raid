@@ -155,7 +155,8 @@ export default function BackupPanel({ data }: { data: GuildData }) {
       const fresh = parseBotVersion(importStatus.botVersion) >= MIN_IMPORT_BOT_VERSION;
       if (fresh) {
         toast.success("Bot đã khôi phục xong", {
-          description: "Role, kênh, tin nhắn và emoji/sticker đã được tạo lại theo backup. Kiểm tra embed xác nhận trong kênh log.",
+          description:
+            "Role, kênh, tin nhắn và emoji/sticker đã được tạo lại theo backup. Kiểm tra embed xác nhận trong kênh log.",
         });
       } else {
         toast.info("Yêu cầu khôi phục đã được xử lý", {
@@ -245,9 +246,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         days: autoOn ? autoDays : 0,
       });
       toast.success(
-        autoOn
-          ? `Đã bật tự động backup mỗi ${autoDays} ngày`
-          : "Đã tắt tự động backup",
+        autoOn ? `Đã bật tự động backup mỗi ${autoDays} ngày` : "Đã tắt tự động backup",
       );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Thất bại");
@@ -345,9 +344,13 @@ export default function BackupPanel({ data }: { data: GuildData }) {
       !restoreRoles ? "role (đã tắt trong Tùy chỉnh khôi phục)" : null,
       !restoreEmojis ? "emoji/sticker (đã tắt trong Tùy chỉnh khôi phục)" : null,
     ].filter(Boolean);
-    if (!window.confirm(`Khôi phục backup của "${backup.guildName}" vào server hiện tại?\n\nBot sẽ tạo lại kênh theo backup, sắp xếp lại đúng thứ tự, phục hồi tin nhắn kèm media (ảnh/video…)${
-      restoreRoles ? ", role (tên, màu, quyền)" : ""
-    }${restoreEmojis ? " cùng emoji/sticker nếu backup có" : ""}.${skipNote.length ? `\n\n⚠️ BỎ QUA: ${skipNote.join(", ")}.` : ""}\nCác role/kênh đang có của server này được giữ nguyên.`)) {
+    if (
+      !window.confirm(
+        `Khôi phục backup của "${backup.guildName}" vào server hiện tại?\n\nBot sẽ tạo lại kênh theo backup, sắp xếp lại đúng thứ tự, phục hồi tin nhắn kèm media (ảnh/video…)${
+          restoreRoles ? ", role (tên, màu, quyền)" : ""
+        }${restoreEmojis ? " cùng emoji/sticker nếu backup có" : ""}.${skipNote.length ? `\n\n⚠️ BỎ QUA: ${skipNote.join(", ")}.` : ""}\nCác role/kênh đang có của server này được giữ nguyên.`,
+      )
+    ) {
       return;
     }
     setBusy(backup._id);
@@ -377,7 +380,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         <p className="text-sm text-muted-foreground">
           Chụp cấu trúc server (role, quyền role, kênh + quyền kênh) lên{" "}
           <b className="text-foreground">đám mây GitHub</b>. Khi server bị nuke/raid phá sập hoàn
-          toàn, mời bot vào          <b className="text-foreground">server phụ</b> rồi khôi phục lại từ
+          toàn, mời bot vào <b className="text-foreground">server phụ</b> rồi khôi phục lại từ
           backup.
         </p>
 
@@ -386,8 +389,8 @@ export default function BackupPanel({ data }: { data: GuildData }) {
           <p className="mt-3 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
-              Lần backup trước <b>thất bại</b>: {importStatus.backupError} — khắc phục rồi bấm Backup
-              ngay lại.
+              Lần backup trước <b>thất bại</b>: {importStatus.backupError} — khắc phục rồi bấm
+              Backup ngay lại.
             </span>
           </p>
         )}
@@ -426,8 +429,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                 <p className="mt-1 max-w-xl text-sm text-muted-foreground">
                   Bot chụp toàn bộ <b className="text-foreground">role</b> (tên, màu, hoist,
                   mentionable, quyền), <b className="text-foreground">kênh</b> (danh mục, văn bản,
-                  thoại…) kèm quyền truy cập từng kênh, cùng <b className="text-foreground">emoji +
-                  sticker</b> và cấu hình cơ bản (prefix, từ ngữ xấu, role mod/admin, kênh log).
+                  thoại…) kèm quyền truy cập từng kênh, cùng{" "}
+                  <b className="text-foreground">emoji + sticker</b> và cấu hình cơ bản (prefix, từ
+                  ngữ xấu, role mod/admin, kênh log).
                 </p>
               </div>
             </div>
@@ -449,10 +453,11 @@ export default function BackupPanel({ data }: { data: GuildData }) {
             </div>
             <p className="text-[11px] text-muted-foreground">
               Backup luôn được lưu trong Convex; đẩy lên GitHub giúp bạn còn giữ được dữ liệu ngay
-              cả khi Convex bị xóa. Mọi server đều dùng chung <code className="font-mono">GITHUB_TOKEN</code>{" "}
-              của <b className="text-foreground">chủ sở hữu bot</b> (đã đặt trong Keys) — owner các server
-              khác <b className="text-foreground">không cần tự dán token</b> của họ. Nếu token chưa được
-              cấu hình, phần GitHub bị bỏ qua và bot chỉ lưu trong Convex.
+              cả khi Convex bị xóa. Mọi server đều dùng chung{" "}
+              <code className="font-mono">GITHUB_TOKEN</code> của{" "}
+              <b className="text-foreground">chủ sở hữu bot</b> (đã đặt trong Keys) — owner các
+              server khác <b className="text-foreground">không cần tự dán token</b> của họ. Nếu
+              token chưa được cấu hình, phần GitHub bị bỏ qua và bot chỉ lưu trong Convex.
             </p>
           </div>
           <div className="flex items-end">
@@ -483,12 +488,14 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                 Khôi phục từ file backup của bot nuke (.msc / .json)
               </p>
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                Nếu server bị một con <b className="text-foreground">bot nuke</b> phá sập mà bạn giữ được file backup của
-                nó (định dạng <code className="font-mono">.msc</code> hoặc <code className="font-mono">.json</code>), tải
-                file lên đây — bot sẽ <b className="text-foreground">nhận diện định dạng</b> (JSON thường / base64 / có lớp
-                bọc), tạo lại <b className="text-foreground">role + kênh đúng thứ tự</b> như trong file, phục hồi{" "}
-                <b className="text-foreground">tin nhắn</b>, <b className="text-foreground">đăng lại media</b>{" "}
-                (ảnh/video…) và <b className="text-foreground">tạo lại emoji/sticker</b> nếu file có lưu.
+                Nếu server bị một con <b className="text-foreground">bot nuke</b> phá sập mà bạn giữ
+                được file backup của nó (định dạng <code className="font-mono">.msc</code> hoặc{" "}
+                <code className="font-mono">.json</code>), tải file lên đây — bot sẽ{" "}
+                <b className="text-foreground">nhận diện định dạng</b> (JSON thường / base64 / có
+                lớp bọc), tạo lại <b className="text-foreground">role + kênh đúng thứ tự</b> như
+                trong file, phục hồi <b className="text-foreground">tin nhắn</b>,{" "}
+                <b className="text-foreground">đăng lại media</b> (ảnh/video…) và{" "}
+                <b className="text-foreground">tạo lại emoji/sticker</b> nếu file có lưu.
               </p>
             </div>
           </div>
@@ -522,8 +529,8 @@ export default function BackupPanel({ data }: { data: GuildData }) {
             <div className="space-y-1.5 text-xs">
               <p className="flex items-center gap-2 text-amber-400">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Đang chờ bot xử lý file — bot quét mỗi ~20 giây, server lớn có thể mất 1-2 phút.
-                Lỗi (nếu có) sẽ hiện ngay tại đây.
+                Đang chờ bot xử lý file — bot quét mỗi ~20 giây, server lớn có thể mất 1-2 phút. Lỗi
+                (nếu có) sẽ hiện ngay tại đây.
               </p>
               {importStatus?.botOnline === false && (
                 <p className="flex items-center gap-2 text-red-400">
@@ -535,9 +542,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                 parseBotVersion(importStatus.botVersion) < MIN_IMPORT_BOT_VERSION && (
                   <p className="flex items-center gap-2 text-amber-400">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                    Bot đang chạy bản cũ ({importStatus.botVersion ?? "không rõ"}) — cần cập nhật bot
-                    lên bản mới nhất (v{MIN_IMPORT_BOT_VERSION}+) để khôi phục và báo kết quả chính
-                    xác.
+                    Bot đang chạy bản cũ ({importStatus.botVersion ?? "không rõ"}) — cần cập nhật
+                    bot lên bản mới nhất (v{MIN_IMPORT_BOT_VERSION}+) để khôi phục và báo kết quả
+                    chính xác.
                   </p>
                 )}
             </div>
@@ -552,9 +559,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
           )}
 
           <p className="text-[11px] text-muted-foreground">
-            Giới hạn file <b className="text-foreground">8 MB</b> (gồm cả media — file được giữ trong đám mây, không
-            nhét vào bộ nhớ bot). Bot giữ nguyên role/kênh có sẵn của server hiện tại — chỉ thêm mới theo file, không
-            xóa gì.
+            Giới hạn file <b className="text-foreground">8 MB</b> (gồm cả media — file được giữ
+            trong đám mây, không nhét vào bộ nhớ bot). Bot giữ nguyên role/kênh có sẵn của server
+            hiện tại — chỉ thêm mới theo file, không xóa gì.
           </p>
         </CardContent>
       </Card>
@@ -570,10 +577,10 @@ export default function BackupPanel({ data }: { data: GuildData }) {
               <div>
                 <p className="font-display font-semibold">Tự động backup định kỳ</p>
                 <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                  Bot tự chụp backup + đẩy lên <b className="text-foreground">GitHub của chủ bot</b> mỗi{" "}
-                  <b className="text-foreground">N ngày</b> (tối thiểu <b>2</b>, tối đa <b>30</b>). Chỉ giữ{" "}
-                  <b className="text-foreground">3 bản mới nhất</b> trong bot — bản cũ hơn tự bị xóa, GitHub
-                  giữ bản lưu vĩnh viễn.
+                  Bot tự chụp backup + đẩy lên <b className="text-foreground">GitHub của chủ bot</b>{" "}
+                  mỗi <b className="text-foreground">N ngày</b> (tối thiểu <b>2</b>, tối đa{" "}
+                  <b>30</b>). Chỉ giữ <b className="text-foreground">3 bản mới nhất</b> trong bot —
+                  bản cũ hơn tự bị xóa, GitHub giữ bản lưu vĩnh viễn.
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {autoOn ? (
@@ -591,15 +598,16 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                         </b>{" "}
                         · lần tới:{" "}
                         <b className="text-foreground">
-                          {new Date(
-                            data.guild.lastBackupAt + autoDays * 86_400_000,
-                          ).toLocaleString("vi-VN", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {new Date(data.guild.lastBackupAt + autoDays * 86_400_000).toLocaleString(
+                            "vi-VN",
+                            {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            },
+                          )}
                         </b>
                       </>
                     ) : (
@@ -623,9 +631,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                 value={autoDays}
                 disabled={!autoOn}
                 onChange={(e) =>
-                  setAutoDays(
-                    Math.max(2, Math.min(30, parseInt(e.target.value || "2", 10) || 2)),
-                  )
+                  setAutoDays(Math.max(2, Math.min(30, parseInt(e.target.value || "2", 10) || 2)))
                 }
                 className="h-9 w-20 rounded-lg border border-border bg-card px-2 text-center font-mono text-sm text-foreground outline-none focus:border-primary/60 disabled:opacity-40"
               />
@@ -649,10 +655,11 @@ export default function BackupPanel({ data }: { data: GuildData }) {
             <div>
               <p className="font-display font-semibold">Tùy chỉnh khôi phục</p>
               <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                Bật/tắt từng phần khi bot khôi phục — áp dụng cho <b className="text-foreground">cả
-                backup của Protogon</b> lẫn <b className="text-foreground">file backup của bot nuke</b>{" "}
-                (.msc/.json tải lên). Phần tắt sẽ được bỏ qua khi khôi phục (kênh, tin nhắn + media vẫn
-                được xử lý bình thường).
+                Bật/tắt từng phần khi bot khôi phục — áp dụng cho{" "}
+                <b className="text-foreground">cả backup của Protogon</b> lẫn{" "}
+                <b className="text-foreground">file backup của bot nuke</b> (.msc/.json tải lên).
+                Phần tắt sẽ được bỏ qua khi khôi phục (kênh, tin nhắn + media vẫn được xử lý bình
+                thường).
               </p>
             </div>
           </div>
@@ -692,10 +699,12 @@ export default function BackupPanel({ data }: { data: GuildData }) {
               Lưu tùy chỉnh khôi phục
             </Button>
             {(data.guild.restoreRolesEnabled ?? true) !== restoreRoles ||
-              (data.guild.restoreEmojisEnabled ?? true) !== restoreEmojis ||
-              (data.guild.restoreChannelsEnabled ?? true) !== restoreChannels ||
-              (data.guild.restoreMessagesEnabled ?? true) !== restoreMessages ? (
-              <span className="text-xs text-muted-foreground">Có thay đổi chưa lưu — bấm Lưu để áp dụng.</span>
+            (data.guild.restoreEmojisEnabled ?? true) !== restoreEmojis ||
+            (data.guild.restoreChannelsEnabled ?? true) !== restoreChannels ||
+            (data.guild.restoreMessagesEnabled ?? true) !== restoreMessages ? (
+              <span className="text-xs text-muted-foreground">
+                Có thay đổi chưa lưu — bấm Lưu để áp dụng.
+              </span>
             ) : null}
           </div>
         </CardContent>
@@ -726,14 +735,16 @@ export default function BackupPanel({ data }: { data: GuildData }) {
           <p>
             Mỗi backup tạo một <b>Gist riêng tư</b> chứa file JSON cấu trúc server — bạn không cần
             tạo repo, không tốn bộ nhớ GitHub. Chỉ cần <b className="text-foreground">một</b>{" "}
-            <code className="font-mono">GITHUB_TOKEN</code> (quyền <code className="font-mono">gist</code>)
-            của <b className="text-foreground">chủ sở hữu bot</b> đặt trong tab <b>Keys / API keys</b> —
-            mọi server dùng chung, các owner server khác không phải cấu hình gì. Bot giữ tối đa 3 bản
-            backup mới nhất cho mỗi server.
+            <code className="font-mono">GITHUB_TOKEN</code> (quyền{" "}
+            <code className="font-mono">gist</code>) của{" "}
+            <b className="text-foreground">chủ sở hữu bot</b> đặt trong tab <b>Keys / API keys</b> —
+            mọi server dùng chung, các owner server khác không phải cấu hình gì. Bot giữ tối đa 3
+            bản backup mới nhất cho mỗi server.
           </p>
           <p className="mt-2">
             💡 Ngoài dashboard, bạn cũng có thể dùng lệnh trong Discord:{" "}
-            <code className="font-mono">!backup</code> · <code className="font-mono">!backup list</code> ·{" "}
+            <code className="font-mono">!backup</code> ·{" "}
+            <code className="font-mono">!backup list</code> ·{" "}
             <code className="font-mono">!backup restore &lt;số&gt;</code> hoặc{" "}
             <code className="font-mono">/backup</code>.
           </p>
@@ -755,9 +766,7 @@ function BackupListCard({
   onRestore: (backup: BackupInfo) => void;
   onRefresh: () => void;
 }) {
-  const backups = useQuery(api.backup.listMine, { token: TOKEN() }) as
-    | BackupInfo[]
-    | undefined;
+  const backups = useQuery(api.backup.listMine, { token: TOKEN() }) as BackupInfo[] | undefined;
 
   return (
     <Card>

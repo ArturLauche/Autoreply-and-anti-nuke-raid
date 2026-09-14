@@ -26,12 +26,8 @@ module.exports = { Colors: new Proxy({}, { get: () => 0x000000 }), EmbedBuilder,
 );
 
 const filters = require("../bot/src/handlers/filters.js");
-const {
-  findMaliciousLink,
-  findDangerousAttachment,
-  findLearnedThreat,
-  findSuspiciousLink,
-} = filters;
+const { findMaliciousLink, findDangerousAttachment, findLearnedThreat, findSuspiciousLink } =
+  filters;
 const { HeatTracker, choosePunish, heatSettings, punishMember } = require("../bot/src/heat.js");
 
 let pass = 0;
@@ -50,18 +46,28 @@ function mkAttachments(names) {
 
 (async () => {
   console.log("== 1. File đính kèm: dev upload file script KHÔNG bị phạt ==");
-  check(".js không còn nguy hiểm", findDangerousAttachment(mkAttachments(["index.js", "server.js"])) === null);
-  check(".com (tên file) không còn nguy hiểm", findDangerousAttachment(mkAttachments(["setup.com"])) === null);
+  check(
+    ".js không còn nguy hiểm",
+    findDangerousAttachment(mkAttachments(["index.js", "server.js"])) === null,
+  );
+  check(
+    ".com (tên file) không còn nguy hiểm",
+    findDangerousAttachment(mkAttachments(["setup.com"])) === null,
+  );
   check(".exe vẫn bị chặn", findDangerousAttachment(mkAttachments(["virus.exe"])) !== null);
   check(".bat vẫn bị chặn", findDangerousAttachment(mkAttachments(["crack.bat"])) !== null);
   check(".ps1 vẫn bị chặn", findDangerousAttachment(mkAttachments(["script.ps1"])) !== null);
   check(".apk vẫn bị chặn", findDangerousAttachment(mkAttachments(["game.apk"])) !== null);
-  check("hỗn hợp: chỉ file nguy hiểm bị báo", findDangerousAttachment(mkAttachments(["main.js", "loader.exe"]))?.name === "loader.exe");
+  check(
+    "hỗn hợp: chỉ file nguy hiểm bị báo",
+    findDangerousAttachment(mkAttachments(["main.js", "loader.exe"]))?.name === "loader.exe",
+  );
 
   console.log("== 2. Chat thường có từ 'giveaway/airdrop' KHÔNG bị phạt ==");
   check(
     "bài viết giveaway + link shopee (TLD thường) → bỏ qua",
-    findMaliciousLink("chuong trinh giveaway tren https://shopee.vn/mega-sale khong lien quan") === null,
+    findMaliciousLink("chuong trinh giveaway tren https://shopee.vn/mega-sale khong lien quan") ===
+      null,
   );
   check(
     "airdrop + link blog .com → bỏ qua",
@@ -96,15 +102,16 @@ function mkAttachments(names) {
   // Nạp intel giả: cụm "claim reward" (chuỗi con của "re-claim rewards").
   filters._setThreatIntelForTest(["password"], ["claim reward"]);
   check(
-    "\"re-claim rewards\" (từ ghép hợp lệ) → KHÔNG khớp cụm",
+    '"re-claim rewards" (từ ghép hợp lệ) → KHÔNG khớp cụm',
     findLearnedThreat("we will re-claim rewards next season") === null,
   );
   check(
-    "\"claim reward\" đứng riêng + không link → KHÔNG phạt (cụm standalone không đủ)",
-    findLearnedThreat("claim reward ngay di ban") === null || findLearnedThreat("claim reward ngay di ban")?.kind === "intel-phrase",
+    '"claim reward" đứng riêng + không link → KHÔNG phạt (cụm standalone không đủ)',
+    findLearnedThreat("claim reward ngay di ban") === null ||
+      findLearnedThreat("claim reward ngay di ban")?.kind === "intel-phrase",
   );
   check(
-    "\"claim reward\" + link lạ → phạt",
+    '"claim reward" + link lạ → phạt',
     findLearnedThreat("claim reward here https://weird-site.top/x") !== null,
   );
   check(
@@ -166,11 +173,26 @@ function mkAttachments(names) {
   check("sau khi gỡ, số strike về 0", heat3.strikeCount("g3", "u3", s3) === 0);
 
   console.log("== 10. findSuspiciousLink: link lành tính phổ biến ==");
-  check("discord.gg là lành tính", findSuspiciousLink("vao server https://discord.gg/abc") === null);
-  check("github.io (mới thêm) là lành tính", findSuspiciousLink("blog cua toi https://someone.github.io/post") === null);
-  check("shopee.vn (mới thêm) là lành tính", findSuspiciousLink("sale https://shopee.vn/x") === null);
-  check("docs.google.com là lành tính", findSuspiciousLink("tai lieu https://docs.google.com/document/d/abc") === null);
-  check("domain lạ vẫn đáng ngờ", findSuspiciousLink("vao https://unknown-weird-site.net/x") !== null);
+  check(
+    "discord.gg là lành tính",
+    findSuspiciousLink("vao server https://discord.gg/abc") === null,
+  );
+  check(
+    "github.io (mới thêm) là lành tính",
+    findSuspiciousLink("blog cua toi https://someone.github.io/post") === null,
+  );
+  check(
+    "shopee.vn (mới thêm) là lành tính",
+    findSuspiciousLink("sale https://shopee.vn/x") === null,
+  );
+  check(
+    "docs.google.com là lành tính",
+    findSuspiciousLink("tai lieu https://docs.google.com/document/d/abc") === null,
+  );
+  check(
+    "domain lạ vẫn đáng ngờ",
+    findSuspiciousLink("vao https://unknown-weird-site.net/x") !== null,
+  );
 
   console.log("== 11. punishMember: bot tin cậy không bị ban/kick nhầm ==");
   const now = Date.now();
@@ -193,7 +215,10 @@ function mkAttachments(names) {
     timeoutCalled = true;
   };
   const resBot = await punishMember(fakeGuild, trustedOldBot, "ban", "test", 300, null);
-  check("bot ở lại 30 ngày bị ban → HẠ xuống timeout", timeoutCalled === true && resBot.action.includes("tạm khóa"));
+  check(
+    "bot ở lại 30 ngày bị ban → HẠ xuống timeout",
+    timeoutCalled === true && resBot.action.includes("tạm khóa"),
+  );
 
   console.log(`\nKết quả misfire-guard: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail > 0 ? 1 : 0);

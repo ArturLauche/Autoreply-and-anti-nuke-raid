@@ -8,8 +8,8 @@
 const { Colors, UserFlags } = require("discord.js");
 const { logEmbed, sendLog } = require("../../util");
 const { sendCaseLog, CASE_LABEL } = require("../../caseLog");
-const { isLocked, markLocked, lockGuild, unlockGuild } = require("../../lockdown");
-const { actionsOf, memberPunishOf, cleanupMessages } = require("../../moduleActions");
+const { isLocked } = require("../../lockdown");
+const { cleanupMessages } = require("../../moduleActions");
 const { emergencyRaidAlert } = require("../incidentReport");
 const {
   appNameSuspicion,
@@ -21,25 +21,29 @@ const {
 const {
   MODULE_LABELS,
   KNOWN_LOGGING_BOTS,
-  isKnownLoggingBot,
-  NUKE_MODULES,
-  IMMEDIATE_BOT_NUKE,
-  strangeBotVerdict,
-  botHitAndRunVerdict,
-  isTrustedBotMember,
   isExempt,
   moduleCfgOf,
-  memberSuspicionScore,
-  joinClusterSuspicion,
   messageFingerprint,
   isExternalAppSpam,
-  LONG_MSG_LEN,
-  ZERO_WIDTH_RE,
 } = require("./shared");
 
-module.exports = function createAntiNukeLayer({ client, store, heat, state, core, ai, raidIntel, externalApp }) {
-  const { recordEvent, appUserHandledRecently, markAppUserHandled, recentJoinCount, webhookCreator } = state;
-  const { joiners, appEvents, appMsgSamples, buttonClickEvents, lastConfigs, lastExtAppProcessedAt, buttonRaidHandledAt } = state.state;
+module.exports = function createAntiNukeLayer({ client, store, state, core, ai, raidIntel }) {
+  const {
+    recordEvent,
+    appUserHandledRecently,
+    markAppUserHandled,
+    recentJoinCount,
+    webhookCreator,
+  } = state;
+  const {
+    joiners,
+    appEvents,
+    appMsgSamples,
+    buttonClickEvents,
+    lastConfigs,
+    lastExtAppProcessedAt,
+    buttonRaidHandledAt,
+  } = state.state;
   const { punishWithHeat, maybeLockdown } = core;
   const { aiAnalyzeExternalApp, raidNote } = ai;
   const { huntRaidSource, recordRaidSample } = raidIntel;
@@ -127,7 +131,9 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
         (e, i) =>
           `${i + 1}. ${e.appName}${e.executorName ? ` — bởi ${e.executorName}` : " — không xác định được người dùng"}`,
       )
-      .join("\n")}\nTín hiệu: tên app đáng ngờ=${appSus.score} (${appSus.parts.join(", ") || "không"}), acc kết nối mới <7 ngày=${executorFresh ? "có" : "không"}, thành viên mới 5 phút gần nhất=${joins5m}, nghi vấn tổng=${suspectScore}`;
+      .join(
+        "\n",
+      )}\nTín hiệu: tên app đáng ngờ=${appSus.score} (${appSus.parts.join(", ") || "không"}), acc kết nối mới <7 ngày=${executorFresh ? "có" : "không"}, thành viên mới 5 phút gần nhất=${joins5m}, nghi vấn tổng=${suspectScore}`;
     const recentJoins = joiners.get(guild.id)?.length ?? 0;
     const ai = await aiAnalyzeExternalApp(
       guild,
@@ -144,7 +150,8 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
     // hiệu) đủ ngưỡng thì không phạt ai.
     const aiOffline = !ai || ai.offline === true;
     const aiSaysRaid = ai?.isRaid === true && (ai?.confidence ?? 0) >= 0.6;
-    const aiSaysNotRaid = ai && ai.offline !== true && ai?.isRaid === false && (ai?.confidence ?? 0) >= 0.5;
+    const aiSaysNotRaid =
+      ai && ai.offline !== true && ai?.isRaid === false && (ai?.confidence ?? 0) >= 0.5;
     const aiUnknown = ai && ai.offline !== true && ai?.isRaid === null;
     const isRaid = aiSaysRaid || (aiOffline && suspectScore >= 6);
     if (
@@ -207,7 +214,8 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
       if (isRaid) {
         try {
           await member.ban({ reason });
-          outcome = ai && ai.offline !== true ? "🚫 đã ban (AI: raid)" : "🚫 đã ban (nghi vấn raid)";
+          outcome =
+            ai && ai.offline !== true ? "🚫 đã ban (AI: raid)" : "🚫 đã ban (nghi vấn raid)";
           actionLabel = "ban";
         } catch {
           outcome = "không thể ban";
@@ -230,7 +238,9 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
       });
     }
     const action =
-      punished.length > 0 ? punished.slice(0, 6).join("\n") : "chưa xác định được người dùng — chỉ ghi nhận";
+      punished.length > 0
+        ? punished.slice(0, 6).join("\n")
+        : "chưa xác định được người dùng — chỉ ghi nhận";
     if (isRaid) await maybeLockdown(guild, config);
 
     await recordEvent(guild.id, {
@@ -253,7 +263,9 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
         // Chỉ săn nguồn cơn khi AI xác nhận raid — tránh ban nhầm người dùng
         // kết nối app bình thường khi AI kết luận "individual".
         isRaid
-          ? freshTargets.filter((t) => t.executorId).map((t) => ({ id: t.executorId, username: t.executorName }))
+          ? freshTargets
+              .filter((t) => t.executorId)
+              .map((t) => ({ id: t.executorId, username: t.executorName }))
           : [],
       );
       await recordRaidSample(guild, config, {
@@ -304,25 +316,49 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
     // Gửi embed case log kiểu Carl-bot tới kênh log moderation (dùng đúng biến local)
     if (firstPunishedUserId) {
       try {
-        const caseAction = isRaid ? 'ban' : (moduleCfg.punish || 'kick');
-        const caseRec = await store.client.mutation('bot_writes:botRecordModAction', {
-          guildId: guild.id,
-          action: (CASE_LABEL[caseAction] || caseAction).replace(/[^\p{L}\p{N}\s]/gu, '').trim().slice(0, 20) || caseAction,
-          targetId: firstPunishedUserId,
-          targetName: firstPunishedUsername,
-          reason: '[AntiNuke] ' + MODULE_LABELS.externalAppRaid + ': ' + count + ' app/' + moduleCfg.windowSeconds + 's',
-        }).catch(() => null);
+        const caseAction = isRaid ? "ban" : moduleCfg.punish || "kick";
+        const caseRec = await store.client
+          .mutation("bot_writes:botRecordModAction", {
+            guildId: guild.id,
+            action:
+              (CASE_LABEL[caseAction] || caseAction)
+                .replace(/[^\p{L}\p{N}\s]/gu, "")
+                .trim()
+                .slice(0, 20) || caseAction,
+            targetId: firstPunishedUserId,
+            targetName: firstPunishedUsername,
+            reason:
+              "[AntiNuke] " +
+              MODULE_LABELS.externalAppRaid +
+              ": " +
+              count +
+              " app/" +
+              moduleCfg.windowSeconds +
+              "s",
+          })
+          .catch(() => null);
         await sendCaseLog({
           guild,
           guildConfig: config,
           action: caseAction,
           caseNumber: caseRec?.caseNumber,
-          offender: { id: firstPunishedUserId, username: firstPunishedUsername || firstPunishedUserId },
-          reason: '[AntiNuke] ' + MODULE_LABELS.externalAppRaid + ': ' + count + ' app trong ' + moduleCfg.windowSeconds + 's' + (punished.length > 1 ? ' (+' + (punished.length - 1) + ' người khác)' : ''),
+          offender: {
+            id: firstPunishedUserId,
+            username: firstPunishedUsername || firstPunishedUserId,
+          },
+          reason:
+            "[AntiNuke] " +
+            MODULE_LABELS.externalAppRaid +
+            ": " +
+            count +
+            " app trong " +
+            moduleCfg.windowSeconds +
+            "s" +
+            (punished.length > 1 ? " (+" + (punished.length - 1) + " người khác)" : ""),
           executor: null,
         });
       } catch (e) {
-        console.error('[antinuke:externalAppRaid:caseLog]', e.message);
+        console.error("[antinuke:externalAppRaid:caseLog]", e.message);
       }
     }
   }
@@ -353,8 +389,8 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
 
     // Whitelist known logging bots (Carl-bot, MEE6, Dyno...) — tạo webhook hợp pháp
     // để ghi log, KHÔNG phải external app raid.
-    const webhookName = (message.author?.username || '').toLowerCase();
-    if (webhookName && KNOWN_LOGGING_BOTS.some(b => webhookName.includes(b))) return;
+    const webhookName = (message.author?.username || "").toLowerCase();
+    if (webhookName && KNOWN_LOGGING_BOTS.some((b) => webhookName.includes(b))) return;
 
     const config = await store.getConfig(message.guild.id);
     if (!config || !config.antinukeEnabled) return;
@@ -366,10 +402,7 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
     const appId = message.applicationId || message.webhookId || message.author.id;
     if ((config?.whitelistUsers || []).includes(appId)) return;
     if ((config?.whitelistUsers || []).includes(message.author.id)) return;
-    const appName =
-      message.author?.username ||
-      (message.webhookId ? "webhook" : null) ||
-      appId;
+    const appName = message.author?.username || (message.webhookId ? "webhook" : null) || appId;
 
     const now = Date.now();
     const key = `${message.guild.id}:${appId}`;
@@ -389,14 +422,22 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
     const count = fresh.length;
 
     const hay = `${message.content || ""} ${(message.embeds || []).map((e) => e.title || e.description || "").join(" ")} ${componentText(message)}`;
-    const { triggered, sameFingerprint, similar, hasInvite, hasShortlink, hasEveryone, scamHits, urlCount } =
-      isExternalAppSpam({
-        samples: fresh,
-        currentFingerprint: fp,
-        count: fresh.length,
-        threshold: moduleCfg.threshold,
-        hay,
-      });
+    const {
+      triggered,
+      sameFingerprint,
+      similar,
+      hasInvite,
+      hasShortlink,
+      hasEveryone,
+      scamHits,
+      urlCount,
+    } = isExternalAppSpam({
+      samples: fresh,
+      currentFingerprint: fp,
+      count: fresh.length,
+      threshold: moduleCfg.threshold,
+      hay,
+    });
     if (!triggered) return;
 
     appMsgSamples.delete(key); // reset sau khi xử lý
@@ -409,8 +450,7 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
       `@everyone/@here=${hasEveryone ? "có" : "không"}, link mời Discord=${hasInvite ? "có" : "không"}, ` +
       `link rút gọn=${hasShortlink ? "có" : "không"}, từ khóa scam=${scamHits}, số URL=${urlCount}, ` +
       `nút bấm/menu=${hasButtons ? "có" : "không"}`;
-    const profile =
-      `${appName}${isWebhook ? " (webhook)" : " (bot)"}:\n${samples.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n${signalLine}`;
+    const profile = `${appName}${isWebhook ? " (webhook)" : " (bot)"}:\n${samples.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n${signalLine}`;
     const ai = await aiAnalyzeExternalApp(
       message.guild,
       count,
@@ -436,7 +476,9 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
     let action = "đã ghi nhận";
     const punished = [];
     const punishedUsers = [];
-    const apps = [{ appName: String(appName).slice(0, 60), executorName: undefined, executorId: appId }];
+    const apps = [
+      { appName: String(appName).slice(0, 60), executorName: undefined, executorId: appId },
+    ];
 
     // 1) Dọn tin nhắn của app trong kênh này (xóa tin phát hiện + purge theo author).
     const cleanup = await cleanupMessages({
@@ -454,7 +496,9 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
     // cửa sổ → tầng tin nhắn chỉ dọn tin/webhook, không phạt + ghi sự kiện/embed trùng.
     const userHandledWindow = moduleCfg.windowSeconds * 1000;
     // 2) Nếu app là BOT user trong server → phạt theo cấu hình (kick mặc định; AI raid → ban).
-    const member = isBot ? await message.guild.members.fetch(message.author.id).catch(() => null) : null;
+    const member = isBot
+      ? await message.guild.members.fetch(message.author.id).catch(() => null)
+      : null;
     const memberAlreadyHandled = appUserHandledRecently(
       message.guild.id,
       member?.id,
@@ -467,7 +511,8 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
       if (isRaid) {
         try {
           await member.ban({ reason });
-          outcome = ai && ai.offline !== true ? "🚫 đã ban (AI: raid)" : "🚫 đã ban (nghi vấn raid)";
+          outcome =
+            ai && ai.offline !== true ? "🚫 đã ban (AI: raid)" : "🚫 đã ban (nghi vấn raid)";
           actionLabel = "ban";
         } catch {
           outcome = "không thể ban";
@@ -511,9 +556,10 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
             if (isRaid) {
               try {
                 await cm.ban({ reason });
-                outcome = ai && ai.offline !== true
-                  ? "🚫 đã ban người dùng kết nối app (AI: raid)"
-                  : "🚫 đã ban người dùng kết nối app (nghi vấn raid)";
+                outcome =
+                  ai && ai.offline !== true
+                    ? "🚫 đã ban người dùng kết nối app (AI: raid)"
+                    : "🚫 đã ban người dùng kết nối app (nghi vấn raid)";
                 actionLabel = "ban";
               } catch {
                 outcome = "không thể ban người dùng kết nối app";
@@ -621,7 +667,8 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
    */
   async function handleButtonRaid(interaction) {
     if (!interaction.isMessageComponent?.()) return;
-    if (!interaction.inGuild?.() || !interaction.guild || interaction.guild.available === false) return;
+    if (!interaction.inGuild?.() || !interaction.guild || interaction.guild.available === false)
+      return;
     const msg = interaction.message;
     if (!msg || !msg.components || msg.components.length === 0) return;
     // Chỉ quan tâm tin của APP NGOÀI thực sự: tin qua WEBHOOK (app kết nối từ ngoài,
@@ -654,7 +701,11 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
 
     const totalClicks = fresh.length;
     const sameUserClicks = fresh.filter((c) => c.userId === interaction.user.id).length;
-    const signal = buttonRaidSignal({ totalClicks, sameUserClicks, threshold: moduleCfg.threshold });
+    const signal = buttonRaidSignal({
+      totalClicks,
+      sameUserClicks,
+      threshold: moduleCfg.threshold,
+    });
     if (!signal.triggered) return;
     buttonClickEvents.delete(key); // reset sau khi xử lý
 
@@ -680,10 +731,12 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
       clickProfile,
       joiners.get(interaction.guild.id)?.length ?? 0,
     );
-    const clickAiRaid =
-      clickAi?.isRaid === true && (clickAi?.confidence ?? 0) >= 0.6;
+    const clickAiRaid = clickAi?.isRaid === true && (clickAi?.confidence ?? 0) >= 0.6;
     const clickAiNotRaid =
-      clickAi && clickAi.offline !== true && clickAi.isRaid === false && (clickAi?.confidence ?? 0) >= 0.5;
+      clickAi &&
+      clickAi.offline !== true &&
+      clickAi.isRaid === false &&
+      (clickAi?.confidence ?? 0) >= 0.5;
     if (clickAiNotRaid || (clickAiRaid === false && !clickAiNotRaid && !signal.spamClicker)) {
       // AI không xác nhận raid → chỉ ghi nhận, không phạt, không khóa kênh.
       await recordEvent(interaction.guild.id, {
@@ -761,7 +814,9 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
         punish: signal.spamClicker ? moduleCfg.punish : "none",
         aiClassification: clickAiRaid ? "raid" : undefined,
         lockdownTriggered: isLocked(interaction.guild.id),
-        apps: [{ appName: String(appName).slice(0, 60), executorName: undefined, executorId: appId }],
+        apps: [
+          { appName: String(appName).slice(0, 60), executorName: undefined, executorId: appId },
+        ],
         punished: punishedUsers,
       });
     } catch (e) {

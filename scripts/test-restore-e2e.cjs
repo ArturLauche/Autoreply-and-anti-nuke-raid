@@ -66,7 +66,6 @@ const check = (label, ok) => {
 // 1px PNG thật (fetch/data URI decode được) — dùng cho emoji + media tin nhắn.
 const PNG_B64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-const PNG_BUFFER = Buffer.from(PNG_B64, "base64");
 
 function makeTargetGuild() {
   const rolesCreated = [];
@@ -92,7 +91,11 @@ function makeTargetGuild() {
       setPosition: async () => {},
       isTextBased: () => opts.type === 0 || opts.type === 5,
       createWebhook: async (o) => {
-        const wh = { name: o.name, send: async (p) => messagesSent.push(p), delete: async () => {} };
+        const wh = {
+          name: o.name,
+          send: async (p) => messagesSent.push(p),
+          delete: async () => {},
+        };
         webhooksCreated.push(wh);
         return wh;
       },
@@ -139,14 +142,21 @@ function makeTargetGuild() {
     },
     members: { me: { permissions: { bitfield: (1n << 40n) - 1n } } },
     // Dữ liệu phục vụ assertion
-    _created: { rolesCreated, channelsCreated, messagesSent, webhooksCreated, emojisCreated, stickersCreated },
+    _created: {
+      rolesCreated,
+      channelsCreated,
+      messagesSent,
+      webhooksCreated,
+      emojisCreated,
+      stickersCreated,
+    },
   };
   return guild;
 }
 
 /* ────────────────────────── Mock Convex store ────────────────────────── */
 
-function makeStore(targetGuild) {
+function makeStore(_targetGuild) {
   const mutations = [];
   const store = {
     client: {
@@ -181,28 +191,97 @@ function sourceSnapshot() {
     guildName: "Server Gốc Bị Nuke",
     createdAt: Date.now(),
     roles: [
-      { id: "old-role-1", name: "Member", color: 0x00ff00, hoist: false, mentionable: true, permissions: "1024", position: 1 },
-      { id: "old-role-2", name: "Admin", color: 0xff0000, hoist: true, mentionable: false, permissions: "8", position: 2 },
+      {
+        id: "old-role-1",
+        name: "Member",
+        color: 0x00ff00,
+        hoist: false,
+        mentionable: true,
+        permissions: "1024",
+        position: 1,
+      },
+      {
+        id: "old-role-2",
+        name: "Admin",
+        color: 0xff0000,
+        hoist: true,
+        mentionable: false,
+        permissions: "8",
+        position: 2,
+      },
     ],
     channels: [
       {
-        id: "old-cat-1", name: "DANH MỤC CHÍNH", type: 4, position: 0, parentId: null, overwrites: [],
+        id: "old-cat-1",
+        name: "DANH MỤC CHÍNH",
+        type: 4,
+        position: 0,
+        parentId: null,
+        overwrites: [],
       },
       {
-        id: "old-ch-1", name: "general", type: 0, topic: "kênh chat", nsfw: false, position: 1, parentId: "old-cat-1",
+        id: "old-ch-1",
+        name: "general",
+        type: 0,
+        topic: "kênh chat",
+        nsfw: false,
+        position: 1,
+        parentId: "old-cat-1",
         overwrites: [
           { id: "old-role-2", type: 0, allow: "1024", deny: "0" }, // role Admin → phải map sang role mới
         ],
         messages: [
-          { id: "m1", authorName: "alice", timestamp: 1000, content: "xin chào server phụ!", attachments: [] },
-          { id: "m2", authorName: "bob", timestamp: 2000, content: "kèm ảnh", attachments: [`data:image/png;base64,${PNG_B64}`] },
-          { id: "m3", authorName: "carol", timestamp: 3000, content: "tin sau cùng", attachments: [] },
+          {
+            id: "m1",
+            authorName: "alice",
+            timestamp: 1000,
+            content: "xin chào server phụ!",
+            attachments: [],
+          },
+          {
+            id: "m2",
+            authorName: "bob",
+            timestamp: 2000,
+            content: "kèm ảnh",
+            attachments: [`data:image/png;base64,${PNG_B64}`],
+          },
+          {
+            id: "m3",
+            authorName: "carol",
+            timestamp: 3000,
+            content: "tin sau cùng",
+            attachments: [],
+          },
         ],
       },
-      { id: "old-ch-2", name: "voice-room", type: 2, position: 2, parentId: "old-cat-1", bitrate: 64000, userLimit: 10, overwrites: [] },
+      {
+        id: "old-ch-2",
+        name: "voice-room",
+        type: 2,
+        position: 2,
+        parentId: "old-cat-1",
+        bitrate: 64000,
+        userLimit: 10,
+        overwrites: [],
+      },
     ],
-    emojis: [{ id: "old-emoji-1", name: "Sakura Bloom", animated: false, url: `data:image/png;base64,${PNG_B64}` }],
-    stickers: [{ id: "old-st-1", name: "cool", tags: "😀", formatType: 1, url: `data:image/png;base64,${PNG_B64}` }],
+    emojis: [
+      {
+        id: "old-emoji-1",
+        name: "Sakura Bloom",
+        animated: false,
+        url: `data:image/png;base64,${PNG_B64}`,
+      },
+    ],
+    stickers: [
+      {
+        id: "old-st-1",
+        name: "cool",
+        tags: "😀",
+        formatType: 1,
+        url: `data:image/png;base64,${PNG_B64}`,
+      },
+    ],
     emojiCount: 1,
     stickerCount: 1,
     messageCount: 3,
@@ -238,13 +317,28 @@ function sourceSnapshot() {
   const m = store._mutations;
   const created = guild._created;
 
-  check("botRestoreSettings được gọi", m.some((x) => x.name === "bot_writes:botRestoreSettings"));
-  check("botClearBackup xóa cờ restore sau khi xong", m.some((x) => x.name === "bot_writes:botClearBackup" && x.args.kind === "restore"));
+  check(
+    "botRestoreSettings được gọi",
+    m.some((x) => x.name === "bot_writes:botRestoreSettings"),
+  );
+  check(
+    "botClearBackup xóa cờ restore sau khi xong",
+    m.some((x) => x.name === "bot_writes:botClearBackup" && x.args.kind === "restore"),
+  );
 
   // Role: tạo đủ 2 role, tên + màu + quyền giữ nguyên
   check("tạo lại đủ 2 role", created.rolesCreated.length === 2);
-  check("role giữ tên + màu + quyền", created.rolesCreated.some((r) => r.opts.name === "Admin" && r.opts.color === 0xff0000 && BigInt(r.opts.permissions) === 8n));
-  check("role sắp xếp theo thứ tự (setPosition từng role)", created.rolesCreated.every((r) => typeof r.role.setPosition === "function"));
+  check(
+    "role giữ tên + màu + quyền",
+    created.rolesCreated.some(
+      (r) =>
+        r.opts.name === "Admin" && r.opts.color === 0xff0000 && BigInt(r.opts.permissions) === 8n,
+    ),
+  );
+  check(
+    "role sắp xếp theo thứ tự (setPosition từng role)",
+    created.rolesCreated.every((r) => typeof r.role.setPosition === "function"),
+  );
 
   // Kênh: danh mục + 2 kênh con; overwrite map sang ID ROLE MỚI
   check("tạo đủ 3 kênh (danh mục + text + voice)", created.channelsCreated.length === 3);
@@ -257,24 +351,49 @@ function sourceSnapshot() {
     "overwrite kênh map sang ID role MỚI (không dùng ID cũ vô nghĩa)",
     overwrites.some((o) => o.id === adminNewId && o.type === 0),
   );
-  check("kênh voice giữ bitrate + userLimit", created.channelsCreated.some((c) => c.name === "voice-room" && c.opts?.bitrate === 64000 && c.opts?.userLimit === 10));
+  check(
+    "kênh voice giữ bitrate + userLimit",
+    created.channelsCreated.some(
+      (c) => c.name === "voice-room" && c.opts?.bitrate === 64000 && c.opts?.userLimit === 10,
+    ),
+  );
 
   // Tin nhắn: phát lại theo thứ tự thời gian qua webhook, giữ tên người gửi
-  check("tạo webhook để phát lại tin nhắn (giữ tên người gửi)", created.webhooksCreated.length >= 1);
+  check(
+    "tạo webhook để phát lại tin nhắn (giữ tên người gửi)",
+    created.webhooksCreated.length >= 1,
+  );
   const texts = created.messagesSent.map((p) => p.content ?? "");
   check("phát lại đủ 3 tin nhắn", created.messagesSent.length === 3);
-  check("tin nhắn đúng thứ tự thời gian", texts[0].includes("xin chào") && texts[1].includes("kèm ảnh") && texts[2].includes("sau cùng"));
+  check(
+    "tin nhắn đúng thứ tự thời gian",
+    texts[0].includes("xin chào") && texts[1].includes("kèm ảnh") && texts[2].includes("sau cùng"),
+  );
   const withMedia = created.messagesSent.find((p) => Array.isArray(p.files));
-  check("media data URI đăng lại THẬT (Buffer, không còn là link)", !!withMedia && Buffer.isBuffer(withMedia.files[0]?.attachment ?? withMedia.files[0]));
+  check(
+    "media data URI đăng lại THẬT (Buffer, không còn là link)",
+    !!withMedia && Buffer.isBuffer(withMedia.files[0]?.attachment ?? withMedia.files[0]),
+  );
 
   // Emoji + sticker: tạo lại từ data URI
-  check("tạo lại emoji từ data URI", created.emojisCreated.length === 1 && created.emojisCreated[0].name === "sakura_bloom" && Buffer.isBuffer(created.emojisCreated[0].attachment));
+  check(
+    "tạo lại emoji từ data URI",
+    created.emojisCreated.length === 1 &&
+      created.emojisCreated[0].name === "sakura_bloom" &&
+      Buffer.isBuffer(created.emojisCreated[0].attachment),
+  );
 
   // Settings: prefix + badWords nguyên vẹn; role/kênh map sang ID MỚI
   const settingsCall = m.find((x) => x.name === "bot_writes:botRestoreSettings");
   check("settings: prefix '?' được áp lại", settingsCall?.args?.prefix === "?");
-  check("settings: modRoles map sang ID role mới", Array.isArray(settingsCall?.args?.modRoles) && settingsCall.args.modRoles[0] === adminNewId);
-  check("settings: logChannelId map sang ID kênh mới", settingsCall?.args?.logChannelId === gen?.id);
+  check(
+    "settings: modRoles map sang ID role mới",
+    Array.isArray(settingsCall?.args?.modRoles) && settingsCall.args.modRoles[0] === adminNewId,
+  );
+  check(
+    "settings: logChannelId map sang ID kênh mới",
+    settingsCall?.args?.logChannelId === gen?.id,
+  );
 
   /* ── 2. Tùy chỉnh khôi phục: tắt role + tin nhắn → bỏ qua đúng phần ── */
   const guild2 = makeTargetGuild();
@@ -294,16 +413,28 @@ function sourceSnapshot() {
   check("tắt tin nhắn → không phát lại tin", c2.messagesSent.length === 0);
   check("vẫn tạo kênh khi chỉ tắt role/tin", c2.channelsCreated.length === 3);
   const s2 = store2._mutations.find((x) => x.name === "bot_writes:botRestoreSettings");
-  check("modRoles rỗng khi role bị tắt (map không còn ID)", Array.isArray(s2?.args?.modRoles) && s2.args.modRoles.length === 0);
+  check(
+    "modRoles rỗng khi role bị tắt (map không còn ID)",
+    Array.isArray(s2?.args?.modRoles) && s2.args.modRoles.length === 0,
+  );
 
   /* ── 3. Nhánh lỗi: guild không tồn tại → ném lỗi rõ ràng (bot báo về dashboard) ── */
   let threw = "";
   try {
-    await backup.runRestore({ guilds: { cache: new Map() } }, makeStore(null), "000000000000000000", stored.backupJson, "x");
+    await backup.runRestore(
+      { guilds: { cache: new Map() } },
+      makeStore(null),
+      "000000000000000000",
+      stored.backupJson,
+      "x",
+    );
   } catch (e) {
     threw = e.message;
   }
-  check("guild mất → ném lỗi rõ ràng (không crash im lặng)", threw.includes("Bot không còn trong server cần khôi phục"));
+  check(
+    "guild mất → ném lỗi rõ ràng (không crash im lặng)",
+    threw.includes("Bot không còn trong server cần khôi phục"),
+  );
 
   /* ── 4. Nhánh lỗi: JSON hỏng → ném lỗi có hướng dẫn ── */
   let threw2 = "";

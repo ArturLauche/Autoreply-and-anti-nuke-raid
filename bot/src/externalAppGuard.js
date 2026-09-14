@@ -11,13 +11,39 @@ const SCAM_WORD_RE =
 // Link mời Discord.
 const INVITE_RE = /(discord\.(gg|com\/invite|app\.com\/invite)|discordapp\.com\/invite)/i;
 // Link rút gọn / kênh ngoài thường dùng để dẫn lừa đảo.
-const SHORTLINK_RE = /(bit\.ly|tinyurl\.com|rb\.gy|cutt\.ly|t\.me\/|rebrand\.ly|is\.gd|shorturl\.at|goo\.gl)/i;
+const SHORTLINK_RE =
+  /(bit\.ly|tinyurl\.com|rb\.gy|cutt\.ly|t\.me\/|rebrand\.ly|is\.gd|shorturl\.at|goo\.gl)/i;
 // App nổi tiếng thường bị giả mạo tên (kèm từ phụ) để lừa chủ server cài app độc.
 const IMPERSONATED_APPS = [
-  "mee6", "dyno", "carl-bot", "carlbot", "carl bot", "tatsu", "mudae", "probot", "wumpus",
-  "discord", "protection", "protector", "security", "antinuke", "anti-nuke", "guard",
-  "moderation", "xenon", "statbot", "top.gg", "disboard", "arc", "reaction role", "leveling",
-  "welcome", "captcha", "verify", "nitro", "giveaway",
+  "mee6",
+  "dyno",
+  "carl-bot",
+  "carlbot",
+  "carl bot",
+  "tatsu",
+  "mudae",
+  "probot",
+  "wumpus",
+  "discord",
+  "protection",
+  "protector",
+  "security",
+  "antinuke",
+  "anti-nuke",
+  "guard",
+  "moderation",
+  "xenon",
+  "statbot",
+  "top.gg",
+  "disboard",
+  "arc",
+  "reaction role",
+  "leveling",
+  "welcome",
+  "captcha",
+  "verify",
+  "nitro",
+  "giveaway",
 ];
 
 // Loại component (discord.js ComponentType): Button=2, SelectMenu=3. Dùng số trực tiếp
@@ -145,7 +171,9 @@ function buttonRaidSignal({ totalClicks, sameUserClicks, threshold } = {}) {
  * Trả { score, parts }.
  */
 function appNameSuspicion(appName) {
-  const name = String(appName || "").toLowerCase().trim();
+  const name = String(appName || "")
+    .toLowerCase()
+    .trim();
   if (!name) return { score: 0, parts: [] };
   const clean = name.replace(/[^a-z0-9]+/g, "");
   let score = 0;
@@ -222,7 +250,13 @@ function isExternalAppSpam({ samples, currentFingerprint, count, threshold, hay 
  * cũng không phải đường raid app.
  * Trả true khi nên xử lý như external app.
  */
-function isExternalAppTarget({ isBot, isWebhook, isGuildMember, hasVerifiedTick, integrationType } = {}) {
+function isExternalAppTarget({
+  isBot,
+  isWebhook,
+  isGuildMember,
+  hasVerifiedTick,
+  integrationType,
+} = {}) {
   if (isWebhook) return true; // app gửi tin qua webhook — không cần bot thành viên
   if (isBot) return false; // bot user phải LÀ thành viên mới gửi được tin → đã được mời
   if (integrationType === "twitch" || integrationType === "youtube") return false; // kết nối tài khoản thường

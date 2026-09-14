@@ -40,86 +40,85 @@ function assert(cond, msg) {
 }
 
 async function main() {
-// ---- 1. Fingerprint: cùng lỗi cùng vị trí → cùng fp; khác lỗi → khác fp ----
-const e1 = new Error("Cannot read properties of undefined (reading 'id')");
-// Gắn stack giả với frame trong bot/src
-e1.stack = `Error: Cannot read properties of undefined (reading 'id')
+  // ---- 1. Fingerprint: cùng lỗi cùng vị trí → cùng fp; khác lỗi → khác fp ----
+  const e1 = new Error("Cannot read properties of undefined (reading 'id')");
+  // Gắn stack giả với frame trong bot/src
+  e1.stack = `Error: Cannot read properties of undefined (reading 'id')
     at handleSpam (${path.resolve(__dirname, "..", "bot", "src", "handlers", "antinuke.js")}:1234:56)
     at Object.attach (...:0:0)`;
-const e2 = new Error(e1.message);
-e2.stack = e1.stack;
-const e3 = new Error("Khác hoàn toàn");
-e3.stack = `Error: Khác hoàn toàn
+  const e2 = new Error(e1.message);
+  e2.stack = e1.stack;
+  const e3 = new Error("Khác hoàn toàn");
+  e3.stack = `Error: Khác hoàn toàn
     at handleSpam (${path.resolve(__dirname, "..", "bot", "src", "handlers", "antinuke.js")}:999:1)`;
 
-// fingerprintOf không export — test qua hành vi cooldown: set enabled + store giả.
-const mutations = [];
-const store = {
-  client: {
-    mutation: async (name, args) => {
-      mutations.push({ name, args });
-      return { ok: true };
+  // fingerprintOf không export — test qua hành vi cooldown: set enabled + store giả.
+  const mutations = [];
+  const store = {
+    client: {
+      mutation: async (name, args) => {
+        mutations.push({ name, args });
+        return { ok: true };
+      },
+      query: async () => null,
     },
-    query: async () => null,
-  },
-  getConfig: async () => null,
-};
-const client = {
-  guilds: { cache: new Map() },
-};
+    getConfig: async () => null,
+  };
+  const client = {
+    guilds: { cache: new Map() },
+  };
 
-// Vô hiệu hóa AI thật: researchChat trả JSON hợp lệ (không gọi mạng).
-const aiMod = require("../bot/src/ai.js");
-const origResearchChat = aiMod.researchChat;
-aiMod.researchChat = async () =>
-  JSON.stringify({
-    severity: "medium",
-    cause: "Biến undefined khi member rời server giữa chừng.",
-    fix: "Thêm optional chaining member?.id.",
-    diff: "- x.id\n+ x?.id",
-  });
-aiMod.researchAvailable = () => true;
+  // Vô hiệu hóa AI thật: researchChat trả JSON hợp lệ (không gọi mạng).
+  const aiMod = require("../bot/src/ai.js");
+  aiMod.researchChat = async () =>
+    JSON.stringify({
+      severity: "medium",
+      cause: "Biến undefined khi member rời server giữa chừng.",
+      fix: "Thêm optional chaining member?.id.",
+      diff: "- x.id\n+ x?.id",
+    });
+  aiMod.researchAvailable = () => true;
 
-sd.attach(client, store);
-sd.setEnabledFromJobs({ enabled: true });
+  sd.attach(client, store);
+  sd.setEnabledFromJobs({ enabled: true });
 
-// Lần 1: chạy được (state.inFlight giải phóng sau await)
-await sd.diagnoseError("unhandledRejection", e1);
-assert(mutations.length === 1, `lượt 1 ghi 1 mutation (thực tế ${mutations.length})`);
-assert(mutations[0]?.name === "selfDiagnose:botRecordDiagnose", "mutation đúng tên");
-assert(mutations[0]?.args.severity === "medium", "severity đúng");
-assert(typeof mutations[0]?.args.fingerprint === "string", "fingerprint là string");
+  // Lần 1: chạy được (state.inFlight giải phóng sau await)
+  await sd.diagnoseError("unhandledRejection", e1);
+  assert(mutations.length === 1, `lượt 1 ghi 1 mutation (thực tế ${mutations.length})`);
+  assert(mutations[0]?.name === "selfDiagnose:botRecordDiagnose", "mutation đúng tên");
+  assert(mutations[0]?.args.severity === "medium", "severity đúng");
+  assert(typeof mutations[0]?.args.fingerprint === "string", "fingerprint là string");
 
-// Lần 2: cùng lỗi → cooldown, KHÔNG mutation mới
-await sd.diagnoseError("unhandledRejection", e2);
-assert(mutations.length === 1, `cùng lỗi bị chặn cooldown (thực tế ${mutations.length})`);
+  // Lần 2: cùng lỗi → cooldown, KHÔNG mutation mới
+  await sd.diagnoseError("unhandledRejection", e2);
+  assert(mutations.length === 1, `cùng lỗi bị chặn cooldown (thực tế ${mutations.length})`);
 
-// Lần 3: lỗi khác → chạy được
-await sd.diagnoseError("unhandledRejection", e3);
-assert(mutations.length === 2, `lỗi khác vẫn chạy (thực tế ${mutations.length})`);
+  // Lần 3: lỗi khác → chạy được
+  await sd.diagnoseError("unhandledRejection", e3);
+  assert(mutations.length === 2, `lỗi khác vẫn chạy (thực tế ${mutations.length})`);
 
-// ---- 2. Bật/tắt: tắt → KHÔNG chạy ----
-sd.setEnabledFromJobs({ enabled: false });
-await sd.diagnoseError("unhandledRejection", new Error("Lỗi khi tắt"));
-assert(mutations.length === 2, "tắt → không chẩn đoán");
+  // ---- 2. Bật/tắt: tắt → KHÔNG chạy ----
+  sd.setEnabledFromJobs({ enabled: false });
+  await sd.diagnoseError("unhandledRejection", new Error("Lỗi khi tắt"));
+  assert(mutations.length === 2, "tắt → không chẩn đoán");
 
-// Bật lại, lỗi mới (fingerprint chưa từng) → chạy
-sd.setEnabledFromJobs({ enabled: true });
-const e4 = new Error("Lỗi thứ tư");
-e4.stack = `Error: Lỗi thứ tư
+  // Bật lại, lỗi mới (fingerprint chưa từng) → chạy
+  sd.setEnabledFromJobs({ enabled: true });
+  const e4 = new Error("Lỗi thứ tư");
+  e4.stack = `Error: Lỗi thứ tư
     at (${path.resolve(__dirname, "..", "bot", "src", "util.js")}:10:5)`;
-await sd.diagnoseError("uncaughtException", e4);
-assert(mutations.length === 3, "bật lại + lỗi mới → chạy");
+  await sd.diagnoseError("uncaughtException", e4);
+  assert(mutations.length === 3, "bật lại + lỗi mới → chạy");
 
-// ---- 3. Lỗi không phải Error (string reason) → không vỡ ----
-await sd.diagnoseError("unhandledRejection", "chuỗi lỗi thường");
-assert(mutations.length >= 3, "reason dạng string không vỡ");
+  // ---- 3. Lỗi không phải Error (string reason) → không vỡ ----
+  await sd.diagnoseError("unhandledRejection", "chuỗi lỗi thường");
+  assert(mutations.length >= 3, "reason dạng string không vỡ");
 
-// ---- 4. setEnabledFromJobs với input rác → không vỡ, giữ trạng thái cũ ----
-sd.setEnabledFromJobs(undefined);
-sd.setEnabledFromJobs(null);
-sd.setEnabledFromJobs("rác");
-assert(true, "input rác không vỡ");
+  // ---- 4. setEnabledFromJobs với input rác → không vỡ, giữ trạng thái cũ ----
+  sd.setEnabledFromJobs(undefined);
+  sd.setEnabledFromJobs(null);
+  sd.setEnabledFromJobs("rác");
+  assert(true, "input rác không vỡ");
 }
 
 main()

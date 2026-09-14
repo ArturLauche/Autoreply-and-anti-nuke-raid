@@ -35,14 +35,14 @@ export default function UnlockPanel({
           <div>
             <h2 className="font-display text-xl font-bold">Tính năng ẩn 🔒</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Chỉ <b>admin sở hữu bot</b> mới được phép tương tác mật khẩu và đăng nhập vào
-              tính năng ẩn — không phải owner hay mod của một server.
+              Chỉ <b>admin sở hữu bot</b> mới được phép tương tác mật khẩu và đăng nhập vào tính
+              năng ẩn — không phải owner hay mod của một server.
             </p>
             {!data.guild.botOwnerSet && (
               <p className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-                Chưa có chủ sở hữu nào được thiết lập. Chủ bot cần đăng nhập bằng chính tài
-                khoản Discord đã tạo bot, vào <b>Cài đặt → Mật khẩu tính năng ẩn</b> để đặt
-                mật khẩu đầu tiên — người đó sẽ trở thành chủ sở hữu bot.
+                Chưa có chủ sở hữu nào được thiết lập. Chủ bot cần đăng nhập bằng chính tài khoản
+                Discord đã tạo bot, vào <b>Cài đặt → Mật khẩu tính năng ẩn</b> để đặt mật khẩu đầu
+                tiên — người đó sẽ trở thành chủ sở hữu bot.
               </p>
             )}
           </div>
