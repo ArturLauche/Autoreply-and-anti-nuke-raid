@@ -5,6 +5,7 @@
  *   2. handleExternalAppMessage: spam do chính app gửi (bot lạ/webhook).
  *   3. handleButtonRaid: spam bấm nút trên tin mồi của app.
  */
+const { Colors, UserFlags } = require("discord.js");
 const { logEmbed, sendLog } = require("../../util");
 const { sendCaseLog, CASE_LABEL } = require("../../caseLog");
 const { isLocked, markLocked, lockGuild, unlockGuild } = require("../../lockdown");
@@ -19,6 +20,7 @@ const {
 } = require("../../externalAppGuard");
 const {
   MODULE_LABELS,
+  KNOWN_LOGGING_BOTS,
   isKnownLoggingBot,
   NUKE_MODULES,
   IMMEDIATE_BOT_NUKE,
@@ -29,6 +31,8 @@ const {
   moduleCfgOf,
   memberSuspicionScore,
   joinClusterSuspicion,
+  messageFingerprint,
+  isExternalAppSpam,
   LONG_MSG_LEN,
   ZERO_WIDTH_RE,
 } = require("./shared");

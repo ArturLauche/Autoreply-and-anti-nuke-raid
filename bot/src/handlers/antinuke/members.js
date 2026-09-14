@@ -2,12 +2,14 @@
 /**
  Xử lý thành viên: cảnh báo bot lạ, bot hit-and-run, raid massJoin (gate chống ban nhầm). 
  */
+const { AuditLogEvent, Colors, PermissionFlagsBits } = require("discord.js");
 const { logEmbed, sendLog } = require("../../util");
 const { sendCaseLog, CASE_LABEL } = require("../../caseLog");
 const { isLocked, markLocked, lockGuild, unlockGuild } = require("../../lockdown");
 const { actionsOf, memberPunishOf, cleanupMessages } = require("../../moduleActions");
 const {
   MODULE_LABELS,
+  KNOWN_LOGGING_BOTS,
   isKnownLoggingBot,
   NUKE_MODULES,
   IMMEDIATE_BOT_NUKE,
@@ -18,6 +20,8 @@ const {
   moduleCfgOf,
   memberSuspicionScore,
   joinClusterSuspicion,
+  messageFingerprint,
+  isExternalAppSpam,
   LONG_MSG_LEN,
   ZERO_WIDTH_RE,
 } = require("./shared");

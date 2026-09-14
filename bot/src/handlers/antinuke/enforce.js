@@ -7,6 +7,7 @@ const { heatSettings, punishMember, choosePunish, heatSummary } = require("../..
 const { actionsOf, memberPunishOf, cleanupMessages } = require("../../moduleActions");
 const {
   MODULE_LABELS,
+  KNOWN_LOGGING_BOTS,
   isKnownLoggingBot,
   NUKE_MODULES,
   IMMEDIATE_BOT_NUKE,
@@ -17,6 +18,8 @@ const {
   moduleCfgOf,
   memberSuspicionScore,
   joinClusterSuspicion,
+  messageFingerprint,
+  isExternalAppSpam,
   LONG_MSG_LEN,
   ZERO_WIDTH_RE,
 } = require("./shared");

@@ -2,8 +2,10 @@
 /**
  Raid Intel — săn lùng nguồn cơn raid + ghi mẫu dữ liệu huấn luyện lên Convex. 
  */
+const { AuditLogEvent } = require("discord.js");
 const {
   MODULE_LABELS,
+  KNOWN_LOGGING_BOTS,
   isKnownLoggingBot,
   NUKE_MODULES,
   IMMEDIATE_BOT_NUKE,
@@ -14,12 +16,14 @@ const {
   moduleCfgOf,
   memberSuspicionScore,
   joinClusterSuspicion,
+  messageFingerprint,
+  isExternalAppSpam,
   LONG_MSG_LEN,
   ZERO_WIDTH_RE,
 } = require("./shared");
 
 module.exports = function createAntiNukeLayer({ client, store, heat, state, core, ai, raidIntel, externalApp }) {
-  const { aiAnalyzeRaid } = ai;
+  const { aiAnalyzeRaid } = ai ?? {};
 
   /**
    * Raid Intel — săn lùng NGUỒN CƠN raid rồi ban nghi phạm.
