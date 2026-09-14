@@ -181,6 +181,12 @@ export const getGuild = query({
         verifyWelcomeDescription: guild.verifyWelcomeDescription ?? null,
         verifyWelcomeColor: guild.verifyWelcomeColor ?? null,
         verifySendPanel: guild.verifySendPanel ?? false,
+        /** Lỗi gửi panel xác minh gần nhất (bot báo lại — web hiển thị thay vì im lặng). */
+        verifyPanelError: guild.verifyPanelError ?? null,
+        verifyPanelErrorAt: guild.verifyPanelErrorAt ?? null,
+        /** Lỗi gửi DM trực tiếp gần nhất (bot báo lại — web hiển thị thay vì im lặng). */
+        dmError: guild.dmError ?? null,
+        dmErrorAt: guild.dmErrorAt ?? null,
       },
       heatStates,
       modules: modules.map((m) => ({
@@ -215,6 +221,8 @@ export const getGuild = query({
             thumbnailUrl: p.thumbnailUrl ?? null,
             entries: p.entries,
             messageId: p.messageId ?? "",
+            postError: p.postError ?? null,
+            postErrorAt: p.postErrorAt ?? null,
             enabled: p.enabled,
             createdAt: p.createdAt,
           }))
@@ -249,6 +257,10 @@ export const getGuild = query({
             endMessage: g.endMessage ?? null,
             status: g.status,
             messageId: g.messageId ?? "",
+            postError: g.postError ?? null,
+            postErrorAt: g.postErrorAt ?? null,
+            endError: g.endError ?? null,
+            endErrorAt: g.endErrorAt ?? null,
             entriesCount: g.entries.length,
             winners: g.winners,
             createdAt: g.createdAt,
@@ -597,6 +609,11 @@ export const updateSettings = mutation({
     if (args.verifyWelcomeDescription !== undefined) patch.verifyWelcomeDescription = args.verifyWelcomeDescription || undefined;
     if (args.verifyWelcomeColor !== undefined) patch.verifyWelcomeColor = args.verifyWelcomeColor || undefined;
     if (args.verifySendPanel !== undefined) patch.verifySendPanel = args.verifySendPanel;
+    // Yêu cầu gửi panel mới → xóa lỗi cũ (đây là lần thử lại của người dùng).
+    if (args.verifySendPanel === true) {
+      patch.verifyPanelError = undefined;
+      patch.verifyPanelErrorAt = undefined;
+    }
     await ctx.db.patch(guild._id, patch);
     return { ok: true };
   },
@@ -721,19 +738,37 @@ export const getVerifySendPanelGuilds = query({
   },
 });
 
-/** Mutation: clear verifySendPanel flag after bot sends the panel. */
+/**
+ * Mutation: clear verifySendPanel flag after bot sends the panel.
+ * Có `error` → lỗi gửi panel (bot không gửi được — web hiển thị lý do thay vì im lặng);
+ * không `error` → gửi thành công, xóa lỗi cũ (nếu có).
+ */
 export const clearVerifySendPanel = mutation({
-  args: { guildId: v.string(),
+  args: { guildId: v.string(), error: v.optional(v.string()),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()), },
-  handler: async (ctx, { botKey, guildId }) => {
+  handler: async (ctx, { botKey, guildId, error }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
       .first();
     if (!guild) return;
-    await ctx.db.patch(guild._id, { verifySendPanel: false });
+    await ctx.db.patch(guild._id,
+      error
+        ? {
+            verifySendPanel: false,
+            verifyPanelError: String(error || "Lỗi không xác định").slice(0, 300),
+            verifyPanelErrorAt: Date.now(),
+            updatedAt: Date.now(),
+          }
+        : {
+            verifySendPanel: false,
+            verifyPanelError: undefined,
+            verifyPanelErrorAt: undefined,
+            updatedAt: Date.now(),
+          },
+    );
   },
 });
 

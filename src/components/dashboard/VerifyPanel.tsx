@@ -355,6 +355,19 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
               )}
             </div>
 
+            {/* Lỗi gửi panel gần nhất — bot báo lại thay vì im lặng */}
+            {g.verifyPanelError && (
+              <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+                <p className="font-semibold">⚠️ Bot không gửi được panel xác minh</p>
+                <p className="mt-0.5 text-xs opacity-90">{g.verifyPanelError}</p>
+                {g.verifyPanelErrorAt ? (
+                  <p className="mt-1 text-[11px] opacity-70">
+                    {new Date(g.verifyPanelErrorAt).toLocaleString("vi-VN")} — hãy sửa lỗi rồi bấm "Gửi panel xác minh vào kênh" lại
+                  </p>
+                ) : null}
+              </div>
+            )}
+
             {/* Send panel button */}
             {g.verifyChannelId && (
               <button

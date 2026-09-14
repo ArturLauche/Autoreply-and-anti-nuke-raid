@@ -133,11 +133,22 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                   <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
                     🎉 {g.title}
                     {!g.messageId ? (
-                      <Badge variant="secondary">⏳ chờ bot gửi</Badge>
+                      g.postError ? (
+                        <Badge className="border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400">
+                          ⚠️ lỗi gửi
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">⏳ chờ bot gửi</Badge>
+                      )
                     ) : (
                       <Badge variant="success">đang chạy</Badge>
                     )}
                   </p>
+                  {g.postError && (
+                    <p className="mt-1 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1 text-xs text-red-600 dark:text-red-400">
+                      ⚠️ Bot không gửi được bảng: {g.postError}
+                    </p>
+                  )}
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     <Timer className="mr-1 inline h-3 w-3" />
                     kết thúc{" "}

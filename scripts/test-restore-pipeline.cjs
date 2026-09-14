@@ -225,14 +225,16 @@ function makeBatchItem(overrides = {}) {
     check("import lỗi → vẫn botReportImportError (không regress)", !!importErr);
   }
 
-  // ---- 6. Backup thường lỗi → vẫn xóa cờ như cũ (không qua botReportRestoreError) ----
+  // ---- 6. Backup thường lỗi → báo botReportBackupError (không nuốt im lặng) ----
   {
     const flagDb = makeFlagDb({ restoreRequested: false, backupRequested: true, backupClaimedAt: undefined });
     const store = makeStore(flagDb);
     const { client } = makeClient();
     await tick.runBackupJobs(client, store, [makeBatchItem({ kind: "backup", backupJson: undefined })]);
+    const rep = store._mutations.find((m) => m.name === "bot_writes:botReportBackupError");
+    check("backup lỗi → botReportBackupError với lý do (không im lặng)", !!rep && typeof rep.args.error === "string" && rep.args.error.length > 0);
     const cleared = store._mutations.find((m) => m.name === "bot_writes:botClearBackup" && m.args.kind === "backup");
-    check("backup lỗi → botClearBackup như cũ", !!cleared);
+    check("backup lỗi → KHÔNG xóa cờ như thể đã xong", !cleared);
   }
 
   console.log(`\nKết quả restore pipeline: ${pass} PASS, ${fail} FAIL`);

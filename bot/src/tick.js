@@ -96,10 +96,8 @@ async function runBackupJobs(client, store, items) {
       }
     } catch (e) {
       console.error(`[tick:backup:${item.kind}] ${item.guildId}:`, e.message);
-      // Import/restore: báo lỗi lên dashboard để người dùng thấy lý do thay vì
-      // chờ mãi không thấy gì; backup: xóa cờ như cũ (đã có embed/skip notice).
-      // Restore trước đây xóa cờ IM LẶNG — người dùng bấm "Khôi phục" xong
-      // không bao giờ biết vì sao không có gì xảy ra.
+      // Mọi nhánh đều BÁO LỄN lên dashboard để người dùng thấy lý do thay vì
+      // chờ mãi không thấy gì (restore/import trước đây xóa cờ IM LẶNG).
       if (item.kind === "import") {
         await store.client
           .mutation("bot_writes:botReportImportError", {
@@ -116,7 +114,10 @@ async function runBackupJobs(client, store, items) {
           .catch(() => {});
       } else {
         await store.client
-          .mutation("bot_writes:botClearBackup", { guildId: item.guildId, kind: item.kind })
+          .mutation("bot_writes:botReportBackupError", {
+            guildId: item.guildId,
+            error: String(e?.message || "Lỗi không xác định").slice(0, 300),
+          })
           .catch(() => {});
       }
     } finally {

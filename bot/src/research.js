@@ -445,6 +445,7 @@ function setupResearch(client, store) {
   const tick = async () => {
     if (running) return;
     running = true;
+    let trigger = null; // "manual" | "auto" — để báo lỗi về đúng ngữ cảnh
     try {
       // HỌC THỦ CÔNG: cờ từ web Admin / lệnh /research learn — nhận + xóa cờ
       // rồi chạy NGAY (không đợi đến hạn 4h). Mutation trả null khi không có cờ
@@ -453,6 +454,7 @@ function setupResearch(client, store) {
         .mutation("threatIntel:botClaimManualLearn", {})
         .catch(() => null);
       if (manual) {
+        trigger = "manual";
         const res = await runResearch(store, { trigger: "manual", requestedBy: manual.requestedBy });
         console.log(
           `[research:manual] by=${manual.requestedBy} sources=${res.sources.length} newKw=${res.newKeywords} newPhrases=${res.newPhrases} ai=${res.aiUsed}`,
@@ -473,12 +475,22 @@ function setupResearch(client, store) {
       const now = Date.now();
       const nextRun = intel?.nextRunAt ?? 0;
       if (nextRun > now) return; // chưa đến hạn
+      trigger = "auto";
       const res = await runResearch(store);
       console.log(
         `[research] sources=${res.sources.length} newKw=${res.newKeywords} newPhrases=${res.newPhrases} ai=${res.aiUsed}`,
       );
     } catch (e) {
       console.error("[research]", e?.message || e);
+      // Báo lỗi về Convex — Admin hiển thị lý do thay vì "Bot đang học…" treo vĩnh viễn.
+      if (trigger) {
+        await store.client
+          .mutation("threatIntel:botReportResearchError", {
+            error: String(e?.message || "Lỗi không xác định").slice(0, 260),
+            trigger,
+          })
+          .catch(() => {});
+      }
     } finally {
       running = false;
     }

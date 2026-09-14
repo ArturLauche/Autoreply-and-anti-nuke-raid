@@ -703,7 +703,28 @@ export const panelPosted = mutation({
     await requireBotKeyStrict(ctx, botKey);
     const panel = await ctx.db.get(panelId);
     if (!panel) return;
-    await ctx.db.patch(panelId, { messageId, updatedAt: Date.now() });
+    await ctx.db.patch(panelId, { messageId, postError: undefined, postErrorAt: undefined, updatedAt: Date.now() });
+  },
+});
+
+/** Bot báo lỗi gửi panel reaction role (kênh đã xóa / thiếu quyền…) — web hiển thị thay vì im lặng. */
+export const botReportPanelError = mutation({
+  args: {
+    panelId: v.id("reactionRolePanels"),
+    error: v.string(),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { botKey, panelId, error }) => {
+    await requireBotKeyStrict(ctx, botKey);
+    const panel = await ctx.db.get(panelId);
+    if (!panel) return { ok: true };
+    await ctx.db.patch(panelId, {
+      postError: String(error || "Lỗi không xác định").slice(0, 300),
+      postErrorAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    return { ok: true };
   },
 });
 
@@ -931,7 +952,31 @@ export const giveawayPosted = mutation({
     await requireBotKeyStrict(ctx, botKey);
     const giveaway = await ctx.db.get(giveawayId);
     if (!giveaway) return;
-    await ctx.db.patch(giveawayId, { messageId });
+    await ctx.db.patch(giveawayId, { messageId, postError: undefined, postErrorAt: undefined });
+  },
+});
+
+/** Bot báo lỗi giveaway: phase "post" (gửi bảng) hoặc "end" (kết thúc + trao thưởng). */
+export const botReportGiveawayError = mutation({
+  args: {
+    giveawayId: v.id("giveaways"),
+    phase: v.union(v.literal("post"), v.literal("end")),
+    error: v.string(),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { botKey, giveawayId, phase, error }) => {
+    await requireBotKeyStrict(ctx, botKey);
+    const giveaway = await ctx.db.get(giveawayId);
+    if (!giveaway) return { ok: true };
+    const msg = String(error || "Lỗi không xác định").slice(0, 300);
+    await ctx.db.patch(
+      giveawayId,
+      phase === "post"
+        ? { postError: msg, postErrorAt: Date.now() }
+        : { endError: msg, endErrorAt: Date.now() },
+    );
+    return { ok: true };
   },
 });
 
@@ -964,7 +1009,7 @@ export const giveawayEnd = mutation({
     await requireBotKeyStrict(ctx, botKey);
     const giveaway = await ctx.db.get(giveawayId);
     if (!giveaway || giveaway.status !== "active") return;
-    await ctx.db.patch(giveawayId, { status: "ended", winners });
+    await ctx.db.patch(giveawayId, { status: "ended", winners, endError: undefined, endErrorAt: undefined });
   },
 });
 
@@ -987,6 +1032,29 @@ export const requestDm = mutation({
       dmTargetUsername: username ? username.slice(0, 60) : undefined,
       dmMessage: clean,
       dmRequested: true,
+      dmError: undefined,
+      dmErrorAt: undefined,
+      updatedAt: Date.now(),
+    });
+    return { ok: true };
+  },
+});
+
+/** Bot báo lỗi gửi DM (user tắt DM / không dùng chung server…) — web hiển thị. */
+export const botReportDmError = mutation({
+  args: { guildId: v.string(), error: v.string(),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()), },
+  handler: async (ctx, { botKey, guildId, error }) => {
+    await requireBotKeyStrict(ctx, botKey);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) return { ok: true };
+    await ctx.db.patch(guild._id, {
+      dmError: String(error || "Lỗi không xác định").slice(0, 300),
+      dmErrorAt: Date.now(),
       updatedAt: Date.now(),
     });
     return { ok: true };
@@ -1010,6 +1078,8 @@ export const botClearDm = mutation({
       dmTargetUserId: undefined,
       dmTargetUsername: undefined,
       dmMessage: undefined,
+      dmError: undefined,
+      dmErrorAt: undefined,
       updatedAt: Date.now(),
     });
   },

@@ -73,6 +73,9 @@ export const getSettings = query({
       keywordReviewAt: status?.threatKeywordReviewAt ?? null,
       keywordReviewSuspects: status?.threatKeywordReviewSuspects ?? [],
       aiReviewPending: status?.threatAiReviewRequested ?? false,
+      /** Lỗi lượt nghiên cứu gần nhất (bot báo lại) — Admin hiển thị dòng đỏ. */
+      lastError: status?.threatResearchLastError ?? null,
+      lastErrorAt: status?.threatResearchLastErrorAt ?? null,
       urlhausDomains: status?.threatUrlhausDomains ?? 0,
       ngramClusters: status?.threatNgramClusters ?? 0,
     };
@@ -183,6 +186,9 @@ export const botSetResearchRun = mutation({
     };
     if (args.summary) patch.threatResearchLastSummary = clean(args.summary, 700);
     if (args.aiUsed !== undefined) patch.threatResearchLastAiUsed = args.aiUsed;
+    // Lượt chạy THÀNH CÔNG → xóa lỗi lượt trước (nếu có).
+    patch.threatResearchLastError = undefined;
+    patch.threatResearchLastErrorAt = undefined;
     if (status) {
       await ctx.db.patch(status._id, patch);
     } else {
@@ -395,6 +401,9 @@ export const requestManualLearn = mutation({
     await ctx.db.patch(status._id, {
       threatManualLearnRequested: true,
       threatManualLearnBy: clean(requestedBy, 60) || (isOwner ? "web-admin" : "bot"),
+      // Yêu cầu học mới = lần thử lại → xóa lỗi lượt trước (nếu có).
+      threatResearchLastError: undefined,
+      threatResearchLastErrorAt: undefined,
     });
     return { ok: true };
   },
@@ -468,8 +477,10 @@ export const botSetResearchMeta = mutation({
     digest: v.optional(v.string()),
     urlhausDomains: v.optional(v.number()),
     ngramClusters: v.optional(v.number()),
+    /** Lượt chạy thành công → xóa lỗi cũ (nếu có). */
+    clearError: v.optional(v.boolean()),
   },
-  handler: async (ctx, { botKey, digest, urlhausDomains, ngramClusters }) => {
+  handler: async (ctx, { botKey, digest, urlhausDomains, ngramClusters, clearError }) => {
     await requireBotKeyStrict(ctx, botKey);
     const status = await getBotStatus(ctx);
     if (!status) return { ok: false };
@@ -480,8 +491,32 @@ export const botSetResearchMeta = mutation({
     }
     if (urlhausDomains !== undefined) patch.threatUrlhausDomains = Math.max(0, Math.min(50000, urlhausDomains | 0));
     if (ngramClusters !== undefined) patch.threatNgramClusters = Math.max(0, Math.min(5000, ngramClusters | 0));
+    if (clearError) {
+      patch.threatResearchLastError = undefined;
+      patch.threatResearchLastErrorAt = undefined;
+    }
     if (Object.keys(patch).length === 0) return { ok: false };
     await ctx.db.patch(status._id, patch);
+    return { ok: true };
+  },
+});
+
+/** Bot báo lỗi 1 lượt nghiên cứu/học (mạng, AI lỗi, nguồn chặn…) — Admin hiển thị thay vì im lặng. */
+export const botReportResearchError = mutation({
+  args: {
+    botKey: v.optional(v.string()),
+    error: v.string(),
+    /** Lượt học thủ công (cờ đã claim) hay lượt tự động — chỉ để ghi chú. */
+    trigger: v.optional(v.string()),
+  },
+  handler: async (ctx, { botKey, error, trigger }) => {
+    await requireBotKeyStrict(ctx, botKey);
+    const status = await getBotStatus(ctx);
+    if (!status) return { ok: false };
+    await ctx.db.patch(status._id, {
+      threatResearchLastError: `${trigger ? `[${trigger}] ` : ""}${String(error || "Lỗi không xác định").slice(0, 260)}`.slice(0, 300),
+      threatResearchLastErrorAt: Date.now(),
+    });
     return { ok: true };
   },
 });

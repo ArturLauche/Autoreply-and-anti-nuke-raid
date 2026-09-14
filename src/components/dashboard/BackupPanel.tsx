@@ -78,6 +78,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         restoreError: string | null;
         restoreErrorAt: number | null;
         restoreFinishedAt: number | null;
+        backupRequested: boolean;
+        backupError: string | null;
+        backupErrorAt: number | null;
         botOnline: boolean;
         botVersion: string | null;
         botGuildCount: number;
@@ -88,6 +91,8 @@ export default function BackupPanel({ data }: { data: GuildData }) {
   // Theo dõi yêu cầu khôi phục (nút "Khôi phục vào server này") — bot xử lý xong
   // hoặc lỗi sẽ hiển thị ngay thay vì người dùng chờ không biết kết quả.
   const [restoreWatch, setRestoreWatch] = useState<null | { startedAt: number }>(null);
+  // Theo dõi yêu cầu backup (nút "Backup ngay") — bot báo lỗi sẽ toast ngay.
+  const [backupWatch, setBackupWatch] = useState<null | { startedAt: number }>(null);
 
   const refresh = () => setRefreshAt((n) => n + 1);
 
@@ -162,6 +167,22 @@ export default function BackupPanel({ data }: { data: GuildData }) {
     }
   }, [restoreWatch, importStatus]);
 
+  // Bot báo lỗi backup (chụp snapshot thất bại) → toast ngay thay vì im lặng.
+  useEffect(() => {
+    if (!backupWatch || importStatus === undefined || importStatus === null) return;
+    if (importStatus.backupError) {
+      toast.error(`Backup thất bại: ${importStatus.backupError}`, {
+        description:
+          "Bot đã dừng giữa chừng. Kiểm tra bot còn trong server + đủ quyền Administrator rồi bấm Backup ngay lại.",
+        duration: 12000,
+      });
+      setBackupWatch(null);
+      refresh();
+    } else if (!importStatus.backupRequested) {
+      setBackupWatch(null);
+    }
+  }, [backupWatch, importStatus]);
+
   // Restore chờ quá 3 phút → cảnh báo thay vì treo vô thời hạn.
   useEffect(() => {
     if (!restoreWatch) return;
@@ -205,7 +226,8 @@ export default function BackupPanel({ data }: { data: GuildData }) {
             ? "Backup (kèm tin nhắn) sẽ được lưu trên Convex."
             : "Backup sẽ được lưu trên Convex.",
       });
-      // Tự động tải lại danh sách sau khi bot kịp xử lý.
+      // Tự động tải lại danh sách sau khi bot kịp xử lý; watch lỗi backup (nếu bot báo lỗi).
+      setBackupWatch({ startedAt: Date.now() });
       window.setTimeout(refresh, 25000);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Thất bại");
@@ -359,6 +381,16 @@ export default function BackupPanel({ data }: { data: GuildData }) {
           backup.
         </p>
 
+        {/* Lỗi backup gần nhất — bot báo lại thay vì im lặng */}
+        {importStatus && importStatus.backupError && (
+          <p className="mt-3 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              Lần backup trước <b>thất bại</b>: {importStatus.backupError} — khắc phục rồi bấm Backup
+              ngay lại.
+            </span>
+          </p>
+        )}
         {/* Trạng thái khôi phục: lỗi lần trước / đang chạy — người dùng bấm
             "Khôi phục vào server này" xong PHẢI thấy kết quả, không chờ mù mờ. */}
         {importStatus && importStatus.restoreError && (

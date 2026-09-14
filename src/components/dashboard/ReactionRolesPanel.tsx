@@ -293,13 +293,24 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
                   <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
                     {p.label}
                     {!p.messageId ? (
-                      <Badge variant="secondary">⏳ chờ bot gửi</Badge>
+                      p.postError ? (
+                        <Badge className="border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400">
+                          ⚠️ lỗi gửi
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">⏳ chờ bot gửi</Badge>
+                      )
                     ) : p.enabled ? (
                       <Badge variant="success">đang chạy</Badge>
                     ) : (
                       <Badge variant="secondary">đã tắt</Badge>
                     )}
                   </p>
+                  {p.postError && (
+                    <p className="mt-1 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1 text-xs text-red-600 dark:text-red-400">
+                      ⚠️ {p.postError}
+                    </p>
+                  )}
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     #{channelName(p.channelId)} ·{" "}
                     {p.entries.map((e) => `${e.emoji} → ${roleName(e.roleId)}`).join(" · ")}

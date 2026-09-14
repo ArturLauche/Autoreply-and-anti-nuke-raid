@@ -1,0 +1,273 @@
+// TEST: các luồng lỗi trước đây bị NUỐT IM LẶNG (chỉ console.error trên VPS,
+// dashboard/web không bao giờ biết) — giờ bot PHẢI gọi mutation botReport*
+// tương ứng. Chạy: node scripts/test-silent-error-reporting.cjs
+//
+// Che phủ:
+//   1. Backup lỗi (tick)          → botReportBackupError  (trước: botClearBackup im lặng)
+//   2. Restore lỗi (tick)         → botReportRestoreError  (đã vá trước, chống regress)
+//   3. Import lỗi (tick)          → botReportImportError   (đã vá trước, chống regress)
+//   4. Panel reaction role lỗi    → botReportPanelError    (trước: chỉ console)
+//   5. Giveaway lỗi gửi           → botReportGiveawayError(phase=post)
+//   6. Giveaway lỗi kết thúc      → botReportGiveawayError(phase=end) + VẪN chốt winners
+//   7. DM trực tiếp lỗi           → botReportDmError; thành công → botClearDm
+//   8. Verify panel lỗi           → clearVerifySendPanel({error}) ; thành công → clear không error
+const path = require("path");
+const Module = require("module");
+const fs = require("fs");
+
+// Mock discord.js (giống test-restore-pipeline).
+const origResolve = Module._resolveFilename;
+Module._resolveFilename = function (request, ...args) {
+  if (request === "discord.js") return path.join(__dirname, "..", "bot", "test-djs-mock.cjs");
+  return origResolve.call(this, request, ...args);
+};
+fs.writeFileSync(
+  path.join(__dirname, "..", "bot", "test-djs-mock.cjs"),
+  `class EmbedBuilder {
+  constructor(data = {}) { this.d = data; }
+  setColor(c) { this.d.color = c; return this; }
+  setTitle(t) { this.d.title = t; return this; }
+  setDescription(t) { this.d.description = t; return this; }
+  addFields(f) { this.d.fields = [...(this.d.fields ?? []), ...f]; return this; }
+  setThumbnail(t) { this.d.thumbnail = t; return this; }
+  setImage(t) { this.d.image = t; return this; }
+  setTimestamp() { return this; }
+  setFooter(f) { this.d.footer = f; return this; }
+}
+class ActionRowBuilder { addComponents() { return this; } }
+class ButtonBuilder { setCustomId() { return this; } setLabel() { return this; } setStyle() { return this; } }
+class Collection extends Map {}
+module.exports = {
+  Colors: new Proxy({}, { get: () => 0x000000 }),
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle: { Primary: 1, Success: 3 },
+  Collection,
+  ChannelType: { GuildText: 0, GuildAnnouncement: 5, GuildVoice: 2, GuildCategory: 4, GuildStageVoice: 13, GuildForum: 15 },
+  PermissionsBitField: { Flags: new Proxy({}, { get: () => 1n }) },
+  PermissionFlagsBits: { ManageGuild: 1n << 5n, Administrator: 1n << 3n, ViewChannel: 1n << 10n },
+  AuditLogEvent: new Proxy({}, { get: () => 0 }),
+  Partials: {},
+  GatewayIntentBits: new Proxy({}, { get: () => 0 }),
+};
+`,
+);
+
+delete process.env.BACKUP_ENCRYPT_KEY;
+
+const tick = require("../bot/src/tick.js");
+const hidden = require("../bot/src/handlers/hidden.js");
+
+let pass = 0;
+let fail = 0;
+const check = (label, ok) => {
+  console.log(ok ? `PASS ${label}` : `FAIL ${label}`);
+  ok ? pass++ : fail++;
+};
+const last = (arr, name) => [...arr].reverse().find((m) => m.name === name);
+
+/** Mock store ghi lại mọi mutation gọi ra. */
+function makeStore(opts = {}) {
+  const mutations = [];
+  const queries = [];
+  return {
+    _mutations: mutations,
+    _queries: queries,
+    client: {
+      mutation: async (name, args = {}) => {
+        mutations.push({ name, args });
+        if (name === "bot_writes:botClaimBackup") return { ok: true };
+        return { ok: true };
+      },
+      query: async (name, args = {}) => {
+        queries.push({ name, args });
+        if (opts.onQuery) return opts.onQuery(name, args);
+        return null;
+      },
+      action: async () => ({ ok: true }),
+    },
+    getConfig: async () => ({ logChannelId: opts.logChannelId ?? "log-ch-1" }),
+  };
+}
+
+function makeGuild({ failChannelSend = false, noChannel = false } = {}) {
+  const sent = [];
+  const channelById = (id) => ({
+    id,
+    name: id === "log-ch-1" ? "log" : id,
+    type: 0,
+    isTextBased: () => !noChannel,
+    send: async () => {
+      if (failChannelSend) throw new Error("Missing Permissions");
+      sent.push(1);
+      return { id: "msg-1", react: async () => {}, edit: async () => {} };
+    },
+    messages: { fetch: async () => ({ edit: async () => {} }) },
+    guild: null,
+  });
+  const guild = {
+    id: "999888777666555444",
+    name: "Server Test",
+    available: true,
+    members: { fetch: async () => ({ user: { username: "u" } }) },
+    channels: {
+      cache: new Map(),
+      create: async () => channelById("nc1"),
+      fetch: async (id) => channelById(id),
+    },
+    roles: { cache: new Map(), create: async () => ({ id: "nr1", setPosition: async () => {} }) },
+  };
+  guild.channels.fetch = async () => (noChannel ? null : channelById("ch-1"));
+  return {
+    client: {
+      guilds: { cache: new Map([[guild.id, guild]]) },
+      // Verify panel dùng client.channels.fetch — mock cùng hành vi guild.channels.fetch.
+      channels: { fetch: async () => (noChannel ? null : channelById("ch-1")) },
+      users: { fetch: async () => ({ id: "u1", tag: "u#1", send: async () => { throw new Error("Cannot send messages to this user"); } }) },
+    },
+    guild,
+    sent,
+  };
+}
+
+// 1️⃣ BACKUP lỗi → botReportBackupError (không phải botClearBackup im lặng)
+(async () => {
+{
+  const store = makeStore();
+  const { client } = makeGuild({ noChannel: true });
+  // snapshotWithSettings sẽ ném vì guild.channels.fetch trả null (kênh cache trống + bot không fetch được).
+  await tick.runBackupJobs(client, store, [{ kind: "backup", guildId: "999888777666555444", pushToGithub: false, includeMessages: false }]);
+  const rep = last(store._mutations, "bot_writes:botReportBackupError");
+  const cleared = store._mutations.find((m) => m.name === "bot_writes:botClearBackup" && m.args.kind === "backup");
+  check("backup lỗi → botReportBackupError được gọi với lý do", !!rep && typeof rep.args.error === "string" && rep.args.error.length > 0);
+  check("backup lỗi → KHÔNG xóa cờ im lặng bằng botClearBackup", !cleared);
+}
+
+// 2️⃣ RESTORE lỗi → botReportRestoreError (chống regress)
+{
+  const store = makeStore();
+  const { client } = makeGuild();
+  await tick.runBackupJobs(client, store, [
+    { kind: "restore", guildId: "999888777666555444", backupId: "bk1", backupJson: "z:not-valid-json-at-all", guildName: "X" },
+  ]);
+  const rep = last(store._mutations, "bot_writes:botReportRestoreError");
+  check("restore lỗi → botReportRestoreError với lý do", !!rep && typeof rep.args.error === "string");
+}
+
+// 3️⃣ IMPORT lỗi → botReportImportError (chống regress)
+{
+  const store = makeStore();
+  const { client } = makeGuild();
+  await tick.runBackupJobs(client, store, [
+    { kind: "import", guildId: "999888777666555444", fileName: "bad.msc", fileContent: "không phải json" },
+  ]);
+  const rep = last(store._mutations, "bot_writes:botReportImportError");
+  check("import lỗi → botReportImportError với lý do", !!rep && typeof rep.args.error === "string");
+}
+
+// 4️⃣ PANEL lỗi gửi → botReportPanelError
+{
+  const store = makeStore();
+  const { client } = makeGuild({ noChannel: true });
+  await hidden.processHiddenJobsData(client, store, [
+    {
+      guildId: "999888777666555444",
+      panels: [{ _id: "p1", channelId: "ch-1", label: "Roles", description: null, thumbnailUrl: null, entries: [], messageId: "" }],
+      giveaways: [],
+      dmRequested: false,
+      defaultWebhook: null,
+    },
+  ]);
+  const rep = last(store._mutations, "hidden:botReportPanelError");
+  check("panel lỗi kênh → botReportPanelError với lý do", !!rep && typeof rep.args.error === "string" && rep.args.error.length > 0);
+  check("panel lỗi → KHÔNG gọi panelPosted (không đánh dấu đã gửi)", !store._mutations.some((m) => m.name === "hidden:panelPosted"));
+}
+
+// 5️⃣ GIVEAWAY lỗi gửi → botReportGiveawayError(phase=post)
+{
+  const store = makeStore();
+  const { client } = makeGuild({ noChannel: true });
+  await hidden.processHiddenJobsData(client, store, [
+    {
+      guildId: "999888777666555444",
+      panels: [],
+      giveaways: [{ _id: "g1", channelId: "ch-1", title: "Test", prize: "1$", winnerCount: 1, endsAt: Date.now() + 3600_000, status: "active", messageId: "", entries: [], dmWinners: false }],
+      dmRequested: false,
+      defaultWebhook: null,
+    },
+  ]);
+  const rep = last(store._mutations, "hidden:botReportGiveawayError");
+  check("giveaway lỗi kênh → botReportGiveawayError phase=post", !!rep && rep.args.phase === "post" && typeof rep.args.error === "string");
+  check("giveaway lỗi → KHÔNG gọi giveawayPosted", !store._mutations.some((m) => m.name === "hidden:giveawayPosted"));
+}
+
+// 6️⃣ GIVEAWAY lỗi KẾT THÚC → báo lỗi phase=end nhưng VẪN chốt winners
+{
+  const store = makeStore();
+  const { client } = makeGuild({ failChannelSend: true });
+  const gw = {
+    _id: "g2",
+    channelId: "ch-1",
+    title: "Test End",
+    prize: "1$",
+    winnerCount: 1,
+    endsAt: Date.now() - 1000,
+    status: "active",
+    messageId: "m1",
+    entries: [{ userId: "u1", username: "u1" }],
+    dmWinners: false,
+    prizeRoleId: null,
+  };
+  // Gọi trực tiếp endGiveaway qua job (messageId có sẵn + đã hết hạn).
+  await hidden.processHiddenJobsData(client, store, [
+    { guildId: "999888777666555444", panels: [], giveaways: [gw], dmRequested: false, defaultWebhook: null },
+  ]);
+  const rep = last(store._mutations, "hidden:botReportGiveawayError");
+  check("giveaway lỗi kết thúc → botReportGiveawayError phase=end", !!rep && rep.args.phase === "end");
+  const ended = last(store._mutations, "hidden:giveawayEnd");
+  check("giveaway lỗi hiển thị → VẪN chốt winners (không bỏ trao thưởng)", !!ended && Array.isArray(ended.args.winners) && ended.args.winners.length === 1);
+}
+
+// 7️⃣ DM lỗi → botReportDmError; thành công → botClearDm
+{
+  const store = makeStore({
+    onQuery: (name) => {
+      if (name === "hidden:getBotHidden") {
+        return { guildId: "999888777666555444", dmRequested: true, dmTargetUserId: "u1", dmTargetUsername: "u", dmMessage: "hi" };
+      }
+      return null;
+    },
+  });
+  const { client } = makeGuild(); // users.fetch().send ném "Cannot send messages to this user"
+  await hidden.processHiddenJobsData(client, store, [
+    { guildId: "999888777666555444", panels: [], giveaways: [], dmRequested: true, defaultWebhook: null },
+  ]);
+  const rep = last(store._mutations, "hidden:botReportDmError");
+  check("DM lỗi → botReportDmError với lý do", !!rep && typeof rep.args.error === "string" && rep.args.error.length > 0);
+  check("DM lỗi → KHÔNG xóa DM như thể đã gửi", !store._mutations.some((m) => m.name === "hidden:botClearDm"));
+}
+
+// 8️⃣ VERIFY PANEL lỗi → clearVerifySendPanel({error}); thành công → clear sạch
+{
+  const store = makeStore();
+  const { client } = makeGuild({ noChannel: true });
+  await hidden.processVerifyPanelItems(client, store, [
+    { guildId: "999888777666555444", verifyChannelId: "ch-1", unverifiedRoleId: "r1", verifiedRoleId: "r2", verifyMethod: "button" },
+  ]);
+  const rep = last(store._mutations, "guilds:clearVerifySendPanel");
+  check("verify panel lỗi kênh → clearVerifySendPanel kèm error", !!rep && typeof rep.args.error === "string" && rep.args.error.length > 0);
+
+  // Thiếu role → cũng phải báo lỗi rõ ràng (trước đây chỉ console.warn + im lặng).
+  const store2 = makeStore();
+  const { client: c2 } = makeGuild();
+  await hidden.processVerifyPanelItems(c2, store2, [
+    { guildId: "999888777666555444", verifyChannelId: "ch-1", unverifiedRoleId: null, verifiedRoleId: null, verifyMethod: "button" },
+  ]);
+  const rep2 = last(store2._mutations, "guilds:clearVerifySendPanel");
+  check("verify thiếu role → clearVerifySendPanel kèm error hướng dẫn", !!rep2 && typeof rep2.args.error === "string" && /role/i.test(rep2.args.error));
+}
+
+console.log(`\n${pass} pass, ${fail} fail`);
+process.exit(fail > 0 ? 1 : 0);
+})();

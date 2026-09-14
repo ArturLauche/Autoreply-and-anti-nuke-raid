@@ -187,6 +187,12 @@ export interface GuildData {
     verifyWelcomeDescription: string | null;
     verifyWelcomeColor: string | null;
     verifySendPanel: boolean;
+    /** Lỗi gửi panel xác minh gần nhất (bot báo lại — hiển thị thay vì im lặng). */
+    verifyPanelError: string | null;
+    verifyPanelErrorAt: number | null;
+    /** Lỗi gửi DM trực tiếp gần nhất (bot báo lại — hiển thị thay vì im lặng). */
+    dmError: string | null;
+    dmErrorAt: number | null;
   };
   heatStates: HeatState[];
   autoReplies: AutoReply[];
@@ -208,6 +214,9 @@ export interface ReactionRolePanel {
   thumbnailUrl: string | null;
   entries: { emoji: string; roleId: string }[];
   messageId: string;
+  /** Lỗi gửi panel gần nhất (bot báo lại — hiển thị thay vì treo "đang gửi"). */
+  postError?: string | null;
+  postErrorAt?: number | null;
   enabled: boolean;
   createdAt: number;
 }
@@ -313,6 +322,12 @@ export interface Giveaway {
   endMessage: string | null;
   status: "active" | "ended" | "cancelled";
   messageId: string;
+  /** Lỗi gửi bảng giveaway gần nhất (bot báo lại — hiển thị thay vì treo "đang gửi"). */
+  postError?: string | null;
+  postErrorAt?: number | null;
+  /** Lỗi khi kết thúc giveaway (cập nhật bảng/trao thưởng) — winners vẫn được chốt. */
+  endError?: string | null;
+  endErrorAt?: number | null;
   entriesCount: number;
   winners: { userId: string; username: string }[];
   createdAt: number;

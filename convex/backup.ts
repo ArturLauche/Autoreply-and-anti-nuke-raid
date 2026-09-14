@@ -113,6 +113,9 @@ export const requestBackup = mutation({
       backupPushToGithub: !!pushToGithub,
       backupIncludeMessages: !!includeMessages,
       backupClaimedAt: undefined,
+      // Yêu cầu mới = lần thử lại → xóa lỗi lượt trước (nếu có).
+      backupError: undefined,
+      backupErrorAt: undefined,
       updatedAt: Date.now(),
     });
     return { ok: true };
@@ -272,6 +275,10 @@ export const importStatus = query({
       restoreError: guild.restoreError ?? null,
       restoreErrorAt: guild.restoreErrorAt ?? null,
       restoreFinishedAt: guild.restoreFinishedAt ?? null,
+      // Trạng thái backup chủ động — bot báo lỗi (thiếu quyền, kick…) thay vì im lặng.
+      backupRequested: !!guild.backupRequested,
+      backupError: guild.backupError ?? null,
+      backupErrorAt: guild.backupErrorAt ?? null,
       updatedAt: guild.updatedAt,
       botOnline,
       botVersion: status?.version ?? null,

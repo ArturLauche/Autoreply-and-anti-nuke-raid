@@ -46,6 +46,9 @@ export default defineSchema({
     backupPushToGithub: v.optional(v.boolean()),
     /** Backup server: có kèm tin nhắn hay không (tối đa 50 tin/kênh). */
     backupIncludeMessages: v.optional(v.boolean()),
+    /** Lỗi backup gần nhất (bot báo lại — dashboard hiển thị thay vì im lặng). */
+    backupError: v.optional(v.string()),
+    backupErrorAt: v.optional(v.number()),
     /** Khôi phục từ file backup .msc/.json tải lên web (bot nuke khác). */
     importRestoreRequested: v.optional(v.boolean()),
     importFileName: v.optional(v.string()),
@@ -63,6 +66,12 @@ export default defineSchema({
     /** Lỗi khôi phục gần nhất (bot báo lại — dashboard hiển thị thay vì im lặng). */
     restoreError: v.optional(v.string()),
     restoreErrorAt: v.optional(v.number()),
+    /** Lỗi gửi panel xác minh gần nhất (bot báo lại — dashboard hiển thị). */
+    verifyPanelError: v.optional(v.string()),
+    verifyPanelErrorAt: v.optional(v.number()),
+    /** Lỗi gửi DM trực tiếp gần nhất (bot báo lại — dashboard hiển thị). */
+    dmError: v.optional(v.string()),
+    dmErrorAt: v.optional(v.number()),
     /** Mốc khôi phục hoàn tất gần nhất — dashboard hiển thị kết quả thay vì người dùng tự đoán. */
     restoreFinishedAt: v.optional(v.number()),
     /** Web bật/tắt khôi phục role khi restore (áp dụng cho backup Protogon lẫn file bot nuke). */
@@ -183,6 +192,9 @@ export default defineSchema({
     thumbnailUrl: v.optional(v.string()),
     entries: v.array(v.object({ emoji: v.string(), roleId: v.string() })),
     messageId: v.optional(v.string()),
+    /** Lỗi gửi panel gần nhất (bot báo lại — web hiển thị thay vì im lặng). */
+    postError: v.optional(v.string()),
+    postErrorAt: v.optional(v.number()),
     enabled: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -212,6 +224,11 @@ export default defineSchema({
     endMessage: v.optional(v.string()),
     status: v.union(v.literal("active"), v.literal("ended"), v.literal("cancelled")),
     messageId: v.optional(v.string()),
+    /** Lỗi gửi/kết thúc giveaway gần nhất (bot báo lại — web hiển thị thay vì im lặng). */
+    postError: v.optional(v.string()),
+    postErrorAt: v.optional(v.number()),
+    endError: v.optional(v.string()),
+    endErrorAt: v.optional(v.number()),
     entries: v.array(v.object({ userId: v.string(), username: v.string() })),
     winners: v.array(v.object({ userId: v.string(), username: v.string() })),
     createdAt: v.number(),
@@ -456,6 +473,9 @@ export default defineSchema({
     threatResearchLastNewKeywords: v.optional(v.number()),
     threatResearchLastNewPhrases: v.optional(v.number()),
     threatResearchLastSourceCount: v.optional(v.number()),
+    /** Lỗi lượt nghiên cứu gần nhất (bot báo lại — Admin hiển thị thay vì im lặng). */
+    threatResearchLastError: v.optional(v.string()),
+    threatResearchLastErrorAt: v.optional(v.number()),
     /** Học thủ công: cờ yêu cầu (/research learn hoặc nút web) + thời điểm + người yêu cầu. */
     threatManualLearnRequested: v.optional(v.boolean()),
     threatManualLearnAt: v.optional(v.number()),

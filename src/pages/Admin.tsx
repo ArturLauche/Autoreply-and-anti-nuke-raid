@@ -389,6 +389,8 @@ function ThreatIntelCard({
         manualPending?: boolean;
         manualLastAt?: number | null;
         manualLastBy?: string | null;
+        lastError?: string | null;
+        lastErrorAt?: number | null;
       }
     | undefined
     | null;
@@ -469,6 +471,19 @@ function ThreatIntelCard({
         học từ khóa scam mới và dùng MIỄN PHÍ vĩnh viễn trong bộ lọc link độc hại.
         Từ khóa sai có thể bấm xóa bên dưới. Chi phí: gần như 0 — không cần key thêm.
       </p>
+
+      {/* Lỗi lượt học gần nhất — bot báo lại thay vì treo "Bot đang học…" vĩnh viễn */}
+      {threat?.lastError && (
+        <div className="mt-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+          <p className="font-semibold">⚠️ Lượt học gần nhất thất bại</p>
+          <p className="mt-0.5 opacity-90">{threat.lastError}</p>
+          {threat.lastErrorAt ? (
+            <p className="mt-0.5 opacity-70">
+              {new Date(threat.lastErrorAt).toLocaleString("vi-VN")} — bấm "Học ngay" để thử lại
+            </p>
+          ) : null}
+        </div>
+      )}
 
       <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
         <input

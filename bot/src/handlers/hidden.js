@@ -114,35 +114,53 @@ async function onReaction(client, store, reaction, user, removed) {
 
 /** Gửi bảng reaction role ra kênh. */
 async function postPanel(client, store, panel) {
-  const channel = await client.channels.fetch(panel.channelId);
-  if (!channel?.isTextBased()) return;
-  const embed = new EmbedBuilder()
-    .setColor(HIDDEN_COLOR)
-    .setTitle(panel.label)
-    .setDescription(
-      panel.description || "Chọn emoji bên dưới để nhận role 🌸\nBấm lại lần nữa để gỡ role.",
-    )
-    .setFooter({ text: "Protogon · Reaction Role" });
-  if (panel.thumbnailUrl) embed.setThumbnail(panel.thumbnailUrl);
-  for (const e of panel.entries) {
-    const emoji = await resolveEmoji(client, e.emoji);
-    if (emoji) {
-      embed.addFields({
-        name: typeof emoji === "string" ? emoji : emoji.toString(),
-        value: `<@&${e.roleId}>`,
-        inline: true,
-      });
+  try {
+    const channel = await client.channels.fetch(panel.channelId);
+    if (!channel?.isTextBased()) {
+      throw new Error(
+        `Kênh <#${panel.channelId}> không tồn tại hoặc bot không xem được — hãy chọn kênh khác trên dashboard`,
+      );
     }
+    const embed = new EmbedBuilder()
+      .setColor(HIDDEN_COLOR)
+      .setTitle(panel.label)
+      .setDescription(
+        panel.description || "Chọn emoji bên dưới để nhận role 🌸\nBấm lại lần nữa để gỡ role.",
+      )
+      .setFooter({ text: "Protogon · Reaction Role" });
+    if (panel.thumbnailUrl) embed.setThumbnail(panel.thumbnailUrl);
+    for (const e of panel.entries) {
+      const emoji = await resolveEmoji(client, e.emoji);
+      if (emoji) {
+        embed.addFields({
+          name: typeof emoji === "string" ? emoji : emoji.toString(),
+          value: `<@&${e.roleId}>`,
+          inline: true,
+        });
+      }
+    }
+    const msg = await channel.send({ embeds: [embed] });
+    for (const e of panel.entries) {
+      const emoji = await resolveEmoji(client, e.emoji);
+      if (emoji) await msg.react(emoji).catch(() => {});
+    }
+    await store.client.mutation("hidden:panelPosted", {
+      panelId: panel._id,
+      messageId: msg.id,
+    });
+  } catch (e) {
+    // Báo lỗi về dashboard (trừ lỗi mutation thông báo chính nó) — người dùng
+    // thấy lý do thay vì panel treo "đang gửi" mãi không rõ.
+    if (!/hidden:panelPosted/.test(String(e?.message))) {
+      await store.client
+        .mutation("hidden:botReportPanelError", {
+          panelId: panel._id,
+          error: String(e?.message || "Lỗi không xác định").slice(0, 300),
+        })
+        .catch(() => {});
+    }
+    throw e;
   }
-  const msg = await channel.send({ embeds: [embed] });
-  for (const e of panel.entries) {
-    const emoji = await resolveEmoji(client, e.emoji);
-    if (emoji) await msg.react(emoji).catch(() => {});
-  }
-  await store.client.mutation("hidden:panelPosted", {
-    panelId: panel._id,
-    messageId: msg.id,
-  });
 }
 
 /** Mẫu tin nhắn giveaway — đổi lời chào, màu, footer theo lựa chọn. */
@@ -183,9 +201,14 @@ function templateOf(giveaway) {
 
 /** Gửi giveaway ra kênh. */
 async function postGiveaway(client, store, giveaway) {
-  const channel = await client.channels.fetch(giveaway.channelId);
-  if (!channel?.isTextBased()) return;
-  const t = templateOf(giveaway);
+  try {
+    const channel = await client.channels.fetch(giveaway.channelId);
+    if (!channel?.isTextBased()) {
+      throw new Error(
+        `Kênh <#${giveaway.channelId}> không tồn tại hoặc bot không xem được — hãy chọn kênh khác trên dashboard`,
+      );
+    }
+    const t = templateOf(giveaway);
   const embed = new EmbedBuilder()
     .setColor(t.color)
     .setTitle(`${t.emoji} ${t.header} — ${giveaway.title}`)
@@ -221,6 +244,18 @@ async function postGiveaway(client, store, giveaway) {
     giveawayId: giveaway._id,
     messageId: msg.id,
   });
+  } catch (e) {
+    if (!/hidden:giveawayPosted/.test(String(e?.message))) {
+      await store.client
+        .mutation("hidden:botReportGiveawayError", {
+          giveawayId: giveaway._id,
+          phase: "post",
+          error: String(e?.message || "Lỗi không xác định").slice(0, 300),
+        })
+        .catch(() => {});
+    }
+    throw e;
+  }
 }
 
 /** Kết thúc giveaway hết hạn: chọn người thắng, thông báo, cấp role, DM nếu bật. */
@@ -261,6 +296,15 @@ async function endGiveaway(client, store, giveaway) {
       }
     }
   } catch (e) {
+    // Báo lỗi kết thúc lên dashboard (webhook/bảng tin có thể đã bị xóa) nhưng
+    // VẪN chốt người thắng bên dưới — không bỏ trao thưởng vì lỗi hiển thị.
+    await store.client
+      .mutation("hidden:botReportGiveawayError", {
+        giveawayId: giveaway._id,
+        phase: "end",
+        error: String(e?.message || "Lỗi không xác định").slice(0, 300),
+      })
+      .catch(() => {});
     console.error(`[hidden:giveaway end ${giveaway._id}]`, e.message);
   }
 
@@ -299,6 +343,7 @@ async function endGiveaway(client, store, giveaway) {
 
 /** Gửi DM trực tiếp theo yêu cầu của admin. */
 async function sendDirectDm(client, store, guildId) {
+  let dmFailed = null;
   try {
     const hidden = await store.client.query("hidden:getBotHidden", { guildId });
     if (!hidden || !hidden.dmRequested || !hidden.dmTargetUserId || !hidden.dmMessage) return;
@@ -306,10 +351,20 @@ async function sendDirectDm(client, store, guildId) {
     await user.send(hidden.dmMessage);
     console.log(`✅ Đã gửi DM tới ${user.tag}`);
   } catch (e) {
+    // Lưu lý do để báo về dashboard trong finally (người dùng thấy vì sao
+    // "đã bấm gửi DM" nhưng người nhận không có gì).
+    dmFailed = String(e?.message || "Lỗi không xác định");
     console.error(`[hidden:dm ${guildId}]`, e.message);
   } finally {
     try {
-      await store.client.mutation("hidden:botClearDm", { guildId });
+      if (dmFailed) {
+        await store.client.mutation("hidden:botReportDmError", {
+          guildId,
+          error: dmFailed.slice(0, 300),
+        });
+      } else {
+        await store.client.mutation("hidden:botClearDm", { guildId });
+      }
     } catch {}
   }
 }
@@ -329,14 +384,16 @@ async function processVerifyPanelItems(client, store, items) {
       }
       const channel = await client.channels.fetch(item.verifyChannelId).catch(() => null);
       if (!channel?.isTextBased()) {
-        console.warn(`[hidden:verifyPanel] ${item.guildId}: kênh verify không tồn tại hoặc không phải kênh text`);
-        continue;
+        throw new Error(
+          "Kênh xác minh không tồn tại hoặc bot không xem được — hãy chọn kênh khác trên dashboard",
+        );
       }
       // Panel chỉ hữu ích khi đã setup đủ 2 role — thiếu thì bỏ qua (không gửi
       // nút bấm sẽ báo lỗi "Chưa cấu hình role xác minh" cho thành viên).
       if (!item.unverifiedRoleId || !item.verifiedRoleId) {
-        console.warn(`[hidden:verifyPanel] ${item.guildId}: thiếu role unverified/verified — bỏ qua panel`);
-        continue;
+        throw new Error(
+          "Chưa cấu hình đủ 2 role xác minh (chưa xác minh/đã xác minh) — hãy chọn role trong phần Xác minh trước",
+        );
       }
       const method = item.verifyMethod === "captcha" ? "captcha" : "button";
       const embed = new EmbedBuilder()
@@ -363,13 +420,20 @@ async function processVerifyPanelItems(client, store, items) {
       console.log(`[hidden:verifyPanel] ${item.guildId}: đã gửi panel xác minh (${method}) tới #${channel.name}`);
     } catch (e) {
       console.error(`[hidden:verifyPanel] ${item.guildId}:`, e.message);
-    } finally {
-      // Luôn xóa cờ để không gửi lặp lại mỗi 30s (kể cả khi gửi thất bại
-      // vì kênh/role bị xóa — user sẽ bấm lại nút trên dashboard).
+      // Báo lý do lên dashboard — người dùng bấm "Gửi panel" xong sẽ thấy lỗi
+      // cụ thể thay vì im lặng (kênh xóa, thiếu role…).
       await store.client
-        .mutation("guilds:clearVerifySendPanel", { guildId: item.guildId })
+        .mutation("guilds:clearVerifySendPanel", {
+          guildId: item.guildId,
+          error: String(e?.message || "Lỗi không xác định").slice(0, 300),
+        })
         .catch(() => {});
+      continue;
     }
+    // Thành công: xóa cờ + xóa lỗi cũ.
+    await store.client
+      .mutation("guilds:clearVerifySendPanel", { guildId: item.guildId })
+      .catch(() => {});
   }
 }
 

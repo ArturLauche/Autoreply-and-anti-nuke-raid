@@ -794,6 +794,8 @@ export const botClearBackup = mutation({
       patch.backupRequested = false;
       patch.backupPushToGithub = false;
       patch.backupClaimedAt = undefined;
+      patch.backupError = undefined;
+      patch.backupErrorAt = undefined;
       // Backup đã xử lý xong (kể cả trường hợp bỏ qua vì checksum trùng) —
       // cập nhật mốc để botGetDueAuto không kích hoạt lại tức thì (chống lặp/spam).
       // Store thất bại → KHÔNG cập nhật, để bot thử lại ở vòng quét sau.
@@ -822,6 +824,34 @@ export const botClearBackup = mutation({
       patch.restoreFinishedAt = Date.now();
     }
     await ctx.db.patch(guild._id, patch);
+    return { ok: true };
+  },
+});
+
+/**
+ * Bot báo lỗi backup (chụp snapshot thất bại — bot thiếu quyền/không còn trong
+ * server) — dashboard hiển thị lý do thay vì im lặng. Giữ `lastBackupAt` KHÔNG
+ * đổi để lịch tự động có thể thử lại ở vòng sau.
+ */
+export const botReportBackupError = mutation({
+  args: { guildId: v.string(), error: v.string(),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()), },
+  handler: async (ctx, { botKey, guildId, error }) => {
+    await requireBotKeyStrict(ctx, botKey);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) return { ok: true };
+    await ctx.db.patch(guild._id, {
+      backupRequested: false,
+      backupPushToGithub: false,
+      backupClaimedAt: undefined,
+      backupError: String(error || "Lỗi không xác định").slice(0, 300),
+      backupErrorAt: Date.now(),
+      updatedAt: Date.now(),
+    });
     return { ok: true };
   },
 });
