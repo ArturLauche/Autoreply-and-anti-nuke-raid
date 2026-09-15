@@ -190,6 +190,22 @@ class ConvexStore {
     this.cache.delete(guildId);
   }
 
+  /**
+   * Dọn cache config của guild đã rời (memGuard gọi định kỳ — Đợt 7). Guild rời
+   * thì không bao giờ getConfig nữa nhưng cache vẫn giữ config cũ mãi. Trả về
+   * số entry đã dọn.
+   */
+  pruneCache(liveGuildIds) {
+    let removed = 0;
+    for (const guildId of [...this.cache.keys()]) {
+      if (!liveGuildIds.has(guildId)) {
+        this.cache.delete(guildId);
+        removed++;
+      }
+    }
+    return removed;
+  }
+
   /** Send health check heartbeat to Convex. */
   async sendHeartbeat(guildCount, memberCount) {
     try {

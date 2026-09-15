@@ -198,6 +198,34 @@ class HeatTracker {
     return Math.max(0, Math.round(entry.heat - elapsedMin * s.decayPerMin));
   }
 
+  /**
+   * Dọn entry nguội của guild im lặng (memGuard gọi định kỳ). flushGuild chỉ
+   * dọn guild CÓ vi phạm mới — guild im lặng lâu ngày vẫn giữ entry cũ mãi.
+   * Trả về số entry đã dọn.
+   */
+  sweepCold() {
+    let removed = 0;
+    for (const [key, entry] of this.states) {
+      // Entry nguội hoàn toàn và không còn trong cửa sổ tái phạm → bỏ.
+      // Cửa sổ dùng trần cấu hình cho phép (1440 phút) — không đọc config từng
+      // guild (tốn call); guild nào có entry nóng thì flushGuild tự giữ đúng.
+      const heat = Math.max(0, Math.round(entry.heat - (Date.now() - entry.updatedAt) / MIN_MS));
+      if (heat > 0) continue;
+      if (entry.lastPunishedAt && Date.now() - entry.lastPunishedAt < 1440 * MIN_MS) continue;
+      this.states.delete(key);
+      this.warned.delete(key);
+      removed++;
+    }
+    // Strikes: hết cửa sổ 60 phút (mặc định) thì không còn ý nghĩa tích lũy.
+    for (const [key, st] of this.strikes) {
+      if (Date.now() - st.firstAt > 60 * MIN_MS) {
+        this.strikes.delete(key);
+        removed++;
+      }
+    }
+    return removed;
+  }
+
   /** Nhiệt độ hiệu dụng (đã trừ decay) của một thành viên. */
   getHeat(guildId, userId, s) {
     const key = this._key(guildId, userId);

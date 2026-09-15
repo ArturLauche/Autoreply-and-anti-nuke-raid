@@ -913,6 +913,31 @@ setInterval(
   60 * 60 * 1000,
 );
 
+/**
+ * Dọn dữ liệu của guild bot đã rời (memGuard gọi định kỳ): burstTracker giữ
+ * { joins: [...] } mãi cho guild đã kick bot; voiceIpMap/ipToUsers của guild
+ * rời chỉ được dọn theo TUỔI dữ liệu (24h) chứ không theo guild.
+ * liveGuildIds là Set discordId hiện tại của client — truyền từ index.js.
+ * Trả về số Map con đã dọn.
+ */
+function sweepStaleGuilds(liveGuildIds) {
+  let removed = 0;
+  for (const guildId of burstTracker.keys()) {
+    if (!liveGuildIds.has(guildId)) {
+      burstTracker.delete(guildId);
+      removed++;
+    }
+  }
+  for (const guildId of [...voiceIpMap.keys()]) {
+    if (!liveGuildIds.has(guildId)) {
+      voiceIpMap.delete(guildId);
+      ipToUsers.delete(guildId);
+      removed++;
+    }
+  }
+  return removed;
+}
+
 module.exports = {
   analyzeNewMember,
   executePunishment,
@@ -929,4 +954,6 @@ module.exports = {
   trackJoinForBurst,
   // Upgrade C: Auto-scan
   scanGuildForAlts,
+  // Đợt 7: dọn guild đã rời (memGuard)
+  sweepStaleGuilds,
 };

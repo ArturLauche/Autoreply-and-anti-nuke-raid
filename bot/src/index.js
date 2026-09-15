@@ -26,8 +26,9 @@ const guildSync = require("./handlers/guildSync");
 const onMessageCreate = require("./handlers/messageCreate");
 const onInteractionCreate = require("./handlers/interactionCreate");
 const joinGate = require("./handlers/joinGate");
-const { scanGuildForAlts } = require("./altDetection");
+const { scanGuildForAlts, sweepStaleGuilds } = require("./altDetection");
 const webhookHub = require("./webhookHub");
+const { registerSweeper, startMemGuard } = require("./memGuard");
 
 // --- Client config: full-featured for powerful VPS ---
 const client = new Client({
@@ -59,6 +60,25 @@ const client = new Client({
 
 const store = new ConvexStore();
 const heat = new HeatTracker(client, store);
+
+// --- memGuard (Đợt 7): đăng ký sweeper cho các vùng bộ nhớ BỊ LỠ trước đây.
+// Vùng nóng đã có sweeper riêng (state.js 20s, timeoutWatch, altDetection 1h…)
+// — không đăng ký lại. registerSweeper phải chạy trước clientReady để vòng đầu
+// không bỏ sót guild.
+registerSweeper("heat-states", () => heat.sweepCold());
+registerSweeper("alt-guilds", () => sweepStaleGuilds(new Set(client.guilds.cache.keys())));
+registerSweeper("config-cache", () => store.pruneCache(new Set(client.guilds.cache.keys())));
+registerSweeper("voice-presence", () => {
+  let removed = 0;
+  const live = new Set(client.guilds.cache.keys());
+  for (const guildId of [...voicePresenceMap.keys()]) {
+    if (!live.has(guildId)) {
+      voicePresenceMap.delete(guildId);
+      removed++;
+    }
+  }
+  return removed;
+});
 
 client.once("clientReady", async () => {
   console.log(`✅ Protogon đã online: ${client.user.tag} — ${client.guilds.cache.size} server`);
@@ -205,7 +225,10 @@ client.once("clientReady", async () => {
   }, 5 * 60_000);
   heartbeatInterval.unref();
 
-  // Memory monitoring — mỗi 30 phút (nhẹ nhàng)
+  // Memory monitoring — mỗi 30 phút (nhẹ nhàng) + khởi động memGuard sweeper
+  // (Đợt 7: dọn các vùng bộ nhớ bị lỡ — heat nguội, guild đã rời, cache cũ).
+  const stopMemGuard = startMemGuard(10 * 60_000);
+  void stopMemGuard; // giữ tham chiếu — không dùng trong production
   const memMonitorInterval = setInterval(
     () => {
       const mem = process.memoryUsage();
