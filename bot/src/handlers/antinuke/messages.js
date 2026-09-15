@@ -8,6 +8,7 @@ const { punishMember } = require("../../heat");
 const { actionsOf, cleanupMessages } = require("../../moduleActions");
 const { emergencyRaidAlert } = require("../incidentReport");
 const { MODULE_LABELS, isExempt, LONG_MSG_LEN, ZERO_WIDTH_RE } = require("./shared");
+const relayClient = require("../../relayClient");
 
 module.exports = function createAntiNukeLayer({
   client,
@@ -115,6 +116,11 @@ module.exports = function createAntiNukeLayer({
           reason,
           lockdownActive: isLocked(message.guild.id),
         }).catch(() => {});
+        // Threat Relay (Đợt 6): đóng góp signature raid massMessage (fire-and-forget).
+        relayClient.reportSignatureBatch(message.guild.id, "spam-text", samples);
+        // Threat Relay (Đợt 6): đóng góp signature raid cho toàn mạng (fire-and-
+        // forget; Convex kiểm guild có bật relayShare — không thì bỏ qua).
+        relayClient.reportSignatureBatch(message.guild.id, "spam-text", samples);
       } else if (isBenign) {
         // Dương tính giả: chỉ xóa tin nhắn, không phạt, không cộng nhiệt.
         action = "bỏ qua (AI: benign)";
@@ -256,6 +262,8 @@ module.exports = function createAntiNukeLayer({
       action = res.action;
       caseNumber = res.caseNumber;
       await maybeLockdown(message.guild, config);
+      // Threat Relay (Đợt 6): đóng góp signature raid spam (fire-and-forget).
+      relayClient.reportSignatureBatch(message.guild.id, "spam-text", samples);
     } else if (isBenign) {
       action = "bỏ qua (AI: benign)";
       chosen = "none";

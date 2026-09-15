@@ -64,6 +64,15 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
   const updateLockdown = useMutation(api.guilds.updateLockdown);
   const requestUnlock = useMutation(api.guilds.requestUnlock);
   const updateSettings = useMutation(api.guilds.updateSettings);
+  const applyPreset = useMutation(api.presets.applyPreset);
+  const setRelaySettings = useMutation(api.relay.setRelaySettings);
+  const relayStatus = useQuery(api.relay.relayStatus, {
+    token: TOKEN(),
+    guildId: data.guild.discordId,
+  });
+
+  const [presetApplying, setPresetApplying] = useState<string | null>(null);
+  const [confirmPreset, setConfirmPreset] = useState<string | null>(null);
 
   function configFor(module: string): ModuleConfig {
     const found = data.modules.find((m) => m.module === module);
@@ -100,6 +109,34 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
     try {
       await setGlobal({ token: TOKEN(), guildId: data.guild.discordId, enabled });
       toast.success(enabled ? "Đã bật toàn bộ chống nuke" : "Đã tắt toàn bộ chống nuke");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Thất bại");
+    }
+  }
+
+  async function doApplyPreset(key: string) {
+    setPresetApplying(key);
+    setConfirmPreset(null);
+    try {
+      const res = await applyPreset({
+        token: TOKEN(),
+        guildId: data.guild.discordId,
+        preset: key as "small" | "community" | "highrisk",
+      });
+      toast.success(
+        `Đã áp preset "${res.label}": ${res.modulesUpdated + res.modulesCreated} module`,
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Áp preset thất bại");
+    } finally {
+      setPresetApplying(null);
+    }
+  }
+
+  async function toggleRelay(field: "relayShare" | "relayReceive", value: boolean) {
+    try {
+      await setRelaySettings({ token: TOKEN(), guildId: data.guild.discordId, [field]: value });
+      toast.success(value ? "Đã bật chia sẻ threat relay" : "Đã tắt threat relay");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Thất bại");
     }
@@ -200,6 +237,104 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
           ⚠️ Chống nuke đang tắt toàn bộ. Server của bạn không được bảo vệ khỏi raid.
         </div>
       )}
+
+      {/* Preset 1-chạm + Threat Relay (Đợt 6) */}
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="p-5">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                <Crosshair className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-display font-semibold">Preset bảo mật 1 chạm</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Áp cấu hình tối ưu theo quy mô server. Whitelist của bạn được giữ nguyên.
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  {[
+                    { key: "small", name: "Server nhỏ", desc: "< 500 thành viên" },
+                    { key: "community", name: "Cộng đồng", desc: "500 – 10k" },
+                    { key: "highrisk", name: "Rủi ro cao", desc: "Trading / tài sản" },
+                  ].map((p) =>
+                    confirmPreset === p.key ? (
+                      <div key={p.key} className="flex items-center gap-1 sm:col-span-1">
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          className="flex-1 px-2"
+                          disabled={presetApplying !== null}
+                          onClick={() => doApplyPreset(p.key)}
+                        >
+                          {presetApplying === p.key ? "Đang áp…" : "Xác nhận"}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setConfirmPreset(null)}>
+                          ✕
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        key={p.key}
+                        size="sm"
+                        variant="secondary"
+                        className="h-auto flex-col items-start gap-0.5 px-3 py-2"
+                        disabled={presetApplying !== null}
+                        onClick={() => setConfirmPreset(p.key)}
+                      >
+                        <span className="text-xs font-semibold">{p.name}</span>
+                        <span className="text-[10px] font-normal text-muted-foreground">
+                          {p.desc}
+                        </span>
+                      </Button>
+                    ),
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-emerald-500/30 bg-emerald-500/5">
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
+                  <Database className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="font-display font-semibold">Threat relay liên server</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Chia sẻ chữ ký raid (ẩn danh) với server khác dùng bot — server của bạn được bảo
+                    vệ bởi kinh nghiệm toàn mạng.
+                  </p>
+                  {relayStatus && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Hiện có {relayStatus.activeSignatures} signature từ{" "}
+                      {relayStatus.distinctSources} nguồn
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm">Đóng góp signature (khi bị raid)</p>
+                <Switch
+                  checked={relayStatus?.relayShare ?? false}
+                  onCheckedChange={(v) => toggleRelay("relayShare", v)}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm">Nhận signature từ server khác</p>
+                <Switch
+                  checked={relayStatus?.relayReceive ?? false}
+                  onCheckedChange={(v) => toggleRelay("relayReceive", v)}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Khóa kênh + Raid Intel — 2 thẻ cạnh nhau trên màn hình rộng, không giãn ngang */}
       <div className="grid gap-4 xl:grid-cols-2">

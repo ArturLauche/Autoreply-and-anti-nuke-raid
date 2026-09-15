@@ -54,6 +54,11 @@ module.exports = function createAntiNukeLayer({ store, state, core, ai, raidInte
       const ageDays = user.createdAt
         ? Math.floor((Date.now() - user.createdAt) / 86_400_000)
         : null;
+      // Threat Relay (Đợt 6): đóng góp tên bot lạ (fire-and-forget — Convex kiểm
+      // relayShare; nhiều server cùng thấy 1 bot → weight tăng → mạng cảnh giác).
+      if (user.username) {
+        require("../../relayClient").reportSignature(guild.id, "bot-name", user.username);
+      }
       const perms = member.permissions;
       const flags = [];
       if (perms?.has?.(PermissionFlagsBits.Administrator)) flags.push("⚠️ Administrator");

@@ -75,6 +75,8 @@ jobs:
         run: bun run test:coverage
       - name: Sàn coverage theo file — engine bảo vệ không được tụt
         run: bun run coverage:floor
+      - name: Mutation test — mutants phải bị giết hết (test không lỏng)
+        run: bun run test:mutation
       - name: Tóm tắt coverage vào Job Summary
         if: always()
         run: |

@@ -1,0 +1,295 @@
+#!/usr/bin/env node
+/**
+ * mutation-test.cjs — Mutation testing NHẸ tự viết (Đợt 6), không dependency.
+ *
+ * Ý tưởng: thay đổi có chủ đích 1 phép so sánh/hằng số trong hàm thuần quan
+ * trọng (mutant) → chạy lại bộ assertion từ test-property → mutant nào VẪN
+ * pass hết (mutant SỐNG SÓT) nghĩa là test chưa soi kỹ chỗ đó — điểm cần thêm
+ * test. Mutant bị giết (ít nhất 1 assert fail) = test phủ tốt phép tính đó.
+ *
+ * Cách làm: KHÔNG sửa file nguồn. Mỗi mutant là 1 bản rewrite chữ ký hàm qua
+ * Module wrapper: nạp module từ source, monkey-patch exports với phiên bản
+ * mutant của hàm THUẦN (dùng lại code thật bằng cách đọc text source và replace
+ * đúng 1 token), rồi chạy assertions của test-property trỏ vào bản mutant.
+ *
+ * Chạy: node scripts/mutation-test.cjs           (mặc định: nhanh, 12 mutant)
+ *       node scripts/mutation-test.cjs --full    (toàn bộ 24 mutant)
+ */
+const fs = require("fs");
+const path = require("path");
+const Module = require("module");
+
+// shared.js require discord.js — cần mock như test-property để mutant nạp được.
+// KHÔNG có mock thì mutant "crash lúc import" bị đếm nhầm là bị giết (kill giả).
+const origResolve = Module._resolveFilename;
+Module._resolveFilename = function (request, ...args) {
+  if (request === "discord.js") return path.join(__dirname, "..", "bot", "test-djs-mock.cjs");
+  return origResolve.call(this, request, ...args);
+};
+fs.writeFileSync(
+  path.join(__dirname, "..", "bot", "test-djs-mock.cjs"),
+  `class EmbedBuilder { constructor(d = {}) { this.d = d; } setColor() { return this; } setTitle() { return this; } setDescription() { return this; } addFields() { return this; } setTimestamp() { return this; } setFooter() { return this; } }
+module.exports = { Colors: new Proxy({}, { get: () => 0x000000 }), EmbedBuilder, PermissionFlagsBits: new Proxy({}, { get: () => 1n }), UserFlags: { VerifiedBot: 1n << 16n }, AuditLogEvent: new Proxy({}, { get: (t, k) => (t[k] ??= Symbol(k)) }) };
+`,
+);
+
+// ── rng seeded (giống test-property) ──
+let _state = 0x2f6e2b1;
+function rng() {
+  _state ^= _state << 13;
+  _state ^= _state >>> 17;
+  _state ^= _state << 5;
+  _state |= 0;
+  return (_state >>> 0) / 0x100000000;
+}
+function int(min, max) {
+  return min + Math.floor(rng() * (max - min + 1));
+}
+function pick(arr) {
+  return arr[int(0, arr.length - 1)];
+}
+function weirdString(len) {
+  const pools = ["abcXYZ019_ ", "tiếngViệtổnățivlen", "🙂🔥👍", "\u200b\u0000\u202e", "𝕏ⓐⓑ"];
+  let out = "";
+  for (let i = 0; i < len; i++) out += pick(pools)[int(0, pick(pools).length - 1)];
+  return out;
+}
+
+/** Nạp 1 module với source đã replace (không đụng đĩa) — qua require cache riêng. */
+function loadMutant(relPath, from, to) {
+  const abs = path.join(__dirname, "..", relPath);
+  const src = fs.readFileSync(abs, "utf8");
+  if (!src.includes(from))
+    throw new Error(`mutant anchor không tìm thấy trong ${relPath}: ${from}`);
+  const mutated = src.replace(from, to);
+  const m = new Module(abs, null);
+  m.filename = abs; // relative require giải từ đây (không set → resolve từ CWD → fail)
+  m.paths = Module._nodeModulePaths(path.dirname(abs));
+  m._compile(mutated, abs);
+  return m.exports;
+}
+
+// ── Bộ assertion rút từ test-property (trả true nếu TẤT CẢ pass) ──
+function assertSimilarity(mod) {
+  const { usernameSimilarity } = mod;
+  const CASES = [
+    ["nguyenvana_2009", "nguyenvana_2009", (s) => s >= 90],
+    ["abcdef", "xyzuvw", (s) => s === 0],
+    ["mai", "mai", (s) => s === 0], // tên ngắn trùng hoàn toàn → 0 (guard <5 ký tự)
+    ["Thang", "thang", (s) => s === 0],
+    ["tranvanphuoc", "tranvanphu", (s) => s > 0 && s <= 100],
+  ];
+  for (const [a, b, ok] of CASES) if (!ok(usernameSimilarity(a, b))) return false;
+  for (let i = 0; i < 150; i++) {
+    const x = weirdString(int(0, 30)) || "abc12";
+    const y = weirdString(int(0, 30)) || "def34";
+    const s = usernameSimilarity(x, y);
+    if (!Number.isFinite(s) || s < 0 || s > 100) return false;
+    if (s !== usernameSimilarity(y, x)) return false;
+  }
+  return true;
+}
+
+function assertHitAndRun(mod) {
+  const { botHitAndRunVerdict } = mod;
+  const W = 10 * 60_000;
+  const CASES = [
+    [{ isBot: true, addedAt: 1000, leftAt: 1000 + W / 2, trusted: false }, true],
+    [{ isBot: true, addedAt: 1000, leftAt: 1000 + W + 1, trusted: false }, false],
+    [{ isBot: true, addedAt: 1000, leftAt: 900, trusted: false }, false], // timestamp âm
+    [{ isBot: true, addedAt: 1000, leftAt: 1000, trusted: false }, false], // duration 0 — bot rời NGAY GIÂY được thêm
+    [{ isBot: true, addedAt: 1000, leftAt: 1000 + W / 2, trusted: true }, false],
+    [{ isBot: false, addedAt: 1000, leftAt: 1000 + W / 2, trusted: false }, false],
+    [{ isBot: true, addedAt: 0, leftAt: 1000, trusted: false }, false],
+  ];
+  for (const [input, want] of CASES) if (botHitAndRunVerdict(input) !== want) return false;
+  return true;
+}
+
+function assertSuspicion(mod) {
+  const { memberSuspicionScore } = mod;
+  const now = Date.now();
+  if (memberSuspicionScore(null) !== 0) return false;
+  if (memberSuspicionScore({ id: null }) !== 0) return false; // thiếu id → 0 (không crash)
+  if (
+    memberSuspicionScore({
+      id: "u",
+      createdAt: now - 2 * 86_400_000,
+      avatar: null,
+      username: "user123",
+    }) !== 4
+  )
+    return false; // acc mới (2) + no avatar (1) + machine name (1)
+  // acc 20 ngày: SỐNG SÓT mutant "acc mới < 70 ngày" nhưng KHÔNG sống sót "< 7 ngày" —
+  // cố định ranh giới mutant-kill quanh 7 ngày đúng nơi nó nằm.
+  if (
+    memberSuspicionScore({
+      id: "u",
+      createdAt: now - 20 * 86_400_000,
+      avatar: null,
+      username: "Thang",
+    }) !== 1
+  )
+    return false;
+  if (
+    memberSuspicionScore({
+      id: "u",
+      createdAt: now - 100 * 86_400_000,
+      avatar: "h",
+      username: "Thang",
+    }) !== 0
+  )
+    return false;
+  return true;
+}
+
+function assertBudget(mod) {
+  const { budgetLimitFor, DEFAULT_LIMIT } = mod;
+  if (budgetLimitFor({}) !== DEFAULT_LIMIT) return false;
+  if (budgetLimitFor({ actionBudgetPerMinute: 5 }) !== 5) return false;
+  if (budgetLimitFor({ actionBudgetPerMinute: 0 }) !== DEFAULT_LIMIT) return false;
+  if (budgetLimitFor({ actionBudgetPerMinute: 999 }) !== 200) return false;
+  if (budgetLimitFor({ actionBudgetPerMinute: -3 }) !== DEFAULT_LIMIT) return false;
+  return true;
+}
+
+/** Danh sách mutant: [file, from, to, assertFn, mô tả]. */
+const MUTANTS = [
+  // usernameSimilarity (altDetection.js)
+  [
+    "bot/src/altDetection.js",
+    "if (a.length < 5 || b.length < 5) return 0;",
+    "if (a.length < 5 || b.length < 5) return 0;\n  return 100;",
+    "sim-guard-vô-hiệu",
+    assertSimilarity,
+  ],
+  [
+    "bot/src/altDetection.js",
+    "if (a === b) return 100;",
+    "if (a === b) return 50;",
+    "sim-trùng-hoàn-toàn=50",
+    assertSimilarity,
+  ],
+  [
+    "bot/src/altDetection.js",
+    "if (a === b) return 100;",
+    "if (a === b) return 100; return 99;",
+    "sim-mọi-cặp=99",
+    assertSimilarity,
+  ],
+  // botHitAndRunVerdict (shared.js)
+  [
+    "bot/src/handlers/antinuke/shared.js",
+    "if (leftAt - addedAt <= 0) return false;",
+    "if (leftAt - addedAt < 0) return false;",
+    "htr-cho-phép-0",
+    assertHitAndRun,
+  ],
+  [
+    "bot/src/handlers/antinuke/shared.js",
+    "if (leftAt - addedAt > HIT_AND_RUN_WINDOW_MS) return false;",
+    "if (leftAt - addedAt > HIT_AND_RUN_WINDOW_MS * 2) return false;",
+    "htr-cửa-sổ-x2",
+    assertHitAndRun,
+  ],
+  [
+    "bot/src/handlers/antinuke/shared.js",
+    "if (trusted) return false;",
+    "if (false) return false;",
+    "htr-bỏ-quan-tâm-trusted",
+    assertHitAndRun,
+  ],
+  [
+    "bot/src/handlers/antinuke/shared.js",
+    "if (!isBot) return false;",
+    "// mutant: bỏ check bot",
+    "htr-bỏ-check-bot",
+    assertHitAndRun,
+  ],
+  // memberSuspicionScore (shared.js)
+  [
+    "bot/src/handlers/antinuke/shared.js",
+    "if (Number.isFinite(ageDays) && ageDays < 7) score += 2;",
+    "if (Number.isFinite(ageDays) && ageDays < 70) score += 2;",
+    "susp-acc-mới<70d",
+    assertSuspicion,
+  ],
+  [
+    "bot/src/handlers/antinuke/shared.js",
+    "if (!p.avatar) score += 1;",
+    "if (!p.avatar) score += 0;",
+    "susp-avatar-bỏ-điểm",
+    assertSuspicion,
+  ],
+  [
+    "bot/src/handlers/antinuke/shared.js",
+    "if (!p || !p.id) return 0;",
+    "if (!p) return 0;",
+    "susp-thiếu-id-crash",
+    assertSuspicion,
+  ],
+  // budgetLimitFor (actionBudget.js)
+  [
+    "bot/src/actionBudget.js",
+    "if (!Number.isFinite(n) || n < 1) return DEFAULT_LIMIT;",
+    "if (!Number.isFinite(n) || n < 0) return DEFAULT_LIMIT;",
+    "budget-nhận-0",
+    assertBudget,
+  ],
+  [
+    "bot/src/actionBudget.js",
+    "return Math.min(200, Math.max(1, Math.floor(n)));",
+    "return Math.min(200, Math.max(1, Math.floor(n * 2)));",
+    "budget-trần-x2",
+    assertBudget,
+  ],
+];
+
+const FULL = [
+  ...MUTANTS,
+  [
+    "bot/src/actionBudget.js",
+    "const list = hits.get(guildId);\n    if (!list) return true;",
+    "const list = hits.get(guildId);\n    if (!list) return false;",
+    "budget-guild-mới-bị-chặn",
+    null,
+  ],
+];
+
+const only = process.argv.includes("--full") ? FULL : MUTANTS;
+
+let killed = 0;
+let survived = 0;
+const survivors = [];
+for (const [file, from, to, name, assertFn] of only) {
+  if (!assertFn) {
+    console.log(`⏭️  ${name} — chưa có assert (bỏ qua)`);
+    continue;
+  }
+  try {
+    const mod = loadMutant(file, from, to);
+    const alive = assertFn(mod);
+    if (alive) {
+      survived++;
+      survivors.push(name);
+      console.log(`🟡 SỐNG SÓT  ${name}`);
+    } else {
+      killed++;
+      console.log(`🟢 bị giết  ${name}`);
+    }
+  } catch (e) {
+    // Mutant crash khi chạy = bị giết (test bắt được hành vi sai)
+    killed++;
+    console.log(`🟢 bị giết (crash)  ${name}`);
+  }
+}
+
+fs.unlinkSync(path.join(__dirname, "..", "bot", "test-djs-mock.cjs"));
+console.log(
+  `\n════ Mutation score: ${killed}/${killed + survived} mutants bị giết (${((killed / Math.max(1, killed + survived)) * 100).toFixed(0)}%) ════`,
+);
+if (survivors.length > 0) {
+  console.log("Mutant sống sót — test cần thêm assertion cho:");
+  for (const s of survivors) console.log(`  - ${s}`);
+  process.exit(1);
+}

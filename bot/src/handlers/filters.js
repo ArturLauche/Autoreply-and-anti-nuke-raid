@@ -112,10 +112,19 @@ const THREAT_REFRESH_MS = 10 * 60 * 1000;
 /** Domain độc từ URLhaus (threatEngine nạp) — so khớp trực tiếp khi quét link. */
 let urlhausDomains = new Set();
 
+// Threat Relay (Đợt 6): signature raid chia sẻ từ server khác (opt-in) — hợp
+// nhất vào check malware. Bật/tắt phía Convex; mọi lỗi relay → bỏ qua im lặng.
+const relayClient = require("../relayClient");
+
 /** Tải intel từ Convex (fire-and-forget, không bao giờ làm fail quét tin nhắn). */
-function refreshThreatIntel(store) {
+function refreshThreatIntel(store, guildId) {
   if (threatLoading || Date.now() - threatLoadedAt < THREAT_REFRESH_MS) return;
   threatLoading = true;
+  // Relay (Đợt 6): tải signature chia sẻ cùng nhịp 10 phút (botGetRelaySignatures
+  // tự kiểm guild có bật relayReceive — không bật thì trả rỗng, 0 chi phí thêm).
+  // Lỗi → im lặng, filters vẫn chạy như chưa có relay.
+  relayClient.attach(store);
+  if (guildId) relayClient.refreshSignatures(guildId);
   store.client
     .query("threatIntel:botGetIntel", {})
     .then((intel) => {
@@ -468,7 +477,7 @@ async function scanMessage(client, message, store, heat) {
 
   // 3) Link độc hại (domain lừa đảo / IP / chữ ký scam + từ khóa THREAT INTEL đã học)
   if (malwareCfg?.enabled && message.content) {
-    refreshThreatIntel(store); // fire-and-forget — tải lại intel khi đến hạn (0 token)
+    refreshThreatIntel(store, message.guild.id); // fire-and-forget — tải lại intel khi đến hạn (0 token)
     // 3a) Từ khóa/cụm từ scam HỌC ĐƯỢC từ research (ưu tiên — luôn mới nhất)
     const learned = findLearnedThreat(message.content);
     if (learned) {
@@ -480,6 +489,22 @@ async function scanMessage(client, message, store, heat) {
         heat,
         `[Protogon] Nội dung lừa đảo (threat intel): "${learned.value}"`,
         `Khớp từ khóa scam bot tự học (\`${learned.kind}: ${learned.value}\`)`,
+        1,
+      );
+    }
+    // Threat Relay (Đợt 6): nội dung khớp signature raid server khác đã xác nhận
+    // (weight >= 2 hoặc < 2h tuổi) → chặn NGAY trước cả AI classify. Đây là
+    // "miễn dịch cộng đồng" — server mới được bảo vệ bởi kinh nghiệm toàn mạng.
+    const relayHit = relayClient.matchSpamText(message.content);
+    if (relayHit) {
+      return punishFlow(
+        client,
+        message,
+        malwareCfg,
+        config,
+        heat,
+        `[Protogon] Nội dung raid đã biết (threat relay, x${relayHit.weight} server xác nhận): "${relayHit.value}"`,
+        `Khớp signature relay (\`${relayHit.value}\`)`,
         1,
       );
     }

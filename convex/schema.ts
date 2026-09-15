@@ -132,6 +132,17 @@ export default defineSchema({
     warnStrikePunish: v.optional(
       v.union(v.literal("timeout"), v.literal("kick"), v.literal("ban")),
     ),
+    /** Trần tổng punish tự động/phút/guild (actionBudget) — 0/undefined = mặc định 20. */
+    actionBudgetPerMinute: v.optional(v.number()),
+    /**
+     * Threat relay — chia sẻ chữ ký raid GIỮA CÁC SERVER dùng chung bot (opt-in).
+     * Khi server A bị raid, pattern (nội dung spam/tên bot nuke/invite) được bắn
+     * lên relay (ẩn danh, không kèm userId) — server B có relayShare=true sẽ tải
+     * về và chặn sớm hơn. TẤT CẢ mặc định TẮT: không server nào nhận dữ liệu từ
+     * server khác nếu chủ server không bật.
+     */
+    relayShare: v.optional(v.boolean()),
+    relayReceive: v.optional(v.boolean()),
     hiddenPasswordHash: v.optional(v.string()),
     /** Rate-limit dò mật khẩu ẩn: lần thử gần nhất + số lần SAI liên tiếp. */
     hiddenVerifyLastAt: v.optional(v.number()),
@@ -372,6 +383,26 @@ export default defineSchema({
    * ghi lại một mẫu có cấu trúc (module, ngưỡng, cụm tài khoản, AI verdict,
    * kết quả săn nguồn cơn raid). Bot dùng để tự học nhận diện biến thể mới.
    */
+  /**
+   * Threat Relay — chữ ký raid chia sẻ GIỮA CÁC SERVER (opt-in, ẩn danh).
+   * Xem convex/relay.ts — TTL 24h, rate-limit 10/guild nguồn/phút, weight chống
+   * đầu độc, KHÔNG lưu guildId gốc (chỉ hash 1 chiều).
+   */
+  relaySignatures: defineTable({
+    /** Loại: spam-text | bot-name | invite-code | app-name. */
+    kind: v.string(),
+    /** Nội dung đã chuẩn hóa (≤60 ký tự, không mention/điều khiển). */
+    value: v.string(),
+    /** Số lần thấy (tăng khi dedupe) — ≥2 = ít nhất 2 nguồn cùng xác nhận. */
+    weight: v.optional(v.number()),
+    /** Hash 1 chiều của guild nguồn (không truy ngược được). */
+    sourceHash: v.string(),
+    createdAt: v.number(),
+    lastSeenAt: v.number(),
+  })
+    .index("by_kind_value", ["kind", "value"])
+    .index("by_source_createdAt", ["sourceHash", "createdAt"]),
+
   raidSamples: defineTable({
     guildId: v.string(),
     guildName: v.optional(v.string()),
