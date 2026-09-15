@@ -38,12 +38,15 @@ jobs:
             bun audit || true
             echo '```'
           } >> $GITHUB_STEP_SUMMARY
-          if bun audit --level critical; then
-            echo "✅ Không có CVE critical" >> $GITHUB_STEP_SUMMARY
-          else
+          # Parse output text thay vì flag --level: cú pháp bun audit đổi giữa
+          # các version (1.3 nhận --level, 1.4 không) — dòng tổng kết dạng
+          # "N vulnerabilities (x critical, y high, ...)" ổn định trên mọi version.
+          bun audit > /tmp/audit.txt 2>&1 || true
+          if grep -qE "[1-9][0-9]* critical" /tmp/audit.txt; then
             echo "::error::Có CVE mức critical trong dependencies — bắt buộc phải vá trước khi merge"
             exit 1
           fi
+          echo "✅ Không có CVE critical" >> $GITHUB_STEP_SUMMARY
 
   lint:
     runs-on: ubuntu-latest
