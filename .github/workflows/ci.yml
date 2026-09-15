@@ -26,9 +26,9 @@ jobs:
           fetch-depth: 0 # gitleaks quét toàn bộ lịch sử commit
       - uses: oven-sh/setup-bun@v2
       - name: Gitleaks — quét secret/token trong lịch sử git
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/install.sh | sh -s -- -b /usr/local/bin
-          gitleaks detect --source . --redact --exit-code 1
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Bun audit — chặn CVE mức critical (high/moderate chỉ cảnh báo)
         run: |
           bun install --frozen-lockfile
