@@ -13,6 +13,7 @@
  * strike; đủ warnStrikeLimit lần trong cửa sổ → tự tăng cấp thành warnStrikePunish.
  */
 const timeoutWatch = require("./timeoutWatch");
+const actionBudget = require("./actionBudget");
 
 const TIER_STRENGTH = { warn: 1, timeout: 2, kick: 3, ban: 4 };
 const HEAT_MAX = 100;
@@ -51,6 +52,30 @@ function tierFor(heat, s) {
  * Nếu truyền `store`, ghi luôn vào bảng hình phạt trên dashboard.
  */
 async function punishMember(guild, member, punishType, reason, timeoutSeconds = 300, store) {
+  // GLOBAL ACTION BUDGET: trần tổng punish tự động/phút/guild — chống phản ứng
+  // dây chuyền khi 1 trận nuke kích nhiều module cùng lúc (spam + massMessage
+  // + antinuke + heat leo thang). Vượt trần → bỏ qua phạt (bảo toàn được ghi
+  // bình thường ở nơi gọi). Fail-open: mọi lỗi nội tại → vẫn phạt (đang bị nuke
+  // thật thì chặn nhầm còn nguy hơn). Mod thủ công không đi qua hàm này.
+  const budgetKey = guild?.id;
+  if (budgetKey) {
+    let config = null;
+    try {
+      config = await store?.getConfig?.(budgetKey);
+    } catch {
+      // lấy config lỗi → dùng mặc định, không chặn phạt
+    }
+    if (!actionBudget.canPunish(budgetKey, config)) {
+      console.warn(
+        `[budget] ${budgetKey}: vượt trần ${actionBudget.usage(budgetKey)}/${actionBudget.budgetLimitFor(config)} punish tự động/phút — bỏ qua ${punishType}`,
+      );
+      return {
+        action: "bỏ qua: vượt trần hành động tự động/phút (action budget)",
+        caseNumber: undefined,
+      };
+    }
+    actionBudget.recordPunish(budgetKey);
+  }
   let result;
   if (punishType === "timeout") {
     const seconds = Math.max(1, Math.min(86400, Math.floor(timeoutSeconds || 300)));
@@ -456,4 +481,5 @@ module.exports = {
   punishMember,
   choosePunish,
   heatSummary,
+  actionBudget,
 };

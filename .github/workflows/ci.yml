@@ -6,6 +6,9 @@ name: CI — Lint, Test & Deploy
 #
 # Job "lint" chạy TRƯỚC và song song với "test": no-undef chặn ngay loại bug
 # thiếu import / biến chưa khai báo — crash runtime mà test có thể không đụng tới.
+# Job "security" chạy song song: gitleaks chặn token/khóa lộ trong code, bun audit
+# chặn CVE critical (high/moderate chỉ cảnh báo — tránh block vì advisory không
+# ảnh hưởng runtime như dev-server-only).
 
 on:
   push:
@@ -15,6 +18,33 @@ on:
   workflow_dispatch:
 
 jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks quét toàn bộ lịch sử commit
+      - uses: oven-sh/setup-bun@v2
+      - name: Gitleaks — quét secret/token trong lịch sử git
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/install.sh | sh -s -- -b /usr/local/bin
+          gitleaks detect --source . --redact --exit-code 1
+      - name: Bun audit — chặn CVE mức critical (high/moderate chỉ cảnh báo)
+        run: |
+          bun install --frozen-lockfile
+          echo "### 📋 Dependency audit" >> $GITHUB_STEP_SUMMARY
+          {
+            echo '```'
+            bun audit || true
+            echo '```'
+          } >> $GITHUB_STEP_SUMMARY
+          if bun audit --level critical; then
+            echo "✅ Không có CVE critical" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "::error::Có CVE mức critical trong dependencies — bắt buộc phải vá trước khi merge"
+            exit 1
+          fi
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -27,7 +57,7 @@ jobs:
         run: bun run format:check
 
   test:
-    needs: lint
+    needs: [lint, security]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -64,9 +94,9 @@ jobs:
           path: coverage/
           retention-days: 14
 
-  # Deploy Convex chỉ chạy KHI lint + test đã pass — tách job, depends_on cả hai.
+  # Deploy Convex chỉ chạy KHI lint + security + test đã pass — tách job, depends_on cả ba.
   deploy:
-    needs: [lint, test]
+    needs: [lint, security, test]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
