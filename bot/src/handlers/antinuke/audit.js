@@ -104,6 +104,15 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
     if (executor && (executor.id === client.user.id || isExempt(executor, moduleCfg, config))) {
       return; // whitelisted / self — fully ignore
     }
+    // Owner + whitelist toàn cục: miễn NGAY CẢ KHI executor là User thô (không có
+    // member để isExempt soi roles) — trước đây owner bị ghi sự kiện oan khi
+    // fetch member thất bại (cache miss, bot vừa restart).
+    if (
+      executor &&
+      (executor.id === guild.ownerId || (config?.whitelistUsers || []).includes(executor.id))
+    ) {
+      return;
+    }
     // Bỏ qua bot logging/app hợp pháp (Carl-bot, MEE6, Dyno, Wick…): chúng tạo
     // webhook, ban bot spam, purge tin nhắn — công việc moderation/log bình thường,
     // áp dụng cho MỌI module nuke (trước đây chỉ miễn massWebhookCreate nên Carl-bot
@@ -248,6 +257,19 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
     let exempt = false;
     if (executor) {
       if (executor.id === client.user.id) {
+        exempt = true;
+      } else if (
+        executor.id === guild.ownerId ||
+        (config?.whitelistUsers || []).includes(executor.id)
+      ) {
+        // Owner / whitelist toàn cục: miễn ngay cả khi KHÔNG fetch được member
+        // (cache miss sau restart, bot ngoài server…) — tránh xử lý oan chủ server
+        // khi pipeline không tra được roles để isExempt.
+        exempt = true;
+      } else if (isKnownLoggingBot(executor)) {
+        // Bot logging/app hợp pháp (Carl-bot, MEE6, Dyno, Wick…) làm moderation
+        // qua audit entry — công việc bình thường, không phải nuke. KHÔNG free
+        // (fetch member sẽ null với bot ngoài server) → guard này bắt tại đây.
         exempt = true;
       } else {
         const em = await guild.members.fetch(executor.id).catch(() => null);

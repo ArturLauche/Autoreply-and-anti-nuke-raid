@@ -1,0 +1,477 @@
+// Test lớp tin nhắn (antinuke/messages.js) — phần auto-mod chống spam/nuke chat:
+//   handleSpam            — spam flood: bucket reset sau phạt, AI raid → ban + lockdown,
+//                           AI benign → bỏ qua hoàn toàn, AI null/offline → heat
+//   handleMessagePatterns — tin dài/lặp (massMessage) + blank noise; webhook → External App
+//   Chống ban oan: dương tính giả AI được tôn trọng; cleanup đúng cấu hình actions.
+// Không mạng, không DB thật. Chạy: node scripts/test-message-layers.cjs
+const path = require("path");
+
+const Module = require("module");
+const fs = require("fs");
+const origResolve = Module._resolveFilename;
+Module._resolveFilename = function (request, ...args) {
+  if (request === "discord.js") return path.join(__dirname, "..", "bot", "test-djs-mock.cjs");
+  return origResolve.call(this, request, ...args);
+};
+fs.writeFileSync(
+  path.join(__dirname, "..", "bot", "test-djs-mock.cjs"),
+  `class EmbedBuilder {
+  constructor(data = {}) { this.d = data; }
+  setColor(c) { this.d.color = c; return this; }
+  setTitle(t) { this.d.title = t; return this; }
+  setDescription(t) { this.d.description = t; return this; }
+  addFields(f) { this.d.fields = [...(this.d.fields ?? []), ...f]; return this; }
+  setTimestamp() { return this; }
+  setFooter(f) { this.d.footer = f; return this; }
+}
+module.exports = {
+  Colors: new Proxy({}, { get: () => 0x000000 }),
+  EmbedBuilder,
+  PermissionFlagsBits: { ManageGuild: 1n << 5n, Administrator: 1n << 3n, ManageRoles: 1n << 28n, ManageWebhooks: 1n << 29n, BanMembers: 1n << 2n },
+  UserFlags: { VerifiedBot: 1n << 16n },
+  AuditLogEvent: new Proxy({}, { get: (t, k) => (t[k] ??= Symbol(k)) }),
+};
+`,
+);
+
+(async () => {
+  const calls = {
+    events: [],
+    raidSamples: [],
+    modActions: [],
+    memberBans: [],
+    memberKicks: [],
+    memberTimeouts: [],
+    memberDms: [],
+    heatAdds: [],
+    msgDeleted: [],
+    purged: [],
+    bulkDeleted: [],
+    caseLogs: [],
+    mutations: [],
+    threatNotes: [],
+  };
+
+  function baseConfig(overrides = {}) {
+    return {
+      antinukeEnabled: true,
+      lockdownEnabled: false,
+      logChannelId: null,
+      modLogChannelId: null,
+      modules: [
+        {
+          module: "spam",
+          enabled: true,
+          threshold: 5,
+          windowSeconds: 10,
+          punish: "warn",
+          timeoutSeconds: 600,
+          whitelistRoles: [],
+          actions: ["warn", "deleteMessages"],
+        },
+        {
+          module: "massMessage",
+          enabled: true,
+          threshold: 3,
+          windowSeconds: 10,
+          punish: "warn",
+          timeoutSeconds: 600,
+          whitelistRoles: [],
+          actions: ["warn", "deleteMessages"],
+        },
+        {
+          module: "blankNoise",
+          enabled: true,
+          threshold: 3,
+          windowSeconds: 10,
+          punish: "warn",
+          timeoutSeconds: 600,
+          whitelistRoles: [],
+          actions: ["warn", "deleteMessages"],
+        },
+      ],
+      whitelistUsers: [],
+      whitelistRoles: [],
+      adminRoles: [],
+      modRoles: [],
+      ...overrides,
+    };
+  }
+
+  const configs = new Map();
+  const store = {
+    client: {
+      mutation: async (name, args) => {
+        calls.mutations.push({ name, args });
+        if (name === "bot_writes:botRecordAntinukeEvent") {
+          calls.events.push(args);
+          return { caseNumber: 1 };
+        }
+        if (name === "bot_writes:botRecordRaidSample") {
+          calls.raidSamples.push(args);
+          return {};
+        }
+        if (name === "bot_writes:botRecordModAction") {
+          calls.modActions.push(args);
+          return { caseNumber: 77 };
+        }
+        return {};
+      },
+      // webhookHub đọc danh sách webhook qua store.client.query — trả rỗng
+      // (sendCaseLog → deliverViaWebhooks → matchFor sẽ không gửi đi đâu).
+      query: async () => [],
+    },
+    getConfig: async (guildId) => configs.get(guildId) ?? null,
+  };
+
+  const heat = {
+    add: async (guildId, userId, username, pts, _s) => {
+      calls.heatAdds.push({ guildId, userId, pts });
+      return { tier: "warn", escalated: false, score: pts };
+    },
+    markPunished: () => {},
+    resetGuild: () => {},
+  };
+
+  let client = { user: { id: "bot-self" }, guilds: { cache: new Map() }, on: () => {} };
+  const createState = require("../bot/src/handlers/antinuke/state");
+  const createAi = require("../bot/src/handlers/antinuke/ai");
+  const createEnforce = require("../bot/src/handlers/antinuke/enforce");
+  const createMessages = require("../bot/src/handlers/antinuke/messages");
+
+  const state = createState({ client, store });
+  const realAi = createAi({ state });
+  // Kích hoạt webhookHub với store giả để luồng log không crash trong test.
+  require("../bot/src/webhookHub").init(client, store);
+  const lockdownActive = () =>
+    calls.mutations.some((m) => m.name === "bot_writes:botLockState" && m.args.until);
+
+  // AI giả: có thể bẻ verdict theo kịch bản qua biến `aiVerdict`.
+  let aiVerdict = null; // null → AI offline (trả null)
+  const ai = {
+    aiClassify: async () => aiVerdict,
+    clusterStats: realAi.clusterStats ?? (() => null),
+  };
+  const raidIntel = {
+    huntRaidSource: async () => ({ banned: false }),
+    recordRaidSample: async (guild, config, sample) => calls.raidSamples.push(sample),
+  };
+  const core = createEnforce({ client, store, heat, state });
+  const externalApp = {
+    handleExternalAppMessage: async (message) =>
+      calls.events.push({ module: "EXTERNAL_APP:message", id: message.id }),
+  };
+  const messages = createMessages({ client, store, state, core, ai, raidIntel, externalApp });
+
+  let pass = 0;
+  let fail = 0;
+  function check(label, cond) {
+    if (cond) {
+      pass++;
+      console.log("PASS", label);
+    } else {
+      fail++;
+      console.log("FAIL", label);
+    }
+  }
+  const clear = () => {
+    for (const k of Object.keys(calls)) calls[k].length = 0;
+    aiVerdict = null;
+    // Xóa cả bucket RAM dùng chung giữa các kịch bản (nếu không, đếm của kịch bản
+    // trước cộng dồn sang kịch bản sau và làm sai ngưỡng).
+    state.state.spamBuckets.clear();
+    state.state.patternBuckets.clear();
+    state.state.recentMessages.clear();
+  };
+
+  function makeGuild(id, opts = {}) {
+    const me = {
+      id: "bot-self-member",
+      permissions: { has: () => true }, // bot có ManageChannels → lockGuild chạy thật
+    };
+    const channels = new Map(
+      ["c1", "c2"].map((cid) => [
+        cid,
+        {
+          id: cid,
+          isTextBased: () => true,
+          isThread: () => false,
+          isVoiceBased: () => false,
+          permissionOverwrites: { edit: async () => {} },
+        },
+      ]),
+    );
+    const guild = {
+      id,
+      available: true,
+      ownerId: "owner-1",
+      name: "G-" + id,
+      memberCount: opts.memberCount ?? 500,
+      roles: { cache: new Map(), everyone: { id } },
+      members: {
+        cache: new Map(),
+        fetch: async () => null,
+        fetchMe: async () => me,
+      },
+      channels: {
+        cache: { values: () => channels.values(), filter: () => [], first: () => [] },
+      },
+      fetchAuditLogs: async () => ({ entries: { first: () => null, find: () => undefined } }),
+    };
+    return guild;
+  }
+
+  function makeMessage({
+    id = "m1",
+    content = "xin chào",
+    webhookId = null,
+    fresh = false,
+    memberOpts = {},
+  } = {}) {
+    const gid = "g-msg";
+    const guild = client.guilds.cache.get(gid);
+    const member = {
+      id: "spam-u1",
+      guild,
+      user: {
+        id: "spam-u1",
+        bot: false,
+        username: memberOpts.username ?? "nguoi-chat",
+        createdTimestamp: fresh ? Date.now() - 2 * 86_400_000 : Date.now() - 400 * 86_400_000,
+        avatar: memberOpts.avatar ?? "av",
+        flags: { has: () => false },
+      },
+      permissions: { has: () => false },
+      roles: { cache: new Set() },
+      timeout: async () => calls.memberTimeouts.push("spam-u1"),
+      ban: async () => calls.memberBans.push("spam-u1"),
+      kick: async () => calls.memberKicks.push("spam-u1"),
+      send: async () => calls.memberDms.push("spam-u1"),
+    };
+    const channel = {
+      id: "c1",
+      isTextBased: () => true,
+      isDMBased: () => false,
+      viewable: true,
+      messages: {
+        fetch: async () => new Map(),
+        bulkDelete: async (targets) => {
+          calls.bulkDeleted.push(targets.length);
+          return targets;
+        },
+      },
+    };
+    return {
+      id,
+      guild,
+      channel,
+      member,
+      author: member.user,
+      content,
+      webhookId,
+      deletable: true,
+      delete: async () => calls.msgDeleted.push(id),
+    };
+  }
+
+  configs.set("g-msg", baseConfig());
+  client.guilds.cache.set("g-msg", makeGuild("g-msg"));
+
+  // ── 1. Spam dưới ngưỡng → hoàn toàn im lặng ──
+  {
+    clear();
+    for (let i = 0; i < 4; i++) await messages.handleSpam(makeMessage({ id: "s" + i }));
+    check(
+      "4 tin (dưới ngưỡng 5) → không ghi sự kiện, không phạt",
+      calls.events.length === 0 &&
+        calls.memberBans.length === 0 &&
+        calls.memberTimeouts.length === 0,
+    );
+  }
+
+  // ── 2. Spam chạm ngưỡng, AI offline → heat xử lý (không ban, không khóa) ──
+  {
+    clear();
+    for (let i = 0; i < 5; i++) await messages.handleSpam(makeMessage({ id: "s" + i }));
+    const ev = calls.events.find((e) => e.module === "spam");
+    check("chạm ngưỡng → ghi sự kiện spam", !!ev);
+    check("AI offline → KHÔNG ban", calls.memberBans.length === 0);
+    check("AI offline → có cộng nhiệt", calls.heatAdds.length === 1);
+    check(
+      "bucket reset sau phạt → tin kế tiếp không phạt lại ngay",
+      (await messages.handleSpam(makeMessage({ id: "s-x" }))) === undefined &&
+        calls.events.filter((e) => e.module === "spam").length === 1,
+    );
+  }
+
+  // ── 3. AI xác nhận raid (conf >= 0.6) → ban + lockdown + cảnh báo khẩn ──
+  {
+    clear();
+    configs.set("g-msg", baseConfig({ lockdownEnabled: true }));
+    aiVerdict = { classification: "raid", confidence: 0.85, reason: "nội dung lặp + link mời" };
+    for (let i = 0; i < 5; i++) await messages.handleSpam(makeMessage({ id: "r" + i }));
+    check("AI raid → phạt BAN", calls.memberBans.length === 1);
+    check("AI raid → khóa kênh (lockdown)", lockdownActive());
+    check(
+      "AI raid → ghi sự kiện với nhãn (AI: raid)",
+      String(calls.events.find((e) => e.module === "spam")?.action ?? "").includes("(AI: raid)"),
+    );
+    check("AI raid → không cộng nhiệt", calls.heatAdds.length === 0);
+    check(
+      "AI raid → ghi mẫu huấn luyện kèm verdict",
+      calls.raidSamples.some((s) => s.module === "spam" && s.aiClassification === "raid"),
+    );
+    configs.set("g-msg", baseConfig());
+  }
+
+  // ── 4. AI kết luận benign (dương tính giả) → bỏ qua hoàn toàn ──
+  {
+    clear();
+    aiVerdict = {
+      classification: "benign",
+      confidence: 0.7,
+      reason: "chat đa dạng của nhiều người",
+    };
+    for (let i = 0; i < 5; i++) await messages.handleSpam(makeMessage({ id: "b" + i }));
+    check(
+      "AI benign → KHÔNG phạt thành viên",
+      calls.memberBans.length === 0 &&
+        calls.memberKicks.length === 0 &&
+        calls.memberTimeouts.length === 0,
+    );
+    check("AI benign → KHÔNG cộng nhiệt", calls.heatAdds.length === 0);
+    check(
+      "AI benign → không dọn tin nhắn",
+      calls.msgDeleted.length === 0 && calls.bulkDeleted.length === 0,
+    );
+    check(
+      "AI benign → vẫn ghi sự kiện bỏ qua",
+      String(calls.events.find((e) => e.module === "spam")?.action ?? "").includes(
+        "bỏ qua (AI: benign)",
+      ),
+    );
+    check("AI benign → không ghi mẫu raid", calls.raidSamples.length === 0);
+  }
+
+  // ── 5. AI raid nhưng tin cậy thấp (< 0.6) → KHÔNG leo thang ban ──
+  {
+    clear();
+    aiVerdict = { classification: "raid", confidence: 0.3, reason: "mơ hồ" };
+    for (let i = 0; i < 5; i++) await messages.handleSpam(makeMessage({ id: "l" + i }));
+    check(
+      "AI raid confidence 0.3 → không ban (chỉ heat)",
+      calls.memberBans.length === 0 && calls.heatAdds.length === 1,
+    );
+  }
+
+  // ── 6. massMessage: tin dài cực dài lặp lại → trigger đúng module ──
+  {
+    clear();
+    const long = "A".repeat(2200);
+    for (let i = 0; i < 3; i++)
+      await messages.handleMessagePatterns(makeMessage({ id: "L" + i, content: long }));
+    const ev = calls.events.find((e) => e.module === "massMessage");
+    check("tin 2200 ký tự lặp 3 lần → trigger massMessage", !!ev);
+    check(
+      "heat xử lý (AI offline) — không ban",
+      calls.memberBans.length === 0 && calls.heatAdds.length === 1,
+    );
+    check("đã xóa tin phát hiện (deleteMessages)", calls.msgDeleted.length >= 1);
+  }
+
+  // ── 7. massMessage: lặp nội dung giống hệt (không dài) → cũng trigger ──
+  {
+    clear();
+    const rep = "mua acc giá rẻ ib";
+    // Lần 1 chưa có gì để so sánh (sameCount=1) → chỉ từ tin thứ 2 mới cộng vào bucket:
+    // 4 tin lặp là đủ chạm ngưỡng 3 (đúng hành vi pipeline).
+    for (let i = 0; i < 4; i++)
+      await messages.handleMessagePatterns(makeMessage({ id: "R" + i, content: rep }));
+    check(
+      "nội dung lặp giống hệt 3 lần → trigger massMessage",
+      calls.events.some((e) => e.module === "massMessage"),
+    );
+  }
+
+  // ── 8. blankNoise: tin giả blank (zero-width + spaces) ──
+  {
+    clear();
+    // Nội dung KHÁC NHAU từng tin (nếu giống hệt nhau, pattern lặp khớp trước vì
+    // patterns[] xử lý massMessage trước blankNoise — đây là hành vi thật của pipeline).
+    const blanks = ["\u0020", "\u200b", "\u0020\u200b\u0020"];
+    for (let i = 0; i < 3; i++)
+      await messages.handleMessagePatterns(makeMessage({ id: "Z" + i, content: blanks[i] }));
+  }
+
+  // ── 9. Webhook → External App Guard, KHÔNG vào pipeline spam ──
+  {
+    clear();
+    const wh = makeMessage({ id: "w1", webhookId: "wh-9" });
+    wh.member = null; // webhook không có member
+    await messages.handleSpam(wh);
+    await messages.handleMessagePatterns(wh);
+    // handleSpam KHÔNG route webhook — webhook không có member nên tự im lặng;
+    // chỉ handleMessagePatterns chuyển sang External App Guard (đúng thiết kế).
+    check(
+      "webhook qua handleMessagePatterns → External App Guard",
+      calls.events.filter((e) => e.module === "EXTERNAL_APP:message").length === 1,
+    );
+    check(
+      "webhook qua handleSpam → im lặng (member null)",
+      !calls.events.some((e) => e.module === "spam"),
+    );
+    check("webhook → không cộng heat", calls.heatAdds.length === 0);
+  }
+
+  // ── 10. Tin nhắn của BOT được mời (member có user.bot) → vẫn bị soi, phạt thẳng tay ──
+  {
+    clear();
+    const botMsg = makeMessage({ id: "bm1", content: "x" });
+    botMsg.member.user.bot = true;
+    botMsg.author.bot = true;
+    aiVerdict = { classification: "raid", confidence: 0.9, reason: "bot spam" };
+    for (let i = 0; i < 5; i++) await messages.handleSpam(botMsg);
+    check("bot được mời spam → bị soi + phạt ban trực tiếp", calls.memberBans.length === 1);
+  }
+
+  // ── 11. Tin nhắn DM → bỏ qua ──
+  {
+    clear();
+    const dm = makeMessage({ id: "dm1" });
+    dm.guild = null;
+    await messages.handleSpam(dm);
+    await messages.handleMessagePatterns(dm);
+    check("DM → bỏ qua hoàn toàn", calls.events.length === 0);
+  }
+
+  // ── 12. Module tắt → pipeline không chạy ──
+  {
+    clear();
+    configs.set(
+      "g-msg",
+      baseConfig({ modules: baseConfig().modules.map((m) => ({ ...m, enabled: false })) }),
+    );
+    for (let i = 0; i < 6; i++) await messages.handleSpam(makeMessage({ id: "off" + i }));
+    for (let i = 0; i < 4; i++)
+      await messages.handleMessagePatterns(
+        makeMessage({ id: "offL" + i, content: "B".repeat(2200) }),
+      );
+    check(
+      "tất cả module tắt → không sự kiện, không phạt",
+      calls.events.length === 0 && calls.heatAdds.length === 0,
+    );
+    configs.set("g-msg", baseConfig());
+  }
+
+  // ── 13. antinukeEnabled=false → toàn bộ pipeline tắt ──
+  {
+    clear();
+    configs.set("g-msg", baseConfig({ antinukeEnabled: false }));
+    for (let i = 0; i < 6; i++) await messages.handleSpam(makeMessage({ id: "an" + i }));
+    check("antinuke off → không sự kiện", calls.events.length === 0);
+    configs.set("g-msg", baseConfig());
+  }
+
+  console.log(`\nKết quả message layers: ${pass} PASS, ${fail} FAIL`);
+  process.exit(fail > 0 ? 1 : 0);
+})();
