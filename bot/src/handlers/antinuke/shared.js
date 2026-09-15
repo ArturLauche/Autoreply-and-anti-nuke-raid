@@ -147,6 +147,9 @@ function strangeBotVerdict({ user, now = Date.now() }) {
 function botHitAndRunVerdict({ addedAt, leftAt, trusted, isBot }) {
   if (!isBot) return false;
   if (!addedAt) return false;
+  // Hardening: leftAt < addedAt (dữ liệu hỏng / clock skew — bot "rời" trước khi
+  // "được thêm") không phải hit-and-run — property test bắt được ca phạt oan này.
+  if (leftAt - addedAt <= 0) return false;
   if (leftAt - addedAt > HIT_AND_RUN_WINDOW_MS) return false;
   if (trusted) return false;
   return true;

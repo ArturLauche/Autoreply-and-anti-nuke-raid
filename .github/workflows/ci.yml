@@ -73,6 +73,8 @@ jobs:
         run: bun run typecheck
       - name: Chạy toàn bộ test suites + đo coverage (c8)
         run: bun run test:coverage
+      - name: Sàn coverage theo file — engine bảo vệ không được tụt
+        run: bun run coverage:floor
       - name: Tóm tắt coverage vào Job Summary
         if: always()
         run: |

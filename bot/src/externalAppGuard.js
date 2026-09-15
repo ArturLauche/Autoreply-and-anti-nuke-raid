@@ -56,10 +56,16 @@ const COMP_SELECT = 3;
  * URL nút link, placeholder + option của menu. Dùng để đưa vào fingerprint (bắt flood
  * tin app có nút bấm) và vào tín hiệu AI.
  */
-function componentText(msg) {
+function componentText(components) {
   const parts = [];
-  for (const row of msg.components || []) {
-    for (const comp of row.components || []) {
+  // Hardening: webhook/external app có thể đẩy payload dị dạng — property test
+  // bắt được crash khi components không phải mảng hoặc chứa null. Không bao giờ
+  // để hàm chấm điểm spam vỡ vì dữ liệu xấu.
+  const rows = Array.isArray(components) ? components : [];
+  for (const row of rows) {
+    const comps = Array.isArray(row?.components) ? row.components : [];
+    for (const comp of comps) {
+      if (!comp || typeof comp !== "object") continue;
       if (comp.type === COMP_BUTTON) {
         parts.push(`[btn ${comp.label || ""} ${comp.customId || comp.url || ""}]`);
       } else if (comp.type === COMP_SELECT) {
@@ -77,19 +83,25 @@ function componentText(msg) {
  * hoặc flood tin app đăng nút bấm làm "mồi" (nhãn nút / customId đổi theo lần).
  */
 function messageFingerprint(msg) {
+  // Hardening: embeds/components có thể thiếu/không phải mảng (webhook payload,
+  // tin nhắn hệ thống) — property test bắt được crash với embeds:[null].
+  const embeds = Array.isArray(msg?.embeds) ? msg.embeds : [];
   return [
-    msg.content || "",
-    ...(msg.embeds || []).map((e) =>
-      [
+    msg?.content || "",
+    ...embeds.map((e) => {
+      if (!e || typeof e !== "object") return "";
+      return [
         e.title,
         e.description,
         e.footer?.text,
-        ...(e.fields || []).map((f) => `${f.name}: ${f.value}`),
+        ...(Array.isArray(e.fields) ? e.fields : []).map((f) =>
+          f && typeof f === "object" ? `${f.name}: ${f.value}` : "",
+        ),
       ]
         .filter(Boolean)
-        .join(" | "),
-    ),
-    componentText(msg),
+        .join(" | ");
+    }),
+    componentText(msg?.components),
   ]
     .join("\n")
     .replace(/\s+/g, " ")

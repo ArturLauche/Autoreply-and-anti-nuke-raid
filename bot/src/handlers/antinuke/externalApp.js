@@ -421,7 +421,7 @@ module.exports = function createAntiNukeLayer({ client, store, state, core, ai, 
     appMsgSamples.set(key, fresh);
     const count = fresh.length;
 
-    const hay = `${message.content || ""} ${(message.embeds || []).map((e) => e.title || e.description || "").join(" ")} ${componentText(message)}`;
+    const hay = `${message.content || ""} ${(message.embeds || []).map((e) => e.title || e.description || "").join(" ")} ${componentText(message.components)}`;
     const {
       triggered,
       sameFingerprint,

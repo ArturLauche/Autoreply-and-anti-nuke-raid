@@ -4,7 +4,7 @@
 
 Bot Discord tự động trả lời tin nhắn thành viên theo **từ khóa** hoặc khi bị **tag @mention** (nội dung do bạn tùy chỉnh), hỗ trợ đầy đủ **prefix (`!`) + slash commands**, kèm hệ thống **chống nuke/raid** bật tắt từng phần theo ý mod & owner — tất cả quản lý qua một **dashboard web** tùy chỉnh.
 
-> **Chất lượng**: 26 test suites (~505 assertion, chạy ~13s) · coverage đo bằng c8 (63% dòng / 80% hàm / 62% nhánh — toàn bộ engine chống nuke + alt detection được phủ test trực tiếp) · ESLint sạch · typecheck sạch · smoke test VPS · CI 4 job (lint + security + test → deploy): gitleaks chặn secret lộ, bun audit chặn CVE critical (`bun run test` để chạy local).
+> **Chất lượng**: 28 test suites (~525 assertion, chạy ~14s) · coverage đo bằng c8 (63% dòng / 80% hàm / 63% nhánh — toàn bộ engine chống nuke + alt detection được phủ test trực tiếp) · **sàn coverage theo file** chặn engine bảo vệ tụt · property-based + fuzz test · ESLint sạch · typecheck sạch · smoke test VPS · CI 4 job (lint + security + test → deploy): gitleaks chặn secret lộ, bun audit chặn CVE critical (`bun run test` để chạy local).
 
 ## Kiến trúc
 
@@ -98,7 +98,7 @@ Coverage được đo bằng [`c8`](https://github.com/bcoe/c8) (V8 native, khô
 
 | Chỉ số          | Giá trị | Ý nghĩa                                                    |
 | --------------- | ------- | ---------------------------------------------------------- |
-| Dòng            | 63.2%   | ~9,030/14,280 dòng bot được test chạm tới                  |
+| Dòng            | 63.3%   | ~9,060/14,300 dòng bot được test chạm tới                  |
 | Hàm             | 78.9%   | 79% hàm được **gọi thật** (không chỉ import)               |
 | Nhánh (if/else) | 61.7%   | cả hai phía true/false của phần lớn điều kiện đã được kiểm |
 
