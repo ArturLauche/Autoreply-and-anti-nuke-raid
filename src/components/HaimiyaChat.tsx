@@ -203,6 +203,9 @@ export default function HaimiyaChat({
       }
       const res = await askAI({ messages: history, funcKey, token });
       if (res && !res.offline && res.reply) return res.reply;
+      // AI chưa cấu hình / dịch vụ lỗi → marker để UI thông báo rõ ràng thay vì
+      // im lặng rơi về kiến thức cục bộ (người dùng không hiểu vì sao chat "ngu").
+      if (res && res.offline) return "[offline]";
     } catch (e) {
       // Rate-limit server trả lỗi rõ ràng → hiển thị cho người dùng thay vì
       // im lặng rơi về kiến thức cục bộ (giúp họ hiểu vì sao AI im lặng).
@@ -235,6 +238,17 @@ export default function HaimiyaChat({
           setMessages((m) => [
             ...m,
             { role: "haimiya", text: aiReply.replace("[giới-hạn] ", "⏳ ") },
+          ]);
+        } else if (aiReply === "[offline]") {
+          // Thông báo minh bạch + vẫn trả lời bằng kiến thức cục bộ bên dưới.
+          const ans = askHaimiya(q);
+          setMessages((m) => [
+            ...m,
+            {
+              role: "haimiya",
+              text: "⚠️ AI trên máy chủ chưa phản hồi (chưa cấu hình AI_API_KEY hoặc dịch vụ bận) — tạm trả lời bằng kiến thức cục bộ.",
+            },
+            { role: "haimiya", text: ans.text, suggestions: ans.suggestions },
           ]);
         } else if (aiReply) {
           setMessages((m) => [...m, { role: "haimiya", text: aiReply }]);
