@@ -133,6 +133,24 @@ bun run format:check    # CI dùng lệnh này để chặn code chưa format
 
 ## Phát triển
 
+## AI coding agent trên VPS (OpenCode)
+
+Cài môi trường + agent bảo trì bot ngay trên server (chạy bằng user thường, không cần root):
+
+```bash
+sh ./scripts/setup-vps-agent.sh   # cài Bun + OpenCode + cấu hình an toàn
+cd bot && opencode               # mở TUI; lần đầu: /auth login + dán API key
+```
+
+Bộ cấu hình an toàn đi kèm repo:
+
+- **`opencode.json`** — permission: chặn đọc `.env`/`.bot-key`/key files, **cấm agent tự commit/push/reset** (chỉ sửa code + in diff chờ bạn review), cấm lệnh phá hoại (`rm -rf`, `sudo`, `dd`…), cho sẵn các lệnh test/lint/typecheck của repo.
+- **`AGENTS.md`** — quy tắc ứng xử: chạy `bun run test` + typecheck sau mỗi thay đổi, không bỏ qua `requireBotKeyStrict`, không sửa `convex/_generated/`, kèm test chặn tái diễn khi vá bug.
+
+> ⚠️ VPS chứa secret trong `.env` — snapshot/backup VPS trước khi nhờ agent sửa hàng loạt, và luôn review `git diff` trước khi commit.
+
+## Phát triển
+
 ```bash
 bun install
 bun convex dev --once   # codegen + chạy Convex local (http://127.0.0.1:3210)

@@ -1,0 +1,63 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "*": "ask",
+    "read": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow",
+      "bot/.bot-key": "deny",
+      "**/*.pem": "deny",
+      "**/*.key": "deny"
+    },
+    "edit": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "bot/.bot-key": "deny"
+    },
+    "bash": {
+      "*": "ask",
+      "bun test *": "allow",
+      "bun run test*": "allow",
+      "bun run lint*": "allow",
+      "bun run typecheck*": "allow",
+      "bun run test:mutation*": "allow",
+      "bun tsc*": "allow",
+      "bunx eslint *": "allow",
+      "node scripts/test-*.cjs": "allow",
+      "node --test *": "allow",
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "git show*": "allow",
+      "git branch*": "allow",
+      "git commit *": "deny",
+      "git push *": "deny",
+      "git reset *": "deny",
+      "git clean *": "deny",
+      "git rebase *": "deny",
+      "git checkout *": "ask",
+      "rm -rf *": "deny",
+      "sudo *": "deny",
+      "shutdown *": "deny",
+      "reboot": "deny",
+      "mkfs*": "deny",
+      "dd *": "deny",
+      "chmod 777 *": "deny",
+      "curl * | sh": "deny",
+      "curl * | bash": "deny"
+    },
+    "webfetch": {
+      "*": "ask",
+      "https://opencode.ai/*": "allow",
+      "https://bun.sh/*": "allow",
+      "https://discord.com/developers/docs*": "allow",
+      "https://docs.convex.dev*": "allow"
+    },
+    "external_directory": {
+      "**": "deny"
+    }
+  }
+}
