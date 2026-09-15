@@ -203,13 +203,15 @@ export default function HaimiyaChat({
       }
       const res = await askAI({ messages: history, funcKey, token });
       if (res && !res.offline && res.reply) return res.reply;
-      // AI chưa cấu hình / dịch vụ lỗi → marker để UI thông báo rõ ràng thay vì
-      // im lặng rơi về kiến thức cục bộ (người dùng không hiểu vì sao chat "ngu").
-      if (res && res.offline) return "[offline]";
+      // AI chưa cấu hình / dịch vụ lỗi → marker + lý do thật từ server để UI
+      // thông báo rõ ràng thay vì im lặng rơi về kiến thức cục bộ.
+      if (res && res.offline) return `[offline] ${res.reason ?? ""}`.trim();
     } catch (e) {
-      // Rate-limit server trả lỗi rõ ràng → hiển thị cho người dùng thay vì
-      // im lặng rơi về kiến thức cục bộ (giúp họ hiểu vì sao AI im lặng).
+      // ConvexError giờ xuyên thẳng tới browser — hiển thị thông điệp thật
+      // (đăng nhập bắt buộc, rate-limit) thay vì "Server Error" bị mask.
       const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("Server Error")) return "[offline] Máy chủ AI đang lỗi tạm thời";
+      if (msg.includes("đăng nhập")) return `[đăng-nhập] ${msg}`;
       if (msg.includes("quá nhanh")) return `[giới-hạn] ${msg}`;
       // fallback to local knowledge.
     }
@@ -239,14 +241,24 @@ export default function HaimiyaChat({
             ...m,
             { role: "haimiya", text: aiReply.replace("[giới-hạn] ", "⏳ ") },
           ]);
-        } else if (aiReply === "[offline]") {
-          // Thông báo minh bạch + vẫn trả lời bằng kiến thức cục bộ bên dưới.
+        } else if (aiReply?.startsWith("[đăng-nhập]")) {
+          setMessages((m) => [
+            ...m,
+            {
+              role: "haimiya",
+              text: "🔐 " + aiReply.replace("[đăng-nhập] ", ""),
+            },
+          ]);
+        } else if (aiReply?.startsWith("[offline]")) {
+          // Thông báo minh bạch với lý do thật từ server + vẫn trả lời bằng
+          // kiến thức cục bộ bên dưới (người dùng hiểu chính xác vì sao offline).
+          const serverReason = aiReply.replace("[offline]", "").trim();
           const ans = askHaimiya(q);
           setMessages((m) => [
             ...m,
             {
               role: "haimiya",
-              text: "⚠️ AI trên máy chủ chưa phản hồi (chưa cấu hình AI_API_KEY hoặc dịch vụ bận) — tạm trả lời bằng kiến thức cục bộ.",
+              text: `⚠️ AI trên máy chủ chưa phản hồi${serverReason ? ` — ${serverReason}` : ""}. Tạm trả lời bằng kiến thức cục bộ.`,
             },
             { role: "haimiya", text: ans.text, suggestions: ans.suggestions },
           ]);

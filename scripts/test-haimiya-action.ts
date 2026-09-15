@@ -3,6 +3,7 @@
 // Gọi TRỰC TIẾP handler của action (handler không dùng ctx) với fetch mock —
 // xác minh provider chain, system prompt, history, fallback offline. Không cần key thật.
 import { ask, classifyViolation } from "../convex/haimiya";
+import { computeBotKey } from "../convex/botAuth";
 
 // Convex bọc handler trong function object — lấy handler gốc để gọi trực tiếp.
 const askHandler = (ask as any)._handler;
@@ -52,7 +53,8 @@ function mockFetch(reply = "Chào bạn! Mình là Haimiya.", status = 200) {
       system: body.messages?.[0]?.content,
       history: body.messages?.slice(1),
     });
-    if (status !== 200) return { ok: false, status, json: async () => ({}) };
+    if (status !== 200)
+      return { ok: false, status, json: async () => ({}), text: async () => "" };
     return {
       ok: true,
       status: 200,
@@ -63,10 +65,17 @@ function mockFetch(reply = "Chào bạn! Mình là Haimiya.", status = 200) {
 
 // Token giả: handler check đăng nhập chỉ khi FUNC_SEED chưa đặt — trong test
 // env đó chưa đặt nên cần "me" tra được qua internal query (mock ctx.runQuery).
+// requireBotKeyStrict (classifyViolation) hỏi getBotStatusInternal không args →
+// trả seed khớp BOT_KEY để botKey trong test được chấp nhận.
+const BOT_KEY = "test-bot-key-123";
 const ctxMock = {
-  runQuery: async (_fn: unknown, args: { token: string }) => {
+  runQuery: async (_fn: unknown, args?: { token?: string }) => {
     if (args?.token === "test-session-token") {
       return { discordId: "123456789012345678", username: "tester" };
+    }
+    if (args === undefined) {
+      // getBotStatusInternal → botKeySeed khớp computeBotKey(BOT_KEY)
+      return { botKeySeed: computeBotKey(BOT_KEY) };
     }
     return null;
   },
@@ -93,8 +102,8 @@ const okReply = async () =>
   const r1 = await okReply();
   check("gọi api.groq.com", requests[0]?.host === "api.groq.com");
   check(
-    "model Groq mặc định là llama-3.3-70b-versatile (không phải model không tồn tại)",
-    requests[0]?.model === "llama-3.3-70b-versatile",
+    "model Groq mặc định còn được phục vụ (llama-3.3 đã retire 08/2026)",
+    requests[0]?.model === "openai/gpt-oss-120b",
   );
   check("trả reply + offline: false", r1.offline === false && r1.reply.length > 0);
   check("system prompt có tên Haimiya", requests[0]?.system?.includes("Haimiya") === true);
@@ -129,12 +138,39 @@ const okReply = async () =>
   );
   check("model DeepSeek V4 Pro 0813", requests[0]?.model === "deepseek-ai/deepseek-v4-pro-0813");
 
-  console.log("\nD) API lỗi (500) → offline, frontend fallback bộ kiến thức cục bộ:");
+  console.log("\nD) API lỗi (500) → offline CÓ reason, không trả reply rác:");
   clearAIEnv();
   (process.env as any).GROQ_API_KEY = "test-groq";
   mockFetch("x", 500);
   const r2 = await okReply();
   check("500 → offline: true (không trả reply rác)", r2.offline === true);
+  check("500 → reason tường minh cho web hiển thị", typeof (r2 as any).reason === "string" && (r2 as any).reason.includes("500"));
+
+  console.log("\nD2) Model chết (400) → tự thử model dự phòng và thành công:");
+  clearAIEnv();
+  (process.env as any).GROQ_API_KEY = "test-groq";
+  (process.env as any).AI_MODEL = "model-retired-08-2026";
+  let calls400 = 0;
+  requests = [];
+  globalThis.fetch = (async (url: any, opts: any = {}) => {
+    const body = JSON.parse(opts?.body || "{}");
+    requests.push({ host: new URL(String(url)).host, model: body.model });
+    if (body.model === "model-retired-08-2026") {
+      calls400++;
+      return { ok: false, status: 400, json: async () => ({}), text: async () => "model not found" };
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ choices: [{ message: { content: "đã tự vá model" } }] }),
+    };
+  }) as typeof fetch;
+  const r3 = (await askHandler(ctxMock, {
+    messages: [{ role: "user", content: "ping" }],
+    token: "test-session-token",
+  })) as any;
+  check("model chết → thử lại bằng model dự phòng", calls400 === 1 && r3.offline === false);
+  check("reply từ model dự phòng", r3.reply === "đã tự vá model");
 
   console.log("\nE) History: giữ tối đa 8 tin gần nhất, đúng thứ tự:");
   clearAIEnv();
@@ -161,8 +197,7 @@ const okReply = async () =>
       suggestPunish: "ban",
     }),
   );
-  // classifyViolation giờ CHỈ bot có botKey được gọi — ctx không có "db" + runQuery
-  // trả null (không có botKeySeed) → rơi vào nhánh back-compat, check được bỏ qua.
+  // classifyViolation giờ CHỈ bot có botKey được gọi (requireBotKeyStrict).
   const cls = (await classifyHandler(ctxMock, {
     guildId: "g1",
     module: "spam",
@@ -172,6 +207,7 @@ const okReply = async () =>
     sampleMessages: ["aa", "aa", "aa"],
     recentJoins: 5,
     memberCount: 1000,
+    botKey: BOT_KEY,
   })) as any;
   check("phân loại raid + confidence 0.9", cls.classification === "raid" && cls.confidence === 0.9);
   check("offline: false", cls.offline === false);
@@ -180,21 +216,21 @@ const okReply = async () =>
     requests[0]?.system?.includes("raḑ") === false && true,
   );
 
-  // Không key → individual + offline (hành vi an toàn)
-  clearAIEnv();
-  mockFetch();
-  const cls2 = (await classifyHandler(ctxMock, {
-    guildId: "g1",
-    module: "spam",
-    count: 10,
-    windowSeconds: 10,
-    threshold: 6,
-    sampleMessages: [],
-  })) as any;
-  check(
-    "không key → individual + offline (an toàn, không ban)",
-    cls2.classification === "individual" && cls2.offline === true,
-  );
+  // Không key → BỊ TỪ CHỐI (chính sách strict: không cửa hậu cho client lạ)
+  let rejected = false;
+  try {
+    await classifyHandler(ctxMock, {
+      guildId: "g1",
+      module: "spam",
+      count: 10,
+      windowSeconds: 10,
+      threshold: 6,
+      sampleMessages: [],
+    });
+  } catch {
+    rejected = true;
+  }
+  check("không botKey → bị từ chối (requireBotKeyStrict)", rejected);
 
   globalThis.fetch = realFetch;
   console.log(`\nKết quả tầng action AI: ${pass} PASS, ${fail} FAIL`);

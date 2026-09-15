@@ -16,6 +16,29 @@ import {
   storeDiscordAccess,
 } from "../lib/discord";
 
+/**
+ * Chuyển lỗi đăng nhập thành thông điệp người dùng hiểu được.
+ * Đặc biệt: 15/09/2026 Discord gặp sự cố "Session Unavailability" (500) —
+ * người dùng tưởng dashboard lỗi, cần nói rõ lỗi nằm ở phía Discord.
+ */
+function friendlyAuthError(raw: string): string {
+  if (raw.includes("NEED_CLIENT_SECRET_EXCHANGE")) {
+    return "Cấu hình đăng nhập chưa hoàn tất — thử lại sau ít phút.";
+  }
+  // Lỗi trao đổi token từ Discord (5xx) → Discord đang sự cố, không phải lỗi dashboard.
+  const m = raw.match(/Discord token API lỗi (\d{3})/);
+  if (m && Number(m[1]) >= 500) {
+    return `Discord đang gặp sự cố tạm thời (lỗi ${m[1]} từ phía Discord). Vui lòng thử lại sau ít phút — trạng thái: status.discord.com`;
+  }
+  if (/Không lấy được thông tin người dùng \((\d{3})\)/.test(raw)) {
+    const code = raw.match(/\((\d{3})\)/)?.[1];
+    if (code && Number(code) >= 500) {
+      return `Discord đang gặp sự cố tạm thời (lỗi ${code} từ phía Discord). Vui lòng thử lại sau ít phút — trạng thái: status.discord.com`;
+    }
+  }
+  return raw || "Đăng nhập thất bại, vui lòng thử lại.";
+}
+
 export default function DiscordCallback() {
   const navigate = useNavigate();
   const { clientId, loading: configLoading, error: configError } = usePublicConfig();
@@ -85,11 +108,28 @@ export default function DiscordCallback() {
         // Đăng nhập an toàn: server tự trao đổi code với Discord (kèm
         // client_secret) và tự tạo session token — client không thể giả mạo
         // danh tính hay tự cấp token cho mình.
-        const result = await exchangeAndLogin({
-          code,
-          codeVerifier: verifier,
-          redirectUri: window.location.origin + "/discord/callback",
-        });
+        let result: Awaited<ReturnType<typeof exchangeAndLogin>>;
+        try {
+          result = await exchangeAndLogin({
+            code,
+            codeVerifier: verifier,
+            redirectUri: window.location.origin + "/discord/callback",
+          });
+        } catch (e) {
+          // Fallback: deployment chưa có DISCORD_CLIENT_SECRET → server trả
+          // NEED_CLIENT_SECRET_EXCHANGE. Web tự trao đổi code bằng PKCE (OAuth
+          // gốc đã dùng S256 challenge nên code không thể bị dùng bởi kẻ khác)
+          // rồi gửi access token lên — server vẫn xác thực lại với Discord.
+          const msg = e instanceof Error ? e.message : "";
+          if (!msg.includes("NEED_CLIENT_SECRET_EXCHANGE") || !clientId) throw e;
+          const oauth = await exchangeCode(clientId, code, verifier);
+          result = await exchangeAndLogin({
+            code,
+            codeVerifier: verifier,
+            redirectUri: window.location.origin + "/discord/callback",
+            accessToken: oauth.access_token,
+          });
+        }
         // Lưu access token để dashboard tự làm mới danh sách server sau này.
         storeDiscordAccess({
           access_token: result.accessToken,
@@ -102,7 +142,7 @@ export default function DiscordCallback() {
         sessionStorage.removeItem("wio_oauth_return");
         navigate(returnTo.startsWith("/") ? returnTo : "/dashboard", { replace: true });
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Đăng nhập thất bại, vui lòng thử lại.");
+        setError(friendlyAuthError(e instanceof Error ? e.message : ""));
       }
     }
     void run();

@@ -10,6 +10,7 @@ declare const process: {
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
+import { ConvexError } from "convex/values";
 import { requireFuncKey } from "./botFunc";
 
 const DISCORD_API = "https://discord.com/api/v10";
@@ -33,7 +34,7 @@ function assertLoginRateLimit(identity: string): void {
   if (bucket) {
     bucket.calls = bucket.calls.filter((t) => now - t < LOGIN_WINDOW_MS);
     if (bucket.calls.length >= LOGIN_MAX_PER_WINDOW) {
-      throw new Error("Quá nhiều lượt đăng nhập — thử lại sau ít phút");
+      throw new ConvexError("Quá nhiều lượt đăng nhập — thử lại sau ít phút");
     }
     bucket.calls.push(now);
   } else {
@@ -61,8 +62,41 @@ function assertAllowedRedirectUri(uri: string): void {
   ].filter((u): u is string => !!u);
   if (ALLOWED.length === 0) return; // chưa cấu hình → giữ back-compat (như trước đây)
   if (!ALLOWED.includes(uri)) {
-    throw new Error("redirect_uri không nằm trong danh sách cho phép");
+    throw new ConvexError("redirect_uri không nằm trong danh sách cho phép");
   }
+}
+
+/**
+ * Trao đổi code → access token bằng client_secret (đường chính). Mọi lỗi trả
+ * ConvexError để browser thấy thông báo thật thay vì "Server Error" bị mask.
+ */
+async function exchangeWithSecret(
+  clientId: string,
+  clientSecret: string,
+  code: string,
+  codeVerifier: string,
+  redirectUri: string,
+): Promise<string> {
+  const body = new URLSearchParams({
+    client_id: clientId,
+    client_secret: clientSecret,
+    grant_type: "authorization_code",
+    code,
+    redirect_uri: redirectUri,
+    code_verifier: codeVerifier,
+  });
+  const res = await fetch(`${DISCORD_API}/oauth2/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new ConvexError(`Discord token API lỗi ${res.status}: ${text.slice(0, 120)}`);
+  }
+  const data = (await res.json()) as { access_token?: string };
+  if (!data.access_token) throw new ConvexError("Discord không trả access token");
+  return data.access_token;
 }
 
 /**
@@ -88,8 +122,15 @@ export const exchangeAndLogin = action({
     codeVerifier: v.string(),
     redirectUri: v.string(),
     funcKey: v.optional(v.string()),
+    /**
+     * Fallback (15/09): deployment thiếu DISCORD_CLIENT_SECRET → web tự trao đổi
+     * code bằng PKCE (không cần secret) và gửi access token lên. Server KHÔNG tin
+     * token này: gọi ngay /users/@me xác thực với Discord — danh tính vẫn hoàn
+     * toàn từ Discord, không thể giả mạo nếu không giữ code+verifier thật.
+     */
+    accessToken: v.optional(v.string()),
   },
-  handler: async (ctx, { code, codeVerifier, redirectUri, funcKey }) => {
+  handler: async (ctx, { code, codeVerifier, redirectUri, funcKey, accessToken }) => {
     requireFuncKey(funcKey, process.env.FUNC_SEED);
     assertAllowedRedirectUri(redirectUri);
     // Chặn spam code giả trước khi đụng tới Discord API (tiết kiệm quota + tránh flag OAuth client).
@@ -99,46 +140,39 @@ export const exchangeAndLogin = action({
 
     const clientId = process.env.DISCORD_CLIENT_ID;
     const clientSecret = process.env.DISCORD_CLIENT_SECRET;
-    if (!clientId) throw new Error("DISCORD_CLIENT_ID chưa được cấu hình");
-    if (!clientSecret) {
-      throw new Error("DISCORD_CLIENT_SECRET chưa được cấu hình — thêm trong Keys của deployment");
-    }
 
-    // 1. Trao đổi code lấy access token (server-side, kèm client_secret)
-    let accessToken: string;
-    try {
-      const body = new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        grant_type: "authorization_code",
-        code,
-        redirect_uri: redirectUri,
-        code_verifier: codeVerifier,
-      });
-      const res = await fetch(`${DISCORD_API}/oauth2/token`, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body,
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(`Discord token API lỗi ${res.status}: ${text.slice(0, 120)}`);
+    // 1. Access token: từ fallback (PKCE client-side) hoặc trao đổi server-side.
+    // ConvexError (không phải Error thường): prod Convex MASK thông báo Error
+    // thường thành "Server Error" — người dùng không bao giờ biết lý do thật.
+    let accessTokenValue: string;
+    if (accessToken) {
+      accessTokenValue = accessToken;
+    } else {
+      if (!clientId) {
+        throw new ConvexError(
+          "DISCORD_CLIENT_ID chưa được cấu hình trên deployment — thêm trong Keys/API keys",
+        );
       }
-      const data = (await res.json()) as { access_token?: string };
-      if (!data.access_token) throw new Error("Discord không trả access token");
-      accessToken = data.access_token;
-    } catch (e) {
-      throw new Error(e instanceof Error ? e.message : "Trao đổi mã OAuth thất bại");
+      if (!clientSecret) {
+        throw new ConvexError("NEED_CLIENT_SECRET_EXCHANGE");
+      }
+      accessTokenValue = await exchangeWithSecret(
+        clientId,
+        clientSecret,
+        code,
+        codeVerifier,
+        redirectUri,
+      );
     }
 
     // 2. Lấy danh tính + danh sách server NGAY TỪ DISCORD — không tin client
-    const authHeaders = { Authorization: `Bearer ${accessToken}` };
+    const authHeaders = { Authorization: `Bearer ${accessTokenValue}` };
     const [userRes, guildsRes] = await Promise.all([
       fetch(`${DISCORD_API}/users/@me`, { headers: authHeaders }),
       fetch(`${DISCORD_API}/users/@me/guilds`, { headers: authHeaders }),
     ]);
     if (!userRes.ok) {
-      throw new Error(`Không lấy được thông tin người dùng (${userRes.status})`);
+      throw new ConvexError(`Không lấy được thông tin người dùng (${userRes.status})`);
     }
     const user = (await userRes.json()) as {
       id: string;
@@ -195,7 +229,7 @@ export const exchangeAndLogin = action({
       manageableCount: guilds.filter(
         (g) => (BigInt(g.permissions) & BigInt(PERM_MANAGE_GUILD)) !== 0n,
       ).length,
-      accessToken,
+      accessToken: accessTokenValue,
     };
   },
 });

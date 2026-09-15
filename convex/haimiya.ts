@@ -8,7 +8,7 @@ declare const process: {
 };
 
 import { action } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { internal } from "./_generated/api";
 import { requireFuncKey } from "./botFunc";
 import { requireBotKeyStrict } from "./botAuth";
@@ -63,29 +63,32 @@ KIẾN THỨC CHUYÊN SÂU VỀ PROTOGON (dùng khi được hỏi về bot):
  *   5. OpenAI: OPENAI_API_KEY (+ OPENAI_MODEL, mặc định gpt-4o-mini)
  *
  * Free tier từ awesome-freellm-apis:
- * - Groq: 30 RPM, 14,400 RPD, model llama-3.3-70b-versatile — MIỄN PHÍ, không cần thẻ
+ * - Groq: 30 RPM, 14,400 RPD — MIỄN PHÍ, không cần thẻ
  * - SambaNova: 20 RPM, 20 RPD, model deepseek-v3-1 — MIỄN PHÍ, cần đăng ký
+ *
+ * LƯU Ý (15/09/2026): Groq đã NGỪNG phục vụ llama-3.3-70b-versatile từ 08/2026 —
+ * mặc định mới là openai/gpt-oss-120b (model thay thế Groq khuyến nghị).
  */
 function aiProvider(): { key: string; baseUrl: string; model: string } | null {
   // 1. Gateway tùy chỉnh (Groq/kiosapi qua env) — model gateway tự chọn, mặc định
-  // llama-3.3-70b-versatile (model phổ biến trên các gateway tương thích OpenAI).
+  // là model dự phòng còn được hỗ trợ (xem FALLBACK_MODEL dưới).
   const groqKey = process.env.AI_API_KEY;
   if (groqKey && process.env.AI_BASE_URL) {
     return {
       key: groqKey,
       baseUrl: process.env.AI_BASE_URL,
-      model: process.env.AI_MODEL ?? "llama-3.3-70b-versatile",
+      model: process.env.AI_MODEL ?? FALLBACK_MODEL,
     };
   }
   // 2. Groq free trực tiếp (không qua gateway) — model mặc định là model CỦA GROQ
-  // (trước đây dùng tên model qwen không tồn tại trên Groq → mọi call lỗi 400,
-  // chat web luôn rơi về fallback cục bộ dù key hợp lệ).
+  // còn phục vụ (llama-3.3-70b-versatile đã bị retire 08/2026 → mọi call lỗi 400
+  // và chat web rơi về fallback cục bộ dù key hợp lệ).
   const groqDirectKey = process.env.GROQ_API_KEY;
   if (groqDirectKey) {
     return {
       key: groqDirectKey,
       baseUrl: "https://api.groq.com/openai/v1",
-      model: process.env.AI_MODEL ?? "llama-3.3-70b-versatile",
+      model: process.env.AI_MODEL ?? FALLBACK_MODEL,
     };
   }
   // 3. NVIDIA NIM free (https://build.nvidia.com — 40 RPM, 4M TPM)
@@ -127,6 +130,76 @@ function aiProvider(): { key: string; baseUrl: string; model: string } | null {
   return null;
 }
 
+/**
+ * Model dự phòng ĐẢM BẢO còn được phục vụ — dùng khi:
+ *  - env không đặt AI_MODEL, hoặc
+ *  - model cấu hình trả lỗi 400/404 (không tồn tại / đã bị ngừng — Groq retire
+ *    llama-3.3-70b-versatile 08/2026 khiến Haimiya "im lặng" toàn bộ).
+ */
+const FALLBACK_MODEL = "openai/gpt-oss-120b";
+
+/**
+ * Fetch có giới hạn thời gian — gateway treo/DNS chết không được giữ action
+ * sống vô hạn (Convex action có budget thời gian, treo = đốt tài nguyên).
+ */
+async function aiFetch(url: string, init: RequestInit): Promise<Response> {
+  return fetch(url, { ...init, signal: AbortSignal.timeout(20_000) });
+}
+
+/**
+ * Gọi chat completions qua provider với TỰ VÁ MODEL:
+ *  - Thử model cấu hình trước; nếu gateway trả 400/404 (model không khả dụng)
+ *    thử lại đúng 1 lần với FALLBACK_MODEL — Haimiya tự phục hồi khi model chết
+ *    mà không cần can thiệp tay vào env.
+ *  - Mọi thất bại trả `reason` ngắn gọn để web hiển thị cho người dùng
+ *    (minh bạch: hết "AI không kết nối được" mơ hồ).
+ */
+async function chatCompletion(
+  p: { key: string; baseUrl: string; model: string },
+  messages: Array<{ role: string; content: string }>,
+  opts: { maxTokens: number; temperature: number },
+): Promise<{ ok: true; reply: string } | { ok: false; reason: string }> {
+  const candidates = Array.from(new Set([p.model, FALLBACK_MODEL]));
+  let lastReason = "AI gateway không phản hồi";
+  for (const model of candidates) {
+    try {
+      const res = await aiFetch(`${p.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${p.key}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          max_tokens: opts.maxTokens,
+          temperature: opts.temperature,
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        const modelHint = res.status === 400 || res.status === 404 ? ` — model "${model}" không khả dụng` : "";
+        lastReason = `AI gateway trả lỗi ${res.status}${modelHint}${text ? `: ${text.slice(0, 140)}` : ""}`;
+        // Model chết → thử model dự phòng; lỗi khác (429/5xx) thử cũng vô ích.
+        if (res.status === 400 || res.status === 404) continue;
+        return { ok: false, reason: lastReason };
+      }
+      const data = (await res.json()) as {
+        choices?: { message?: { content?: string } }[];
+      };
+      const reply = data?.choices?.[0]?.message?.content?.trim() ?? "";
+      if (!reply) return { ok: false, reason: "AI trả về nội dung rỗng" };
+      return { ok: true, reply };
+    } catch (e) {
+      lastReason =
+        e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError")
+          ? "AI gateway quá thời gian phản hồi (timeout 20s)"
+          : "Không kết nối được tới AI gateway (mạng/DNS)";
+    }
+  }
+  return { ok: false, reason: lastReason };
+}
+
 /** Rate-limit trong bộ nhớ cho haimiya.ask: identity → mốc gọi gần đây (60s window). */
 const askBuckets = new Map<string, { calls: number[] }>();
 
@@ -152,7 +225,8 @@ export const ask = action({
       const me = token
         ? await ctx.runQuery(internal.sessionHardening.getUserByTokenInternal, { token })
         : null;
-      if (!me) throw new Error("Vui lòng đăng nhập để trò chuyện với Haimiya");
+      if (!me)
+        throw new ConvexError("Vui lòng đăng nhập để trò chuyện với Haimiya");
       rateIdentity = me.discordId;
     } else {
       // funcKey hợp lệ: vẫn giới hạn theo hiệu chỉnh SHA của key (tránh đốt token).
@@ -167,7 +241,7 @@ export const ask = action({
     if (bucket) {
       bucket.calls = bucket.calls.filter((t) => nowMs - t < windowMs);
       if (bucket.calls.length >= 20) {
-        throw new Error("Bạn đang gửi quá nhanh — thử lại sau ít phút nhé ⏳");
+        throw new ConvexError("Bạn đang gửi quá nhanh — thử lại sau ít phút nhé ⏳");
       }
       bucket.calls.push(nowMs);
     } else {
@@ -185,33 +259,23 @@ export const ask = action({
       .slice(-8)
       .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
     const p = aiProvider();
-    if (!p) return { reply: "", offline: true };
-    const last = safeMessages[safeMessages.length - 1];
-    if (!last?.content?.trim()) return { reply: "", offline: true };
-    const history = safeMessages;
-    try {
-      const res = await fetch(`${p.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${p.key}`,
-        },
-        body: JSON.stringify({
-          model: p.model,
-          messages: [{ role: "system", content: SYSTEM_PROMPT }, ...history],
-          max_tokens: 500,
-          temperature: 0.6,
-        }),
-      });
-      if (!res.ok) return { reply: "", offline: true };
-      const data = (await res.json()) as {
-        choices?: { message?: { content?: string } }[];
+    if (!p)
+      return {
+        reply: "",
+        offline: true,
+        reason: "AI chưa cấu hình trên máy chủ (thiếu AI_API_KEY/GROQ_API_KEY)",
       };
-      const reply = data?.choices?.[0]?.message?.content?.trim() ?? "";
-      return { reply, offline: false };
-    } catch {
-      return { reply: "", offline: true };
-    }
+    const last = safeMessages[safeMessages.length - 1];
+    if (!last?.content?.trim())
+      return { reply: "", offline: true, reason: "Tin nhắn rỗng" };
+    const history = safeMessages;
+    const r = await chatCompletion(
+      p,
+      [{ role: "system", content: SYSTEM_PROMPT }, ...history],
+      { maxTokens: 500, temperature: 0.6 },
+    );
+    if (r.ok) return { reply: r.reply, offline: false };
+    return { reply: "", offline: true, reason: r.reason };
   },
 });
 
@@ -260,37 +324,25 @@ Chỉ trả lời JSON thuần (không markdown) dạng: {"classification": "rai
 Server: ${guildNameSafe ?? "?"} (${args.memberCount ?? "?"} thành viên).
 Thành viên mới gần đây: ${args.recentJoins ?? 0}.
 Mẫu tin nhắn:\n${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).join("\n") : "(không có)"}`;
-    try {
-      const res = await fetch(`${p.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${p.key}`,
-        },
-        body: JSON.stringify({
-          model: p.model,
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: user },
-          ],
-          max_tokens: 200,
-          temperature: 0.2,
-        }),
-      });
-      if (!res.ok) {
-        return {
-          classification: "individual",
-          confidence: 0.5,
-          reason: `AI lỗi (${res.status})`,
-          suggestPunish: undefined,
-          offline: true,
-        };
-      }
-      const data = (await res.json()) as {
-        choices?: { message?: { content?: string } }[];
+    const r = await chatCompletion(
+      p,
+      [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      { maxTokens: 200, temperature: 0.2 },
+    );
+    if (!r.ok) {
+      return {
+        classification: "individual",
+        confidence: 0.5,
+        reason: r.reason,
+        suggestPunish: undefined,
+        offline: true,
       };
-      const raw = data?.choices?.[0]?.message?.content ?? "";
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    }
+    try {
+      const jsonMatch = r.reply.match(/\{[\s\S]*\}/);
       const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
       if (!parsed || !["raid", "individual", "benign"].includes(parsed.classification)) {
         return {
@@ -314,7 +366,7 @@ Mẫu tin nhắn:\n${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).jo
       return {
         classification: "individual",
         confidence: 0.5,
-        reason: "AI không kết nối được",
+        reason: "AI trả về JSON không đọc được",
         suggestPunish: undefined,
         offline: true,
       };
@@ -363,37 +415,25 @@ Phân tích dữ liệu một vụ tấn công server vừa xảy ra và trả l
     const user = `Vụ: module \"${args.module}\" — ${args.count} lần trong ${args.windowSeconds}s (ngưỡng ${args.threshold}). Server: ${args.guildName ? String(args.guildName).slice(0, 120) : "?"}.
 Hồ sơ cụm tài khoản:\n${args.clusterProfile ? String(args.clusterProfile).slice(0, 2000) : "(không có)"}
 Chuỗi hành vi gần đây:\n${args.recentActions ? String(args.recentActions).slice(0, 2000) : "(không có)"}`;
-    try {
-      const res = await fetch(`${p.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${p.key}`,
-        },
-        body: JSON.stringify({
-          model: p.model,
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: user },
-          ],
-          max_tokens: 250,
-          temperature: 0.2,
-        }),
-      });
-      if (!res.ok) {
-        return {
-          coordinated: null,
-          confidence: 0,
-          reasoning: `AI lỗi (${res.status})`,
-          sourceHint: null,
-          offline: true,
-        };
-      }
-      const data = (await res.json()) as {
-        choices?: { message?: { content?: string } }[];
+    const r = await chatCompletion(
+      p,
+      [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      { maxTokens: 250, temperature: 0.2 },
+    );
+    if (!r.ok) {
+      return {
+        coordinated: null,
+        confidence: 0,
+        reasoning: r.reason,
+        sourceHint: null,
+        offline: true,
       };
-      const raw = data?.choices?.[0]?.message?.content ?? "";
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    }
+    try {
+      const jsonMatch = r.reply.match(/\{[\s\S]*\}/);
       const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
       if (!parsed || typeof parsed.coordinated !== "boolean") {
         return {
@@ -415,7 +455,7 @@ Chuỗi hành vi gần đây:\n${args.recentActions ? String(args.recentActions)
       return {
         coordinated: null,
         confidence: 0,
-        reasoning: "AI không kết nối được",
+        reasoning: "AI trả về JSON không đọc được",
         sourceHint: null,
         offline: true,
       };
@@ -470,31 +510,19 @@ PHÂN TÍCH hồ sơ kết nối app / tin nhắn app vừa xảy ra và xác đ
 Chỉ trả lời JSON thuần (không markdown): {"isRaid": true|false|null, "confidence": 0-1, "reason": "ngắn gọn tiếng Việt"}`;
     const user = `Vụ: ${args.count} kết nối app ngoài trong ${args.windowSeconds}s (ngưỡng ${args.threshold}). Server: ${args.guildName ? String(args.guildName).slice(0, 120) : "?"} (${args.memberCount ?? "?"} thành viên). Thành viên mới gần đây: ${args.recentJoins ?? 0}.
 Hồ sơ kết nối / tin nhắn app:\n${args.appProfile ? String(args.appProfile).slice(0, 2000) : "(không có)"}`;
+    const r = await chatCompletion(
+      p,
+      [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      { maxTokens: 250, temperature: 0.2 },
+    );
+    if (!r.ok) {
+      return { isRaid: null, confidence: 0, reason: r.reason, offline: true };
+    }
     try {
-      const res = await fetch(`${p.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${p.key}`,
-        },
-        body: JSON.stringify({
-          model: p.model,
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: user },
-          ],
-          max_tokens: 250,
-          temperature: 0.2,
-        }),
-      });
-      if (!res.ok) {
-        return { isRaid: null, confidence: 0, reason: `AI lỗi (${res.status})`, offline: true };
-      }
-      const data = (await res.json()) as {
-        choices?: { message?: { content?: string } }[];
-      };
-      const raw = data?.choices?.[0]?.message?.content ?? "";
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      const jsonMatch = r.reply.match(/\{[\s\S]*\}/);
       const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
       if (!parsed || (typeof parsed.isRaid !== "boolean" && parsed.isRaid !== null)) {
         return { isRaid: null, confidence: 0, reason: "AI trả về không hợp lệ", offline: true };
@@ -506,7 +534,7 @@ Hồ sơ kết nối / tin nhắn app:\n${args.appProfile ? String(args.appProfi
         offline: false,
       };
     } catch {
-      return { isRaid: null, confidence: 0, reason: "AI không kết nối được", offline: true };
+      return { isRaid: null, confidence: 0, reason: "AI trả về JSON không đọc được", offline: true };
     }
   },
 });
@@ -523,6 +551,8 @@ export const aiStatus = action({
     return {
       configured: !!p,
       model: p?.model ?? null,
+      /** Model dự phòng sẽ được dùng nếu model cấu hình lỗi 400/404. */
+      fallbackModel: FALLBACK_MODEL,
       // Chỉ xuất host nguồn (an toàn — không chứa key, giúp biết đang qua gateway nào).
       gatewayHost: p
         ? (() => {
