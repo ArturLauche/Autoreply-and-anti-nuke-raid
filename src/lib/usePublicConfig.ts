@@ -19,6 +19,15 @@ const FALLBACK: PublicConfig = {
   facebookUrl: "https://www.facebook.com/profile.php?id=61592820547312",
 };
 
+/**
+ * Client ID nướng vào bundle lúc build (hosting build có env riêng). Convex
+ * deployment có thể KHÔNG có DISCORD_CLIENT_ID (env deployment ≠ env hosting)
+ * và bot offline thì không có botApplicationId để fallback — giá trị này cứu
+ * nút đăng nhập trong cả 2 trường hợp đó.
+ */
+const BAKED_CLIENT_ID: string =
+  (import.meta.env.VITE_DISCORD_CLIENT_ID as string | undefined) ?? "";
+
 const CACHE_TTL_MS = 10 * 60_000;
 
 let cache: { data: PublicConfig; at: number } | null = null;
@@ -32,7 +41,7 @@ async function fetchConfig(
     inflight = load()
       .then((res) => {
         const data: PublicConfig = {
-          clientId: res?.clientId ?? "",
+          clientId: res?.clientId || BAKED_CLIENT_ID,
           discordInvite: res?.discordInvite ?? FALLBACK.discordInvite,
           facebookUrl: res?.facebookUrl ?? FALLBACK.facebookUrl,
         };
@@ -41,7 +50,7 @@ async function fetchConfig(
       })
       .catch(() => {
         // Backend down: dùng fallback nhưng KHÔNG cache lỗi — lần sau thử lại.
-        return FALLBACK;
+        return { ...FALLBACK, clientId: BAKED_CLIENT_ID };
       })
       .finally(() => {
         inflight = null;
@@ -80,10 +89,10 @@ export function usePublicConfig(): {
     };
   }, [load]);
   return {
-    clientId: config?.clientId ?? "",
+    clientId: config?.clientId || BAKED_CLIENT_ID,
     discordInvite: config?.discordInvite ?? FALLBACK.discordInvite,
     facebookUrl: config?.facebookUrl ?? FALLBACK.facebookUrl,
-    loading: config === null,
+    loading: config === null && !BAKED_CLIENT_ID,
     error,
   };
 }

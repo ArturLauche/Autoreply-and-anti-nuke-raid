@@ -510,3 +510,29 @@ Hồ sơ kết nối / tin nhắn app:\n${args.appProfile ? String(args.appProfi
     }
   },
 });
+
+/**
+ * Chẩn đoán công khai: AI đã cấu hình trên deployment chưa (chỉ trả cờ —
+ * KHÔNG BAO GIỜ trả giá trị key). Web dashboard dùng để phân biệt "chat trả
+ * lời rỗng vì chưa cấu hình AI" với lỗi thật khác.
+ */
+export const aiStatus = action({
+  args: {},
+  handler: () => {
+    const p = aiProvider();
+    return {
+      configured: !!p,
+      model: p?.model ?? null,
+      // Chỉ xuất host nguồn (an toàn — không chứa key, giúp biết đang qua gateway nào).
+      gatewayHost: p
+        ? (() => {
+            try {
+              return new URL(p.baseUrl).host;
+            } catch {
+              return null;
+            }
+          })()
+        : null,
+    };
+  },
+});
