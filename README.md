@@ -4,7 +4,7 @@
 
 Bot Discord tự động trả lời tin nhắn thành viên theo **từ khóa** hoặc khi bị **tag @mention** (nội dung do bạn tùy chỉnh), hỗ trợ đầy đủ **prefix (`!`) + slash commands**, kèm hệ thống **chống nuke/raid** bật tắt từng phần theo ý mod & owner — tất cả quản lý qua một **dashboard web** tùy chỉnh.
 
-> **Chất lượng**: 23 test suites (~430 assertion, chạy ~10s) · coverage đo bằng c8 (56% dòng / 78% hàm / 61% nhánh — toàn bộ engine chống nuke được phủ test trực tiếp) · ESLint sạch · typecheck sạch · CI chặn merge khi fail · deploy Convex chỉ sau khi test pass (`bun run test` để chạy local).
+> **Chất lượng**: 25 test suites (~480 assertion, chạy ~12s) · coverage đo bằng c8 (63% dòng / 79% hàm / 62% nhánh — toàn bộ engine chống nuke + alt detection được phủ test trực tiếp) · ESLint sạch · typecheck sạch · smoke test VPS · CI chặn merge khi fail · deploy Convex chỉ sau khi test pass (`bun run test` để chạy local).
 
 ## Kiến trúc
 
@@ -89,27 +89,30 @@ Bot tự đăng ký slash commands và đồng bộ server/kênh/role lên Conve
 ## Kiểm thử & Coverage
 
 ```bash
-bun run test            # chạy toàn bộ 23 suites (~10s, thoát khác 0 nếu fail)
+bun run test            # chạy toàn bộ 25 suites (~12s, thoát khác 0 nếu fail)
 bun run test:coverage   # chạy test + đo coverage (báo cáo HTML tại coverage/)
+bun run smoke:vps       # smoke test VPS (env + module + Convex + Discord login)
 ```
 
 Coverage được đo bằng [`c8`](https://github.com/bcoe/c8) (V8 native, không phải đo giả): mỗi dòng/hàm/nhánh của `bot/src` bị đánh dấu **đã chạy qua hay chưa** trong lúc test. Con số hiện tại:
 
 | Chỉ số          | Giá trị | Ý nghĩa                                                    |
 | --------------- | ------- | ---------------------------------------------------------- |
-| Dòng            | 55.8%   | ~7,900/14,150 dòng bot được test chạm tới                  |
-| Hàm             | 77.9%   | 78% hàm được **gọi thật** (không chỉ import)               |
-| Nhánh (if/else) | 60.6%   | cả hai phía true/false của phần lớn điều kiện đã được kiểm |
+| Dòng            | 62.9%   | ~8,900/14,150 dòng bot được test chạm tới                  |
+| Hàm             | 78.9%   | 79% hàm được **gọi thật** (không chỉ import)               |
+| Nhánh (if/else) | 61.7%   | cả hai phía true/false của phần lớn điều kiện đã được kiểm |
 
 **Bản đồ nhiệt theo file** (phần quan trọng nhất):
 
-- ✅ **≥ 85%**: `antinuke/shared` (98%), `externalAppGuard` (96%), `flaggedMessages` (97%), `antinuke/messages` (93%), `filters` (92%), `antinuke/members` (90%), `antinuke/audit` (84%), `antinuke/externalApp` (88%), `threatEngine` (89%), `selfDiagnose` (89%), `caseLog` (100%) — **toàn bộ engine chống nuke (audit / members / messages / externalApp) giờ được phủ test trực tiếp**, đúng chỗ xử lý mọi vụ nuke thật.
-- ⚠️ **50–76%**: `antinuke/raidIntel` (69%), `backup` (76%), `util` (75%), `research` (72%), `enforce` (73%), `heat` (67%), `backupUtils` (66%), `hidden` (59%), `tick` (58%) — luồng chính có test nhưng còn nhánh hiếm gặp chưa phủ.
-- 🔴 **< 20%**: các file entry-point cần Discord runtime thật (`antinuke/index` 16%, `interactionCreate`, `messageCreate`, `altDetection`) — wiring Discord gateway, phủ qua production smoke test thay vì unit test.
+- ✅ **≥ 80%**: `antinuke/shared` (98%), `externalAppGuard` (96%), `flaggedMessages` (97%), `antinuke/messages` (93%), `filters` (92%), `antinuke/members` (90%), `altDetection` (80%), `antinuke/audit` (84%), `antinuke/externalApp` (88%), `threatEngine` (89%), `selfDiagnose` (89%), `caseLog` (100%) — **toàn bộ engine chống nuke + alt detection giờ được phủ test trực tiếp**, đúng chỗ xử lý mọi vụ nuke thật.
+- ⚠️ **60–79%**: `joinGate` (72%), `antinuke/raidIntel` (69%), `backup` (76%), `util` (75%), `research` (72%), `enforce` (73%), `heat` (67%), `backupUtils` (66%), `hidden` (59%), `tick` (58%) — luồng chính có test nhưng còn nhánh hiếm gặp chưa phủ.
+- 🔴 **< 20%**: các file entry-point cần Discord runtime thật (`antinuke/index` 16%, `interactionCreate`, `messageCreate`) — wiring Discord gateway, phủ qua smoke test VPS (`bun run smoke:vps`) thay vì unit test.
 
-**Chống regress bằng ngưỡng**: `.c8rc.json` đặt ngưỡng tối thiểu (lines 50 / functions 55 / branches 40) — nếu code mới làm rớt coverage xuống dưới ngưỡng, `bun run test:coverage` thất bại, chặn regress trước khi commit.
+**Chống regress bằng ngưỡng**: `.c8rc.json` đặt ngưỡng tối thiểu (lines 58 / functions 65 / branches 50) — nếu code mới làm rớt coverage xuống dưới ngưỡng, `bun run test:coverage` thất bại, chặn regress trước khi commit.
 
-Coverage **không phải điểm số để đẹp**: nó chỉ ra chính xác nơi thiếu test. Ví dụ: bộ test 3 lớp `audit`/`members`/`messages` viết trong đợt này vừa chạy vừa bắt được **lỗi thật** — owner + whitelistUsers không được miễn khi fetch member thất bại (cache miss sau restart) → chủ server có thể bị ghi sự kiện nuke oan + khóa kênh. Đã vá ngay trong `audit.js` kèm assertion chặn tái diễn.
+Coverage **không phải điểm số để đẹp**: nó chỉ ra chính xác nơi thiếu test. Ví dụ: bộ test alt detection viết trong đợt này vừa chạy vừa bắt được **bug thật** — `usernameSimilarity` trả 100 cho 2 tên ngắn giống hệt nhau ("mai"/"mai") trước khi chạm guard 5 ký tự → `scanGuildForAlts` ghép oan 2 người lạ trùng tên ngắn phổ biến. Đã vá ngay + assertion chặn tái diễn.
+
+**Xác minh trên VPS thật**: CI chỉ đảm bảo logic đúng trong môi trường test; môi trường thật (env, mạng, quyền Discord) được kiểm bằng `bun run smoke:vps` — check Node ≥ 18, biến môi trường bắt buộc, nạp sạch 14 module lõi (bắt lỗi import mà test không thấy), ping Convex, login Discord. Chạy sau mỗi lần `git pull` trên VPS. Checklist xác minh từng kịch bản tấn công trên server phụ: `scripts/smoke-checklist.md`.
 
 ## Lint, Format & Dependencies
 
@@ -124,7 +127,7 @@ bun run format:check    # CI dùng lệnh này để chặn code chưa format
 
 **Dependabot** (`.github/dependabot.yml`) quét weekly: root `bun`, `bot/` (discord.js, convex) và `github-actions` — tự tạo PR cập nhật, group các bump minor/patch thành 1 PR. Bot bảo mật không được để deps cũ.
 
-**Thứ tự gate trong CI**: `lint` (ESLint + Prettier) → `test` (23 suites + coverage + typecheck) → `deploy` Convex production. Job sau chỉ chạy khi job trước pass.
+**Thứ tự gate trong CI**: `lint` (ESLint + Prettier) → `test` (25 suites + coverage + typecheck) → `deploy` Convex production. Job sau chỉ chạy khi job trước pass.
 
 ## Phát triển
 

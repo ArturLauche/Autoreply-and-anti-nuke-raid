@@ -14,7 +14,8 @@
     "format:check": "prettier --check .",
     "test": "node scripts/run-all-tests.cjs",
     "test:coverage": "c8 --config .c8rc.json node scripts/run-all-tests.cjs",
-    "test:bot": "for s in scripts/test-*.cjs; do node \"$s\" || exit 1; done"
+    "test:bot": "for s in scripts/test-*.cjs; do node \"$s\" || exit 1; done",
+    "smoke:vps": "node scripts/smoke-vps.cjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.2",

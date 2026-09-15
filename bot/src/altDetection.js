@@ -51,11 +51,13 @@ function levenshtein(a, b) {
 function usernameSimilarity(u1, u2) {
   const a = u1.toLowerCase().replace(/[^a-z0-9]/g, "");
   const b = u2.toLowerCase().replace(/[^a-z0-9]/g, "");
+  // REQUIRE minimum 5 chars to avoid false positives on short/common names —
+  // đặt TRƯỚC check trùng hoàn toàn: trước đây "mai"/"mai" (tên phổ biến 3-4
+  // ký tự) vẫn trả 100 và scanGuildForAlts (không có guard riêng) ghép oan
+  // 2 người lạ trùng tên ngắn.
+  if (a.length < 5 || b.length < 5) return 0;
   if (a === b) return 100;
   if (!a || !b) return 0;
-
-  // REQUIRE minimum 5 chars to avoid false positives on short/common names
-  if (a.length < 5 || b.length < 5) return 0;
 
   // SKIP Discord default names like "User123456"
   if (/^user\d+$/i.test(a) || /^user\d+$/i.test(b)) return 0;
@@ -605,7 +607,7 @@ function buildRiskEmbed(member, analysis, punishResult) {
     .setColor(riskColor)
     .setTitle(`🔍 Alt Detection: ${member.user.username}`)
     .setDescription(`Phân tích rủi ro cho <@${member.id}>`)
-    .addFields(
+    .addFields([
       { name: "Điểm rủi ro", value: `**${analysis.riskScore}/100**`, inline: true },
       {
         name: "Hành động",
@@ -617,7 +619,7 @@ function buildRiskEmbed(member, analysis, punishResult) {
         value: `${Math.floor((Date.now() - member.user.createdTimestamp) / DAY_MS)} ngày`,
         inline: true,
       },
-    );
+    ]);
 
   if (analysis.riskFactors.length > 0) {
     embed.addFields({
