@@ -293,3 +293,6 @@ if (survivors.length > 0) {
   for (const s of survivors) console.log(`  - ${s}`);
   process.exit(1);
 }
+// QUAN TRỌNG: altDetection nạp setInterval ở module-level — không exit tường minh
+// process sẽ sống mãi → CI treo đến job timeout.
+process.exit(0);
