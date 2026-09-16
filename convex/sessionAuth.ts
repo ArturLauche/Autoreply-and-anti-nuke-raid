@@ -10,7 +10,6 @@ declare const process: {
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { ConvexError } from "convex/values";
 import { requireFuncKey } from "./botFunc";
 
 const DISCORD_API = "https://discord.com/api/v10";
@@ -23,18 +22,21 @@ const PERM_MANAGE_GUILD = 0x20;
  * the deployment's Discord OAuth client flagged.
  * (Best-effort: in-memory only survives one action instance — enough against
  * scripted bursts, same approach as haimiya:ask.)
+ *
+ * Trả chuỗi lỗi khi vượt hạn mức (thay vì throw — Convex production MASK mọi
+ * error message từ action thành "Server Error", người dùng không thấy gì).
  */
 const loginBuckets = new Map<string, { calls: number[] }>();
 const LOGIN_WINDOW_MS = 60_000;
 const LOGIN_MAX_PER_WINDOW = 20;
 
-function assertLoginRateLimit(identity: string): void {
+function checkLoginRateLimit(identity: string): string | null {
   const now = Date.now();
   const bucket = loginBuckets.get(identity);
   if (bucket) {
     bucket.calls = bucket.calls.filter((t) => now - t < LOGIN_WINDOW_MS);
     if (bucket.calls.length >= LOGIN_MAX_PER_WINDOW) {
-      throw new ConvexError("Quá nhiều lượt đăng nhập — thử lại sau ít phút");
+      return "Quá nhiều lượt đăng nhập — thử lại sau ít phút";
     }
     bucket.calls.push(now);
   } else {
@@ -45,6 +47,7 @@ function assertLoginRateLimit(identity: string): void {
       }
     }
   }
+  return null;
 }
 
 /**
@@ -52,23 +55,25 @@ function assertLoginRateLimit(identity: string): void {
  * Developer Portal (/discord/callback trên domain dashboard). Chặn kẻ xấu trao đổi
  * code theo redirect_uri tùy ý ( authorization code bị kẹp có thể bị gửi tới
  * endpoint attacker-controlled và trao đổi thành access token).
+ * Trả chuỗi lỗi thay vì throw (xem checkLoginRateLimit).
  */
-function assertAllowedRedirectUri(uri: string): void {
+function checkAllowedRedirectUri(uri: string): string | null {
   const ALLOWED = [
     process.env.OAUTH_REDIRECT_URI,
     process.env.DASHBOARD_URL
       ? `${process.env.DASHBOARD_URL.replace(/\/+$/, "")}/discord/callback`
       : undefined,
   ].filter((u): u is string => !!u);
-  if (ALLOWED.length === 0) return; // chưa cấu hình → giữ back-compat (như trước đây)
+  if (ALLOWED.length === 0) return null; // chưa cấu hình → giữ back-compat (như trước đây)
   if (!ALLOWED.includes(uri)) {
-    throw new ConvexError("redirect_uri không nằm trong danh sách cho phép");
+    return "redirect_uri không nằm trong danh sách cho phép";
   }
+  return null;
 }
 
 /**
- * Trao đổi code → access token bằng client_secret (đường chính). Mọi lỗi trả
- * ConvexError để browser thấy thông báo thật thay vì "Server Error" bị mask.
+ * Trao đổi code → access token bằng client_secret (đường chính).
+ * Trả { error } thay vì throw — message của action bị Convex production mask.
  */
 async function exchangeWithSecret(
   clientId: string,
@@ -76,7 +81,7 @@ async function exchangeWithSecret(
   code: string,
   codeVerifier: string,
   redirectUri: string,
-): Promise<string> {
+): Promise<{ token?: string; error?: string }> {
   const body = new URLSearchParams({
     client_id: clientId,
     client_secret: clientSecret,
@@ -85,18 +90,23 @@ async function exchangeWithSecret(
     redirect_uri: redirectUri,
     code_verifier: codeVerifier,
   });
-  const res = await fetch(`${DISCORD_API}/oauth2/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${DISCORD_API}/oauth2/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+  } catch {
+    return { error: "Không kết nối được tới Discord (mạng)" };
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new ConvexError(`Discord token API lỗi ${res.status}: ${text.slice(0, 120)}`);
+    return { error: `Discord token API lỗi ${res.status}: ${text.slice(0, 120)}` };
   }
   const data = (await res.json()) as { access_token?: string };
-  if (!data.access_token) throw new ConvexError("Discord không trả access token");
-  return data.access_token;
+  if (!data.access_token) return { error: "Discord không trả access token" };
+  return { token: data.access_token };
 }
 
 /**
@@ -132,47 +142,60 @@ export const exchangeAndLogin = action({
   },
   handler: async (ctx, { code, codeVerifier, redirectUri, funcKey, accessToken }) => {
     requireFuncKey(funcKey, process.env.FUNC_SEED);
-    assertAllowedRedirectUri(redirectUri);
-    // Chặn spam code giả trước khi đụng tới Discord API (tiết kiệm quota + tránh flag OAuth client).
-    assertLoginRateLimit(
+    // Mọi lỗi trả về dạng { ok: false, reason } — Convex production MASK message
+    // của mọi action (kể cả ConvexError) thành "Server Error", khiến web không
+    // phân biệt được thiếu client secret / Discord sự cố / sai redirect...
+    // Chỉ lỗi NỘI BỘ bất ngờ (DB) mới ném ra ngoài.
+    const fail = (reason: string) => ({ ok: false as const, reason });
+
+    const rl = checkLoginRateLimit(
       process.env.FUNC_SEED && funcKey ? "func:" + funcKey.slice(0, 16) : "public",
     );
+    if (rl) return fail(rl);
+    const redirectErr = checkAllowedRedirectUri(redirectUri);
+    if (redirectErr) return fail(redirectErr);
 
     const clientId = process.env.DISCORD_CLIENT_ID;
     const clientSecret = process.env.DISCORD_CLIENT_SECRET;
 
     // 1. Access token: từ fallback (PKCE client-side) hoặc trao đổi server-side.
-    // ConvexError (không phải Error thường): prod Convex MASK thông báo Error
-    // thường thành "Server Error" — người dùng không bao giờ biết lý do thật.
     let accessTokenValue: string;
     if (accessToken) {
       accessTokenValue = accessToken;
     } else {
       if (!clientId) {
-        throw new ConvexError(
+        return fail(
           "DISCORD_CLIENT_ID chưa được cấu hình trên deployment — thêm trong Keys/API keys",
         );
       }
       if (!clientSecret) {
-        throw new ConvexError("NEED_CLIENT_SECRET_EXCHANGE");
+        // Tín hiệu để web tự trao đổi code bằng PKCE rồi gửi access token lên.
+        return { ok: false as const, reason: "NEED_CLIENT_SECRET_EXCHANGE" };
       }
-      accessTokenValue = await exchangeWithSecret(
-        clientId,
-        clientSecret,
-        code,
-        codeVerifier,
-        redirectUri,
-      );
+      const ex = await exchangeWithSecret(clientId, clientSecret, code, codeVerifier, redirectUri);
+      if (ex.error || !ex.token) return fail(ex.error ?? "Trao đổi code với Discord thất bại");
+      accessTokenValue = ex.token;
     }
 
-    // 2. Lấy danh tính + danh sách server NGAY TỪ DISCORD — không tin client
+    // 2. Lấy danh tính + danh sách server NGAY TỪ DISCORD — không tin client.
     const authHeaders = { Authorization: `Bearer ${accessTokenValue}` };
-    const [userRes, guildsRes] = await Promise.all([
-      fetch(`${DISCORD_API}/users/@me`, { headers: authHeaders }),
-      fetch(`${DISCORD_API}/users/@me/guilds`, { headers: authHeaders }),
-    ]);
+    let userRes: Response;
+    let guildsRes: Response;
+    try {
+      [userRes, guildsRes] = await Promise.all([
+        fetch(`${DISCORD_API}/users/@me`, { headers: authHeaders }),
+        fetch(`${DISCORD_API}/users/@me/guilds`, { headers: authHeaders }),
+      ]);
+    } catch {
+      return fail("Không kết nối được tới Discord (mạng) — thử lại sau ít phút");
+    }
     if (!userRes.ok) {
-      throw new ConvexError(`Không lấy được thông tin người dùng (${userRes.status})`);
+      const st = userRes.status;
+      return fail(
+        st >= 500
+          ? `Discord đang gặp sự cố tạm thời (lỗi ${st} từ phía Discord) — xem status.discord.com`
+          : `Không lấy được thông tin người dùng (${st})`,
+      );
     }
     const user = (await userRes.json()) as {
       id: string;
@@ -196,23 +219,28 @@ export const exchangeAndLogin = action({
       .replace(/\+/g, "-")
       .replace(/\//g, "_")
       .replace(/=+$/, "");
-    await ctx.runMutation(internal.sessionHardening.loginInternal, {
-      token,
-      user: {
-        discordId: user.id,
-        username: user.username,
-        globalName: user.global_name ?? undefined,
-        avatar: user.avatar ?? undefined,
-      },
-      guilds: guilds.map((g) => ({
-        id: g.id,
-        name: g.name,
-        icon: g.icon ?? undefined,
-        permissions: g.permissions,
-      })),
-    });
+    try {
+      await ctx.runMutation(internal.sessionHardening.loginInternal, {
+        token,
+        user: {
+          discordId: user.id,
+          username: user.username,
+          globalName: user.global_name ?? undefined,
+          avatar: user.avatar ?? undefined,
+        },
+        guilds: guilds.map((g) => ({
+          id: g.id,
+          name: g.name,
+          icon: g.icon ?? undefined,
+          permissions: g.permissions,
+        })),
+      });
+    } catch {
+      return fail("Không ghi được phiên đăng nhập trên máy chủ — thử lại");
+    }
 
     return {
+      ok: true as const,
       token,
       user: {
         discordId: user.id,

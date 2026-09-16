@@ -239,6 +239,44 @@ const okReply = async () =>
   }
   check("không botKey → bị từ chối (requireBotKeyStrict)", rejected);
 
+  console.log("\nG) Hợp đồng KHÔNG-THROW (Convex prod mask message action):");
+  // 15/09/2026: ask throw ConvexError "Vui lòng đăng nhập..." → prod Convex mask
+  // thành "Server Error" → web không phân biệt được chưa-đăng-nhập với AI chết.
+  // Vá: action trả { offline, reason, needLogin } thay vì throw.
+  clearAIEnv();
+  mockFetch();
+  const noToken = (await askHandler(ctxMock, {
+    messages: [{ role: "user", content: "hi" }],
+  })) as any;
+  check("không token → trả kết quả, KHÔNG throw", noToken !== undefined);
+  check(
+    "offline: true + reason tường minh",
+    noToken.offline === true && (noToken.reason ?? "").includes("đăng nhập"),
+  );
+  check("cờ needLogin để web phân biệt", noToken.needLogin === true);
+
+  // Rate-limit: bucket in-memory module-level → gọi 20 lần rồi lần 21 phải bị chặn
+  clearAIEnv();
+  (process.env as any).GROQ_API_KEY = "test-groq";
+  mockFetch();
+  let last: any = null;
+  for (let i = 0; i < 21; i++) {
+    last = (await askHandler(ctxMock, {
+      messages: [{ role: "user", content: `spam-${i}` }],
+      token: "test-session-token",
+    })) as any;
+  }
+  check(
+    "gọi lần 21 → bị rate-limit (offline + reason), KHÔNG throw",
+    last?.offline === true && (last?.reason ?? "").includes("quá nhanh"),
+  );
+  // Lần 22 cũng vậy (bucket giữ nguyên trạng thái)
+  const last2 = (await askHandler(ctxMock, {
+    messages: [{ role: "user", content: "spam-more" }],
+    token: "test-session-token",
+  })) as any;
+  check("lần 22 vẫn bị chặn", last2?.offline === true);
+
   globalThis.fetch = realFetch;
   console.log(`\nKết quả tầng action AI: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail === 0 ? 0 : 1);

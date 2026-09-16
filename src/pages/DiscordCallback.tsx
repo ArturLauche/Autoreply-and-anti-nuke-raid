@@ -20,6 +20,8 @@ import {
  * Chuyển lỗi đăng nhập thành thông điệp người dùng hiểu được.
  * Đặc biệt: 15/09/2026 Discord gặp sự cố "Session Unavailability" (500) —
  * người dùng tưởng dashboard lỗi, cần nói rõ lỗi nằm ở phía Discord.
+ * Server trả { ok: false, reason } thay vì throw (Convex prod mask message
+ * của action thành "Server Error") — reason giờ luôn là text thật.
  */
 function friendlyAuthError(raw: string): string {
   if (raw.includes("NEED_CLIENT_SECRET_EXCHANGE")) {
@@ -107,21 +109,18 @@ export default function DiscordCallback() {
       try {
         // Đăng nhập an toàn: server tự trao đổi code với Discord (kèm
         // client_secret) và tự tạo session token — client không thể giả mạo
-        // danh tính hay tự cấp token cho mình.
-        let result: Awaited<ReturnType<typeof exchangeAndLogin>>;
-        try {
-          result = await exchangeAndLogin({
-            code,
-            codeVerifier: verifier,
-            redirectUri: window.location.origin + "/discord/callback",
-          });
-        } catch (e) {
-          // Fallback: deployment chưa có DISCORD_CLIENT_SECRET → server trả
-          // NEED_CLIENT_SECRET_EXCHANGE. Web tự trao đổi code bằng PKCE (OAuth
-          // gốc đã dùng S256 challenge nên code không thể bị dùng bởi kẻ khác)
-          // rồi gửi access token lên — server vẫn xác thực lại với Discord.
-          const msg = e instanceof Error ? e.message : "";
-          if (!msg.includes("NEED_CLIENT_SECRET_EXCHANGE") || !clientId) throw e;
+        // danh tính hay tự cấp token cho mình. Lỗi trả { ok: false, reason }
+        // (không throw — Convex prod mask message action).
+        let result = await exchangeAndLogin({
+          code,
+          codeVerifier: verifier,
+          redirectUri: window.location.origin + "/discord/callback",
+        });
+        if (!result.ok && result.reason.includes("NEED_CLIENT_SECRET_EXCHANGE") && clientId) {
+          // Fallback: deployment chưa có DISCORD_CLIENT_SECRET → web tự trao đổi
+          // code bằng PKCE (OAuth gốc đã dùng S256 challenge nên code không thể
+          // bị dùng bởi kẻ khác) rồi gửi access token lên — server vẫn xác thực
+          // lại với Discord.
           const oauth = await exchangeCode(clientId, code, verifier);
           result = await exchangeAndLogin({
             code,
@@ -129,6 +128,10 @@ export default function DiscordCallback() {
             redirectUri: window.location.origin + "/discord/callback",
             accessToken: oauth.access_token,
           });
+        }
+        if (!result.ok || !result.token) {
+          setError(friendlyAuthError(!result.ok ? (result.reason ?? "") : ""));
+          return;
         }
         // Lưu access token để dashboard tự làm mới danh sách server sau này.
         storeDiscordAccess({

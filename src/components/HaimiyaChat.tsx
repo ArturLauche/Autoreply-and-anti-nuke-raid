@@ -203,17 +203,17 @@ export default function HaimiyaChat({
       }
       const res = await askAI({ messages: history, funcKey, token });
       if (res && !res.offline && res.reply) return res.reply;
-      // AI chưa cấu hình / dịch vụ lỗi → marker + lý do thật từ server để UI
-      // thông báo rõ ràng thay vì im lặng rơi về kiến thức cục bộ.
-      if (res && res.offline) return `[offline] ${res.reason ?? ""}`.trim();
-    } catch (e) {
-      // ConvexError giờ xuyên thẳng tới browser — hiển thị thông điệp thật
-      // (đăng nhập bắt buộc, rate-limit) thay vì "Server Error" bị mask.
-      const msg = e instanceof Error ? e.message : "";
-      if (msg.includes("Server Error")) return "[offline] Máy chủ AI đang lỗi tạm thời";
-      if (msg.includes("đăng nhập")) return `[đăng-nhập] ${msg}`;
-      if (msg.includes("quá nhanh")) return `[giới-hạn] ${msg}`;
-      // fallback to local knowledge.
+      // AI chưa cấu hình / dịch vụ lỗi / chưa đăng nhập → marker + lý do thật
+      // từ server (action trả offline thay vì throw — Convex prod mask message
+      // action thành "Server Error", không thể phân biệt qua exception).
+      if (res && res.offline) {
+        if ((res as { needLogin?: boolean }).needLogin)
+          return `[đăng-nhập] ${res.reason ?? ""}`.trim();
+        return `[offline] ${res.reason ?? ""}`.trim();
+      }
+    } catch {
+      // Lỗi transport thật (mạng / Server Error) → offline chung.
+      return "[offline] Máy chủ AI đang lỗi tạm thời";
     }
     return null;
   }

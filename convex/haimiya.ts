@@ -8,7 +8,7 @@ declare const process: {
 };
 
 import { action } from "./_generated/server";
-import { v, ConvexError } from "convex/values";
+import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { requireFuncKey } from "./botFunc";
 import { requireBotKeyStrict } from "./botAuth";
@@ -221,12 +221,21 @@ export const ask = action({
     requireFuncKey(funcKey, process.env.FUNC_SEED);
     // Khi chưa cấu hình FUNC_SEED: vẫn yêu cầu ĐĂNG NHẬP — kẻ ngoài không thể
     // đốt lượt gọi AI free tier của deployment (trước đây action mở hoàn toàn).
+    // LỖI TRẢ DẠNG offline+reason thay vì throw: Convex production MASK message
+    // của action (kể cả ConvexError) thành "Server Error" — web không thể phân
+    // biệt "chưa đăng nhập" với "AI chết" nếu throw.
     let rateIdentity = "anon";
     if (!process.env.FUNC_SEED) {
       const me = token
         ? await ctx.runQuery(internal.sessionHardening.getUserByTokenInternal, { token })
         : null;
-      if (!me) throw new ConvexError("Vui lòng đăng nhập để trò chuyện với Haimiya");
+      if (!me)
+        return {
+          reply: "",
+          offline: true,
+          reason: "Vui lòng đăng nhập dashboard để trò chuyện với Haimiya",
+          needLogin: true,
+        };
       rateIdentity = me.discordId;
     } else {
       // funcKey hợp lệ: vẫn giới hạn theo hiệu chỉnh SHA của key (tránh đốt token).
@@ -241,7 +250,11 @@ export const ask = action({
     if (bucket) {
       bucket.calls = bucket.calls.filter((t) => nowMs - t < windowMs);
       if (bucket.calls.length >= 20) {
-        throw new ConvexError("Bạn đang gửi quá nhanh — thử lại sau ít phút nhé ⏳");
+        return {
+          reply: "",
+          offline: true,
+          reason: "Bạn đang gửi quá nhanh — thử lại sau ít phút nhé ⏳",
+        };
       }
       bucket.calls.push(nowMs);
     } else {
