@@ -178,7 +178,8 @@ async function chatCompletion(
       });
       if (!res.ok) {
         const text = await res.text().catch(() => "");
-        const modelHint = res.status === 400 || res.status === 404 ? ` — model "${model}" không khả dụng` : "";
+        const modelHint =
+          res.status === 400 || res.status === 404 ? ` — model "${model}" không khả dụng` : "";
         lastReason = `AI gateway trả lỗi ${res.status}${modelHint}${text ? `: ${text.slice(0, 140)}` : ""}`;
         // Model chết → thử model dự phòng; lỗi khác (429/5xx) thử cũng vô ích.
         if (res.status === 400 || res.status === 404) continue;
@@ -225,8 +226,7 @@ export const ask = action({
       const me = token
         ? await ctx.runQuery(internal.sessionHardening.getUserByTokenInternal, { token })
         : null;
-      if (!me)
-        throw new ConvexError("Vui lòng đăng nhập để trò chuyện với Haimiya");
+      if (!me) throw new ConvexError("Vui lòng đăng nhập để trò chuyện với Haimiya");
       rateIdentity = me.discordId;
     } else {
       // funcKey hợp lệ: vẫn giới hạn theo hiệu chỉnh SHA của key (tránh đốt token).
@@ -266,14 +266,12 @@ export const ask = action({
         reason: "AI chưa cấu hình trên máy chủ (thiếu AI_API_KEY/GROQ_API_KEY)",
       };
     const last = safeMessages[safeMessages.length - 1];
-    if (!last?.content?.trim())
-      return { reply: "", offline: true, reason: "Tin nhắn rỗng" };
+    if (!last?.content?.trim()) return { reply: "", offline: true, reason: "Tin nhắn rỗng" };
     const history = safeMessages;
-    const r = await chatCompletion(
-      p,
-      [{ role: "system", content: SYSTEM_PROMPT }, ...history],
-      { maxTokens: 500, temperature: 0.6 },
-    );
+    const r = await chatCompletion(p, [{ role: "system", content: SYSTEM_PROMPT }, ...history], {
+      maxTokens: 500,
+      temperature: 0.6,
+    });
     if (r.ok) return { reply: r.reply, offline: false };
     return { reply: "", offline: true, reason: r.reason };
   },
@@ -534,7 +532,12 @@ Hồ sơ kết nối / tin nhắn app:\n${args.appProfile ? String(args.appProfi
         offline: false,
       };
     } catch {
-      return { isRaid: null, confidence: 0, reason: "AI trả về JSON không đọc được", offline: true };
+      return {
+        isRaid: null,
+        confidence: 0,
+        reason: "AI trả về JSON không đọc được",
+        offline: true,
+      };
     }
   },
 });

@@ -53,8 +53,7 @@ function mockFetch(reply = "Chào bạn! Mình là Haimiya.", status = 200) {
       system: body.messages?.[0]?.content,
       history: body.messages?.slice(1),
     });
-    if (status !== 200)
-      return { ok: false, status, json: async () => ({}), text: async () => "" };
+    if (status !== 200) return { ok: false, status, json: async () => ({}), text: async () => "" };
     return {
       ok: true,
       status: 200,
@@ -144,7 +143,10 @@ const okReply = async () =>
   mockFetch("x", 500);
   const r2 = await okReply();
   check("500 → offline: true (không trả reply rác)", r2.offline === true);
-  check("500 → reason tường minh cho web hiển thị", typeof (r2 as any).reason === "string" && (r2 as any).reason.includes("500"));
+  check(
+    "500 → reason tường minh cho web hiển thị",
+    typeof (r2 as any).reason === "string" && (r2 as any).reason.includes("500"),
+  );
 
   console.log("\nD2) Model chết (400) → tự thử model dự phòng và thành công:");
   clearAIEnv();
@@ -157,7 +159,12 @@ const okReply = async () =>
     requests.push({ host: new URL(String(url)).host, model: body.model });
     if (body.model === "model-retired-08-2026") {
       calls400++;
-      return { ok: false, status: 400, json: async () => ({}), text: async () => "model not found" };
+      return {
+        ok: false,
+        status: 400,
+        json: async () => ({}),
+        text: async () => "model not found",
+      };
     }
     return {
       ok: true,
