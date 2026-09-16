@@ -160,14 +160,14 @@ function makeClient() {
     );
     check("index.js: heartbeat fallback giãn 5 phút (300_000)", src.includes("5 * 60_000"));
     check(
-      "index.js: sync loop 120s (tối ưu từ 60s)",
-      src.includes("setTimeout(runSyncLoop, 120_000)"),
+      "index.js: sync loop 180s (giãn lần 2 từ 120s vì usage còn dư địa)",
+      src.includes("setTimeout(runSyncLoop, 180_000)"),
     );
 
     const tickSrc = fs.readFileSync(path.join(__dirname, "..", "bot", "src", "tick.js"), "utf8");
     check(
-      "tick.js: chu kỳ 120s (giảm 50% reads batch query)",
-      tickSrc.includes("TICK_INTERVAL_MS = 120_000"),
+      "tick.js: chu kỳ 180s (giãn lần 2, giảm thêm 33% reads batch query)",
+      tickSrc.includes("TICK_INTERVAL_MS = 180_000"),
     );
 
     const convexSrc = fs.readFileSync(

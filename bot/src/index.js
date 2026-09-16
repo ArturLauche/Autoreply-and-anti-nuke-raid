@@ -132,10 +132,10 @@ client.once("clientReady", async () => {
       } catch (e) {
         console.error("[sync]", e.message);
       }
-      // TỐI ƯU USAGE: 120s (trước 60s) — guild MỚI/kick vẫn sync TỨC THÌ qua
-      // sự kiện guildCreate/guildDelete (syncOne/markGone), vòng này chỉ nhịp
-      // nền cho metadata; giảm 50% calls nhóm này (~43k→21.6k/tháng).
-      setTimeout(runSyncLoop, 120_000);
+      // TỐI ƯU USAGE: 180s (trước 120s, ban đầu 60s) — guild MỚI/kick vẫn sync
+      // TỨC THÌ qua sự kiện guildCreate/guildDelete (syncOne/markGone), vòng này
+      // chỉ nhịp nền cho metadata; giảm thêm 33% calls nhóm này.
+      setTimeout(runSyncLoop, 180_000);
     })();
   };
   setTimeout(() => {

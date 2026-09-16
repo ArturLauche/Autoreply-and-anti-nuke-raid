@@ -18,10 +18,10 @@
  *  - backup       → backup.runBackup / runRestore / runImportRestore + claim
  */
 
-// TỐI ƯU I/O: 120s (trước 60s) — các cờ backup/restore/panel vẫn xử lý trong
-// ~2 phút, đủ nhanh cho trải nghiệm; giảm 50% reads của batch query (mỗi lượt
-// collect() toàn bảng guilds/panels/giveaways là nguồn I/O lớn).
-const TICK_INTERVAL_MS = 120_000;
+// TỐI ƯU I/O: 180s (trước 120s, ban đầu 60s) — các cờ backup/restore/panel vẫn
+// xử lý trong ~3 phút, đủ nhanh cho trải nghiệm; giảm thêm 33% reads của batch
+// query (mỗi lượt collect() toàn bảng guilds/panels/giveaways là nguồn I/O lớn).
+const TICK_INTERVAL_MS = 180_000;
 /** Sau khi batch lỗi, tránh gọi lại batch trong khoảng này (dùng fallback). */
 const BATCH_RETRY_AFTER_MS = 10 * 60_000;
 
