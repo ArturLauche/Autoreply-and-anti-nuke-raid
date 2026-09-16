@@ -17,6 +17,38 @@
 set -eu
 
 echo "── 1/4 Kiểm tra Bun + Node ─────────────────────────────"
+
+# unzip là phụ thuộc bắt buộc: cả trình cài Bun lẫn OpenCode đều cần nó để
+# giải nén. Distro nhẹ (Ubuntu container, Debian slim…) thường thiếu.
+if ! command -v unzip >/dev/null 2>&1; then
+  echo "   Thiếu unzip (cần để giải nén Bun/OpenCode) — đang cài..."
+  if [ "$(id -u)" = "0" ]; then
+    SUDO=""
+  elif command -v sudo >/dev/null 2>&1; then
+    SUDO="sudo"
+  else
+    echo "   ❌ Không có quyền cài gói hệ thống (không root, không sudo)."
+    echo "      Nhờ admin cài: apt-get install -y unzip   rồi chạy lại script."
+    exit 1
+  fi
+  if command -v apt-get >/dev/null 2>&1; then
+    if ! ($SUDO apt-get update -qq && $SUDO apt-get install -y unzip); then
+      echo "   ❌ Cài unzip thất bại — kiểm tra mạng/kho gói rồi chạy lại script."
+      exit 1
+    fi
+  elif command -v dnf >/dev/null 2>&1; then
+    $SUDO dnf install -y unzip
+  elif command -v yum >/dev/null 2>&1; then
+    $SUDO yum install -y unzip
+  elif command -v apk >/dev/null 2>&1; then
+    $SUDO apk add unzip
+  else
+    echo "   ❌ Không nhận diện được package manager — cài unzip thủ công rồi chạy lại."
+    exit 1
+  fi
+  echo "   ✅ Đã cài unzip."
+fi
+
 if ! command -v bun >/dev/null 2>&1; then
   echo "   Bun chưa có — cài từ bun.sh..."
   curl -fsSL https://bun.sh/install | bash
