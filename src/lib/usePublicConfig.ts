@@ -74,9 +74,20 @@ export function usePublicConfig(): {
   error: boolean;
 } {
   const load = useAction(api.public.publicConfig);
-  const [config, setConfig] = useState<PublicConfig | null>(cache ? cache.data : null);
+  const [config, setConfig] = useState<PublicConfig | null>(
+    cache
+      ? cache.data
+      : BAKED_CLIENT_ID
+        ? // Có Client ID nướng trong bundle (production): KHÔNG cần gọi Convex —
+          // khách ẩn danh mở landing ≈ 0 Function Call. Ai cần thông tin mới hơn
+          // (trường hợp deployment đổi Client ID) vẫn được cache 10 phút phục vụ.
+          { ...FALLBACK, clientId: BAKED_CLIENT_ID }
+        : null,
+  );
   const [error, setError] = useState(false);
   useEffect(() => {
+    // Chỉ fetch khi chưa có cache VÀ không có baked ID (dev/preview).
+    if (cache || BAKED_CLIENT_ID) return;
     let alive = true;
     fetchConfig(load).then((res) => {
       if (!alive) return;

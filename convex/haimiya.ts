@@ -560,9 +560,27 @@ Hồ sơ kết nối / tin nhắn app:\n${args.appProfile ? String(args.appProfi
  * KHÔNG BAO GIỜ trả giá trị key). Web dashboard dùng để phân biệt "chat trả
  * lời rỗng vì chưa cấu hình AI" với lỗi thật khác.
  */
+import { rateLimitPublicAction } from "./rateGuard";
+
 export const aiStatus = action({
   args: {},
-  handler: () => {
+  handler: (ctx) => {
+    // Endpoint public KHÔNG auth — guard chống đốt usage (rẻ nên trần thoải mái).
+    const guard = rateLimitPublicAction(ctx, {
+      name: "aiStatus",
+      maxPerMin: 60,
+      globalMaxPerMin: 1200,
+    });
+    if (!guard.ok) {
+      // No-throw: trả "chưa cấu hình" — web coi như AI offline, không lộ gì thêm.
+      return {
+        configured: false,
+        model: null,
+        fallbackModel: FALLBACK_MODEL,
+        gatewayHost: null,
+        rateLimited: true,
+      };
+    }
     const p = aiProvider();
     return {
       configured: !!p,
@@ -579,6 +597,7 @@ export const aiStatus = action({
             }
           })()
         : null,
+      rateLimited: false,
     };
   },
 });

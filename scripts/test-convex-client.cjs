@@ -1,0 +1,288 @@
+// TEST: ConvexStore (bot/src/convex.js) — đường máu giữa bot và backend.
+// Chạy: node scripts/test-convex-client.cjs
+//
+// Trước đây coverage 41% stmt / 15% funcs — các nhánh sống-còn khi Convex sự cố
+// chưa từng được test:
+//   - withRetry: lỗi 5xx/429/mạng được retry exponential; 4xx fail NGAY;
+//     hết MAX_RETRIES thì ném lỗi.
+//   - getConfig: TTL cache 600s (pending 30s); opts.force bỏ cache; lỗi mạng
+//     trả cache cũ (stale) thay vì chết; không có cache thì ném.
+//   - invalidate + pruneCache: dọn cache guild rời (memGuard).
+//   - ruleCooldowns: isCooledDown/recordReply + chống phình Map > 500.
+//   - sendHeartbeat: Convex chết → _heartbeatOk=false, không ném.
+const Module = require("module");
+
+// Mock convex/browser — ConvexHttpClient ghi nhận call, lỗi theo kịch bản.
+const calls = [];
+let failMode = null; // null | { statusCode } | { code } | "network"
+const origLoad = Module._load;
+Module._load = function (request, ...rest) {
+  if (request === "convex/browser") {
+    return {
+      ConvexHttpClient: class {
+        constructor() {}
+        async query(name, args) {
+          calls.push({ kind: "query", name, args });
+          if (failMode) {
+            const e = new Error("boom");
+            if (failMode !== "network") Object.assign(e, failMode);
+            throw e;
+          }
+          return { guildId: args?.guildId, config: true, lockdownUntil: undefined };
+        }
+        async mutation(name, args) {
+          calls.push({ kind: "mutation", name, args });
+          if (failMode) {
+            const e = new Error("boom");
+            if (failMode !== "network") Object.assign(e, failMode);
+            throw e;
+          }
+          return { ok: true };
+        }
+        async action(name, args) {
+          calls.push({ kind: "action", name, args });
+          if (failMode) {
+            const e = new Error("boom");
+            if (failMode !== "network") Object.assign(e, failMode);
+            throw e;
+          }
+          return { ok: true };
+        }
+      },
+    };
+  }
+  return origLoad.call(this, request, ...rest);
+};
+
+const ConvexStore = require("../bot/src/convex.js");
+
+let pass = 0;
+let fail = 0;
+const check = (label, ok) => {
+  console.log(`${ok ? "PASS" : "FAIL"} ${label}`);
+  ok ? pass++ : fail++;
+};
+
+function freshStore() {
+  process.env.CONVEX_URL = "https://test.convex.cloud";
+  delete process.env.CONVEX_DEPLOY_KEY;
+  delete process.env.BOT_KEY;
+  calls.length = 0;
+  return new ConvexStore();
+}
+
+(async () => {
+  // ── 1. withRetry: 4xx (trừ 429) fail NGAY — không retry ───────────────────
+  {
+    const store = freshStore();
+    failMode = { statusCode: 403 };
+    const t0 = Date.now();
+    let threw = false;
+    try {
+      await store.query("x:y", {});
+    } catch {
+      threw = true;
+    }
+    const attempts = calls.length;
+    failMode = null;
+    check("4xx → ném lỗi ngay sau 1 lần gọi (không retry)", threw && attempts === 1);
+    check("4xx → không chờ backoff (<300ms)", Date.now() - t0 < 300);
+  }
+
+  // ── 2. withRetry: 5xx được retry rồi thành công (hồi phục) ────────────────
+  {
+    const store = freshStore();
+    let n = 0;
+    const origQuery = store._rawClient.query.bind(store._rawClient);
+    store._rawClient.query = async (...a) => {
+      n++;
+      if (n < 3) {
+        const e = new Error("500");
+        e.statusCode = 500;
+        throw e;
+      }
+      return origQuery(...a);
+    };
+    const res = await store.query("guilds:getBotConfig", { guildId: "g" });
+    check("5xx ×2 rồi thành công → retry về đích", res?.config === true && n === 3);
+  }
+
+  // ── 3. withRetry: hết 3 lần → ném lỗi (caller nhận error) ─────────────────
+  {
+    const store = freshStore();
+    failMode = { code: "ECONNRESET" };
+    let threw = false;
+    try {
+      await store.query("x:y", {});
+    } catch {
+      threw = true;
+    }
+    failMode = null;
+    check("ECONNRESET → retry đủ 3 lần rồi ném", threw && calls.length === 3);
+  }
+
+  // ── 4. getConfig: TTL cache — lần 2 trong 600s KHÔNG gọi Convex ───────────
+  {
+    const store = freshStore();
+    await store.getConfig("g-cache");
+    const afterFirst = calls.length;
+    const again = await store.getConfig("g-cache");
+    check("getConfig lần 2 hit cache → không gọi Convex thêm", calls.length === afterFirst);
+    check("getConfig trả config từ cache", again?.config === true);
+  }
+
+  // ── 5. getConfig: guild có cờ pending → TTL 30s (hết 30s gọi lại) ─────────
+  {
+    const store = freshStore();
+    // Patch query trả config có lockdownRequested (cờ chờ xử lý). Tự ghi nhận
+    // call vì patch thay thế mock ghi `calls` mặc định.
+    let pendingCalls = 0;
+    store._rawClient.query = async (name, args) => {
+      pendingCalls++;
+      calls.push({ kind: "query", name, args });
+      return { guildId: args?.guildId, lockdownRequested: true };
+    };
+    await store.getConfig("g-pending");
+    const afterFirst = pendingCalls;
+    // Trong TTL 30s: hit cache.
+    await store.getConfig("g-pending");
+    check("pending-flag: lần 2 trong 30s → hit cache", pendingCalls === afterFirst);
+    // Quá 30s: mock Date.now để nhảy 31s — fetch lại.
+    const realNow = Date.now;
+    Date.now = () => realNow() + 31_000;
+    try {
+      await store.getConfig("g-pending");
+    } finally {
+      Date.now = realNow;
+    }
+    check("pending-flag: qua 30s → gọi lại Convex", pendingCalls > afterFirst);
+  }
+
+  // ── 6. getConfig: force → bỏ cache ────────────────────────────────────────
+  {
+    const store = freshStore();
+    await store.getConfig("g-force");
+    const afterFirst = calls.length;
+    await store.getConfig("g-force", { force: true });
+    check("opts.force → luôn đọc mới dù cache còn", calls.length === afterFirst + 1);
+  }
+
+  // ── 7. getConfig: Convex chết → trả cache STALE thay vì chết ──────────────
+  {
+    const store = freshStore();
+    await store.getConfig("g-stale");
+    const afterFirst = calls.length;
+    failMode = "network";
+    let res = null;
+    let threw = false;
+    try {
+      // Vượt TTL bằng mock Date +601s (TTL config là 600s).
+      const realNow = Date.now;
+      Date.now = () => realNow() + 601_000;
+      try {
+        res = await store.getConfig("g-stale");
+      } finally {
+        Date.now = realNow;
+      }
+    } catch {
+      threw = true;
+    }
+    failMode = null;
+    check(
+      "Convex chết + có cache cũ → trả stale config (không chết)",
+      !threw && res?.config === true,
+    );
+    check("Convex chết → vẫn đã thử gọi lại", calls.length > afterFirst);
+
+    // Không có cache → ném lỗi cho caller tự xử lý.
+    failMode = "network";
+    threw = false;
+    try {
+      await store.getConfig("g-chua-co");
+    } catch {
+      threw = true;
+    }
+    failMode = null;
+    check("Convex chết + KHÔNG cache → ném lỗi", threw);
+  }
+
+  // ── 8. invalidate + pruneCache ────────────────────────────────────────────
+  {
+    const store = freshStore();
+    await store.getConfig("g-1");
+    await store.getConfig("g-2");
+    store.invalidate("g-1");
+    await store.getConfig("g-1");
+    check(
+      "invalidate → guild đó đọc lại Convex",
+      calls.filter((c) => c.name === "guilds:getBotConfig" && c.args?.guildId === "g-1").length ===
+        2,
+    );
+    const removed = store.pruneCache(new Set(["g-1"]));
+    check("pruneCache dọn guild không còn live", removed === 1);
+    check("pruneCache giữ guild live", store.cache.has("g-1") && !store.cache.has("g-2"));
+  }
+
+  // ── 9. ruleCooldowns: isCooledDown/recordReply + cap 500 ──────────────────
+  {
+    const store = freshStore();
+    check("chưa record → không cooldown", store.isCooledDown("g", "r", 60) === false);
+    store.recordReply("g", "r");
+    check("vừa record → cooldown hiệu lực", store.isCooledDown("g", "r", 60) === true);
+    check("cooldownSeconds=0 → không bao giờ cooldown", store.isCooledDown("g", "r2", 0) === false);
+    // Phình Map: ghi 510 rule cũ (quá 24h) → record thứ 511 dọn rác.
+    const realNow = Date.now;
+    for (let i = 0; i < 505; i++) {
+      Date.now = () => realNow() - 25 * 3600 * 1000; // 25h trước
+      store.recordReply("g-old", `rule-${i}`);
+    }
+    Date.now = realNow;
+    store.recordReply("g-new", "rule-moi");
+    check("Map > 500 → dọn rule quá 24h", store.ruleCooldowns.size < 505);
+  }
+
+  // ── 10. sendHeartbeat: lỗi → _heartbeatOk=false, không ném ────────────────
+  {
+    const store = freshStore();
+    failMode = { statusCode: 500 };
+    let threw = false;
+    try {
+      await store.sendHeartbeat(2, 20);
+    } catch {
+      threw = true;
+    }
+    failMode = null;
+    check("heartbeat Convex chết → không ném ra ngoài", !threw);
+    check("heartbeat lỗi → _heartbeatOk=false", store._heartbeatOk === false);
+    await store.sendHeartbeat(2, 20);
+    check("heartbeat thành công → _heartbeatOk=true", store._heartbeatOk === true);
+  }
+
+  // ── 11. Proxy tự chèn botKey vào mọi call ─────────────────────────────────
+  {
+    process.env.CONVEX_URL = "https://test.convex.cloud";
+    process.env.BOT_KEY = "a".repeat(64);
+    calls.length = 0;
+    const store = new ConvexStore();
+    await store.query("some:query", { guildId: "g" });
+    const sent = calls[0]?.args ?? {};
+    check(
+      "có BOT_KEY → tự chèn botKey vào args",
+      typeof sent.botKey === "string" && sent.botKey.length === 64,
+    );
+    check(
+      "không đè botKey caller đã gửi",
+      await (async () => {
+        await store.query("some:query", { guildId: "g", botKey: "caller-key" });
+        return calls[1].args.botKey === "caller-key";
+      })(),
+    );
+    delete process.env.BOT_KEY;
+  }
+
+  console.log(`\nKết quả: ${pass} pass, ${fail} fail`);
+  process.exit(fail > 0 ? 1 : 0);
+})().catch((e) => {
+  console.error("Suite crash:", e);
+  process.exit(1);
+});

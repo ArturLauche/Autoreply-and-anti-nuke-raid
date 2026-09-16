@@ -27,6 +27,7 @@ import type * as hidden from "../hidden.js";
 import type * as modules from "../modules.js";
 import type * as presets from "../presets.js";
 import type * as public_ from "../public.js";
+import type * as rateGuard from "../rateGuard.js";
 import type * as relay from "../relay.js";
 import type * as reports from "../reports.js";
 import type * as selfDiagnose from "../selfDiagnose.js";
@@ -64,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   modules: typeof modules;
   presets: typeof presets;
   public: typeof public_;
+  rateGuard: typeof rateGuard;
   relay: typeof relay;
   reports: typeof reports;
   selfDiagnose: typeof selfDiagnose;
