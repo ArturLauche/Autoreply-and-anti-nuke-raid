@@ -55,6 +55,7 @@ module.exports = function createAntiNuke(client, store, heat) {
     handleMessageBulk,
     tickUnlocks,
     tickHeatResets,
+    tickVandalReleases,
   } = audit;
 
   function attach() {
@@ -176,6 +177,8 @@ module.exports = function createAntiNuke(client, store, heat) {
     setInterval(() => {
       void tickUnlocks().catch((e) => console.error("[antinuke:tick]", e.message));
       void tickHeatResets().catch((e) => console.error("[heat:resetTick]", e.message));
+      // S4: gỡ role cách ly hết hạn (vandalBudget).
+      void tickVandalReleases().catch((e) => console.error("[vandalBudget:tick]", e.message));
       sweepMemory();
     }, 20_000);
   }

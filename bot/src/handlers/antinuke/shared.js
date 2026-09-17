@@ -118,6 +118,43 @@ const IMMEDIATE_BOT_NUKE = new Set([
   "externalAppRaid",
 ]);
 
+// S4 — module phá hoại cấu trúc ĐƯỢC ĐẾM VÀO NGÂN SÁCH PHÁ HOẠI tích lũy
+// per-executor (vandalBudget): kẻ rải đều chậm qua NHIỀU module (mỗi module
+// dưới ngưỡng) vẫn bị cách ly khi tổng hành vi vượt hạn mức.
+const BUDGET_MODULES = new Set([
+  "massBan",
+  "massKick",
+  "massChannelDelete",
+  "massChannelCreate",
+  "massRoleDelete",
+  "massRoleCreate",
+  "massMessageDelete",
+  "massThreadDelete",
+  "massThreadCreate",
+  "massWebhookCreate",
+  "massChannelRename",
+  "massChannelOverwrite",
+  "massRoleEdit",
+  "massRoleAssign",
+  "massNickname",
+  "massEmoji",
+  "massBotAdd",
+  "adminSelfGrant",
+  "massInviteCreate",
+  "guildTamper",
+  "externalAppRaid",
+]);
+
+// S3 — module nuke cấu trúc ĐÁNG rollback (gây mất mát role/kênh thật sự;
+// massCreate thêm rác thì chủ server xoá tay — rollback chỉ hồi phục mất mát).
+const ROLLBACK_MODULES = new Set([
+  "massChannelDelete",
+  "massRoleDelete",
+  "massBan",
+  "massKick",
+  "guildTamper",
+]);
+
 /**
  * Bot hit-and-run: bot MỚI được thêm vào server rồi TỰ RỜI ngay — dấu hiệu
  * kinh điển của bot nuke (thực hiện phá hoại rồi rời để dọn dấu vết, né audit
@@ -310,6 +347,8 @@ module.exports = {
   isKnownLoggingBot,
   NUKE_MODULES,
   IMMEDIATE_BOT_NUKE,
+  BUDGET_MODULES,
+  ROLLBACK_MODULES,
   strangeBotVerdict,
   botHitAndRunVerdict,
   isTrustedBotMember,

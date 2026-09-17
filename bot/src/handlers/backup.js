@@ -1895,6 +1895,9 @@ module.exports.autoBackupSweep = autoBackupSweep;
 module.exports.normalizeBackupFile = normalizeBackupFile;
 module.exports.sortedRoles = sortedRoles;
 module.exports.sortedChannels = sortedChannels;
+// NukeRollback (S3) tái dùng 2 engine tạo lại role/kênh — không nhân bản logic.
+module.exports.createRoles = createRoles;
+module.exports.createChannels = createChannels;
 module.exports.countMessages = countMessages;
 module.exports.resolveAttachment = resolveAttachment;
 module.exports.nameFromUrl = nameFromUrl;

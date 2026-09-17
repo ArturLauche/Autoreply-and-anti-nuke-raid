@@ -13,12 +13,44 @@ const {
   MODULE_LABELS,
   isKnownLoggingBot,
   IMMEDIATE_BOT_NUKE,
+  BUDGET_MODULES,
+  ROLLBACK_MODULES,
   isTrustedBotMember,
   isExempt,
   moduleCfgOf,
 } = require("./shared");
+const createVandalBudget = require("./vandalBudget");
+const createNukeRollback = require("./nukeRollback");
 
 module.exports = function createAntiNukeLayer({ client, store, heat, state, core, ai, raidIntel }) {
+  // S4 — ngân sách phá hoại tích lũy per-executor + S3 — rollback từ snapshot.
+  const vandalBudget = createVandalBudget();
+  const nukeRollback = createNukeRollback({ client, store });
+
+  /**
+   * S4+S3 hook chung: ghi ngân sách phá hoại (cách ly khi vượt hạn mức tích lũy
+   * trên cả module) và lên lịch rollback cấu trúc từ snapshot. Gọi SAU khi xử
+   * phạt xong 1 vụ (fire-and-forget, không chặn pipeline).
+   */
+  async function afterPunishHooks(guild, config, executor, module) {
+    try {
+      if (BUDGET_MODULES.has(module) && executor?.id) {
+        const count = vandalBudget.note(guild.id, executor.id);
+        const member = await guild.members.fetch(executor.id).catch(() => null);
+        if (member) {
+          const iso = await vandalBudget.maybeIsolate(guild, member, count);
+          if (iso.isolated) {
+            console.log(`[vandalBudget] ${guild.id}: cách ly ${executor.id} (ngân sách ${count})`);
+          }
+        }
+      }
+      if (ROLLBACK_MODULES.has(module)) {
+        nukeRollback.scheduleRollback(guild, module, executor?.id);
+      }
+    } catch (e) {
+      console.error(`[antinuke:hooks:${module}]`, e.message);
+    }
+  }
   const { recordEvent, record, markHandled, wasHandled, auditExecutor } = state;
   const { joiners, lastConfigs, staleUnlockSwept } = state.state;
   const { punishWithHeat, maybeLockdown } = core;
@@ -196,6 +228,9 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
       punish: moduleCfg.punish,
     });
 
+    // S4 ngân sách phá hoại + S3 rollback từ snapshot (fire-and-forget).
+    await afterPunishHooks(guild, config, executor, module);
+
     // Raid Intel: săn nguồn cơn (kẻ chủ mưu) + ghi mẫu dữ liệu huấn luyện.
     try {
       await afterStructuralEvent(guild, config, executor, moduleCfg, { count, action });
@@ -360,6 +395,9 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
       threshold: moduleCfg.threshold,
       punish: moduleCfg.punish,
     });
+
+    // S4 ngân sách phá hoại + S3 rollback từ snapshot (fire-and-forget).
+    await afterPunishHooks(guild, config, executor, module);
 
     // Raid Intel: săn nguồn cơn (kẻ chủ mưu) + ghi mẫu dữ liệu huấn luyện.
     try {
@@ -543,6 +581,13 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
     }
   }
 
+  /**
+   * Vòng 20s: gỡ role cách ly hết hạn (S4). Gọi cạnh tickUnlocks trong attach().
+   */
+  async function tickVandalReleases() {
+    return vandalBudget.tickReleases(client);
+  }
+
   return {
     handleAttributeEvent,
     handleAuditEntry,
@@ -551,5 +596,8 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
     handleMessageBulk,
     tickUnlocks,
     tickHeatResets,
+    tickVandalReleases,
+    vandalBudget,
+    nukeRollback,
   };
 };
