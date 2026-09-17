@@ -154,9 +154,14 @@ async function aiFetch(url: string, init: RequestInit): Promise<Response> {
  *  - Mọi thất bại trả `reason` ngắn gọn để web hiển thị cho người dùng
  *    (minh bạch: hết "AI không kết nối được" mơ hồ).
  */
+/** Content part cho vision: text hoặc image_url (chuẩn OpenAI-compatible). */
+type ChatContent =
+  | string
+  | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
+
 async function chatCompletion(
   p: { key: string; baseUrl: string; model: string },
-  messages: Array<{ role: string; content: string }>,
+  messages: Array<{ role: string; content: ChatContent }>,
   opts: { maxTokens: number; temperature: number },
 ): Promise<{ ok: true; reply: string } | { ok: false; reason: string }> {
   const candidates = Array.from(new Set([p.model, FALLBACK_MODEL]));
@@ -212,12 +217,26 @@ export const ask = action({
         content: v.string(),
       }),
     ),
+    /**
+     * Ảnh đính kèm (vision) — base64 data URL, TỐI ĐA 3 ảnh, mỗi ảnh ≤ 400KB
+     * sau khi web nén (canvas resize ≤ 1024px). Chỉ tin nhắn user mới kèm ảnh.
+     * Chuẩn OpenAI-compatible: content parts image_url cho các model vision
+     * (gpt-4o-mini, llama-4 scout/maverick trên Groq, ...).
+     */
+    images: v.optional(
+      v.array(
+        v.object({
+          /** data URL "data:image/jpeg;base64,..." — mime + base64 gộp một. */
+          dataUrl: v.string(),
+        }),
+      ),
+    ),
     /** Token phiên đăng nhập web (sessions) — bắt buộc nếu chưa đặt FUNC_SEED. */
     token: v.optional(v.string()),
     /** Chìa khóa chức năng (botFunc) — chống lạm dụng lượt gọi AI free tier khi đã cấu hình FUNC_SEED. */
     funcKey: v.optional(v.string()),
   },
-  handler: async (ctx, { messages, token, funcKey }) => {
+  handler: async (ctx, { messages, images, token, funcKey }) => {
     requireFuncKey(funcKey, process.env.FUNC_SEED);
     // Khi chưa cấu hình FUNC_SEED: vẫn yêu cầu ĐĂNG NHẬP — kẻ ngoài không thể
     // đốt lượt gọi AI free tier của deployment (trước đây action mở hoàn toàn).
@@ -280,9 +299,42 @@ export const ask = action({
       };
     const last = safeMessages[safeMessages.length - 1];
     if (!last?.content?.trim()) return { reply: "", offline: true, reason: "Tin nhắn rỗng" };
-    const history = safeMessages;
-    const r = await chatCompletion(p, [{ role: "system", content: SYSTEM_PROMPT }, ...history], {
-      maxTokens: 500,
+
+    // VISION — validate ảnh: chỉ nhận data URL jpeg/png/webp, cap 3 ảnh × 550KB
+    // (base64 ~737KB wire). LỰA CHỌN AN TOÀN: ảnh lỗi/không hợp lệ bị bỏ qua
+    // (vẫn trả lời text) thay vì fail cả lượt chat.
+    const IMAGE_MIME = /^(data:image\/(?:jpeg|png|webp);base64,)/;
+    const MAX_IMAGES = 3;
+    const MAX_IMAGE_CHARS = 750_000; // ~550KB binary
+    const validImages = (images ?? [])
+      .filter((img) => typeof img?.dataUrl === "string" && IMAGE_MIME.test(img.dataUrl))
+      .filter((img) => img.dataUrl.length <= MAX_IMAGE_CHARS)
+      .slice(0, MAX_IMAGES);
+
+    const history = safeMessages.map((m, i) => {
+      // Chỉ tin nhắn user CUỐI được ghép ảnh (mô hình vision chuẩn OpenAI:
+      // history text thuần, ảnh nằm trong turn hiện tại).
+      if (m.role !== "user" || i !== safeMessages.length - 1 || validImages.length === 0) {
+        return { role: m.role, content: m.content };
+      }
+      return {
+        role: m.role,
+        content: [
+          { type: "text", text: m.content } as const,
+          ...validImages.map(
+            (img) => ({ type: "image_url", image_url: { url: img.dataUrl } }) as const,
+          ),
+        ],
+      };
+    });
+
+    const systemWithVision =
+      validImages.length > 0
+        ? `${SYSTEM_PROMPT}\n\nNGƯỜI DÙNG VỪA GỬI ${validImages.length} ẢNH. Hãy xem kỹ nội dung ảnh và trả lời theo câu hỏi kèm theo. Nếu ảnh chứa thông tin nhạy cảm (mật khẩu, token, thông tin cá nhân), hãy nhắc người dùng che thông tin đó.`
+        : SYSTEM_PROMPT;
+
+    const r = await chatCompletion(p, [{ role: "system", content: systemWithVision }, ...history], {
+      maxTokens: 700,
       temperature: 0.6,
     });
     if (r.ok) return { reply: r.reply, offline: false };

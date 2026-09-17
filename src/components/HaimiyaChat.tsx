@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
-import { Send, Sparkles, X } from "lucide-react";
+import { ImagePlus, Send, Sparkles, X } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { getSessionToken } from "../lib/discord";
 import { askHaimiya, GREETING, QUICK_QUESTIONS } from "../lib/haimiya";
@@ -12,6 +12,82 @@ interface ChatMessage {
   role: "user" | "haimiya";
   text: string;
   suggestions?: string[];
+  /** Ảnh xem trước trong bong bóng chat (data URL đã nén). */
+  thumbs?: string[];
+}
+
+/* ── VISION helpers: nén ảnh + trích khung hình video ─────────────────── */
+
+/** Tối đa 3 ảnh / lượt gửi; web nén xuống ≤ 1024px, JPEG q0.82 (≤ ~400KB). */
+const MAX_IMAGES = 3;
+
+/** Đọc File ảnh/video → nén/extract thành tối đa MAX_IMAGES data URL. */
+async function fileToDataUrls(file: File): Promise<string[]> {
+  // Ảnh: vẽ qua canvas resize (dài nhất ≤ 1024px) → JPEG nén.
+  if (file.type.startsWith("image/")) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = () => reject(new Error("Ảnh không đọc được"));
+        el.src = url;
+      });
+      const scale = Math.min(1, 1024 / Math.max(img.naturalWidth, img.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.naturalWidth * scale);
+      canvas.height = Math.round(img.naturalHeight * scale);
+      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      return [canvas.toDataURL("image/jpeg", 0.82)];
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+  // Video: chỉ nhận ≤ 50MB; trích tối đa 3 khung hình (10%/50%/90% thời lượng)
+  // và gửi NHƯ ẢNH — model vision hiểu nội dung video qua khung đại diện.
+  if (file.type.startsWith("video/")) {
+    if (file.size > 50 * 1024 * 1024) throw new Error("Video quá lớn (tối đa 50MB)");
+    const url = URL.createObjectURL(file);
+    try {
+      const video = await new Promise<HTMLVideoElement>((resolve, reject) => {
+        const el = document.createElement("video");
+        el.muted = true;
+        el.preload = "auto";
+        el.onloadeddata = () => resolve(el);
+        el.onerror = () => reject(new Error("Video không đọc được"));
+        el.src = url;
+      });
+      const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 1;
+      const stops = [0.1, 0.5, 0.9].map((f) => Math.min(duration - 0.05, duration * f));
+      const frames: string[] = [];
+      for (const t of stops) {
+        const shot = await new Promise<string | null>((resolve) => {
+          const onSeeked = () => {
+            video.removeEventListener("seeked", onSeeked);
+            try {
+              const canvas = document.createElement("canvas");
+              const scale = Math.min(1, 1024 / Math.max(video.videoWidth, video.videoHeight));
+              canvas.width = Math.round(video.videoWidth * scale);
+              canvas.height = Math.round(video.videoHeight * scale);
+              canvas.getContext("2d")!.drawImage(video, 0, 0, canvas.width, canvas.height);
+              resolve(canvas.toDataURL("image/jpeg", 0.8));
+            } catch {
+              resolve(null);
+            }
+          };
+          video.addEventListener("seeked", onSeeked);
+          video.currentTime = t;
+        });
+        if (shot) frames.push(shot);
+        if (frames.length >= MAX_IMAGES) break;
+      }
+      if (frames.length === 0) throw new Error("Không trích được khung hình từ video");
+      return frames;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+  throw new Error("Chỉ hỗ trợ ảnh (jpg/png/webp) hoặc video (mp4/webm)");
 }
 
 /**
@@ -157,6 +233,8 @@ export default function HaimiyaChat({
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
+  const [pending, setPending] = useState<string[]>([]); // ảnh đang đợi gửi (data URL đã nén)
+  const fileRef = useRef<HTMLInputElement>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: "haimiya", text: GREETING, suggestions: QUICK_QUESTIONS },
   ]);
@@ -180,6 +258,7 @@ export default function HaimiyaChat({
 
   async function getAIResponse(
     history: Array<{ role: "user" | "assistant"; content: string }>,
+    images?: Array<{ dataUrl: string }>,
   ): Promise<string | null> {
     // Convex action — chạy qua Groq / NVIDIA NIM / SambaNova / OpenAI (key ở Keys tab).
     // funcKey: chìa khóa chống lạm dụng (SHA-256("protogon-func-key::" + FUNC_SEED)) —
@@ -201,7 +280,7 @@ export default function HaimiyaChat({
       } catch {
         token = undefined;
       }
-      const res = await askAI({ messages: history, funcKey, token });
+      const res = await askAI({ messages: history, images, funcKey, token });
       if (res && !res.offline && res.reply) return res.reply;
       // AI chưa cấu hình / dịch vụ lỗi / chưa đăng nhập → marker + lý do thật
       // từ server (action trả offline thay vì throw — Convex prod mask message
@@ -218,11 +297,16 @@ export default function HaimiyaChat({
     return null;
   }
 
-  function send(text: string) {
+  function send(text: string, withImages?: string[]) {
     const q = text.trim();
-    if (!q || typing) return;
-    setMessages((m) => [...m, { role: "user", text: q }]);
+    const imgs = (withImages ?? pending).slice(0, 3);
+    if ((!q && imgs.length === 0) || typing) return;
+    setMessages((m) => [
+      ...m,
+      { role: "user", text: q || "(xem ảnh)", thumbs: imgs.length ? imgs : undefined },
+    ]);
     setInput("");
+    setPending([]);
     setTyping(true);
     window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(
@@ -235,7 +319,10 @@ export default function HaimiyaChat({
             content: m.text,
           }));
 
-        const aiReply = await getAIResponse(history);
+        const aiReply = await getAIResponse(
+          history,
+          imgs.length ? imgs.map((dataUrl) => ({ dataUrl })) : undefined,
+        );
         if (aiReply?.startsWith("[giới-hạn]")) {
           setMessages((m) => [
             ...m,
@@ -362,6 +449,18 @@ export default function HaimiyaChat({
                       : "user rounded-br-sm bg-primary text-primary-foreground",
                   )}
                 >
+                  {m.thumbs && m.thumbs.length > 0 && (
+                    <div className="mb-1.5 flex flex-wrap gap-1.5">
+                      {m.thumbs.map((t, ti) => (
+                        <img
+                          key={ti}
+                          src={t}
+                          alt=""
+                          className="h-20 w-20 rounded-lg border border-white/40 object-cover"
+                        />
+                      ))}
+                    </div>
+                  )}
                   {m.text}
                   {m.suggestions && i === messages.length - 1 && !typing && (
                     <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -396,20 +495,101 @@ export default function HaimiyaChat({
           <div
             className="border-t border-border/70 p-3"
             style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const f = e.dataTransfer.files?.[0];
+              if (!f || typing) return;
+              fileToDataUrls(f)
+                .then((urls) => setPending((p) => [...p, ...urls].slice(0, 3)))
+                .catch((err) =>
+                  setMessages((m) => [
+                    ...m,
+                    { role: "haimiya", text: `⚠️ ${err?.message ?? "Không đọc được file"}` },
+                  ]),
+                );
+            }}
           >
+            {pending.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {pending.map((p, i) => (
+                  <div key={i} className="relative">
+                    <img
+                      src={p}
+                      alt=""
+                      className="h-16 w-16 rounded-lg border border-border object-cover"
+                    />
+                    <button
+                      onClick={() => setPending((arr) => arr.filter((_, j) => j !== i))}
+                      aria-label="Bỏ ảnh"
+                      className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-foreground/80 text-[10px] text-background"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
+              multiple
+              hidden
+              onChange={(e) => {
+                const files = [...(e.target.files ?? [])].slice(0, 3);
+                e.target.value = "";
+                if (files.length === 0 || typing) return;
+                Promise.allSettled(files.map(fileToDataUrls)).then((results) => {
+                  const urls = results
+                    .flatMap((r) => (r.status === "fulfilled" ? r.value : []))
+                    .slice(0, 3);
+                  const errors = results.filter((r) => r.status === "rejected");
+                  setPending((p) => [...p, ...urls].slice(0, 3));
+                  if (errors.length)
+                    setMessages((m) => [
+                      ...m,
+                      {
+                        role: "haimiya",
+                        text: `⚠️ ${(errors[0] as PromiseRejectedResult).reason?.message ?? "Không đọc được file"}`,
+                      },
+                    ]);
+                });
+              }}
+            />
             <div className="flex items-center gap-2 rounded-xl border border-border bg-background/70 px-3 py-2 focus-within:border-primary/50">
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={typing || pending.length >= 3}
+                aria-label="Gửi ảnh hoặc video"
+                title="Gửi ảnh (jpg/png/webp) hoặc video ≤50MB — Haimiya sẽ xem giúp bạn"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-40"
+              >
+                <ImagePlus className="h-4 w-4" />
+              </button>
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") send(input);
                 }}
-                placeholder="Hỏi tôi điều gì đó…"
+                onPaste={(e) => {
+                  const f = [...e.clipboardData.items]
+                    .find((it) => it.type.startsWith("image/"))
+                    ?.getAsFile();
+                  if (f) {
+                    e.preventDefault();
+                    fileToDataUrls(f)
+                      .then((urls) => setPending((p) => [...p, ...urls].slice(0, 3)))
+                      .catch(() => {});
+                  }
+                }}
+                placeholder={pending.length ? "Mô tả về ảnh…" : "Hỏi tôi điều gì đó…"}
                 className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
               />
               <button
                 onClick={() => send(input)}
-                disabled={!input.trim() || typing}
+                disabled={typing || (!input.trim() && pending.length === 0)}
                 aria-label="Gửi"
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity disabled:opacity-40"
               >
