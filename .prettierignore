@@ -13,3 +13,4 @@ convex/_generated/
 
 # File sinh tạm khi chạy test
 bot/test-djs-mock.cjs
+Dockerfile.web
