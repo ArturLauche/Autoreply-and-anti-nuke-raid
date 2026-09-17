@@ -704,6 +704,26 @@ export const botSetRestoreRequest = mutation({
 });
 
 /**
+ * Bot xóa 1 bản backup hỏng (audit từ scripts/audit-backups.cjs) — BẢO MẬT CAO.
+ * Chỉ nhận id thuộc bảng guildBackups; botKey sai → từ chối tuyệt đối.
+ * Bản "suspect" (checksum lệch) KHÔNG được xóa qua function này — giữ làm bằng chứng.
+ */
+export const botDeleteBackup = mutation({
+  args: {
+    backupId: v.id("guildBackups"),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { botKey, backupId }) => {
+    await requireBotKeyStrict(ctx, botKey);
+    const row = await ctx.db.get(backupId);
+    if (!row) return { ok: true, alreadyGone: true };
+    await ctx.db.delete(backupId);
+    return { ok: true, deleted: true, guildId: row.guildId };
+  },
+});
+
+/**
  * Bot giành quyền xử lý một yêu cầu backup/khôi phục (chống lặp).
  * Chỉ bot claim THÀNH CÔNG mới được chạy; lượt quét khác/instance khác
  * gọi tới trong 10 phút sẽ bị từ chối và bỏ qua. Cửa sổ phải CHE ĐỦ thời gian

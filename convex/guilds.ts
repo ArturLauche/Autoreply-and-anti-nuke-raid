@@ -810,6 +810,19 @@ export const clearVerifySendPanel = mutation({
   },
 });
 
+/**
+ * Bot lấy danh sách guild ID bot đang ở (1 query — dùng bởi scripts/audit-backups.cjs).
+ * Bảo mật cao: botKey bắt buộc. Trả tối thiểu thông tin — không lộ gì thêm.
+ */
+export const botListGuildIds = query({
+  args: { botKey: v.optional(v.string()) },
+  handler: async (ctx, { botKey }) => {
+    await requireBotKeyStrict(ctx, botKey);
+    const all = await ctx.db.query("guilds").collect();
+    return all.filter((g) => g.botInGuild).map((g) => ({ discordId: g.discordId, name: g.name }));
+  },
+});
+
 export const botSyncGuilds = mutation({
   args: {
     guilds: v.array(
