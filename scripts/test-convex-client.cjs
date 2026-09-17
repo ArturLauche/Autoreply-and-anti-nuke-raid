@@ -178,7 +178,7 @@ function freshStore() {
     try {
       // Vượt TTL bằng mock Date +601s (TTL config là 600s).
       const realNow = Date.now;
-      Date.now = () => realNow() + 601_000;
+      Date.now = () => realNow() + 1_801_000;
       try {
         res = await store.getConfig("g-stale");
       } finally {

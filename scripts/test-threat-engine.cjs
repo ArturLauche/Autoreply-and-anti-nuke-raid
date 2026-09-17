@@ -105,7 +105,7 @@ const store = {
   check("lấy theo cửa sổ", recent.length === 3);
   check("mới nhất đầu", recent[0].ts >= recent[1].ts);
   check("sweep giữ lại hết (mới)", flagged.sweepFlagged(now) === 0);
-  check("sweep dọn mẫu cũ", flagged.sweepFlagged(now + 49 * 3600_000) >= 3);
+  check("sweep dọn mẫu cũ (TTL 7 ngày)", flagged.sweepFlagged(now + 8 * 24 * 3600_000) >= 3);
 
   // Nạp lại mẫu cho test clustering
   flagged._resetFlaggedForTest();
@@ -126,8 +126,8 @@ const store = {
   const clusters = engine.clusterFlagged(now);
   check("tìm được cụm spam biến thể (>=1)", clusters.length >= 1);
   check(
-    "cụm có >= 3 thành viên",
-    clusters.every((c) => c.members.length >= 3),
+    "cụm có >= 2 thành viên (B1)",
+    clusters.every((c) => c.members.length >= 2),
   );
   const kws = clusters.flatMap((c) => engine.keywordsFromCluster(c));
   check("sinh từ khóa wildcard", kws.length > 0 && kws.every((k) => k.length >= 5));

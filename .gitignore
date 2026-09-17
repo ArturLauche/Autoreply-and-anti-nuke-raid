@@ -18,3 +18,6 @@ coverage/
 
 # Mock discord.js sinh tạm khi chạy test suites
 bot/test-djs-mock.cjs
+
+# Snapshot backup cục bộ của bot (C1 — dữ liệu runtime trên VPS, không vào git)
+bot/data/

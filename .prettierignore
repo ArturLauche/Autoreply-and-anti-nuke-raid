@@ -8,6 +8,7 @@ bot/bun.lockb
 dist/
 coverage/
 node_modules/
+scripts/_*.cjs
 convex/_generated/
 
 # File sinh tạm khi chạy test

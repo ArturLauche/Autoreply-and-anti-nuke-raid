@@ -175,8 +175,8 @@ function makeClient() {
       "utf8",
     );
     check(
-      "convex.js: CONFIG_TTL 600s (giảm 50% reads getConfig)",
-      convexSrc.includes("CONFIG_TTL_MS = 600_000"),
+      "convex.js: CONFIG_TTL 1800s (D1 preload + TTL dài — cắt ~67% reads getConfig)",
+      convexSrc.includes("CONFIG_TTL_MS = 1_800_000"),
     );
 
     const gsConvex = fs.readFileSync(path.join(__dirname, "..", "convex", "guilds.ts"), "utf8");

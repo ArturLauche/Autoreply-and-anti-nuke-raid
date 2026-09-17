@@ -9,7 +9,7 @@ const { ConvexHttpClient } = require("convex/browser");
 // TỐI ƯU I/O: 600s (trước 300s) — getBotConfig đọc guild row + modules +
 // autoreplies + giveaways mỗi lần miss cache; guild có cờ chờ vẫn cache ngắn 30s
 // nên thao tác dashboard không chậm. Giảm 50% reads nhóm này.
-const CONFIG_TTL_MS = 600_000;
+const CONFIG_TTL_MS = 1_800_000; // D1: 30 phút — preload + TTL dài cắt ~2/3 reads getConfig
 const CONFIG_TTL_PENDING_MS = 30_000;
 const MAX_RETRIES = 3;
 const BASE_RETRY_DELAY_MS = 500;
@@ -149,6 +149,19 @@ class ConvexStore {
       }
     })();
     return this._botKeyPromise;
+  }
+
+  /**
+   * D1 — Preload config cho danh sách guild (gọi lúc bot online): làm ấm cache
+   * TRƯỚC khi có sự kiện → antinuke/lockdown phản hồi không chờ mạng. Mỗi guild
+   * đúng 1 query, lỗi 1 guild không ảnh hưởng guild khác.
+   */
+  async prewarmConfigs(guildIds) {
+    const ids = [...new Set(guildIds)].filter(Boolean);
+    const results = await Promise.allSettled(ids.map((id) => this.getConfig(id)));
+    const ok = results.filter((r) => r.status === "fulfilled").length;
+    if (ids.length) console.log(`[convex] prewarm config: ${ok}/${ids.length} guild`);
+    return ok;
   }
 
   /**

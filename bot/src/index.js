@@ -101,6 +101,41 @@ client.once("clientReady", async () => {
   require("./handlers/hidden").setupHidden(client, store);
   webhookHub.init(client, store);
 
+  // C1 — snapshot backup cục bộ trên VPS: mỗi giờ, nén zlib, giữ 48 điểm.
+  // (đốt disk + CPU nhẹ của VPS đổi lớp dự phòng restore khi Convex/GitHub sự cố)
+  try {
+    require("./localSnapshot").startLocalSnapshotLoop(client, store);
+  } catch (e) {
+    console.error("⚠️ localSnapshot không khởi động được:", e?.message || e);
+  }
+
+  // D1 — preload config mọi guild lúc online: làm ấm cache trước khi có sự kiện
+  // → antinuke/lockdown phản hồi tức thì; TTL 30 phút cắt ~2/3 reads getConfig.
+  try {
+    const ids = [...client.guilds.cache.keys()];
+    if (ids.length) await store.prewarmConfigs(ids);
+  } catch (e) {
+    console.error("⚠️ prewarm config lỗi:", e?.message || e);
+  }
+
+  // D2 — member cache đầy đủ lúc online cho guild ≤ 5000 người: altDetection/
+  // joinGate/heat tra TỨC THÌ từ cache, không bị Discord rate-limit khi raid đông.
+  // Guild lớn hơn 5k: opt-in qua biến MEMBER_PREFETCH_MAX (đặt cao hơn nếu đủ RAM).
+  try {
+    const MEMBER_PREFETCH_MAX = Number(process.env.MEMBER_PREFETCH_MAX || 5000);
+    let warmed = 0;
+    for (const [, guild] of client.guilds.cache) {
+      if (guild.memberCount > MEMBER_PREFETCH_MAX) continue;
+      if (guild.members.cache.size >= guild.memberCount) continue;
+      await guild.members.fetch({ limit: 1000 }).catch(() => {});
+      warmed++;
+    }
+    if (warmed)
+      console.log(`[members] đã cache đầy đủ ${warmed} guild (≤${MEMBER_PREFETCH_MAX} người)`);
+  } catch (e) {
+    console.error("⚠️ member prefetch lỗi:", e?.message || e);
+  }
+
   // Bot owner detection
   try {
     const app = await client.application.fetch();

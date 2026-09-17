@@ -8,7 +8,7 @@
  */
 
 const MAX_TOTAL = 1200;
-const MAX_TTL_MS = 48 * 3600 * 1000; // 48 giờ
+const MAX_TTL_MS = 7 * 24 * 3600 * 1000; // B1: 7 ngày (cửa sổ học n-gram dài hơn — đốt RAM đổi tầm nhìn)
 const MIN_LEN = 12;
 const MAX_LEN = 300;
 

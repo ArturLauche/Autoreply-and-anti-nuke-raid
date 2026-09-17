@@ -27,15 +27,25 @@ const { noteFlaggedMessage, noteFlaggedMessages, sweepFlagged } = require("./fla
 
 /** URLhaus — abuse.ch malware URL feed (CSV): id, url, url_status, threat, tags... */
 const URLHAUS_URL = "https://urlhaus.abuse.ch/downloads/recent/";
-const URLHAUS_INTERVAL_MS = 60 * 60 * 1000; // 1 giờ
-const URLHAUS_MAX_DOMAINS = 5000;
-const URLHAUS_LINES = 800; // đọc 800 dòng mới nhất (~ vài chục KB)
+const URLHAUS_INTERVAL_MS = 30 * 60 * 1000; // 30 phút (A1: gấp đôi nhịp cũ)
+const URLHAUS_MAX_DOMAINS = 15000; // A1: x3 dung lượng (tiêu hao ~6MB RAM)
+const URLHAUS_LINES = 3000; // A1: đọc 3000 dòng/lượt (~vài trăm KB)
 
-/** N-gram cluster: chu kỳ + tham số. */
-const NGRAM_INTERVAL_MS = 30 * 60 * 1000; // 30 phút
-const CLUSTER_MIN_MEMBERS = 3;
+/**
+ * OpenPhish community feed (A2 — free, không key): mỗi dòng 1 URL phishing
+ * đang hoạt động (Discord/Steam/ngân hàng/... — đúng đối tượng spam server).
+ * Hợp nhất host vào CÙNG Set so khớp với URLhaus → filters.js không đổi gì.
+ */
+const OPENPHISH_URL = "https://openphish.com/feed.txt";
+const OPENPHISH_INTERVAL_MS = 30 * 60 * 1000; // 30 phút
+const OPENPHISH_MAX_DOMAINS = 5000;
+const OPENPHISH_LINES = 2000; // feed mới nhất nằm cuối file → đọc từ đuôi
+
+/** N-gram cluster: chu kỳ + tham số (B1: nhạy hơn — đốt CPU đổi tầm nhìn). */
+const NGRAM_INTERVAL_MS = 10 * 60 * 1000; // 10 phút — từ khóa mới chậm nhất 10 phút sau tin đầu
+const CLUSTER_MIN_MEMBERS = 2; // bắt cụm khi mới 2 tin nhắn biến thể
 const CLUSTER_SIMILARITY = 0.6;
-const CLUSTER_WINDOW_MS = 48 * 3600 * 1000; // tin nhắn flag trong 48h
+const CLUSTER_WINDOW_MS = 7 * 24 * 3600 * 1000; // cửa sổ học 7 ngày (đồng bộ flaggedMessages MAX_TTL)
 
 /** Self-test regex: cùng chu kỳ n-gram (chạy lệch nhau vài giây). */
 const SELFTEST_INTERVAL_MS = 30 * 60 * 1000;
@@ -44,7 +54,32 @@ const SELFTEST_INTERVAL_MS = 30 * 60 * 1000;
 const BACKFILL_DELAY_MS = 10 * 60 * 1000;
 
 let urlhausDomains = new Set();
-let engineStats = { urlhausDomains: 0, ngramClusters: 0, lastSelfTestOk: null };
+let engineStats = {
+  urlhausDomains: 0,
+  openphishDomains: 0,
+  ngramClusters: 0,
+  lastSelfTestOk: null,
+};
+
+/**
+ * Trích host từ feed văn bản thô (mỗi dòng 1 URL — dùng chung cho OpenPhish;
+ * hàm thuần, không I/O — test được trực tiếp).
+ */
+function hostsFromFeed(
+  text,
+  { maxDomains = OPENPHISH_MAX_DOMAINS, maxLines = OPENPHISH_LINES } = {},
+) {
+  const lines = String(text || "")
+    .split("\n")
+    .filter((l) => l.trim());
+  const hosts = new Set();
+  for (const line of lines.slice(-maxLines)) {
+    const host = hostOf(line.trim());
+    if (host) hosts.add(host);
+    if (hosts.size >= maxDomains) break;
+  }
+  return hosts;
+}
 
 /* ============================================================
  * 1. URLHAUS
@@ -112,6 +147,33 @@ function isUrlhausDomain(urlOrHost) {
     String(urlOrHost).includes("://") ? String(urlOrHost) : `http://${urlOrHost}`,
   );
   return host ? urlhausDomains.has(host) : false;
+}
+
+/**
+ * A2 — Tải + parse OpenPhish community feed (plain text, 1 URL/dòng).
+ * Host hợp nhất vào cùng Set với URLhaus — so khớp 1 lần cho cả 2 nguồn.
+ */
+async function refreshOpenPhish(_store) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15_000);
+  try {
+    const res = await fetch(OPENPHISH_URL, {
+      signal: ctrl.signal,
+      headers: { "User-Agent": "ProtogonBot/1.0 (threat-intel; discord bot)" },
+    });
+    if (!res.ok) return false;
+    const text = (await res.text()).slice(0, 600_000);
+    const hosts = hostsFromFeed(text);
+    if (hosts.size === 0) return false;
+    // Hợp nhất: OpenPhish cộng vào Set URLhaus (đã có sẵn là Set dùng chung).
+    for (const h of hosts) urlhausDomains.add(h);
+    engineStats.openphishDomains = hosts.size;
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /* ============================================================
@@ -264,6 +326,32 @@ function selfTestKeywords() {
     }
     const ms = Number(process.hrtime.bigint() - t0) / 1e6;
     if (ms > 250) failed++; // quá chậm → coi như fail để cảnh báo
+
+    // B3 — READING BENCHMARK chống ReDoS: nạp chuỗi độc vào path so khớp.
+    // Regex catastrophic backtracking (nested quantifier do từ khóa học được
+    // ghép) sẽ phình thời gian ở đây → cảnh báo thay vì treo bot khi raid.
+    const evil = [
+      "a".repeat(200) + "!".repeat(200) + "x", // lặp ký tự + ký tự biên
+      "((((((((((a" + "+".repeat(50), // dấu + lặp bất thường
+      "w".repeat(150) + " *".repeat(20), // wildcard có thể nhồi vào pattern
+    ];
+    const t1 = process.hrtime.bigint();
+    for (const e of evil) {
+      try {
+        filters.findLearnedThreat(e);
+      } catch {}
+    }
+    const evilMs = Number(process.hrtime.bigint() - t1) / 1e6;
+    if (evilMs > 500) {
+      failed++;
+      engineStats.redosSuspect = true;
+      console.error(
+        `[threatEngine] ⚠️ soi ReDoS: path so khớp mất ${evilMs.toFixed(0)}ms cho chuỗi độc — kiểm tra wildcard regex!`,
+      );
+    } else {
+      engineStats.redosSuspect = false;
+    }
+
     engineStats.lastSelfTestOk = failed === 0;
   } catch {
     engineStats.lastSelfTestOk = null;
@@ -312,10 +400,18 @@ async function backfillFromSamples(store) {
  * ============================================================ */
 
 function setupThreatEngine(store) {
-  // URLhaus — ngay khi online + mỗi giờ.
+  // URLhaus — ngay khi online + mỗi 30 phút (A1).
   setTimeout(() => refreshUrlhaus(store).catch(() => {}), 20_000).unref?.();
   const urlhausInt = setInterval(() => refreshUrlhaus(store).catch(() => {}), URLHAUS_INTERVAL_MS);
   urlhausInt.unref?.();
+
+  // OpenPhish — ngay sau URLhaus đầu + mỗi 30 phút (A2).
+  setTimeout(() => refreshOpenPhish(store).catch(() => {}), 45_000).unref?.();
+  const openphishInt = setInterval(
+    () => refreshOpenPhish(store).catch(() => {}),
+    OPENPHISH_INTERVAL_MS,
+  );
+  openphishInt.unref?.();
 
   // N-gram + self-test — mỗi 30 phút (sweep flagged store chạy cùng nhịp).
   const ngramInt = setInterval(() => {
@@ -343,6 +439,8 @@ function getUrlhausHosts() {
 module.exports = {
   setupThreatEngine,
   refreshUrlhaus,
+  refreshOpenPhish,
+  hostsFromFeed,
   isUrlhausDomain,
   getUrlhausHosts,
   clusterFlagged,
