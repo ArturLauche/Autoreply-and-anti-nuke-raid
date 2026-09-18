@@ -341,6 +341,24 @@ Ngoài ra khi vẫn dính gián đoạn, chỉ cần gõ **`continue`** — hợ
 buộc agent tiếp tục ĐÚNG CHỖ DỪNG (không làm lại từ đầu) cho tới khi kiểm chứng
 xanh + báo cáo xong mới dừng hẳn.
 
+### Xử lý 2 ca git trên VPS hay gặp
+
+**1. `git pull` báo "divergent branches"** — local có commit riêng (agent vừa
+commit trên VPS) mà GitHub cũng có commit mới (đẩy từ Freebuff). Trình tự chuẩn:
+
+```bash
+git push origin main          # đẩy commit local lên trước (nếu key có quyền write)
+git pull --no-rebase          # hợp nhất commit mới từ GitHub vào local
+git config pull.rebase false  # đặt 1 lần — pull sau này tự merge, hết hỏi
+```
+
+Nếu push bị chặn vì lý do số 2 dưới đây → xử lý số 2 trước rồi quay lại.
+
+**2. `git push` báo "key marked as read only"** — deploy key trên GitHub đang
+chặn ghi. Sửa 1 lần, vĩnh viễn: mở **GitHub → repo → Settings → Deploy keys** →
+bấm vào key của VPS → tick **Allow write access** → Update. Sau đó push lại.
+(GitHub không cho sửa trực tiếp? Xóa key cũ, thêm lại với tick write.)
+
 Cách chạy bền nhất — **systemd** (tự bật sau reboot, tự chạy lại khi crash,
 không phụ thuộc tmux). Cài 3 lệnh, lần đầu thôi:
 
