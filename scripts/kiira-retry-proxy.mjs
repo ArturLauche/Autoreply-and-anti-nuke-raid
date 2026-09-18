@@ -23,21 +23,23 @@
  *   tmux new -d -s kiira 'bun /root/Autoreply-and-anti-nuke-raid/scripts/kiira-retry-proxy.mjs'
  *
  * Env tùy chọn: KIRA_PROXY_PORT (8787), KIRA_UPSTREAM (https://kiraai.vn/api/v1),
- * KIRA_PROXY_RETRIES (3), KIRA_PROXY_TIMEOUT_MS (120000).
+ * KIRA_PROXY_RETRIES (5), KIRA_PROXY_TIMEOUT_MS (120000).
  */
 
 const PORT = Number(process.env.KIRA_PROXY_PORT ?? 8787);
 const UPSTREAM = (process.env.KIRA_UPSTREAM ?? "https://kiraai.vn/api/v1").replace(/\/+$/, "");
-const RETRIES = Math.max(0, Number(process.env.KIRA_PROXY_RETRIES ?? 3));
+const RETRIES = Math.max(0, Number(process.env.KIRA_PROXY_RETRIES ?? 5));
 const TIMEOUT_MS = Number(process.env.KIRA_PROXY_TIMEOUT_MS ?? 120_000);
 
 // Header từ client được chuyển tiếp — chỉ những header an toàn/ cần thiết.
 const PASS_HEADERS = ["authorization", "content-type", "accept", "user-agent"];
 // Status coi là "Kiira chập chờn" — đáng để thử lại.
-const RETRYABLE = new Set([429, 500, 502, 503, 504, 522, 524]);
+const RETRYABLE = new Set([408, 429, 500, 502, 503, 504, 522, 524]);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const backoffMs = (attempt) => 1000 * 2 ** attempt; // 1s, 2s, 4s…
+// Backoff tăng dần + jitter ngẫu nhiên (±30%) — nhiều request cùng dính nghẽn
+// sẽ không dồn vào Kiira đúng một nhịp nữa (tránh "thundering herd").
+const backoffMs = (attempt) => Math.round(1000 * 2 ** attempt * (0.7 + Math.random() * 0.6)); // ~0.7–1.3s, ~1.4–2.6s, ~2.8–5.2s…
 
 async function forward(req, pathAndQuery) {
   const headers = {};
@@ -66,6 +68,7 @@ async function handle(req) {
   const upstreamPath = url.pathname + url.search;
 
   let lastError = null;
+  let lastStatus = null;
   for (let attempt = 0; attempt <= RETRIES; attempt++) {
     try {
       const res = await forward(req, upstreamPath);
@@ -73,6 +76,8 @@ async function handle(req) {
         // Đọc và bỏ body lỗi để giải phóng kết nối, rồi thử lại sau backoff.
         await res.text().catch(() => {});
         lastError = new Error(`upstream ${res.status}`);
+        lastStatus = res.status;
+        console.log(`[kiira-retry-proxy] ${req.method} ${upstreamPath}: upstream ${res.status} → thử lại sau backoff (lần ${attempt + 1}/${RETRIES})`);
         await sleep(backoffMs(attempt));
         continue;
       }
@@ -81,11 +86,13 @@ async function handle(req) {
       // Lỗi mạng/timeout — coi như chập chờn, thử lại nếu còn lượt.
       lastError = err;
       if (attempt < RETRIES) {
+        console.log(`[kiira-retry-proxy] ${req.method} ${upstreamPath}: ${err?.name === "TimeoutError" ? "timeout" : "mất kết nối"} → thử lại sau backoff (lần ${attempt + 1}/${RETRIES})`);
         await sleep(backoffMs(attempt));
         continue;
       }
     }
   }
+  console.log(`[kiira-retry-proxy] ${req.method} ${upstreamPath}: hết ${RETRIES} lượt thử (lỗi cuối: ${lastStatus ?? String(lastError)}) — trả lỗi về client`);
   return Response.json(
     { error: "kiira-retry-proxy: upstream vẫn lỗi sau các lần thử lại", detail: String(lastError) },
     { status: 502 },
@@ -100,5 +107,5 @@ Bun.serve({
 });
 
 console.log(
-  `[kiira-retry-proxy] đang lắng nghe http://127.0.0.1:${PORT} → ${UPSTREAM} (retry ${RETRIES} lần)`,
+  `[kiira-retry-proxy] đang lắng nghe http://127.0.0.1:${PORT} → ${UPSTREAM} (retry ${RETRIES} lần, backoff + jitter)`,
 );

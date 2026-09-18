@@ -334,21 +334,33 @@ Lỗi `AI service stream failed: The AI model service is temporarily unavailable
 là gateway Kiira trả 5xx/429 thoáng qua — OpenCode không có retry tích hợp nên
 phiên bị ngắt. Repo có sẵn **retry proxy** (`scripts/kiira-retry-proxy.mjs`):
 proxy nhỏ chạy tại `127.0.0.1:8787` trên VPS, tự thử lại lỗi tạm thời với
-backoff 1s→2s→4s trước khi chịu báo lỗi; lỗi cứng (401 sai key, 400 sai request)
+backoff tăng dần trước khi chịu báo lỗi; lỗi cứng (401 sai key, 400 sai request)
 chuyển thẳng ngay. Proxy **không đọc API key** — chỉ chuyển tiếp header.
 
-Chạy bền (tmux, sống khi đóng SSH):
+Ngoài ra khi vẫn dính gián đoạn, chỉ cần gõ **`continue`** — hợp đồng AGENTS.md
+buộc agent tiếp tục ĐÚNG CHỖ DỪNG (không làm lại từ đầu) cho tới khi kiểm chứng
+xanh + báo cáo xong mới dừng hẳn.
+
+Cách chạy bền nhất — **systemd** (tự bật sau reboot, tự chạy lại khi crash,
+không phụ thuộc tmux). Cài 3 lệnh, lần đầu thôi:
 
 ```bash
-tmux new -d -s kiira 'bun /root/Autoreply-and-anti-nuke-raid/scripts/kiira-retry-proxy.mjs'
+cp /root/Autoreply-and-anti-nuke-raid/scripts/kiira-retry-proxy.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now kiira-retry-proxy
 curl http://127.0.0.1:8787/__health   # {"ok":true,...} là đang chạy
 ```
 
+Nếu trước đây đã chạy bằng tmux → tắt phiên cũ để tránh 2 proxy giành port:
+`tmux kill-session -t kiira 2>/dev/null || true`. Xem log của proxy:
+`journalctl -u kiira-retry-proxy -f` (thoát xem: Ctrl+C).
+
 Rồi đổi `baseURL` trong `~/.config/opencode/opencode.json` từ
 `https://kiraai.vn/api/v1` → `http://127.0.0.1:8787` — từ đó OpenCode nói
-chuyện với proxy, proxy chống chập cho. Xem log proxy:
-`tmux attach -t kiira` (thoát: Ctrl+B rồi chữ `d`). Tùy chỉnh qua env:
-`KIRA_PROXY_PORT` (8787), `KIRA_PROXY_RETRIES` (3), `KIRA_PROXY_TIMEOUT_MS`
+chuyện với proxy, proxy chống chập cho. Proxy mặc định **thử lại tối đa 5 lần**
+với backoff 1s→2s→4s→8s→16s (+ jitter) — chịu được nghẽn Kiira kéo dài ~30 giây
+mà phiên OpenCode không đứt; vẫn lỗi mới trả về client. Tùy chỉnh qua env:
+`KIRA_PROXY_PORT` (8787), `KIRA_PROXY_RETRIES` (5), `KIRA_PROXY_TIMEOUT_MS`
 (120000), `KIRA_UPSTREAM` (https://kiraai.vn/api/v1).
 
 ## Phần 4 — Nâng cấp OpenCode giống Freebuff (đã có sẵn trong repo)

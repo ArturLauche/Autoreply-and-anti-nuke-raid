@@ -147,12 +147,19 @@ function startProxy(upstream) {
   check("chỉ chuyển tiếp header an toàn (authorization/content-type/accept/user-agent)",
     src.includes('PASS_HEADERS = ["authorization", "content-type", "accept", "user-agent"]'));
   check("lắng nghe 127.0.0.1 — không lộ proxy ra internet", src.includes('hostname: "127.0.0.1"'));
-  check("danh sách retryable gồm 429 + 5xx chuẩn",
-    src.includes("429") && src.includes("502") && src.includes("503") && src.includes("504"));
-  check("backoff tăng dần (1s → 2s → 4s)", src.includes("1000 * 2 ** attempt"));
+  check("danh sách retryable gồm 408 + 429 + 5xx chuẩn",
+    src.includes("429") && src.includes("408") && src.includes("502") && src.includes("503") && src.includes("504"));
+  check("backoff tăng dần kèm jitter chống thundering herd",
+    src.includes("1000 * 2 ** attempt") && src.includes("Math.random()"));
+  check("mặc định chịu nghẽn 5 lần thử (KIRA_PROXY_RETRIES ?? 5)", src.includes("KIRA_PROXY_RETRIES ?? 5"));
+  check("log mỗi lần thử lại để chẩn đoán qua journalctl",
+    src.includes("thử lại sau backoff"));
   check("lỗi cứng 400/401/403 không nằm trong danh sách retry", !/\b(400|401|403)\b[^\n]*RETRYABLE/.test(src));
   check("có health endpoint để giám sát", src.includes("/__health"));
   check("timeout mỗi lượt gọi (không treo vô hạn)", src.includes("AbortSignal.timeout"));
+  check("systemd unit đi kèm — proxy tự sống lại khi crash/reboot",
+    fs.existsSync(path.join(__dirname, "kiira-retry-proxy.service")) &&
+    fs.readFileSync(path.join(__dirname, "kiira-retry-proxy.service"), "utf8").includes("Restart=always"));
 
   console.log(`\nKết quả kiira-proxy: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail > 0 ? 1 : 0);
