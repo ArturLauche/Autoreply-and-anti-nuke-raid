@@ -254,22 +254,21 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
       </div>
 
       {/* Hệ thống nhiệt độ */}
-      <Card className="border-orange-500/25 bg-gradient-to-br from-orange-500/10 via-transparent to-rose-500/5">
+      <Card>
         <CardContent className="grid gap-5 p-5 lg:grid-cols-2">
           <div>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-start gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-500/15 text-orange-400">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
                   <Flame className="h-5 w-5" />
                 </span>
                 <div>
                   <p className="font-display font-semibold">Hệ thống nhiệt độ vi phạm</p>
                   <p className="mt-1 max-w-xl text-sm text-muted-foreground">
                     Mỗi vi phạm cộng điểm nhiệt theo cài đặt của module. Nhiệt độ tăng dần, tự giảm
-                    theo thời gian; khi chạm ngưỡng <b className="text-amber-400">warn</b> thành
-                    viên nhận cảnh báo riêng, rồi tự tăng cấp hình phạt:{" "}
-                    <b className="text-violet-400">tạm khóa</b> →{" "}
-                    <b className="text-orange-400">kick</b> → <b className="text-danger">ban</b>.
+                    theo thời gian; khi chạm ngưỡng <b className="text-foreground">warn</b> thành
+                    viên nhận cảnh báo riêng, rồi tự tăng cấp hình phạt:{" "}                    <b className="text-foreground">tạm khóa</b> →{""}
+                    <b className="text-foreground">kick</b> → <b className="text-danger">ban</b>.
                   </p>
                 </div>
               </div>
@@ -290,7 +289,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label className="text-xs text-rose-400">Tái phạm ×(lần)</Label>
+                <Label className="text-xs text-muted-foreground">Tái phạm ×(lần)</Label>
                 <ModuleNumber
                   value={repeat.multiplier}
                   min={1}
@@ -308,7 +307,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label className="text-xs text-amber-400">Ngưỡng warn</Label>
+                <Label className="text-xs text-muted-foreground">Ngưỡng warn</Label>
                 <ModuleNumber
                   value={tiers.warnAt}
                   min={1}
@@ -317,7 +316,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label className="text-xs text-violet-400">Ngưỡng tạm khóa</Label>
+                <Label className="text-xs text-muted-foreground">Ngưỡng tạm khóa</Label>
                 <ModuleNumber
                   value={tiers.timeoutAt}
                   min={1}
@@ -326,7 +325,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label className="text-xs text-orange-400">Ngưỡng kick</Label>
+                <Label className="text-xs text-muted-foreground">Ngưỡng kick</Label>
                 <ModuleNumber
                   value={tiers.kickAt}
                   min={1}
@@ -345,14 +344,13 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
               </div>
               <p className="col-span-full text-xs text-muted-foreground">
                 Ngưỡng phải tăng dần: warn &lt; tạm khóa &lt; kick &lt; ban (tối đa 100 điểm). Thành
-                viên vừa bị phạt mà{" "}
-                <b className="text-rose-400">tái phạm trong {repeat.windowMin} phút</b> sẽ nhận{" "}
-                <b className="text-rose-400">×{repeat.multiplier} điểm nhiệt</b> mỗi lần vi phạm —
+                viên vừa bị phạt mà{" "}                <b className="text-foreground">tái phạm trong {repeat.windowMin} phút</b> sẽ nhận{""}
+                <b className="text-foreground">×{repeat.multiplier} điểm nhiệt</b> mỗi lần vi phạm —
                 đầy thanh nhanh hơn.
               </p>
             </div>
           </div>
-          <div className="flex flex-col justify-center gap-4 rounded-xl border border-border bg-card/60 p-4">
+          <div className="flex flex-col justify-center gap-4 rounded-xl border border-border bg-secondary/50 p-4">
             <SafetyBar data={data} />
             <p className="text-xs font-medium text-muted-foreground">
               🔥 Bảng nhiệt độ & warn tích lũy của từng thành viên
@@ -363,10 +361,10 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
       </Card>
 
       {/* Warn tích lũy */}
-      <Card className="border-amber-500/25 bg-gradient-to-br from-amber-500/10 via-transparent to-orange-500/5">
+      <Card>
         <CardContent className="grid gap-5 p-5 lg:grid-cols-[1fr_1fr]">
           <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
               <AlertTriangle className="h-5 w-5" />
             </span>
             <div>
@@ -374,7 +372,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
               <p className="mt-1 max-w-xl text-sm text-muted-foreground">
                 Khi module dùng hình phạt <b className="text-foreground">Warn</b>, mỗi lần vi phạm
                 đếm <b className="text-foreground">1 warn</b>. Đủ số warn trong cửa sổ thời gian,
-                hình phạt tự <b className="text-amber-400">tăng cấp</b> lên mức nặng hơn — song song
+                hình phạt tự <b className="text-foreground">tăng cấp</b> lên mức nặng hơn — song song
                 với hệ thống nhiệt độ.
               </p>
             </div>
@@ -399,7 +397,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
               />
             </div>
             <div className="grid gap-1.5">
-              <Label className="text-xs text-amber-400">Hình phạt khi tăng cấp</Label>
+              <Label className="text-xs text-muted-foreground">Hình phạt khi tăng cấp</Label>
               <Select
                 value={strikes.punish}
                 onValueChange={(v) =>
@@ -418,10 +416,9 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
             </div>
             <p className="col-span-full text-xs text-muted-foreground">
               {strikes.limit > 0 ? (
-                <>
-                  Đang bật: <b className="text-amber-400">{strikes.limit} warn</b> trong{" "}
+                <>                  Đang bật: <b className="text-foreground">{strikes.limit} warn</b> trong{""}
                   {strikes.windowMin} phút → tự{" "}
-                  <b className="text-amber-400">
+                  <b className="text-foreground">
                     {strikes.punish === "timeout"
                       ? "tạm khóa"
                       : strikes.punish === "kick"

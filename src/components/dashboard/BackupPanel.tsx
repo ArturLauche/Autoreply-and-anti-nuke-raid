@@ -386,7 +386,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
 
         {/* Lỗi backup gần nhất — bot báo lại thay vì im lặng */}
         {importStatus && importStatus.backupError && (
-          <p className="mt-3 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+          <p className="mt-3 flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
               Lần backup trước <b>thất bại</b>: {importStatus.backupError} — khắc phục rồi bấm
@@ -397,7 +397,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         {/* Trạng thái khôi phục: lỗi lần trước / đang chạy — người dùng bấm
             "Khôi phục vào server này" xong PHẢI thấy kết quả, không chờ mù mờ. */}
         {importStatus && importStatus.restoreError && (
-          <p className="mt-3 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+          <p className="mt-3 flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
               Lần khôi phục trước <b>thất bại</b>: {importStatus.restoreError} — khắc phục (bot còn
@@ -417,7 +417,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
       </div>
 
       {/* Tạo backup */}
-      <Card className="border-primary/25 bg-gradient-to-br from-primary/10 via-transparent to-transparent">
+      <Card>
         <CardContent className="grid gap-4 p-5 sm:grid-cols-[1fr_auto]">
           <div className="grid gap-3">
             <div className="flex items-start gap-3">
@@ -436,14 +436,14 @@ export default function BackupPanel({ data }: { data: GuildData }) {
               </div>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
-              <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-2.5">
+              <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/50 px-3 py-2.5">
                 <span className="flex items-center gap-2 text-sm">
                   <Github className="h-4 w-4" />
                   Đồng thời đẩy lên GitHub (Gist riêng tư)
                 </span>
                 <Switch checked={pushGithub} onCheckedChange={setPushGithub} />
               </label>
-              <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-2.5">
+              <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/50 px-3 py-2.5">
                 <span className="flex items-center gap-2 text-sm">
                   <MessageSquare className="h-4 w-4" />
                   Kèm tin nhắn + media (tối đa 50 tin/kênh)
@@ -477,10 +477,10 @@ export default function BackupPanel({ data }: { data: GuildData }) {
       </Card>
 
       {/* Khôi phục từ file backup của bot nuke (.msc / .json) */}
-      <Card className="border-amber-500/25 bg-gradient-to-br from-amber-500/10 via-transparent to-transparent">
+      <Card>
         <CardContent className="grid gap-4 p-5">
           <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
               <FileUp className="h-5 w-5" />
             </span>
             <div>
@@ -527,20 +527,20 @@ export default function BackupPanel({ data }: { data: GuildData }) {
           </div>
           {importWatch && (
             <div className="space-y-1.5 text-xs">
-              <p className="flex items-center gap-2 text-amber-400">
+              <p className="flex items-center gap-2 text-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 Đang chờ bot xử lý file — bot quét mỗi ~20 giây, server lớn có thể mất 1-2 phút. Lỗi
                 (nếu có) sẽ hiện ngay tại đây.
               </p>
               {importStatus?.botOnline === false && (
-                <p className="flex items-center gap-2 text-red-400">
+                <p className="flex items-center gap-2 text-danger">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                   Bot đang OFFLINE — hãy khởi động bot trên host (Wispbyte…) rồi tải lại file.
                 </p>
               )}
               {importStatus?.botOnline === true &&
                 parseBotVersion(importStatus.botVersion) < MIN_IMPORT_BOT_VERSION && (
-                  <p className="flex items-center gap-2 text-amber-400">
+                  <p className="flex items-center gap-2 text-foreground">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                     Bot đang chạy bản cũ ({importStatus.botVersion ?? "không rõ"}) — cần cập nhật
                     bot lên bản mới nhất (v{MIN_IMPORT_BOT_VERSION}+) để khôi phục và báo kết quả
@@ -550,7 +550,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
             </div>
           )}
           {importStatus && importStatus.error && !importWatch && (
-            <p className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+            <p className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
                 Lần thử trước <b>thất bại</b>: {importStatus.error} — kiểm tra lại file rồi tải lên.
@@ -664,28 +664,28 @@ export default function BackupPanel({ data }: { data: GuildData }) {
             </div>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
-            <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-2.5">
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/50 px-3 py-2.5">
               <span className="flex items-center gap-2 text-sm">
                 <Users className="h-4 w-4" />
                 Khôi phục role (tên, màu, quyền, thứ tự)
               </span>
               <Switch checked={restoreRoles} onCheckedChange={setRestoreRoles} />
             </label>
-            <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-2.5">
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/50 px-3 py-2.5">
               <span className="flex items-center gap-2 text-sm">
                 <FolderTree className="h-4 w-4" />
                 Khôi phục kênh (danh mục, văn bản, thoại…)
               </span>
               <Switch checked={restoreChannels} onCheckedChange={setRestoreChannels} />
             </label>
-            <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-2.5">
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/50 px-3 py-2.5">
               <span className="flex items-center gap-2 text-sm">
                 <MessageSquare className="h-4 w-4" />
                 Khôi phục tin nhắn + media
               </span>
               <Switch checked={restoreMessages} onCheckedChange={setRestoreMessages} />
             </label>
-            <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-2.5">
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/50 px-3 py-2.5">
               <span className="flex items-center gap-2 text-sm">
                 <Smile className="h-4 w-4" />
                 Khôi phục emoji / sticker
@@ -794,7 +794,7 @@ function BackupListCard({
 
         {backups && backups.length === 0 ? (
           <div className="mt-4 flex items-center gap-3 rounded-lg bg-secondary/40 px-3 py-3 text-sm text-muted-foreground">
-            <ShieldCheck className="h-4 w-4 text-emerald-400" />
+            <ShieldCheck className="h-4 w-4" />
             Chưa có backup nào — bấm “Backup ngay” phía trên để tạo bản đầu tiên.
           </div>
         ) : (
@@ -802,7 +802,7 @@ function BackupListCard({
             {backups?.map((b) => (
               <div
                 key={b._id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/60 px-4 py-3"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-secondary/50 px-4 py-3"
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -817,37 +817,37 @@ function BackupListCard({
                       </Badge>
                     )}
                     {b.pushedToGithub && (
-                      <Badge className="gap-1 bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-400">
+                      <Badge className="gap-1 border border-border bg-secondary px-2 py-0.5 text-[10px] text-secondary-foreground">
                         <Github className="h-3 w-3" /> GitHub
                       </Badge>
                     )}
                     {b.source === "import" && (
-                      <Badge className="gap-1 bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-400">
+                      <Badge className="gap-1 bg-foreground/10 px-2 py-0.5 text-[10px] text-foreground border border-foreground/20">
                         <FileUp className="h-3 w-3" /> Từ file
                       </Badge>
                     )}
                     {(b.emojiCount ?? 0) > 0 && (
-                      <Badge className="gap-1 bg-pink-500/15 px-2 py-0.5 text-[10px] text-pink-400">
+                      <Badge className="gap-1 bg-foreground/10 px-2 py-0.5 text-[10px] text-foreground border border-foreground/20">
                         <Smile className="h-3 w-3" /> {b.emojiCount} emoji
                       </Badge>
                     )}
                     {(b.stickerCount ?? 0) > 0 && (
-                      <Badge className="gap-1 bg-violet-500/15 px-2 py-0.5 text-[10px] text-violet-400">
+                      <Badge className="gap-1 bg-foreground/20 px-2 py-0.5 text-[10px] text-foreground border border-foreground/30">
                         <Sticker className="h-3 w-3" /> {b.stickerCount} sticker
                       </Badge>
                     )}
                     {(b.messageCount ?? 0) > 0 && (
-                      <Badge className="gap-1 bg-sky-500/15 px-2 py-0.5 text-[10px] text-sky-400">
+                      <Badge className="gap-1 bg-foreground/10 px-2 py-0.5 text-[10px] text-foreground border border-foreground/20">
                         <MessageSquare className="h-3 w-3" /> {b.messageCount} tin
                       </Badge>
                     )}
                     {b.backupCompressed && (
-                      <Badge className="gap-1 bg-teal-500/15 px-2 py-0.5 text-[10px] text-teal-400">
+                      <Badge className="gap-1 bg-foreground/10 px-2 py-0.5 text-[10px] text-foreground border border-foreground/20">
                         Nén
                       </Badge>
                     )}
                     {b.backupEncrypted && (
-                      <Badge className="gap-1 bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-400">
+                      <Badge className="gap-1 border border-border bg-secondary px-2 py-0.5 text-[10px] text-secondary-foreground">
                         🔒 Mã hóa
                       </Badge>
                     )}

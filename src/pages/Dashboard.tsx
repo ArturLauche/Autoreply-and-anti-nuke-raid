@@ -2,9 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { Bot, Loader2, LogOut, Plus, RefreshCw, Server, ShieldAlert, Users } from "lucide-react";
-import BotLogo from "../components/BotLogo";
+import { LogoMark } from "../components/BotLogo";
 import { api } from "../../convex/_generated/api";
-import CherryBlossom from "../components/CherryBlossom";
 import HaimiyaChat from "../components/HaimiyaChat";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -129,17 +128,12 @@ export default function Dashboard() {
 
   return (
     <div className="relative min-h-screen">
-      <CherryBlossom count={10} />
-      <HaimiyaChat position="dashboard" />
+            <HaimiyaChat position="dashboard" />
       <div className="relative z-10">
         <header className="sticky top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl">
           <div className="container flex h-16 items-center justify-between">
-            <button onClick={() => navigate("/")} className="flex items-center gap-2">
-              <span className="rounded-lg bg-gradient-to-br from-white/95 via-white/45 to-white/0 p-[2px] drop-shadow-[0_0_10px_rgba(255,255,255,0.7)]">
-                <span className="flex h-9 w-9 items-center justify-center rounded-[7px] bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] p-0.5 shadow-[0_0_20px_-4px_hsl(342_92%_66%/0.8)]">
-                  <BotLogo className="h-full w-full" />
-                </span>
-              </span>
+            <button onClick={() => navigate("/")} className="flex items-center gap-2.5">
+              <LogoMark className="h-9 w-9" />
               <span className="font-display text-lg font-bold">
                 Protogon<span className="text-primary">.</span>
               </span>
@@ -189,7 +183,7 @@ export default function Dashboard() {
             </Card>
             <Card className="card-hover">
               <CardContent className="flex items-center gap-4 p-5">
-                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
+                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-secondary text-foreground">
                   <Bot className="h-5 w-5" />
                 </span>
                 <div>
@@ -202,7 +196,7 @@ export default function Dashboard() {
             </Card>
             <Card className="card-hover">
               <CardContent className="flex items-center gap-4 p-5">
-                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-violet-500/15 text-violet-400">
+                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-secondary text-foreground">
                   <Users className="h-5 w-5" />
                 </span>
                 <div>
@@ -268,7 +262,7 @@ export default function Dashboard() {
                     Date.now() - guild.lastHeartbeat < 180_000;
                   return (
                     <Card key={guild.discordId} className="card-hover overflow-hidden">
-                      <div className="h-1 w-full bg-gradient-to-r from-[#ff8fab] via-[#f2629e] to-[#c48bf5]" />
+                      <div className="h-1 w-full bg-foreground/80" />
                       <CardContent className="p-5">
                         <div className="flex items-start gap-3">
                           {icon ? (
@@ -290,7 +284,7 @@ export default function Dashboard() {
                           {guild.botInGuild ? (
                             <Badge variant={online ? "success" : "secondary"}>
                               <span
-                                className={`h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-muted-foreground"}`}
+                                className={`h-1.5 w-1.5 rounded-full ${online ? "bg-foreground" : "bg-muted-foreground"}`}
                               />
                               Bot {online ? "online" : "offline"}
                             </Badge>

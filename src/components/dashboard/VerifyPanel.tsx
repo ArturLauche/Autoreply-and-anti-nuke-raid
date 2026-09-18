@@ -103,7 +103,7 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
       </div>
 
       {/* Enable / Disable */}
-      <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card/50 px-4 py-3">
+      <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-secondary/50 px-4 py-3">
         <div className="flex items-start gap-3">
           <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <ShieldCheck className="h-4 w-4" />
@@ -128,9 +128,9 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
 
       {/* Verify Method Selector */}
       {g.verifyEnabled && (
-        <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card/50 px-4 py-3">
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-secondary/50 px-4 py-3">
           <div className="flex items-start gap-3">
-            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
               <Fingerprint className="h-4 w-4" />
             </span>
             <div>
@@ -163,7 +163,7 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
             {/* Welcome DM toggle */}
             <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-background/50 px-4 py-3">
               <div className="flex items-start gap-3">
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
                   <Mail className="h-4 w-4" />
                 </span>
                 <div>
@@ -425,7 +425,7 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
 
             {/* Lỗi gửi panel gần nhất — bot báo lại thay vì im lặng */}
             {g.verifyPanelError && (
-              <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+              <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
                 <p className="font-semibold">⚠️ Bot không gửi được panel xác minh</p>
                 <p className="mt-0.5 text-xs opacity-90">{g.verifyPanelError}</p>
                 {g.verifyPanelErrorAt ? (

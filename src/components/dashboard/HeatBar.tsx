@@ -23,11 +23,12 @@ export function tierOf(heat: number, timeoutAt: number, kickAt: number, banAt: n
   return "warn";
 }
 
+/* Tier nhiệt theo bảng đen trắng: mức càng nặng → nền càng đậm (contrast = thứ bậc). */
 const TIER_STYLE: Record<string, string> = {
-  warn: "bg-amber-500/15 text-amber-400",
-  timeout: "bg-violet-500/15 text-violet-400",
-  kick: "bg-orange-500/15 text-orange-400",
-  ban: "bg-danger/15 text-danger",
+  warn: "bg-secondary text-secondary-foreground border border-border",
+  timeout: "bg-foreground/10 text-foreground border border-foreground/20",
+  kick: "bg-foreground/20 text-foreground border border-foreground/30",
+  ban: "bg-danger text-danger-foreground border border-danger",
 };
 
 function decayedStates(data: GuildData): HeatState[] {
@@ -48,14 +49,9 @@ export function SafetyBar({ data }: { data: GuildData }) {
   const states = decayedStates(data);
   const maxHeat = states[0]?.heat ?? 0;
   const safety = Math.max(0, Math.min(100, 100 - maxHeat));
-  const barColor =
-    safety >= 70
-      ? "from-emerald-500 to-teal-400"
-      : safety >= 40
-        ? "from-amber-500 to-orange-400"
-        : "from-red-500 to-rose-400";
+  const barColor = "bg-foreground";
   const barText =
-    safety >= 70 ? "text-emerald-400" : safety >= 40 ? "text-amber-400" : "text-red-400";
+    safety >= 70 ? "text-foreground" : safety >= 40 ? "text-foreground" : "text-danger";
 
   async function resetAll() {
     try {
@@ -82,18 +78,17 @@ export function SafetyBar({ data }: { data: GuildData }) {
       </div>
       <div className="h-3 w-full overflow-hidden rounded-full bg-secondary">
         <div
-          className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${barColor}`}
+          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
           style={{ width: `${safety}%` }}
         />
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-          <span>🔴 {data.guild.heatBanAt ?? HEAT_DEFAULTS.banAt} = ban</span>
-          <span>🟠 {data.guild.heatKickAt ?? HEAT_DEFAULTS.kickAt} = kick</span>
-          <span>🟣 {data.guild.heatTimeoutAt ?? HEAT_DEFAULTS.timeoutAt} = tạm khóa</span>
-          <span>🟡 {data.guild.heatWarnAt ?? HEAT_DEFAULTS.warnAt} = cảnh báo</span>
-          <span>🟢 0 = an toàn</span>
-        </div>
+      </div>        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+            <span>■ {data.guild.heatBanAt ?? HEAT_DEFAULTS.banAt} = ban</span>
+            <span>▪ {data.guild.heatKickAt ?? HEAT_DEFAULTS.kickAt} = kick</span>
+            <span>▪ {data.guild.heatTimeoutAt ?? HEAT_DEFAULTS.timeoutAt} = tạm khóa</span>
+            <span>▪ {data.guild.heatWarnAt ?? HEAT_DEFAULTS.warnAt} = cảnh báo</span>
+            <span>□ 0 = an toàn</span>
+          </div>
         <Button
           variant="outline"
           size="sm"
@@ -115,7 +110,7 @@ export function TopOffenders({ data, limit = 5 }: { data: GuildData; limit?: num
   if (states.length === 0) {
     return (
       <div className="flex items-center gap-3 rounded-lg bg-secondary/40 px-3 py-3 text-sm text-muted-foreground">
-        <Flame className="h-4 w-4 text-emerald-400" />
+        <Flame className="h-4 w-4" />
         Chưa có ai vi phạm — server rất an toàn 🎉
       </div>
     );
@@ -144,7 +139,7 @@ export function TopOffenders({ data, limit = 5 }: { data: GuildData; limit?: num
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {h.warnStrikes > 0 && (
-                  <Badge variant="secondary" className="gap-1 bg-amber-500/15 text-amber-400">
+                  <Badge variant="secondary" className="gap-1 border border-border">
                     ⚠️ {h.warnStrikes}/{g.warnStrikeLimit || 3}
                   </Badge>
                 )}
@@ -189,7 +184,7 @@ export function HeatTable({ data, limit = 20 }: { data: GuildData; limit?: numbe
   if (states.length === 0) {
     return (
       <div className="flex items-center gap-3 rounded-lg bg-secondary/40 px-3 py-3 text-sm text-muted-foreground">
-        <Flame className="h-4 w-4 text-emerald-400" />
+        <Flame className="h-4 w-4" />
         Chưa có ai vi phạm — chưa có nhiệt độ hay warn nào để hiển thị 🎉
       </div>
     );
@@ -205,7 +200,7 @@ export function HeatTable({ data, limit = 20 }: { data: GuildData; limit?: numbe
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card/60">
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
       <div className="grid grid-cols-[1fr_auto] items-center gap-2 border-b border-border px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         <span>Thành viên</span>
         <span className="text-right">Nhiệt · Warn</span>
@@ -225,10 +220,7 @@ export function HeatTable({ data, limit = 20 }: { data: GuildData; limit?: numbe
                   </p>
                   <div className="flex shrink-0 items-center gap-1.5">
                     {h.warnStrikes > 0 && (
-                      <Badge
-                        variant="secondary"
-                        className="gap-1 bg-amber-500/15 px-1.5 text-amber-400"
-                      >
+                      <Badge variant="secondary" className="gap-1 border border-border px-1.5">
                         ⚠️ {h.warnStrikes}/{strikeLimit}
                       </Badge>
                     )}

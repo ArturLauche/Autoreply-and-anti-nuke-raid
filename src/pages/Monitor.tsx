@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { Activity, AlertTriangle, ArrowLeft, Gauge, Server, Users, Wifi } from "lucide-react";
-import CherryBlossom from "../components/CherryBlossom";
 import UpdateWindow from "../components/UpdateWindow";
 import { INCIDENT_SLOW, LATENCY_SLOW, latencyLabel, useBotMonitor } from "../lib/useBotMonitor";
 import { cn } from "../lib/utils";
@@ -68,8 +67,7 @@ export default function Monitor() {
 
   return (
     <div className="relative min-h-screen">
-      <CherryBlossom count={10} />
-      <div className="relative z-10">
+            <div className="relative z-10">
         <header className="border-b border-border/60 bg-background/70 backdrop-blur">
           <div className="container flex items-center gap-3 py-5">
             <Link
@@ -102,13 +100,13 @@ export default function Monitor() {
               <p
                 className={cn(
                   "mt-1.5 flex items-center gap-2 font-display text-lg font-bold",
-                  status?.online ? "text-emerald-600" : "text-red-500",
+                  status?.online ? "text-foreground" : "text-danger",
                 )}
               >
                 <span
                   className={cn(
                     "h-2.5 w-2.5 rounded-full",
-                    status?.online ? "bg-emerald-500" : "bg-red-500",
+                    status?.online ? "bg-foreground" : "bg-danger",
                   )}
                 />
                 {status ? (status.online ? "Online" : "Offline") : "đang tải…"}
@@ -170,22 +168,21 @@ export default function Monitor() {
                 <div className="mt-3">
                   <LatencyChart samples={history} />
                 </div>
-                <p className="mt-2 text-[11px] text-muted-foreground">
-                  Đánh giá: <b className="text-emerald-600">Nhanh</b> (&lt; 300ms) ·{" "}
-                  <b className="text-amber-500">Trung bình</b> (300–800ms) ·{" "}
-                  <b className="text-red-500">Chậm</b> (&gt; 800ms) ·{" "}
-                  <b className="text-red-600">Sự cố</b> (&gt; 1200ms)
+                <p className="mt-2 text-[11px] text-muted-foreground">                  Đánh giá: <b className="text-foreground">Nhanh</b> (&lt; 300ms) ·{""}
+                  <b className="text-foreground">Trung bình</b> (300–800ms) ·{""}
+                  <b className="text-danger">Chậm</b> (&gt; 800ms) ·{""}
+                  <b className="text-danger">Sự cố</b> (&gt; 1200ms)
                 </p>
               </div>
 
               {/* Nhật ký sự cố */}
               <div className="rounded-xl border border-border bg-card p-4">
                 <h2 className="flex items-center gap-2 font-display text-base font-bold">
-                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                  <AlertTriangle className="h-4 w-4 text-danger" />
                   Sự cố ({incidents.length})
                 </h2>
                 {incidents.length === 0 ? (
-                  <p className="mt-2 text-sm text-emerald-600">
+                  <p className="mt-2 text-sm text-foreground">
                     Không ghi nhận sự cố trong phiên này — hệ thống ổn định ✅
                   </p>
                 ) : (
@@ -193,9 +190,9 @@ export default function Monitor() {
                     {incidents.map((inc, i) => (
                       <li
                         key={`${inc.time}-${i}`}
-                        className="flex items-start gap-2 text-sm text-red-500"
+                        className="flex items-start gap-2 text-sm text-danger"
                       >
-                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-danger" />
                         <span>
                           {inc.text}{" "}
                           <span className="text-muted-foreground">

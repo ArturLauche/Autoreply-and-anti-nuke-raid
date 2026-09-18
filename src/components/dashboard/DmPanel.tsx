@@ -80,7 +80,7 @@ export default function DmPanel({ data }: { data: GuildData }) {
           </Button>
           {/* Lỗi DM gần nhất — bot báo lại thay vì im lặng */}
           {data.guild.dmError && (
-            <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+            <div className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
               <p className="font-semibold">⚠️ DM gần nhất thất bại</p>
               <p className="mt-0.5 opacity-90">{data.guild.dmError}</p>
               {data.guild.dmErrorAt ? (

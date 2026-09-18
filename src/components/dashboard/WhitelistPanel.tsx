@@ -167,9 +167,9 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
         </Card>
       </div>
 
-      <Card className="border-emerald-500/25 bg-gradient-to-br from-emerald-500/10 via-transparent to-sky-500/5">
+      <Card>
         <CardContent className="flex items-start gap-3 p-5">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-500">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
             <ShieldCheck className="h-5 w-5" />
           </span>
           <div className="text-sm text-muted-foreground">

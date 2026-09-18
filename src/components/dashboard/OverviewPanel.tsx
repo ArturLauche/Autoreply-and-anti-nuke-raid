@@ -106,28 +106,28 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
       label: "Rule auto reply",
       value: data.autoReplies.length,
       sub: `${data.autoReplies.filter((r) => r.enabled).length} đang bật`,
-      tone: "text-primary bg-primary/15",
+      tone: "bg-foreground text-primary-foreground",
     },
     {
       icon: ShieldCheck,
       label: "Module chống nuke",
       value: `${enabledModules}/${data.modules.length}`,
       sub: data.guild.antinukeEnabled ? "Đang bảo vệ" : "Đã tắt toàn bộ",
-      tone: "text-emerald-400 bg-emerald-500/15",
+      tone: "bg-foreground/80 text-primary-foreground",
     },
     {
       icon: Users,
       label: "Thành viên",
       value: data.guild.memberCount?.toLocaleString("vi-VN") ?? "?",
       sub: "đồng bộ qua bot",
-      tone: "text-violet-400 bg-violet-500/15",
+      tone: "bg-foreground/60 text-primary-foreground",
     },
     {
       icon: Hash,
       label: "Kênh log",
       value: logChannel ? `#${logChannel.name}` : "Chưa đặt",
       sub: logChannel ? "cảnh báo & sự kiện" : "đặt trong Cài đặt",
-      tone: "text-amber-400 bg-amber-500/15",
+      tone: "bg-secondary text-secondary-foreground border border-border",
     },
   ];
 
@@ -150,11 +150,11 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
         ))}
       </div>
 
-      <Card className="border-orange-500/25 bg-gradient-to-br from-orange-500/10 via-transparent to-rose-500/5">
+      <Card>
         <CardContent className="grid gap-6 p-5 lg:grid-cols-2">
           <div className="flex flex-col justify-center gap-3">
             <h3 className="flex items-center gap-2 font-display font-semibold">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-500/15 text-orange-400">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary text-foreground">
                 <Flame className="h-4 w-4" />
               </span>
               Mức an toàn của server
@@ -187,7 +187,7 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
             >
               <Bot className="h-5 w-5" />
               {data.guild.botInGuild && (
-                <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-card bg-emerald-400" />
+                <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-card bg-foreground" />
               )}
             </span>
             <div>

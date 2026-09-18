@@ -31,10 +31,27 @@ module.exports = {
   EmbedBuilder,
   PermissionFlagsBits: { ManageGuild: 1n << 5n, Administrator: 1n << 3n, ManageRoles: 1n << 28n, ManageWebhooks: 1n << 29n, BanMembers: 1n << 2n },
   UserFlags: { VerifiedBot: 1n << 16n },
-  AuditLogEvent: new Proxy({}, { get: (t, k) => (t[k] ??= Symbol(k)) }),
+  AuditLogEvent: new Proxy({}, { get: (t, k) => (t[k] ??=Symbol(k)) }),
 };
 `,
 );
+
+// HERMETIC: nhiều case kỳ vọng "AI chưa cấu hình" (offline path). Env ambient
+// có thể set AI_API_KEY/AI_BASE_URL → engine thấy AI online, luồng khác kỳ vọng
+// → FAIL giả. Xóa sạch key provider trước khi require.
+for (const k of [
+  "AI_API_KEY",
+  "AI_BASE_URL",
+  "AI_MODEL",
+  "GROQ_API_KEY",
+  "DEEPSEEK_NIM_KEY",
+  "NVIDIA_API_KEY",
+  "SAMBANOVA_API_KEY",
+  "KIRA_API_KEY",
+  "OPENAI_API_KEY",
+]) {
+  delete process.env[k];
+}
 
 (async () => {
   // ---- Bộ đếm + store giả (mutation chỉ ghi nhận, không mạng) ----

@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/
+Disallow: /admin
+Disallow: /discord/callback
+Disallow: /auth
+
+Sitemap: https://protogon.freebuff.app/sitemap.xml

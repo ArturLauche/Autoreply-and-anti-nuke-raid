@@ -75,14 +75,13 @@ export default function Taskbar() {
           "left-3 bottom-3 top-auto h-12 w-12 rounded-2xl",
           "max-md:[left:max(0.75rem,env(safe-area-inset-left))] max-md:[bottom:max(0.75rem,env(safe-area-inset-bottom))]",
           "md:left-0 md:top-3 md:bottom-3 md:h-auto md:w-12 md:rounded-r-2xl",
-          "bg-gradient-to-br from-white/95 via-white/40 to-white/0 p-[2px]",
-          "drop-shadow-[0_0_14px_rgba(255,255,255,0.55)]",
-          "shadow-[0_10px_40px_-10px_hsl(205_85%_55%/0.6)] transition-all duration-300",
-          "hover:shadow-[0_14px_50px_-10px_hsl(342_85%_60%/0.65)]",
+          "border border-border bg-card p-[2px]",
+          "shadow-lg transition-all duration-300",
+          "hover:shadow-md",
           open ? "pointer-events-none translate-x-[-110%] opacity-0" : "",
         )}
       >
-        <span className="relative flex h-full w-full flex-col items-center overflow-hidden rounded-2xl bg-gradient-to-b from-[#a3d2ff] via-[#f8a9cf] to-[#ffd6e7] md:rounded-r-[14px]">
+        <span className="relative flex h-full w-full flex-col items-center overflow-hidden rounded-2xl border border-border bg-card md:rounded-r-[14px]">
           {/* Ánh sáng mờ từ trên xuống */}
           <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(130%_70%_at_50%_0%,rgba(255,255,255,0.6),transparent_55%)]" />
           {/* Vệt sáng nghiêng chạy dọc */}
@@ -96,27 +95,27 @@ export default function Taskbar() {
           {/* Icon tròn phát sáng */}
           <span className="relative mt-3 flex h-11 w-11 items-center justify-center max-md:mt-0 max-md:h-full max-md:w-full">
             <span className="absolute inset-0 animate-pulse-ring rounded-full bg-white/80" />
-            <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-[#4a2f66] shadow-[0_2px_14px_rgba(255,255,255,0.95)] transition-transform duration-300 group-hover:rotate-6 group-hover:scale-110 max-md:h-9 max-md:w-9">
+            <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-primary-foreground shadow-sm transition-transform duration-300 group-hover:rotate-6 group-hover:scale-110 max-md:h-9 max-md:w-9">
               <PanelRightOpen className="h-5 w-5" />
             </span>
           </span>
 
           {/* Vạch chia mảnh (chỉ desktop) */}
-          <span className="mt-3 hidden h-px w-6 bg-[#4a2f66]/25 md:block" />
+          <span className="mt-3 hidden h-px w-6 bg-border md:block" />
 
           {/* Chữ dọc hai dòng (chỉ desktop) */}
-          <span className="mt-3 hidden flex-1 flex-col items-center gap-2 text-[#3d2a5c] md:flex">
+          <span className="mt-3 hidden flex-1 flex-col items-center gap-2 text-foreground md:flex">
             <span className="[writing-mode:vertical-rl] rotate-180 font-display text-[11px] font-bold tracking-[0.35em]">
               Taskbar
             </span>
-            <span className="h-1 w-1 rounded-full bg-[#3d2a5c]/40" />
-            <span className="[writing-mode:vertical-rl] rotate-180 font-display text-[10px] font-semibold tracking-[0.2em] text-[#3d2a5c]/75">
+            <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
+            <span className="[writing-mode:vertical-rl] rotate-180 font-display text-[10px] font-semibold tracking-[0.2em] text-muted-foreground">
               Protogon
             </span>
           </span>
 
           {/* Mũi tên dưới cùng (chỉ desktop) */}
-          <span className="mb-3 hidden h-6 w-6 items-center justify-center rounded-full bg-white/70 text-[#3d2a5c] shadow-inner transition-transform duration-300 group-hover:translate-x-0.5 md:flex">
+          <span className="mb-3 hidden h-6 w-6 items-center justify-center rounded-full bg-secondary text-foreground shadow-inner transition-transform duration-300 group-hover:translate-x-0.5 md:flex">
             <ChevronRight className="h-3.5 w-3.5" />
           </span>
         </span>
@@ -127,13 +126,13 @@ export default function Taskbar() {
         <div
           className={cn(
             "fixed left-0 top-2 bottom-2 z-50 flex w-[min(90vw,20rem)] flex-col overflow-hidden",
-            "rounded-r-3xl border border-primary/30 bg-card/95 shadow-2xl backdrop-blur",
+            "rounded-r-2xl border border-primary/30 bg-card/95 shadow-lg backdrop-blur",
             "animate-in slide-in-from-left-4 fade-in-0 duration-200",
           )}
         >
           {/* Header */}
-          <div className="flex items-center gap-2.5 bg-gradient-to-r from-[#8fc8ff] via-[#f79fc6] to-[#ffb3d1] px-4 py-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#3d2a5c]">
+          <div className="flex items-center gap-2.5 border-b border-border bg-secondary px-4 py-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-primary-foreground">
               <PanelRightOpen className="h-5 w-5" />
             </span>
             <div className="flex-1">
@@ -181,7 +180,7 @@ export default function Taskbar() {
                   {theme === "dark" ? (
                     <Moon className="h-3 w-3 text-[#5c3a8f]" />
                   ) : (
-                    <Sun className="h-3 w-3 text-amber-500" />
+                    <Sun className="h-3 w-3" />
                   )}
                 </span>
               </button>
@@ -191,9 +190,9 @@ export default function Taskbar() {
             <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/40 px-3 py-2.5 text-xs">
               <span className="flex items-center gap-1.5 font-semibold">
                 {online ? (
-                  <Wifi className="h-4 w-4 text-emerald-500" />
+                  <Wifi className="h-4 w-4" />
                 ) : (
-                  <WifiOff className="h-4 w-4 text-red-500" />
+                  <WifiOff className="h-4 w-4 text-danger" />
                 )}
                 Bot {online ? "Online" : "Offline"}
               </span>
@@ -261,7 +260,7 @@ export default function Taskbar() {
                   draggable={false}
                 />
               ) : (
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-[#8fc8ff] to-[#f79fc6] text-white">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
                   <User className="h-6 w-6" />
                 </span>
               )}
@@ -282,7 +281,7 @@ export default function Taskbar() {
                 href={discordInvite}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center justify-center gap-2 rounded-xl border border-indigo-400/40 bg-indigo-500/10 px-3 py-2.5 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-500/20 dark:text-indigo-300"
+                className="flex items-center justify-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-accent"
               >
                 <MessageCircle className="h-4 w-4" /> Discord
                 <ExternalLink className="h-3 w-3 opacity-60" />
@@ -291,7 +290,7 @@ export default function Taskbar() {
                 href={facebookUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center justify-center gap-2 rounded-xl border border-sky-400/40 bg-sky-500/10 px-3 py-2.5 text-xs font-semibold text-sky-600 transition-colors hover:bg-sky-500/20 dark:text-sky-300"
+                className="flex items-center justify-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-accent"
               >
                 <Facebook className="h-4 w-4" /> Facebook
                 <ExternalLink className="h-3 w-3 opacity-60" />

@@ -57,7 +57,7 @@ export default class PanelErrorBoundary extends Component<Props, State> {
                 thể chuyển sang mục khác ở sidebar.
               </p>
               {isMissingFunction && (
-                <p className="mt-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-600">
+                <p className="mt-2 rounded-lg bg-secondary px-3 py-2 text-xs text-muted-foreground">
                   💡 Với mục <b>Backup server / Moderation</b>: backend Convex production đang chạy
                   bản cũ, chưa có các hàm mới. Chủ dự án cần chạy{" "}
                   <code className="font-mono">npx convex deploy</code> tại thư mục gốc dự án để cập

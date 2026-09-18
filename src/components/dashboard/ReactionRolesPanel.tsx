@@ -388,7 +388,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
                     {p.label}
                     {!p.messageId ? (
                       p.postError ? (
-                        <Badge className="border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400">
+                        <Badge className="border-danger/40 bg-danger/10 text-danger">
                           ⚠️ lỗi gửi
                         </Badge>
                       ) : (
@@ -401,7 +401,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
                     )}
                   </p>
                   {p.postError && (
-                    <p className="mt-1 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1 text-xs text-red-600 dark:text-red-400">
+                    <p className="mt-1 rounded-md border border-danger/30 bg-danger/10 px-2 py-1 text-xs text-danger">
                       ⚠️ {p.postError}
                     </p>
                   )}

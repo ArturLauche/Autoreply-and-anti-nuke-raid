@@ -45,6 +45,23 @@ module.exports = {
 `,
 );
 
+// HERMETIC: nhiều case kỳ vọng "AI chưa cấu hình" (offline path). Env ambient
+// (CI/VPS/workspaces) có thể set AI_API_KEY/AI_BASE_URL → engine thấy AI online,
+// luồng chạy khác kỳ vọng → FAIL giả. Xóa sạch key provider trước khi require.
+for (const k of [
+  "AI_API_KEY",
+  "AI_BASE_URL",
+  "AI_MODEL",
+  "GROQ_API_KEY",
+  "DEEPSEEK_NIM_KEY",
+  "NVIDIA_API_KEY",
+  "SAMBANOVA_API_KEY",
+  "KIRA_API_KEY",
+  "OPENAI_API_KEY",
+]) {
+  delete process.env[k];
+}
+
 let pass = 0;
 let fail = 0;
 function check(label, cond) {

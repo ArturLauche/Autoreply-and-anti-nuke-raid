@@ -4,10 +4,10 @@ import { Card, CardContent } from "../ui/card";
 import type { GuildData } from "../../lib/types";
 
 const ACTION_STYLE: Record<string, string> = {
-  "⏱️ Timeout": "bg-amber-500/15 text-amber-500",
-  "👢 Kick": "bg-orange-500/15 text-orange-500",
-  "🚫 Ban": "bg-danger/15 text-danger",
-  "🧹 Purge": "bg-sky-500/15 text-sky-500",
+  "⏱️ Timeout": "bg-foreground/10 text-foreground border border-foreground/20",
+  "👢 Kick": "bg-foreground/20 text-foreground border border-foreground/30",
+  "🚫 Ban": "bg-danger text-danger-foreground",
+  "🧹 Purge": "bg-secondary text-secondary-foreground border border-border",
 };
 
 function styleFor(action: string): string {
@@ -15,7 +15,7 @@ function styleFor(action: string): string {
   if (action.includes("Kick")) return ACTION_STYLE["👢 Kick"];
   if (action.includes("Ban")) return ACTION_STYLE["🚫 Ban"];
   if (action.includes("Purge")) return ACTION_STYLE["🧹 Purge"];
-  return "bg-violet-500/15 text-violet-500";
+  return "bg-secondary text-secondary-foreground border border-border";
 }
 
 function labelFor(action: string): string {
@@ -41,9 +41,8 @@ export default function ModActionsPanel({ data }: { data: GuildData }) {
             </h3>
             <p className="text-sm text-muted-foreground">
               Timeout · kick · ban · warn · purge — ghi kèm <b>case N</b> (kiểu Carl-bot), lý do,
-              người thực hiện và phân biệt rõ nguồn:{" "}
-              <b className="text-sky-400">🛠️ lệnh thủ công của mod</b> vs{" "}
-              <b className="text-emerald-400">⚡ bot tự động</b> (auto-mod / anti nuke).
+              người thực hiện và phân biệt rõ nguồn:{" "}              <b className="text-foreground">🛠️ lệnh thủ công của mod</b> vs{""}
+              <b className="text-foreground">⚡ bot tự động</b> (auto-mod / anti nuke).
             </p>
           </div>
           <Badge variant="secondary">{actions.length} hành động gần nhất</Badge>
@@ -51,7 +50,7 @@ export default function ModActionsPanel({ data }: { data: GuildData }) {
 
         {actions.length === 0 ? (
           <div className="mt-4 flex items-center gap-3 rounded-lg bg-secondary/40 px-3 py-3 text-sm text-muted-foreground">
-            <ShieldCheck className="h-4 w-4 text-emerald-400" />
+            <ShieldCheck className="h-4 w-4" />
             Chưa có hình phạt nào — mọi thứ đang yên bình 🎉
           </div>
         ) : (
@@ -88,8 +87,8 @@ export default function ModActionsPanel({ data }: { data: GuildData }) {
                       <Badge
                         className={
                           sourceOf(a) === "Lệnh mod"
-                            ? "gap-1 bg-sky-500/15 text-sky-400"
-                            : "gap-1 bg-emerald-500/15 text-emerald-400"
+                            ? "gap-1 bg-secondary text-secondary-foreground border border-border"
+                            : "gap-1 bg-foreground/10 text-foreground border border-foreground/20"
                         }
                       >
                         {sourceOf(a) === "Lệnh mod" ? "🛠️ Lệnh mod" : "⚡ Bot tự động"}

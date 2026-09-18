@@ -1,0 +1,34 @@
+# Protogon — Bot Discord bảo vệ server
+
+> Bot Discord tự trả lời theo từ khóa, hệ thống nhiệt độ vi phạm 4 giai đoạn
+> (cảnh báo → tạm khóa → kick → ban), Join Gate chống selfbot, chặn link độc
+> hại & file nguy hiểm, 32 module chống nuke/raid và bảng điều khiển web trực
+> quan. Có trợ lý ảo Haimiya giải đáp bằng tiếng Việt.
+
+Trang chủ: https://protogon.freebuff.app
+Đăng nhập: https://protogon.freebuff.app/auth (qua Discord OAuth2)
+
+## Trang công khai
+
+- `/` — giới thiệu tính năng, cách hoạt động, trợ lý Haimiya
+- `/auth` — đăng nhập bằng Discord
+
+## Trang cần đăng nhập (không thể xem khi chưa xác thực)
+
+- `/dashboard` — danh sách server đang quản lý
+- `/dashboard/:guildId` — cấu hình từng server (auto reply, nhiệt độ, module)
+- `/dashboard/:guildId/history` — lịch sử vi phạm
+- `/stats` — bảng xếp hạng thành viên có nhiệt độ vi phạm cao nhất
+- `/monitor` — trạng thái hoạt động của bot
+- `/admin` — khu vực dành riêng cho chủ sở hữu bot
+
+## Cách hoạt động tóm tắt
+
+1. Đăng nhập Discord (OAuth2, quyền identify + guilds).
+2. Mời bot vào server — cấu hình mặc định an toàn được tạo sẵn.
+3. Chỉnh cấu hình trên dashboard; bot áp dụng sau khoảng 1 phút qua Convex.
+
+## Liên hệ
+
+- Discord community: https://discord.gg/rftv
+- Fanpage Facebook: https://www.facebook.com/profile.php?id=61592820547312

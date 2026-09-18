@@ -22,9 +22,9 @@ const TOKEN = () => getSessionToken();
 
 const LEVEL_BADGE: Record<string, string> = {
   none: "bg-secondary text-muted-foreground",
-  action: "bg-sky-500/15 text-sky-400",
-  reason: "bg-violet-500/15 text-violet-400",
-  full: "bg-emerald-500/15 text-emerald-400",
+  action: "bg-foreground/10 text-foreground border border-foreground/20",
+  reason: "bg-foreground/20 text-foreground border border-foreground/30",
+  full: "bg-foreground text-primary-foreground",
 };
 
 /** Xem trước embed moderation kiểu Carl-bot bot sẽ gửi theo mức đã chọn. */

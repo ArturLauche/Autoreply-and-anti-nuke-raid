@@ -10,15 +10,15 @@ interface AnalyticsPanelProps {
 }
 
 const MODULE_COLORS: Record<string, string> = {
-  massBan: "bg-red-500",
-  massKick: "bg-orange-500",
-  massChannelCreate: "bg-blue-500",
-  massChannelDelete: "bg-blue-600",
+  massBan: "bg-foreground",
+  massKick: "bg-foreground/80",
+  massChannelCreate: "bg-foreground/60",
+  massChannelDelete: "bg-foreground/60",
   massRoleCreate: "bg-purple-500",
   massRoleDelete: "bg-purple-600",
-  spam: "bg-yellow-500",
-  raid: "bg-red-600",
-  externalAppRaid: "bg-pink-500",
+  spam: "bg-foreground/40",
+  raid: "bg-foreground",
+  externalAppRaid: "bg-foreground/80",
 };
 
 const MODULE_LABELS: Record<string, string> = {
@@ -49,7 +49,7 @@ export default function AnalyticsPanel({ token, guildId }: AnalyticsPanelProps) 
 
   if (analytics === undefined || analytics === null) {
     return (
-      <Card className="border-border/50 bg-card/80 backdrop-blur">
+      <Card>
         <CardContent className="p-6 text-center text-muted-foreground">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto" />
         </CardContent>
@@ -63,30 +63,30 @@ export default function AnalyticsPanel({ token, guildId }: AnalyticsPanelProps) 
     <div className="space-y-4">
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="border-border/50 bg-card/80 backdrop-blur">
+        <Card>
           <CardContent className="p-4 text-center">
             <Users className="h-5 w-5 text-primary mx-auto mb-1" />
             <div className="text-2xl font-bold">{analytics.memberCount.toLocaleString()}</div>
             <div className="text-xs text-muted-foreground">Thành viên</div>
           </CardContent>
         </Card>
-        <Card className="border-border/50 bg-card/80 backdrop-blur">
+        <Card>
           <CardContent className="p-4 text-center">
-            <Shield className="h-5 w-5 text-red-500 mx-auto mb-1" />
+            <Shield className="h-5 w-5 text-foreground mx-auto mb-1" />
             <div className="text-2xl font-bold">{analytics.antinukeEvents7d}</div>
             <div className="text-xs text-muted-foreground">Anti-nuke (7 ngày)</div>
           </CardContent>
         </Card>
-        <Card className="border-border/50 bg-card/80 backdrop-blur">
+        <Card>
           <CardContent className="p-4 text-center">
-            <TrendingUp className="h-5 w-5 text-blue-500 mx-auto mb-1" />
+            <TrendingUp className="h-5 w-5 text-foreground mx-auto mb-1" />
             <div className="text-2xl font-bold">{analytics.modActions7d}</div>
             <div className="text-xs text-muted-foreground">Mod actions (7 ngày)</div>
           </CardContent>
         </Card>
-        <Card className="border-border/50 bg-card/80 backdrop-blur">
+        <Card>
           <CardContent className="p-4 text-center">
-            <Flame className="h-5 w-5 text-orange-500 mx-auto mb-1" />
+            <Flame className="h-5 w-5 text-foreground mx-auto mb-1" />
             <div className="text-2xl font-bold">{analytics.topHeat.length}</div>
             <div className="text-xs text-muted-foreground">Đang có nhiệt</div>
           </CardContent>
@@ -95,7 +95,7 @@ export default function AnalyticsPanel({ token, guildId }: AnalyticsPanelProps) 
 
       {/* Events by Module */}
       {Object.keys(analytics.eventsByModule).length > 0 && (
-        <Card className="border-border/50 bg-card/80 backdrop-blur">
+        <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <BarChart3 className="h-5 w-5" />
@@ -125,7 +125,7 @@ export default function AnalyticsPanel({ token, guildId }: AnalyticsPanelProps) 
 
       {/* Mod Actions by Type */}
       {Object.keys(analytics.modByType).length > 0 && (
-        <Card className="border-border/50 bg-card/80 backdrop-blur">
+        <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Moderation (7 ngày)</CardTitle>
           </CardHeader>
@@ -146,10 +146,10 @@ export default function AnalyticsPanel({ token, guildId }: AnalyticsPanelProps) 
 
       {/* Top Heat Users */}
       {analytics.topHeat.length > 0 && (
-        <Card className="border-border/50 bg-card/80 backdrop-blur">
+        <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Flame className="h-5 w-5 text-orange-500" />
+              <Flame className="h-5 w-5 text-foreground" />
               Top nhiệt độ
             </CardTitle>
           </CardHeader>
@@ -184,7 +184,7 @@ export default function AnalyticsPanel({ token, guildId }: AnalyticsPanelProps) 
 
       {/* Backup Stats */}
       {backupAnalytics && (
-        <Card className="border-border/50 bg-card/80 backdrop-blur">
+        <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Backup</CardTitle>
           </CardHeader>

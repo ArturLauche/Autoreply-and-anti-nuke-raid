@@ -23,9 +23,9 @@ const TOKEN = () => getSessionToken();
 const ACTION_STYLE: Record<string, string> = {
   ban: "bg-danger/15 text-danger",
   "ban thất bại": "bg-danger/10 text-danger/80",
-  kick: "bg-orange-500/15 text-orange-400",
-  warn: "bg-amber-500/15 text-amber-400",
-  timeout: "bg-violet-500/15 text-violet-400",
+  kick: "bg-foreground/20 text-foreground border border-foreground/30",
+  warn: "bg-secondary text-secondary-foreground border border-border",
+  timeout: "bg-foreground/10 text-foreground border border-foreground/20",
 };
 
 function actionLabel(action: string | null): string {
@@ -41,7 +41,7 @@ function IncidentList({ guildId }: { guildId: string }) {
 
   if (incidents === undefined) {
     return (
-      <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card/60 py-10 text-sm text-muted-foreground">
+      <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-10 text-sm text-muted-foreground">
         <RefreshCw className="h-4 w-4 animate-spin" /> Đang tải lịch sử…
       </div>
     );
@@ -64,7 +64,7 @@ function IncidentList({ guildId }: { guildId: string }) {
 
   if (incidents.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-10 text-center">
+      <div className="rounded-xl border border-dashed border-border bg-secondary/30 px-6 py-10 text-center">
         <AppWindow className="mx-auto h-8 w-8 text-muted-foreground/50" />
         <p className="mt-3 text-sm font-medium">Chưa có vụ raid external app nào bị chặn</p>
         <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
@@ -109,7 +109,7 @@ function IncidentList({ guildId }: { guildId: string }) {
         {incidents.map((s, i) => (
           <div
             key={`${s.createdAt}-${i}`}
-            className="rounded-xl border border-border bg-card/70 p-4"
+            className="rounded-xl border border-border bg-secondary/50 p-4"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-xs">
@@ -137,10 +137,10 @@ function IncidentList({ guildId }: { guildId: string }) {
                     className={cn(
                       "gap-1 px-2 py-0.5 text-[10px]",
                       s.aiClassification === "raid"
-                        ? "bg-red-500/15 text-red-400"
+                        ? "bg-danger text-danger-foreground"
                         : s.aiClassification === "benign"
-                          ? "bg-emerald-500/15 text-emerald-400"
-                          : "bg-sky-500/15 text-sky-400",
+                          ? "bg-secondary text-secondary-foreground border border-border"
+                          : "bg-foreground/10 text-foreground border border-foreground/20",
                     )}
                   >
                     <Sparkles className="h-3 w-3" />
@@ -223,7 +223,7 @@ function IncidentList({ guildId }: { guildId: string }) {
             </div>
 
             {s.suspectedSourceName && (
-              <p className={cn("mt-3 text-xs", s.banned ? "text-red-400" : "text-amber-400")}>
+              <p className={cn("mt-3 text-xs", s.banned ? "text-danger font-semibold" : "text-foreground")}>
                 🎯 {s.banned ? "Đã ban nguồn cơn: " : "Nghi phạm nguồn cơn: "}
                 {s.suspectedSourceName}
                 {s.reason ? ` — ${s.reason}` : ""}
@@ -264,7 +264,7 @@ export default function ExternalAppRaidsPanel({ data }: { data: GuildData }) {
       </div>
 
       {moduleCfg && !moduleCfg.enabled && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
+        <div className="rounded-xl border border-border bg-secondary px-4 py-3 text-sm text-foreground">
           ⚠️ Module <b>Raid bằng ứng dụng ngoài</b> đang tắt — bật lại trong mục{" "}
           <b>Chống nuke / raid → Thành viên & quyền</b> để bot tiếp tục chặn.
         </div>

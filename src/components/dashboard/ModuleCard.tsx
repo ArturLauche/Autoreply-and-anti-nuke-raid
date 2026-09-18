@@ -81,12 +81,12 @@ const MODULE_ICONS: Record<string, typeof Gavel> = {
 };
 
 const ACTION_STYLE: Record<string, string> = {
-  warn: "bg-amber-500/15 text-amber-400",
-  kick: "bg-orange-500/15 text-orange-400",
-  ban: "bg-danger/15 text-danger",
-  timeout: "bg-violet-500/15 text-violet-400",
-  deleteMessages: "bg-sky-500/15 text-sky-400",
-  purgeMessages: "bg-rose-500/15 text-rose-400",
+  warn: "bg-secondary text-secondary-foreground border border-border",
+  kick: "bg-foreground/20 text-foreground border border-foreground/30",
+  ban: "bg-danger text-danger-foreground",
+  timeout: "bg-foreground/10 text-foreground border border-foreground/20",
+  deleteMessages: "bg-secondary text-secondary-foreground border border-border",
+  purgeMessages: "bg-foreground/10 text-foreground border border-foreground/20",
 };
 
 function ModuleNumber({
@@ -277,7 +277,7 @@ export default function ModuleCard({
             </div>
             {showHeat && (
               <div className="grid gap-1">
-                <Label className="text-[11px] text-orange-400/80">🔥 Nhiệt/vi phạm</Label>
+                <Label className="text-[11px] text-muted-foreground">🔥 Nhiệt/vi phạm</Label>
                 <ModuleNumber
                   value={config.heat}
                   min={1}

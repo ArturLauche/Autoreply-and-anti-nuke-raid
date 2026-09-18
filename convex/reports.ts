@@ -96,6 +96,42 @@ export const historyForGuild = query({
   },
 });
 
+/**
+ * Top thành viên bị cảnh báo nhiệt độ (heat) cho trang /stats (manager-gated).
+ * Đọc qua index by_guildId_heat theo thứ tự giảm dần — chỉ nhận thành viên còn
+ * nhiệt độ (> 0). Bot tự giảm nhiệt theo thời gian, nên record cũ tự rơi khỏi
+ * bảng xếp hạng mà không cần dọn dẹp.
+ */
+export const heatLeaderboard = query({
+  args: {
+    token: v.string(),
+    guildId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { token, guildId, limit }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!canManageGuild(user, guild)) return null;
+    const rows = await ctx.db
+      .query("heatStates")
+      .withIndex("by_guildId_heat", (q) => q.eq("guildId", guildId))
+      .order("desc")
+      .take(Math.min(limit ?? 10, 50));
+    return rows
+      .filter((r) => r.heat > 0)
+      .map((r) => ({
+        userId: r.userId,
+        username: r.username,
+        heat: r.heat,
+        warnStrikes: r.warnStrikes ?? null,
+        updatedAt: r.updatedAt,
+      }));
+  },
+});
+
 /** Danh sách guild đang có bot (dùng cho script chẩn đoán lặp từng guild). */
 export const botListGuildIds = query({
   args: { botKey: v.optional(v.string()) },

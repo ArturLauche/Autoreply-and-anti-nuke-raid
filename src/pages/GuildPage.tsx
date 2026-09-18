@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "convex/react";
 import {
@@ -22,10 +22,8 @@ import {
 } from "lucide-react";
 import { DEFAULT_THEME, SERVER_THEMES } from "../lib/constants";
 import PanelErrorBoundary from "../components/PanelErrorBoundary";
-import CherryBlossom from "../components/CherryBlossom";
 import BotLogo from "../components/BotLogo";
 import HaimiyaChat from "../components/HaimiyaChat";
-import HiddenPanel from "../components/dashboard/HiddenPanel";
 import UnlockPanel, { hiddenUnlockKey } from "../components/dashboard/UnlockPanel";
 import { api } from "../../convex/_generated/api";
 import { Badge } from "../components/ui/badge";
@@ -35,18 +33,22 @@ import { usePublicConfig } from "../lib/usePublicConfig";
 import { timeAgo } from "../lib/utils";
 import type { GuildData } from "../lib/types";
 import OverviewPanel from "../components/dashboard/OverviewPanel";
-import AntiNukePanel from "../components/dashboard/AntiNukePanel";
-import ExternalAppRaidsPanel from "../components/dashboard/ExternalAppRaidsPanel";
-import AutoModPanel from "../components/dashboard/AutoModPanel";
-import ModerationPanel from "../components/dashboard/ModerationPanel";
-import BackupPanel from "../components/dashboard/BackupPanel";
-import ModActionsPanel from "../components/dashboard/ModActionsPanel";
-import JoinGatePanel from "../components/dashboard/JoinGatePanel";
-import SettingsPanel from "../components/dashboard/SettingsPanel";
-import WhitelistPanel from "../components/dashboard/WhitelistPanel";
-import VerifyPanel from "../components/dashboard/VerifyPanel";
-import AltDetectionPanel from "../components/dashboard/AltDetectionPanel";
-import WebhookPanel from "../components/dashboard/WebhookPanel";
+
+// Code-split theo panel: mở tab nào mới tải JS của tab đó. Chỉ OverviewPanel
+// (panel mặc định) được nạp eager để tab đầu hiển thị tức thì.
+const AntiNukePanel = lazy(() => import("../components/dashboard/AntiNukePanel"));
+const ExternalAppRaidsPanel = lazy(() => import("../components/dashboard/ExternalAppRaidsPanel"));
+const AutoModPanel = lazy(() => import("../components/dashboard/AutoModPanel"));
+const ModerationPanel = lazy(() => import("../components/dashboard/ModerationPanel"));
+const BackupPanel = lazy(() => import("../components/dashboard/BackupPanel"));
+const ModActionsPanel = lazy(() => import("../components/dashboard/ModActionsPanel"));
+const JoinGatePanel = lazy(() => import("../components/dashboard/JoinGatePanel"));
+const SettingsPanel = lazy(() => import("../components/dashboard/SettingsPanel"));
+const WhitelistPanel = lazy(() => import("../components/dashboard/WhitelistPanel"));
+const VerifyPanel = lazy(() => import("../components/dashboard/VerifyPanel"));
+const AltDetectionPanel = lazy(() => import("../components/dashboard/AltDetectionPanel"));
+const WebhookPanel = lazy(() => import("../components/dashboard/WebhookPanel"));
+const HiddenPanel = lazy(() => import("../components/dashboard/HiddenPanel"));
 
 type SectionKey =
   | "overview"
@@ -80,6 +82,15 @@ const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof LayoutDashboard 
   { key: "hidden", label: "Tính năng ẩn 🔒", icon: Lock },
   { key: "settings", label: "Cài đặt", icon: Settings },
 ];
+
+/** Loader nhỏ giữ bố cục khi chunk panel đang tải (lần đầu mở tab). */
+function PanelFallback() {
+  return (
+    <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+      <Loader2 className="h-4 w-4 animate-spin" /> Đang tải…
+    </div>
+  );
+}
 
 export default function GuildPage() {
   const { guildId = "" } = useParams();
@@ -128,8 +139,7 @@ export default function GuildPage() {
 
   return (
     <div className="relative min-h-screen overflow-x-clip" style={themeVars}>
-      <CherryBlossom count={10} />
-      <HaimiyaChat position="dashboard" />
+            <HaimiyaChat position="dashboard" />
       <div className="relative z-10">
         <header className="border-b border-border/60 bg-background/70 backdrop-blur">
           <div className="container py-4 sm:py-6">
@@ -154,12 +164,10 @@ export default function GuildPage() {
                 )}
                 <div className="min-w-0">
                   <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="shrink-0 rounded-xl bg-gradient-to-br from-white/95 via-white/45 to-white/0 p-[2px] drop-shadow-[0_0_10px_rgba(255,255,255,0.7)] max-sm:hidden">
-                      <BotLogo
-                        className="h-10 w-10 ring-2 ring-primary/25"
-                        fallbackClassName="h-6 w-6"
-                      />
-                    </span>
+                    <BotLogo
+                      className="h-10 w-10 shrink-0 ring-2 ring-primary/25 max-sm:hidden"
+                      fallbackClassName="h-6 w-6"
+                    />
                     <h1 className="min-w-0 truncate font-display text-2xl font-bold tracking-tight max-sm:text-lg">
                       {data.guild.name}
                     </h1>
@@ -177,7 +185,7 @@ export default function GuildPage() {
                     </Badge>
                     <Badge variant={online ? "success" : "secondary"}>
                       <span
-                        className={`h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-muted-foreground"}`}
+                        className={`h-1.5 w-1.5 rounded-full ${online ? "bg-foreground" : "bg-muted-foreground"}`}
                       />
                       Bot {online ? "online" : "offline"} · {timeAgo(data.guild.lastHeartbeat)}
                     </Badge>
@@ -233,7 +241,7 @@ export default function GuildPage() {
                   );
                 })}
               </nav>
-              <div className="mt-4 hidden rounded-xl border border-primary/25 bg-gradient-to-b from-primary/10 to-transparent p-4 text-xs text-muted-foreground lg:block">
+              <div className="mt-4 hidden rounded-xl border border-border bg-secondary/50 p-4 text-xs text-muted-foreground lg:block">
                 <p className="mb-2 font-medium text-foreground">🌸 Haimiya gợi ý</p>
                 <p>• Auto-mod = spam tin, mention, từ xấu, ảnh/file, link mời + link độc hại.</p>
                 <p className="mt-1">
@@ -264,9 +272,13 @@ export default function GuildPage() {
               </div>
             </aside>
 
-            {/* Content — bọc trong error boundary để một panel lỗi không làm trắng cả trang */}
+            {/* Content — bọc trong error boundary để một panel lỗi không làm trắng cả trang.
+                Mỗi panel là lazy chunk: mở tab nào mới tải JS tab đó. Suspense nằm
+                Ở ĐÂY (không để bubble lên App) để fallback chỉ thay vùng panel,
+                header/sidebar giữ nguyên khi đang tải chunk. */}
             <div>
               <PanelErrorBoundary key={section}>
+                <Suspense fallback={<PanelFallback />}>
                 {section === "overview" && <OverviewPanel data={data} />}
                 {section === "automod" && <AutoModPanel data={data} />}
                 {section === "moderation" && <ModerationPanel data={data} />}
@@ -301,6 +313,7 @@ export default function GuildPage() {
                       <HiddenPanel data={data} />
                     </>
                   ))}
+                </Suspense>
               </PanelErrorBoundary>
 
               <div className="mt-10 flex justify-center">

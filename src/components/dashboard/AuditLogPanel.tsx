@@ -16,7 +16,7 @@ export default function AuditLogPanel({ token, guildId }: AuditLogPanelProps) {
 
   if (logs === undefined) {
     return (
-      <Card className="border-border/50 bg-card/80 backdrop-blur">
+      <Card>
         <CardContent className="p-6 text-center text-muted-foreground">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto" />
         </CardContent>
@@ -25,7 +25,7 @@ export default function AuditLogPanel({ token, guildId }: AuditLogPanelProps) {
   }
 
   return (
-    <Card className="border-border/50 bg-card/80 backdrop-blur">
+    <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
           <History className="h-5 w-5" />
@@ -74,7 +74,7 @@ export default function AuditLogPanel({ token, guildId }: AuditLogPanelProps) {
                     <ArrowRight className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
                   )}
                   {log.newValue && (
-                    <span className="text-green-500 max-w-[200px] truncate">{log.newValue}</span>
+                    <span className="font-medium text-foreground max-w-[200px] truncate">{log.newValue}</span>
                   )}
                 </div>
               )}

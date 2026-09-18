@@ -74,7 +74,7 @@ function GateRow({
   onToggle: (v: boolean) => void;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-card/50 px-4 py-3">
+    <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-secondary/50 px-4 py-3">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Icon className="h-4 w-4" />
@@ -177,7 +177,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
       </Card>
 
       {!g.joinGateEnabled && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
+        <div className="rounded-xl border border-border bg-secondary px-4 py-3 text-sm text-foreground">
           ⚠️ Join Gate đang tắt — mọi tài khoản đều được vào tự do (kể cả selfbot).
         </div>
       )}
@@ -192,7 +192,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
           onToggle={(v) => patch({ joinGateMinAgeDays: v ? 7 : 0 })}
         />
         {g.joinGateMinAgeDays > 0 && (
-          <div className="flex items-center gap-3 rounded-xl border border-border bg-card/50 px-4 py-3">
+          <div className="flex items-center gap-3 rounded-xl border border-border bg-secondary/50 px-4 py-3">
             <Label className="shrink-0 text-xs text-muted-foreground">Tuổi tối thiểu (ngày)</Label>
             <div className="w-28">
               <ModuleNumber
@@ -257,7 +257,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
       <Card>
         <CardContent className="p-5">
           <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
               <UserPlus className="h-5 w-5" />
             </span>
             <div>
@@ -290,7 +290,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
               {g.joinGateWhitelist.map((id) => (
                 <span
                   key={id}
-                  className="group flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 font-mono text-xs text-emerald-400 transition-colors hover:bg-emerald-500/20"
+                  className="group flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-2.5 py-1 font-mono text-xs text-foreground transition-colors hover:bg-accent"
                 >
                   {id}
                   <button
@@ -307,7 +307,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
         </CardContent>
       </Card>
 
-      <div className="rounded-xl border border-border bg-card/50 p-4 text-xs text-muted-foreground">
+      <div className="rounded-xl border border-border bg-secondary/50 p-4 text-xs text-muted-foreground">
         <p className="mb-1 font-medium text-foreground">📌 Lưu ý quan trọng</p>
         <p>
           • Discord <b>không cho bot đọc</b> trạng thái email/điện thoại đã xác thực, nên Join Gate

@@ -38,6 +38,28 @@ Module.prototype.load = function (request) {
   }
   return origLoad.apply(this, arguments);
 };
+
+// Test phải HERMETIC: xóa mọi key provider AI từ môi trường ambient (CI/VPS có
+// thể set AI_API_KEY/AI_BASE_URL → test trước đây FAIL vì chain có thêm
+// custom-gateway ở đầu, số lần gọi fetch lệch khỏi kỳ vọng).
+for (const k of [
+  "AI_API_KEY",
+  "AI_BASE_URL",
+  "AI_MODEL",
+  "GROQ_API_KEY",
+  "DEEPSEEK_NIM_KEY",
+  "DEEPSEEK_NIM_MODEL",
+  "NVIDIA_API_KEY",
+  "NVIDIA_MODEL",
+  "SAMBANOVA_API_KEY",
+  "KIRA_API_KEY",
+  "KIRA_BASE_URL",
+  "KIRA_MODEL",
+  "OPENAI_API_KEY",
+  "OPENAI_MODEL",
+]) {
+  delete process.env[k];
+}
 Object.defineProperty(process.env, "GROQ_API_KEY", {
   value: "fake-groq",
   configurable: true,

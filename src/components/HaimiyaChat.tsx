@@ -9,6 +9,9 @@ import { cn } from "../lib/utils";
 import { sha256Hex } from "../../convex/sha256";
 
 interface ChatMessage {
+  /** Định danh ổn định cho React key — KHÔNG dùng index (danh sách có append
+   *  và cuộn; index key làm reconcile sai khi mảng thay đổi). */
+  id: string;
   role: "user" | "haimiya";
   text: string;
   suggestions?: string[];
@@ -236,7 +239,7 @@ export default function HaimiyaChat({
   const [pending, setPending] = useState<string[]>([]); // ảnh đang đợi gửi (data URL đã nén)
   const fileRef = useRef<HTMLInputElement>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: "haimiya", text: GREETING, suggestions: QUICK_QUESTIONS },
+    { id: "greeting", role: "haimiya", text: GREETING, suggestions: QUICK_QUESTIONS },
   ]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<number>(0);
@@ -297,13 +300,22 @@ export default function HaimiyaChat({
     return null;
   }
 
+  /** ID tăng dần — ổn định cho React key của tin nhắn. */
+  let msgSeq = 0;
+  const nextMsgId = () => `m${Date.now().toString(36)}-${msgSeq++}`;
+
   function send(text: string, withImages?: string[]) {
     const q = text.trim();
     const imgs = (withImages ?? pending).slice(0, 3);
     if ((!q && imgs.length === 0) || typing) return;
     setMessages((m) => [
       ...m,
-      { role: "user", text: q || "(xem ảnh)", thumbs: imgs.length ? imgs : undefined },
+      {
+        id: nextMsgId(),
+        role: "user",
+        text: q || "(xem ảnh)",
+        thumbs: imgs.length ? imgs : undefined,
+      },
     ]);
     setInput("");
     setPending([]);
@@ -312,7 +324,7 @@ export default function HaimiyaChat({
     timerRef.current = window.setTimeout(
       async () => {
         const history = messages
-          .concat([{ role: "user", text: q }])
+          .concat([{ id: "_h", role: "user", text: q }])
           .slice(-8)
           .map((m) => ({
             role: m.role === "user" ? ("user" as const) : ("assistant" as const),
@@ -326,12 +338,17 @@ export default function HaimiyaChat({
         if (aiReply?.startsWith("[giới-hạn]")) {
           setMessages((m) => [
             ...m,
-            { role: "haimiya", text: aiReply.replace("[giới-hạn] ", "⏳ ") },
+            {
+              id: nextMsgId(),
+              role: "haimiya",
+              text: aiReply.replace("[giới-hạn] ", "⏳ "),
+            },
           ]);
         } else if (aiReply?.startsWith("[đăng-nhập]")) {
           setMessages((m) => [
             ...m,
             {
+              id: nextMsgId(),
               role: "haimiya",
               text: "🔐 " + aiReply.replace("[đăng-nhập] ", ""),
             },
@@ -344,19 +361,20 @@ export default function HaimiyaChat({
           setMessages((m) => [
             ...m,
             {
+              id: nextMsgId(),
               role: "haimiya",
               text: `⚠️ AI trên máy chủ chưa phản hồi${serverReason ? ` — ${serverReason}` : ""}. Tạm trả lời bằng kiến thức cục bộ.`,
             },
-            { role: "haimiya", text: ans.text, suggestions: ans.suggestions },
+            { id: nextMsgId(), role: "haimiya", text: ans.text, suggestions: ans.suggestions },
           ]);
         } else if (aiReply) {
-          setMessages((m) => [...m, { role: "haimiya", text: aiReply }]);
+          setMessages((m) => [...m, { id: nextMsgId(), role: "haimiya", text: aiReply }]);
         } else {
           // Fallback: bộ kiến thức cục bộ.
           const ans = askHaimiya(q);
           setMessages((m) => [
             ...m,
-            { role: "haimiya", text: ans.text, suggestions: ans.suggestions },
+            { id: nextMsgId(), role: "haimiya", text: ans.text, suggestions: ans.suggestions },
           ]);
         }
         setTyping(false);
@@ -375,8 +393,8 @@ export default function HaimiyaChat({
         aria-label="Trò chuyện với Haimiya"
         className={cn(
           "group fixed bottom-5 right-5 z-30 flex items-center gap-2 rounded-full",
-          "border border-white/50 bg-gradient-to-br from-[#ff8fab] to-[#f2629e] p-0.5 pr-1",
-          "shadow-[0_8px_30px_-6px_hsl(342_92%_66%/0.6)] transition-transform hover:scale-105",
+          "border border-border bg-primary p-0.5 pr-1",
+          "shadow-lg transition-transform hover:scale-105",
           // Mobile: nút nhỏ hơn + cao hơn để không che nút save cuối panel
           // + né vùng pin/tay cầm (safe-area cho máy tai thỏ).
           "max-sm:bottom-20 max-sm:right-4 max-sm:[right:max(1rem,env(safe-area-inset-right))]",
@@ -386,11 +404,11 @@ export default function HaimiyaChat({
         <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white/95 ring-2 ring-white/60 shadow-inner max-sm:h-12 max-sm:w-12">
           <HaimiyaAvatar className="h-12 w-12 max-sm:h-10 max-sm:w-10" src={avatarSrc} />
           <span className="absolute -right-0.5 -top-0.5 flex h-3 w-3">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-            <span className="relative inline-flex h-3 w-3 rounded-full border-2 border-white bg-emerald-400" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-70" />
+            <span className="relative inline-flex h-3 w-3 rounded-full border-2 border-primary bg-white" />
           </span>
         </span>
-        <span className="hidden pr-2 text-sm font-bold text-[#3d0f22] sm:block">Haimiya</span>
+        <span className="hidden pr-2 text-sm font-bold text-primary-foreground sm:block">Haimiya</span>
       </button>
 
       {/* Cửa sổ chat */}
@@ -398,7 +416,7 @@ export default function HaimiyaChat({
         <div
           className={cn(
             "fixed bottom-5 right-5 z-50 flex w-[min(94vw,24rem)] flex-col overflow-hidden rounded-2xl",
-            "border border-primary/30 bg-card/95 shadow-2xl backdrop-blur",
+            "border border-primary/30 bg-card/95 shadow-lg backdrop-blur",
             "animate-in fade-in-0 zoom-in-95 duration-200",
             // Mobile: chiếm gần hết màn hình, tự co khi bàn phím mở (dvh) và
             // né vùng pin/tay cầm (env safe-area).
@@ -407,15 +425,15 @@ export default function HaimiyaChat({
           )}
         >
           {/* Header */}
-          <div className="relative flex items-center gap-3 bg-gradient-to-r from-[#ffb3d1] via-[#f79fc6] to-[#8fc8ff] px-4 py-3">
+          <div className="relative flex items-center gap-3 border-b border-border bg-secondary px-4 py-3">
             <div className="relative">
               <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/95 ring-2 ring-white/50">
                 <HaimiyaAvatar className="h-11 w-11" src={avatarSrc} />
               </span>
-              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#f79fc6] bg-emerald-400" />
+              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-secondary bg-foreground" />
             </div>
             <div className="flex-1">
-              <p className="font-display text-sm font-bold leading-tight text-[#3d0f22]">Haimiya</p>
+              <p className="font-display text-sm font-bold leading-tight text-foreground">Haimiya</p>
               <p className="text-[11px] font-medium text-[#5c1533]">
                 Trợ lý ảo của Protogon — giải đáp về bot, nhiệt độ, tính năng ẩn
               </p>
@@ -433,7 +451,7 @@ export default function HaimiyaChat({
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4">
             {messages.map((m, i) => (
               <div
-                key={i}
+                key={m.id}
                 className={cn("flex items-end gap-2", m.role === "user" && "justify-end")}
               >
                 {m.role === "haimiya" && (
@@ -505,7 +523,7 @@ export default function HaimiyaChat({
                 .catch((err) =>
                   setMessages((m) => [
                     ...m,
-                    { role: "haimiya", text: `⚠️ ${err?.message ?? "Không đọc được file"}` },
+                    { id: nextMsgId(), role: "haimiya", text: `⚠️ ${err?.message ?? "Không đọc được file"}` },
                   ]),
                 );
             }}
@@ -550,6 +568,7 @@ export default function HaimiyaChat({
                     setMessages((m) => [
                       ...m,
                       {
+                        id: nextMsgId(),
                         role: "haimiya",
                         text: `⚠️ ${(errors[0] as PromiseRejectedResult).reason?.message ?? "Không đọc được file"}`,
                       },

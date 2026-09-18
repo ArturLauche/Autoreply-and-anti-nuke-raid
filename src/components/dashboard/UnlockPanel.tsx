@@ -27,9 +27,9 @@ export default function UnlockPanel({
   // 🔒 CHỈ admin sở hữu bot mới được tương tác mật khẩu / tính năng ẩn.
   if (!data.guild.isBotOwner) {
     return (
-      <Card className="mx-auto max-w-md border-primary/30">
+      <Card className="mx-auto max-w-md">
         <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
-          <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ffd6e8] to-[#cfe4ff] text-danger shadow-lg">
+          <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-secondary text-danger shadow-sm">
             <ShieldX className="h-8 w-8" />
           </span>
           <div>
@@ -39,7 +39,7 @@ export default function UnlockPanel({
               năng ẩn — không phải owner hay mod của một server.
             </p>
             {!data.guild.botOwnerSet && (
-              <p className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+              <p className="mt-3 rounded-lg bg-secondary px-3 py-2 text-xs text-muted-foreground">
                 Chưa có chủ sở hữu nào được thiết lập. Chủ bot cần đăng nhập bằng chính tài khoản
                 Discord đã tạo bot, vào <b>Cài đặt → Mật khẩu tính năng ẩn</b> để đặt mật khẩu đầu
                 tiên — người đó sẽ trở thành chủ sở hữu bot.
@@ -81,7 +81,7 @@ export default function UnlockPanel({
   return (
     <Card className="mx-auto max-w-md border-primary/30">
       <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
-        <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ffd6e8] to-[#cfe4ff] text-primary shadow-lg">
+        <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-secondary text-foreground shadow-sm">
           <Lock className="h-8 w-8" />
         </span>
         <div>

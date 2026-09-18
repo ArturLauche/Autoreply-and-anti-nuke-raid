@@ -22,10 +22,10 @@ import { getSessionToken } from "../../lib/discord";
 const TOKEN = () => getSessionToken();
 
 const PUNISH_OPTIONS = [
-  { value: "kick", label: "Kick", icon: UserX, color: "text-orange-500" },
-  { value: "ban", label: "Ban", icon: Skull, color: "text-red-500" },
-  { value: "timeout", label: "Timeout", icon: AlertTriangle, color: "text-yellow-500" },
-  { value: "verify", label: "Re-verify", icon: ShieldCheck, color: "text-blue-500" },
+  { value: "kick", label: "Kick", icon: UserX, color: "text-foreground" },
+  { value: "ban", label: "Ban", icon: Skull, color: "text-danger" },
+  { value: "timeout", label: "Timeout", icon: AlertTriangle, color: "text-foreground" },
+  { value: "verify", label: "Re-verify", icon: ShieldCheck, color: "text-muted-foreground" },
 ] as const;
 
 const VPN_MODES = [
@@ -35,10 +35,10 @@ const VPN_MODES = [
 ] as const;
 
 function riskColor(score: number) {
-  if (score >= 70) return "text-red-500 bg-red-500/10 border-red-500/30";
-  if (score >= 40) return "text-orange-500 bg-orange-500/10 border-orange-500/30";
-  if (score >= 20) return "text-yellow-500 bg-yellow-500/10 border-yellow-500/30";
-  return "text-emerald-500 bg-emerald-500/10 border-emerald-500/30";
+  if (score >= 70) return "bg-danger/10 text-danger border-danger/30";
+  if (score >= 40) return "bg-foreground/10 text-foreground border-foreground/30";
+  if (score >= 20) return "bg-secondary text-foreground border-border";
+  return "bg-secondary text-muted-foreground border-border";
 }
 
 function riskLabel(score: number) {
@@ -182,25 +182,25 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <ShieldAlert className="h-3 w-3 text-red-500" /> Rui ro cao
+                <ShieldAlert className="h-3 w-3 text-danger" /> Rui ro cao
               </p>
-              <p className="text-2xl font-bold mt-1 text-red-500">{altStats.highRiskCount ?? 0}</p>
+              <p className="text-2xl font-bold mt-1 text-danger">{altStats.highRiskCount ?? 0}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Globe className="h-3 w-3 text-blue-500" /> VPN/Proxy
+                <Globe className="h-3 w-3 text-muted-foreground" /> VPN/Proxy
               </p>
-              <p className="text-2xl font-bold mt-1 text-blue-500">{altStats.vpnCount ?? 0}</p>
+              <p className="text-2xl font-bold mt-1">{altStats.vpnCount ?? 0}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3 text-yellow-500" /> Tai khoan moi
+                <AlertTriangle className="h-3 w-3 text-muted-foreground" /> Tai khoan moi
               </p>
-              <p className="text-2xl font-bold mt-1 text-yellow-500">
+              <p className="text-2xl font-bold mt-1">
                 {altStats.newAccountCount ?? 0}
               </p>
             </CardContent>
@@ -290,7 +290,7 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
           {/* Safe Mode */}
           <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-background/50 px-4 py-3">
             <div className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
                 <ShieldCheck className="h-4 w-4" />
               </span>
               <div>
@@ -349,7 +349,7 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
                         </td>
                         <td className="py-2.5 pr-4 text-center">
                           <span
-                            className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-bold ${(j.strongSignals ?? 0) >= 2 ? "bg-red-500/10 text-red-500 border border-red-500/30" : (j.strongSignals ?? 0) === 1 ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/30" : "bg-muted text-muted-foreground border border-border"}`}
+                            className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-bold ${(j.strongSignals ?? 0) >= 2 ? "bg-danger/10 text-danger border border-danger/30" : (j.strongSignals ?? 0) === 1 ? "bg-foreground/10 text-foreground border border-foreground/30" : "bg-muted text-muted-foreground border border-border"}`}
                           >
                             {j.strongSignals ?? 0}
                           </span>
@@ -358,7 +358,7 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
                           {j.action && j.action !== "pass" ? (
                             <Badge
                               variant="outline"
-                              className="text-[10px] text-red-500 border-red-500/30"
+                              className="text-[10px] text-danger border-danger/30"
                             >
                               {j.action}
                             </Badge>
@@ -373,7 +373,7 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
                           {j.isVPN ? (
                             <Badge
                               variant="outline"
-                              className="text-[10px] text-red-500 border-red-500/30"
+                              className="text-[10px] text-danger border-danger/30"
                             >
                               VPN
                             </Badge>

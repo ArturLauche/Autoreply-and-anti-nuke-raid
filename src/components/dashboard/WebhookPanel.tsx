@@ -519,7 +519,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
                         next.splice(i, 1);
                         updateEmbed({ fields: next });
                       }}
-                      className="text-red-400 hover:text-red-500"
+                      className="text-muted-foreground transition-colors hover:text-danger"
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
@@ -664,7 +664,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
           </Button>
           {result && (
             <span
-              className={`flex items-center gap-1.5 text-xs ${result.ok ? "text-emerald-600" : "text-red-500"}`}
+              className={`flex items-center gap-1.5 text-xs ${result.ok ? "text-foreground" : "text-danger"}`}
             >
               {result.ok ? (
                 <CheckCircle2 className="h-4 w-4" />

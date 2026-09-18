@@ -294,11 +294,11 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
           </CardContent>
         </Card>
 
-        <Card className="border-emerald-500/30 bg-emerald-500/5">
+        <Card>
           <CardContent className="p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
                   <Database className="h-5 w-5" />
                 </span>
                 <div className="min-w-0">
@@ -338,11 +338,11 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
 
       {/* Khóa kênh + Raid Intel — 2 thẻ cạnh nhau trên màn hình rộng, không giãn ngang */}
       <div className="grid gap-4 xl:grid-cols-2">
-        <Card className="border-amber-500/30 bg-amber-500/5">
+        <Card>
           <CardContent className="p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
                   <Lock className="h-5 w-5" />
                 </span>
                 <div className="min-w-0">
@@ -393,11 +393,11 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
         </Card>
 
         {/* Raid Intel — thu thập dữ liệu + săn nguồn cơn raid */}
-        <Card className="border-violet-500/30 bg-violet-500/5">
+        <Card>
           <CardContent className="p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 text-violet-400">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
                   <Crosshair className="h-5 w-5" />
                 </span>
                 <div className="min-w-0">
@@ -492,10 +492,10 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                           variant="secondary"
                           className={
                             s.aiClassification === "raid"
-                              ? "bg-red-500/15 text-red-400"
+                              ? "bg-danger text-danger-foreground"
                               : s.aiClassification === "benign"
-                                ? "bg-emerald-500/15 text-emerald-400"
-                                : "bg-sky-500/15 text-sky-400"
+                                ? "bg-secondary text-secondary-foreground border border-border"
+                                : "bg-foreground/10 text-foreground border border-foreground/20"
                           }
                         >
                           AI: {s.aiClassification}
@@ -503,7 +503,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                         </Badge>
                       )}
                       {s.suspectedSourceName && (
-                        <span className={s.banned ? "text-red-400" : "text-amber-400"}>
+                        <span className={s.banned ? "text-danger font-semibold" : "text-foreground"}>
                           {s.banned
                             ? `🎯 đã ban nguồn cơn: ${s.suspectedSourceName}`
                             : `nghi: ${s.suspectedSourceName}`}

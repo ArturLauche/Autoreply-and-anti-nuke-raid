@@ -2,9 +2,8 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ExternalLink, KeyRound, ShieldCheck, Loader2 } from "lucide-react";
-import BotLogo from "../components/BotLogo";
+import { LogoMark } from "../components/BotLogo";
 import { Button } from "../components/ui/button";
-import CherryBlossom from "../components/CherryBlossom";
 import HaimiyaChat from "../components/HaimiyaChat";
 import { usePublicConfig } from "../lib/usePublicConfig";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
@@ -51,10 +50,6 @@ export default function AuthPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
-      <CherryBlossom count={12} />
-      <div className="absolute inset-0 bg-grid opacity-40 [mask-image:radial-gradient(60%_60%_at_50%_40%,black,transparent)]" />
-      <div className="absolute inset-x-0 top-0 h-[360px] bg-glow-sakura" />
-      <div className="absolute inset-x-0 bottom-0 h-[300px] bg-glow-sky" />
       <HaimiyaChat position="dashboard" />
 
       <div className="relative grid w-full max-w-4xl gap-8 lg:grid-cols-2">
@@ -64,18 +59,14 @@ export default function AuthPage() {
           transition={{ duration: 0.6 }}
           className="hidden flex-col justify-center lg:flex"
         >
-          <Link to="/" className="mb-8 flex items-center gap-2">
-            <span className="rounded-xl bg-gradient-to-br from-white/95 via-white/45 to-white/0 p-[2px] drop-shadow-[0_0_12px_rgba(255,255,255,0.75)]">
-              <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#ff8fab] to-[#c84b8f] p-0.5 shadow-[0_0_20px_-4px_hsl(342_92%_66%/0.8)]">
-                <BotLogo className="h-full w-full" />
-              </span>
-            </span>
+          <Link to="/" className="mb-8 flex items-center gap-2.5">
+            <LogoMark className="h-10 w-10" />
             <span className="font-display text-xl font-bold">
               Protogon<span className="text-primary">.</span>
             </span>
           </Link>
           <h1 className="font-display text-4xl font-bold leading-tight tracking-tight">
-            Quản lý bot Discord của bạn <span className="text-gradient-sakura">từ một nơi</span>
+            Quản lý bot Discord của bạn từ một nơi
           </h1>
           <ul className="mt-8 space-y-4">
             {[
@@ -101,7 +92,7 @@ export default function AuthPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
         >
-          <Card className="border-border/80 bg-card/70 shadow-2xl backdrop-blur">
+          <Card className="border-border/80 bg-card/95 shadow-lg backdrop-blur">
             <CardHeader className="text-center">
               <CardTitle className="text-2xl">Đăng nhập vào Protogon</CardTitle>
               <CardDescription>
@@ -119,7 +110,7 @@ export default function AuthPage() {
                 <>
                   <Button
                     size="lg"
-                    className="w-full bg-[#5865f2] text-white shadow-none hover:bg-[#4752c4]"
+                    className="w-full bg-foreground text-primary-foreground shadow-none hover:bg-foreground/90"
                     onClick={startOAuth}
                     disabled={loading}
                   >
@@ -169,18 +160,18 @@ export default function AuthPage() {
                   </p>
                 </div>
               ) : (
-                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
-                  <p className="flex items-center gap-2 font-semibold text-amber-400">
+                <div className="rounded-xl border border-border bg-secondary p-4 text-sm">
+                  <p className="flex items-center gap-2 font-semibold text-foreground">
                     <KeyRound className="h-4 w-4" /> Cần cấu hình Client ID
                   </p>
-                  <p className="mt-2 leading-relaxed text-amber-100/80">
+                  <p className="mt-2 leading-relaxed text-muted-foreground">
                     Để đăng nhập, bạn cần tạo ứng dụng Discord và điền{" "}
                     <code className="rounded bg-black/30 px-1.5 py-0.5 font-mono text-xs">
                       DISCORD_CLIENT_ID
                     </code>{" "}
                     vào mục API Keys. Cách làm:
                   </p>
-                  <ol className="mt-3 list-decimal space-y-1.5 pl-4 text-amber-100/70">
+                  <ol className="mt-3 list-decimal space-y-1.5 pl-4 text-muted-foreground">
                     <li>Tạo bot tại Discord Developer Portal</li>
                     <li>
                       Sao chép <b>Application ID</b> (Client ID)

@@ -135,7 +135,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                     🎉 {g.title}
                     {!g.messageId ? (
                       g.postError ? (
-                        <Badge className="border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400">
+                        <Badge className="border-danger/40 bg-danger/10 text-danger">
                           ⚠️ lỗi gửi
                         </Badge>
                       ) : (
@@ -146,7 +146,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                     )}
                   </p>
                   {g.postError && (
-                    <p className="mt-1 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1 text-xs text-red-600 dark:text-red-400">
+                    <p className="mt-1 rounded-md border border-danger/30 bg-danger/10 px-2 py-1 text-xs text-danger">
                       ⚠️ Bot không gửi được bảng: {g.postError}
                     </p>
                   )}
@@ -203,7 +203,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                     {g.winners.length > 0 && (
                       <>
                         {" · "}
-                        <Trophy className="mr-1 inline h-3 w-3 text-amber-400" />
+                        <Trophy className="mr-1 inline h-3 w-3" />
                         {g.winners.map((w) => w.username).join(", ")}
                       </>
                     )}

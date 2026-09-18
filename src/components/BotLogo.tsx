@@ -4,6 +4,23 @@ import { useBranding } from "../lib/useBranding";
 import { cn } from "../lib/utils";
 
 /**
+ * Khung logo vuông bo góc dùng cho nav/footer/auth — MỘT nguồn duy nhất thay cho
+ * các bản wrapper gradient+glow trước đây từng chép lệch nhau ở 5 nơi.
+ */
+export function LogoMark({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-[10px] bg-primary p-0.5 shadow-sm",
+        className,
+      )}
+    >
+      <BotLogo className="h-full w-full" />
+    </span>
+  );
+}
+
+/**
  * Logo / avatar bot trên web. Hiển thị ảnh bot do admin sở hữu bot đặt
  * (Tính năng ẩn → Tùy chỉnh giao diện); chưa đặt thì dùng Haimiya mặc định.
  */
@@ -31,7 +48,7 @@ export default function BotLogo({
   return (
     <span
       className={cn(
-        "flex items-center justify-center rounded-full bg-gradient-to-br from-[#ffb3d1] via-[#f79fc6] to-[#8fc8ff] text-white",
+        "flex items-center justify-center rounded-full bg-secondary text-secondary-foreground",
         className,
       )}
     >

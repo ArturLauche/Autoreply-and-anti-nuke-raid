@@ -11,8 +11,10 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
+        /* Một họ chữ duy nhất (Vercel style): hierarchy đến từ weight/size,
+           không cần font display riêng. */
         sans: ["Inter", "system-ui", "sans-serif"],
-        display: ["Baloo 2", "Space Grotesk", "Inter", "sans-serif"],
+        display: ["Inter", "system-ui", "sans-serif"],
         mono: ["JetBrains Mono", "monospace"],
       },
       colors: {
@@ -58,6 +60,13 @@ const config: Config = {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      boxShadow: {
+        /* Scale bóng 3 cấp — mọi card/nút dùng đúng 1 trong 3, hết bóng tùy tiện. */
+        sm: "0 1px 2px hsl(var(--shadow-color) / 0.06), 0 1px 3px hsl(var(--shadow-color) / 0.08)",
+        DEFAULT: "0 4px 12px -4px hsl(var(--shadow-color) / 0.14)",
+        md: "0 4px 12px -4px hsl(var(--shadow-color) / 0.14)",
+        lg: "0 12px 32px -12px hsl(var(--shadow-color) / 0.24)",
       },
       keyframes: {
         "pulse-ring": {

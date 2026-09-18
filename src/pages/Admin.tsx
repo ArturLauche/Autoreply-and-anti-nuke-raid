@@ -15,7 +15,6 @@ import {
   X,
 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
-import CherryBlossom from "../components/CherryBlossom";
 import RequireAuth from "../components/RequireAuth";
 import UpdateWindow from "../components/UpdateWindow";
 import { getSessionToken } from "../lib/discord";
@@ -66,8 +65,7 @@ function AdminContent() {
 
   return (
     <div className="relative min-h-screen">
-      <CherryBlossom count={10} />
-      <div className="relative z-10">
+            <div className="relative z-10">
         <header className="border-b border-border/60 bg-background/70 backdrop-blur">
           <div className="container flex items-center gap-3 py-5">
             <Link
@@ -124,7 +122,7 @@ function AdminContent() {
               <p
                 className={cn(
                   "mt-1 text-xs font-semibold",
-                  status?.online ? "text-emerald-600" : "text-red-500",
+                  status?.online ? "text-foreground" : "text-danger",
                 )}
               >
                 {status ? (status.online ? "● Bot online" : "● Bot offline") : ""}
@@ -139,7 +137,7 @@ function AdminContent() {
                 Nhật ký sự cố chi tiết
               </h2>
               {incidents.length === 0 ? (
-                <p className="mt-2 text-sm text-emerald-600">
+                <p className="mt-2 text-sm text-foreground">
                   Không phát hiện lỗi nào — bot hoạt động bình thường ✅
                 </p>
               ) : (
@@ -147,9 +145,9 @@ function AdminContent() {
                   {incidents.map((inc, i) => (
                     <li
                       key={`${inc.time}-${i}`}
-                      className="flex items-start gap-2 rounded-lg bg-danger/5 px-3 py-2 text-sm text-red-500"
+                      className="flex items-start gap-2 rounded-lg bg-danger/5 px-3 py-2 text-sm text-danger"
                     >
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-danger" />
                       <span>
                         {inc.text}{" "}
                         <span className="text-muted-foreground">
@@ -207,7 +205,7 @@ function AdminContent() {
               />
               <div className="rounded-xl border border-border bg-card p-4">
                 <p className="flex items-center gap-1.5 font-display text-sm font-bold">
-                  <ShieldCheck className="h-4 w-4 text-emerald-600" /> Chìa khóa bảo mật API
+                  <ShieldCheck className="h-4 w-4" /> Chìa khóa bảo mật API
                 </p>
                 <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
                   Khi đã đặt seed, MỌI lệnh của bot yêu cầu chìa khóa khớp — kẻ ngoài không thể giả
@@ -465,7 +463,7 @@ function ThreatIntelCard({
 
       {/* Lỗi lượt học gần nhất — bot báo lại thay vì treo "Bot đang học…" vĩnh viễn */}
       {threat?.lastError && (
-        <div className="mt-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+        <div className="mt-2 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
           <p className="font-semibold">⚠️ Lượt học gần nhất thất bại</p>
           <p className="mt-0.5 opacity-90">{threat.lastError}</p>
           {threat.lastErrorAt ? (
@@ -506,13 +504,13 @@ function ThreatIntelCard({
         <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
           <span className="text-muted-foreground">Tổng lượt:</span> <b>{threat?.totalRuns ?? 0}</b>
         </div>
-        <div className="rounded-lg bg-emerald-500/10 px-2.5 py-1.5">
+        <div className="rounded-lg bg-secondary px-2.5 py-1.5">
           <span className="text-muted-foreground">Từ khóa mới lượt trước:</span>{" "}
-          <b className="text-emerald-600">+{threat?.lastNewKeywords ?? 0}</b>
+          <b className="text-foreground">+{threat?.lastNewKeywords ?? 0}</b>
         </div>
-        <div className="rounded-lg bg-emerald-500/10 px-2.5 py-1.5">
+        <div className="rounded-lg bg-secondary px-2.5 py-1.5">
           <span className="text-muted-foreground">Cụm từ mới:</span>{" "}
-          <b className="text-emerald-600">+{threat?.lastNewPhrases ?? 0}</b>
+          <b className="text-foreground">+{threat?.lastNewPhrases ?? 0}</b>
         </div>
         <div className="col-span-2 rounded-lg bg-secondary/40 px-2.5 py-1.5">
           <span className="text-muted-foreground">
@@ -579,8 +577,7 @@ function ThreatIntelCard({
                   · {r.trigger === "manual" ? "🖐️" : "⏱️"}
                   {r.requestedBy ? ` ${r.requestedBy}` : ""}
                 </span>
-                <span className="font-medium">
-                  <b className="text-emerald-600">+{r.newKeywords}</b> từ khóa{" "}
+                <span className="font-medium">                  <b className="text-foreground">+{r.newKeywords}</b> từ khóa{""}
                   {r.aiUsed && <span title="AI tổng hợp (Mimo V2.5)">🧠</span>} · nhớ{" "}
                   {r.totalKeywords}
                 </span>

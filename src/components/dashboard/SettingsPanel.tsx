@@ -240,7 +240,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
               <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-secondary/30 px-3 py-2.5">
                 <div>
                   <p className="text-sm font-medium">
-                    <Siren className="mr-1.5 inline h-4 w-4 text-red-500" />
+                    <Siren className="mr-1.5 inline h-4 w-4 text-danger" />
                     Cảnh báo khẩn khi raid/nuke
                   </p>
                   <p className="text-[11px] text-muted-foreground">
@@ -257,7 +257,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
               <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-secondary/30 px-3 py-2.5">
                 <div>
                   <p className="text-sm font-medium">
-                    <BellRing className="mr-1.5 inline h-4 w-4 text-amber-500" />
+                    <BellRing className="mr-1.5 inline h-4 w-4" />
                     Ping @everyone khi cảnh báo khẩn
                   </p>
                   <p className="text-[11px] text-muted-foreground">
@@ -438,7 +438,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
               </div>
 
               {!data.guild.isBotOwner && (
-                <p className="rounded-lg bg-amber-500/10 px-3 py-2.5 text-xs text-amber-700">
+                <p className="rounded-lg bg-secondary px-3 py-2.5 text-xs text-muted-foreground">
                   🔒 Bạn không phải admin sở hữu bot — chỉ chủ sở hữu bot mới được đặt / đổi / xóa
                   mật khẩu này.
                 </p>
@@ -510,9 +510,9 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                   <span className="text-xs text-muted-foreground">
                     Trạng thái:{" "}
                     {data.guild.hiddenPasswordSet ? (
-                      <span className="font-medium text-emerald-400">Đã đặt mật khẩu</span>
+                      <span className="font-medium text-foreground">Đã đặt mật khẩu</span>
                     ) : (
-                      <span className="font-medium text-amber-400">Chưa đặt mật khẩu</span>
+                      <span className="font-medium text-muted-foreground">Chưa đặt mật khẩu</span>
                     )}
                   </span>
                 </div>
