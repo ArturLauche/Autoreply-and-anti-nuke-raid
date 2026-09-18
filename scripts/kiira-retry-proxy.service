@@ -1,0 +1,34 @@
+# kiira-retry-proxy.service — chạy retry proxy như dịch vụ hệ thống (18/09/2026).
+#
+# Vì sao có unit này: tmux chỉ sống khi KHÔNG ai tắt nó — VPS reboot là mất,
+# proxy crash thì nằm chết đến khi ai đó để ý. systemd tự khởi động cùng máy
+# và TỰ CHẠY LẠI khi process chết (Restart=always) — đúng nghĩa "đừng ngắt quãng".
+#
+# Cài trên VPS (chạy 3 lệnh, lần đầu thôi):
+#   cp /root/Autoreply-and-anti-nuke-raid/scripts/kiira-retry-proxy.service /etc/systemd/system/
+#   systemctl daemon-reload
+#   systemctl enable --now kiira-retry-proxy
+#
+# Kiểm tra:  systemctl status kiira-retry-proxy
+# Xem log:   journalctl -u kiira-retry-proxy -f
+#
+# Sau khi bật systemd, có thể bỏ phiên tmux cũ (nếu còn) để tránh 2 proxy
+# giành port 8787: tmux kill-session -t kiira 2>/dev/null || true
+
+[Unit]
+Description=Kiira retry proxy — chống chập chờn AI cho OpenCode (127.0.0.1:8787)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/root/.bun/bin/bun /root/Autoreply-and-anti-nuke-raid/scripts/kiira-retry-proxy.mjs
+Restart=always
+RestartSec=3
+# Tự dừng và chạy lại nếu proxy treo không phản hồi.
+WatchdogSec=0
+# Chỉ loopback nên không cần quyền đặc biệt.
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

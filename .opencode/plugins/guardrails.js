@@ -50,6 +50,7 @@ export const GuardrailsPlugin = async () => {
         [
           "## Hợp đồng cần nhớ (từ AGENTS.md)",
           "- Workflow 5 pha: Hiểu → Kế hoạch (todo) → Thực hiện → Xác minh → Báo cáo+commit",
+          "- Bị gián đoạn rồi được bảo continue/tiếp đi → TIẾP TỤC ĐÚNG CHỖ DỪNG (xem git diff + todo), không làm lại từ đầu; đi đến khi đủ kiểm chứng xanh + báo cáo mới dừng",
           "- Xong việc = test 41/41 + typecheck + lint XANH, chưa chạy thật thì không claim xanh",
           "- Không đọc secret (.env/.bot-key/key) — cần thì hỏi người dùng",
           "- Được git add + commit + push origin main (tiếng Việt, footer 🤖 Generated with OpenCode) — push CHỈ sau khi cả 3 kiểm chứng XANH trong phiên",

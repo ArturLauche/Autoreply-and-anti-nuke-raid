@@ -48,6 +48,13 @@ Mỗi mục todo = một kết quả kiểm chứng được, không phải mộ
 - Giữa các bước, tóm tắt ngắn (progress note) những gì vừa làm + phát hiện — người theo
   dõi phải hiểu tiến độ mà không cần đọc diff
 
+**Khi phiên bị gián đoạn** (lỗi "AI service stream failed", người dùng gõ
+`continue`/`tiếp đi`/`làm tiếp`): **TIẾP TỤC ĐÚNG CHỖ DỪNG** — đọc lại todo +
+file đã sửa gần nhất để xác định đã xong đến đâu, làm nốt phần còn thiếu.
+KHÔNG làm lại từ đầu, KHÔNG hỏi lại mục tiêu. Cứ đi đến khi đủ Pha 4 (kiểm
+chứng xanh) + Pha 5 (báo cáo) rồi mới dừng — trừ khi người dùng chủ động bảo
+thôi. Khi nghi file có thể sửa dở: xem `git diff` trước khi sửa tiếp.
+
 ### Pha 4 — XÁC MINH (ranh giới "xong việc")
 
 Đơn vị công việc chỉ coi là XONG khi tất cả điều này thoả:
