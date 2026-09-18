@@ -271,6 +271,7 @@ t3 pair
 | OpenCode không thấy model Kiira | Sai baseURL hoặc ID model | Kiểm tra lại `opencode.json`, thử `curl .../models` với key để lấy đúng ID |
 | `git commit` bị từ chối trong OpenCode | File `~/.config/opencode/opencode.json` cũ chưa có rule `git add/commit: allow` | Merge lại từ `opencode.json` trong repo |
 | Gõ `t3` báo "command not found" | `~/.local/bin` chưa nằm trong PATH | `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc` |
+| Cài xong báo `libatomic.so.1: cannot open shared object file` | VPS tối giản thiếu thư viện hệ thống | `apt-get update && apt-get install -y libatomic1` rồi chạy lại trình cài |
 | App điện thoại báo "Failed to fetch remote environment" | Ô HOST chứa handle/IP sai, hoặc server chưa chạy | Dùng **Cách A (t3 connect)** — đăng nhập cùng tài khoản, khỏi điền tay; hoặc `t3 pair` trên VPS rồi quét QR |
 | T3 Code không kết nối được VPS | Port SSH/firewall, hoặc VPS tắt | Dùng T3 Connect (đi qua relay của T3); kiểm tra `t3 service status` trên VPS |
 | Agent đọc được file .env | CẤM — phải xảy ra lỗi cấu hình | Kiểm tra rule `read: { "*.env": "deny", ... }` trong `opencode.json` đang dùng |
