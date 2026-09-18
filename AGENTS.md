@@ -1,41 +1,126 @@
-# AGENTS.md — Quy tắc cho AI coding agent trong repo Protogon
+# AGENTS.md — Bản hợp đồng làm việc cho AI agent trong repo Protogon
 
-Repo này chứa **bot Discord production** (thư mục `bot/`) + **dashboard web** (React/Vite/Convex, thư mục `src/` + `convex/`) đang chạy thật trên Discord. Hãy làm việc như một kỹ sư cẩn trọng, không phải một người thử nghiệm.
+> Áp dụng cho **mọi** agent AI làm việc trong repo này: OpenCode trên VPS, Freebuff,
+> hoặc agent khác. Mục tiêu: agent làm việc có kỷ luật — **có kế hoạch, có kiểm chứng,
+> có báo cáo** — không phải gõ lệnh may rủi.
+>
+> Repo chứa **bot Discord production** + **dashboard web** đang chạy thật. Hãy làm việc
+> như một kỹ sư cẩn trọng, không phải một người thử nghiệm.
 
-## Tuyệt đối không
+## 0. Nhận diện công việc trước khi làm
 
-1. **Không đọc file secret**: `.env`, `bot/.env`, `bot/.bot-key`, `*.pem`, `*.key`. Cấu hình permission trong `opencode.json` đã chặn — nếu thấy mình cần nội dung env để trả lời, hãy **dừng và hỏi người dùng** thay vì tìm cách khác.
-2. **Không tự push / reset / clean / rebase**. Agent được PHÉP tự `git add` + `git commit` khi hoàn thành một đơn vị công việc (commit message tiếng Việt, kèm footer "🤖 Generated with OpenCode"), nhưng **KHÔNG BAO GIỜ `git push`** — người dùng tự push sau khi review, hoặc yêu cầu agent in lệnh để tự chạy.
-3. **Không chạy lệnh tắt/di dời process**: `pm2 kill`, `systemctl restart` dịch vụ bot, `kill` PID lạ. Nếu cần khởi động lại bot, in lệnh và nhờ người dùng tự chạy.
-4. **Không cài dependency mới** khi chưa hỏi. Bot chạy Bun — ưu tiên dùng những gì đã có trong `bot/package.json` / `package.json`.
-5. **Không sửa file trong `convex/_generated/`** — sinh tự động bằng `bun convex dev --once`.
-6. **Không đụng `vite.config.ts`** (Freebuff yêu cầu HMR tắt — `server.hmr: false` là có chủ đích).
+| Thành phần | Vị trí | Công nghệ |
+|---|---|---|
+| Bot Discord | `bot/` | discord.js, CommonJS, chạy Bun trên VPS |
+| Dashboard web | `src/` | React + Vite + Tailwind + shadcn/ui (TypeScript) |
+| Backend/DB | `convex/` | Convex functions (TypeScript) |
+| Test | `scripts/test-*.cjs` (CommonJS), `scripts/test-*.ts` (Convex) | node:test |
 
-## Khi sửa code
+Khi nhận việc, **tự phân loại** rồi đi đúng nhánh:
 
-- **Chạy kiểm tra sau mỗi thay đổi logic** (tất cả đã được allow trong permission, không cần hỏi):
-  ```
-  bun run test          # 30 test suites (~8s)
-  bun tsc -b --noEmit   # typecheck
-  bun run lint          # ESLint
-  ```
-  Thay đổi file trong `convex/` thì chạy `bun convex dev --once` trước typecheck (codegen).
-- **Tuân theo cấu trúc hiện có**: bot CommonJS trong `bot/src/`, test CommonJS trong `scripts/test-*.cjs`, test TS cho convex đặt `scripts/test-*.ts`. Không tạo framework test mới.
-- **Giữ phong cách tiếng Việt** trong comment/log/user-facing string — đây là sản phẩm tiếng Việt.
-- **Mỗi lần vá bug phải kèm test chặn tái diễn** nếu bug thuộc engine đã có test (antinuke, altDetection, heat, joinGate, backup…).
+- 🐛 **Bug thật** → tìm gốc rễ trước khi vá; vá xong phải kèm test chặn tái diễn
+- ✨ **Feature mới** → làm nhỏ, có test, chạy đủ bộ kiểm chứng (mục 3)
+- 🔧 **Refactor** → KHÔNG đổi hành vi; test cũ phải vẫn xanh; không gộp với feature khác
+- 📄 **Docs/cấu hình** → không cần test nhưng phải lint sạch
 
-## Bối cảnh dự án cần biết
+## 1. Workflow chuẩn — luôn đi đủ 5 pha
 
-- **Kiến trúc**: `bot/` (discord.js process chạy trên VPS/hosting) ⇄ Convex (DB + backend) ⇄ `src/` (dashboard web). Dashboard và bot đồng bộ qua Convex trong ~1 phút.
-- **Bảo mật**: các action bảo mật cao dùng `botKey = SHA-256("protogon-bot-key::" + OWNER_SEED)` (`convex/botAuth.ts`) — không có backdoor. Đừng bao giờ "giúp" bỏ qua `requireBotKeyStrict`.
-- **CI**: lint → test (coverage floor) → deploy Convex. Thay đổi nào làm CI đỏ coi như chưa xong.
-- **Vấn đề đã biết**: Groq retire `llama-3.3-70b-versatile` 08/2026 — code có self-heal fallback `openai/gpt-oss-120b` trong `convex/haimiya.ts`; đừng hardcode lại model cũ.
+### Pha 1 — HIỂU (chưa sửa file nào cả)
 
-## Lệnh hữu ích
+1. `git status` + `git log --oneline -5` — nắm trạng thái working tree và công việc gần nhất
+2. Đọc code liên quan (dùng search/grep, không đọc cả file lớn khi chỉ cần một đoạn)
+3. Nếu yêu cầu mơ hồ → **dừng và hỏi**, đừng đoán. Đưa phương án kèm đề xuất thay vì hỏi mở
+
+### Pha 2 — LẬP KẾ HOẠCH (todo)
+
+Việc cần **hơn 2 bước thao tác** thì PHẢI lập todo trước khi sửa file đầu tiên:
+
+- OpenCode: dùng công cụ `todowrite` / `todoread`
+- Freebuff: dùng `write_todos`
+
+Mỗi mục todo = một kết quả kiểm chứng được, không phải một vùng code chung chung.
+❌ `"Sửa dashboard"` → ✅ `"Thêm bảng top heat vào trang /stats + test hermetic"`
+
+### Pha 3 — THỰC HIỆN từng bước nhỏ
+
+- Làm đúng **một mục todo** một lúc; xong cái nào cập nhật todo cái đó (không đợi cuối)
+- Việc phát sinh giữa chừng → **thêm vào todo** rồi làm, không làm lén ngoài kế hoạch
+- Giữa các bước, tóm tắt ngắn (progress note) những gì vừa làm + phát hiện — người theo
+  dõi phải hiểu tiến độ mà không cần đọc diff
+
+### Pha 4 — XÁC MINH (ranh giới "xong việc")
+
+Đơn vị công việc chỉ coi là XONG khi tất cả điều này thoả:
+
+- [ ] `bun run test` — toàn bộ suites xanh (hiện tại **39 suites**)
+- [ ] `bun tsc -b --noEmit` — typecheck sạch
+- [ ] `bun run lint` — sạch
+- [ ] Đụng file trong `convex/` → chạy `bun convex dev --once` (codegen) **trước** typecheck
+- [ ] Bug thuộc engine đã có test (antinuke, altDetection, heat, joinGate, backup,
+      oauth client id…) → **đã thêm test chặn tái diễn** cùng lugar với test cũ
+- [ ] Chưa từng claim "đã chạy/đã xanh" khi chưa chạy thật
+
+Các lệnh kiểm chứng đã được allow sẵn trong `opencode.json` — chạy thẳng, không cần hỏi.
+
+### Pha 5 — BÁO CÁO + COMMIT
+
+1. Báo cáo ngắn gọn, cấu trúc: **đã làm gì → kiểm chứng gì, kết quả số → việc còn lại
+   (nếu có)**. Không viết văn dài; bảng khi so sánh nhiều mục.
+2. `git add` **chọn lọc đúng file thuộc việc này** + `git commit`:
+   - Message **tiếng Việt**, dòng đầu ≤72 ký tự, nói rõ *vì sao* thay vì liệt kê máy móc
+   - Footer bắt buộc: `🤖 Generated with OpenCode`
+3. **KHÔNG `git push`** — người dùng tự push sau khi review, hoặc sẽ yêu cầu in lệnh.
+
+## 2. Điều khoản cứng — TUYỆT ĐỐI KHÔNG
+
+1. **Không đọc file secret**: `.env`, `bot/.env`, `bot/.bot-key`, `*.pem`, `*.key`.
+   Permission trong `opencode.json` đã chặn. Nếu thấy cần nội dung env để trả lời →
+   **dừng, hỏi người dùng**, không tìm lối tắt khác. Không bao giờ "giúp" bỏ qua
+   `requireBotKeyStrict` hay cơ chế `botKey` (`convex/botAuth.ts`) — không có backdoor.
+2. **Không `git push` / `reset` / `clean` / `rebase` / sửa lịch sử.** `git add` + `git commit`
+   được phép (điều khoản 5 phía trên).
+3. **Không tắt/dời process production**: `pm2 kill`, `systemctl restart` dịch vụ bot,
+   `kill` PID lạ. Cần restart bot → in lệnh, nhờ người dùng tự chạy.
+4. **Không cài dependency mới khi chưa hỏi.** Bot chạy Bun — ưu tiên thứ đã có trong
+   `bot/package.json` / `package.json`. Lưu ý: `bun install` theo đúng lockfile trên máy
+   mới **không phải** cài dependency mới — được phép, nhưng nên báo trước một dòng.
+5. **Không sửa `convex/_generated/`** — sinh tự động bằng `bun convex dev --once`.
+6. **Không đụng `vite.config.ts`** — `server.hmr: false` là có chủ đích (Freebuff yêu cầu).
+7. **Không tạo framework test mới** — bám cấu trúc hiện có (mục 0).
+
+## 3. Chuẩn code
+
+- **Tiếng Việt** trong comment, log, user-facing string — sản phẩm tiếng Việt.
+- Bot CommonJS trong `bot/src/`; test bot CommonJS `scripts/test-*.cjs`; test Convex TS
+  `scripts/test-*.ts`.
+- Sửa lỗi xong phải giải thích được **gốc rễ**, không phải chỉ "nó chạy rồi".
+- Ưu tiên sửa file có sẵn, tránh sinh file mới trùng chức năng.
+- Dashboard đồng bộ bot qua Convex trong ~1 phút — đừng kỳ vọng realtime khi test luồng cấu hình.
+
+## 4. Bối cảnh dự án cần biết
+
+- **Kiến trúc**: `bot/` (discord.js trên VPS) ⇄ Convex (DB + backend) ⇄ `src/` (dashboard web).
+- **Bảo mật**: action bảo mật cao dùng `botKey = SHA-256("protogon-bot-key::" + OWNER_SEED)`
+  (`convex/botAuth.ts`). Bot tự bootstrap key và cache vào `bot/.bot-key` (đã gitignore).
+- **CI**: lint → test (coverage floor) → deploy Convex. Thay đổi làm CI đỏ coi như chưa xong.
+- **Vấn đề đã biết**: Groq retire `llama-3.3-70b-versatile` 08/2026 — code có self-heal
+  fallback `openai/gpt-oss-120b` trong `convex/haimiya.ts`; đừng hardcode lại model cũ.
+  Gateway Kiira (`KIRA_API_KEY`/`KIRA_BASE_URL`/`KIRA_MODEL`) là provider AI chính của bot.
+- **OAuth dashboard**: `DISCORD_CLIENT_ID` phải là snowflake số (regex `^\d{15,21}$`) —
+  đã có bộ lọc `pickValidClientId` + test `scripts/test-oauth-client-id.cjs` chặn giá trị rác.
+
+## 5. Lệnh hữu ích
 
 ```
-bun run test:coverage      # test + đo coverage (c8, có ngưỡng chặn)
-bun run test:mutation      # mutation testing (phải 100% kill)
-bun run smoke:vps          # smoke test môi trường VPS (env + module + Discord login)
-sh ./scripts/setup-vps-agent.sh   # cài lại môi trường + OpenCode
+bun run test              # toàn bộ test suites (~8s) — chạy sau MỌI thay đổi logic
+bun tsc -b --noEmit       # typecheck
+bun run lint              # ESLint
+bun run test:coverage     # test + đo coverage (c8, có ngưỡng chặn)
+bun run test:mutation     # mutation testing (phải 100% kill)
+bun run smoke:vps         # smoke test môi trường VPS (env + module + Discord login)
+sh ./scripts/setup-vps-agent.sh   # cài lại môi trường + OpenCode trên VPS
 ```
+
+---
+
+*Tài liệu này là hợp đồng: đổi nó phải có lý do chính đáng và ghi rõ trong commit message.*
