@@ -103,6 +103,17 @@ check("plugin không ghi giá trị env/biến môi trường vào lịch sử",
 check("plugin không đọc/ghi file .env/.bot-key",
   !/(["'\s/])\.env(["'\s]|$)/.test(pluginSrc) &&
   !pluginSrc.includes(".bot-key"));
+
+// ─── 3b. Khóa bản vá 18/09: ghi lịch sử bằng fs API, KHÔNG dùng shell redirect
+// Bun Shell không có .redirection() — dùng nó là TypeError khi ghi, lịch sử
+// mất im lặng (bug thật đã xác minh bằng harness Bun).
+check("không gọi .redirection() (không tồn tại trong Bun Shell)",
+  // bắt lệnh gọi thật: .redirection( đứng sau dấu chấm ở vị trí code (không phải
+  // sau // hoặc chữ trong comment) — đủ chặn hồi quy, chấp nhận chữ trong chú thích
+  !/[^/]\.redirection\(/.test(pluginSrc.replace(/\/\/[^\n]*/g, "")));
+check("ghi nối tiếp bằng fs.appendFileSync", pluginSrc.includes("fs.appendFileSync"));
+check("mkdir recursive trước khi ghi (thư mục history chưa có cũng chạy)",
+  pluginSrc.includes("mkdirSync"));
 check("plugin chỉ ghi trường metadata cho phép (at/event/sessionId/title/directory/error)",
   !/"(?:content|message|prompt|diff|output)"/.test(pluginSrc.replace(/"error"/g, "")));
 check("nội dung error bị cắt ngắn (300 ký tự) — tránh nhét cả stack/log dài",

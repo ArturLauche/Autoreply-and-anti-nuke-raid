@@ -26,9 +26,9 @@ export default tseslint.config(
     ],
   },
 
-  // ─── Bot Discord + test scripts (JavaScript CommonJS) ───
+  // ─── Bot Discord + test scripts + OpenCode plugins (JavaScript) ───
   {
-    files: ["bot/**/*.js", "scripts/**/*.cjs"],
+    files: ["bot/**/*.js", "scripts/**/*.cjs", ".opencode/**/*.js"],
     extends: [js.configs.recommended],
     languageOptions: {
       ecmaVersion: 2022,
@@ -51,6 +51,16 @@ export default tseslint.config(
       "no-constant-condition": ["error", { checkLoops: false }],
       "no-case-declarations": "off",
       "no-misleading-character-class": "off", // regex test data tiếng Việt có dấu combining — chủ đích
+    },
+  },
+
+  // ─── OpenCode plugins (ESM, chạy trong runtime OpenCode/Bun) ───
+  {
+    files: [".opencode/**/*.js"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "module",
+      globals: { ...globals.node, ...globals.browser },
     },
   },
 

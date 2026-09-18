@@ -30,7 +30,7 @@ function looksLikeSecretAccess(command) {
   return false;
 }
 
-export const GuardrailsPlugin = async ({ client }) => {
+export const GuardrailsPlugin = async () => {
   return {
     // 1) Chặn lệnh bash đọc secret trước khi nó chạy
     "tool.execute.before": async (input, output) => {

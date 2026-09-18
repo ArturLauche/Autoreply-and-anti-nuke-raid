@@ -19,24 +19,34 @@
 
 import { join } from "path";
 import { homedir } from "os";
+import fs from "fs";
 
 const DEFAULT_TTL_DAYS = 14;
 
-export const SessionHistoryPlugin = async ({ $ }) => {
+export const SessionHistoryPlugin = async () => {
   const dir = join(homedir(), ".config", "opencode", "history");
   const file = join(dir, "sessions.jsonl");
 
-  async function ensureDir() {
-    await $`mkdir -p ${dir}`.quiet().catch(() => {});
+  // Ghi nối tiếp dùng fs API đồng bộ — Bun Shell KHÔNG có .redirection()
+  // (đã xác minh: TypeError at runtime), dùng nó là lịch sử mất im lặng.
+  // mkdir recursive: thư mục history chưa tồn tại cũng ghi được ngay.
+  function appendLine(line) {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.appendFileSync(file, line);
   }
 
-  // Trả về số mục đã dọn (0 = không có gì quá hạn).
+  // Trả về số mục đã dọn (0 = không có gì quá hạn). Ghi/dọn bằng fs API —
+  // shell chỉ dùng cho mkdir (best-effort).
   async function pruneExpired() {
     const ttlDays = Number(process.env.AGENT_HISTORY_TTL_DAYS ?? DEFAULT_TTL_DAYS);
     if (!Number.isFinite(ttlDays) || ttlDays <= 0) return 0; // 0 = tắt dọn, giữ vô hạn
     try {
-      const raw = await $`cat ${file}`.quiet().text().catch(() => "");
-      if (!raw.trim()) return 0;
+      let raw = "";
+      try {
+        raw = fs.readFileSync(file, "utf8");
+      } catch {
+        return 0; // file chưa tồn tại
+      }
       const cutoff = Date.now() - ttlDays * 24 * 60 * 60 * 1000;
       const kept = [];
       let pruned = 0;
@@ -51,7 +61,7 @@ export const SessionHistoryPlugin = async ({ $ }) => {
         }
       }
       if (pruned > 0) {
-        await $`printf %s ${kept.join("\n") + (kept.length ? "\n" : "")}`.redirection("> " + file);
+        fs.writeFileSync(file, kept.length ? kept.join("\n") + "\n" : "");
       }
       return pruned;
     } catch {
@@ -61,9 +71,8 @@ export const SessionHistoryPlugin = async ({ $ }) => {
 
   async function append(entry) {
     try {
-      await ensureDir();
+      appendLine(JSON.stringify(entry) + "\n");
       await pruneExpired();
-      await $`printf %s\n ${JSON.stringify(entry)}`.redirection(">> " + file);
     } catch {
       // Ghi lịch sử là best-effort — thất bại không được làm rớt phiên.
     }
