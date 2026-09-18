@@ -250,6 +250,23 @@ duyệt; (2) `t3 connect status` trên VPS — nếu chưa login, chạy lại `
 và làm trọn luồng headless phía trên; (3) bảo đảm server nền đang chạy
 (`t3 service status` → không chạy thì `t3 service install`).
 
+> ⚠️ **VPS đăng nhập root**: `t3 service install` có thể từ chối vì thiếu
+> systemd user-session (dòng cảnh báo "do not run T3 with sudo"). Khi đó chạy
+> server trong **tmux** để sống sót khi đóng SSH:
+>
+> ```bash
+> apt-get install -y tmux
+> tmux new -s t3        # vào phiên riêng
+> t3 serve              # chạy server; tắt màn = Ctrl+B rồi nhấn D (detach)
+> tmux attach -t t3     # quay lại phiên sau này
+> ```
+>
+> Cảnh báo `ping_group_range`/ICMP của cloudflared khi tunnel lên là vô hại —
+> chỉ mất tính năng ping qua tunnel, mọi thứ khác vẫn hoạt động. Nếu T3 Code
+> báo thiếu agent (vd "Claude Agent CLI health check failed" là vì chưa cài
+> Claude Code) → bật provider **OpenCode** đã cài ở Phần 1 trong
+> Settings → Providers của app.
+
 **Cách B — Pairing QR (dùng khi điện thoại và VPS trong cùng mạng LAN, hoặc cả
 hai đã joined Tailscale):**
 
