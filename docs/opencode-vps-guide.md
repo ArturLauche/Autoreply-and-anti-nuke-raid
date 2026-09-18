@@ -308,6 +308,24 @@ t3 pair
 
 ---
 
+## Phần 4 — Nâng cấp OpenCode giống Freebuff (đã có sẵn trong repo)
+
+Repo đi kèm bộ nâng cấp giúp OpenCode làm việc kỷ luật và an toàn như Freebuff:
+
+| Thành phần | Vị trí | Công dụng |
+|---|---|---|
+| `/verify` | `.opencode/commands/verify.md` | Chạy đủ bộ kiểm chứng (test + typecheck + lint), báo kết quả số — ranh giới "xong việc" |
+| `/fix <mô tả>` | `.opencode/commands/fix.md` | Sửa bug theo quy trình: tái hiện → gốc rễ → vá → test chặn tái diễn |
+| `/ship` | `.opencode/commands/ship.md` | Hoàn tất phiên: kiểm chứng → commit chọn lọc (không push) → báo cáo |
+| `/review` | `.opencode/commands/review.md` | Review diff/code theo 5 lớp như senior reviewer (chỉ nhận xét, không sửa) |
+| Guardrails | `.opencode/plugins/guardrails.js` | Chặn chủ động lệnh bash đọc secret; nhắc lại hợp đồng AGENTS.md khi session dài bị nén |
+
+Bộ này nằm trong repo nên **ai clone repo cũng tự có** — không cần cài thêm gì.
+Ngoài ra `opencode.json` đã bật `autoupdate` (tự cập nhật OpenCode) và tắt
+`share` (không tạo link chia sẻ session công khai).
+
+> Cập nhật OpenCode thủ công bất cứ lúc nào: `opencode upgrade`.
+
 ## Xử lý sự cố
 
 | Triệu chứng | Nguyên nhân | Cách xử lý |
