@@ -69,7 +69,9 @@ Các lệnh kiểm chứng đã được allow sẵn trong `opencode.json` — c
 2. `git add` **chọn lọc đúng file thuộc việc này** + `git commit`:
    - Message **tiếng Việt**, dòng đầu ≤72 ký tự, nói rõ *vì sao* thay vì liệt kê máy móc
    - Footer bắt buộc: `🤖 Generated with OpenCode`
-3. **KHÔNG `git push`** — người dùng tự push sau khi review, hoặc sẽ yêu cầu in lệnh.
+3. **Push sau khi báo cáo** — kiểm chứng xanh rồi mới đẩy: `git push origin main`.
+   Lỗi xác thực/thiếu quyền → in lệnh, nhờ người dùng tự chạy (Freebuff quản
+   lý credential git, agent không tự cấu hình).
 
 ## 2. Điều khoản cứng — TUYỆT ĐỐI KHÔNG
 
@@ -77,8 +79,12 @@ Các lệnh kiểm chứng đã được allow sẵn trong `opencode.json` — c
    Permission trong `opencode.json` đã chặn. Nếu thấy cần nội dung env để trả lời →
    **dừng, hỏi người dùng**, không tìm lối tắt khác. Không bao giờ "giúp" bỏ qua
    `requireBotKeyStrict` hay cơ chế `botKey` (`convex/botAuth.ts`) — không có backdoor.
-2. **Không `git push` / `reset` / `clean` / `rebase` / sửa lịch sử.** `git add` + `git commit`
-   được phép (điều khoản 5 phía trên).
+2. **Không `reset` / `clean` / `rebase` / sửa lịch sử.** `git add` + `git commit`
+   được phép (điều khoản 5 phía trên). `git push` ĐƯỢC PHÉP **với điều kiện**:
+   đã chạy đủ bộ kiểm chứng (test + typecheck + lint) XANH trong phiên và chỉ
+   đẩy lên `main` sau khi đã báo cáo kết quả cho người dùng. Chưa kiểm chứng →
+   chưa push. Gặp lỗi xác thực khi push → in lệnh cho người dùng tự chạy,
+   không tìm lối tắt quanh credentials.
 3. **Không tắt/dời process production**: `pm2 kill`, `systemctl restart` dịch vụ bot,
    `kill` PID lạ. Cần restart bot → in lệnh, nhờ người dùng tự chạy.
 4. **Không cài dependency mới khi chưa hỏi.** Bot chạy Bun — ưu tiên thứ đã có trong

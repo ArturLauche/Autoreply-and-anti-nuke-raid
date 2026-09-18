@@ -15,6 +15,7 @@ Phiên làm việc sắp kết thúc. Hoàn tất theo đúng Pha 4 + Pha 5 củ
    chặn tái diễn), KHÔNG add file không liên quan hay file tạm sinh.
    - Message **tiếng Việt**, dòng đầu ≤72 ký tự, nói rõ *vì sao*
    - Footer bắt buộc: `🤖 Generated with OpenCode`
-4. **KHÔNG `git push`** — in lệnh `git push origin main` cho người dùng tự chạy.
+4. **Push** (kiểm chứng ở bước 2 đã XANH): `git push origin main`. Lỗi xác thực
+   → in lệnh cho người dùng tự chạy. Chưa kiểm chứng xong thì KHÔNG push.
 5. **Báo cáo cuối** cấu trúc: đã làm gì → kiểm chứng gì, kết quả số →
    việc còn lại (nếu có). Ngắn gọn, có bảng khi so sánh nhiều mục.

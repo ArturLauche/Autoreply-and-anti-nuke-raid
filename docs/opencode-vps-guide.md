@@ -25,8 +25,9 @@ an toàn vào `~/.config/opencode/opencode.json` (KHÔNG đè file có sẵn), v
 nhận `AGENTS.md` đã nằm ở root repo.
 
 > Nếu `~/.config/opencode/opencode.json` đã tồn tại từ lần cài cũ — hãy mở ra và
-> đảm bảo phần `bash` có: `"git add *": "allow"` và `"git commit *": "allow"`
-> (để agent tự commit) trong khi `"git push *": "deny"` giữ nguyên.
+> đảm bảo phần `bash` có: `"git add *": "allow"`, `"git commit *": "allow"` và
+> `"git push *": "allow"` (chủ bot đã bật push tự do — agent tự đẩy sau khi
+> kiểm chứng xanh; muốn siết lại thì đổi thành "deny").
 
 ### 1.2. Mở OpenCode lần đầu
 
@@ -293,9 +294,9 @@ t3 pair
 1. Mở app → chọn environment VPS
 2. Tạo task mới, gõ: `bun run test` → agent chạy test trên VPS, bạn xem kết
    quả trực tiếp trên điện thoại
-3. Thử một việc thật: `Sửa lỗi X trong panel Y, chạy test rồi commit` — agent
-   sửa + commit (đã được phép), nhưng **sẽ từ chối push** → bạn gõ `git push`
-   trong terminal của app khi muốn đẩy lên GitHub
+3. Thử một việc thật: `Sửa lỗi X trong panel Y, chạy test rồi commit + push` —
+   agent sửa, kiểm chứng xanh rồi tự commit + push (push tự do đã được bật;
+   vẫn cấm reset/clean/rebase và đọc secret)
 
 ### 3.4. Ai cần gì?
 
@@ -353,7 +354,7 @@ Ngoài ra `opencode.json` đã bật `autoupdate` (tự cập nhật OpenCode) v
 ## Checklist nhanh
 
 - [ ] `sh ./scripts/setup-vps-agent.sh` chạy xong không lỗi
-- [ ] OpenCode từ chối `git push`, cho phép `git commit`
+- [ ] OpenCode cho phép `git commit` + `git push` (vẫn chặn reset/rebase)
 - [ ] `/models` trong OpenCode thấy DeepSeek v4.1 Flash (Kiira)
 - [ ] Agent trả lời được câu hỏi về code (key hoạt động)
 - [ ] `bot/.env` có `KIRA_API_KEY` nếu muốn bot dùng chung
