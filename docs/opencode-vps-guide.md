@@ -217,8 +217,18 @@ t3 connect
 
 1. Nó in ra một **link đăng nhập + mã ngắn** — mở link đó trên trình duyệt
    (điện thoại hay máy tính đều được), đăng nhập tài khoản T3, xác nhận mã
-   khớp rồi bấm Approve. Mã ngắn (vd `ZBSW-XBHG`) chỉ để **đối chiếu** trên
-   trang duyệt — KHÔNG phải pairing code để điền vào app
+   khớp rồi bấm Approve.
+
+   **Chạy qua SSH/không có trình duyệt trên VPS: bấm `H` (headless mode).**
+   Nó đổi sang "Device flow": in link dạng
+   `https://accounts.t3.codes/device?user_code=XXXX-XXXX` + mã xác nhận — mở
+   link trên máy có trình duyệt, đăng nhập, nhập/xác nhận mã, Approve. Rồi
+   **quay lại terminal ĐỢI** — dòng "Waiting for approval" tự đổi thành
+   connected trong ít phút; **đừng Ctrl+C** vội. Link `app.t3.codes/connect`
+   chỉ dùng khi mở ngay trên máy chạy T3.
+
+   Mã `XXXX-XXXX` là mã xác nhận tài khoản trên trang duyệt — KHÔNG phải
+   pairing code để điền vào app
 2. Mở app T3 Code trên điện thoại → đăng nhập **CÙNG tài khoản** → environment
    VPS tự xuất hiện trong danh sách, không cần điền host/code tay
 3. Khi được hỏi chạy nền, chọn yes (hoặc tự chạy `t3 service install`)
@@ -234,7 +244,11 @@ t3 connect
 > màn "Add Environment" — chỉ cần đăng nhập đúng tài khoản.
 
 Kiểm tra trạng thái bất cứ lúc nào: `t3 connect status` (kèm đó
-`t3 service status` để xác nhận server nền đang chạy).
+`t3 service status` để xác nhận server nền đang chạy). Chưa thấy environment
+trên app dù đã Approve: (1) kiểm tra app đăng nhập ĐÚNG tài khoản Google vừa
+duyệt; (2) `t3 connect status` trên VPS — nếu chưa login, chạy lại `t3 connect`
+và làm trọn luồng headless phía trên; (3) bảo đảm server nền đang chạy
+(`t3 service status` → không chạy thì `t3 service install`).
 
 **Cách B — Pairing QR (dùng khi điện thoại và VPS trong cùng mạng LAN, hoặc cả
 hai đã joined Tailscale):**
