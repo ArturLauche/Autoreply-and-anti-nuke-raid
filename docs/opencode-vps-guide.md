@@ -184,6 +184,23 @@ source ~/.bashrc
 t3 --version   # phải in ra số phiên bản
 ```
 
+**Mẹo khi làm từ điện thoại:** gõ TỪNG lệnh một, Enter xong mới gõ lệnh kế —
+paste cả khối hay bị dính dòng (ví dụ thành `~/.bashrc.bashrc`) làm hỏng đường
+dẫn. Nếu vẫn `command not found`, kiểm tra binary có tồn tại thật không:
+
+```bash
+ls /root/.local/bin
+```
+
+- Có `t3` trong danh sách → chỉ là PATH: chạy `export PATH=/root/.local/bin:$PATH`
+  rồi `t3 --version` (hiệu lực ngay trong phiên). Lưu vĩnh viễn vào `.profile`
+  (SSH login đọc file này):
+  `echo 'export PATH=/root/.local/bin:$PATH' >> /root/.profile`
+- Không có / báo "No such file or directory" → lần cài chưa thành công: chạy lại
+  `curl -fsSL https://t3.codes/install.sh | sh` và ĐỌC dòng cuối nó in ra — lỗi
+  tải (mạng chặn GitHub) thì thử `wget -qO- https://t3.codes/install.sh | sh`,
+  thiếu công cụ thì `apt-get install -y tar curl` rồi cài lại.
+
 ### 3.2. Nối điện thoại với VPS — chọn 1 trong 2 cách
 
 > Lỗi hay gặp trên màn "Add Environment" của app: ô HOST phải là **địa chỉ VPS**
