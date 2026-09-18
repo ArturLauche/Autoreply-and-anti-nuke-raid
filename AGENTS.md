@@ -5,7 +5,7 @@ Repo này chứa **bot Discord production** (thư mục `bot/`) + **dashboard we
 ## Tuyệt đối không
 
 1. **Không đọc file secret**: `.env`, `bot/.env`, `bot/.bot-key`, `*.pem`, `*.key`. Cấu hình permission trong `opencode.json` đã chặn — nếu thấy mình cần nội dung env để trả lời, hãy **dừng và hỏi người dùng** thay vì tìm cách khác.
-2. **Không tự commit / push / reset / clean / rebase**. Sửa code xong thì in `git diff` và **dừng lại chờ người dùng review**. Người dùng tự commit.
+2. **Không tự push / reset / clean / rebase**. Agent được PHÉP tự `git add` + `git commit` khi hoàn thành một đơn vị công việc (commit message tiếng Việt, kèm footer "🤖 Generated with OpenCode"), nhưng **KHÔNG BAO GIỜ `git push`** — người dùng tự push sau khi review, hoặc yêu cầu agent in lệnh để tự chạy.
 3. **Không chạy lệnh tắt/di dời process**: `pm2 kill`, `systemctl restart` dịch vụ bot, `kill` PID lạ. Nếu cần khởi động lại bot, in lệnh và nhờ người dùng tự chạy.
 4. **Không cài dependency mới** khi chưa hỏi. Bot chạy Bun — ưu tiên dùng những gì đã có trong `bot/package.json` / `package.json`.
 5. **Không sửa file trong `convex/_generated/`** — sinh tự động bằng `bun convex dev --once`.
