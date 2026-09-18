@@ -107,6 +107,15 @@ Thêm khối `provider` vào **cùng cấp** với `permission` (giữ nguyên p
       "models": {
         "deepseek-v4.1-flash": {
           "name": "DeepSeek v4.1 Flash"
+        },
+        "glm-5.3-flash": {
+          "name": "GLM 5.3 Flash"
+        },
+        "mimo-v2.5": {
+          "name": "Mimo V2.5"
+        },
+        "deepseek-v4-flash-vision-exp": {
+          "name": "DeepSeek V4 Flash Vision"
         }
       }
     }
@@ -117,13 +126,22 @@ Thêm khối `provider` vào **cùng cấp** với `permission` (giữ nguyên p
 }
 ```
 
+> **Nhiều model, 1 key duy nhất:** tất cả model khai báo trong khối `models` dùng
+> chung key đã lưu ở Bước `/connect` — không cần tạo key mới. Danh sách ID model
+> thật của Kiira (đã xác minh 18/09/2026 qua `GET /api/v1/models`, không cần key):
+> `deepseek-v4.1-flash`, `glm-5.3-flash`, `mimo-v2.5`, `deepseek-v4-pro`,
+> `minimax-m3`, `kimi-k3`, `grok-4.6`, `qwen3.8-flash`… Model nhận biết vision
+> (đọc được ảnh): `deepseek-v4-flash-vision-exp` — muốn agent đọc screenshot thì
+> thêm nó vào `models` rồi chuyển qua bằng `/models` khi cần. Khai model nào thì
+> mới hiện model đó trong OpenCode — chỉ thêm cái bạn thật sự dùng.
+
 Giải thích từng dòng:
 
 | Dòng | Ý nghĩa |
 |---|---|
 | `"npm": "@ai-sdk/openai-compatible"` | Kiira nói "giọng" OpenAI — dùng bộ kết nối tương thích |
 | `"baseURL"` | Địa chỉ API của Kiira (chính là giá trị `KIRA_BASE_URL` trong `bot/.env` của bot) |
-| `"models"` | ID model phải đúng tên Kiira đặt. Nếu không chắc, thử query danh sách: `curl -H "Authorization: Bearer KEY" https://kiraai.vn/api/v1/models` |
+| `"models"` | ID model phải đúng tên Kiira đặt. Xem danh sách thật: `curl https://kiraai.vn/api/v1/models` (công khai, không cần key) |
 | `"model"` | Model mặc định OpenCode dùng cho việc code |
 
 Lưu file (Ctrl+O, Enter) rồi thoát (Ctrl+X). Khởi động lại OpenCode.
@@ -136,7 +154,8 @@ Trong OpenCode:
 /models
 ```
 
-→ chọn **Kiira AI / DeepSeek v4.1 Flash** nếu chưa là mặc định. Hỏi thử:
+→ danh sách sẽ có **Kiira AI**: DeepSeek v4.1 Flash (mặc định), GLM 5.3 Flash,
+Mimo V2.5, DeepSeek Vision — chuyển qua lại tuỳ việc. Hỏi thử:
 
 ```
 Đọc file bot/src/ai.js và tóm tắt 5 dòng đầu tiên
@@ -363,7 +382,7 @@ Ngoài ra `opencode.json` đã bật `autoupdate` (tự cập nhật OpenCode) v
 
 | Triệu chứng | Nguyên nhân | Cách xử lý |
 |---|---|---|
-| OpenCode không thấy model Kiira | Sai baseURL hoặc ID model | Kiểm tra lại `opencode.json`, thử `curl .../models` với key để lấy đúng ID |
+| OpenCode không thấy model Kiira | Sai baseURL, ID model sai, hoặc model chưa khai trong `models` | Kiểm tra `opencode.json` — OpenCode chỉ hiện model đã khai báo; lấy đúng ID từ `curl https://kiraai.vn/api/v1/models` |
 | `git commit` bị từ chối trong OpenCode | File `~/.config/opencode/opencode.json` cũ chưa có rule `git add/commit: allow` | Merge lại từ `opencode.json` trong repo |
 | Gõ `t3` báo "command not found" | `~/.local/bin` chưa nằm trong PATH | `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc` |
 | Cài xong báo `libatomic.so.1: cannot open shared object file` | VPS tối giản thiếu thư viện hệ thống | `apt-get update && apt-get install -y libatomic1` rồi chạy lại trình cài |
