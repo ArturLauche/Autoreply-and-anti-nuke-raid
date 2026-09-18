@@ -166,7 +166,7 @@ web hoặc desktop**. Nó không thay OpenCode — nó điều khiển OpenCode 
 Claude Code…) từ xa. Bạn ra ngoài, mở điện thoại ra là bảo agent sửa code, xong
 nó commit vào repo luôn.
 
-### 3.1. Cài T3 Code trên VPS
+### 3.1. Cài T3 Code trên VPS (+ sửa lỗi "không có lệnh t3")
 
 Vẫn trong SSH:
 
@@ -174,48 +174,69 @@ Vẫn trong SSH:
 curl -fsSL https://t3.codes/install.sh | sh
 ```
 
-### 3.2. Chạy server T3 Code
+**Lỗi thường gặp ngay bước này:** gõ `t3` báo `command not found`. Lý do: trình
+cài đặt đặt lệnh vào `~/.local/bin` — thư mục này chưa nằm trong PATH của VPS.
+Sửa một dòng:
 
 ```bash
-cd /root/Autoreply-and-anti-nuke-raid
-t3
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+t3 --version   # phải in ra số phiên bản
 ```
 
-Lần đầu nó mở giao diện web local (`http://localhost:PORT`). Để chạy nền 24/24
-(không tắt khi đóng SSH):
+### 3.2. Nối điện thoại với VPS — chọn 1 trong 2 cách
+
+> Lỗi hay gặp trên màn "Add Environment" của app: ô HOST phải là **địa chỉ VPS**
+> (IP hoặc domain), ô Pairing code là **mã do VPS phát ra** — KHÔNG phải handle
+> mạng xã hội. Nhập sai → app thử mở `https://handle-.../.well-known/t3/environment`
+> và báo "Failed to fetch remote environment".
+
+**Cách A — T3 Connect (KHUYÊN DÙNG: chạy được qua mọi mạng 4G/WiFi, không cần mở port trên router):**
 
 ```bash
+# Trên VPS:
+t3 connect
+```
+
+1. Nó in ra một **link đăng nhập + mã ngắn** — mở link đó trên trình duyệt
+   (điện thoại hay máy tính đều được), đăng nhập tài khoản T3, xác nhận mã
+2. Mở app T3 Code trên điện thoại → đăng nhập **CÙNG tài khoản** → environment
+   VPS tự xuất hiện trong danh sách, không cần điền host/code tay
+3. Khi được hỏi chạy nền, chọn yes (hoặc tự chạy `t3 service install`)
+
+Kiểm tra trạng thái bất cứ lúc nào: `t3 connect status`.
+
+**Cách B — Pairing QR (dùng khi điện thoại và VPS trong cùng mạng LAN, hoặc cả
+hai đã joined Tailscale):**
+
+```bash
+# Trên VPS — chạy server nền 24/24 rồi phát mã ghép nối:
 t3 service install
+t3 pair
 ```
 
-### 3.3. Cài app điện thoại
+- Màn hình in ra **QR code + URL + mã** dạng `xxx-yyy-zzz`
+- Trên app điện thoại: **Settings → Environments → Add environment** → **quét
+  QR** (nhanh nhất), hoặc điền tay:
+  - HOST: địa chỉ VPS mà điện thoại với tới được (IP LAN `192.168.x.x`, IP
+    Tailscale `100.x.x.x`, hoặc domain HTTPS)
+  - PAIRING CODE: mã vừa in
+- Qua Tailscale HTTPS (mã hóa từ đầu tới cuối): `t3 pair --tailscale` → link
+  dạng `https://tên-máy.tailXXXX.ts.net/`
 
-- **Android**: tải **T3 Code** trên Google Play
-- **iOS**: App Store (tìm "T3 Code")
-- Hoặc dùng web: mở `https://app.t3.codes` trên trình duyệt điện thoại
+> Mỗi máy điện thoại mới cần một link pair mới — link một-lần, coi như mật khẩu,
+> đừng chụp màn hình gửi ai.
 
-### 3.4. Kết nối điện thoại ↔ VPS
-
-Trong app: **Settings → Connections → Add environment → SSH**:
-
-- Host: `user@IP-VPS` (vd: `root@203.0.113.10`)
-- App tự kết nối qua SSH và liệt kê các agent có sẵn trên máy — bạn sẽ thấy
-  OpenCode vừa cài ở Phần 1
-
-> Nếu không dùng được SSH trực tiếp, bài hướng dẫn chính thức khuyên dùng
-> Tailscale (VPN miễn phí) để bảo mật kết nối: cài Tailscale trên VPS + điện
-> thoại, đăng nhập cùng tài khoản, rồi dùng IP Tailscale (100.x.x.x) làm host.
-
-### 3.5. Dùng thử từ điện thoại
+### 3.3. Dùng thử từ điện thoại
 
 1. Mở app → chọn environment VPS
 2. Tạo task mới, gõ: `bun run test` → agent chạy test trên VPS, bạn xem kết
    quả trực tiếp trên điện thoại
 3. Thử một việc thật: `Sửa lỗi X trong panel Y, chạy test rồi commit` — agent
-   sửa + commit (đã được phép), nhưng **sẽ từ chối push** → bạn về máy hoặc
-   gõ `git push` trong terminal của app khi muốn đẩy lên GitHub
+   sửa + commit (đã được phép), nhưng **sẽ từ chối push** → bạn gõ `git push`
+   trong terminal của app khi muốn đẩy lên GitHub
 
-### 3.6. Ai cần gì?
+### 3.4. Ai cần gì?
 
 | Vai | Công cụ | Địa chỉ |
 |---|---|---|
@@ -232,7 +253,9 @@ Trong app: **Settings → Connections → Add environment → SSH**:
 |---|---|---|
 | OpenCode không thấy model Kiira | Sai baseURL hoặc ID model | Kiểm tra lại `opencode.json`, thử `curl .../models` với key để lấy đúng ID |
 | `git commit` bị từ chối trong OpenCode | File `~/.config/opencode/opencode.json` cũ chưa có rule `git add/commit: allow` | Merge lại từ `opencode.json` trong repo |
-| T3 Code không kết nối được VPS | Port SSH/firewall, hoặc VPS tắt | Thử SSH thủ công từ máy tính trước; dùng Tailscale nếu nhà mạng chặn |
+| Gõ `t3` báo "command not found" | `~/.local/bin` chưa nằm trong PATH | `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc` |
+| App điện thoại báo "Failed to fetch remote environment" | Ô HOST chứa handle/IP sai, hoặc server chưa chạy | Dùng **Cách A (t3 connect)** — đăng nhập cùng tài khoản, khỏi điền tay; hoặc `t3 pair` trên VPS rồi quét QR |
+| T3 Code không kết nối được VPS | Port SSH/firewall, hoặc VPS tắt | Dùng T3 Connect (đi qua relay của T3); kiểm tra `t3 service status` trên VPS |
 | Agent đọc được file .env | CẤM — phải xảy ra lỗi cấu hình | Kiểm tra rule `read: { "*.env": "deny", ... }` trong `opencode.json` đang dùng |
 | Token Kiira hết nhanh | OpenCode đọc rất nhiều file mỗi task | 30M tokens/ngày thường đủ; nếu hết, chuyển model phụ sang Groq free (console.groq.com) |
 
