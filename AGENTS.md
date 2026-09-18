@@ -52,7 +52,7 @@ Mỗi mục todo = một kết quả kiểm chứng được, không phải mộ
 
 Đơn vị công việc chỉ coi là XONG khi tất cả điều này thoả:
 
-- [ ] `bun run test` — toàn bộ suites xanh (hiện tại **39 suites**)
+- [ ] `bun run test` — toàn bộ suites xanh (hiện tại **41 suites** — số liệu 18/09/2026; nếu runner báo ít hơn nhiều → có suite bị bỏ sót, điều tra trước khi kết luận xanh)
 - [ ] `bun tsc -b --noEmit` — typecheck sạch
 - [ ] `bun run lint` — sạch
 - [ ] Đụng file trong `convex/` → chạy `bun convex dev --once` (codegen) **trước** typecheck

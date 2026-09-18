@@ -50,9 +50,9 @@ export const GuardrailsPlugin = async () => {
         [
           "## Hợp đồng cần nhớ (từ AGENTS.md)",
           "- Workflow 5 pha: Hiểu → Kế hoạch (todo) → Thực hiện → Xác minh → Báo cáo+commit",
-          "- Xong việc = test 39/39 + typecheck + lint XANH, chưa chạy thật thì không claim xanh",
+          "- Xong việc = test 41/41 + typecheck + lint XANH, chưa chạy thật thì không claim xanh",
           "- Không đọc secret (.env/.bot-key/key) — cần thì hỏi người dùng",
-          "- Được git add + git commit (tiếng Việt, footer 🤖 Generated with OpenCode), TUYỆT ĐỐI không push",
+          "- Được git add + commit + push origin main (tiếng Việt, footer 🤖 Generated with OpenCode) — push CHỈ sau khi cả 3 kiểm chứng XANH trong phiên",
           "- Bug thuộc engine đã có test → bắt buộc thêm test chặn tái diễn",
         ].join("\n"),
       );

@@ -8,7 +8,7 @@ Phiên làm việc sắp kết thúc. Hoàn tất theo đúng Pha 4 + Pha 5 củ
 1. **Kiểm tra working tree**: `git status` + `git diff --stat`. Có thay đổi
    chưa commit từ trước (không thuộc phiên này) → liệt kê rõ, KHÔNG đụng vào,
    chỉ làm việc với file thuộc công việc hiện tại.
-2. **Chạy đủ bộ kiểm chứng**: `bun run test` (phải 39/39) +
+2. **Chạy đủ bộ kiểm chứng**: `bun run test` (phải 41/41) +
    `bun tsc -b --noEmit` + `bun run lint`. Có lỗi → sửa lại trước khi commit.
    Vừa đụng `convex/` mà chưa codegen → chạy `bun convex dev --once` trước.
 3. **Commit chọn lọc**: `git add` đúng file thuộc phiên này (kể cả file test
