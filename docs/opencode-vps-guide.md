@@ -319,12 +319,21 @@ Repo đi kèm bộ nâng cấp giúp OpenCode làm việc kỷ luật và an to�
 | `/ship` | `.opencode/commands/ship.md` | Hoàn tất phiên: kiểm chứng → commit chọn lọc (không push) → báo cáo |
 | `/review` | `.opencode/commands/review.md` | Review diff/code theo 5 lớp như senior reviewer (chỉ nhận xét, không sửa) |
 | Guardrails | `.opencode/plugins/guardrails.js` | Chặn chủ động lệnh bash đọc secret; nhắc lại hợp đồng AGENTS.md khi session dài bị nén |
+| Hộp lịch sử | `.opencode/plugins/session-history.js` + `/history` | Ghi mỗi phiên vào hộp JSONL, tự dọn sau TTL (mặc định 14 ngày) — xem bằng lệnh `/history` |
 
 Bộ này nằm trong repo nên **ai clone repo cũng tự có** — không cần cài thêm gì.
 Ngoài ra `opencode.json` đã bật `autoupdate` (tự cập nhật OpenCode) và tắt
 `share` (không tạo link chia sẻ session công khai).
 
 > Cập nhật OpenCode thủ công bất cứ lúc nào: `opencode upgrade`.
+>
+> **Hộp lịch sử làm việc**: mỗi phiên của agent được ghi tóm tắt vào
+> `~/.config/opencode/history/sessions.jsonl` (thời gian, tên phiên, thư mục,
+> trạng thái). Sau TTL ngày mục cũ tự dọn mỗi khi ghi mục mới — không cần cron.
+> Đổi hạn giữ: sửa `AGENT_HISTORY_TTL_DAYS` trong `opencode.json` (số ngày;
+> `0` = giữ vô hạn, tắt hẳn dọn). Xem lại lịch sử bằng lệnh `/history`
+> trong OpenCode, hoặc đọc thẳng file. Lịch sử chỉ chứa metadata — không bao
+> giờ ghi nội dung tin nhắn hay secret.
 
 ## Xử lý sự cố
 
