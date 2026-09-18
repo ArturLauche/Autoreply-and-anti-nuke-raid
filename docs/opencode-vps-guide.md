@@ -309,6 +309,29 @@ t3 pair
 
 ---
 
+## Phần 4.5 — Chống chập chờn Kiira AI (retry proxy)
+
+Lỗi `AI service stream failed: The AI model service is temporarily unavailable`
+là gateway Kiira trả 5xx/429 thoáng qua — OpenCode không có retry tích hợp nên
+phiên bị ngắt. Repo có sẵn **retry proxy** (`scripts/kiira-retry-proxy.mjs`):
+proxy nhỏ chạy tại `127.0.0.1:8787` trên VPS, tự thử lại lỗi tạm thời với
+backoff 1s→2s→4s trước khi chịu báo lỗi; lỗi cứng (401 sai key, 400 sai request)
+chuyển thẳng ngay. Proxy **không đọc API key** — chỉ chuyển tiếp header.
+
+Chạy bền (tmux, sống khi đóng SSH):
+
+```bash
+tmux new -d -s kiira 'bun /root/Autoreply-and-anti-nuke-raid/scripts/kiira-retry-proxy.mjs'
+curl http://127.0.0.1:8787/__health   # {"ok":true,...} là đang chạy
+```
+
+Rồi đổi `baseURL` trong `~/.config/opencode/opencode.json` từ
+`https://kiraai.vn/api/v1` → `http://127.0.0.1:8787` — từ đó OpenCode nói
+chuyện với proxy, proxy chống chập cho. Xem log proxy:
+`tmux attach -t kiira` (thoát: Ctrl+B rồi chữ `d`). Tùy chỉnh qua env:
+`KIRA_PROXY_PORT` (8787), `KIRA_PROXY_RETRIES` (3), `KIRA_PROXY_TIMEOUT_MS`
+(120000), `KIRA_UPSTREAM` (https://kiraai.vn/api/v1).
+
 ## Phần 4 — Nâng cấp OpenCode giống Freebuff (đã có sẵn trong repo)
 
 Repo đi kèm bộ nâng cấp giúp OpenCode làm việc kỷ luật và an toàn như Freebuff:
