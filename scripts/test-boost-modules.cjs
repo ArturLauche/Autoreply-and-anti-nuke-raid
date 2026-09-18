@@ -26,6 +26,10 @@ function check(name, cond) {
 
 // — Mock discord.js + fetch cho threatEngine (giống test-threat-engine.cjs) ——
 const root = path.join(__dirname, "..");
+// Mock ghi vào tmpdir thay vì thư mục repo — tránh làm bẩn `git status` trên
+// máy khác (file cũ từng bị commit kèm đường dẫn tuyệt đối của máy build, chạy test
+// trên VPS là git báo "modified" ảo). Xem commit vá kèm test này.
+const TMP_MOCK = path.join(os.tmpdir(), "protogon-djs-mock-boost.cjs");
 const mockSrc = `
 const { Collection } = require(${JSON.stringify(path.join(root, "bot/test-djs-mock.cjs"))});
 module.exports = {
@@ -37,10 +41,10 @@ module.exports = {
   Collection,
 };
 `;
-fs.writeFileSync(path.join(__dirname, "_djs-mock-boost.cjs"), mockSrc);
+fs.writeFileSync(TMP_MOCK, mockSrc);
 const origLoad = Module._load;
 Module._load = function (request, parent, isMain) {
-  if (request === "discord.js") return require("./_djs-mock-boost.cjs");
+  if (request === "discord.js") return require(TMP_MOCK);
   return origLoad.call(this, request, parent, isMain);
 };
 

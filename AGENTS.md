@@ -57,7 +57,7 @@ Mỗi mục todo = một kết quả kiểm chứng được, không phải mộ
 - [ ] `bun run lint` — sạch
 - [ ] Đụng file trong `convex/` → chạy `bun convex dev --once` (codegen) **trước** typecheck
 - [ ] Bug thuộc engine đã có test (antinuke, altDetection, heat, joinGate, backup,
-      oauth client id…) → **đã thêm test chặn tái diễn** cùng lugar với test cũ
+      oauth client id…) → **đã thêm test chặn tái diễn** đúng nơi với test cũ
 - [ ] Chưa từng claim "đã chạy/đã xanh" khi chưa chạy thật
 
 Các lệnh kiểm chứng đã được allow sẵn trong `opencode.json` — chạy thẳng, không cần hỏi.
