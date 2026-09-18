@@ -217,11 +217,24 @@ t3 connect
 
 1. Nó in ra một **link đăng nhập + mã ngắn** — mở link đó trên trình duyệt
    (điện thoại hay máy tính đều được), đăng nhập tài khoản T3, xác nhận mã
+   khớp rồi bấm Approve. Mã ngắn (vd `ZBSW-XBHG`) chỉ để **đối chiếu** trên
+   trang duyệt — KHÔNG phải pairing code để điền vào app
 2. Mở app T3 Code trên điện thoại → đăng nhập **CÙNG tài khoản** → environment
    VPS tự xuất hiện trong danh sách, không cần điền host/code tay
 3. Khi được hỏi chạy nền, chọn yes (hoặc tự chạy `t3 service install`)
 
-Kiểm tra trạng thái bất cứ lúc nào: `t3 connect status`.
+> ⚠️ **Sau khi bấm Allow, trình duyệt có nhảy ra trang lỗi
+> `127.0.0.1:34338 … ERR_CONNECTION_REFUSED` — đó là BÌNH THƯỜNG, đừng lo.**
+> Trang đó là OAuth callback về localhost của máy MỞ LINK (điện thoại), nơi
+> không có gì chạy. Docs chính thức ghi rõ: "The CLI continues on its own, so
+> you do not need to forward an OAuth callback port" — VPS vẫn nhận ủy quyền
+> đầy đủ. Quay lại terminal VPS xem dòng "connected" là được. Tương tự,
+> **đừng** điền `127.0.0.1` vào ô HOST của app (loopback chỉ tới chính chiếc
+> điện thoại → "Failed to fetch remote environment"). Cách A không bao giờ cần
+> màn "Add Environment" — chỉ cần đăng nhập đúng tài khoản.
+
+Kiểm tra trạng thái bất cứ lúc nào: `t3 connect status` (kèm đó
+`t3 service status` để xác nhận server nền đang chạy).
 
 **Cách B — Pairing QR (dùng khi điện thoại và VPS trong cùng mạng LAN, hoặc cả
 hai đã joined Tailscale):**
