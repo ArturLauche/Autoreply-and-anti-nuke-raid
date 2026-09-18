@@ -7,7 +7,7 @@
     "OPENCODE_ENABLE_EXA": "1"
   },
   "permission": {
-    "*": "ask",
+    "*": "allow",
     "read": {
       "*": "allow",
       "*.env": "deny",
@@ -24,23 +24,7 @@
       "bot/.bot-key": "deny"
     },
     "bash": {
-      "*": "ask",
-      "bun test *": "allow",
-      "bun run test*": "allow",
-      "bun run lint*": "allow",
-      "bun run typecheck*": "allow",
-      "bun run test:mutation*": "allow",
-      "bun tsc*": "allow",
-      "bunx eslint *": "allow",
-      "node scripts/test-*.cjs": "allow",
-      "node --test *": "allow",
-      "git status*": "allow",
-      "git diff*": "allow",
-      "git log*": "allow",
-      "git show*": "allow",
-      "git branch*": "allow",
-      "git add *": "allow",
-      "git commit *": "allow",
+      "*": "allow",
       "git push *": "deny",
       "git reset *": "deny",
       "git clean *": "deny",
@@ -56,7 +40,7 @@
       "curl * | sh": "deny",
       "curl * | bash": "deny"
     },
-    "webfetch": "ask",
+    "webfetch": "allow",
     "external_directory": {
       "**": "deny"
     }
