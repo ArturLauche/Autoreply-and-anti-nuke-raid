@@ -82,9 +82,13 @@ export const githubPush = action({
     const data = (await res.json()) as { html_url?: string };
     const url = data?.html_url;
     if (url) {
+      // PHẢI chuyển tiếp botKey: botSetBackupGithub là mutation bảo mật cao,
+      // requireBotKeyStrict sẽ từ chối khi thiếu key → gist đã tạo thành công
+      // nhưng URL không lưu, dashboard báo "GitHub thất bại" oan.
       await ctx.runMutation(api.bot_writes.botSetBackupGithub, {
         backupId: args.backupId,
         url,
+        botKey: args.botKey,
       });
     }
     return { ok: true, url: url ?? null, compressed: isCompressed };

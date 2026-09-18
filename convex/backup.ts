@@ -91,6 +91,45 @@ export const listGuild = query({
   },
 });
 
+/**
+ * Bot (script audit trên VPS) liệt kê backup kèm NỘI DUNG JSON + checksum để
+ * phân loại thật/fake. KHÔNG dùng listGuild cho việc này: listGuild cố tình bỏ
+ * backupJson (nhẹ cho lệnh chat) → classifyBackup thấy "thiếu backupJson" và
+ * xếp MỌI bản là fake → `audit-backups.cjs --fix` XÓA NHẦM toàn bộ backup thật.
+ * Chỉ bot có botKey mới đọc được nội dung (bảo mật cao).
+ */
+export const botAuditBackups = query({
+  args: {
+    guildId: v.string(),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { botKey, guildId }) => {
+    await requireBotKeyStrict(ctx, botKey);
+    const backups = await ctx.db
+      .query("guildBackups")
+      .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId))
+      .order("desc")
+      .take(3);
+    return backups.map((b) => ({
+      _id: b._id,
+      guildId: b.guildId,
+      guildName: b.guildName,
+      createdAt: b.createdAt,
+      roleCount: b.roleCount,
+      channelCount: b.channelCount,
+      emojiCount: b.emojiCount ?? 0,
+      stickerCount: b.stickerCount ?? 0,
+      messageCount: b.messageCount ?? 0,
+      source: b.source ?? "backup",
+      githubUrl: b.githubUrl ?? null,
+      pushedToGithub: b.pushedToGithub,
+      backupJson: b.backupJson,
+      backupChecksum: b.backupChecksum ?? null,
+    }));
+  },
+});
+
 /** Dashboard yêu cầu bot tạo backup cho server hiện tại. */
 export const requestBackup = mutation({
   args: {

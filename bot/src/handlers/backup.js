@@ -86,7 +86,22 @@ async function resolveAttachment(att, index) {
       const m = s.match(/^data:([^;,]+)?(;base64)?,(.*)$/s);
       if (!m) return null;
       const mime = m[1] || "";
-      const buf = Buffer.from((m[3] || "").replace(/\s+/g, ""), "base64");
+      const isBase64 = !!m[2];
+      // data URI KHÔNG có ";base64" chứa dữ liệu đã URL-encode (vd
+      // "data:text/plain,Hello%20World"). Trước đây luôn giải mã base64 → ra
+      // buffer rác (media phục hồi hỏng). Giải mã percent-encoding cho đúng.
+      let buf;
+      if (isBase64) {
+        buf = Buffer.from((m[3] || "").replace(/\s+/g, ""), "base64");
+      } else {
+        let text = m[3] || "";
+        try {
+          text = decodeURIComponent(text);
+        } catch {
+          // % không hợp lệ — giữ nguyên thay vì ném lỗi
+        }
+        buf = Buffer.from(text, "utf8");
+      }
       if (!buf.length || buf.length > MAX_MEDIA_BYTES) return null;
       return { attachment: buf, name: `media-${index}.${extFromMime(mime)}` };
     }
@@ -1505,9 +1520,17 @@ function normalizeBackupFile(content) {
     throw new Error("File backup không chứa role, kênh, emoji hoặc sticker nào để khôi phục");
   }
   const settings = pickFirst(parsed, ["settings", "config", "guildSettings", "botSettings"]) ?? {};
+  // File import (.msc/.json) thường KHÔNG có guildId → trả undefined thay vì
+  // chuỗi rỗng. guildId="" gây hiểu nhầm "đã có guild gốc" và làm audit phân
+  // loại sai; overwrite @everyone cần guildId thật mới map được (xem createChannels).
+  const rawGuildId = pickFirst(parsed, ["guildId", "id", "serverId", "guild_id"]);
+  const guildId =
+    rawGuildId === undefined || rawGuildId === null || String(rawGuildId).trim() === ""
+      ? undefined
+      : String(rawGuildId);
   return {
     version: 4,
-    guildId: str(parsed.guildId ?? parsed.id ?? parsed.serverId ?? parsed.guild_id ?? "", null),
+    guildId,
     guildName: str(
       parsed.guildName ??
         parsed.guild_name ??

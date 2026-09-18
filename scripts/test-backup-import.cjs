@@ -904,6 +904,14 @@ const mscBackupObj = {
   check("attachment rỗng → null", f3 === null);
   const f4 = await resolveAttachment("không phải url", 0);
   check("attachment không hợp lệ → null (không treo)", f4 === null);
+  // REGRESSION: data URI KHÔNG ";base64" chứa dữ liệu URL-encode — trước đây
+  // luôn giải mã base64 → buffer rác, media phục hồi hỏng.
+  const f5 = await resolveAttachment("data:text/plain,Hello%20World", 0);
+  check(
+    "data URI không base64 (percent-encoded) → giải mã đúng",
+    !!f5 && f5.attachment.toString("utf8") === "Hello World",
+    JSON.stringify(f5?.attachment?.toString("utf8")),
+  );
 
   console.log(`\nKết quả: ${pass} đúng / ${fail} sai`);
   if (fail > 0) process.exit(1);

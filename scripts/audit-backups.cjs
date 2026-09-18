@@ -78,7 +78,10 @@ const FIX = process.argv.includes("--fix");
     process.exit(0);
   }
 
-  // 2) Quét backup từng guild (listGuild — tối đa 3 bản/guild theo schema).
+  // 2) Quét backup từng guild (botAuditBackups — tối đa 3 bản/guild theo schema).
+  // PHẢI dùng botAuditBackups (kèm backupJson + backupChecksum) chứ KHÔNG dùng
+  // listGuild: listGuild bỏ nội dung JSON (nhẹ cho lệnh chat) → classifyBackup
+  // thấy "thiếu backupJson" → xếp MỌI bản là fake → --fix xóa nhầm backup thật.
   const report = [];
   let scanned = 0;
   for (const g of guilds) {
@@ -86,7 +89,7 @@ const FIX = process.argv.includes("--fix");
     if (!guildId) continue;
     let backups;
     try {
-      backups = await store.client.query("backup:listGuild", { guildId });
+      backups = await store.client.query("backup:botAuditBackups", { guildId });
     } catch (e) {
       console.error(`[scan] ${guildId}: lỗi query backup:`, e.message);
       continue;

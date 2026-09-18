@@ -108,6 +108,21 @@ function makeSnapshot(overrides = {}) {
     );
   }
   {
+    // REGRESSION: file import (.msc/.json) hợp lệ thường KHÔNG có guildId nhưng
+    // vẫn khôi phục được role/kênh. Trước đây xếp "fake" → audit --fix XÓA NHẦM
+    // backup thật. Phải là "suspect" (báo để xem tay, KHÔNG tự xóa).
+    const snap = {
+      guildName: "Server Nuke",
+      roles: [{ id: "r1", name: "Admin", permissions: "8" }],
+      channels: [{ id: "c1", name: "general", type: 0, overwrites: [] }],
+    };
+    const v = audit.classifyBackup({ _id: "imp", backupJson: pack(snap) });
+    check(
+      "import thiếu guildId nhưng có roles/channels → suspect (không xóa nhầm)",
+      v.verdict === "suspect" && v.reasons.some((r) => r.includes("guildId")),
+    );
+  }
+  {
     const snap = { guildId: "g1", roles: "không-phải-mảng", channels: [] };
     const v = audit.classifyBackup({ _id: "f4", backupJson: pack(snap) });
     check("fake: roles không phải mảng → fake", v.verdict === "fake");

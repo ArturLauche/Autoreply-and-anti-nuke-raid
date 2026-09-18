@@ -83,11 +83,16 @@ function classifyBackup(row) {
     return { verdict: "fake", reasons: ["nội dung không phải object"] };
   }
 
-  // Cấu trúc tối thiểu của snapshot engine (version 3+): guildId + roles + channels.
+  // Cấu trúc tối thiểu để khôi phục được: roles + channels PHẢI là mảng.
+  // Thiếu guildId KHÔNG đủ để xếp "fake": file import (.msc/.json) hợp lệ
+  // thường không có guildId (chỉ mất overwrite @everyone, vẫn khôi phục được
+  // role/kênh) — xếp fake sẽ khiến audit --fix XÓA NHẦM backup thật.
+  const missingRoles = !Array.isArray(json.roles);
+  const missingChannels = !Array.isArray(json.channels);
   if (!json.guildId) reasons.push("thiếu guildId trong snapshot");
-  if (!Array.isArray(json.roles)) reasons.push("thiếu mảng roles");
-  if (!Array.isArray(json.channels)) reasons.push("thiếu mảng channels");
-  if (reasons.length > 0 && reasons.some((r) => r.startsWith("thiếu"))) {
+  if (missingRoles) reasons.push("thiếu mảng roles");
+  if (missingChannels) reasons.push("thiếu mảng channels");
+  if (missingRoles || missingChannels) {
     return { verdict: "fake", reasons };
   }
 

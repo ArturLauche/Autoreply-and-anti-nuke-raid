@@ -177,6 +177,20 @@ const check = (label, ok) => {
     src.includes("// Gửi bản ĐÃ NÉN") && !/backupJson: json,/.test(src),
   );
 
+  // ---- 6. Action githubPush phải CHUYỂN TIẾP botKey vào botSetBackupGithub ----
+  // botSetBackupGithub là mutation bảo mật cao (requireBotKeyStrict). Không
+  // chuyển tiếp botKey → gist tạo thành công nhưng URL không lưu, dashboard báo
+  // "GitHub thất bại" oan.
+  const ghSrc = fs.readFileSync(
+    path.join(__dirname, "..", "convex", "backup_github.ts"),
+    "utf8",
+  );
+  const runMutationBlock = ghSrc.slice(ghSrc.indexOf("botSetBackupGithub"));
+  check(
+    "githubPush chuyển tiếp botKey vào botSetBackupGithub",
+    /botSetBackupGithub[\s\S]{0,200}botKey:\s*args\.botKey/.test(runMutationBlock),
+  );
+
   console.log(`\nKết quả backup pipeline: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail > 0 ? 1 : 0);
 })().catch((e) => {

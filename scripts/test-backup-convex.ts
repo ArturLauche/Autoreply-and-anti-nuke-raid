@@ -9,7 +9,7 @@
 //   3. Claim không được 2 process cùng giữ (in_flight < 10 phút).
 //   4. botClearBackup reset cờ + lastBackupAt đúng điều kiện storeOk.
 import { botStoreBackup, botClaimBackup, botClearBackup } from "../convex/bot_writes";
-import { listGuild } from "../convex/backup";
+import { listGuild, botAuditBackups } from "../convex/backup";
 import { computeBotKey } from "../convex/botAuth";
 
 // getBotStatus đọc ctx.db.query("botStatus") — ctx giả chỉ cần bảng botStatus
@@ -22,6 +22,7 @@ const storeHandler = (botStoreBackup as any)._handler;
 const claimHandler = (botClaimBackup as any)._handler;
 const clearHandler = (botClearBackup as any)._handler;
 const listGuildHandler = (listGuild as any)._handler;
+const auditHandler = (botAuditBackups as any)._handler;
 
 let pass = 0;
 let fail = 0;
@@ -277,6 +278,43 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
       "map source mặc định 'backup'",
       out.every((b: any) => b.source === "backup"),
     );
+  }
+
+  console.log("\n── backup:botAuditBackups: trả backupJson + checksum cho audit ──");
+  {
+    // REGRESSION: listGuild CỐ TÌNH bỏ backupJson (nhẹ cho lệnh chat) → audit
+    // dùng nó sẽ xếp MỌI bản là fake và --fix xóa nhầm. botAuditBackups phải
+    // trả kèm nội dung + checksum để classifyBackup phân loại đúng.
+    const { ctx, backupRows } = makeCtx({ seed: BOT_KEY });
+    backupRows.push({
+      _id: "b1",
+      guildId: "g1",
+      guildName: "G1",
+      createdAt: 100,
+      roleCount: 1,
+      channelCount: 2,
+      pushedToGithub: false,
+      backupJson: "z:abc",
+      backupChecksum: "cs-1",
+    });
+    const listed = await listGuildHandler(ctx as any, { guildId: "g1", botKey: BOT_KEY });
+    check("listGuild (lệnh chat) KHÔNG lộ backupJson", (listed[0] as any).backupJson === undefined);
+    const audited = await auditHandler(ctx as any, { guildId: "g1", botKey: BOT_KEY });
+    check(
+      "botAuditBackups trả kèm backupJson",
+      (audited[0] as any).backupJson === "z:abc",
+    );
+    check(
+      "botAuditBackups trả kèm backupChecksum",
+      (audited[0] as any).backupChecksum === "cs-1",
+    );
+    let auditThrew = "";
+    try {
+      await auditHandler(ctx as any, { guildId: "g1", botKey: computeBotKey("sai") });
+    } catch (e: any) {
+      auditThrew = e?.message ?? "";
+    }
+    check("botAuditBackups từ chối botKey sai", auditThrew.includes("botKey"));
   }
 
   console.log(`\n${pass}/${pass + fail} ✅`);
