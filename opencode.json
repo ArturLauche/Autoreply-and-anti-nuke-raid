@@ -3,7 +3,8 @@
   "autoupdate": true,
   "share": "disabled",
   "env": {
-    "AGENT_HISTORY_TTL_DAYS": "14"
+    "AGENT_HISTORY_TTL_DAYS": "14",
+    "OPENCODE_ENABLE_EXA": "1"
   },
   "permission": {
     "*": "ask",
