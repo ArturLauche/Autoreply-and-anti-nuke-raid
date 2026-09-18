@@ -109,6 +109,33 @@ export function randomState(): string {
   return base64UrlEncode(crypto.getRandomValues(new Uint8Array(16)));
 }
 
+/**
+ * Kiểm tra Client ID có đúng dạng Discord Application ID không (snowflake: chỉ
+ * gồm chữ số, 15-21 ký tự).
+ *
+ * VỀ SAO CẦN (bug thật 18/09): giá trị env "DISCORD_CLIENT_ID" từng bị dán nhầm
+ * bằng blob mã hóa của dashboard khác (dạng base64 `{"v":"v2","c":"..."}`) —
+ * web vẫn nhận được clientId “có nội dung” nên tưởng cấu hình OK, rồi nhét
+ * chuỗi rác vào `client_id` của URL ủy quyền → Discord trả màn hình đỏ
+ * “Invalid Form Body” NGAY TRANG DISCORD, người dùng tưởng web lỗi.
+ * Chặn sớm ở client: giá trị không hợp lệ bị loại → UI hiện hướng dẫn cấu hình
+ * thay vì điều hướng người dùng tới một trang lỗi của Discord.
+ */
+export function isValidDiscordClientId(clientId: string | undefined | null): boolean {
+  return typeof clientId === "string" && /^\d{15,21}$/.test(clientId.trim());
+}
+
+/**
+ * Lọc danh sách ID ứng viên → trả về giá trị snowflake hợp lệ đầu tiên, hoặc
+ * rỗng nếu không có giá trị nào hợp lệ (không fallback về giá trị rác).
+ */
+export function pickValidClientId(...candidates: (string | undefined | null)[]): string {
+  for (const c of candidates) {
+    if (isValidDiscordClientId(c)) return (c as string).trim();
+  }
+  return "";
+}
+
 export function redirectUri(): string {
   return `${window.location.origin}/discord/callback`;
 }

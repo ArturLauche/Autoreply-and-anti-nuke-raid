@@ -1,0 +1,127 @@
+#!/usr/bin/env node
+/**
+ * test-oauth-client-id.cjs — chặn tái diễn bug "Invalid Form Body" (18/09/2026).
+ *
+ * Bối cảnh: giá trị env DISCORD_CLIENT_ID bị dán nhầm bằng blob mã hóa của
+ * dashboard khác (base64 `{"v":"v2","c":"..."}`) → bundle production mang
+ * giá trị rác → URL đăng nhập Discord bị từ chối NGAY TRANG DISCORD với
+ * thông báo "Invalid Form Body", người dùng tưởng dashboard lỗi.
+ *
+ * Lá chắn: Client ID phải là Discord snowflake (chỉ chữ số, 15-21 ký tự).
+ * Giá trị sai bị loại ở 3 lớp:
+ *   1. runtime  — src/lib/discord.ts: isValidDiscordClientId / pickValidClientId
+ *   2. runtime  — src/lib/usePublicConfig.ts (lọc mọi nguồn: Convex + baked)
+ *   3. build    — scripts/build.mjs (không nướng giá trị rác vào bundle)
+ *
+ * File TS được phân tích bằng regex vì suite này chạy thuần Node không qua
+ * bundler — đủ để khóa HÌNH THỨC hàm validate (thay đổi phải chủ đích).
+ */
+
+const fs = require("fs");
+const path = require("path");
+
+let pass = 0;
+let fail = 0;
+function check(label, cond) {
+  if (cond) {
+    pass++;
+    console.log(`  ✅ ${label}`);
+  } else {
+    fail++;
+    console.error(`  ❌ ${label}`);
+  }
+}
+
+const ROOT = path.join(__dirname, "..");
+
+// ─── 1. discord.ts — hàm validate tồn tại và đúng hình thức ─────────────────
+const discordTs = fs.readFileSync(path.join(ROOT, "src/lib/discord.ts"), "utf8");
+
+check(
+  "discord.ts định nghĩa isValidDiscordClientId",
+  /export function isValidDiscordClientId/.test(discordTs),
+);
+check(
+  "discord.ts định nghĩa pickValidClientId",
+  /export function pickValidClientId/.test(discordTs),
+);
+// Regex snowflake: chỉ chữ số, 15-21 ký tự — đủ rộng cho Discord ID hiện tại
+// và tương lai, đủ chặt để loại blob base64 / chữ / khoảng trắng.
+check(
+  "validate dùng regex snowflake /^\\\\d{15,21}$/",
+  /isValidDiscordClientId[^}]*\/\^\\d\{15,21\}\$\//.test(discordTs),
+);
+// pickValidClientId KHÔNG bao giờ trả về giá trị không hợp lệ (chỉ trả trong
+// nhánh đã validate, mặc định rỗng).
+check(
+  "pickValidClientId trả rỗng khi không có ứng viên hợp lệ",
+  /return "";\s*\}\s*export function redirectUri|for \(const c of candidates\)[\s\S]*?return ""/.test(
+    discordTs,
+  ),
+);
+
+// ─── 2. usePublicConfig.ts — mọi nguồn client_id đều qua bộ lọc ──────────────
+const usePublicConfigTs = fs.readFileSync(
+  path.join(ROOT, "src/lib/usePublicConfig.ts"),
+  "utf8",
+);
+
+check(
+  "usePublicConfig import pickValidClientId",
+  /import \{ pickValidClientId \} from "\.\/discord"/.test(usePublicConfigTs),
+);
+// Kết hợp Convex + baked phải qua bộ lọc — KHÔNG còn chỗ nào dùng BAKED_CLIENT_ID
+// thô làm clientId (bỏ qua các chỗ đã bọc pickValidClientId(...)).
+const usesRawBakedAsClientId =
+  (usePublicConfigTs.match(/clientId:\s*[^,\n]*BAKED_CLIENT_ID/g) || []).filter(
+    (m) => !m.includes("pickValidClientId"),
+  );
+check(
+  "không còn gán clientId trực tiếp từ BAKED_CLIENT_ID (phải qua pickValidClientId)",
+  usesRawBakedAsClientId.length === 0,
+);
+check(
+  "clientId gộp qua pickValidClientId",
+  /clientId:\s*pickValidClientId\(/.test(usePublicConfigTs),
+);
+
+// ─── 3. build.mjs — chặn nướng giá trị rác vào bundle lúc build ──────────────
+const buildMjs = fs.readFileSync(path.join(ROOT, "scripts/build.mjs"), "utf8");
+check(
+  "build.mjs kiểm tra snowflake trước khi set VITE_DISCORD_CLIENT_ID",
+  /\^\\d\{15,21\}\$/.test(buildMjs) && /VITE_DISCORD_CLIENT_ID\s*=/.test(buildMjs),
+);
+
+// ─── 4. Mô phỏng hành vi runtime (logic validate thuần) ──────────────────────
+// Tái tạo đúng regex của production để test giá trị thật.
+function isValid(id) {
+  return typeof id === "string" && /^\d{15,21}$/.test(id.trim());
+}
+function pick(...candidates) {
+  for (const c of candidates) if (isValid(c)) return c.trim();
+  return "";
+}
+
+const BLOB = 'eyJ2IjoidjIiLCJjIjoidDRsd21wenRaaGRGVFhhajE1NWppckxIeGZEZHIyaFB0c00wWVdXcVZJVnpGOCtHT2I4VzNPOS9BaXlhVUVXQktVN1dkU08xL2F';
+check("blob mã hóa (bug thật 18/09) bị TỪ CHỐI", !isValid(BLOB));
+check("blob base64 có số lẫn vào vẫn bị từ chối", !isValid("eyJ2MTIzNDU2Nzg5MDEyMzQ1"));
+check("chuỗi có khoảng trắng 2 đầu bị trim rồi CHẤP NHẬN", isValid("  123456789012345678  "));
+check("snowflake 18 số hợp lệ", isValid("123456789012345678"));
+check("snowflake 15 số hợp lệ (biên dưới)", isValid("123456789012345"));
+check("snowflake 21 số hợp lệ (biên trên)", isValid("123456789012345678901"));
+check("14 số bị từ chối (biên dưới -1)", !isValid("12345678901234"));
+check("22 số bị từ chối (biên trên +1)", !isValid("1234567890123456789012"));
+check("rỗng bị từ chối", !isValid(""));
+check("undefined/null bị từ chối", !isValid(undefined) && !isValid(null));
+
+check(
+  "pick ưu tiên giá trị hợp lệ sau khi giá trị đầu bị loại",
+  pick(BLOB, "123456789012345678") === "123456789012345678",
+);
+check(
+  "pick KHÔNG fallback về giá trị rác khi mọi ứng viên sai",
+  pick(BLOB, "garbage") === "",
+);
+
+console.log(`\nKết quả OAuth client-id guard: ${pass} PASS, ${fail} FAIL`);
+process.exit(fail ? 1 : 0);

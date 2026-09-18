@@ -7,8 +7,21 @@
 // khi chạy vite build, để usePublicConfig có BAKED_CLIENT_ID dự phòng.
 import { spawnSync } from "node:child_process";
 
-process.env.VITE_DISCORD_CLIENT_ID =
+// Chỉ nướng giá trị Client ID HỢP LỆ (Discord Application ID là snowflake: chỉ
+// gồm chữ số, 15-21 ký tự). Bug thật 18/09: env chứa blob mã hóa dán nhầm
+// (base64 "{\"v\":\"v2\",...}") → bundle mang giá trị rác → URL đăng nhập
+// Discord bị từ chối “Invalid Form Body” ngay trang Discord. Giá trị sai bị bỏ
+// qua để runtime fallback về Convex (botApplicationId) thay vì phá nút đăng nhập.
+const rawClientId =
   process.env.VITE_DISCORD_CLIENT_ID || process.env.DISCORD_CLIENT_ID || "";
+const trimmedClientId = rawClientId.trim();
+if (rawClientId && !/^\d{15,21}$/.test(trimmedClientId)) {
+  console.warn(
+    "[build] DISCORD_CLIENT_ID không đúng dạng Application ID (chỉ chữ số, 15-21 ký tự)" +
+      " — bỏ qua thay vì nướng vào bundle (tránh lỗi Invalid Form Body khi đăng nhập).",
+  );
+}
+process.env.VITE_DISCORD_CLIENT_ID = /^\d{15,21}$/.test(trimmedClientId) ? trimmedClientId : "";
 
 const res = spawnSync("vite", ["build"], {
   stdio: "inherit",

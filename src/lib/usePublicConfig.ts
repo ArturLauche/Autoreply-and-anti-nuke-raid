@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { pickValidClientId } from "./discord";
 
 /**
  * Cache dùng chung toàn app cho publicConfig (action — tốn hạn mức hơn query).
@@ -41,7 +42,9 @@ async function fetchConfig(
     inflight = load()
       .then((res) => {
         const data: PublicConfig = {
-          clientId: res?.clientId || BAKED_CLIENT_ID,
+          // Chỉ nhận snowflake hợp lệ — giá trị rác (blob mã hóa dán nhầm, chữ,
+          // khoảng trắng…) bị loại thay vì đưa vào URL ủy quyền Discord.
+          clientId: pickValidClientId(res?.clientId, BAKED_CLIENT_ID),
           discordInvite: res?.discordInvite ?? FALLBACK.discordInvite,
           facebookUrl: res?.facebookUrl ?? FALLBACK.facebookUrl,
         };
@@ -50,7 +53,7 @@ async function fetchConfig(
       })
       .catch(() => {
         // Backend down: dùng fallback nhưng KHÔNG cache lỗi — lần sau thử lại.
-        return { ...FALLBACK, clientId: BAKED_CLIENT_ID };
+        return { ...FALLBACK, clientId: pickValidClientId(BAKED_CLIENT_ID) };
       })
       .finally(() => {
         inflight = null;
@@ -77,11 +80,11 @@ export function usePublicConfig(): {
   const [config, setConfig] = useState<PublicConfig | null>(
     cache
       ? cache.data
-      : BAKED_CLIENT_ID
+      : pickValidClientId(BAKED_CLIENT_ID)
         ? // Có Client ID nướng trong bundle (production): KHÔNG cần gọi Convex —
           // khách ẩn danh mở landing ≈ 0 Function Call. Ai cần thông tin mới hơn
           // (trường hợp deployment đổi Client ID) vẫn được cache 10 phút phục vụ.
-          { ...FALLBACK, clientId: BAKED_CLIENT_ID }
+          { ...FALLBACK, clientId: pickValidClientId(BAKED_CLIENT_ID) }
         : null,
   );
   const [error, setError] = useState(false);
@@ -100,10 +103,10 @@ export function usePublicConfig(): {
     };
   }, [load]);
   return {
-    clientId: config?.clientId || BAKED_CLIENT_ID,
+    clientId: pickValidClientId(config?.clientId, BAKED_CLIENT_ID),
     discordInvite: config?.discordInvite ?? FALLBACK.discordInvite,
     facebookUrl: config?.facebookUrl ?? FALLBACK.facebookUrl,
-    loading: config === null && !BAKED_CLIENT_ID,
+    loading: config === null && !pickValidClientId(BAKED_CLIENT_ID),
     error,
   };
 }
