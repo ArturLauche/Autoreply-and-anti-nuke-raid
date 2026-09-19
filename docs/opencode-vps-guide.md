@@ -381,6 +381,45 @@ mà phiên OpenCode không đứt; vẫn lỗi mới trả về client. Tùy ch�
 `KIRA_PROXY_PORT` (8787), `KIRA_PROXY_RETRIES` (5), `KIRA_PROXY_TIMEOUT_MS`
 (120000), `KIRA_UPSTREAM` (https://kiraai.vn/api/v1).
 
+### Khi Kiira sập hoàn toàn — fallback Groq (phương án B)
+
+Proxy gánh được nghẽn ≤~30 giây, nhưng nếu **cả gateway Kiira sập** (vài phút
+trở lên) thì agent không tự chữa được — não tắt thì cái sửa cũng cần não. Lúc
+đó chuyển model phụ **Groq free** (`openai/gpt-oss-120b` — cùng model bot đã
+dùng làm self-heal fallback trong `convex/haimiya.ts`, nhất quán về hành vi).
+
+Phân biệt 3 lớp dự phòng:
+
+| Sự cố | Dùng gì |
+|---|---|
+| Nghẽn thoáng qua (503/429) | Proxy tự gánh — không làm gì |
+| Model riêng lỗi (DeepSeek chậm/lỗi) | Đổi GLM 5.3 Flash / Mimo V2.5 trong `/models` (cùng gateway Kiira) |
+| **Cả gateway Kiira sập** | **Groq** — provider khác hẳn, độc lập với Kiira |
+
+Cài 1 lần:
+
+1. Tạo key free tại `console.groq.com` (đăng nhập Google account là đủ).
+2. Thêm provider vào `~/.config/opencode/opencode.json` (cạnh khối kiira):
+
+```json
+"groq": {
+  "npm": "@ai-sdk/openai-compatible",
+  "name": "Groq (fallback)",
+  "options": { "baseURL": "https://api.groq.com/openai/v1" },
+  "models": {
+    "openai/gpt-oss-120b": { "name": "GPT-OSS 120B (Groq)" }
+  }
+},
+```
+
+3. Lần đầu dùng: OpenCode hỏi key → dán key Groq (lưu vào `auth.json` ở thư mục
+   cấu hình, không nằm trong repo — không vi phạm điều khoản secret).
+
+Khi Kiira sập: mở OpenCode → `/models` → chọn **GPT-OSS 120B (Groq)** → gõ
+`continue` — agent nối việc đúng chỗ dừng trên model phụ. Kiira sống lại thì
+đổi về DeepSeek v4.1 Flash. Lưu ý: agent **không tự đổi model được** khi não
+tắt — bước này là của bạn, mất ~5 giây.
+
 ## Phần 4 — Nâng cấp OpenCode giống Freebuff (đã có sẵn trong repo)
 
 Repo đi kèm bộ nâng cấp giúp OpenCode làm việc kỷ luật và an toàn như Freebuff:
