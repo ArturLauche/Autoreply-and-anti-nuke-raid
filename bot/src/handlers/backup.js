@@ -792,7 +792,7 @@ async function restoreStickers(guild, backup) {
 async function replayMessages(guild, backup, channelMap) {
   let sent = 0;
   for (const ch of backup.channels || []) {
-    const msgs = (ch.messages || [])
+    const msgs = (Array.isArray(ch.messages) ? ch.messages : [])
       .slice()
       .sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
       .slice(-MAX_REPLAY_PER_CHANNEL);
