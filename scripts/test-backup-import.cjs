@@ -890,6 +890,49 @@ const mscBackupObj = {
 }
 
 (async () => {
+  // ── Harden: tên quyền trùng thuộc tính prototype của object Flags ──
+  // permFlagValue tra F[key] trên object thường → "__proto__"/"constructor"/...
+  // trả về giá trị KHÔNG phải bigint, BigInt() ném → cả file import hỏng.
+  for (const evil of ["__proto__", "constructor", "toString", "valueOf", "hasOwnProperty"]) {
+    let ok;
+    let detail;
+    try {
+      const r = normalizeBackupFile(
+        JSON.stringify({
+          guildId: "1",
+          guildName: "x",
+          roles: [{ name: "a", permissions: evil }],
+          channels: [],
+        }),
+      );
+      ok = r.roles.length === 1 && /^\d+$/.test(r.roles[0].permissions);
+      detail = JSON.stringify(r.roles[0]?.permissions);
+    } catch (e) {
+      ok = false;
+      detail = e.message;
+    }
+    check(`quyền "${evil}" không làm hỏng import (không ném)`, ok, detail);
+  }
+  // Cùng lỗi ở overwrite allow/deny của kênh.
+  let owOk;
+  let owDetail;
+  try {
+    const r = normalizeBackupFile(
+      JSON.stringify({
+        guildId: "1",
+        guildName: "x",
+        channels: [
+          { name: "c", overwrites: [{ id: "1", allow: "__proto__", deny: "constructor" }] },
+        ],
+      }),
+    );
+    owOk = r.channels.length === 1 && r.channels[0].overwrites.length === 1;
+  } catch (e) {
+    owOk = false;
+    owDetail = e.message;
+  }
+  check("quyền prototype trong overwrite kênh không làm hỏng import", owOk, owDetail);
+
   const f = await resolveAttachment("data:image/png;base64,iVBORw0KGgo=", 0);
   check(
     "giải mã data URI → buffer + tên .png",

@@ -1137,14 +1137,23 @@ function permFlagValue(key) {
   const k = String(key || "").trim();
   if (!k) return null;
   const F = PermissionsBitField.Flags;
-  if (F[k] !== undefined) return F[k];
+  // Chỉ nhận giá trị bigint. Truy cập trực tiếp F[k] với "__proto__",
+  // "constructor", "toString"… trả về giá trị prototype (object/function) →
+  // BigInt() ném và cả file import hỏng (test-backup-import phủ).
+  const asFlag = (v) => (typeof v === "bigint" ? v : null);
+  const direct = asFlag(F[k]);
+  if (direct !== null) return direct;
   const camel = k
     .replace(/_([a-z])/g, (_, c) => c.toUpperCase())
     .replace(/^([a-z])/, (c) => c.toUpperCase());
-  if (F[camel] !== undefined) return F[camel];
+  const camelV = asFlag(F[camel]);
+  if (camelV !== null) return camelV;
   const lower = k.toLowerCase();
   for (const fk of Object.keys(F)) {
-    if (fk.toLowerCase() === lower) return F[fk];
+    if (fk.toLowerCase() === lower) {
+      const v = asFlag(F[fk]);
+      if (v !== null) return v;
+    }
   }
   return null;
 }
