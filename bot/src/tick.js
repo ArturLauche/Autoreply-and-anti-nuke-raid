@@ -184,9 +184,22 @@ async function runTickOnce(client, store) {
   }
 }
 
-/** Gắn vòng tick sau khi bot online. Gọi 1 lần từ index.js. */
+/**
+ * Gắn vòng tick sau khi bot online. Gọi 1 lần từ index.js (TỪ TRONG handler
+ * clientReady).
+ *
+ * BẪY discord.js v14.27: `clientReady` emit SAU `ready` (WebSocketManager:
+ * emit("ready") rồi emit(Events.ClientReady)). Nếu ở đây ta lại đăng ký
+ * `client.once("ready")` thì listener gắn sau khi event đã bắn → KHÔNG BAO GIỜ
+ * chạy → cả vòng tick (hidden + verify + backup/restore/import) chết lặng.
+ * Đã từng xảy ra: gộp tick ngày 12/09 làm auto-backup đứng im tới 19/09.
+ *
+ * Vì vậy: client đã ready (isReady() true khi đang trong handler clientReady)
+ * → chạy ngay; chỉ khi chưa ready mới chờ clientReady. Dùng đúng tên event
+ * `clientReady` (không dùng `ready` đã deprecated).
+ */
 function setupTick(client, store) {
-  client.once("ready", () => {
+  const start = () => {
     // Chạy ngay 1 lượt sau 15s (đợi gateway ổn định) — việc chờ từ lúc bot
     // offline (backup/panel/webhook log) được xử lý sớm, không đợi hết chu kỳ.
     setTimeout(() => runTickOnce(client, store).catch(() => {}), 15_000).unref?.();
@@ -194,7 +207,12 @@ function setupTick(client, store) {
       runTickOnce(client, store).catch((e) => console.error("[tick]", e?.message || e));
     }, TICK_INTERVAL_MS);
     interval.unref?.();
-  });
+  };
+  if (typeof client.isReady === "function" && client.isReady()) {
+    start();
+  } else {
+    client.once("clientReady", start);
+  }
 }
 
 module.exports = { setupTick, runBackupJobs, runTickOnce };

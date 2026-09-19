@@ -4,6 +4,7 @@ isolate/
 .env
 .env.local
 .env.*.local
+.bot-key
 bot/node_modules
 bot/.env
 bot/.bot-key

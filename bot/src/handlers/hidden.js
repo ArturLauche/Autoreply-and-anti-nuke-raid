@@ -494,10 +494,8 @@ function setupHidden(client, store) {
       console.error("[hidden:reactionRemove]", e.message),
     ),
   );
-  client.once("ready", () => {
-    // Vòng quét định kỳ đã gộp vào tick.js (bot_tick:getPendingJobs — 1 query
-    // cho hidden + verify panel + backup). setupHidden chỉ gắn listener reaction.
-  });
+  // Vòng quét định kỳ đã gộp vào tick.js (bot_tick:getPendingJobs — 1 query
+  // cho hidden + verify panel + backup). setupHidden chỉ gắn listener reaction.
 }
 
 module.exports = {

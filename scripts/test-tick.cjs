@@ -311,26 +311,48 @@ globalThis.fetch = async () => {
     );
   }
 
-  // ── 11. setupTick: gắn 1 lần khi ready ──
+  // ── 11. setupTick: bot ĐÃ ready (index.js gọi từ trong clientReady) phải chạy
+  // NGAY, không phụ thuộc listener — discord.js v14.27 emit clientReady SAU ready
+  // nên `client.once("ready")` đăng ký muộn sẽ không bao giờ chạy (bug auto-backup
+  // đứng im 12→19/09). Test cũ khóa hành vi sai (events.includes("ready")). ──
   {
-    const events = [];
-    const fakeClient = {
-      once(evt, fn) {
-        events.push(evt);
-        fn();
-      },
-    };
     const realSetTimeout = global.setTimeout;
     const realSetInterval = global.setInterval;
-    global.setTimeout = () => ({ unref: () => {} });
+    let started = 0;
+    global.setTimeout = () => {
+      started++;
+      return { unref: () => {} };
+    };
     global.setInterval = () => ({ unref: () => {} });
     try {
-      setupTick(fakeClient, store);
+      const readyEvents = [];
+      const readyClient = {
+        isReady: () => true,
+        once(evt) {
+          readyEvents.push(evt);
+        },
+      };
+      setupTick(readyClient, store);
+      check("setupTick: bot đã ready → chạy ngay (không chờ event)", started === 1);
+      check("setupTick: bot đã ready → KHÔNG đăng ký listener chết", readyEvents.length === 0);
+
+      started = 0;
+      const events = [];
+      const notReadyClient = {
+        isReady: () => false,
+        once(evt, fn) {
+          events.push(evt);
+          fn();
+        },
+      };
+      setupTick(notReadyClient, store);
+      check("setupTick: chưa ready → đăng ký clientReady", events.includes("clientReady"));
+      check("setupTick: KHÔNG dùng event 'ready' đã deprecated", !events.includes("ready"));
+      check("setupTick: chưa ready → chờ event rồi mới chạy", started === 1);
     } finally {
       global.setTimeout = realSetTimeout;
       global.setInterval = realSetInterval;
     }
-    check("setupTick đăng ký sự kiện ready", events.includes("ready"));
   }
 
   fs.unlinkSync(path.join(__dirname, "..", "bot", "test-djs-mock.cjs"));
