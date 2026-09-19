@@ -136,6 +136,27 @@ export function pickValidClientId(...candidates: (string | undefined | null)[]):
   return "";
 }
 
+/**
+ * Lọc đường dẫn chuyển hướng nội bộ an toàn (chống open redirect).
+ *
+ * `returnTo` đến từ query string (`/auth?returnTo=...`) do người dùng kiểm soát.
+ * Chỉ kiểm `startsWith("/")` là KHÔNG đủ: `//evil.com` là URL protocol-relative
+ * → trình duyệt hiểu thành `https://evil.com`, biến trang đăng nhập thành bàn
+ * đạp phishing (đúng CVE-2025-68470 của react-router).
+ *
+ * Chỉ chấp nhận đường dẫn TUYỆT ĐỐI trong cùng origin: bắt đầu bằng đúng một
+ * dấu `/`, không phải `//` hay `/\` (trình duyệt quy đổi `\` thành `/`), không
+ * chứa ký tự điều khiển/backslash. Mọi giá trị khác → fallback `/dashboard`.
+ */
+export function safeRedirectPath(raw: string | null | undefined, fallback = "/dashboard"): string {
+  if (typeof raw !== "string") return fallback;
+  const path = raw.trim();
+  if (!path.startsWith("/")) return fallback;
+  if (path.startsWith("//") || path.startsWith("/\\")) return fallback;
+  if (path.includes("\\")) return fallback;
+  return path;
+}
+
 export function redirectUri(): string {
   return `${window.location.origin}/discord/callback`;
 }

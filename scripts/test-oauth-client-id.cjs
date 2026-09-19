@@ -59,6 +59,12 @@ check(
     discordTs,
   ),
 );
+// safeRedirectPath: chặn open redirect qua returnTo (CVE-2025-68470 tương tự).
+check("discord.ts định nghĩa safeRedirectPath", /export function safeRedirectPath/.test(discordTs));
+check(
+  "safeRedirectPath chặn protocol-relative // (open redirect)",
+  /startsWith\("\/\/"\)/.test(discordTs) && /startsWith\("\/\\\\"\)/.test(discordTs),
+);
 
 // ─── 2. usePublicConfig.ts — mọi nguồn client_id đều qua bộ lọc ──────────────
 const usePublicConfigTs = fs.readFileSync(path.join(ROOT, "src/lib/usePublicConfig.ts"), "utf8");
@@ -116,6 +122,53 @@ check(
   pick(BLOB, "123456789012345678") === "123456789012345678",
 );
 check("pick KHÔNG fallback về giá trị rác khi mọi ứng viên sai", pick(BLOB, "garbage") === "");
+
+// ─── 5. safeRedirectPath — chống open redirect (returnTo) ────────────────────
+// Tái tạo đúng logic production để test giá trị thật.
+function safeRedirect(raw, fallback = "/dashboard") {
+  if (typeof raw !== "string") return fallback;
+  const path = raw.trim();
+  if (!path.startsWith("/")) return fallback;
+  if (path.startsWith("//") || path.startsWith("/\\")) return fallback;
+  if (path.includes("\\")) return fallback;
+  return path;
+}
+
+check("đường dẫn nội bộ hợp lệ được giữ", safeRedirect("/dashboard/g/123") === "/dashboard/g/123");
+check(
+  "query string nội bộ được giữ",
+  safeRedirect("/dashboard?tab=heat") === "/dashboard?tab=heat",
+);
+check("//evil.com bị TỪ CHỐI (open redirect)", safeRedirect("//evil.com") === "/dashboard");
+check("//evil.com/ path bị TỪ CHỐI", safeRedirect("//evil.com/steal") === "/dashboard");
+check("/\\evil.com bị TỪ CHỐI (backslash)", safeRedirect("/\\evil.com") === "/dashboard");
+check("backslash trong path bị TỪ CHỐI", safeRedirect("/dash\\board") === "/dashboard");
+check(
+  "http://evil.com (không bắt đầu /) bị TỪ CHỐI",
+  safeRedirect("http://evil.com") === "/dashboard",
+);
+check("https://evil.com bị TỪ CHỐI", safeRedirect("https://evil.com") === "/dashboard");
+check("javascript:alert(1) bị TỪ CHỐI", safeRedirect("javascript:alert(1)") === "/dashboard");
+check("null → fallback", safeRedirect(null) === "/dashboard");
+check("undefined → fallback", safeRedirect(undefined) === "/dashboard");
+check("chuỗi rỗng → fallback", safeRedirect("") === "/dashboard");
+check("khoảng trắng 2 đầu bị trim", safeRedirect("  /dashboard  ") === "/dashboard");
+check("fallback tùy chỉnh được tôn trọng", safeRedirect("//evil.com", "/") === "/");
+
+// ─── 6. DiscordCallback dùng safeRedirectPath (không còn check startsWith thô) ─
+const callbackTsx = fs.readFileSync(path.join(ROOT, "src/pages/DiscordCallback.tsx"), "utf8");
+check(
+  "DiscordCallback dùng safeRedirectPath cho returnTo",
+  /safeRedirectPath\(returnTo\)/.test(callbackTsx),
+);
+check(
+  "DiscordCallback dùng safeRedirectPath cho silent return",
+  /safeRedirectPath\(sessionStorage\.getItem\("wio_silent_return"\)\)/.test(callbackTsx),
+);
+check(
+  "DiscordCallback KHÔNG còn check startsWith thô cho điều hướng",
+  !/navigate\(returnTo\.startsWith/.test(callbackTsx),
+);
 
 console.log(`\nKết quả OAuth client-id guard: ${pass} PASS, ${fail} FAIL`);
 process.exit(fail ? 1 : 0);

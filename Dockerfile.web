@@ -36,17 +36,33 @@ RUN bun run build
 
 # ── Giai đoạn 2: serve ─────────────────────────────────────────
 FROM nginx:1.27-alpine
-# SPA fallback: đường dẫn nào cũng trả index.html (React Router tự xử lý)
+# Security headers + CSP. Viết ra file riêng rồi `include` ở CẢ server lẫn
+# /assets/ vì nginx KHÔNG kế thừa add_header khi location có add_header riêng
+# (location /assets/ có Cache-Control → nếu không include lại sẽ mất hết header).
+# CSP: script-src chỉ 'self' (không inline script trong bundle Vite; thẻ
+# ld+json là data-block nên không bị chặn). style-src cần 'unsafe-inline' vì
+# thư viện UI (sonner/radix) chèn <style> runtime. connect-src mở cho Convex
+# (https + wss) và discord.com (luồng fallback trao đổi code OAuth phía client).
 RUN printf '%s\n' \
+  "add_header Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.convex.cloud wss://*.convex.cloud https://discord.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self'\" always;" \
+  "add_header X-Content-Type-Options \"nosniff\" always;" \
+  "add_header X-Frame-Options \"DENY\" always;" \
+  "add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;" \
+  "add_header Permissions-Policy \"geolocation=(), microphone=(), camera=(), payment=()\" always;" \
+  "add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;" \
+  > /etc/nginx/security-headers.conf \
+  && printf '%s\n' \
   "server {" \
   "  listen 80;" \
   "  server_name _;" \
   "  root /usr/share/nginx/html;" \
   "  index index.html;" \
+  "  include /etc/nginx/security-headers.conf;" \
   "  location / {" \
   "    try_files \$uri \$uri/ /index.html;" \
   "  }" \
   "  location /assets/ {" \
+  "    include /etc/nginx/security-headers.conf;" \
   "    expires 30d;" \
   "    add_header Cache-Control \"public, immutable\";" \
   "  }" \

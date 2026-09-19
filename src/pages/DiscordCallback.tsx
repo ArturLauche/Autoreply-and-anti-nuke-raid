@@ -12,6 +12,7 @@ import {
   SILENT_VERIFIER_KEY,
   exchangeCode,
   getSessionToken,
+  safeRedirectPath,
   setSessionToken,
   storeDiscordAccess,
 } from "../lib/discord";
@@ -71,7 +72,7 @@ export default function DiscordCallback() {
         sessionStorage.removeItem(SILENT_STATE_KEY);
         const silentVerifier = sessionStorage.getItem(SILENT_VERIFIER_KEY);
         sessionStorage.removeItem(SILENT_VERIFIER_KEY);
-        const silentReturn = sessionStorage.getItem("wio_silent_return") ?? "/dashboard";
+        const silentReturn = safeRedirectPath(sessionStorage.getItem("wio_silent_return"));
         sessionStorage.removeItem("wio_silent_return");
         async function runSilent() {
           if (oauthError || !code || !clientId || !silentVerifier) {
@@ -143,7 +144,7 @@ export default function DiscordCallback() {
         sessionStorage.removeItem(OAUTH_VERIFIER_KEY);
         sessionStorage.removeItem(OAUTH_STATE_KEY);
         sessionStorage.removeItem("wio_oauth_return");
-        navigate(returnTo.startsWith("/") ? returnTo : "/dashboard", { replace: true });
+        navigate(safeRedirectPath(returnTo), { replace: true });
       } catch (e) {
         setError(friendlyAuthError(e instanceof Error ? e.message : ""));
       }
