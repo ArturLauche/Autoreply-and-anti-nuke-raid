@@ -408,10 +408,46 @@ Ngoài ra `opencode.json` đã bật `autoupdate` (tự cập nhật OpenCode) v
 > trong OpenCode, hoặc đọc thẳng file. Lịch sử chỉ chứa metadata — không bao
 > giờ ghi nội dung tin nhắn hay secret.
 
+## Phần 5 — Freebuff CLI + Claude Fable 5.1 (súng lớn cho việc khó)
+
+Ngoài OpenCode + Kiira, VPS có thể cài thêm **Freebuff CLI** — coding agent cùng
+gia đình với nền tảng Freebuff Web, đang trial miễn phí model **Claude Fable 5.1**
+(Anthropic, dòng mạnh nhất, hỗ trợ đọc ảnh). Hai công cụ **không xung đột nhau**.
+
+### 5.1. Cài đặt
+
+```bash
+npm i -g freebuff          # cài CLI (npm có sẵn trên VPS)
+freebuff --version         # kiểm tra
+mkdir -p /root/freebuff-lab && cd /root/freebuff-lab   # sân chơi test — KHÔNG chạy trong repo production
+freebuff                   # lần đầu sẽ in link đăng nhập → mở trên điện thoại, đăng nhập tài khoản Freebuff
+```
+
+### 5.2. Vai trò trong hệ thống
+
+| Công cụ | Model | Dùng khi |
+|---|---|---|
+| OpenCode (chính) | DeepSeek v4.1 Flash qua Kiira | Việc hằng ngày — sửa bug, thêm tính năng, `/verify` |
+| Freebuff CLI | Claude Fable 5.1 (trial) | Việc khó thật sự — thiết kế kiến trúc, bug ma, refactor lớn |
+
+### 5.3. Quy tắc an toàn (bắt buộc)
+
+1. **Tuyệt đối không dán secret** (`.env`, bot token, `bot/.bot-key`, key Kiira)
+   vào chat Freebuff CLI — nội dung có thể được dùng để train AI (ghi rõ trong
+   sản phẩm). Đúng nguyên tắc điều khoản 1 trong `AGENTS.md`.
+2. **Chạy ở `/root/freebuff-lab` trước** cho quen hành vi; chưa chạy trong repo
+   bot production cho đến khi quen.
+3. Trial **giới hạn session mỗi user** — dùng có chọn lọc cho việc khó, không
+   đốt vào việc DeepSeek làm được.
+
+> Cả hai CLI đều đọc `AGENTS.md` trong repo khi chạy trong thư mục repo — hợp
+> đồng làm việc (5 pha, cấm secret, kiểm chứng xanh mới push) tự áp dụng.
+
 ## Xử lý sự cố
 
 | Triệu chứng | Nguyên nhân | Cách xử lý |
 |---|---|---|
+| `freebuff` không hiện link đăng nhập | CLI đợi xác thực ở chế độ khác | Chạy `freebuff login` (hoặc `freebuff --help` xem lệnh auth) rồi thử lại |
 | OpenCode không thấy model Kiira | Sai baseURL, ID model sai, hoặc model chưa khai trong `models` | Kiểm tra `opencode.json` — OpenCode chỉ hiện model đã khai báo; lấy đúng ID từ `curl https://kiraai.vn/api/v1/models` |
 | `git commit` bị từ chối trong OpenCode | File `~/.config/opencode/opencode.json` cũ chưa có rule `git add/commit: allow` | Merge lại từ `opencode.json` trong repo |
 | Gõ `t3` báo "command not found" | `~/.local/bin` chưa nằm trong PATH | `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc` |
