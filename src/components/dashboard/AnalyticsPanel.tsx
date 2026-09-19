@@ -13,12 +13,12 @@ const MODULE_COLORS: Record<string, string> = {
   massBan: "bg-foreground",
   massKick: "bg-foreground/80",
   massChannelCreate: "bg-foreground/60",
-  massChannelDelete: "bg-foreground/60",
-  massRoleCreate: "bg-purple-500",
-  massRoleDelete: "bg-purple-600",
+  massChannelDelete: "bg-foreground/50",
+  massRoleCreate: "bg-foreground/70",
+  massRoleDelete: "bg-foreground/55",
   spam: "bg-foreground/40",
   raid: "bg-foreground",
-  externalAppRaid: "bg-foreground/80",
+  externalAppRaid: "bg-foreground/85",
 };
 
 const MODULE_LABELS: Record<string, string> = {
@@ -164,14 +164,16 @@ export default function AnalyticsPanel({ token, guildId }: AnalyticsPanelProps) 
                     style={{
                       width: `${h.heat}px`,
                       minWidth: "4px",
+                      // Thang xám theo độ đậm; chỉ mức nguy hiểm cao nhất dùng
+                      // --danger (token đỏ dành cho trạng thái phạt, không phải trang trí)
                       backgroundColor:
                         h.heat > 70
-                          ? "#ef4444"
+                          ? "hsl(var(--danger))"
                           : h.heat > 40
-                            ? "#f97316"
+                            ? "hsl(var(--foreground))"
                             : h.heat > 25
-                              ? "#eab308"
-                              : "#22c55e",
+                              ? "hsl(var(--muted-foreground))"
+                              : "hsl(var(--border))",
                     }}
                   />
                   <span className="text-xs font-mono">{h.heat}</span>

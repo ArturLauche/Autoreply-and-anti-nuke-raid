@@ -94,7 +94,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
       });
       toast.success(
         slot === "bot"
-          ? "Đã đổi avatar bot — áp dụng toàn web 🎨"
+          ? "Đã đổi avatar bot — áp dụng toàn web"
           : "Đã đổi avatar Haimiya — áp dụng toàn web 🎀",
       );
       setUrls((u) => ({ ...u, [slot]: "" }));
@@ -119,7 +119,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
         guildId,
         ...(slot === "bot" ? { botAvatarUrl: value } : { haimiyaAvatarUrl: value }),
       });
-      toast.success("Đã lưu ảnh mới — áp dụng toàn web 🎨");
+      toast.success("Đã lưu ảnh mới — áp dụng toàn web");
       setUrls((u) => ({ ...u, [slot]: "" }));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Lưu thất bại");
@@ -152,7 +152,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="flex items-center gap-2 font-display font-semibold">
-              <Palette className="h-4 w-4 text-primary" /> Tùy chỉnh giao diện bot 🎨
+              <Palette className="h-4 w-4 text-primary" /> Tùy chỉnh giao diện bot
             </h3>
             <p className="text-sm text-muted-foreground">
               Đổi avatar bot & trợ lý AI ngay từ web — chỉ admin sở hữu bot được phép.

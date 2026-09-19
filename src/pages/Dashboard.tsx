@@ -89,7 +89,7 @@ export default function Dashboard() {
     const silent = params.get("silent");
     if (silent) {
       if (silent === "ok") {
-        toast.success("Đã làm mới danh sách server 🌸");
+        toast.success("Đã làm mới danh sách server");
       } else {
         toast.error("Không thể làm mới tự động — hãy thử nút Tải lại hoặc Đăng nhập lại.");
       }
@@ -162,7 +162,7 @@ export default function Dashboard() {
 
         <main className="container py-10">
           <div className="mb-8">
-            <h1 className="font-display text-3xl font-bold tracking-tight">Bảng điều khiển 🌸</h1>
+            <h1 className="font-display text-3xl font-bold tracking-tight">Bảng điều khiển</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Chọn server để cấu hình auto reply, nhiệt độ, Join Gate, chống nuke và các module bảo
               vệ.

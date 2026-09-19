@@ -4,23 +4,26 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 active:scale-[0.98]",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90",
+        /* Vercel: nút chính = đen phẳng, hover là 1 bậc xám hơn — không bóng,
+           không scale animation. */
+        default: "bg-primary text-primary-foreground hover:bg-primary/85",
         secondary:
-          "border border-border bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        outline: "border border-border bg-transparent hover:bg-accent hover:text-accent-foreground",
-        destructive: "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
-        danger: "bg-danger text-danger-foreground shadow-sm hover:bg-danger/90",
+          "border border-border bg-secondary text-secondary-foreground hover:bg-secondary/70",
+        ghost: "text-foreground hover:bg-accent hover:text-accent-foreground",
+        outline:
+          "border border-border bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        danger: "bg-danger text-danger-foreground hover:bg-danger/90",
       },
       size: {
-        default: "h-10 px-4 py-2",
+        default: "h-9 px-4 py-2",
         sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-12 rounded-xl px-8 text-base",
-        icon: "h-10 w-10",
+        lg: "h-11 rounded-md px-8 text-base",
+        icon: "h-9 w-9",
         "icon-sm": "h-8 w-8",
       },
     },

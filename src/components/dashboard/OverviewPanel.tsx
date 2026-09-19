@@ -228,7 +228,7 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
 
       <Card>
         <CardContent className="p-5">
-          <h3 className="font-display font-semibold">Ghi chú nhanh 🌸</h3>
+          <h3 className="font-display font-semibold">Ghi chú nhanh</h3>
           <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
             <li className="flex gap-2">
               <span className="text-primary">•</span>

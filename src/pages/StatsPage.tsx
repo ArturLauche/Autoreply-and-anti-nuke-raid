@@ -186,7 +186,7 @@ export default function StatsPage() {
                       <Trophy className="h-6 w-6" />
                     </span>
                     <p className="max-w-sm text-sm text-muted-foreground">
-                      Không ai đang nóng đầu cả — server đang rất bình yên! 🌸
+                      Không ai đang nóng đầu cả — server đang rất bình yên.
                     </p>
                   </div>
                 ) : (
