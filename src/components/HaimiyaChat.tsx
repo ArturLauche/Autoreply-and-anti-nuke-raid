@@ -408,7 +408,9 @@ export default function HaimiyaChat({
             <span className="relative inline-flex h-3 w-3 rounded-full border-2 border-primary bg-white" />
           </span>
         </span>
-        <span className="hidden pr-2 text-sm font-bold text-primary-foreground sm:block">Haimiya</span>
+        <span className="hidden pr-2 text-sm font-bold text-primary-foreground sm:block">
+          Haimiya
+        </span>
       </button>
 
       {/* Cửa sổ chat */}
@@ -433,7 +435,9 @@ export default function HaimiyaChat({
               <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-secondary bg-foreground" />
             </div>
             <div className="flex-1">
-              <p className="font-display text-sm font-bold leading-tight text-foreground">Haimiya</p>
+              <p className="font-display text-sm font-bold leading-tight text-foreground">
+                Haimiya
+              </p>
               <p className="text-[11px] font-medium text-[#5c1533]">
                 Trợ lý ảo của Protogon — giải đáp về bot, nhiệt độ, tính năng ẩn
               </p>
@@ -523,7 +527,11 @@ export default function HaimiyaChat({
                 .catch((err) =>
                   setMessages((m) => [
                     ...m,
-                    { id: nextMsgId(), role: "haimiya", text: `⚠️ ${err?.message ?? "Không đọc được file"}` },
+                    {
+                      id: nextMsgId(),
+                      role: "haimiya",
+                      text: `⚠️ ${err?.message ?? "Không đọc được file"}`,
+                    },
                   ]),
                 );
             }}

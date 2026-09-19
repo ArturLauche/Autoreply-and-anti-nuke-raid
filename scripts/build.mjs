@@ -12,8 +12,7 @@ import { spawnSync } from "node:child_process";
 // (base64 "{\"v\":\"v2\",...}") → bundle mang giá trị rác → URL đăng nhập
 // Discord bị từ chối “Invalid Form Body” ngay trang Discord. Giá trị sai bị bỏ
 // qua để runtime fallback về Convex (botApplicationId) thay vì phá nút đăng nhập.
-const rawClientId =
-  process.env.VITE_DISCORD_CLIENT_ID || process.env.DISCORD_CLIENT_ID || "";
+const rawClientId = process.env.VITE_DISCORD_CLIENT_ID || process.env.DISCORD_CLIENT_ID || "";
 const trimmedClientId = rawClientId.trim();
 if (rawClientId && !/^\d{15,21}$/.test(trimmedClientId)) {
   console.warn(

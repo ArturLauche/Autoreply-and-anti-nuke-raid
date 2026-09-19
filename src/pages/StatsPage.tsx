@@ -41,9 +41,7 @@ const MEDAL = ["1", "2", "3"];
 export default function StatsPage() {
   const token = getSessionToken();
   const me = useQuery(api.sessions.me, token ? ({ token } as { token: string }) : "skip") as
-    | MeData
-    | null
-    | undefined;
+    MeData | null | undefined;
   const [guildId, setGuildId] = useState("");
   const managed = me?.guilds ?? [];
 
@@ -54,7 +52,9 @@ export default function StatsPage() {
 
   const rows = useQuery(
     api.reports.heatLeaderboard,
-    token && guildId ? ({ token, guildId, limit: 10 } as { token: string; guildId: string; limit: number }) : "skip",
+    token && guildId
+      ? ({ token, guildId, limit: 10 } as { token: string; guildId: string; limit: number })
+      : "skip",
   ) as HeatRow[] | null | undefined;
 
   const selected = managed.find((g) => g.discordId === guildId);
@@ -80,7 +80,7 @@ export default function StatsPage() {
 
   return (
     <div className="relative min-h-screen">
-            <div className="relative z-10">
+      <div className="relative z-10">
         <header className="border-b border-border/60 bg-white/60 backdrop-blur">
           <div className="container py-6">
             <div className="flex flex-wrap items-center gap-4">
@@ -162,7 +162,9 @@ export default function StatsPage() {
                   <div className="flex items-center gap-2">
                     {selected?.icon && (
                       <img
-                        src={discordGuildIconUrl({ id: selected.discordId, icon: selected.icon }) ?? ""}
+                        src={
+                          discordGuildIconUrl({ id: selected.discordId, icon: selected.icon }) ?? ""
+                        }
                         alt=""
                         className="h-6 w-6 rounded-md"
                       />
@@ -224,8 +226,12 @@ export default function StatsPage() {
                             </div>
                           </div>
                           <div className="shrink-0 text-right">
-                            <p className="font-mono text-sm font-semibold tabular-nums">{r.heat}/100</p>
-                            <p className="text-[11px] text-muted-foreground">{timeAgo(r.updatedAt)}</p>
+                            <p className="font-mono text-sm font-semibold tabular-nums">
+                              {r.heat}/100
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {timeAgo(r.updatedAt)}
+                            </p>
                           </div>
                         </li>
                       );

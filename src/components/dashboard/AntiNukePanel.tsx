@@ -503,7 +503,9 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                         </Badge>
                       )}
                       {s.suspectedSourceName && (
-                        <span className={s.banned ? "text-danger font-semibold" : "text-foreground"}>
+                        <span
+                          className={s.banned ? "text-danger font-semibold" : "text-foreground"}
+                        >
                           {s.banned
                             ? `🎯 đã ban nguồn cơn: ${s.suspectedSourceName}`
                             : `nghi: ${s.suspectedSourceName}`}

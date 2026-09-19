@@ -8,19 +8,27 @@
 // Lấy cảm hứng từ cơ chế Keys/Environment của Freebuff: agent không bao giờ tự
 // đọc được giá trị secret — cần thì phải hỏi người dùng.
 
-const SECRET_HINTS = [
-  ".env",
-  ".bot-key",
-  "auth.json",
-  "id_rsa",
-  "credentials.json",
-];
+const SECRET_HINTS = [".env", ".bot-key", "auth.json", "id_rsa", "credentials.json"];
 
 function looksLikeSecretAccess(command) {
   const cmd = command.toLowerCase();
   // Đọc trực tiếp file secret qua cat/less/tail/head/grep/xxod…
   if (SECRET_HINTS.some((hint) => cmd.includes(hint))) {
-    const readers = ["cat ", "less ", "more ", "head ", "tail ", "grep ", "rg ", "xxd", "base64 ", "strings ", "print ", "source ", ". "];
+    const readers = [
+      "cat ",
+      "less ",
+      "more ",
+      "head ",
+      "tail ",
+      "grep ",
+      "rg ",
+      "xxd",
+      "base64 ",
+      "strings ",
+      "print ",
+      "source ",
+      ". ",
+    ];
     if (readers.some((r) => cmd.includes(r))) return true;
     // Redirect nội dung secret ra ngoài: `cp .env`, `< .env`, `$(< .env)`
     if (cmd.includes("cp ") || cmd.includes("< ") || cmd.includes("$(")) return true;

@@ -65,7 +65,7 @@ function AdminContent() {
 
   return (
     <div className="relative min-h-screen">
-            <div className="relative z-10">
+      <div className="relative z-10">
         <header className="border-b border-border/60 bg-background/70 backdrop-blur">
           <div className="container flex items-center gap-3 py-5">
             <Link
@@ -577,7 +577,9 @@ function ThreatIntelCard({
                   · {r.trigger === "manual" ? "🖐️" : "⏱️"}
                   {r.requestedBy ? ` ${r.requestedBy}` : ""}
                 </span>
-                <span className="font-medium">                  <b className="text-foreground">+{r.newKeywords}</b> từ khóa{""}
+                <span className="font-medium">
+                  {" "}
+                  <b className="text-foreground">+{r.newKeywords}</b> từ khóa{""}
                   {r.aiUsed && <span title="AI tổng hợp (Mimo V2.5)">🧠</span>} · nhớ{" "}
                   {r.totalKeywords}
                 </span>

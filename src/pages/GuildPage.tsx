@@ -139,7 +139,7 @@ export default function GuildPage() {
 
   return (
     <div className="relative min-h-screen overflow-x-clip" style={themeVars}>
-            <HaimiyaChat position="dashboard" />
+      <HaimiyaChat position="dashboard" />
       <div className="relative z-10">
         <header className="border-b border-border/60 bg-background/70 backdrop-blur">
           <div className="container py-4 sm:py-6">
@@ -279,40 +279,40 @@ export default function GuildPage() {
             <div>
               <PanelErrorBoundary key={section}>
                 <Suspense fallback={<PanelFallback />}>
-                {section === "overview" && <OverviewPanel data={data} />}
-                {section === "automod" && <AutoModPanel data={data} />}
-                {section === "moderation" && <ModerationPanel data={data} />}
-                {section === "joingate" && <JoinGatePanel data={data} />}
-                {section === "altdetect" && <AltDetectionPanel data={data} />}
-                {section === "antinuke" && <AntiNukePanel data={data} />}
-                {section === "externalapp" && <ExternalAppRaidsPanel data={data} />}
-                {section === "whitelist" && <WhitelistPanel data={data} />}
-                {section === "backup" && <BackupPanel data={data} />}
-                {section === "punishments" && <ModActionsPanel data={data} />}
-                {section === "verify" && <VerifyPanel data={data} />}
-                {section === "webhooks" && <WebhookPanel data={data} />}
-                {section === "settings" && <SettingsPanel data={data} />}
-                {section === "hidden" &&
-                  (!data.guild.isBotOwner || (data.guild.hiddenPasswordSet && !hiddenUnlocked) ? (
-                    <UnlockPanel data={data} onUnlocked={() => setHiddenUnlocked(true)} />
-                  ) : (
-                    <>
-                      {data.guild.hiddenPasswordSet && (
-                        <div className="mb-4 flex justify-end">
-                          <button
-                            onClick={() => {
-                              sessionStorage.removeItem(hiddenUnlockKey(data.guild.discordId));
-                              setHiddenUnlocked(false);
-                            }}
-                            className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                          >
-                            <Lock className="h-3.5 w-3.5" /> Khóa lại
-                          </button>
-                        </div>
-                      )}
-                      <HiddenPanel data={data} />
-                    </>
-                  ))}
+                  {section === "overview" && <OverviewPanel data={data} />}
+                  {section === "automod" && <AutoModPanel data={data} />}
+                  {section === "moderation" && <ModerationPanel data={data} />}
+                  {section === "joingate" && <JoinGatePanel data={data} />}
+                  {section === "altdetect" && <AltDetectionPanel data={data} />}
+                  {section === "antinuke" && <AntiNukePanel data={data} />}
+                  {section === "externalapp" && <ExternalAppRaidsPanel data={data} />}
+                  {section === "whitelist" && <WhitelistPanel data={data} />}
+                  {section === "backup" && <BackupPanel data={data} />}
+                  {section === "punishments" && <ModActionsPanel data={data} />}
+                  {section === "verify" && <VerifyPanel data={data} />}
+                  {section === "webhooks" && <WebhookPanel data={data} />}
+                  {section === "settings" && <SettingsPanel data={data} />}
+                  {section === "hidden" &&
+                    (!data.guild.isBotOwner || (data.guild.hiddenPasswordSet && !hiddenUnlocked) ? (
+                      <UnlockPanel data={data} onUnlocked={() => setHiddenUnlocked(true)} />
+                    ) : (
+                      <>
+                        {data.guild.hiddenPasswordSet && (
+                          <div className="mb-4 flex justify-end">
+                            <button
+                              onClick={() => {
+                                sessionStorage.removeItem(hiddenUnlockKey(data.guild.discordId));
+                                setHiddenUnlocked(false);
+                              }}
+                              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                            >
+                              <Lock className="h-3.5 w-3.5" /> Khóa lại
+                            </button>
+                          </div>
+                        )}
+                        <HiddenPanel data={data} />
+                      </>
+                    ))}
                 </Suspense>
               </PanelErrorBoundary>
 

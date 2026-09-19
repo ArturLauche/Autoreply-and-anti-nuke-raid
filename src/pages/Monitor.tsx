@@ -67,7 +67,7 @@ export default function Monitor() {
 
   return (
     <div className="relative min-h-screen">
-            <div className="relative z-10">
+      <div className="relative z-10">
         <header className="border-b border-border/60 bg-background/70 backdrop-blur">
           <div className="container flex items-center gap-3 py-5">
             <Link
@@ -168,7 +168,9 @@ export default function Monitor() {
                 <div className="mt-3">
                   <LatencyChart samples={history} />
                 </div>
-                <p className="mt-2 text-[11px] text-muted-foreground">                  Đánh giá: <b className="text-foreground">Nhanh</b> (&lt; 300ms) ·{""}
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  {" "}
+                  Đánh giá: <b className="text-foreground">Nhanh</b> (&lt; 300ms) ·{""}
                   <b className="text-foreground">Trung bình</b> (300–800ms) ·{""}
                   <b className="text-danger">Chậm</b> (&gt; 800ms) ·{""}
                   <b className="text-danger">Sự cố</b> (&gt; 1200ms)

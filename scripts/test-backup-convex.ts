@@ -300,14 +300,8 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
     const listed = await listGuildHandler(ctx as any, { guildId: "g1", botKey: BOT_KEY });
     check("listGuild (lệnh chat) KHÔNG lộ backupJson", (listed[0] as any).backupJson === undefined);
     const audited = await auditHandler(ctx as any, { guildId: "g1", botKey: BOT_KEY });
-    check(
-      "botAuditBackups trả kèm backupJson",
-      (audited[0] as any).backupJson === "z:abc",
-    );
-    check(
-      "botAuditBackups trả kèm backupChecksum",
-      (audited[0] as any).backupChecksum === "cs-1",
-    );
+    check("botAuditBackups trả kèm backupJson", (audited[0] as any).backupJson === "z:abc");
+    check("botAuditBackups trả kèm backupChecksum", (audited[0] as any).backupChecksum === "cs-1");
     let auditThrew = "";
     try {
       await auditHandler(ctx as any, { guildId: "g1", botKey: computeBotKey("sai") });

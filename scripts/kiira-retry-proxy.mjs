@@ -122,7 +122,8 @@ function retryAfterMs(res) {
   const raw = res.headers.get("retry-after");
   if (!raw) return null;
   const seconds = Number(raw);
-  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(MAX_BACKOFF_MS, Math.round(seconds * 1000));
+  if (Number.isFinite(seconds) && seconds >= 0)
+    return Math.min(MAX_BACKOFF_MS, Math.round(seconds * 1000));
   const at = Date.parse(raw);
   if (!Number.isNaN(at)) return Math.min(MAX_BACKOFF_MS, Math.max(0, at - Date.now()));
   return null;
@@ -251,7 +252,10 @@ async function handle(req) {
   const gate = breakerAllows();
   if (!gate.allowed) {
     return Response.json(
-      { error: "kiira-retry-proxy: gateway đang được ngắt mạch tạm thời", retryAfterMs: BREAKER_MS },
+      {
+        error: "kiira-retry-proxy: gateway đang được ngắt mạch tạm thời",
+        retryAfterMs: BREAKER_MS,
+      },
       { status: 503, headers: { "retry-after": String(Math.ceil(BREAKER_MS / 1000)) } },
     );
   }
@@ -303,7 +307,10 @@ async function handle(req) {
         lastError = new Error(`upstream ${res.status}`);
         lastStatus = res.status;
         breakerFailure();
-        const waitMs = Math.min(retryAfterMs(res) ?? backoffMs(attempt), Math.max(0, deadline - now()));
+        const waitMs = Math.min(
+          retryAfterMs(res) ?? backoffMs(attempt),
+          Math.max(0, deadline - now()),
+        );
         console.log(
           `[kiira-retry-proxy] ${req.method} ${upstreamPath}: upstream ${res.status} → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`,
         );
@@ -340,7 +347,10 @@ async function handle(req) {
       }
       if (first.done) return new Response(null, { status: res.status, headers: res.headers });
       // Đã có chunk đầu — stream phần còn lại, idle watchdog canh giữa chừng.
-      return new Response(continueStream(reader, first.value), { status: res.status, headers: res.headers });
+      return new Response(continueStream(reader, first.value), {
+        status: res.status,
+        headers: res.headers,
+      });
     } catch (err) {
       clearTimeout(firstByteTimer);
       // Client đã ngắt — không còn ai nhận kết quả, dừng ngay, không thử nữa.
@@ -351,7 +361,8 @@ async function handle(req) {
       lastError = err;
       breakerFailure();
       if (attempt < RETRIES) {
-        const label = err?.message === "chờ phản hồi đầu quá hạn" ? "chờ phản hồi đầu quá hạn" : "mất kết nối";
+        const label =
+          err?.message === "chờ phản hồi đầu quá hạn" ? "chờ phản hồi đầu quá hạn" : "mất kết nối";
         const waitMs = Math.min(backoffMs(attempt), Math.max(0, deadline - now()));
         console.log(
           `[kiira-retry-proxy] ${req.method} ${upstreamPath}: ${label} → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`,

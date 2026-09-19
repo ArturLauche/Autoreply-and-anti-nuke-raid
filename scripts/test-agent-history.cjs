@@ -40,22 +40,30 @@ function check(label, cond) {
 // ─── 1. Plugin tồn tại + khai báo đúng hook ─────────────────────────────────
 const pluginSrc = fs.readFileSync(PLUGIN, "utf8");
 
-check("plugin tồn tại đúng thư mục auto-load (.opencode/plugins)",
-  fs.existsSync(PLUGIN));
-check("plugin đăng ký hook `event` (nghe session.created/idle/error)",
-  /event:\s*async\s*\(\{\s*event\s*\}\)/.test(pluginSrc));
-check("plugin nghe đủ 3 sự kiện created/idle/error",
+check("plugin tồn tại đúng thư mục auto-load (.opencode/plugins)", fs.existsSync(PLUGIN));
+check(
+  "plugin đăng ký hook `event` (nghe session.created/idle/error)",
+  /event:\s*async\s*\(\{\s*event\s*\}\)/.test(pluginSrc),
+);
+check(
+  "plugin nghe đủ 3 sự kiện created/idle/error",
   pluginSrc.includes('"session.created"') &&
-  pluginSrc.includes('"session.idle"') &&
-  pluginSrc.includes('"session.error"'));
-check("lỗi ghi/dọn bị nuốt (không được làm rớt phiên)",
-  /catch/.test(pluginSrc) && pluginSrc.includes("best-effort"));
-check("lệnh /history tồn tại kèm mô tả",
-  fs.existsSync(COMMAND) && fs.readFileSync(COMMAND, "utf8").includes("description:"));
+    pluginSrc.includes('"session.idle"') &&
+    pluginSrc.includes('"session.error"'),
+);
+check(
+  "lỗi ghi/dọn bị nuốt (không được làm rớt phiên)",
+  /catch/.test(pluginSrc) && pluginSrc.includes("best-effort"),
+);
+check(
+  "lệnh /history tồn tại kèm mô tả",
+  fs.existsSync(COMMAND) && fs.readFileSync(COMMAND, "utf8").includes("description:"),
+);
 
 // ─── 2. Logic TTL/dọn — tái tạo độc lập và đối chiếu hành vi ────────────────
 function pruneLikePlugin(raw, ttlDays, now) {
-  if (!Number.isFinite(ttlDays) || ttlDays <= 0) return { kept: raw.split("\n").filter(Boolean), pruned: 0 };
+  if (!Number.isFinite(ttlDays) || ttlDays <= 0)
+    return { kept: raw.split("\n").filter(Boolean), pruned: 0 };
   const cutoff = now - ttlDays * 24 * 60 * 60 * 1000;
   const kept = [];
   let pruned = 0;
@@ -74,7 +82,8 @@ function pruneLikePlugin(raw, ttlDays, now) {
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = 1_800_000_000_000;
-const mk = (at, i) => JSON.stringify({ at, event: "created", sessionId: `ses_${i}`, title: `phiên ${i}` });
+const mk = (at, i) =>
+  JSON.stringify({ at, event: "created", sessionId: `ses_${i}`, title: `phiên ${i}` });
 const FRESH = [mk(NOW, 1), mk(NOW - 3 * DAY, 2)];
 const OLD = [mk(NOW - 20 * DAY, 3), mk(NOW - 30 * DAY, 4)];
 
@@ -95,34 +104,49 @@ const r5 = pruneLikePlugin("", 14, NOW);
 check("hộp trống → không lỗi, không dọn", r5.pruned === 0 && r5.kept.length === 0);
 
 // ─── 3. An toàn: hộp lịch sử chỉ chứa metadata, không chứa secret ───────────
-check("plugin không ghi giá trị env/biến môi trường vào lịch sử",
-  !/process\.env\.[A-Z_]*(KEY|TOKEN|SECRET|PASSWORD)/.test(pluginSrc.replace(/AGENT_HISTORY_TTL_DAYS/g, "")));
+check(
+  "plugin không ghi giá trị env/biến môi trường vào lịch sử",
+  !/process\.env\.[A-Z_]*(KEY|TOKEN|SECRET|PASSWORD)/.test(
+    pluginSrc.replace(/AGENT_HISTORY_TTL_DAYS/g, ""),
+  ),
+);
 // .env/.bot-key chỉ bị cấm với tư cách TÊN FILE (đứng sau quote/slash/khoảng
 // trắng) — `process.env.TÊN_BIẾN` là truy cập biến môi trường bình thường,
 // plugin cần nó để đọc TTL và không phải vi phạm.
-check("plugin không đọc/ghi file .env/.bot-key",
-  !/(["'\s/])\.env(["'\s]|$)/.test(pluginSrc) &&
-  !pluginSrc.includes(".bot-key"));
+check(
+  "plugin không đọc/ghi file .env/.bot-key",
+  !/(["'\s/])\.env(["'\s]|$)/.test(pluginSrc) && !pluginSrc.includes(".bot-key"),
+);
 
 // ─── 3b. Khóa bản vá 18/09: ghi lịch sử bằng fs API, KHÔNG dùng shell redirect
 // Bun Shell không có .redirection() — dùng nó là TypeError khi ghi, lịch sử
 // mất im lặng (bug thật đã xác minh bằng harness Bun).
-check("không gọi .redirection() (không tồn tại trong Bun Shell)",
+check(
+  "không gọi .redirection() (không tồn tại trong Bun Shell)",
   // bắt lệnh gọi thật: .redirection( đứng sau dấu chấm ở vị trí code (không phải
   // sau // hoặc chữ trong comment) — đủ chặn hồi quy, chấp nhận chữ trong chú thích
-  !/[^/]\.redirection\(/.test(pluginSrc.replace(/\/\/[^\n]*/g, "")));
+  !/[^/]\.redirection\(/.test(pluginSrc.replace(/\/\/[^\n]*/g, "")),
+);
 check("ghi nối tiếp bằng fs.appendFileSync", pluginSrc.includes("fs.appendFileSync"));
-check("mkdir recursive trước khi ghi (thư mục history chưa có cũng chạy)",
-  pluginSrc.includes("mkdirSync"));
-check("plugin chỉ ghi trường metadata cho phép (at/event/sessionId/title/directory/error)",
-  !/"(?:content|message|prompt|diff|output)"/.test(pluginSrc.replace(/"error"/g, "")));
-check("nội dung error bị cắt ngắn (300 ký tự) — tránh nhét cả stack/log dài",
-  /slice\(0,\s*300\)/.test(pluginSrc));
+check(
+  "mkdir recursive trước khi ghi (thư mục history chưa có cũng chạy)",
+  pluginSrc.includes("mkdirSync"),
+);
+check(
+  "plugin chỉ ghi trường metadata cho phép (at/event/sessionId/title/directory/error)",
+  !/"(?:content|message|prompt|diff|output)"/.test(pluginSrc.replace(/"error"/g, "")),
+);
+check(
+  "nội dung error bị cắt ngắn (300 ký tự) — tránh nhét cả stack/log dài",
+  /slice\(0,\s*300\)/.test(pluginSrc),
+);
 
 // ─── 4. Config TTL mặc định được khai báo trong opencode.json ───────────────
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "opencode.json"), "utf8"));
-check("opencode.json đặt AGENT_HISTORY_TTL_DAYS mặc định 14",
-  cfg.env && cfg.env.AGENT_HISTORY_TTL_DAYS === "14");
+check(
+  "opencode.json đặt AGENT_HISTORY_TTL_DAYS mặc định 14",
+  cfg.env && cfg.env.AGENT_HISTORY_TTL_DAYS === "14",
+);
 
 // ─── Tổng kết ────────────────────────────────────────────────────────────────
 console.log(`\nKết quả agent-history: ${pass} PASS, ${fail} FAIL`);

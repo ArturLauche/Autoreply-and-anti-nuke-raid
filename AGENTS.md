@@ -9,12 +9,12 @@
 
 ## 0. Nhận diện công việc trước khi làm
 
-| Thành phần | Vị trí | Công nghệ |
-|---|---|---|
-| Bot Discord | `bot/` | discord.js, CommonJS, chạy Bun trên VPS |
-| Dashboard web | `src/` | React + Vite + Tailwind + shadcn/ui (TypeScript) |
-| Backend/DB | `convex/` | Convex functions (TypeScript) |
-| Test | `scripts/test-*.cjs` (CommonJS), `scripts/test-*.ts` (Convex) | node:test |
+| Thành phần    | Vị trí                                                        | Công nghệ                                        |
+| ------------- | ------------------------------------------------------------- | ------------------------------------------------ |
+| Bot Discord   | `bot/`                                                        | discord.js, CommonJS, chạy Bun trên VPS          |
+| Dashboard web | `src/`                                                        | React + Vite + Tailwind + shadcn/ui (TypeScript) |
+| Backend/DB    | `convex/`                                                     | Convex functions (TypeScript)                    |
+| Test          | `scripts/test-*.cjs` (CommonJS), `scripts/test-*.ts` (Convex) | node:test                                        |
 
 Khi nhận việc, **tự phân loại** rồi đi đúng nhánh:
 
@@ -74,7 +74,7 @@ Các lệnh kiểm chứng đã được allow sẵn trong `opencode.json` — c
 1. Báo cáo ngắn gọn, cấu trúc: **đã làm gì → kiểm chứng gì, kết quả số → việc còn lại
    (nếu có)**. Không viết văn dài; bảng khi so sánh nhiều mục.
 2. `git add` **chọn lọc đúng file thuộc việc này** + `git commit`:
-   - Message **tiếng Việt**, dòng đầu ≤72 ký tự, nói rõ *vì sao* thay vì liệt kê máy móc
+   - Message **tiếng Việt**, dòng đầu ≤72 ký tự, nói rõ _vì sao_ thay vì liệt kê máy móc
    - Footer bắt buộc: `🤖 Generated with OpenCode`
 3. **Push sau khi báo cáo** — kiểm chứng xanh rồi mới đẩy: `git push origin main`.
    Lỗi xác thực/thiếu quyền → in lệnh, nhờ người dùng tự chạy (Freebuff quản
@@ -93,7 +93,7 @@ Các lệnh kiểm chứng đã được allow sẵn trong `opencode.json` — c
    chưa push. Gặp lỗi xác thực khi push → in lệnh cho người dùng tự chạy,
    không tìm lối tắt quanh credentials.
 3. **Không tắt/dời process production**: `pm2 kill`, `kill` PID lạ, `systemctl
-   stop/restart` dịch vụ khác. **Ngoại lệ duy nhất — hạ tầng AI của chính agent**:
+stop/restart` dịch vụ khác. **Ngoại lệ duy nhất — hạ tầng AI của chính agent**:
    sau khi sửa `scripts/kiira-retry-proxy.mjs` (hoặc unit file), agent ĐƯỢC tự
    `systemctl restart kiira-retry-proxy` rồi BẮT BUỘC health check
    `curl http://127.0.0.1:8787/__health` — thấy `"ok":true` mới coi là xong.
@@ -140,4 +140,4 @@ sh ./scripts/setup-vps-agent.sh   # cài lại môi trường + OpenCode trên V
 
 ---
 
-*Tài liệu này là hợp đồng: đổi nó phải có lý do chính đáng và ghi rõ trong commit message.*
+_Tài liệu này là hợp đồng: đổi nó phải có lý do chính đáng và ghi rõ trong commit message._

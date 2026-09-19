@@ -31,7 +31,13 @@ function FooterOwner() {
 }
 
 /** Footer landing — liên kết cộng đồng + thông tin chủ bot. */
-export default function Footer({ discordInvite, facebookUrl }: { discordInvite: string; facebookUrl: string }) {
+export default function Footer({
+  discordInvite,
+  facebookUrl,
+}: {
+  discordInvite: string;
+  facebookUrl: string;
+}) {
   return (
     <footer className="border-t border-border py-10">
       <div className="container">

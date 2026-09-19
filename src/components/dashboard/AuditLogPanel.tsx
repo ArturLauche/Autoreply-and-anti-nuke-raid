@@ -74,7 +74,9 @@ export default function AuditLogPanel({ token, guildId }: AuditLogPanelProps) {
                     <ArrowRight className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
                   )}
                   {log.newValue && (
-                    <span className="font-medium text-foreground max-w-[200px] truncate">{log.newValue}</span>
+                    <span className="font-medium text-foreground max-w-[200px] truncate">
+                      {log.newValue}
+                    </span>
                   )}
                 </div>
               )}

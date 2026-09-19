@@ -181,10 +181,7 @@ const check = (label, ok) => {
   // botSetBackupGithub là mutation bảo mật cao (requireBotKeyStrict). Không
   // chuyển tiếp botKey → gist tạo thành công nhưng URL không lưu, dashboard báo
   // "GitHub thất bại" oan.
-  const ghSrc = fs.readFileSync(
-    path.join(__dirname, "..", "convex", "backup_github.ts"),
-    "utf8",
-  );
+  const ghSrc = fs.readFileSync(path.join(__dirname, "..", "convex", "backup_github.ts"), "utf8");
   const runMutationBlock = ghSrc.slice(ghSrc.indexOf("botSetBackupGithub"));
   check(
     "githubPush chuyển tiếp botKey vào botSetBackupGithub",

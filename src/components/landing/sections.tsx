@@ -29,7 +29,10 @@ import { DashboardCta, SafeHaimiyaAvatar, fadeUp, stagger } from "./shared";
 function HeatBar({ value, color }: { value: number; color: string }) {
   return (
     <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-      <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${value}%` }} />
+      <div
+        className={`h-full rounded-full transition-all ${color}`}
+        style={{ width: `${value}%` }}
+      />
     </div>
   );
 }
@@ -199,15 +202,20 @@ export function HiddenFeatures() {
             Ngoài những gì bạn thấy, Protogon còn giữ riêng một khu vực quyền lực chỉ chủ sở hữu bot
             mở khóa được bằng mật khẩu bí mật — ngay trong dashboard, không cần cài thêm gì.
           </motion.p>
-          <motion.div variants={fadeUp} className="mt-6 flex flex-wrap items-center justify-center gap-2">
-            {["Chỉ dành chủ sở hữu bot", "Mở khóa bằng mật khẩu", "Được bảo vệ chặt chẽ"].map((t) => (
-              <span
-                key={t}
-                className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1 text-xs text-muted-foreground"
-              >
-                {t}
-              </span>
-            ))}
+          <motion.div
+            variants={fadeUp}
+            className="mt-6 flex flex-wrap items-center justify-center gap-2"
+          >
+            {["Chỉ dành chủ sở hữu bot", "Mở khóa bằng mật khẩu", "Được bảo vệ chặt chẽ"].map(
+              (t) => (
+                <span
+                  key={t}
+                  className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1 text-xs text-muted-foreground"
+                >
+                  {t}
+                </span>
+              ),
+            )}
           </motion.div>
         </motion.div>
       </div>
@@ -275,8 +283,8 @@ function HeatLadder() {
         ))}
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        Vừa bị phạt mà tái phạm → nhiệt nhân <b className="text-foreground">×2</b> trong 30 phút. Warn
-        tích lũy chạy song song: đủ 3 lần warn → tự tăng cấp.
+        Vừa bị phạt mà tái phạm → nhiệt nhân <b className="text-foreground">×2</b> trong 30 phút.
+        Warn tích lũy chạy song song: đủ 3 lần warn → tự tăng cấp.
       </p>
     </div>
   );
@@ -431,10 +439,16 @@ export function HaimiyaSection() {
                 <div className="flex h-64 w-64 items-center justify-center rounded-full border border-border bg-card shadow-lg">
                   <SafeHaimiyaAvatar className="h-48 w-48" />
                 </div>
-                <span className="absolute -right-2 top-6 animate-float text-2xl" style={{ animationDelay: "0.6s" }}>
+                <span
+                  className="absolute -right-2 top-6 animate-float text-2xl"
+                  style={{ animationDelay: "0.6s" }}
+                >
                   🌸
                 </span>
-                <span className="absolute -left-3 bottom-14 animate-float text-xl" style={{ animationDelay: "1.2s" }}>
+                <span
+                  className="absolute -left-3 bottom-14 animate-float text-xl"
+                  style={{ animationDelay: "1.2s" }}
+                >
                   🎀
                 </span>
               </div>
@@ -525,7 +539,10 @@ export function HowItWorks() {
               <Zap className="h-3.5 w-3.5" /> Bắt đầu nhanh
             </Badge>
           </motion.div>
-          <motion.h2 variants={fadeUp} className="font-display text-3xl font-bold tracking-tight md:text-4xl">
+          <motion.h2
+            variants={fadeUp}
+            className="font-display text-3xl font-bold tracking-tight md:text-4xl"
+          >
             Hoạt động trong 3 bước
           </motion.h2>
         </motion.div>
@@ -578,7 +595,11 @@ export function CtaBanner() {
               <DashboardCta>
                 Bắt đầu ngay <ArrowRight className="h-4 w-4" />
               </DashboardCta>
-              <Button size="lg" variant="outline" onClick={() => window.dispatchEvent(new Event("haimiya-open"))}>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => window.dispatchEvent(new Event("haimiya-open"))}
+              >
                 <MessageCircle className="h-4 w-4" /> Trò chuyện với Haimiya
               </Button>
             </div>
