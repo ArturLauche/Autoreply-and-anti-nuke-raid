@@ -38,6 +38,7 @@ module.exports = {
   EmbedBuilder: class { constructor(d = {}) { this.d = { ...d }; } setColor(c) { this.d.color = c; return this; } setTitle(t) { this.d.title = t; return this; } setDescription(x) { this.d.description = x; return this; } addFields(f) { this.d.fields = (this.d.fields || []).concat(f); return this; } setFooter(f) { this.d.footer = f; return this; } setTimestamp() { return this; } },
   AttachmentBuilder: class {},
   PermissionFlagsBits: new Proxy({}, { get: () => 1n }),
+  ChannelType: { GuildText: 0, GuildAnnouncement: 5, GuildVoice: 2, GuildCategory: 4, GuildStageVoice: 13, GuildForum: 15 },
   Collection,
 };
 `;
@@ -175,6 +176,63 @@ const snap = require("../bot/src/localSnapshot.js");
       check(
         "C1: list có bytes > 0",
         snap.listLocalSnapshots("g1").every((s) => s.bytes > 0),
+      );
+    } finally {
+      delete process.env.PROTOGON_SNAPSHOT_DIR;
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }
+
+  /* ── C1b — localSnapshot gọi được engine backup (chặn tái diễn bug export) ─
+   * localSnapshot.snapshotGuildLocal gọi backup.snapshotWithSettings, nhưng hàm
+   * này từng KHÔNG được export khỏi handlers/backup.js → mọi vòng chụp cục bộ
+   * ném "backup.snapshotWithSettings is not a function" (357 lần trên VPS,
+   * 19/09/2026) và tính năng cứu hộ C1 hỏng 100%. Test này khoá hợp đồng export
+   * và chạy thật snapshotGuildLocal trên guild giả để bắt lỗi hồi quy. */
+  {
+    const backup = require("../bot/src/handlers/backup.js");
+    check(
+      "C1b: backup.snapshotWithSettings là function (đã export)",
+      typeof backup.snapshotWithSettings === "function",
+    );
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "snap-c1b-"));
+    process.env.PROTOGON_SNAPSHOT_DIR = tmpDir;
+    try {
+      const textChannel = {
+        id: "ch-1",
+        name: "chung",
+        type: 0,
+        topic: null,
+        nsfw: false,
+        bitrate: null,
+        userLimit: null,
+        position: 0,
+        parentId: null,
+        permissionOverwrites: { cache: new Map() },
+      };
+      const guild = {
+        id: "g-c1b",
+        name: "Server C1b",
+        available: true,
+        members: { me: { permissions: { bitfield: 0n } } },
+        roles: { cache: new Map() },
+        emojis: { cache: new Map() },
+        stickers: { cache: new Map() },
+        channels: { cache: new Map([["ch-1", textChannel]]) },
+      };
+      const client = { guilds: { cache: new Map([["g-c1b", guild]]) } };
+      const store = { getConfig: async () => null };
+
+      const res = await snap.snapshotGuildLocal(client, store, "g-c1b", 4242);
+      check(
+        "C1b: snapshotGuildLocal chụp thành công qua engine backup",
+        !!res && res.bytes > 0 && res.file.endsWith("4242.z"),
+      );
+      const back = snap.readLocalSnapshot("g-c1b", 4242);
+      check(
+        "C1b: snapshot cục bộ đọc lại đúng guildId",
+        back?.guild?.guildId === "g-c1b" && back?.snapshotAt === 4242,
       );
     } finally {
       delete process.env.PROTOGON_SNAPSHOT_DIR;

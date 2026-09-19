@@ -1915,6 +1915,9 @@ module.exports.runBackup = runBackup;
 module.exports.runRestore = runRestore;
 module.exports.runImportRestore = runImportRestore;
 module.exports.autoBackupSweep = autoBackupSweep;
+// C1 localSnapshot.js tái dùng engine chụp có sẵn — PHẢI export, nếu không
+// snapshotGuildLocal ném "backup.snapshotWithSettings is not a function".
+module.exports.snapshotWithSettings = snapshotWithSettings;
 module.exports.normalizeBackupFile = normalizeBackupFile;
 module.exports.sortedRoles = sortedRoles;
 module.exports.sortedChannels = sortedChannels;
