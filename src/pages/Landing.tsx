@@ -4,6 +4,7 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import Nav from "../components/landing/Nav";
 import Footer from "../components/landing/Footer";
+import Taskbar from "../components/Taskbar";
 import HeroChatCard from "../components/landing/HeroChatCard";
 import {
   Features,
@@ -116,6 +117,7 @@ export default function Landing() {
         <CtaBanner />
       </main>
       <Footer discordInvite={discordInvite} facebookUrl={facebookUrl} />
+      <Taskbar />
     </div>
   );
 }

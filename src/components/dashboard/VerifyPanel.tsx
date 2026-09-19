@@ -30,7 +30,7 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
   // Local state for debounced text inputs
   const [localTitle, setLocalTitle] = useState(g.verifyWelcomeTitle ?? "");
   const [localDesc, setLocalDesc] = useState(g.verifyWelcomeDescription ?? "");
-  const [localColor, setLocalColor] = useState(g.verifyWelcomeColor ?? "#f2629e");
+  const [localColor, setLocalColor] = useState(g.verifyWelcomeColor ?? "#111111");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const descRef = useRef<HTMLTextAreaElement>(null);
 
@@ -86,7 +86,7 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
   const previewDesc = (localDesc || "Bạn đã xác minh thành công. Chào mừng bạn đến với server!")
     .replace(/\{user\}/g, "@thành viên")
     .replace(/\{server\}/g, g.name || "Server");
-  const previewColor = localColor || "#f2629e";
+  const previewColor = localColor || "#111111";
 
   return (
     <div className="space-y-6">
@@ -271,7 +271,7 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
                           flushDebounced({ verifyWelcomeColor: v });
                         }
                       }}
-                      placeholder="#f2629e"
+                      placeholder="#111111"
                       className="w-28 rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-mono"
                       maxLength={7}
                     />

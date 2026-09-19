@@ -316,7 +316,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                       <Label>Màu embed (hex, để trống = mặc định)</Label>
                       <Input
                         type="color"
-                        value={webhookColor || "#5865F2"}
+                        value={webhookColor || "#111111"}
                         onChange={(e) => setWebhookColor(e.target.value)}
                         className="h-9 w-16 cursor-pointer"
                       />
@@ -525,24 +525,24 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
         <TabsContent value="appearance">
           <Card>
             <CardContent className="p-5">
-              <p className="text-sm font-medium">Chủ đề màu của server 🎨</p>
+              <p className="text-sm font-medium">Độ tương phản của server</p>
               <p className="mb-3 text-[11px] text-muted-foreground">
-                Áp dụng cho toàn bộ trang quản lý server này (nút, thẻ, sidebar) ngay lập tức.
+                Chọn sắc độ xám áp dụng cho toàn bộ trang quản lý server này (nút, thẻ, sidebar).
               </p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {Object.entries(SERVER_THEMES).map(([key, t]) => (
                   <button
                     key={key}
                     onClick={() => setTheme(key)}
-                    className={`flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-all ${
+                    className={`flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-colors ${
                       theme === key
-                        ? "border-primary ring-2 ring-primary/40"
-                        : "border-border hover:border-primary/40"
+                        ? "border-foreground ring-1 ring-foreground"
+                        : "border-border hover:border-foreground/40"
                     }`}
                   >
                     <span
-                      className="h-8 w-full rounded-lg"
-                      style={{ background: `linear-gradient(135deg, ${t.swatch}, ${t.swatch2})` }}
+                      className="h-8 w-full rounded-lg border border-border"
+                      style={{ background: t.swatch }}
                     />
                     <span className="text-xs font-medium">{t.label}</span>
                   </button>
@@ -567,7 +567,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                         guildId: data.guild.discordId,
                         theme,
                       });
-                      toast.success("Đã áp dụng chủ đề màu mới 🎨");
+                      toast.success("Đã áp dụng sắc độ mới");
                     } catch (e) {
                       toast.error(e instanceof Error ? e.message : "Lưu thất bại");
                     } finally {

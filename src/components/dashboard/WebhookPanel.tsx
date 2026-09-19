@@ -36,7 +36,7 @@ interface EmbedField {
 interface EmbedData {
   title: string;
   description: string;
-  color: string; // hex string like "#5865F2"
+  color: string; // hex string like "#111111"
   authorName: string;
   authorIconUrl: string;
   authorUrl: string;
@@ -51,7 +51,7 @@ interface EmbedData {
 const EMPTY_EMBED: EmbedData = {
   title: "",
   description: "",
-  color: "#5865F2",
+  color: "#111111",
   authorName: "",
   authorIconUrl: "",
   authorUrl: "",
@@ -97,7 +97,7 @@ function EmbedPreview({ embed }: { embed: EmbedData }) {
     );
   }
 
-  const colorHex = embed.color || "#5865F2";
+  const colorHex = embed.color || "#111111";
 
   return (
     <div className="flex gap-2">
@@ -348,7 +348,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
           )}
         </div>
         {defaultWh?.lastError && (
-          <p className="mt-2 rounded-lg bg-danger/10 px-3 py-2 text-xs text-red-500">
+          <p className="mt-2 rounded-lg bg-danger/10 px-3 py-2 text-xs text-destructive">
             ⚠️ {defaultWh.lastError}
           </p>
         )}
@@ -482,7 +482,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
               <input
                 value={embed.color}
                 onChange={(e) => updateEmbed({ color: e.target.value })}
-                placeholder="#5865F2"
+                placeholder="#111111"
                 className="w-24 rounded border border-border bg-background/70 px-2 py-1.5 text-xs font-mono text-foreground focus:border-primary/50 focus:outline-none"
               />
             </div>
@@ -632,7 +632,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
             {/* Discord-like message container */}
             <div className="rounded-lg bg-[#313338] p-4 space-y-1">
               <div className="flex items-start gap-3">
-                <div className="h-10 w-10 shrink-0 rounded-full bg-[#5865F2]" />
+                <div className="h-10 w-10 shrink-0 rounded-full bg-foreground" />
                 <div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-sm font-semibold text-white">

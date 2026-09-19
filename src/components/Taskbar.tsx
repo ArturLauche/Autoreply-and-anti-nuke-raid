@@ -82,20 +82,9 @@ export default function Taskbar() {
         )}
       >
         <span className="relative flex h-full w-full flex-col items-center overflow-hidden rounded-2xl border border-border bg-card md:rounded-r-[14px]">
-          {/* Ánh sáng mờ từ trên xuống */}
-          <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(130%_70%_at_50%_0%,rgba(255,255,255,0.6),transparent_55%)]" />
-          {/* Vệt sáng nghiêng chạy dọc */}
-          <span className="pointer-events-none absolute inset-y-0 left-1/2 w-1/3 -skew-x-12 bg-white/30 blur-md transition-transform duration-700 group-hover:translate-x-1" />
-
-          {/* Hoa anh đào trên đỉnh (chỉ desktop) */}
-          <span className="relative mt-2 hidden animate-float text-sm leading-none md:block">
-            🌸
-          </span>
-
-          {/* Icon tròn phát sáng */}
+          {/* Icon — phẳng, border-first, không hiệu ứng phát sáng */}
           <span className="relative mt-3 flex h-11 w-11 items-center justify-center max-md:mt-0 max-md:h-full max-md:w-full">
-            <span className="absolute inset-0 animate-pulse-ring rounded-full bg-white/80" />
-            <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-primary-foreground shadow-sm transition-transform duration-300 group-hover:rotate-6 group-hover:scale-110 max-md:h-9 max-md:w-9">
+            <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-primary-foreground transition-opacity duration-200 group-hover:opacity-80 max-md:h-9 max-md:w-9">
               <PanelRightOpen className="h-5 w-5" />
             </span>
           </span>
@@ -126,7 +115,7 @@ export default function Taskbar() {
         <div
           className={cn(
             "fixed left-0 top-2 bottom-2 z-50 flex w-[min(90vw,20rem)] flex-col overflow-hidden",
-            "rounded-r-2xl border border-primary/30 bg-card/95 shadow-lg backdrop-blur",
+            "rounded-r-2xl border border-border bg-card shadow-lg backdrop-blur",
             "animate-in slide-in-from-left-4 fade-in-0 duration-200",
           )}
         >
@@ -136,17 +125,17 @@ export default function Taskbar() {
               <PanelRightOpen className="h-5 w-5" />
             </span>
             <div className="flex-1">
-              <p className="font-display text-sm font-bold leading-tight text-[#1d2f4d]">
+              <p className="font-display text-sm font-bold leading-tight text-foreground">
                 Taskbar Protogon
               </p>
-              <p className="text-[11px] font-medium text-[#3a4a66]">
+              <p className="text-[11px] font-medium text-muted-foreground">
                 Cửa sổ nhanh — bấm để bật/tắt
               </p>
             </div>
             <button
               onClick={() => setOpen(false)}
               aria-label="Đóng taskbar"
-              className="rounded-lg p-1.5 text-[#1d2f4d] transition-colors hover:bg-white/25"
+              className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
               <X className="h-4 w-4" />
             </button>
@@ -173,12 +162,12 @@ export default function Taskbar() {
               >
                 <span
                   className={cn(
-                    "absolute top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow transition-all",
+                    "absolute top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-background shadow transition-all",
                     theme === "dark" ? "left-[22px]" : "left-0.5",
                   )}
                 >
                   {theme === "dark" ? (
-                    <Moon className="h-3 w-3 text-[#5c3a8f]" />
+                    <Moon className="h-3 w-3 text-foreground" />
                   ) : (
                     <Sun className="h-3 w-3" />
                   )}
@@ -209,8 +198,8 @@ export default function Taskbar() {
                 className={cn(
                   "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors",
                   onMonitorPage
-                    ? "border-primary/40 bg-primary/15 text-primary"
-                    : "border-border bg-secondary/40 hover:bg-primary/10",
+                    ? "border-foreground bg-foreground text-primary-foreground"
+                    : "border-border bg-secondary/40 hover:border-foreground/40",
                 )}
               >
                 <Activity className="h-4 w-4" />
@@ -243,7 +232,7 @@ export default function Taskbar() {
               <Link
                 to="/dashboard"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-3 rounded-xl border border-border bg-secondary/40 px-3 py-2.5 text-sm font-semibold transition-colors hover:bg-primary/10"
+                className="flex items-center gap-3 rounded-xl border border-border bg-secondary/40 px-3 py-2.5 text-sm font-semibold transition-colors hover:border-foreground/40"
               >
                 <LayoutDashboard className="h-4 w-4" />
                 Bảng điều khiển
