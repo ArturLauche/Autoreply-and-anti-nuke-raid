@@ -263,6 +263,14 @@ function looksLikeErrorChunk(value) {
 // Sau khi đã có chunk đầu, chuyển tiếp phần còn lại và reset idle watchdog sau
 // mỗi chunk. Im lặng giữa 2 chunk quá IDLE_MS → đóng stream (KHÔNG dùng
 // controller.error/abort vì Bun reset socket thô; đóng sạch để client tự xử lý).
+//
+// BUG ĐÃ VÁ (19/09/2026): reader.read() có thể REJECT khi upstream reset socket
+// GIỮA stream (sau chunk đầu). Bản cũ await thẳng trong pull() không bắt reject
+// → pull ném ra ngoài → ReadableStream chuyển sang errored state → client nhận
+// ECONNRESET/"terminated" ĐỘT NGỘT, đúng kiểu "AI service stream failed" dù
+// chunk đầu đã tới. Giờ bọc try/catch: rớt giữa stream được coi là HẾT stream
+// (đóng sạch), giữ nguyên phần đã gửi — không thể retry vì đã gửi byte cho
+// client (retry sẽ nhân đôi nội dung).
 function continueStream(reader, firstValue) {
   let closed = false;
   return new ReadableStream({
@@ -272,12 +280,30 @@ function continueStream(reader, firstValue) {
     async pull(controller) {
       if (closed) return;
       let timer = null;
-      const readPromise = reader.read();
-      readPromise.catch(() => {});
-      const idle = new Promise((resolve) => {
-        timer = setTimeout(() => resolve(IDLE), IDLE_MS);
-      });
-      const result = await Promise.race([readPromise, idle]);
+      let result;
+      try {
+        const readPromise = reader.read();
+        readPromise.catch(() => {});
+        const idle = new Promise((resolve) => {
+          timer = setTimeout(() => resolve(IDLE), IDLE_MS);
+        });
+        result = await Promise.race([readPromise, idle]);
+      } catch (err) {
+        // Upstream rớt giữa stream — đóng SẠCH thay vì để stream lỗi đột ngột.
+        clearTimeout(timer);
+        if (closed) return;
+        closed = true;
+        console.log(
+          `[kiira-retry-proxy] upstream rớt giữa stream (${err?.message || err}) → đóng sạch`,
+        );
+        await reader.cancel().catch(() => {});
+        try {
+          controller.close();
+        } catch {
+          /* đã đóng */
+        }
+        return;
+      }
       clearTimeout(timer);
       if (result === IDLE) {
         closed = true;

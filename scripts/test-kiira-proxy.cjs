@@ -539,6 +539,102 @@ function startProxy(upstream, extraEnv = {}) {
     }
   }
 
+  // ─── 1f2c. Upstream RỚT GIỮA STREAM (sau chunk đầu) → proxy đóng SẠCH ───────
+  {
+    // Bug thật: `continueStream` gọi reader.read() mà không bắt reject. Khi
+    // upstream reset socket giữa stream, promise reject → pull() ném ra ngoài →
+    // ReadableStream chuyển sang errored state → client nhận "terminated" đột
+    // ngột thay vì kết thúc êm (OpenCode báo "AI service stream failed").
+    // Kỳ vọng: client nhận "end" (đóng sạch) và giữ được chunk đã tới.
+    const mock = await startRawUpstream((req, res) => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.flushHeaders();
+      res.write('data: {"delta":"xin chao"}\n\n');
+      setTimeout(() => req.socket.destroy(), 200); // reset giữa stream
+    });
+    const proxy = startProxy(`http://127.0.0.1:${mock.port}`, {
+      KIRA_PROXY_RETRIES: "2",
+      KIRA_PROXY_IDLE_MS: "5000",
+      KIRA_PROXY_TIMEOUT_MS: "10000",
+    });
+    try {
+      await waitForPort(PORT);
+      const outcome = await new Promise((resolve) => {
+        const req = http.request(
+          {
+            host: "127.0.0.1",
+            port: PORT,
+            path: "/chat/completions",
+            method: "POST",
+            headers: { authorization: "Bearer t", "content-type": "application/json" },
+          },
+          (res) => {
+            let got = "";
+            res.on("data", (c) => (got += c));
+            res.on("end", () => resolve({ how: "end", got }));
+            res.on("aborted", () => resolve({ how: "aborted", got }));
+            res.on("error", (e) => resolve({ how: "error:" + e.message, got }));
+          },
+        );
+        req.on("error", (e) => resolve({ how: "req-error:" + e.message, got: "" }));
+        req.end("{}");
+        setTimeout(() => resolve({ how: "treo", got: "" }), 5000);
+      });
+      check(
+        "upstream rớt giữa stream → client đóng SẠCH (không 'terminated' đột ngột)",
+        outcome.how === "end",
+        outcome.how,
+      );
+      check(
+        "chunk đã nhận trước khi rớt vẫn tới client",
+        outcome.got.includes("xin chao"),
+        JSON.stringify(outcome.got),
+      );
+    } finally {
+      proxy.kill();
+      await stopServer(mock.server);
+    }
+  }
+
+  // ─── 1f2d. Upstream reset TRƯỚC chunk đầu → phải retry (chưa gửi byte nào) ──
+  {
+    // Lần 1: gửi header rồi phá socket ngay (chưa có chunk). Lần 2: dữ liệu đầy đủ.
+    // Vì chưa byte nào tới client nên proxy AN TOÀN thử lại.
+    const mock = await startRawUpstream((req, res, hit) => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.flushHeaders();
+      if (hit === 1) {
+        setTimeout(() => req.socket.destroy(), 100);
+        return;
+      }
+      res.write('data: {"delta":"lan2"}\n\n');
+      res.end("data: [DONE]\n\n");
+    });
+    const proxy = startProxy(`http://127.0.0.1:${mock.port}`, {
+      KIRA_PROXY_RETRIES: "3",
+      KIRA_PROXY_IDLE_MS: "5000",
+      KIRA_PROXY_TIMEOUT_MS: "10000",
+      KIRA_PROXY_MAX_BACKOFF_MS: "50",
+    });
+    try {
+      await waitForPort(PORT);
+      const res = await request(PORT, "/chat/completions");
+      check(
+        "reset trước chunk đầu → thử lại, client nhận dữ liệu lượt 2",
+        res.status === 200 && res.body.includes("lan2"),
+        `status=${res.status}, body=${JSON.stringify(res.body)}`,
+      );
+      check(
+        "đã gọi upstream đúng 2 lần",
+        mock.hits["/chat/completions"] === 2,
+        `hits=${mock.hits["/chat/completions"]}`,
+      );
+    } finally {
+      proxy.kill();
+      await stopServer(mock.server);
+    }
+  }
+
   // ─── 1f3. Stream chảy dài hơn first-byte KHÔNG bị cắt oan ───────────────────
   {
     // first-byte 300ms, nhưng stream gửi chunk đều trong ~1.5s → phải nhận đủ.
@@ -828,6 +924,12 @@ function startProxy(upstream, extraEnv = {}) {
   check(
     "giải phóng kết nối lỗi có giới hạn (drain + MAX_ERROR_BODY)",
     src.includes("MAX_ERROR_BODY") && src.includes("async function drain"),
+  );
+  check(
+    "continueStream bắt reject khi upstream rớt giữa stream (đóng sạch, không terminated)",
+    /async pull\(controller\)[\s\S]*?try \{[\s\S]*?reader\.read\(\)[\s\S]*?\} catch \(err\)/.test(
+      src,
+    ) && src.includes("upstream rớt giữa stream"),
   );
 
   console.log(`\nKết quả kiira-proxy: ${pass} PASS, ${fail} FAIL`);
