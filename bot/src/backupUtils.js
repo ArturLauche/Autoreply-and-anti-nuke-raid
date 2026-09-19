@@ -24,11 +24,20 @@ function compressBackup(jsonString) {
   }
 }
 
+/**
+ * Trần output khi bung nén (chống decompression bomb). File backup nén có thể
+ * nhỏ vài trăm KB nhưng zlib nở gấp ~1000 lần; không chặn thì VPS hết RAM khi
+ * import file độc. 64 MB rộng rãi cho server lớn, chặn mọi payload bất thường.
+ */
+const MAX_DECOMPRESSED_BYTES = 64 * 1024 * 1024;
+
 /** Decompress a backup string — handles both compressed (z:...) and plain JSON. */
 function uncompressBackup(data) {
   if (typeof data === "string" && data.startsWith("z:")) {
     try {
-      const buf = zlib.inflateSync(Buffer.from(data.slice(2), "base64"));
+      const buf = zlib.inflateSync(Buffer.from(data.slice(2), "base64"), {
+        maxOutputLength: MAX_DECOMPRESSED_BYTES,
+      });
       return buf.toString("utf8");
     } catch (e) {
       console.error("[backup:uncompress] failed:", e.message);

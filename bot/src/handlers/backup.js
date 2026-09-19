@@ -29,6 +29,8 @@ const {
 
 /** Mỗi file media phục hồi tối đa 8 MB (an toàn dưới giới hạn upload của Discord). */
 const MAX_MEDIA_BYTES = 8 * 1024 * 1024;
+/** Trần output khi bung nén payload .msc (chống decompression bomb). */
+const MAX_DECOMPRESSED_BYTES = 64 * 1024 * 1024;
 /** Chờ tối đa khi tải 1 file media từ URL (ms). */
 const MEDIA_FETCH_TIMEOUT_MS = 15_000;
 
@@ -1417,20 +1419,22 @@ function textFromBuffer(buf) {
 /** Thử nén ngược gzip/zlib/deflate — một số bot nén backup trước khi mã hóa. */
 function decompressCandidates(buf) {
   const out = [];
+  // Chặn decompression bomb: payload .msc nhỏ có thể bung ra cực lớn.
+  const opts = { maxOutputLength: MAX_DECOMPRESSED_BYTES };
   if (buf.length > 4 && buf[0] === 0x1f && buf[1] === 0x8b) {
     try {
-      out.push(zlib.gunzipSync(buf));
+      out.push(zlib.gunzipSync(buf, opts));
     } catch {
       /* bỏ qua */
     }
   } else if (buf.length > 2 && buf[0] === 0x78) {
     try {
-      out.push(zlib.inflateSync(buf));
+      out.push(zlib.inflateSync(buf, opts));
     } catch {
       /* bỏ qua */
     }
     try {
-      out.push(zlib.inflateRawSync(buf));
+      out.push(zlib.inflateRawSync(buf, opts));
     } catch {
       /* bỏ qua */
     }

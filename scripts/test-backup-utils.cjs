@@ -171,5 +171,26 @@ function check(label, cond) {
   check("filter rỗng → messageCount đúng", all.messageCount === 3);
 }
 
+// ── 6. Decompression bomb: zlib "z:" nhỏ nhưng bung ra cực lớn ──
+// File import tối đa 8 MB, nhưng zlib có thể nở gấp ~1000 lần → 200 MB từ vài
+// trăm KB. uncompressBackup phải chặn trần output, không để VPS hết RAM.
+{
+  const zlib = require("zlib");
+  const bomb = "z:" + zlib.deflateSync(Buffer.alloc(200 * 1024 * 1024, 0x41)).toString("base64");
+  check("bomb nén nhỏ (< 1 MB)", bomb.length < 1_000_000);
+  let threw = false;
+  let out;
+  try {
+    out = utils.uncompressBackup(bomb);
+  } catch {
+    threw = true;
+  }
+  // Kỳ vọng: KHÔNG trả chuỗi 200 MB (hoặc ném lỗi có kiểm soát). Trả về nguyên
+  // input cũng chấp nhận (fail-safe như dữ liệu hỏng) miễn không phình RAM.
+  const capped =
+    threw || out === bomb || (typeof out === "string" && out.length <= 16 * 1024 * 1024);
+  check("uncompressBackup chặn decompression bomb", capped, threw ? "threw" : `len=${out?.length}`);
+}
+
 console.log(`\nKết quả backup utils: ${pass} PASS, ${fail} FAIL`);
 process.exit(fail > 0 ? 1 : 0);
