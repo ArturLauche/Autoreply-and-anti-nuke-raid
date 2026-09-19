@@ -163,7 +163,70 @@ Mimo V2.5, DeepSeek Vision — chuyển qua lại tuỳ việc. Hỏi thử:
 
 Agent trả lời được = key hoạt động.
 
-### 2.5. (Nên làm) Nạp key Kiira cho luôn cho bot dùng chung
+### 2.6. Provider phụ miễn phí: OpenHands (DeepSeek) + Cline (Kimi K3)
+
+Hai provider phụ miễn phí, tương thích OpenAI, đã xác minh key + gọi chat thật
+ngày 19/09/2026. Dùng làm model dự phòng / thay đổi không khí, không thay Kiira
+làm mặc định.
+
+**A. OpenHands Cloud** (openhands.dev — All Hands AI) — DeepSeek v4.1 Flash:
+
+```json
+"openhands": {
+  "npm": "@ai-sdk/openai-compatible",
+  "name": "OpenHands (DeepSeek)",
+  "options": { "baseURL": "https://llm-proxy.app.all-hands.dev/v1" },
+  "models": {
+    "deepseek/deepseek-v4.1-flash": { "name": "DeepSeek v4.1 Flash (OpenHands)" }
+  }
+},
+```
+
+Lần đầu dùng: `/connect` → chọn **OpenHands (DeepSeek)** → dán key (bắt đầu
+`sk-oh-...`). Key lưu ở `auth.json` ngoài repo.
+
+**B. Cline API** (api.cline.bot) — Kimi K3 (+ 447 model khác, kể cả
+DeepSeek/GLM/Gemini/Claude): base URL là `https://api.cline.bot/api` (CHÚ Ý có
+đường `/api` — không phải `/v1` như provider thường; thử `/v1/...` sẽ báo
+Not Found). Endpoint đầy đủ: `/api/v1/chat/completions`, danh sách model:
+`/api/v1/models` (447 model đã xác minh 19/09/2026 — `moonshotai/kimi-k3`,
+`deepseek/deepseek-v4.1-flash`, `anthropic/claude-fable-5.1`,
+`google/gemini-3.8-flash`…).
+
+```json
+"cline": {
+  "npm": "@ai-sdk/openai-compatible",
+  "name": "Cline (Kimi K3)",
+  "options": { "baseURL": "https://api.cline.bot/api/v1" },
+  "models": {
+    "moonshotai/kimi-k3": { "name": "Kimi K3 (Cline)" },
+    "deepseek/deepseek-v4.1-flash": { "name": "DeepSeek v4.1 Flash (Cline)" }
+  }
+},
+```
+
+Lưu ý riêng của Cline: key gửi qua header `Authorization: Bearer` như thường —
+trong `auth.json` giữ nguyên dạng key `sk_...`. Response trả JSON bọc trong key
+`data` (không thuần OpenAI schema) — nếu @ai-sdk/openai-compatible báo lỗi parse
+thì chuyển npm sang `@ai-sdk/anthropic`-style custom hoặc dùng model này qua
+`curl` (chưa chặn việc dùng, chỉ cần biết). Ưu tiên dùng qua OpenCode với model
+đơn giản trước; gặp lỗi parse phải xác minh lại endpoint.
+
+Cách khai trong `~/.config/opencode/opencode.json`: thêm 2 khối trên vào cạnh
+khối `kiira` (cùng cấp trong `provider`), khởi động lại OpenCode, kiểm tra
+`/models` thấy thêm 2 provider. Test nhanh từng model bằng câu lệnh nhỏ trước
+khi giao việc thật.
+
+Bảng tổng hợp dự phòng (cập nhật sau khi thêm 2 provider mới):
+
+| Sự cố                               | Dùng gì                                                            |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| Nghẽn thoáng qua (503/429)          | Proxy tự gánh — không làm gì                                       |
+| Model riêng lỗi (DeepSeek chậm/lỗi) | Đổi GLM 5.3 Flash / Mimo V2.5 trong `/models` (cùng gateway Kiira) |
+| **Cả gateway Kiira sập**            | **Groq** — provider khác hẳn, độc lập với Kiira                    |
+| Kiira + Groq cùng lỗi               | OpenHands (DeepSeek) hoặc Cline (Kimi K3) trong `/models`          |
+
+### 2.7. (Nên làm) Nạp key Kiira cho luôn cho bot dùng chung
 
 Key OpenCode và key bot là HAI nơi riêng biệt. Nếu muốn bot cũng dùng Kiira
 (30M tokens/ngày miễn phí cho research/học hỏi), thêm vào `bot/.env` trên VPS:
