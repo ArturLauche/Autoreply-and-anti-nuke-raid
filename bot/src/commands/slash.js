@@ -544,6 +544,79 @@ const commands = [
       },
     ],
   },
+  {
+    name: "alt",
+    description: "Cấu hình phát hiện alt account / VPN",
+    options: [
+      {
+        name: "status",
+        description: "Xem trạng thái phát hiện alt account",
+        type: 1,
+      },
+      {
+        name: "on",
+        description: "Bật phát hiện alt account",
+        type: 1,
+      },
+      {
+        name: "off",
+        description: "Tắt phát hiện alt account",
+        type: 1,
+      },
+      {
+        name: "punish",
+        description: "Đổi hình phạt cho alt account",
+        type: 1,
+        options: [
+          {
+            name: "type",
+            description: "Hình phạt",
+            type: 3,
+            required: true,
+            choices: [
+              { name: "Kick", value: "kick" },
+              { name: "Ban", value: "ban" },
+              { name: "Timeout", value: "timeout" },
+              { name: "Verify (gán lại role chưa xác minh)", value: "verify" },
+            ],
+          },
+        ],
+      },
+      {
+        name: "threshold",
+        description: "Đổi ngưỡng rủi ro (10-100)",
+        type: 1,
+        options: [
+          {
+            name: "value",
+            description: "Ngưỡng rủi ro",
+            type: 4,
+            required: true,
+            min_value: 10,
+            max_value: 100,
+          },
+        ],
+      },
+      {
+        name: "vpn",
+        description: "Đổi chế độ kiểm tra VPN",
+        type: 1,
+        options: [
+          {
+            name: "mode",
+            description: "Chế độ VPN",
+            type: 3,
+            required: true,
+            choices: [
+              { name: "Nghiêm ngặt (block)", value: "strict" },
+              { name: "Cảnh báo (chỉ log)", value: "warn" },
+              { name: "Tắt", value: "off" },
+            ],
+          },
+        ],
+      },
+    ],
+  },
 ];
 
 module.exports = { commands };
