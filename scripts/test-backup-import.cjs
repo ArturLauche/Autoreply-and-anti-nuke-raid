@@ -14,6 +14,8 @@ const {
   normalizeSticker,
   sanitizeEmojiName,
   slimBackupForStore,
+  assertSafeRemoteUrl,
+  isPrivateAddress,
 } = require("../bot/src/handlers/backup.js");
 
 let pass = 0;
@@ -912,6 +914,49 @@ const mscBackupObj = {
     !!f5 && f5.attachment.toString("utf8") === "Hello World",
     JSON.stringify(f5?.attachment?.toString("utf8")),
   );
+
+  // ── SSRF: file backup nhập từ ngoài chứa URL media do kẻ tấn công kiểm soát ──
+  // Bot tải media này từ VPS (có thể chạm cloud metadata / mạng nội bộ). Phải
+  // chặn IP nội bộ + scheme lạ trước khi fetch, kể cả qua redirect.
+  check(
+    "isPrivateAddress: 169.254.169.254 (cloud metadata) là private",
+    isPrivateAddress("169.254.169.254") === true,
+  );
+  check("isPrivateAddress: 127.0.0.1 là private", isPrivateAddress("127.0.0.1") === true);
+  check("isPrivateAddress: 10.0.0.1 là private", isPrivateAddress("10.0.0.1") === true);
+  check("isPrivateAddress: ::1 là private", isPrivateAddress("::1") === true);
+  check("isPrivateAddress: 8.8.8.8 KHÔNG private", isPrivateAddress("8.8.8.8") === false);
+
+  for (const bad of [
+    "http://169.254.169.254/latest/meta-data/",
+    "http://127.0.0.1:8787/__health",
+    "http://[::1]/",
+    "http://10.0.0.5/x.png",
+    "file:///etc/passwd",
+    "ftp://example.com/x",
+  ]) {
+    let blocked = false;
+    try {
+      await assertSafeRemoteUrl(bad);
+    } catch {
+      blocked = true;
+    }
+    check(`SSRF chặn URL nội bộ/scheme lạ: ${bad}`, blocked);
+  }
+
+  // URL https công khai hợp lệ vẫn qua được (không chặn nhầm media thật).
+  let allowed;
+  try {
+    const u = await assertSafeRemoteUrl("https://cdn.discordapp.com/emojis/1.png");
+    allowed = u instanceof URL && u.hostname === "cdn.discordapp.com";
+  } catch {
+    allowed = false;
+  }
+  check("URL https công khai hợp lệ được cho qua", allowed);
+
+  // resolveAttachment phải từ chối URL nội bộ (không fetch) → null.
+  const ssrf = await resolveAttachment("http://169.254.169.254/latest/meta-data/", 0);
+  check("resolveAttachment chặn URL metadata → null", ssrf === null);
 
   console.log(`\nKết quả: ${pass} đúng / ${fail} sai`);
   if (fail > 0) process.exit(1);
