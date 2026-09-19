@@ -379,7 +379,21 @@ chuyện với proxy, proxy chống chập cho. Proxy mặc định **thử lạ
 với backoff 1s→2s→4s→8s→16s (+ jitter) — chịu được nghẽn Kiira kéo dài ~30 giây
 mà phiên OpenCode không đứt; vẫn lỗi mới trả về client. Tùy chỉnh qua env:
 `KIRA_PROXY_PORT` (8787), `KIRA_PROXY_RETRIES` (5), `KIRA_PROXY_TIMEOUT_MS`
-(120000), `KIRA_UPSTREAM` (https://kiraai.vn/api/v1).
+(120000), `KIRA_PROXY_MAX_BACKOFF_MS` (30000), `KIRA_UPSTREAM`
+(https://kiraai.vn/api/v1).
+
+**Cơ chế chịu nghẽn (quan trọng):**
+
+- **Body đọc một lần** thành `ArrayBuffer` trước vòng thử lại. Request body là
+  stream dùng một lần — nếu đọc lại mỗi lượt, retry cho POST `/chat/completions`
+  (đúng loại request OpenCode dùng) sẽ ném `Body already used` và client nhận 502
+  ngay khi upstream chập. Test `scripts/test-kiira-proxy.cjs` chặn tái diễn.
+- **Tôn trọng `Retry-After`** của Kiira (giây hoặc HTTP-date) khi bị 429/503 —
+  chờ đúng thời gian gateway yêu cầu thay vì đoán theo backoff.
+- **Trần backoff** `KIRA_PROXY_MAX_BACKOFF_MS` để tổng thời gian chờ luôn có biên,
+  không treo phiên hàng phút vì một lần nghẽn dài.
+- **Dừng khi client hủy**: nếu OpenCode đã bỏ cuộc (đóng kết nối), proxy ngừng
+  thử lại ngay, không đốt lượt gọi Kiira vô ích.
 
 ## Phần 4 — Nâng cấp OpenCode giống Freebuff (đã có sẵn trong repo)
 

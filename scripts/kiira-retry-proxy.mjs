@@ -23,13 +23,17 @@
  *   tmux new -d -s kiira 'bun /root/Autoreply-and-anti-nuke-raid/scripts/kiira-retry-proxy.mjs'
  *
  * Env tùy chọn: KIRA_PROXY_PORT (8787), KIRA_UPSTREAM (https://kiraai.vn/api/v1),
- * KIRA_PROXY_RETRIES (5), KIRA_PROXY_TIMEOUT_MS (120000).
+ * KIRA_PROXY_RETRIES (5), KIRA_PROXY_TIMEOUT_MS (120000),
+ * KIRA_PROXY_MAX_BACKOFF_MS (30000).
  */
 
 const PORT = Number(process.env.KIRA_PROXY_PORT ?? 8787);
 const UPSTREAM = (process.env.KIRA_UPSTREAM ?? "https://kiraai.vn/api/v1").replace(/\/+$/, "");
 const RETRIES = Math.max(0, Number(process.env.KIRA_PROXY_RETRIES ?? 5));
 const TIMEOUT_MS = Number(process.env.KIRA_PROXY_TIMEOUT_MS ?? 120_000);
+// Trần chờ giữa 2 lần thử: backoff lũy tiến nhưng không vượt trần, tránh một
+// lần nghẽn dài khiến phiên treo hàng phút.
+const MAX_BACKOFF_MS = Math.max(0, Number(process.env.KIRA_PROXY_MAX_BACKOFF_MS ?? 30_000));
 
 // Header từ client được chuyển tiếp — chỉ những header an toàn/ cần thiết.
 const PASS_HEADERS = ["authorization", "content-type", "accept", "user-agent"];
@@ -39,9 +43,23 @@ const RETRYABLE = new Set([408, 429, 500, 502, 503, 504, 522, 524]);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Backoff tăng dần + jitter ngẫu nhiên (±30%) — nhiều request cùng dính nghẽn
 // sẽ không dồn vào Kiira đúng một nhịp nữa (tránh "thundering herd").
-const backoffMs = (attempt) => Math.round(1000 * 2 ** attempt * (0.7 + Math.random() * 0.6)); // ~0.7–1.3s, ~1.4–2.6s, ~2.8–5.2s…
+// Kẹp trần MAX_BACKOFF_MS để tổng thời gian chờ luôn có biên.
+const backoffMs = (attempt) =>
+  Math.min(MAX_BACKOFF_MS, Math.round(1000 * 2 ** attempt * (0.7 + Math.random() * 0.6))); // ~0.7–1.3s, ~1.4–2.6s, ~2.8–5.2s… kẹp trần
 
-async function forward(req, pathAndQuery) {
+// Tôn trọng header Retry-After của upstream (giây hoặc HTTP-date) — Kiira báo
+// nghẽn bao lâu thì chờ đúng, thay vì đoán theo backoff. Vẫn kẹp trần.
+function retryAfterMs(res) {
+  const raw = res.headers.get("retry-after");
+  if (!raw) return null;
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(MAX_BACKOFF_MS, Math.round(seconds * 1000));
+  const at = Date.parse(raw);
+  if (!Number.isNaN(at)) return Math.min(MAX_BACKOFF_MS, Math.max(0, at - Date.now()));
+  return null;
+}
+
+async function forward(req, pathAndQuery, body, signal) {
   const headers = {};
   for (const name of PASS_HEADERS) {
     const value = req.headers.get(name);
@@ -50,9 +68,9 @@ async function forward(req, pathAndQuery) {
   return fetch(UPSTREAM + pathAndQuery, {
     method: req.method,
     headers,
-    body: ["GET", "HEAD"].includes(req.method) ? undefined : await req.text(),
-    // Bun/fetch tự theo redirect; timeout qua AbortSignal bên dưới.
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    body,
+    // Hủy khi client ngắt kết nối (OpenCode bỏ cuộc) HOẶC quá timeout mỗi lượt.
+    signal,
   });
 }
 
@@ -67,27 +85,46 @@ async function handle(req) {
   // /models. Client trỏ baseURL vào proxy nên path giữ nguyên hình dạng.
   const upstreamPath = url.pathname + url.search;
 
+  // Đọc body MỘT LẦN duy nhất thành ArrayBuffer. Request body là stream dùng
+  // một lần: nếu đọc trong từng lượt thử, lần retry thứ 2 sẽ ném
+  // "Body already used" → mọi POST (chính là /chat/completions của OpenCode)
+  // hỏng ngay khi upstream chập. ArrayBuffer tái sử dụng được cho mọi lần fetch.
+  let body;
+  if (!["GET", "HEAD"].includes(req.method)) {
+    body = await req.arrayBuffer();
+  }
+
+  // Hủy thử lại khi client bỏ cuộc (đóng tab / ngắt stream) để không đốt lượt
+  // gọi Kiira vô ích; mỗi lượt vẫn có trần timeout riêng.
+  const clientGone = new AbortController();
+  req.signal?.addEventListener("abort", () => clientGone.abort(req.signal.reason), { once: true });
+
   let lastError = null;
   let lastStatus = null;
   for (let attempt = 0; attempt <= RETRIES; attempt++) {
+    const signal = AbortSignal.any([clientGone.signal, AbortSignal.timeout(TIMEOUT_MS)]);
     try {
-      const res = await forward(req, upstreamPath);
+      const res = await forward(req, upstreamPath, body, signal);
       if (RETRYABLE.has(res.status) && attempt < RETRIES) {
         // Đọc và bỏ body lỗi để giải phóng kết nối, rồi thử lại sau backoff.
         await res.text().catch(() => {});
         lastError = new Error(`upstream ${res.status}`);
         lastStatus = res.status;
-        console.log(`[kiira-retry-proxy] ${req.method} ${upstreamPath}: upstream ${res.status} → thử lại sau backoff (lần ${attempt + 1}/${RETRIES})`);
-        await sleep(backoffMs(attempt));
+        const waitMs = retryAfterMs(res) ?? backoffMs(attempt);
+        console.log(`[kiira-retry-proxy] ${req.method} ${upstreamPath}: upstream ${res.status} → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`);
+        await sleep(waitMs);
         continue;
       }
       return res; // thành công hoặc lỗi cứng/lỗi sau khi hết lượt thử
     } catch (err) {
+      // Client đã ngắt — không còn ai nhận kết quả, dừng ngay, không thử nữa.
+      if (clientGone.signal.aborted) throw err;
       // Lỗi mạng/timeout — coi như chập chờn, thử lại nếu còn lượt.
       lastError = err;
       if (attempt < RETRIES) {
-        console.log(`[kiira-retry-proxy] ${req.method} ${upstreamPath}: ${err?.name === "TimeoutError" ? "timeout" : "mất kết nối"} → thử lại sau backoff (lần ${attempt + 1}/${RETRIES})`);
-        await sleep(backoffMs(attempt));
+        const waitMs = backoffMs(attempt);
+        console.log(`[kiira-retry-proxy] ${req.method} ${upstreamPath}: ${err?.name === "TimeoutError" ? "timeout" : "mất kết nối"} → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`);
+        await sleep(waitMs);
         continue;
       }
     }

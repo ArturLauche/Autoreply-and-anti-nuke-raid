@@ -25,6 +25,7 @@
     },
     "bash": {
       "*": "allow",
+      "git commit *": "allow",
       "git push *": "allow",
       "git reset *": "deny",
       "git clean *": "deny",
