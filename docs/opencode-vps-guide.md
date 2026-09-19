@@ -487,6 +487,8 @@ freebuff                   # lần đầu sẽ in link đăng nhập → mở tr
 | Triệu chứng | Nguyên nhân | Cách xử lý |
 |---|---|---|
 | `freebuff` không hiện link đăng nhập | CLI đợi xác thực ở chế độ khác | Chạy `freebuff login` (hoặc `freebuff --help` xem lệnh auth) rồi thử lại |
+| `/verify` `/fix` `/ship` biến mất khỏi menu | OpenCode đang chạy **ngoài thư mục repo** (nhìn `/~` góc màn hình) — các lệnh nằm trong `.opencode/commands/` của repo, chỉ nạp khi mở đúng chỗ | `cd /root/Autoreply-and-anti-nuke-raid && opencode` — hoặc tạo lệnh tắt `alias oc='cd /root/Autoreply-and-anti-nuke-raid && opencode'` |
+| `git commit` bị chặn dù đã bật push tự do | Phiên OpenCode đang chạy **nạp permission CŨ lúc khởi động** — sửa config giữa phiên không có hiệu lực với phiên hiện tại | Thoát OpenCode → mở lại **trong thư mục repo** (config mới của repo được nạp) — agent tự commit/push được ngay |
 | OpenCode không thấy model Kiira | Sai baseURL, ID model sai, hoặc model chưa khai trong `models` | Kiểm tra `opencode.json` — OpenCode chỉ hiện model đã khai báo; lấy đúng ID từ `curl https://kiraai.vn/api/v1/models` |
 | `git commit` bị từ chối trong OpenCode | File `~/.config/opencode/opencode.json` cũ chưa có rule `git add/commit: allow` | Merge lại từ `opencode.json` trong repo |
 | Gõ `t3` báo "command not found" | `~/.local/bin` chưa nằm trong PATH | `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc` |
