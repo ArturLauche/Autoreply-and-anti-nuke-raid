@@ -462,14 +462,14 @@ tắt — bước này là của bạn, mất ~5 giây.
 
 Repo đi kèm bộ nâng cấp giúp OpenCode làm việc kỷ luật và an toàn như Freebuff:
 
-| Thành phần     | Vị trí                             | Công dụng                                                                                                                                                                                                                  |
-| -------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/verify`      | `.opencode/commands/verify.md`     | Chạy đủ bộ kiểm chứng (test + typecheck + lint), báo kết quả số — ranh giới "xong việc"                                                                                                                                    |
-| `/fix <mô tả>` | `.opencode/commands/fix.md`        | Sửa bug theo quy trình: tái hiện → gốc rễ → vá → test chặn tái diễn                                                                                                                                                        |
-| `/ship`        | `.opencode/commands/ship.md`       | Hoàn tất phiên: kiểm chứng → commit chọn lọc (không push) → báo cáo                                                                                                                                                        |
-| `/review`      | `.opencode/commands/review.md`     | Review diff/code theo 5 lớp như senior reviewer (chỉ nhận xét, không sửa)                                                                                                                                                  |
-| Guardrails     | `.opencode/plugins/guardrails.js`  | Chặn chủ động lệnh bash đọc secret; nhắc lại hợp đồng AGENTS.md khi session dài bị nén                                                                                                                                     |     | Hộp lịch sử | `.opencode/plugins/session-history.js` + `/history` | Ghi mỗi phiên vào hộp JSONL, tự dọn sau TTL (mặc định 14 ngày) — xem bằng lệnh `/history` |
-| Skill bảo mật  | `.opencode/skills/security-audit/` | Skill **security-audit của Cloudflare** (MIT) — agent tự kích hoạt khi nghe "security audit", "tìm lỗ hổng"… Pha: thám sát → săn lỗi có bảng che phủ → đối chứng chéo (verifier khác hunter) → báo cáo có bằng chứng nguồn |
+| Thành phần         | Vị trí                                                                                                                                             | Công dụng                                                                                                                                                                                                                                                                                                  |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/verify`          | `.opencode/commands/verify.md`                                                                                                                     | Chạy đủ bộ kiểm chứng (test + typecheck + lint), báo kết quả số — ranh giới "xong việc"                                                                                                                                                                                                                    |
+| `/fix <mô tả>`     | `.opencode/commands/fix.md`                                                                                                                        | Sửa bug theo quy trình: tái hiện → gốc rễ → vá → test chặn tái diễn                                                                                                                                                                                                                                        |
+| `/ship`            | `.opencode/commands/ship.md`                                                                                                                       | Hoàn tất phiên: kiểm chứng → commit chọn lọc (không push) → báo cáo                                                                                                                                                                                                                                        |
+| `/review`          | `.opencode/commands/review.md`                                                                                                                     | Review diff/code theo 5 lớp như senior reviewer (chỉ nhận xét, không sửa)                                                                                                                                                                                                                                  |
+| Guardrails         | `.opencode/plugins/guardrails.js`                                                                                                                  | Chặn chủ động lệnh bash đọc secret; nhắc lại hợp đồng AGENTS.md khi session dài bị nén                                                                                                                                                                                                                     |     | Hộp lịch sử | `.opencode/plugins/session-history.js` + `/history` | Ghi mỗi phiên vào hộp JSONL, tự dọn sau TTL (mặc định 14 ngày) — xem bằng lệnh `/history` |     | Skill bảo mật | `.opencode/skills/security-audit/` | Skill **security-audit của Cloudflare** (MIT) — agent tự kích hoạt khi nghe "security audit", "tìm lỗ hổng"… Pha: thám sát → săn lỗi có bảng che phủ → đối chứng chéo (verifier khác hunter) → báo cáo có bằng chứng nguồn |
+| Bộ skills kỹ thuật | `.opencode/skills/{debugging-and-error-recovery,test-driven-development,security-and-hardening,doubt-driven-development,code-review-and-quality}/` | 5 skill chọn lọc từ **addyosmani/agent-skills** (Addy Osmani — Google): debug có hệ thống tìm gốc rễ, TDD red-green-refactor, hardening OWASP khi đụng input/auth/data, nghi ngờ chéo mọi quyết định rủi ro cao, review đa trục trước merge. Mỗi skill tự kích hoạt theo ngữ cảnh việc — không cần gọi tay |
 
 Bộ này nằm trong repo nên **ai clone repo cũng tự có** — không cần cài thêm gì.
 Ngoài ra `opencode.json` đã bật `autoupdate` (tự cập nhật OpenCode) và tắt
@@ -520,24 +520,21 @@ freebuff                   # lần đầu sẽ in link đăng nhập → mở tr
 > Cả hai CLI đều đọc `AGENTS.md` trong repo khi chạy trong thư mục repo — hợp
 > đồng làm việc (5 pha, cấm secret, kiểm chứng xanh mới push) tự áp dụng.
 
-## Dùng skill security-audit (Cloudflare)
+## Dùng skills trong repo
 
-Skill nằm trong repo nên OpenCode trên VPS tự thấy sau khi pull. Cách dùng:
+**security-audit (Cloudflare)** — xem mục riêng phía dưới. Còn 5 skill của
+Addy Osmani hoạt động khác Cloudflare: **tự kích hoạt theo ngữ cảnh**, không
+cần lệnh gì — agent thấy đang fix bug → nạp `debugging-and-error-recovery`;
+đụng input/auth → `security-and-hardening`; quyết định lớn rủi ro cao →
+`doubt-driven-development`. Muốn gọi thẳng thì nhắc tên skill trong câu.
 
-```
-security audit this codebase          # audit đầy đủ 6 pha, xuất ~/security-audit-skill/<repo>/run-1
-tìm lỗ hổng trong bot/src/engines     # câu hỏi/rỏi hẹp → chế độ hướng dẫn, không chạy pha đầy đủ
-```
+**security-audit (Cloudflare)** — audit đầy đủ 6 pha tốn token lớn (nhiều
+sub-agent song song): chỉ chạy trên **bản clone** (`/root/freebuff-lab/lab-repo`)
+cho tới khi quen chi phí, không chạy trực tiếp trong repo production. Kết quả
+ghi ra `findings.json` + `REPORT.md` có bằng chứng nguồn từng dòng.
 
-Lưu ý:
-
-- **Audit đầy đủ tốn token lớn** (nhiều sub-agent chạy song song) — chỉ chạy
-  trên **bản clone** (`/root/freebuff-lab/lab-repo`), không chạy trực tiếp trong
-  repo production cho tới khi quen chi phí của nó.
-- Skill tôn trọng điều khoản repo: không chạy code mục tiêu khi thiếu sandbox,
-  giữ lead là `needs_validation` — không tự mò secret.
-- Kết quả ghi ra `findings.json` + `REPORT.md` có bằng chứng nguồn từng dòng —
-  dùng kèm `/review` để quyết vá gì.
+Tất cả skills tôn trọng điều khoản repo: không tự mò secret, hết sandbox thì
+không chạy code mục tiêu.
 
 ## Xử lý sự cố
 
