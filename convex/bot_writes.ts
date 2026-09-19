@@ -48,6 +48,16 @@ export const botUpdateSettings = mutation({
     verifyChannelId: v.optional(v.union(v.string(), v.null())),
     unverifiedRoleId: v.optional(v.union(v.string(), v.null())),
     verifiedRoleId: v.optional(v.union(v.string(), v.null())),
+    // Alt detection — các lệnh /alt on|off|punish|threshold|vpn gọi mutation này.
+    // Thiếu các field dưới đây khiến validator từ chối (ArgumentValidationError)
+    // và lệnh chạy thật hỏng câm — xem scripts/test-convex-arg-contract.cjs.
+    altDetectionEnabled: v.optional(v.boolean()),
+    vpnBlockEnabled: v.optional(v.boolean()),
+    altMaxRiskScore: v.optional(v.number()),
+    altPunish: v.optional(
+      v.union(v.literal("kick"), v.literal("ban"), v.literal("timeout"), v.literal("verify")),
+    ),
+    altVpnMode: v.optional(v.union(v.literal("strict"), v.literal("warn"), v.literal("off"))),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()),
   },
@@ -82,6 +92,13 @@ export const botUpdateSettings = mutation({
     if (args.unverifiedRoleId !== undefined)
       patch.unverifiedRoleId = args.unverifiedRoleId ?? undefined;
     if (args.verifiedRoleId !== undefined) patch.verifiedRoleId = args.verifiedRoleId ?? undefined;
+    if (args.altDetectionEnabled !== undefined)
+      patch.altDetectionEnabled = args.altDetectionEnabled;
+    if (args.vpnBlockEnabled !== undefined) patch.vpnBlockEnabled = args.vpnBlockEnabled;
+    if (args.altMaxRiskScore !== undefined)
+      patch.altMaxRiskScore = Math.max(10, Math.min(100, args.altMaxRiskScore));
+    if (args.altPunish !== undefined) patch.altPunish = args.altPunish;
+    if (args.altVpnMode !== undefined) patch.altVpnMode = args.altVpnMode;
     await ctx.db.patch(guild._id, patch);
     return { ok: true };
   },
@@ -652,10 +669,13 @@ export const botSetBackupRequest = mutation({
   args: {
     guildId: v.string(),
     pushToGithub: v.optional(v.boolean()),
+    /** Kèm tin nhắn (tối đa 50 tin/kênh) khi chụp backup — auto sweep kế thừa
+     * chế độ của bản gần nhất để checksum incremental không lệch. */
+    includeMessages: v.optional(v.boolean()),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()),
   },
-  handler: async (ctx, { botKey, guildId, pushToGithub }) => {
+  handler: async (ctx, { botKey, guildId, pushToGithub, includeMessages }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
@@ -666,6 +686,7 @@ export const botSetBackupRequest = mutation({
     await ctx.db.patch(guild._id, {
       backupRequested: true,
       backupPushToGithub: !!pushToGithub,
+      backupIncludeMessages: !!includeMessages,
       backupClaimedAt: undefined,
       updatedAt: Date.now(),
     });
