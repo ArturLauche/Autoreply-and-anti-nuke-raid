@@ -660,71 +660,43 @@ export interface ServerTheme {
   swatch2: string;
 }
 
+// Bảng xám dùng chung — thiết kế đen trắng thuần khiết, mọi "chủ đề" chỉ khác
+// nhau về độ đậm nhạt (contrast) thay vì sắc màu. Điều này giữ `--primary`
+// trung tính dù server cũ từng lưu theme màu nào trong DB.
+const SHADES = {
+  pure: { primary: "0 0% 9%", ring: "0 0% 9%", swatch: "#111111", swatch2: "#111111" },
+  strong: { primary: "0 0% 18%", ring: "0 0% 18%", swatch: "#2e2e2e", swatch2: "#2e2e2e" },
+  mid: { primary: "0 0% 32%", ring: "0 0% 32%", swatch: "#525252", swatch2: "#525252" },
+  soft: { primary: "0 0% 45%", ring: "0 0% 45%", swatch: "#737373", swatch2: "#737373" },
+  light: { primary: "0 0% 62%", ring: "0 0% 62%", swatch: "#9e9e9e", swatch2: "#9e9e9e" },
+};
+
 export const SERVER_THEMES: Record<string, ServerTheme> = {
-  pink: {
-    label: "Hồng anh đào",
-    desc: "Mặc định — hồng sakura ấm áp",
-    primary: "342 92% 60%",
-    ring: "342 92% 62%",
-    swatch: "#f2629e",
-    swatch2: "#ff9dbd",
+  graphite: {
+    label: "Graphite",
+    desc: "Mặc định — đen thuần khiết",
+    ...SHADES.pure,
   },
-  rose: {
-    label: "Hồng đỏ",
-    desc: "Nổi bật, quyết đoán",
-    primary: "336 85% 56%",
-    ring: "336 90% 58%",
-    swatch: "#e5487d",
-    swatch2: "#ff7aa8",
+  slate: {
+    label: "Slate",
+    desc: "Xám đậm — dày dặn, trầm",
+    ...SHADES.strong,
   },
-  orange: {
-    label: "Cam hoàng hôn",
-    desc: "Ấm áp, năng động",
-    primary: "24 95% 56%",
-    ring: "24 95% 58%",
-    swatch: "#f97316",
-    swatch2: "#ffb27a",
+  steel: {
+    label: "Steel",
+    desc: "Xám vừa — cân bằng, rõ ràng",
+    ...SHADES.mid,
   },
-  amber: {
-    label: "Vàng hổ phách",
-    desc: "Rực rỡ, may mắn",
-    primary: "42 96% 52%",
-    ring: "42 96% 54%",
-    swatch: "#f5a623",
-    swatch2: "#ffd166",
+  mist: {
+    label: "Mist",
+    desc: "Xám nhạt — nhẹ nhàng, mờ ảo",
+    ...SHADES.soft,
   },
-  green: {
-    label: "Xanh lá cây",
-    desc: "Tươi mát, yên bình",
-    primary: "152 72% 42%",
-    ring: "152 80% 44%",
-    swatch: "#1f9d63",
-    swatch2: "#7bd6a8",
-  },
-  teal: {
-    label: "Xanh ngọc",
-    desc: "Dịu mát, hiện đại",
-    primary: "174 84% 36%",
-    ring: "174 90% 38%",
-    swatch: "#0e9f9f",
-    swatch2: "#6fd8d8",
-  },
-  sky: {
-    label: "Xanh trời",
-    desc: "Trong trẻo, thoáng đãng",
-    primary: "207 96% 56%",
-    ring: "207 96% 58%",
-    swatch: "#2f9ff5",
-    swatch2: "#8ccbff",
-  },
-  violet: {
-    label: "Tím oải hương",
-    desc: "Huyền bí, thanh lịch",
-    primary: "262 86% 62%",
-    ring: "262 90% 64%",
-    swatch: "#8b5cf6",
-    swatch2: "#c4b0ff",
+  fog: {
+    label: "Fog",
+    desc: "Xám rất nhạt — tối giản tuyệt đối",
+    ...SHADES.light,
   },
 };
 
-export const DEFAULT_THEME = "pink";
+export const DEFAULT_THEME = "graphite";

@@ -436,21 +436,9 @@ export function HaimiyaSection() {
             {" "}
             <div className="relative mx-auto w-fit">
               <div className="relative animate-float">
-                <div className="flex h-64 w-64 items-center justify-center rounded-full border border-border bg-card shadow-lg">
+                <div className="flex h-64 w-64 items-center justify-center rounded-full border border-border bg-card shadow-sm">
                   <SafeHaimiyaAvatar className="h-48 w-48" />
                 </div>
-                <span
-                  className="absolute -right-2 top-6 animate-float text-2xl"
-                  style={{ animationDelay: "0.6s" }}
-                >
-                  🌸
-                </span>
-                <span
-                  className="absolute -left-3 bottom-14 animate-float text-xl"
-                  style={{ animationDelay: "1.2s" }}
-                >
-                  🎀
-                </span>
               </div>
             </div>
           </motion.div>

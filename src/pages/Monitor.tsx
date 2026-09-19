@@ -24,7 +24,8 @@ function LatencyChart({ samples }: { samples: number[] }) {
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   });
   const area = `0,${h} ${pts.join(" ")} ${w},${h}`;
-  const color = Math.max(...samples) > INCIDENT_SLOW ? "#f43f5e" : "#f2629e";
+  const color =
+    Math.max(...samples) > INCIDENT_SLOW ? "hsl(var(--danger))" : "hsl(var(--foreground))";
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="h-40 w-full" preserveAspectRatio="none">
       <defs>

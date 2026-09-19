@@ -295,7 +295,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
                   {id}
                   <button
                     onClick={() => removeWhitelist(id)}
-                    className="text-emerald-400/60 transition-colors hover:text-danger"
+                    className="text-muted-foreground/60 transition-colors hover:text-destructive"
                     aria-label={`Xóa ${id}`}
                   >
                     <Trash2 className="h-3 w-3" />

@@ -242,7 +242,7 @@ export default function GuildPage() {
                 })}
               </nav>
               <div className="mt-4 hidden rounded-xl border border-border bg-secondary/50 p-4 text-xs text-muted-foreground lg:block">
-                <p className="mb-2 font-medium text-foreground">🌸 Haimiya gợi ý</p>
+                <p className="mb-2 font-medium text-foreground">Haimiya gợi ý</p>
                 <p>• Auto-mod = spam tin, mention, từ xấu, ảnh/file, link mời + link độc hại.</p>
                 <p className="mt-1">
                   • Moderation = thông báo sau khi bot phạt (ban · timeout · warn · kick) — chọn mức
@@ -264,7 +264,7 @@ export default function GuildPage() {
                 <p className="mt-1">
                   • 🔒 Tính năng ẩn — khu vực riêng tư, chỉ chủ sở hữu bot mở khóa bằng mật khẩu.
                 </p>
-                <p className="mt-1">• 🎨 Mỗi server có chủ đề màu riêng trong Cài đặt.</p>
+                <p className="mt-1">• Mỗi server có độ tương phản riêng trong Cài đặt.</p>
                 <p className="mt-1">
                   • 🔗 Webhook & Log = bot tự tạo webhook tên/avatar/màu tùy chỉnh để nhận log.
                 </p>

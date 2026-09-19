@@ -21,9 +21,10 @@ export interface MonitorIncident {
 }
 
 export function latencyLabel(ms: number): { label: string; cls: string } {
-  if (ms < LATENCY_FAST) return { label: "Nhanh", cls: "text-emerald-500" };
-  if (ms < LATENCY_SLOW) return { label: "Trung bình", cls: "text-amber-500" };
-  return { label: "Chậm", cls: "text-red-500" };
+  // Đen-trắng: trạng thái đọc qua chữ + độ đậm, không màu (trừ đỏ lỗi thật).
+  if (ms < LATENCY_FAST) return { label: "Nhanh", cls: "text-foreground font-medium" };
+  if (ms < LATENCY_SLOW) return { label: "Trung bình", cls: "text-muted-foreground" };
+  return { label: "Chậm", cls: "text-destructive" };
 }
 
 /** Định dạng mốc thời gian theo giờ Việt Nam (UTC+7). */
