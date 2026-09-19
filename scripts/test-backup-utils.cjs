@@ -169,6 +169,25 @@ function check(label, cond) {
   const all = utils.filterBackupComponents(backup, {});
   check("filter rỗng → giữ nguyên dữ liệu", all.roles.length === 1 && all.channels.length === 2);
   check("filter rỗng → messageCount đúng", all.messageCount === 3);
+
+  // Dữ liệu sai kiểu (channels không phải mảng) — filter không được ném.
+  let badThrew = "";
+  let badOut;
+  try {
+    badOut = utils.filterBackupComponents({ channels: "x" }, { messages: false });
+  } catch (e) {
+    badThrew = e.message;
+  }
+  check("channels sai kiểu → không ném", badThrew === "", badThrew);
+  check("channels sai kiểu → ép về mảng rỗng", Array.isArray(badOut?.channels));
+
+  let objThrew = "";
+  try {
+    utils.filterBackupComponents({ channels: { a: 1 } }, {});
+  } catch (e) {
+    objThrew = e.message;
+  }
+  check("channels dạng object → không ném", objThrew === "", objThrew);
 }
 
 // ── 6. Decompression bomb: zlib "z:" nhỏ nhưng bung ra cực lớn ──

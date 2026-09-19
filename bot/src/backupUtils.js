@@ -153,22 +153,29 @@ function decompressAndDecryptBackup(data) {
  */
 function filterBackupComponents(backup, filter = {}) {
   const result = { ...backup };
+  // Dữ liệu có thể sai kiểu (file import từ bot nuke khác) — ép mảng an toàn
+  // trước khi map/reduce để không ném TypeError làm hỏng cả restore.
+  const arr = (v) => (Array.isArray(v) ? v : []);
+  result.roles = arr(result.roles);
+  result.channels = arr(result.channels);
+  result.emojis = arr(result.emojis);
+  result.stickers = arr(result.stickers);
   if (filter.roles === false) result.roles = [];
   if (filter.channels === false) result.channels = [];
   if (filter.emojis === false) result.emojis = [];
   if (filter.stickers === false) result.stickers = [];
   if (filter.messages === false && result.channels) {
     result.channels = result.channels.map((ch) => ({
-      ...ch,
+      ...(ch && typeof ch === "object" ? ch : {}),
       messages: [],
     }));
   }
-  result.roleCount = (result.roles || []).length;
-  result.channelCount = (result.channels || []).length;
-  result.emojiCount = (result.emojis || []).length;
-  result.stickerCount = (result.stickers || []).length;
-  result.messageCount = (result.channels || []).reduce(
-    (n, c) => n + (Array.isArray(c.messages) ? c.messages.length : 0),
+  result.roleCount = result.roles.length;
+  result.channelCount = result.channels.length;
+  result.emojiCount = result.emojis.length;
+  result.stickerCount = result.stickers.length;
+  result.messageCount = result.channels.reduce(
+    (n, c) => n + (Array.isArray(c?.messages) ? c.messages.length : 0),
     0,
   );
   return result;
