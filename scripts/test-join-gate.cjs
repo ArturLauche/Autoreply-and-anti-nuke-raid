@@ -314,6 +314,127 @@ module.exports = {
     check("getConfig lỗi → joinGate im lặng, không crash", calls.kicks.length === 0);
   }
 
+  // ── 10. joinGate punish=ban → ban thay vì kick ──
+  {
+    clear();
+    const g = mkGuild("g-ban");
+    configs.set("g-ban", {
+      joinGateEnabled: true,
+      joinGateMinAgeDays: 7,
+      joinGatePunish: "ban",
+    });
+    client.guilds.cache.set("g-ban", g);
+    await joinGate(
+      client,
+      g.addMember(mkMember("fresh-ban", "accmoi", { createdDaysAgo: 1 })),
+      store,
+    );
+    check(
+      "joinGate punish=ban → ban (không kick)",
+      calls.bans.includes("fresh-ban") && !calls.kicks.includes("fresh-ban"),
+    );
+  }
+
+  // ── 11. joinGate yêu cầu huy hiệu + flag=0 → chặn ──
+  {
+    clear();
+    const g = mkGuild("g-flag");
+    configs.set("g-flag", {
+      joinGateEnabled: true,
+      joinGateRequireFlag: true,
+      joinGatePunish: "kick",
+    });
+    client.guilds.cache.set("g-flag", g);
+    await joinGate(
+      client,
+      g.addMember(mkMember("noflag-1", "khonghuyhieu", { flagsBitfield: 0 })),
+      store,
+    );
+    check("flag = 0 → bị chặn", calls.kicks.includes("noflag-1"));
+
+    clear();
+    const g2 = mkGuild("g-flag-ok");
+    configs.set("g-flag-ok", { joinGateEnabled: true, joinGateRequireFlag: true });
+    client.guilds.cache.set("g-flag-ok", g2);
+    await joinGate(
+      client,
+      g2.addMember(mkMember("hasflag-1", "cohuyhieu", { flagsBitfield: 128 })),
+      store,
+    );
+    check("có huy hiệu → không bị chặn", calls.kicks.length === 0);
+  }
+
+  // ── 12. joinGate bị thiếu quyền (kick throw) → ghi event "không thể kick" ──
+  {
+    clear();
+    const g = mkGuild("g-noperm");
+    configs.set("g-noperm", {
+      joinGateEnabled: true,
+      joinGateMinAgeDays: 7,
+      joinGatePunish: "kick",
+    });
+    client.guilds.cache.set("g-noperm", g);
+    const m = g.addMember(mkMember("weak-1", "accmoi", { createdDaysAgo: 1 }));
+    m.kick = async () => {
+      throw new Error("Missing Permissions");
+    };
+    await joinGate(client, m, store);
+    check(
+      "kick thất bại → ghi event với 'không thể kick'",
+      calls.mutations.some(
+        (mm) =>
+          mm.name === "bot_writes:botRecordAntinukeEvent" &&
+          String(mm.args.action).includes("không thể kick"),
+      ),
+    );
+  }
+
+  // ── 13. alt whitelist ROLE → bỏ qua alt pipeline ──
+  {
+    clear();
+    const g = mkGuild("g-altwl-role");
+    configs.set("g-altwl-role", {
+      altDetectionEnabled: true,
+      altMaxRiskScore: 10,
+      altWhitelistRoles: ["r-trusted"],
+      logChannelId: null,
+    });
+    client.guilds.cache.set("g-altwl-role", g);
+    const m = g.addMember(mkMember("role-user", "xkqe8291", { createdDaysAgo: 0.5 }));
+    // discord.js Collection có .some/.has — mock Set không có, nên thay cache.
+    m.roles.cache = {
+      some: (fn) => fn({ id: "r-trusted" }),
+      has: () => false,
+    };
+    await joinGate(client, m, store);
+    check(
+      "alt whitelist role → không phạt, không recordJoin",
+      calls.kicks.length === 0 &&
+        !calls.mutations.some((mm) => mm.name === "altDetection:recordJoin"),
+    );
+  }
+
+  // ── 14. verify thiếu thành phần → KHÔNG gán role unverified ──
+  {
+    clear();
+    const g = mkGuild("g-verify-partial");
+    configs.set("g-verify-partial", {
+      verifyEnabled: true,
+      unverifiedRoleId: "r-unv",
+      // thiếu verifiedRoleId + verifyChannelId
+    });
+    client.guilds.cache.set("g-verify-partial", g);
+    await joinGate(client, g.addMember(mkMember("p-1", "thanhvienmoi")), store);
+    check("verify thiếu thành phần → không gán role unverified", calls.roleAdds.length === 0);
+  }
+
+  // ── 15. member không có guild / là bot → bỏ qua hoàn toàn ──
+  {
+    clear();
+    await joinGate(client, { user: { bot: false } }, store);
+    check("member không guild → bỏ qua (không crash)", calls.kicks.length === 0);
+  }
+
   console.log(`\nKết quả join gate: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail > 0 ? 1 : 0);
 })();

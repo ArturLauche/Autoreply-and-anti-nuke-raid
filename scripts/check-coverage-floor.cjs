@@ -23,6 +23,8 @@ const FLOORS = {
   "handlers/antinuke/messages.js": 90,
   "handlers/antinuke/shared.js": 95,
   "handlers/antinuke/externalApp.js": 85,
+  "handlers/antinuke/state.js": 85,
+  "handlers/antinuke/raidIntel.js": 80,
   "heat.js": 65,
   "threatEngine.js": 85,
   "handlers/filters.js": 90,

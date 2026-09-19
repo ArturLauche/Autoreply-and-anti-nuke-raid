@@ -119,24 +119,29 @@ module.exports = function createAntiNukeLayer({ client, store, ai }) {
     }
 
     // AI phân tích (best-effort): xác nhận phối hợp → tăng điểm nghi phạm hàng đầu.
+    // Tầng AI là TÙY CHỌN: destructure phòng thủ để raidIntel không sập khi ai
+    // thiếu/không có aiAnalyzeRaid (trước đây gọi thẳng → TypeError).
     let aiBoost = 0;
-    const ai = await aiAnalyzeRaid(
-      guild,
-      "source-hunt",
-      cluster.length || 1,
-      config?.modules?.find((m) => m.module === "massJoin")?.windowSeconds ?? 10,
-      1,
-      cluster
-        .slice(0, 12)
-        .map(
-          (m, i) =>
-            `${i + 1}. ${m.username || "?"} (acc ${m.createdAt ? Math.round((now - m.createdAt) / 86_400_000) : "?"} ngày, avatar ${m.avatar ? "có" : "không"})`,
-        )
-        .join("\n"),
-      auditExecutors.length
-        ? `Người thực hiện phá hoại gần đây: ${auditExecutors.map((e) => e.username).join(", ")}`
-        : undefined,
-    );
+    const ai =
+      typeof aiAnalyzeRaid === "function"
+        ? await aiAnalyzeRaid(
+            guild,
+            "source-hunt",
+            cluster.length || 1,
+            config?.modules?.find((m) => m.module === "massJoin")?.windowSeconds ?? 10,
+            1,
+            cluster
+              .slice(0, 12)
+              .map(
+                (m, i) =>
+                  `${i + 1}. ${m.username || "?"} (acc ${m.createdAt ? Math.round((now - m.createdAt) / 86_400_000) : "?"} ngày, avatar ${m.avatar ? "có" : "không"})`,
+              )
+              .join("\n"),
+            auditExecutors.length
+              ? `Người thực hiện phá hoại gần đây: ${auditExecutors.map((e) => e.username).join(", ")}`
+              : undefined,
+          )
+        : null;
     if (ai?.coordinated) {
       aiBoost = 2;
       scored.sort((a, b) => b.score - a.score);

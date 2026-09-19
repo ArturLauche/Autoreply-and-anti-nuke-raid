@@ -199,20 +199,23 @@ module.exports = function createAntiNukeState({ client, store }) {
     for (const [guildId] of lastConfigs) {
       if (!live.has(guildId)) lastConfigs.delete(guildId);
     }
+    // Lưu ý: `stale` là MỐC THỜI GIAN (now - 600_000), không phải tuổi. So sánh
+    // `now - ts >= stale` luôn sai (tuổi ~1e5 < mốc ~1.7e12) khiến entry của
+    // guild đang hoạt động KHÔNG BAO GIỜ hết hạn → rò rỉ RAM. Dùng `ts < stale`.
     for (const [key, ts] of appUserHandledAt) {
       const guildId = key.split(":")[0];
-      if (!live.has(guildId) || now - ts >= stale) appUserHandledAt.delete(key);
+      if (!live.has(guildId) || ts < stale) appUserHandledAt.delete(key);
     }
     for (const [guildId, ts] of lastExtAppProcessedAt) {
-      if (!live.has(guildId) || now - ts >= stale) lastExtAppProcessedAt.delete(guildId);
+      if (!live.has(guildId) || ts < stale) lastExtAppProcessedAt.delete(guildId);
     }
     for (const [key, ts] of patternPunishedAt) {
       const guildId = key.split(":")[0];
-      if (!live.has(guildId) || now - ts >= stale) patternPunishedAt.delete(key);
+      if (!live.has(guildId) || ts < stale) patternPunishedAt.delete(key);
     }
     for (const [key, ts] of buttonRaidHandledAt) {
       const guildId = key.split(":")[0];
-      if (!live.has(guildId) || now - ts >= stale) buttonRaidHandledAt.delete(key);
+      if (!live.has(guildId) || ts < stale) buttonRaidHandledAt.delete(key);
     }
     if (buckets.size > BUCKET_MAX) {
       // Giữ lại 200 key gần nhất (chống phình vô hạn)
