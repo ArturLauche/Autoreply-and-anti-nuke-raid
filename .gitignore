@@ -24,3 +24,6 @@ bot/data/
 
 # Mock tạm sinh khi chạy test-boost-modules (đã dời sang tmpdir nhưng đề phòng)
 scripts/_djs-mock-boost.cjs
+
+# Artifacts audit bảo mật (skill security-audit — chỉ xem local, không vào git)
+.security-audit/
