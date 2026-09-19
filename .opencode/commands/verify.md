@@ -12,7 +12,12 @@ agent: build
 2. `bun tsc -b --noEmit` — typecheck phải sạch. Nếu vừa đụng file trong
    `convex/` mà chưa codegen, chạy `bun convex dev --once` rồi typecheck lại.
 3. `bun run lint` — ESLint phải sạch.
+4. `bun run format:check` — format Prettier phải sạch (CI đã đỏ 5 run vì bước
+   này bị quên). Lệch format → chạy `bun run format` rồi kiểm tra lại; đây là
+   biến đổi tất-định nên được phép tự sửa, nhưng phải báo rõ "đã format lại N
+   file" trong kết quả.
 
-Báo cáo kết quả dạng số: `X/41 suites · typecheck OK/LỖI · lint OK/LỖI`.
-Có lỗi thì liệt kê từng lỗi + nguyên nhân gốc rễ + cách vá đề xuất, KHÔNG tự
-vá khi chưa được yêu cầu. KHÔNG commit trong lệnh này — chỉ xác minh và báo.
+Báo cáo kết quả dạng số: `X/41 suites · typecheck OK/LỖI · lint OK/LỖI ·
+format OK/LỖI`. Có lỗi thì liệt kê từng lỗi + nguyên nhân gốc rễ + cách vá đề
+xuất, KHÔNG tự vá khi chưa được yêu cầu (riêng format được tự sửa như trên).
+KHÔNG commit trong lệnh này — chỉ xác minh và báo.

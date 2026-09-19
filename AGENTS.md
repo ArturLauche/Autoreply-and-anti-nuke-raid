@@ -45,6 +45,12 @@ Mỗi mục todo = một kết quả kiểm chứng được, không phải mộ
 
 - Làm đúng **một mục todo** một lúc; xong cái nào cập nhật todo cái đó (không đợi cuối)
 - Việc phát sinh giữa chừng → **thêm vào todo** rồi làm, không làm lén ngoài kế hoạch
+- **Skills tự kích hoạt theo ngữ cảnh** (đọc qua mô tả skill rồi nạp khi khớp):
+  debug bug thật → `debugging-and-error-recovery`; đụng input/auth/data/
+  dependency → `security-and-hardening`; vá logic/đổi hành vi →
+  `test-driven-development`; quyết định rủi ro cao ở production →
+  `doubt-driven-development`; trước merge → `code-review-and-quality`. Audit
+  bảo mật lớn gọi `/audit`
 - Giữa các bước, tóm tắt ngắn (progress note) những gì vừa làm + phát hiện — người theo
   dõi phải hiểu tiến độ mà không cần đọc diff
 
@@ -62,6 +68,7 @@ thôi. Khi nghi file có thể sửa dở: xem `git diff` trước khi sửa ti�
 - [ ] `bun run test` — toàn bộ suites xanh (hiện tại **41 suites** — số liệu 18/09/2026; nếu runner báo ít hơn nhiều → có suite bị bỏ sót, điều tra trước khi kết luận xanh)
 - [ ] `bun tsc -b --noEmit` — typecheck sạch
 - [ ] `bun run lint` — sạch
+- [ ] `bun run format:check` — format Prettier sạch. Lệch format → chạy `bun run format` rồi kiểm tra lại (đây là biến đổi tất-định, tự sửa được; CI đã đỏ 5 run liên tiếp vì quên bước này — 19/09/2026)
 - [ ] Đụng file trong `convex/` → chạy `bun convex dev --once` (codegen) **trước** typecheck
 - [ ] Bug thuộc engine đã có test (antinuke, altDetection, heat, joinGate, backup,
       oauth client id…) → **đã thêm test chặn tái diễn** đúng nơi với test cũ
@@ -76,9 +83,12 @@ Các lệnh kiểm chứng đã được allow sẵn trong `opencode.json` — c
 2. `git add` **chọn lọc đúng file thuộc việc này** + `git commit`:
    - Message **tiếng Việt**, dòng đầu ≤72 ký tự, nói rõ _vì sao_ thay vì liệt kê máy móc
    - Footer bắt buộc: `🤖 Generated with OpenCode`
-3. **Push sau khi báo cáo** — kiểm chứng xanh rồi mới đẩy: `git push origin main`.
-   Lỗi xác thực/thiếu quyền → in lệnh, nhờ người dùng tự chạy (Freebuff quản
-   lý credential git, agent không tự cấu hình).
+3. **Push sau khi báo cáo** — kiểm chứng xanh rồi mới đẩy. Trước push chạy
+   `git pull --no-rebase --no-edit` để lấy commit mới từ Freebuff (sandbox đẩy
+   thường xuyên; VPS không pull trước thì push bị "fetch first" — đã xảy ra 2
+   lần 19/09/2026). Rồi `git push origin main`. Lỗi xác thực/thiếu quyền → in
+   lệnh, nhờ người dùng tự chạy (Freebuff quản lý credential git, agent không
+   tự cấu hình).
 
 ## 2. Điều khoản cứng — TUYỆT ĐỐI KHÔNG
 
