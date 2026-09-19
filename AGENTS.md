@@ -92,8 +92,12 @@ Các lệnh kiểm chứng đã được allow sẵn trong `opencode.json` — c
    đẩy lên `main` sau khi đã báo cáo kết quả cho người dùng. Chưa kiểm chứng →
    chưa push. Gặp lỗi xác thực khi push → in lệnh cho người dùng tự chạy,
    không tìm lối tắt quanh credentials.
-3. **Không tắt/dời process production**: `pm2 kill`, `systemctl restart` dịch vụ bot,
-   `kill` PID lạ. Cần restart bot → in lệnh, nhờ người dùng tự chạy.
+3. **Không tắt/dời process production**: `pm2 kill`, `kill` PID lạ, `systemctl
+   stop/restart` dịch vụ khác. **Ngoại lệ duy nhất — hạ tầng AI của chính agent**:
+   sau khi sửa `scripts/kiira-retry-proxy.mjs` (hoặc unit file), agent ĐƯỢC tự
+   `systemctl restart kiira-retry-proxy` rồi BẮT BUỘC health check
+   `curl http://127.0.0.1:8787/__health` — thấy `"ok":true` mới coi là xong.
+   Restart dịch vụ bot → vẫn in lệnh, nhờ người dùng tự chạy.
 4. **Không cài dependency mới khi chưa hỏi.** Bot chạy Bun — ưu tiên thứ đã có trong
    `bot/package.json` / `package.json`. Lưu ý: `bun install` theo đúng lockfile trên máy
    mới **không phải** cài dependency mới — được phép, nhưng nên báo trước một dòng.

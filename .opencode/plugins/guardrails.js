@@ -53,6 +53,7 @@ export const GuardrailsPlugin = async () => {
           "- Bị gián đoạn rồi được bảo continue/tiếp đi → TIẾP TỤC ĐÚNG CHỖ DỪNG (xem git diff + todo), không làm lại từ đầu; đi đến khi đủ kiểm chứng xanh + báo cáo mới dừng",
           "- Xong việc = test 41/41 + typecheck + lint XANH, chưa chạy thật thì không claim xanh",
           "- Không đọc secret (.env/.bot-key/key) — cần thì hỏi người dùng",
+          "- Sửa kiira-retry-proxy.mjs xong → tự systemctl restart kiira-retry-proxy + curl /__health thấy ok:true mới xong (ngoại lệ duy nhất được restart; bot + dịch vụ khác thì in lệnh nhờ người dùng)",
           "- Được git add + commit + push origin main (tiếng Việt, footer 🤖 Generated with OpenCode) — push CHỈ sau khi cả 3 kiểm chứng XANH trong phiên",
           "- Bug thuộc engine đã có test → bắt buộc thêm test chặn tái diễn",
         ].join("\n"),

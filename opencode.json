@@ -39,7 +39,16 @@
       "dd *": "deny",
       "chmod 777 *": "deny",
       "curl * | sh": "deny",
-      "curl * | bash": "deny"
+      "curl * | bash": "deny",
+      "systemctl restart kiira-retry-proxy": "allow",
+      "systemctl restart kiira-retry-proxy *": "allow",
+      "systemctl status kiira-retry-proxy *": "allow",
+      "systemctl stop *": "deny",
+      "systemctl restart *": "ask",
+      "systemctl disable *": "ask",
+      "systemctl mask *": "ask",
+      "pm2 *": "ask",
+      "kill *": "ask"
     },
     "webfetch": "allow",
     "external_directory": {

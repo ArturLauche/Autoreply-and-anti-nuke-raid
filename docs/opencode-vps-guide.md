@@ -395,6 +395,45 @@ mà phiên OpenCode không đứt; vẫn lỗi mới trả về client. Tùy ch�
 - **Dừng khi client hủy**: nếu OpenCode đã bỏ cuộc (đóng kết nối), proxy ngừng
   thử lại ngay, không đốt lượt gọi Kiira vô ích.
 
+### Khi Kiira sập hoàn toàn — fallback Groq (phương án B)
+
+Proxy gánh được nghẽn ≤~30 giây, nhưng nếu **cả gateway Kiira sập** (vài phút
+trở lên) thì agent không tự chữa được — não tắt thì cái sửa cũng cần não. Lúc
+đó chuyển model phụ **Groq free** (`openai/gpt-oss-120b` — cùng model bot đã
+dùng làm self-heal fallback trong `convex/haimiya.ts`, nhất quán về hành vi).
+
+Phân biệt 3 lớp dự phòng:
+
+| Sự cố | Dùng gì |
+|---|---|
+| Nghẽn thoáng qua (503/429) | Proxy tự gánh — không làm gì |
+| Model riêng lỗi (DeepSeek chậm/lỗi) | Đổi GLM 5.3 Flash / Mimo V2.5 trong `/models` (cùng gateway Kiira) |
+| **Cả gateway Kiira sập** | **Groq** — provider khác hẳn, độc lập với Kiira |
+
+Cài 1 lần:
+
+1. Tạo key free tại `console.groq.com` (đăng nhập Google account là đủ).
+2. Thêm provider vào `~/.config/opencode/opencode.json` (cạnh khối kiira):
+
+```json
+"groq": {
+  "npm": "@ai-sdk/openai-compatible",
+  "name": "Groq (fallback)",
+  "options": { "baseURL": "https://api.groq.com/openai/v1" },
+  "models": {
+    "openai/gpt-oss-120b": { "name": "GPT-OSS 120B (Groq)" }
+  }
+},
+```
+
+3. Lần đầu dùng: OpenCode hỏi key → dán key Groq (lưu vào `auth.json` ở thư mục
+   cấu hình, không nằm trong repo — không vi phạm điều khoản secret).
+
+Khi Kiira sập: mở OpenCode → `/models` → chọn **GPT-OSS 120B (Groq)** → gõ
+`continue` — agent nối việc đúng chỗ dừng trên model phụ. Kiira sống lại thì
+đổi về DeepSeek v4.1 Flash. Lưu ý: agent **không tự đổi model được** khi não
+tắt — bước này là của bạn, mất ~5 giây.
+
 ## Phần 4 — Nâng cấp OpenCode giống Freebuff (đã có sẵn trong repo)
 
 Repo đi kèm bộ nâng cấp giúp OpenCode làm việc kỷ luật và an toàn như Freebuff:
@@ -422,10 +461,48 @@ Ngoài ra `opencode.json` đã bật `autoupdate` (tự cập nhật OpenCode) v
 > trong OpenCode, hoặc đọc thẳng file. Lịch sử chỉ chứa metadata — không bao
 > giờ ghi nội dung tin nhắn hay secret.
 
+## Phần 5 — Freebuff CLI + Claude Fable 5.1 (súng lớn cho việc khó)
+
+Ngoài OpenCode + Kiira, VPS có thể cài thêm **Freebuff CLI** — coding agent cùng
+gia đình với nền tảng Freebuff Web, đang trial miễn phí model **Claude Fable 5.1**
+(Anthropic, dòng mạnh nhất, hỗ trợ đọc ảnh). Hai công cụ **không xung đột nhau**.
+
+### 5.1. Cài đặt
+
+```bash
+npm i -g freebuff          # cài CLI (npm có sẵn trên VPS)
+freebuff --version         # kiểm tra
+mkdir -p /root/freebuff-lab && cd /root/freebuff-lab   # sân chơi test — KHÔNG chạy trong repo production
+freebuff                   # lần đầu sẽ in link đăng nhập → mở trên điện thoại, đăng nhập tài khoản Freebuff
+```
+
+### 5.2. Vai trò trong hệ thống
+
+| Công cụ | Model | Dùng khi |
+|---|---|---|
+| OpenCode (chính) | DeepSeek v4.1 Flash qua Kiira | Việc hằng ngày — sửa bug, thêm tính năng, `/verify` |
+| Freebuff CLI | Claude Fable 5.1 (trial) | Việc khó thật sự — thiết kế kiến trúc, bug ma, refactor lớn |
+
+### 5.3. Quy tắc an toàn (bắt buộc)
+
+1. **Tuyệt đối không dán secret** (`.env`, bot token, `bot/.bot-key`, key Kiira)
+   vào chat Freebuff CLI — nội dung có thể được dùng để train AI (ghi rõ trong
+   sản phẩm). Đúng nguyên tắc điều khoản 1 trong `AGENTS.md`.
+2. **Chạy ở `/root/freebuff-lab` trước** cho quen hành vi; chưa chạy trong repo
+   bot production cho đến khi quen.
+3. Trial **giới hạn session mỗi user** — dùng có chọn lọc cho việc khó, không
+   đốt vào việc DeepSeek làm được.
+
+> Cả hai CLI đều đọc `AGENTS.md` trong repo khi chạy trong thư mục repo — hợp
+> đồng làm việc (5 pha, cấm secret, kiểm chứng xanh mới push) tự áp dụng.
+
 ## Xử lý sự cố
 
 | Triệu chứng | Nguyên nhân | Cách xử lý |
 |---|---|---|
+| `freebuff` không hiện link đăng nhập | CLI đợi xác thực ở chế độ khác | Chạy `freebuff login` (hoặc `freebuff --help` xem lệnh auth) rồi thử lại |
+| `/verify` `/fix` `/ship` biến mất khỏi menu | OpenCode đang chạy **ngoài thư mục repo** (nhìn `/~` góc màn hình) — các lệnh nằm trong `.opencode/commands/` của repo, chỉ nạp khi mở đúng chỗ | `cd /root/Autoreply-and-anti-nuke-raid && opencode` — hoặc tạo lệnh tắt `alias oc='cd /root/Autoreply-and-anti-nuke-raid && opencode'` |
+| `git commit` bị chặn dù đã bật push tự do | Phiên OpenCode đang chạy **nạp permission CŨ lúc khởi động** — sửa config giữa phiên không có hiệu lực với phiên hiện tại | Thoát OpenCode → mở lại **trong thư mục repo** (config mới của repo được nạp) — agent tự commit/push được ngay |
 | OpenCode không thấy model Kiira | Sai baseURL, ID model sai, hoặc model chưa khai trong `models` | Kiểm tra `opencode.json` — OpenCode chỉ hiện model đã khai báo; lấy đúng ID từ `curl https://kiraai.vn/api/v1/models` |
 | `git commit` bị từ chối trong OpenCode | File `~/.config/opencode/opencode.json` cũ chưa có rule `git add/commit: allow` | Merge lại từ `opencode.json` trong repo |
 | Gõ `t3` báo "command not found" | `~/.local/bin` chưa nằm trong PATH | `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc` |
