@@ -451,6 +451,36 @@ function sourceSnapshot() {
   }
   check("backup hỏng → ném lỗi có hướng dẫn (không crash process)", threw2.length > 0);
 
+  /* ── 5. Settings dị dạng: whitelistRoles/modRoles là object (không phải mảng) ──
+   * File import từ bot nuke khác có thể chứa settings sai kiểu. restoreCore map
+   * thẳng s.modRoles.map(...) → TypeError làm hỏng cả restore. */
+  const guild3 = makeTargetGuild();
+  const store3 = makeStore(guild3);
+  const badSettings = JSON.parse(JSON.stringify(snap));
+  badSettings.settings = {
+    prefix: "!",
+    badWords: {},
+    whitelistRoles: { r: 1 },
+    whitelistUsers: "not-array",
+    modRoles: "not-array",
+    adminRoles: null,
+    logChannelId: "old-ch-1",
+  };
+  let threw3 = "";
+  try {
+    await backup.runRestore(
+      { guilds: { cache: new Map([["999888777666555444", guild3]]) } },
+      store3,
+      "999888777666555444",
+      JSON.stringify(badSettings),
+      "settings hỏng",
+    );
+  } catch (e) {
+    threw3 = e.message;
+  }
+  check("settings sai kiểu không làm hỏng restore", threw3 === "", threw3);
+  check("settings sai kiểu vẫn tạo role/kênh", guild3._created.rolesCreated.length > 0);
+
   console.log(`\nKết quả restore e2e: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail > 0 ? 1 : 0);
 })().catch((e) => {

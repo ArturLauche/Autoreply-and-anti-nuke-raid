@@ -1701,17 +1701,26 @@ async function restoreCore(client, store, guildId, backup, { backupName, source 
   const stickersCreated = restoreEmojis ? await restoreStickers(guild, backup) : 0;
 
   // Áp lại cấu hình cơ bản với id mới (role/kênh đã được map sang server này).
+  // File import có thể chứa settings sai kiểu (object/chuỗi thay vì mảng) —
+  // ép về mảng trước khi map để không ném TypeError làm hỏng cả restore.
   const s = backup.settings || {};
+  const asIdArray = (v) => (Array.isArray(v) ? v : []);
   const mapId = (id, m) => (id ? m.get(id) || undefined : undefined);
   await store.client
     .mutation("bot_writes:botRestoreSettings", {
       guildId,
-      prefix: s.prefix,
-      badWords: s.badWords,
-      whitelistRoles: (s.whitelistRoles || []).map((id) => roleMap.get(id)).filter(Boolean),
-      whitelistUsers: s.whitelistUsers,
-      modRoles: (s.modRoles || []).map((id) => roleMap.get(id)).filter(Boolean),
-      adminRoles: (s.adminRoles || []).map((id) => roleMap.get(id)).filter(Boolean),
+      prefix: typeof s.prefix === "string" ? s.prefix : undefined,
+      badWords: Array.isArray(s.badWords) ? s.badWords : undefined,
+      whitelistRoles: asIdArray(s.whitelistRoles)
+        .map((id) => roleMap.get(id))
+        .filter(Boolean),
+      whitelistUsers: Array.isArray(s.whitelistUsers) ? s.whitelistUsers : undefined,
+      modRoles: asIdArray(s.modRoles)
+        .map((id) => roleMap.get(id))
+        .filter(Boolean),
+      adminRoles: asIdArray(s.adminRoles)
+        .map((id) => roleMap.get(id))
+        .filter(Boolean),
       logChannelId: mapId(s.logChannelId, channelMap) ?? null,
       modLogChannelId: mapId(s.modLogChannelId, channelMap) ?? null,
     })
