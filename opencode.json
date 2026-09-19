@@ -83,6 +83,10 @@
       "pm2 *": "ask",
       "kill *": "ask"
     },
+    "pm2 restart protogon": "ask",
+    "pm2 status": "allow",
+    "pm2 list": "allow",
+    "pm2 logs *": "ask",
     "webfetch": "allow",
     "external_directory": {
       "**": "deny"

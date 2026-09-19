@@ -555,6 +555,33 @@ disk/RAM/load/services/proxy/docker, báo cáo bảng đánh giá kèm đề xu�
 [TỰ LÀM] / [CẦN BẠN chạy]. Gật là nó xử phần của nó, còn phần của bạn thì chạy
 đúng lệnh nó in.
 
+## Deploy bot tự động — lệnh `/deploy` (19/09/2026)
+
+Bot Discord chạy bằng pm2 (process `protogon`). Từ 19/09 agent được phép tự
+cập nhật bot, nhưng có **rào cản kiểm chứng cứng** — guardrail chỉ mở cổng
+`pm2 restart protogon` sau khi phiên vừa chạy đủ 4 lớp kiểm chứng xanh (test +
+typecheck + lint + format:check, hết hạn sau 15 phút). Quy trình trong lệnh:
+
+1. `git pull --no-rebase --no-edit` (conflict → dừng hỏi)
+2. `bun install --frozen-lockfile` (chỉ khi lockfile đổi)
+3. `bun run test && bun tsc -b --noEmit && bun run lint && bun run format:check`
+4. `pm2 restart protogon`
+5. Xác minh: `pm2 status` → `protogon` online, `pm2 logs protogon --lines 30
+--nostream` → không crash loop. Chết lại → vá theo log, không restart mù.
+
+**Convex backend KHÔNG deploy tay** — CI (GitHub Actions) tự `npx convex
+deploy` sau mỗi push lên `main`, job deploy chỉ chạy khi lint + test xanh. Cần
+đẩy thay đổi Convex → `git push origin main` là xong; bot và dashboard tự thấy
+bản mới qua URL deployment (không phải restart vì Convex).
+
+**Tóm tắt 3 luồng cập nhật sau khi push lên `main`:**
+
+| Thành phần     | Ai cập nhật                                | Điều kiện                      |
+| -------------- | ------------------------------------------ | ------------------------------ |
+| Convex backend | CI tự động (`npx convex deploy`)           | lint + test xanh               |
+| Bot Discord    | Agent trên VPS (`/deploy` → pm2 restart)   | pull + 4 lớp kiểm chứng xanh   |
+| Dashboard web  | Deploy thủ công qua Dokploy (build Docker) | khi cần — front-end ít đổi hơn |
+
 ## Xử lý sự cố
 
 | Triệu chứng                                                   | Nguyên nhân                                                                                                                                     | Cách xử lý                                                                                                                             |
@@ -570,6 +597,7 @@ disk/RAM/load/services/proxy/docker, báo cáo bảng đánh giá kèm đề xu�
 | T3 Code không kết nối được VPS                                | Port SSH/firewall, hoặc VPS tắt                                                                                                                 | Dùng T3 Connect (đi qua relay của T3); kiểm tra `t3 service status` trên VPS                                                           |     | Agent đọc được file .env | CẤM — phải xảy ra lỗi cấu hình | Kiểm tra rule `read: { "*.env": "deny", ... }` trong `opencode.json` đang dùng |
 | Agent chạm env hạ tầng (unit systemd/container)               | Vùng 🔴 — guardrails chặn `systemctl cat/show`, `docker inspect/exec`, `printenv`                                                               | Đúng thiết kế. Chẩn đoán bằng `status`/`journalctl`/`docker logs`; cần giá trị env → hỏi người dùng                                    |
 | CI đỏ ở job security trên PR Dependabot                       | GITHUB_TOKEN bị giới hạn quyền trên PR dependabot — gitleaks-action gọi API bị từ chối                                                          | Đã vá 19/09: nhánh CLI chạy gitleaks trực tiếp cho PR dependabot (`ci.yml`); nếu tái diễn thì xem lại version action                   |
+| `/deploy` dừng ở bước restart với lỗi GUARDRAIL               | Chưa chạy đủ 4 lớp kiểm chứng xanh trong phiên, hoặc đã quá 15 phút kể từ lần chạy cuối                                                         | Chạy lại `bun run test && bun tsc -b --noEmit && bun run lint && bun run format:check` rồi restart — không tìm lối tắt quanh guardrail |
 | Token Kiira hết nhanh                                         | OpenCode đọc rất nhiều file mỗi task                                                                                                            | 30M tokens/ngày thường đủ; nếu hết, chuyển model phụ sang Groq free (console.groq.com)                                                 |
 
 ---

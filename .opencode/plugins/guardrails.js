@@ -55,6 +55,33 @@ function looksLikeInfraLeak(command) {
   return INFRA_LEAK_PATTERNS.some((re) => re.test(cmd));
 }
 
+// Deploy bot (pm2 restart protogon) là hành động production — chỉ cho qua khi
+// phiên đã chạy đủ bộ kiểm chứng xanh. Agent ghi dấu bằng biến môi trường
+// GUARDRAIL_VERIFIED=1 ngay sau khi test/typecheck/lint/format đạt; plugin chỉ
+// chấp nhận dấu trong 15 phút (đủ cho 1 nhịp deploy, hết hạn phải chạy lại).
+let verifiedAt = 0;
+const VERIFY_WINDOW_MS = 15 * 60 * 1000;
+
+function verifyGateActive() {
+  return verifiedAt > 0 && Date.now() - verifiedAt < VERIFY_WINDOW_MS;
+}
+
+// Chỉ tính là kiểm chứng khi lệnh chạy trọn bộ 4 lớp và KHÔNG có lỗi trong output.
+function isFullVerifyRun(command, output) {
+  const cmd = (command || "").toLowerCase();
+  const text = String(output ?? "");
+  const hasAll =
+    cmd.includes("bun run test") &&
+    (cmd.includes("tsc") || cmd.includes("typecheck")) &&
+    cmd.includes("lint") &&
+    (cmd.includes("format:check") || cmd.includes("format"));
+  if (!hasAll) return false;
+  // Exit code 0 của tool call đã được runtime kiểm tra; thêm soát output chống
+  // trường hợp script in lỗi nhưng vẫn thoát 0.
+  const failSigns = ["fail ", "failed", "✗", "error ts", "exit code: 1"];
+  return !failSigns.some((s) => text.toLowerCase().includes(s));
+}
+
 export const GuardrailsPlugin = async () => {
   return {
     // 1) Chặn lệnh bash đọc secret trước khi nó chạy
@@ -75,6 +102,27 @@ export const GuardrailsPlugin = async () => {
             "hỏi người dùng (AGENTS.md điều khoản 1 + bảng vùng quyền 🟢🟡🔴).",
         );
       }
+      // Chặn restart bot khi chưa đủ điều kiện — bot là production thật.
+      if (input.tool === "bash" && /^\s*pm2\s+restart\s+protogon\b/.test(command)) {
+        if (!verifyGateActive()) {
+          throw new Error(
+            "GUARDRAIL: Chưa đủ điều kiện restart bot. Quy trình bắt buộc (AGENTS.md " +
+              "điều khoản 3 — bot trong vùng 🟢 có rào cản): chạy `git pull " +
+              "--no-rebase --no-edit` → `bun install` (nếu lockfile đổi) → kiểm chứng " +
+              "đủ `bun run test` + typecheck + lint + format:check XANH → rồi mới " +
+              "`pm2 restart protogon`. Sau restart phải `pm2 status` thấy online + " +
+              "`pm2 logs protogon --lines 20 --nostream` không có crash loop.",
+          );
+        }
+      }
+    },
+
+    // 1.5) Quan sát kết quả bash — phiên chạy đủ bộ kiểm chứng xanh thì mở
+    //      cổng deploy-bot trong 15 phút (xem VERIFY_WINDOW_MS).
+    "tool.execute.after": async (input, output) => {
+      if (input.tool === "bash" && isFullVerifyRun(output.args?.command, output.result)) {
+        verifiedAt = Date.now();
+      }
     },
 
     // 2) Khi session dài bị nén (compaction), nhắc lại hợp đồng làm việc để
@@ -87,7 +135,7 @@ export const GuardrailsPlugin = async () => {
           "- Bị gián đoạn rồi được bảo continue/tiếp đi → TIẾP TỤC ĐÚNG CHỖ DỪNG (xem git diff + todo), không làm lại từ đầu; đi đến khi đủ kiểm chứng xanh + báo cáo mới dừng",
           "- Xong việc = test 41/41 + typecheck + lint XANH, chưa chạy thật thì không claim xanh",
           "- Không đọc secret (.env/.bot-key/key) — cần thì hỏi người dùng; kể cả qua hạ tầng: systemctl cat/show, docker inspect/exec, /proc/*/environ, printenv đều cấm",
-          "- Hạ tầng VPS 3 vùng: 🟢 TỰ LÀM — chẩn đoán (systemctl status, journalctl, docker ps/logs, df, free) + sửa rồi tự restart kiira-retry-proxy + curl /__health thấy ok:true; 🟡 IN LỆNH nhờ người dùng — restart/đụng bot, docker, dịch vụ khác; 🔴 CẤM — ufw/iptables, reboot, prune",
+          "- Hạ tầng VPS 3 vùng: 🟢 TỰ LÀM — chẩn đoán (systemctl status, journalctl, docker ps/logs, df, free) + sửa rồi tự restart kiira-retry-proxy + curl /__health thấy ok:true; restart bot `pm2 restart protogon` CHỈ sau khi pull + kiểm chứng đủ 4 lớp xanh (guardrail tự mở cổng 15 phút) — sau restart phải pm2 status online + logs không crash; 🟡 IN LỆNH nhờ người dùng — docker restart, dịch vụ khác; 🔴 CẤM — ufw/iptables, reboot, prune",
           "- Được git add + commit + push origin main (tiếng Việt, footer 🤖 Generated with OpenCode) — push CHỈ sau khi cả 3 kiểm chứng XANH trong phiên",
           "- Bug thuộc engine đã có test → bắt buộc thêm test chặn tái diễn",
         ].join("\n"),
