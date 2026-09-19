@@ -67,9 +67,24 @@ function verifyGateActive() {
   return verifiedAt > 0 && Date.now() - verifiedAt < VERIFY_WINDOW_MS;
 }
 
-// Chỉ tính là kiểm chứng khi lệnh chạy trọn bộ 4 lớp và KHÔNG có lỗi trong output.
+// Dấu hiệu LỖI THẬT do các runner in ra khi đỏ. TUYỆT ĐỐI không dùng substring
+// thô kiểu "fail " — output XANH hợp lệ chứa "0 FAIL" và
+// "PASS case3: all fail →" sẽ khớp nhầm, khiến cổng deploy KHÔNG BAO GIỜ mở
+// (bug thật 19/09/2026: 4 lớp xanh nhưng guardrail vẫn chặn restart vô hạn).
+const FAIL_PATTERNS = [
+  /❌/, // run-all-tests in khi có suite thất bại
+  /Suites thất bại:/, // dòng tổng kết đỏ của run-all-tests
+  /\bTHẤT BẠI\b/, // suite tự báo đỏ
+  /error TS\d+/, // tsc — lỗi biên dịch
+  /Found \d+ error/, // tsc — dòng tổng kết
+  /✖\s+\d+\s+problem/, // eslint
+  /Code style issues found/, // prettier
+  /error: script .+ exited with code [1-9]/, // bun/npm script thoát khác 0
+];
+
+// Chỉ tính là kiểm chứng khi lệnh chạy trọn bộ 4 lớp và KHÔNG có dấu hiệu lỗi.
 function isFullVerifyRun(command, output) {
-  const cmd = (command || "").toLowerCase();
+  const cmd = String(command ?? "").toLowerCase();
   const text = String(output ?? "");
   const hasAll =
     cmd.includes("bun run test") &&
@@ -77,10 +92,7 @@ function isFullVerifyRun(command, output) {
     cmd.includes("lint") &&
     (cmd.includes("format:check") || cmd.includes("format"));
   if (!hasAll) return false;
-  // Exit code 0 của tool call đã được runtime kiểm tra; thêm soát output chống
-  // trường hợp script in lỗi nhưng vẫn thoát 0.
-  const failSigns = ["fail ", "failed", "✗", "error ts", "exit code: 1"];
-  return !failSigns.some((s) => text.toLowerCase().includes(s));
+  return !FAIL_PATTERNS.some((re) => re.test(text));
 }
 
 export const GuardrailsPlugin = async () => {
@@ -133,8 +145,12 @@ export const GuardrailsPlugin = async () => {
 
     // 1.5) Quan sát kết quả bash — phiên chạy đủ bộ kiểm chứng xanh thì mở
     //      cổng deploy-bot trong 15 phút (xem VERIFY_WINDOW_MS).
+    //      API v1.18.31: lệnh nằm ở input.args.command, output ở output.output
+    //      (trước đây đọc nhầm output.args/output.result → luôn undefined →
+    //      cổng không bao giờ mở dù 4 lớp xanh).
     "tool.execute.after": async (input, output) => {
-      if (input.tool === "bash" && isFullVerifyRun(output.args?.command, output.result)) {
+      const cmd = input?.args?.command;
+      if (input.tool === "bash" && isFullVerifyRun(cmd, output?.output)) {
         verifiedAt = Date.now();
       }
     },
