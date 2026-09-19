@@ -641,8 +641,10 @@ function startProxy(upstream, extraEnv = {}) {
     }
   }
 
-  // ─── 1h. Ngắt mạch bán mở: lỗi liên tiếp → chặn nhanh, rồi thăm dò hồi phục ─
+  // ─── 1h. Ngắt mạch MỀM: lỗi liên tiếp KHÔNG bao giờ chặn request ────────────
   {
+    // Bài học 19/09: ngắt mạch cứng trả 503 hàng loạt khi upstream nghẽn — chính
+    // nó gây "service unavailable". Bản mềm chỉ giảm lượt thử, không chặn.
     let mode = 500; // đổi sang 200 để kiểm tra hồi phục
     const mock = await startRawUpstream((req, res) => {
       res.writeHead(mode, { "content-type": "application/json" });
@@ -659,20 +661,53 @@ function startProxy(upstream, extraEnv = {}) {
       const r2 = await request(PORT, "/chat/completions");
       const r3 = await request(PORT, "/chat/completions");
       check(
-        "2 lỗi liên tiếp → request kế bị ngắt mạch trả 503",
-        r1.status === 500 && r2.status === 500 && r3.status === 503,
+        "lỗi liên tiếp → request vẫn được phục vụ, KHÔNG bị chặn 503",
+        r1.status === 500 && r2.status === 500 && r3.status === 500,
         `${r1.status}/${r2.status}/${r3.status}`,
       );
-      check("503 ngắt mạch kèm Retry-After cho client", r3.status === 503);
       await new Promise((r) => setTimeout(r, 1400));
       mode = 200; // hồi phục
       const r4 = await request(PORT, "/chat/completions");
-      const r5 = await request(PORT, "/chat/completions");
       check(
-        "hết thời gian nghỉ → thăm dò thành công, mạch đóng lại",
-        r4.status === 200 && r5.status === 200,
-        `${r4.status}/${r5.status}`,
+        "upstream hồi phục → request nhận 200 bình thường",
+        r4.status === 200,
+        `status=${r4.status}`,
       );
+    } finally {
+      proxy.kill();
+      await stopServer(mock.server);
+    }
+  }
+
+  // ─── 1h2. Ngắt mạch mềm thực sự giảm lượt thử khi upstream lỗi liên tiếp ────
+  {
+    // Upstream luôn 500. RETRIES=6 → mỗi request 7 lượt. Sau ngưỡng, lượt thử
+    // giảm còn ~3 → số hits/request giảm hẳn (đỡ dội tải) nhưng vẫn phục vụ.
+    let hits = 0;
+    const mock = await startRawUpstream((req, res) => {
+      hits++;
+      res.writeHead(500, { "content-type": "application/json" });
+      res.end("{}");
+    });
+    const proxy = startProxy(`http://127.0.0.1:${mock.port}`, {
+      KIRA_PROXY_RETRIES: "6",
+      KIRA_PROXY_BREAKER_THRESHOLD: "1",
+      KIRA_PROXY_BREAKER_MS: "60000",
+      KIRA_PROXY_MAX_BACKOFF_MS: "30",
+    });
+    try {
+      await waitForPort(PORT);
+      await request(PORT, "/chat/completions"); // request đầu: 7 lượt, mở mềm
+      const hitsAfterFirst = hits;
+      const res2 = await request(PORT, "/chat/completions"); // request sau: ít lượt
+      const hitsSecond = hits - hitsAfterFirst;
+      check("request đầu thử đủ 7 lượt", hitsAfterFirst === 7, `hits=${hitsAfterFirst}`);
+      check(
+        "request sau (đang nghỉ mềm) thử ít hơn để đỡ dội tải",
+        hitsSecond > 0 && hitsSecond < 7,
+        `hits=${hitsSecond}`,
+      );
+      check("vẫn phục vụ chứ không trả 503", res2.status === 500, `status=${res2.status}`);
     } finally {
       proxy.kill();
       await stopServer(mock.server);
@@ -776,18 +811,19 @@ function startProxy(upstream, extraEnv = {}) {
     src.includes("KIRA_PROXY_TOTAL_BUDGET_MS") && src.includes("deadline"),
   );
   check(
-    "ngắt mạch bán mở (breakerAllows/breakerFailure + ngưỡng env)",
+    "ngắt mạch MỀM: giảm lượt thử khi lỗi liên tiếp, KHÔNG chặn request",
     src.includes("KIRA_PROXY_BREAKER_THRESHOLD") &&
-      src.includes("breakerAllows") &&
-      src.includes("breakerFailure"),
+      src.includes("effectiveRetries") &&
+      src.includes("breakerFailure") &&
+      !src.includes("breakerAllows"),
   );
   check(
-    "health endpoint phơi trạng thái ngắt mạch để giám sát",
-    src.includes("breaker:") && src.includes("breakerFails"),
+    "health endpoint phơi trạng thái ngắt mạch mềm để giám sát",
+    src.includes("breaker:") && src.includes("breakerFails") && src.includes("effectiveRetries"),
   );
   check(
-    "thăm dò hồi phục: chỉ một request thăm dò khi mạch mở (probeInFlight)",
-    src.includes("probeInFlight") && src.includes("probe:"),
+    "KHÔNG trả 503 khi upstream nghẽn (proxy là lớp retry, không từ chối phục vụ)",
+    !/status:\s*503/.test(src),
   );
   check(
     "giải phóng kết nối lỗi có giới hạn (drain + MAX_ERROR_BODY)",

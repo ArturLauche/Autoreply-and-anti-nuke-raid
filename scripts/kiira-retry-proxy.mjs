@@ -97,33 +97,37 @@ const now = () => Date.now();
 const backoffMs = (attempt) =>
   Math.min(MAX_BACKOFF_MS, Math.round(1000 * 2 ** attempt * (0.7 + Math.random() * 0.6))); // ~0.7–1.3s, ~1.4–2.6s, ~2.8–5.2s… kẹp trần
 
-// ─── Ngắt mạch bán mở ───────────────────────────────────────────────────────
-// Trạng thái dùng chung giữa mọi request (proxy chạy một process).
-let breakerFails = 0; // số thất bại liên tiếp
-let breakerOpenedAt = 0; // thời điểm mở mạch (0 = đang đóng)
-let probeInFlight = false; // đã có MỘT request thăm dò đang chạy chưa
+// ─── Ngắt mạch MỀM ──────────────────────────────────────────────────────────
+// Bài học 19/09/2026: ngắt mạch CỨNG (trả 503 khi mở) phản tác dụng — chính nó
+// biến một đợt nghẽn Kiira tạm thời thành "service unavailable" hàng loạt cho
+// client, đúng loại lỗi ta muốn diệt. Proxy là lớp retry, KHÔNG được từ chối
+// phục vụ khi upstream còn có thể hồi phục.
+//
+// Vì vậy dùng ngắt mạch MỀM: khi upstream vừa lỗi liên tiếp, GIẢM số lượt thử
+// của các request mới (đỡ dội tải vào gateway đang nghẽn) nhưng KHÔNG bao giờ
+// chặn/trả 503. Request vẫn được thử, chỉ là thử ít lượt hơn; thành công lại
+// thì mọi thứ trở về bình thường.
+let breakerFails = 0; // số thất bại liên tiếp (kết cục request)
+let breakerOpenedAt = 0; // thời điểm bắt đầu "nghỉ" (0 = đang khỏe)
 
-// Cho request đi qua? Đang đóng → có. Đang mở → chỉ một thăm dò duy nhất khi
-// hết thời gian nghỉ; các request khác bị chặn nhanh (không đập cửa đang đóng).
-function breakerAllows() {
-  if (!breakerOpenedAt) return { allowed: true, probe: false };
-  if (now() - breakerOpenedAt < BREAKER_MS) return { allowed: false, probe: false };
-  if (probeInFlight) return { allowed: false, probe: false };
-  probeInFlight = true;
-  return { allowed: true, probe: true };
+// Số lượt thử áp dụng cho request hiện tại. Đang khỏe → RETRIES đầy đủ. Đang
+// nghỉ (sau nhiều thất bại liên tiếp) → giảm còn một nửa, tối thiểu 1, để không
+// dội tải; hết thời gian nghỉ → trở lại đầy đủ.
+function effectiveRetries() {
+  if (!breakerOpenedAt) return RETRIES;
+  if (now() - breakerOpenedAt < BREAKER_MS) return Math.max(1, Math.floor(RETRIES / 2));
+  return RETRIES;
 }
 function breakerSuccess() {
   breakerFails = 0;
   breakerOpenedAt = 0;
-  probeInFlight = false;
 }
 function breakerFailure() {
-  probeInFlight = false;
   breakerFails++;
   if (!breakerOpenedAt && breakerFails >= BREAKER_THRESHOLD) {
     breakerOpenedAt = now();
     console.log(
-      `[kiira-retry-proxy] ngắt mạch: ${breakerFails} thất bại liên tiếp → tạm ngưng ${BREAKER_MS}ms`,
+      `[kiira-retry-proxy] upstream lỗi liên tiếp ${breakerFails} lần → giảm số lượt thử trong ${BREAKER_MS}ms (không chặn request)`,
     );
   }
 }
@@ -309,9 +313,11 @@ async function handle(req) {
       idleMs: IDLE_MS,
       totalBudgetMs: TOTAL_BUDGET_MS,
       breaker: {
+        // "open" = đang giảm lượt thử do upstream lỗi liên tiếp (KHÔNG chặn request).
         open: Boolean(breakerOpenedAt),
         fails: breakerFails,
         forMs: breakerOpenedAt ? Math.max(0, BREAKER_MS - (now() - breakerOpenedAt)) : 0,
+        effectiveRetries: effectiveRetries(),
       },
     });
   }
@@ -320,17 +326,9 @@ async function handle(req) {
   // /models. Client trỏ baseURL vào proxy nên path giữ nguyên hình dạng.
   const upstreamPath = url.pathname + url.search;
 
-  // Ngắt mạch: đang nghỉ thì trả 503 kèm Retry-After để client biết chờ bao lâu.
-  const gate = breakerAllows();
-  if (!gate.allowed) {
-    return Response.json(
-      {
-        error: "kiira-retry-proxy: gateway đang được ngắt mạch tạm thời",
-        retryAfterMs: BREAKER_MS,
-      },
-      { status: 503, headers: { "retry-after": String(Math.ceil(BREAKER_MS / 1000)) } },
-    );
-  }
+  // Ngắt mạch MỀM: không chặn request, chỉ giảm số lượt thử khi upstream đang lỗi
+  // liên tiếp (xem effectiveRetries).
+  const maxAttempts = effectiveRetries();
 
   // Đọc body MỘT LẦN duy nhất thành ArrayBuffer. Request body là stream dùng
   // một lần: nếu đọc trong từng lượt thử, lần retry thứ 2 sẽ ném
@@ -349,8 +347,21 @@ async function handle(req) {
   const deadline = now() + TOTAL_BUDGET_MS;
   let lastError = null;
   let lastStatus = null;
+  // Lượt vừa rồi có phải lỗi tạm thời không — dùng để chốt ngắt mạch đúng khi
+  // hết lượt retry (lỗi tạm thời dai dẳng = thất bại thật).
+  let lastTransient = false;
+  // Ngắt mạch chỉ được CHỐT đúng MỘT lần cho cả request, ở nhánh kết thúc. Các
+  // nhánh retry trung gian KHÔNG đụng tới — nếu đếm từng lượt, nhiều request
+  // song song cùng retry sẽ đẩy bộ đếm vượt ngưỡng sau vài lượt và mở mạch oan.
+  let breakerSettled = false;
+  const settleBreaker = (ok) => {
+    if (breakerSettled) return;
+    breakerSettled = true;
+    if (ok) breakerSuccess();
+    else breakerFailure();
+  };
 
-  for (let attempt = 0; attempt <= RETRIES; attempt++) {
+  for (let attempt = 0; attempt <= maxAttempts; attempt++) {
     const remaining = deadline - now();
     if (remaining <= 0) {
       lastError = new Error("hết ngân sách tổng");
@@ -380,18 +391,22 @@ async function handle(req) {
         );
       }
 
-      if (RETRYABLE.has(res.status) && attempt < RETRIES) {
+      if (RETRYABLE.has(res.status) && attempt < maxAttempts) {
         // Đọc và bỏ body lỗi để giải phóng kết nối, rồi thử lại sau backoff.
         await drain(res);
         lastError = new Error(`upstream ${res.status}`);
         lastStatus = res.status;
-        breakerFailure();
+        lastTransient = true;
+        // KHÔNG tính ngắt mạch ở đây: đây mới là một LƯỢT thử, chưa phải kết cục
+        // của request. Đếm từng lượt khiến nhiều request song song cùng retry
+        // đẩy bộ đếm vượt ngưỡng chỉ sau vài lượt → mở mạch oan, chặn các request
+        // khác dù chúng có thể tự retry thành công.
         const waitMs = Math.min(
           retryAfterMs(res) ?? backoffMs(attempt),
           Math.max(0, deadline - now()),
         );
         console.log(
-          `[kiira-retry-proxy] ${req.method} ${upstreamPath}: upstream ${res.status} → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`,
+          `[kiira-retry-proxy] ${req.method} ${upstreamPath}: upstream ${res.status} → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${maxAttempts})`,
         );
         await sleep(waitMs);
         continue;
@@ -400,26 +415,29 @@ async function handle(req) {
       // Lỗi KHÔNG thuộc danh sách status nhưng thân báo lỗi tạm thời của Kiira
       // (điển hình 404 provider_error) → vẫn đáng thử lại. Kiểm tra thân qua
       // bản clone, giữ nguyên body cho client nếu không retry.
-      if (!RETRYABLE.has(res.status) && res.status >= 400 && attempt < RETRIES) {
+      if (!RETRYABLE.has(res.status) && res.status >= 400) {
         const bodyText = await peekError(res);
         if (isRetryableErrorBody(bodyText)) {
           lastError = new Error(`upstream ${res.status} (${bodyText.slice(0, 120)})`);
           lastStatus = res.status;
-          breakerFailure();
-          const waitMs = Math.min(backoffMs(attempt), Math.max(0, deadline - now()));
-          console.log(
-            `[kiira-retry-proxy] ${req.method} ${upstreamPath}: ${res.status} nhưng thân báo lỗi tạm thời → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`,
-          );
-          await sleep(waitMs);
-          continue;
+          lastTransient = true;
+          if (attempt < maxAttempts) {
+            const waitMs = Math.min(backoffMs(attempt), Math.max(0, deadline - now()));
+            console.log(
+              `[kiira-retry-proxy] ${req.method} ${upstreamPath}: ${res.status} nhưng thân báo lỗi tạm thời → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${maxAttempts})`,
+            );
+            await sleep(waitMs);
+            continue;
+          }
+          // Hết lượt mà vẫn lỗi tạm thời → thất bại thật, rơi xuống chốt mạch.
         }
       }
 
-      // Thành công, hoặc lỗi cứng (401/400…) — chuyển thẳng. Lỗi cứng cũng tính
-      // là "upstream còn sống" nên đóng mạch, không phạt oan.
-      if (!RETRYABLE.has(res.status)) breakerSuccess();
-      else breakerFailure();
-      if (gate.probe) probeInFlight = false;
+      // Kết cục CUỐI của request (không còn continue). Lỗi cứng (401/400…) =
+      // upstream còn sống → đóng mạch; còn lại là thất bại thật → tính MỘT lần
+      // cho cả request vào ngắt mạch.
+      if (RETRYABLE.has(res.status)) lastTransient = true;
+      settleBreaker(!lastTransient);
 
       // Lỗi (>=400) hoặc không có body → chuyển thẳng, không stream.
       if (res.status >= 400 || !res.body) {
@@ -439,18 +457,21 @@ async function handle(req) {
       if (first.idle) {
         await reader.cancel().catch(() => {});
         lastError = new Error("upstream im lặng trước chunk đầu");
-        breakerFailure();
-        if (attempt < RETRIES) {
+        lastTransient = true;
+        if (attempt < maxAttempts) {
           const waitMs = Math.min(backoffMs(attempt), Math.max(0, deadline - now()));
           console.log(
-            `[kiira-retry-proxy] ${req.method} ${upstreamPath}: upstream im lặng trước chunk đầu → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`,
+            `[kiira-retry-proxy] ${req.method} ${upstreamPath}: upstream im lặng trước chunk đầu → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${maxAttempts})`,
           );
           await sleep(waitMs);
           continue;
         }
         break;
       }
-      if (first.done) return new Response(null, { status: res.status, headers: res.headers });
+      if (first.done) {
+        settleBreaker(true);
+        return new Response(null, { status: res.status, headers: res.headers });
+      }
 
       // Kiira có thể trả HTTP 200 rồi gửi lỗi TRONG thân SSE/JSON. Nếu chunk đầu
       // là tín hiệu lỗi, coi như chập chờn và thử lại (thay vì để client nhận
@@ -463,11 +484,11 @@ async function handle(req) {
         }
         await reader.cancel().catch(() => {});
         lastError = new Error("upstream 200 nhưng thân báo lỗi");
-        breakerFailure();
-        if (attempt < RETRIES) {
+        lastTransient = true;
+        if (attempt < maxAttempts) {
           const waitMs = Math.min(backoffMs(attempt), Math.max(0, deadline - now()));
           console.log(
-            `[kiira-retry-proxy] ${req.method} ${upstreamPath}: upstream 200 nhưng thân báo lỗi → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`,
+            `[kiira-retry-proxy] ${req.method} ${upstreamPath}: upstream 200 nhưng thân báo lỗi → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${maxAttempts})`,
           );
           await sleep(waitMs);
           continue;
@@ -481,6 +502,7 @@ async function handle(req) {
       }
 
       // Đã có chunk đầu — stream phần còn lại, idle watchdog canh giữa chừng.
+      settleBreaker(true);
       return new Response(continueStream(reader, first.value), {
         status: res.status,
         headers: res.headers,
@@ -489,17 +511,16 @@ async function handle(req) {
       clearTimeout(firstByteTimer);
       // Client đã ngắt — không còn ai nhận kết quả, dừng ngay, không thử nữa.
       if (clientGone.signal.aborted) {
-        if (gate.probe) probeInFlight = false;
         throw err;
       }
       lastError = err;
-      breakerFailure();
-      if (attempt < RETRIES) {
+      lastTransient = true;
+      if (attempt < maxAttempts) {
         const label =
           err?.message === "chờ phản hồi đầu quá hạn" ? "chờ phản hồi đầu quá hạn" : "mất kết nối";
         const waitMs = Math.min(backoffMs(attempt), Math.max(0, deadline - now()));
         console.log(
-          `[kiira-retry-proxy] ${req.method} ${upstreamPath}: ${label} → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`,
+          `[kiira-retry-proxy] ${req.method} ${upstreamPath}: ${label} → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${maxAttempts})`,
         );
         await sleep(waitMs);
         continue;
@@ -507,9 +528,10 @@ async function handle(req) {
     }
   }
 
-  if (gate.probe) probeInFlight = false;
+  // Hết lượt / hết ngân sách / hết đường retry → đây mới là thất bại của request.
+  settleBreaker(false);
   console.log(
-    `[kiira-retry-proxy] ${req.method} ${upstreamPath}: hết ${RETRIES} lượt thử (lỗi cuối: ${lastStatus ?? String(lastError)}) — trả lỗi về client`,
+    `[kiira-retry-proxy] ${req.method} ${upstreamPath}: hết ${maxAttempts} lượt thử (lỗi cuối: ${lastStatus ?? String(lastError)}) — trả lỗi về client`,
   );
   return Response.json(
     { error: "kiira-retry-proxy: upstream vẫn lỗi sau các lần thử lại", detail: String(lastError) },
