@@ -312,6 +312,16 @@ const shared = require("../bot/src/handlers/antinuke/shared");
     const sch2 = rb.scheduleRollback(guild, "massChannelDelete", "atk");
     check("S3: các vụ tiếp theo trong grace window gộp chung lịch", sch2.scheduled === false);
 
+    // CÙNG module lặp lại trong grace window KHÔNG được lên lịch lần hai (trước
+    // đây set.size vẫn = 1 → first=true → hẹn giờ trùng, chạy rollback 2 lần).
+    rb.reset();
+    const dup1 = rb.scheduleRollback(guild, "massRoleDelete", "atk");
+    const dup2 = rb.scheduleRollback(guild, "massRoleDelete", "atk");
+    check(
+      "S3: cùng module lặp lại không hẹn giờ trùng",
+      dup1.scheduled === true && dup2.scheduled === false,
+    );
+
     // Chờ grace window (GRACE_MS 60s là quá lâu cho test → dùng guild khác coi như
     // hết cooldown nhưng pending của g-s3 vẫn chờ; chỉ verify pending gộp — rollback
     // thật đã test ở trên qua runRollback trực tiếp).

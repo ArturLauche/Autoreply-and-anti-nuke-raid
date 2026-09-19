@@ -43,11 +43,14 @@ module.exports = function createNukeRollback({ store }) {
    */
   function scheduleRollback(guild, module, executorId) {
     if (!guild?.id) return { scheduled: false, reason: "thiếu guild" };
+    // Đã có lịch trong grace window? → chỉ gộp module, KHÔNG hẹn giờ lần hai.
+    // (Kiểm tra sự tồn tại của entry thay vì set.size === 1: cùng module lặp lại
+    // giữ nguyên size nên trước đây vẫn hẹn trùng → rollback chạy 2 lần.)
+    const already = pending.has(guild.id);
     const set = pending.get(guild.id) ?? new Set();
     set.add(module);
-    const first = set.size === 1;
     pending.set(guild.id, set);
-    if (!first) return { scheduled: false, reason: "đã có lịch trong grace window" };
+    if (already) return { scheduled: false, reason: "đã có lịch trong grace window" };
     setTimeout(async () => {
       const modules = pending.get(guild.id) ?? new Set();
       pending.delete(guild.id);
