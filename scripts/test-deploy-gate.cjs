@@ -2,7 +2,7 @@
 /**
  * test-deploy-gate.cjs — chặn tái diễn bug cổng deploy của guardrail (19/09/2026).
  *
- * Bug thật: guardrail chặn `pm2 restart protogon` / `npx convex deploy` tới khi
+ * Bug thật: guardrail chặn `pm2 restart protogon-bot` / `npx convex deploy` tới khi
  * phiên chạy đủ 4 lớp kiểm chứng xanh. Nhưng 2 lỗi khiến cổng KHÔNG BAO GIỜ mở:
  *   1) `tool.execute.after` đọc nhầm field: output.args/output.result thay vì
  *      input.args.command + output.output (API opencode v1.18.31) → command luôn
@@ -71,7 +71,7 @@ async function gateAfterRun(command, output) {
   try {
     await hooks["tool.execute.before"](
       { tool: "bash" },
-      { args: { command: "pm2 restart protogon" } },
+      { args: { command: "pm2 restart protogon-bot" } },
     );
     return true;
   } catch {
@@ -80,6 +80,25 @@ async function gateAfterRun(command, output) {
 }
 
 (async () => {
+  // ── 0. Guardrail phải chặn CẢ "protogon" lẫn "protogon-bot" khi cổng đóng
+  // (tài liệu từng ghi sai tên "protogon"; nếu regex chỉ khớp 1 tên thì lệnh
+  // dùng tên kia sẽ lọt cổng — test này khóa cả hai). ──
+  {
+    const hooks = await freshHooks();
+    for (const name of ["protogon", "protogon-bot"]) {
+      let blocked = false;
+      try {
+        await hooks["tool.execute.before"](
+          { tool: "bash" },
+          { args: { command: `pm2 restart ${name}` } },
+        );
+      } catch {
+        blocked = true;
+      }
+      check(`chặn restart "${name}" khi chưa kiểm chứng`, blocked === true);
+    }
+  }
+
   // ── 1. Chưa chạy gì → cổng đóng ──
   check("cổng đóng khi chưa kiểm chứng", (await gateAfterRun(null, "")) === false);
 

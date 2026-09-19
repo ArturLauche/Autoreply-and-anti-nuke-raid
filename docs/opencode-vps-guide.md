@@ -233,7 +233,7 @@ Key OpenCode và key bot là HAI nơi riêng biệt. Nếu muốn bot cũng dùn
 
 ```bash
 echo 'KIRA_API_KEY=KEY-CỦA-BẠN' >> bot/.env
-pm2 restart protogon   # hoặc lệnh restart bot bạn đang dùng
+pm2 restart protogon-bot   # hoặc lệnh restart bot bạn đang dùng
 ```
 
 > ⚠️ KHÔNG paste key vào chat với agent, KHÔNG commit file .env — agent đã bị
@@ -620,16 +620,16 @@ disk/RAM/load/services/proxy/docker, báo cáo bảng đánh giá kèm đề xu�
 
 ## Deploy bot tự động — lệnh `/deploy` (19/09/2026)
 
-Bot Discord chạy bằng pm2 (process `protogon`). Từ 19/09 agent được phép tự
+Bot Discord chạy bằng pm2 (process `protogon-bot`). Từ 19/09 agent được phép tự
 cập nhật bot, nhưng có **rào cản kiểm chứng cứng** — guardrail chỉ mở cổng
-`pm2 restart protogon` sau khi phiên vừa chạy đủ 4 lớp kiểm chứng xanh (test +
+`pm2 restart protogon-bot` sau khi phiên vừa chạy đủ 4 lớp kiểm chứng xanh (test +
 typecheck + lint + format:check, hết hạn sau 15 phút). Quy trình trong lệnh:
 
 1. `git pull --no-rebase --no-edit` (conflict → dừng hỏi)
 2. `bun install --frozen-lockfile` (chỉ khi lockfile đổi)
 3. `bun run test && bun tsc -b --noEmit && bun run lint && bun run format:check`
-4. `pm2 restart protogon`
-5. Xác minh: `pm2 status` → `protogon` online, `pm2 logs protogon --lines 30
+4. `pm2 restart protogon-bot`
+5. Xác minh: `pm2 status` → `protogon-bot` online, `pm2 logs protogon-bot --lines 30
 --nostream` → không crash loop. Chết lại → vá theo log, không restart mù.
 
 **Convex backend — 2 đường deploy song song, không xung đột:** CI (GitHub

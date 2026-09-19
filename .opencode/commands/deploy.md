@@ -1,5 +1,5 @@
 ---
-description: Cập nhật bot trên VPS về commit mới nhất — pull → kiểm chứng đủ bộ → pm2 restart protogon → xác minh sống
+description: Cập nhật bot trên VPS về commit mới nhất — pull → kiểm chứng đủ bộ → pm2 restart protogon-bot → xác minh sống
 agent: build
 ---
 
@@ -59,7 +59,7 @@ push-idempotent: deploy cùng commit 2 lần chỉ ghi nhận, không phá dữ 
    (guardrail chỉ mở khi cả 4 lớp xanh trong 15 phút gần nhất):
 
    ```bash
-   pm2 restart protogon
+   pm2 restart protogon-bot
    ```
 
 6. **Xác minh bot sống** — bắt buộc, không restart là xong đâu:
@@ -68,10 +68,10 @@ push-idempotent: deploy cùng commit 2 lần chỉ ghi nhận, không phá dữ 
    pm2 status
    ```
 
-   → `protogon` phải `online`, `↺` (số lần restart) không tăng liên tục.
+   → `protogon-bot` phải `online`, `↺` (số lần restart) không tăng liên tục.
 
    ```bash
-   pm2 logs protogon --lines 30 --nostream
+   pm2 logs protogon-bot --lines 30 --nostream
    ```
 
    → thấy log đăng nhập Discord bình thường (không có `Error` lặp / crash loop).
@@ -80,7 +80,7 @@ push-idempotent: deploy cùng commit 2 lần chỉ ghi nhận, không phá dữ 
 
 ## Rào cản (theo AGENTS.md điều khoản 3)
 
-- Được: `git pull`, `bun install` theo lockfile, kiểm chứng, `pm2 restart protogon`,
+- Được: `git pull`, `bun install` theo lockfile, kiểm chứng, `pm2 restart protogon-bot`,
   `npx convex deploy` (chỉ khi có thay đổi `convex/`).
 - Hỏi trước (vùng 🟡): `pm2 delete`, đổi file ecosystem, đụng dịch vụ khác.
 - Cấm (vùng 🔴): đọc `.env`/`bot/.bot-key`, `pm2 startup/system`, `reboot`, in giá
