@@ -375,11 +375,13 @@ Nếu trước đây đã chạy bằng tmux → tắt phiên cũ để tránh 2
 
 Rồi đổi `baseURL` trong `~/.config/opencode/opencode.json` từ
 `https://kiraai.vn/api/v1` → `http://127.0.0.1:8787` — từ đó OpenCode nói
-chuyện với proxy, proxy chống chập cho. Proxy mặc định **thử lại tối đa 5 lần**
-với backoff 1s→2s→4s→8s→16s (+ jitter) — chịu được nghẽn Kiira kéo dài ~30 giây
-mà phiên OpenCode không đứt; vẫn lỗi mới trả về client. Tùy chỉnh qua env:
-`KIRA_PROXY_PORT` (8787), `KIRA_PROXY_RETRIES` (5), `KIRA_PROXY_TIMEOUT_MS`
-(120000), `KIRA_PROXY_MAX_BACKOFF_MS` (30000), `KIRA_UPSTREAM`
+chuyện với proxy, proxy chống chập cho. Proxy mặc định **thử lại tối đa 6 lần**
+với backoff 1s→2s→4s→8s→16s→30s (+ jitter) — chịu được nghẽn Kiira kéo dài mà
+phiên OpenCode không đứt; vẫn lỗi mới trả về client. Tùy chỉnh qua env:
+`KIRA_PROXY_PORT` (8787), `KIRA_PROXY_RETRIES` (6), `KIRA_PROXY_TIMEOUT_MS`
+(120000), `KIRA_PROXY_FIRST_BYTE_MS` (15000), `KIRA_PROXY_IDLE_MS` (60000),
+`KIRA_PROXY_TOTAL_BUDGET_MS` (600000), `KIRA_PROXY_MAX_BACKOFF_MS` (30000),
+`KIRA_PROXY_BREAKER_THRESHOLD` (5), `KIRA_PROXY_BREAKER_MS` (15000), `KIRA_UPSTREAM`
 (https://kiraai.vn/api/v1).
 
 **Cơ chế chịu nghẽn (quan trọng):**
@@ -388,12 +390,33 @@ mà phiên OpenCode không đứt; vẫn lỗi mới trả về client. Tùy ch�
   stream dùng một lần — nếu đọc lại mỗi lượt, retry cho POST `/chat/completions`
   (đúng loại request OpenCode dùng) sẽ ném `Body already used` và client nhận 502
   ngay khi upstream chập. Test `scripts/test-kiira-proxy.cjs` chặn tái diễn.
+- **Tách "chờ byte đầu" khỏi "chờ cả lượt"** (19/09/2026). Bản cũ dùng một timeout
+  120s cho mỗi lượt fetch: Kiira nhận kết nối nhưng không trả header thì mỗi lượt
+  đứng im 2 phút → nhiều lượt thành treo cứng hàng chục phút. Giờ chỉ chờ tối đa
+  `KIRA_PROXY_FIRST_BYTE_MS` (15s) để thấy phản hồi đầu; quá hạn coi là nghẽn và
+  thử lại ngay.
+- **Idle watchdog cho stream** (19/09/2026). Timer cũ 120s còn CẮT OAN stream hợp
+  lệ dài hơn 120s (model chậm, câu trả lời dài). Giờ stream chạy bao lâu cũng được
+  miễn là giữa 2 chunk không im lặng quá `KIRA_PROXY_IDLE_MS` (60s). Nếu im lặng
+  **trước chunk đầu** (chưa có byte nào tới client) → hủy lượt và thử lại; im lặng
+  **giữa chừng** → đóng sạch để client tự xử lý.
+- **Ngân sách tổng** `KIRA_PROXY_TOTAL_BUDGET_MS` (10 phút) chặn việc cộng dồn
+  nhiều lượt retry thành phiên treo vô tận; hết ngân sách trả lỗi sớm.
+- **Ngắt mạch bán mở**: Kiira lỗi liên tiếp `KIRA_PROXY_BREAKER_THRESHOLD` lần thì
+  tạm ngưng thử `KIRA_PROXY_BREAKER_MS`, rồi cho MỘT request thăm dò đi trước;
+  thành công → đóng mạch ngay, thất bại → tiếp tục nghỉ. Trạng thái xem được tại
+  `curl http://127.0.0.1:8787/__health`.
 - **Tôn trọng `Retry-After`** của Kiira (giây hoặc HTTP-date) khi bị 429/503 —
   chờ đúng thời gian gateway yêu cầu thay vì đoán theo backoff.
 - **Trần backoff** `KIRA_PROXY_MAX_BACKOFF_MS` để tổng thời gian chờ luôn có biên,
   không treo phiên hàng phút vì một lần nghẽn dài.
 - **Dừng khi client hủy**: nếu OpenCode đã bỏ cuộc (đóng kết nối), proxy ngừng
   thử lại ngay, không đốt lượt gọi Kiira vô ích.
+
+> Lưu ý kỹ thuật (Bun v1.4.2): không dùng `controller.error()` hay `abort()` từ
+> callback timer để ngắt stream — Bun in lỗi đó như uncaught exception và reset
+> socket thô. Proxy dùng sentinel `IDLE` (resolve, không reject) và đóng stream
+> sạch; test `test-kiira-proxy.cjs` khóa hành vi này.
 
 ### Khi Kiira sập hoàn toàn — fallback Groq (phương án B)
 

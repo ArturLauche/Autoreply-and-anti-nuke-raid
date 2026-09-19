@@ -14,38 +14,107 @@
  *     thử lại vô ích.
  *   - Streaming (SSE) chảy xuyên suốt bình thường — proxy chỉ chuyển tiếp.
  *
+ * BẢN TĂNG CƯỜNG (19/09/2026) — vì sao vẫn kẹt dù đã có retry:
+ *   1. TÁCH "chờ byte đầu" khỏi "chờ cả lượt". Bản cũ dùng một timeout 120s cho
+ *      mỗi lượt fetch: Kiira treo (nhận kết nối nhưng không trả header) thì mỗi
+ *      lượt đứng im 2 phút → 5 lượt ~10 phút treo cứng. Giờ chỉ chờ tối đa
+ *      KIRA_PROXY_FIRST_BYTE_MS (15s) để thấy phản hồi đầu; quá hạn coi là nghẽn
+ *      và thử lại ngay.
+ *   2. IDLE WATCHDOG cho stream. Timer cũ 120s còn CẮT OAN stream hợp lệ dài hơn
+ *      120s (model chậm, câu trả lời dài). Giờ stream được phép chạy bao lâu cũng
+ *      được miễn là giữa 2 chunk không im lặng quá KIRA_PROXY_IDLE_MS (60s); im
+ *      lặng quá lâu → cắt và thử lại.
+ *   3. NGÂN SÁCH TỔNG (KIRA_PROXY_TOTAL_BUDGET_MS, mặc định 10 phút). Chặn việc
+ *      cộng dồn nhiều lượt retry thành một phiên treo vô tận; hết ngân sách thì
+ *      trả lỗi sớm để OpenCode báo rõ thay vì đứng chờ mù.
+ *   4. NGẮT MẠCH BÁN MỞ (circuit breaker). Khi Kiira lỗi liên tục nhiều lượt,
+ *      đừng đập vào cửa đang đóng: tạm ngưng thử trong KIRA_PROXY_BREAKER_MS rồi
+ *      cho MỘT request "thăm dò" đi trước. Thăm dò thành công → đóng mạch lại
+ *      ngay; thất bại → tiếp tục nghỉ. Tránh dồn tải lên gateway đang nghẽn.
+ *   5. TÔN TRỌNG Retry-After nhưng KẸP theo ngân sách còn lại, không vượt trần.
+ *
  * AN TOÀN SECRET: proxy KHÔNG cần API key — Authorization header từ OpenCode
  * được chuyển tiếp nguyên vẹn, không đọc, không ghi log giá trị header. Chỉ
  * forward header an toàn (auth + content-type + accept); các header hop-by-hop
  * bị bỏ theo chuẩn proxy.
  *
- * Cách chạy trên VPS (bền khi đóng SSH — xem docs Phần 5):
- *   tmux new -d -s kiira 'bun /root/Autoreply-and-anti-nuke-raid/scripts/kiira-retry-proxy.mjs'
+ * Cách chạy trên VPS (bền khi đóng SSH — xem docs Phần 4.5):
+ *   systemctl enable --now kiira-retry-proxy
  *
- * Env tùy chọn: KIRA_PROXY_PORT (8787), KIRA_UPSTREAM (https://kiraai.vn/api/v1),
- * KIRA_PROXY_RETRIES (5), KIRA_PROXY_TIMEOUT_MS (120000),
- * KIRA_PROXY_MAX_BACKOFF_MS (30000).
+ * Env tùy chọn:
+ *   KIRA_PROXY_PORT (8787), KIRA_UPSTREAM (https://kiraai.vn/api/v1),
+ *   KIRA_PROXY_RETRIES (6), KIRA_PROXY_TIMEOUT_MS (120000 — trần cứng mỗi lượt),
+ *   KIRA_PROXY_FIRST_BYTE_MS (15000 — chờ phản hồi đầu), KIRA_PROXY_IDLE_MS
+ *   (60000 — im lặng tối đa giữa 2 chunk), KIRA_PROXY_TOTAL_BUDGET_MS (600000),
+ *   KIRA_PROXY_MAX_BACKOFF_MS (30000), KIRA_PROXY_BREAKER_THRESHOLD (5),
+ *   KIRA_PROXY_BREAKER_MS (15000).
  */
 
 const PORT = Number(process.env.KIRA_PROXY_PORT ?? 8787);
 const UPSTREAM = (process.env.KIRA_UPSTREAM ?? "https://kiraai.vn/api/v1").replace(/\/+$/, "");
-const RETRIES = Math.max(0, Number(process.env.KIRA_PROXY_RETRIES ?? 5));
+const RETRIES = Math.max(0, Number(process.env.KIRA_PROXY_RETRIES ?? 6));
+// Trần cứng cho MỘT lượt fetch (không phải thời gian stream — stream do idle
+// watchdog canh). Đủ rộng cho câu trả lời dài, đủ hẹp để không treo vô hạn.
 const TIMEOUT_MS = Number(process.env.KIRA_PROXY_TIMEOUT_MS ?? 120_000);
+// Chờ tối đa để thấy byte đầu (header) của upstream. Quá hạn = upstream nghẽn,
+// thử lại ngay thay vì đứng chờ hết TIMEOUT_MS.
+const FIRST_BYTE_MS = Math.max(1, Number(process.env.KIRA_PROXY_FIRST_BYTE_MS ?? 15_000));
+// Stream im lặng quá lâu giữa 2 chunk = kết nối đã chết trên thực tế.
+const IDLE_MS = Math.max(1, Number(process.env.KIRA_PROXY_IDLE_MS ?? 60_000));
+// Ngân sách tổng cho cả request (mọi lượt retry + mọi lần chờ stream).
+const TOTAL_BUDGET_MS = Math.max(1, Number(process.env.KIRA_PROXY_TOTAL_BUDGET_MS ?? 600_000));
 // Trần chờ giữa 2 lần thử: backoff lũy tiến nhưng không vượt trần, tránh một
 // lần nghẽn dài khiến phiên treo hàng phút.
 const MAX_BACKOFF_MS = Math.max(0, Number(process.env.KIRA_PROXY_MAX_BACKOFF_MS ?? 30_000));
+// Ngắt mạch bán mở: đủ nhiều thất bại liên tiếp thì tạm ngưng thử.
+const BREAKER_THRESHOLD = Math.max(1, Number(process.env.KIRA_PROXY_BREAKER_THRESHOLD ?? 5));
+const BREAKER_MS = Math.max(0, Number(process.env.KIRA_PROXY_BREAKER_MS ?? 15_000));
 
 // Header từ client được chuyển tiếp — chỉ những header an toàn/ cần thiết.
 const PASS_HEADERS = ["authorization", "content-type", "accept", "user-agent"];
 // Status coi là "Kiira chập chờn" — đáng để thử lại.
 const RETRYABLE = new Set([408, 429, 500, 502, 503, 504, 522, 524]);
+// Trần cho phần thân lỗi đọc lại khi thử lại (chặn upstream lỗi trả body khổng lồ).
+const MAX_ERROR_BODY = 64 * 1024;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const now = () => Date.now();
 // Backoff tăng dần + jitter ngẫu nhiên (±30%) — nhiều request cùng dính nghẽn
 // sẽ không dồn vào Kiira đúng một nhịp nữa (tránh "thundering herd").
 // Kẹp trần MAX_BACKOFF_MS để tổng thời gian chờ luôn có biên.
 const backoffMs = (attempt) =>
   Math.min(MAX_BACKOFF_MS, Math.round(1000 * 2 ** attempt * (0.7 + Math.random() * 0.6))); // ~0.7–1.3s, ~1.4–2.6s, ~2.8–5.2s… kẹp trần
+
+// ─── Ngắt mạch bán mở ───────────────────────────────────────────────────────
+// Trạng thái dùng chung giữa mọi request (proxy chạy một process).
+let breakerFails = 0; // số thất bại liên tiếp
+let breakerOpenedAt = 0; // thời điểm mở mạch (0 = đang đóng)
+let probeInFlight = false; // đã có MỘT request thăm dò đang chạy chưa
+
+// Cho request đi qua? Đang đóng → có. Đang mở → chỉ một thăm dò duy nhất khi
+// hết thời gian nghỉ; các request khác bị chặn nhanh (không đập cửa đang đóng).
+function breakerAllows() {
+  if (!breakerOpenedAt) return { allowed: true, probe: false };
+  if (now() - breakerOpenedAt < BREAKER_MS) return { allowed: false, probe: false };
+  if (probeInFlight) return { allowed: false, probe: false };
+  probeInFlight = true;
+  return { allowed: true, probe: true };
+}
+function breakerSuccess() {
+  breakerFails = 0;
+  breakerOpenedAt = 0;
+  probeInFlight = false;
+}
+function breakerFailure() {
+  probeInFlight = false;
+  breakerFails++;
+  if (!breakerOpenedAt && breakerFails >= BREAKER_THRESHOLD) {
+    breakerOpenedAt = now();
+    console.log(
+      `[kiira-retry-proxy] ngắt mạch: ${breakerFails} thất bại liên tiếp → tạm ngưng ${BREAKER_MS}ms`,
+    );
+  }
+}
 
 // Tôn trọng header Retry-After của upstream (giây hoặc HTTP-date) — Kiira báo
 // nghẽn bao lâu thì chờ đúng, thay vì đoán theo backoff. Vẫn kẹp trần.
@@ -69,8 +138,89 @@ async function forward(req, pathAndQuery, body, signal) {
     method: req.method,
     headers,
     body,
-    // Hủy khi client ngắt kết nối (OpenCode bỏ cuộc) HOẶC quá timeout mỗi lượt.
+    // Hủy khi client ngắt, quá timeout lượt, hoặc hết ngân sách tổng.
     signal,
+  });
+}
+
+// Đọc tối đa `max` byte của body lỗi rồi bỏ phần còn lại — giải phóng kết nối
+// mà không kéo cả body khổng lồ của upstream đang lỗi.
+async function drain(res) {
+  const reader = res.body?.getReader();
+  if (!reader) return;
+  let read = 0;
+  try {
+    while (read < MAX_ERROR_BODY) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      read += value?.length ?? 0;
+    }
+  } catch {
+    /* upstream lỗi giữa chừng — bỏ qua */
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+}
+
+// Kết quả sentinel cho cuộc đua với idle watchdog — dùng RESOLVE (không reject)
+// vì Bun v1.4.2 in reject từ timer như uncaught exception và reset socket.
+const IDLE = Symbol("idle");
+
+// Chờ chunk đầu tiên của upstream, tối đa IDLE_MS. Trả { idle:true } nếu upstream
+// im lặng quá lâu TRƯỚC KHI gửi gì — lúc này chưa có byte nào tới client nên
+// proxy an toàn hủy lượt và thử lại (đây chính là ca "kẹt" hay gặp: gateway nhận
+// kết nối nhưng không chịu trả dữ liệu).
+async function waitFirstChunk(reader) {
+  let timer = null;
+  const readPromise = reader.read();
+  readPromise.catch(() => {}); // thua cuộc đua rồi bị cancel → không unhandled
+  const idle = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(IDLE), IDLE_MS);
+  });
+  const result = await Promise.race([readPromise, idle]);
+  clearTimeout(timer);
+  if (result === IDLE) return { idle: true };
+  return { idle: false, done: result.done, value: result.value };
+}
+
+// Sau khi đã có chunk đầu, chuyển tiếp phần còn lại và reset idle watchdog sau
+// mỗi chunk. Im lặng giữa 2 chunk quá IDLE_MS → đóng stream (KHÔNG dùng
+// controller.error/abort vì Bun reset socket thô; đóng sạch để client tự xử lý).
+function continueStream(reader, firstValue) {
+  let closed = false;
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(firstValue);
+    },
+    async pull(controller) {
+      if (closed) return;
+      let timer = null;
+      const readPromise = reader.read();
+      readPromise.catch(() => {});
+      const idle = new Promise((resolve) => {
+        timer = setTimeout(() => resolve(IDLE), IDLE_MS);
+      });
+      const result = await Promise.race([readPromise, idle]);
+      clearTimeout(timer);
+      if (result === IDLE) {
+        closed = true;
+        console.log(`[kiira-retry-proxy] stream im lặng > ${IDLE_MS}ms → đóng kết nối`);
+        await reader.cancel().catch(() => {});
+        controller.close();
+        return;
+      }
+      if (closed) return;
+      if (result.done) {
+        closed = true;
+        controller.close();
+        return;
+      }
+      controller.enqueue(result.value);
+    },
+    cancel(reason) {
+      closed = true;
+      return reader.cancel(reason).catch(() => {});
+    },
   });
 }
 
@@ -78,12 +228,33 @@ async function handle(req) {
   const url = new URL(req.url);
 
   if (url.pathname === "/__health") {
-    return Response.json({ ok: true, upstream: UPSTREAM, retries: RETRIES });
+    return Response.json({
+      ok: true,
+      upstream: UPSTREAM,
+      retries: RETRIES,
+      firstByteMs: FIRST_BYTE_MS,
+      idleMs: IDLE_MS,
+      totalBudgetMs: TOTAL_BUDGET_MS,
+      breaker: {
+        open: Boolean(breakerOpenedAt),
+        fails: breakerFails,
+        forMs: breakerOpenedAt ? Math.max(0, BREAKER_MS - (now() - breakerOpenedAt)) : 0,
+      },
+    });
   }
 
   // Mọi path khác chuyển thẳng (giữ nguyên query string) — ví dụ /chat/completions,
   // /models. Client trỏ baseURL vào proxy nên path giữ nguyên hình dạng.
   const upstreamPath = url.pathname + url.search;
+
+  // Ngắt mạch: đang nghỉ thì trả 503 kèm Retry-After để client biết chờ bao lâu.
+  const gate = breakerAllows();
+  if (!gate.allowed) {
+    return Response.json(
+      { error: "kiira-retry-proxy: gateway đang được ngắt mạch tạm thời", retryAfterMs: BREAKER_MS },
+      { status: 503, headers: { "retry-after": String(Math.ceil(BREAKER_MS / 1000)) } },
+    );
+  }
 
   // Đọc body MỘT LẦN duy nhất thành ArrayBuffer. Request body là stream dùng
   // một lần: nếu đọc trong từng lượt thử, lần retry thứ 2 sẽ ném
@@ -99,37 +270,102 @@ async function handle(req) {
   const clientGone = new AbortController();
   req.signal?.addEventListener("abort", () => clientGone.abort(req.signal.reason), { once: true });
 
+  const deadline = now() + TOTAL_BUDGET_MS;
   let lastError = null;
   let lastStatus = null;
+
   for (let attempt = 0; attempt <= RETRIES; attempt++) {
-    const signal = AbortSignal.any([clientGone.signal, AbortSignal.timeout(TIMEOUT_MS)]);
+    const remaining = deadline - now();
+    if (remaining <= 0) {
+      lastError = new Error("hết ngân sách tổng");
+      break;
+    }
+    // Chờ byte đầu (header) tối đa first-byte; KIRA_PROXY_TIMEOUT_MS là trần dự
+    // phòng nếu first-byte bị đặt 0. Kẹp theo ngân sách còn lại.
+    const headerWaitMs = Math.min(FIRST_BYTE_MS > 0 ? FIRST_BYTE_MS : TIMEOUT_MS, remaining);
+    // Controller thủ công để HỦY timer ngay khi nhận header — nếu dùng
+    // AbortSignal.timeout, nó vẫn nổ sau 15s và cắt oan stream đang chảy.
+    const attemptController = new AbortController();
+    const signal = AbortSignal.any([clientGone.signal, attemptController.signal]);
+    const firstByteTimer = setTimeout(
+      () => attemptController.abort(new Error("chờ phản hồi đầu quá hạn")),
+      headerWaitMs,
+    );
+
     try {
       const res = await forward(req, upstreamPath, body, signal);
+      // Đã thấy header — tắt đồng hồ chờ byte đầu; phần thân do idle watchdog canh.
+      clearTimeout(firstByteTimer);
+
       if (RETRYABLE.has(res.status) && attempt < RETRIES) {
         // Đọc và bỏ body lỗi để giải phóng kết nối, rồi thử lại sau backoff.
-        await res.text().catch(() => {});
+        await drain(res);
         lastError = new Error(`upstream ${res.status}`);
         lastStatus = res.status;
-        const waitMs = retryAfterMs(res) ?? backoffMs(attempt);
-        console.log(`[kiira-retry-proxy] ${req.method} ${upstreamPath}: upstream ${res.status} → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`);
+        breakerFailure();
+        const waitMs = Math.min(retryAfterMs(res) ?? backoffMs(attempt), Math.max(0, deadline - now()));
+        console.log(
+          `[kiira-retry-proxy] ${req.method} ${upstreamPath}: upstream ${res.status} → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`,
+        );
         await sleep(waitMs);
         continue;
       }
-      return res; // thành công hoặc lỗi cứng/lỗi sau khi hết lượt thử
+
+      // Thành công, hoặc lỗi cứng (401/400…) — chuyển thẳng. Lỗi cứng cũng tính
+      // là "upstream còn sống" nên đóng mạch, không phạt oan.
+      if (!RETRYABLE.has(res.status)) breakerSuccess();
+      else breakerFailure();
+      if (gate.probe) probeInFlight = false;
+
+      // Lỗi (>=400) hoặc không có body → chuyển thẳng, không stream.
+      if (res.status >= 400 || !res.body) return res;
+
+      // Chờ chunk ĐẦU với idle watchdog. Nếu upstream im lặng trước khi gửi gì,
+      // chưa có byte nào tới client → hủy lượt và thử lại (ca "kẹt" hay gặp).
+      const reader = res.body.getReader();
+      const first = await waitFirstChunk(reader);
+      if (first.idle) {
+        await reader.cancel().catch(() => {});
+        lastError = new Error("upstream im lặng trước chunk đầu");
+        breakerFailure();
+        if (attempt < RETRIES) {
+          const waitMs = Math.min(backoffMs(attempt), Math.max(0, deadline - now()));
+          console.log(
+            `[kiira-retry-proxy] ${req.method} ${upstreamPath}: upstream im lặng trước chunk đầu → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`,
+          );
+          await sleep(waitMs);
+          continue;
+        }
+        break;
+      }
+      if (first.done) return new Response(null, { status: res.status, headers: res.headers });
+      // Đã có chunk đầu — stream phần còn lại, idle watchdog canh giữa chừng.
+      return new Response(continueStream(reader, first.value), { status: res.status, headers: res.headers });
     } catch (err) {
+      clearTimeout(firstByteTimer);
       // Client đã ngắt — không còn ai nhận kết quả, dừng ngay, không thử nữa.
-      if (clientGone.signal.aborted) throw err;
-      // Lỗi mạng/timeout — coi như chập chờn, thử lại nếu còn lượt.
+      if (clientGone.signal.aborted) {
+        if (gate.probe) probeInFlight = false;
+        throw err;
+      }
       lastError = err;
+      breakerFailure();
       if (attempt < RETRIES) {
-        const waitMs = backoffMs(attempt);
-        console.log(`[kiira-retry-proxy] ${req.method} ${upstreamPath}: ${err?.name === "TimeoutError" ? "timeout" : "mất kết nối"} → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`);
+        const label = err?.message === "chờ phản hồi đầu quá hạn" ? "chờ phản hồi đầu quá hạn" : "mất kết nối";
+        const waitMs = Math.min(backoffMs(attempt), Math.max(0, deadline - now()));
+        console.log(
+          `[kiira-retry-proxy] ${req.method} ${upstreamPath}: ${label} → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`,
+        );
         await sleep(waitMs);
         continue;
       }
     }
   }
-  console.log(`[kiira-retry-proxy] ${req.method} ${upstreamPath}: hết ${RETRIES} lượt thử (lỗi cuối: ${lastStatus ?? String(lastError)}) — trả lỗi về client`);
+
+  if (gate.probe) probeInFlight = false;
+  console.log(
+    `[kiira-retry-proxy] ${req.method} ${upstreamPath}: hết ${RETRIES} lượt thử (lỗi cuối: ${lastStatus ?? String(lastError)}) — trả lỗi về client`,
+  );
   return Response.json(
     { error: "kiira-retry-proxy: upstream vẫn lỗi sau các lần thử lại", detail: String(lastError) },
     { status: 502 },
@@ -144,5 +380,5 @@ Bun.serve({
 });
 
 console.log(
-  `[kiira-retry-proxy] đang lắng nghe http://127.0.0.1:${PORT} → ${UPSTREAM} (retry ${RETRIES} lần, backoff + jitter)`,
+  `[kiira-retry-proxy] đang lắng nghe http://127.0.0.1:${PORT} → ${UPSTREAM} (retry ${RETRIES} lần, first-byte ${FIRST_BYTE_MS}ms, idle ${IDLE_MS}ms, ngân sách ${TOTAL_BUDGET_MS}ms, breaker ${BREAKER_THRESHOLD}/${BREAKER_MS}ms)`,
 );
