@@ -241,6 +241,138 @@ function startProxy(upstream, extraEnv = {}) {
     }
   }
 
+  // ─── 1d2. Mã Cloudflare 520/529 phải được coi là chập chờn → retry ──────────
+  {
+    const mock = await startRawUpstream((req, res, hit) => {
+      if (hit === 1) {
+        res.writeHead(520, { "content-type": "text/html" });
+        res.end("<html>cloudflare 520</html>");
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end('{"ok":true}');
+    });
+    const proxy = startProxy(`http://127.0.0.1:${mock.port}`, {
+      KIRA_PROXY_RETRIES: "3",
+      KIRA_PROXY_MAX_BACKOFF_MS: "50",
+    });
+    try {
+      await waitForPort(PORT);
+      const res = await request(PORT, "/chat/completions");
+      check(
+        "Cloudflare 520 → tự retry → client nhận 200",
+        res.status === 200,
+        `status=${res.status}`,
+      );
+      check(
+        "520 gọi upstream 2 lần",
+        mock.hits["/chat/completions"] === 2,
+        `hits=${mock.hits["/chat/completions"]}`,
+      );
+    } finally {
+      proxy.kill();
+      await stopServer(mock.server);
+    }
+  }
+
+  // ─── 1d3. Lỗi cứng vẫn trả nguyên vẹn body cho client (peekError dùng clone) ─
+  {
+    const errBody = JSON.stringify({ error: { message: "sai key", code: "bad_key" } });
+    const mock = await startRawUpstream((req, res) => {
+      res.writeHead(401, { "content-type": "application/json" });
+      res.end(errBody);
+    });
+    const proxy = startProxy(`http://127.0.0.1:${mock.port}`, { KIRA_PROXY_RETRIES: "2" });
+    try {
+      await waitForPort(PORT);
+      const res = await request(PORT, "/chat/completions");
+      check(
+        "401 trả nguyên vẹn body dù proxy đã đọc chẩn đoán",
+        res.status === 401 && res.body === errBody,
+        JSON.stringify(res.body),
+      );
+    } finally {
+      proxy.kill();
+      await stopServer(mock.server);
+    }
+  }
+
+  // ─── 1d4. GỐC RỄ 19/09: Kiira trả 404 kèm provider_error (lỗi tạm thời) ─────
+  {
+    // Quan sát thật: 404 {"error":{...,"code":"provider_error"}} — nếu coi 404 là
+    // lỗi cứng thì client nhận đúng "AI service stream failed" dù còn dư lượt.
+    const mock = await startRawUpstream((req, res, hit) => {
+      if (hit === 1) {
+        res.writeHead(404, { "content-type": "application/json" });
+        res.end(
+          JSON.stringify({
+            error: {
+              message:
+                "AI service stream failed: The AI model service is temporarily unavailable. Please try again shortly.",
+              type: "api_error",
+              code: "provider_error",
+            },
+          }),
+        );
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end('{"ok":true}');
+    });
+    const proxy = startProxy(`http://127.0.0.1:${mock.port}`, {
+      KIRA_PROXY_RETRIES: "3",
+      KIRA_PROXY_MAX_BACKOFF_MS: "50",
+    });
+    try {
+      await waitForPort(PORT);
+      const res = await request(PORT, "/chat/completions");
+      check(
+        "404 kèm provider_error → retry → client nhận 200 (hết 'stream failed')",
+        res.status === 200,
+        `status=${res.status}, body=${JSON.stringify(res.body)}`,
+      );
+      check(
+        "đã gọi upstream 2 lần cho 404 tạm thời",
+        mock.hits["/chat/completions"] === 2,
+        `hits=${mock.hits["/chat/completions"]}`,
+      );
+    } finally {
+      proxy.kill();
+      await stopServer(mock.server);
+    }
+  }
+
+  // ─── 1d5. 404 thật (không phải provider_error) KHÔNG retry, body nguyên vẹn ─
+  {
+    const errBody = JSON.stringify({
+      error: { message: "model không tồn tại", code: "not_found" },
+    });
+    const mock = await startRawUpstream((req, res) => {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(errBody);
+    });
+    const proxy = startProxy(`http://127.0.0.1:${mock.port}`, {
+      KIRA_PROXY_RETRIES: "3",
+      KIRA_PROXY_MAX_BACKOFF_MS: "50",
+    });
+    try {
+      await waitForPort(PORT);
+      const res = await request(PORT, "/chat/completions");
+      check(
+        "404 thật (not_found) → trả ngay, không retry",
+        res.status === 404 && res.body === errBody,
+      );
+      check(
+        "chỉ gọi upstream 1 lần",
+        mock.hits["/chat/completions"] === 1,
+        `hits=${mock.hits["/chat/completions"]}`,
+      );
+    } finally {
+      proxy.kill();
+      await stopServer(mock.server);
+    }
+  }
+
   // ─── 1e. First-byte timeout: upstream treo header → cắt sớm, không đứng im ─
   {
     // Upstream nhận kết nối nhưng chỉ trả sau 5s; proxy chờ byte đầu 400ms.
@@ -367,6 +499,46 @@ function startProxy(upstream, extraEnv = {}) {
     }
   }
 
+  // ─── 1f2b. HTTP 200 nhưng thân báo lỗi (lỗi ẩn trong SSE) → thử lại ─────────
+  {
+    // Lần 1: 200 kèm event lỗi; lần 2: dữ liệu thật. Không bắt ca này thì client
+    // nhận "stream failed" mà proxy không hề retry (lỗi hay gặp trên Kiira).
+    const mock = await startRawUpstream((req, res, hit) => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.flushHeaders();
+      if (hit === 1) {
+        res.write(
+          'data: {"error":{"message":"The AI model service is temporarily unavailable"}}\n\n',
+        );
+        res.end();
+        return;
+      }
+      res.write('data: {"delta":"lan2"}\n\n');
+      res.end("data: [DONE]\n\n");
+    });
+    const proxy = startProxy(`http://127.0.0.1:${mock.port}`, {
+      KIRA_PROXY_RETRIES: "3",
+      KIRA_PROXY_MAX_BACKOFF_MS: "50",
+    });
+    try {
+      await waitForPort(PORT);
+      const res = await request(PORT, "/chat/completions");
+      check(
+        "200 kèm thân báo lỗi → proxy thử lại, client nhận dữ liệu lượt 2",
+        res.status === 200 && res.body.includes("lan2"),
+        `status=${res.status}, body=${JSON.stringify(res.body)}`,
+      );
+      check(
+        "đã gọi upstream đúng 2 lần (1 lỗi ẩn + 1 thành công)",
+        mock.hits["/chat/completions"] === 2,
+        `hits=${mock.hits["/chat/completions"]}`,
+      );
+    } finally {
+      proxy.kill();
+      await stopServer(mock.server);
+    }
+  }
+
   // ─── 1f3. Stream chảy dài hơn first-byte KHÔNG bị cắt oan ───────────────────
   {
     // first-byte 300ms, nhưng stream gửi chunk đều trong ~1.5s → phải nhận đủ.
@@ -403,6 +575,37 @@ function startProxy(upstream, extraEnv = {}) {
         "nhận đủ 5 chunk",
         (res.body.match(/"n":/g) || []).length === 5,
         JSON.stringify(res.body),
+      );
+    } finally {
+      proxy.kill();
+      await stopServer(mock.server);
+    }
+  }
+
+  // ─── 1f4. Nội dung model chứa "500"/"error" KHÔNG bị retry nhầm ─────────────
+  {
+    const mock = await startRawUpstream((req, res) => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.flushHeaders();
+      res.write('data: {"delta":"Mã lỗi HTTP 500 và error là chủ đề ta đang bàn"}\n\n');
+      res.end("data: [DONE]\n\n");
+    });
+    const proxy = startProxy(`http://127.0.0.1:${mock.port}`, {
+      KIRA_PROXY_RETRIES: "3",
+      KIRA_PROXY_MAX_BACKOFF_MS: "50",
+    });
+    try {
+      await waitForPort(PORT);
+      const res = await request(PORT, "/chat/completions");
+      check(
+        "nội dung có chữ '500'/'error' không bị retry nhầm",
+        res.status === 200 && res.body.includes("chủ đề"),
+        `status=${res.status}`,
+      );
+      check(
+        "chỉ gọi upstream 1 lần (không retry oan)",
+        mock.hits["/chat/completions"] === 1,
+        `hits=${mock.hits["/chat/completions"]}`,
       );
     } finally {
       proxy.kill();
@@ -477,9 +680,17 @@ function startProxy(upstream, extraEnv = {}) {
   }
 
   // ─── 2. Khóa hình thức: an toàn secret + cấu hình đúng ──────────────────
+  // Chỉ được log header PHẢN HỒI không nhạy cảm (content-type). Cấm log header
+  // request/authorization (chứa secret) dưới mọi hình thức.
   check(
-    "KHÔNG log giá trị Authorization/header (secret không lọt qua log)",
-    !/console\.(log|error|info)\([^)]*headers/i.test(src),
+    "KHÔNG log Authorization/header request (secret không lọt qua log)",
+    !/console\.(log|error|info)\([^)]*authorization/i.test(src) &&
+      !/console\.(log|error|info)\([^)]*req\.headers/i.test(src) &&
+      !/JSON\.stringify\([^)]*headers/i.test(src),
+  );
+  check(
+    "chẩn đoán chỉ log content-type của phản hồi (không log giá trị header nhạy cảm)",
+    !/console\.(log|error|info)\([^)]*res\.headers\.get\(["'](?!content-type)/i.test(src),
   );
   check(
     "chỉ chuyển tiếp header an toàn (authorization/content-type/accept/user-agent)",
@@ -487,12 +698,20 @@ function startProxy(upstream, extraEnv = {}) {
   );
   check("lắng nghe 127.0.0.1 — không lộ proxy ra internet", src.includes('hostname: "127.0.0.1"'));
   check(
-    "danh sách retryable gồm 408 + 429 + 5xx chuẩn",
+    "danh sách retryable gồm 408 + 429 + 5xx chuẩn + Cloudflare 520-529",
     src.includes("429") &&
       src.includes("408") &&
       src.includes("502") &&
       src.includes("503") &&
-      src.includes("504"),
+      src.includes("504") &&
+      src.includes("520") &&
+      src.includes("529"),
+  );
+  check(
+    "phân loại lỗi theo THÂN (404 provider_error vẫn retry) — gốc rễ 19/09",
+    src.includes("isRetryableErrorBody") &&
+      src.includes("provider_error") &&
+      src.includes("AI service stream failed"),
   );
   check(
     "backoff tăng dần kèm jitter chống thundering herd",

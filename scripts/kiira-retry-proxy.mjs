@@ -69,11 +69,23 @@ const MAX_BACKOFF_MS = Math.max(0, Number(process.env.KIRA_PROXY_MAX_BACKOFF_MS 
 // Ngắt mạch bán mở: đủ nhiều thất bại liên tiếp thì tạm ngưng thử.
 const BREAKER_THRESHOLD = Math.max(1, Number(process.env.KIRA_PROXY_BREAKER_THRESHOLD ?? 5));
 const BREAKER_MS = Math.max(0, Number(process.env.KIRA_PROXY_BREAKER_MS ?? 15_000));
+// Log mọi response (status + content-type) để chẩn đoán khi vẫn kẹt mà không
+// thấy dòng retry nào — bật bằng KIRA_PROXY_LOG_ALL=1. KHÔNG log header/secret.
+const LOG_ALL = ["1", "true", "yes"].includes(
+  String(process.env.KIRA_PROXY_LOG_ALL ?? "").toLowerCase(),
+);
+// Bắt lỗi nằm trong thân SSE khi upstream vẫn trả HTTP 200 (mặc định bật).
+const ERROR_IN_STREAM = !["0", "false", "no"].includes(
+  String(process.env.KIRA_PROXY_ERROR_IN_STREAM ?? "1").toLowerCase(),
+);
 
 // Header từ client được chuyển tiếp — chỉ những header an toàn/ cần thiết.
 const PASS_HEADERS = ["authorization", "content-type", "accept", "user-agent"];
-// Status coi là "Kiira chập chờn" — đáng để thử lại.
-const RETRYABLE = new Set([408, 429, 500, 502, 503, 504, 522, 524]);
+// Status coi là "Kiira chập chờn" — đáng để thử lại. Gồm cả 5xx Cloudflare
+// (520-527) vì kiraai.vn đứng sau Cloudflare; 529 là "site quá tải". Bản cũ chỉ
+// có 522/524 nên các mã như 520/521/523/525/529 bị coi là lỗi cứng → không retry
+// → client nhận "stream failed" dù proxy còn dư lượt thử.
+const RETRYABLE = new Set([408, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524, 525, 527, 529]);
 // Trần cho phần thân lỗi đọc lại khi thử lại (chặn upstream lỗi trả body khổng lồ).
 const MAX_ERROR_BODY = 64 * 1024;
 
@@ -182,6 +194,66 @@ async function waitFirstChunk(reader) {
   clearTimeout(timer);
   if (result === IDLE) return { idle: true };
   return { idle: false, done: result.done, value: result.value };
+}
+
+// Xem trước nội dung chunk để chẩn đoán (chỉ khi LOG_ALL). Cắt ngắn 300 ký tự,
+// thay xuống dòng bằng khoảng trắng. KHÔNG log header/secret.
+function preview(value) {
+  try {
+    const text = new TextDecoder().decode(value).slice(0, 300).replace(/\s+/g, " ");
+    return text;
+  } catch {
+    return "<binary>";
+  }
+}
+
+// Đọc thân phản hồi lỗi để chẩn đoán VÀ phân loại, dùng bản clone nên KHÔNG
+// tiêu thụ body thật trả về client. Cắt ngắn, KHÔNG đụng tới header/secret.
+async function peekError(res) {
+  try {
+    const text = await res.clone().text();
+    return text.slice(0, 500).replace(/\s+/g, " ") || "<rỗng>";
+  } catch {
+    return "<không đọc được>";
+  }
+}
+
+// Kiira (sau Cloudflare) dùng 404 kèm thân "provider_error" cho lỗi TẠM THỜI của
+// model — quan sát thực tế 19/09/2026:
+//   404 {"error":{"message":"AI service stream failed: ... temporarily
+//   unavailable ...","code":"provider_error"}}
+// Nếu chỉ dựa vào mã status, 404 bị coi là lỗi cứng → không retry → client nhận
+// đúng "AI service stream failed" dù proxy còn dư lượt. Vì vậy phân loại thêm
+// theo THÂN lỗi. Chỉ nhận dạng cấu trúc rõ ràng, tránh retry nhầm lỗi thật.
+function isRetryableErrorBody(text) {
+  if (!text) return false;
+  return (
+    /"code"\s*:\s*"(provider_error|server_error|upstream_error|service_unavailable)"/i.test(text) ||
+    /temporarily unavailable/i.test(text) ||
+    /AI service stream failed/i.test(text)
+  );
+}
+
+// Phát hiện lỗi nằm TRONG thân SSE/JSON khi upstream vẫn trả HTTP 200. Kiira có
+// thể trả 200 rồi gửi event lỗi — nếu proxy không bắt, client nhận "stream
+// failed" mà proxy không hề retry. Chỉ soi CHUNK ĐẦU và chỉ nhận dạng cấu trúc
+// lỗi rõ ràng (khóa "error" / thông điệp quen thuộc), tránh retry nhầm khi model
+// viết chữ "500" trong nội dung trả lời.
+function looksLikeErrorChunk(value) {
+  let text;
+  try {
+    text = new TextDecoder().decode(value).slice(0, 2000).trim();
+  } catch {
+    return false;
+  }
+  if (!text) return false;
+  const payload = text.replace(/^data:\s*/, "");
+  return (
+    /^\{\s*"error"\s*:/.test(payload) ||
+    /"error"\s*:\s*\{/.test(payload) ||
+    /temporarily unavailable/i.test(payload) ||
+    /"code"\s*:\s*"(no_api_key_provided|rate_limit[^"]*|server_error)"/.test(payload)
+  );
 }
 
 // Sau khi đã có chunk đầu, chuyển tiếp phần còn lại và reset idle watchdog sau
@@ -300,6 +372,13 @@ async function handle(req) {
       const res = await forward(req, upstreamPath, body, signal);
       // Đã thấy header — tắt đồng hồ chờ byte đầu; phần thân do idle watchdog canh.
       clearTimeout(firstByteTimer);
+      // Chẩn đoán: log MỌI response để biết vì sao không retry (chỉ status +
+      // content-type, KHÔNG log header/secret). Bật/tắt qua KIRA_PROXY_LOG_ALL.
+      if (LOG_ALL) {
+        console.log(
+          `[kiira-retry-proxy] ${req.method} ${upstreamPath}: ← ${res.status} ${res.headers.get("content-type") ?? ""}`,
+        );
+      }
 
       if (RETRYABLE.has(res.status) && attempt < RETRIES) {
         // Đọc và bỏ body lỗi để giải phóng kết nối, rồi thử lại sau backoff.
@@ -318,6 +397,24 @@ async function handle(req) {
         continue;
       }
 
+      // Lỗi KHÔNG thuộc danh sách status nhưng thân báo lỗi tạm thời của Kiira
+      // (điển hình 404 provider_error) → vẫn đáng thử lại. Kiểm tra thân qua
+      // bản clone, giữ nguyên body cho client nếu không retry.
+      if (!RETRYABLE.has(res.status) && res.status >= 400 && attempt < RETRIES) {
+        const bodyText = await peekError(res);
+        if (isRetryableErrorBody(bodyText)) {
+          lastError = new Error(`upstream ${res.status} (${bodyText.slice(0, 120)})`);
+          lastStatus = res.status;
+          breakerFailure();
+          const waitMs = Math.min(backoffMs(attempt), Math.max(0, deadline - now()));
+          console.log(
+            `[kiira-retry-proxy] ${req.method} ${upstreamPath}: ${res.status} nhưng thân báo lỗi tạm thời → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`,
+          );
+          await sleep(waitMs);
+          continue;
+        }
+      }
+
       // Thành công, hoặc lỗi cứng (401/400…) — chuyển thẳng. Lỗi cứng cũng tính
       // là "upstream còn sống" nên đóng mạch, không phạt oan.
       if (!RETRYABLE.has(res.status)) breakerSuccess();
@@ -325,7 +422,15 @@ async function handle(req) {
       if (gate.probe) probeInFlight = false;
 
       // Lỗi (>=400) hoặc không có body → chuyển thẳng, không stream.
-      if (res.status >= 400 || !res.body) return res;
+      if (res.status >= 400 || !res.body) {
+        // Chẩn đoán lỗi CỨNG: đây là loại proxy không retry, nếu không log thì
+        // "mù" khi client báo "stream failed". Đọc thân lỗi qua bản clone để
+        // KHÔNG tiêu thụ body thật của client.
+        console.log(
+          `[kiira-retry-proxy] ${req.method} ${upstreamPath}: lỗi ${res.status} (không retry) → ${await peekError(res)}`,
+        );
+        return res;
+      }
 
       // Chờ chunk ĐẦU với idle watchdog. Nếu upstream im lặng trước khi gửi gì,
       // chưa có byte nào tới client → hủy lượt và thử lại (ca "kẹt" hay gặp).
@@ -346,6 +451,35 @@ async function handle(req) {
         break;
       }
       if (first.done) return new Response(null, { status: res.status, headers: res.headers });
+
+      // Kiira có thể trả HTTP 200 rồi gửi lỗi TRONG thân SSE/JSON. Nếu chunk đầu
+      // là tín hiệu lỗi, coi như chập chờn và thử lại (thay vì để client nhận
+      // "stream failed" mà proxy không hề retry).
+      if (ERROR_IN_STREAM && looksLikeErrorChunk(first.value)) {
+        if (LOG_ALL) {
+          console.log(
+            `[kiira-retry-proxy] ${req.method} ${upstreamPath}: 200 nhưng thân báo lỗi → ${preview(first.value)}`,
+          );
+        }
+        await reader.cancel().catch(() => {});
+        lastError = new Error("upstream 200 nhưng thân báo lỗi");
+        breakerFailure();
+        if (attempt < RETRIES) {
+          const waitMs = Math.min(backoffMs(attempt), Math.max(0, deadline - now()));
+          console.log(
+            `[kiira-retry-proxy] ${req.method} ${upstreamPath}: upstream 200 nhưng thân báo lỗi → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`,
+          );
+          await sleep(waitMs);
+          continue;
+        }
+        break;
+      }
+      if (LOG_ALL) {
+        console.log(
+          `[kiira-retry-proxy] ${req.method} ${upstreamPath}: chunk đầu → ${preview(first.value)}`,
+        );
+      }
+
       // Đã có chunk đầu — stream phần còn lại, idle watchdog canh giữa chừng.
       return new Response(continueStream(reader, first.value), {
         status: res.status,
