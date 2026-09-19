@@ -351,6 +351,9 @@ export const getBotConfig = query({
       raidHuntEnabled: guild.raidHuntEnabled ?? true,
       raidHuntBanSuspects: guild.raidHuntBanSuspects ?? true,
       badWords: guild.badWords ?? [],
+      // Trần punish tự động/phút — actionBudget.js đọc field này; preset ghi vào
+      // DB nhưng nếu query không trả về thì bot luôn dùng mặc định (20).
+      actionBudgetPerMinute: guild.actionBudgetPerMinute ?? 20,
       heatEnabled: guild.heatEnabled ?? HEAT_DEFAULTS.enabled,
       heatDecayPerMin: decayPerMin,
       heatWarnAt: guild.heatWarnAt ?? HEAT_DEFAULTS.warnAt,

@@ -214,5 +214,44 @@ check(
   bw.get("botSetBackupRequest")?.has("includeMessages"),
 );
 
+// ── Chiều ngược: field bot ĐỌC từ config phải được getBotConfig TRẢ VỀ ─────────
+// bot gọi store.getConfig() → convex guilds:getBotConfig. Nếu bot đọc một field
+// mà query không trả về, giá trị luôn undefined → cấu hình chết lặng (bug
+// actionBudgetPerMinute: preset ghi vào DB nhưng bot không bao giờ thấy).
+{
+  const guildsSrc = fs.readFileSync(path.join(convexDir, "guilds.ts"), "utf8");
+  const fnStart = guildsSrc.indexOf("export const getBotConfig");
+  const retIdx = guildsSrc.indexOf("return {", fnStart);
+  const modIdx = guildsSrc.indexOf("modules: modules.map", retIdx);
+  const returned = new Set(
+    [...guildsSrc.slice(retIdx, modIdx).matchAll(/^\s*([a-zA-Z][A-Za-z0-9_]*)\s*:/gm)].map(
+      (m) => m[1],
+    ),
+  );
+  // Field config bot đọc qua `config.X` hoặc `config?.X` (bỏ field nội bộ chỉ có
+  // trong object khác — quét thô nhưng đủ bắt hồi quy field cấu hình).
+  const readFields = new Set();
+  for (const f of walk(botSrc)) {
+    const src = fs.readFileSync(f, "utf8");
+    for (const m of src.matchAll(/\bconfig\??\.([a-zA-Z][A-Za-z0-9_]*)/g)) readFields.add(m[1]);
+  }
+  // Các field không đến từ getBotConfig (biến cục bộ/module config lồng nhau).
+  const IGNORE = new Set([
+    "modules",
+    "autoReplies",
+    "giveaways",
+    "heatStates",
+    "safetyPercent",
+    "rollbackEnabled", // không có trong schema — mặc định BẬT, đọc false mới tắt
+  ]);
+  const missing = [...readFields].filter((k) => !returned.has(k) && !IGNORE.has(k)).sort();
+  check(
+    "field config bot đọc đều được getBotConfig trả về",
+    missing.length === 0,
+    missing.join(", "),
+  );
+  check('getBotConfig trả "actionBudgetPerMinute"', returned.has("actionBudgetPerMinute"));
+}
+
 console.log(`\nKết quả: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);
