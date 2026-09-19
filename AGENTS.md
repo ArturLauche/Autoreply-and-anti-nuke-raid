@@ -65,7 +65,7 @@ thôi. Khi nghi file có thể sửa dở: xem `git diff` trước khi sửa ti�
 
 Đơn vị công việc chỉ coi là XONG khi tất cả điều này thoả:
 
-- [ ] `bun run test` — toàn bộ suites xanh (hiện tại **46 suites** — số liệu 19/09/2026; nếu runner báo ít hơn nhiều → có suite bị bỏ sót, điều tra trước khi kết luận xanh)
+- [ ] `bun run test` — toàn bộ suites xanh (hiện tại **49 suites** — số liệu 19/09/2026; nếu runner báo ít hơn nhiều → có suite bị bỏ sót, điều tra trước khi kết luận xanh)
 - [ ] `bun tsc -b --noEmit` — typecheck sạch
 - [ ] `bun run lint` — sạch
 - [ ] `bun run format:check` — format Prettier sạch. Lệch format → chạy `bun run format` rồi kiểm tra lại (đây là biến đổi tất-định, tự sửa được; CI đã đỏ 5 run liên tiếp vì quên bước này — 19/09/2026)
