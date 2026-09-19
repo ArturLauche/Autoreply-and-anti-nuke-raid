@@ -81,14 +81,15 @@ export function SafetyBar({ data }: { data: GuildData }) {
           className={`h-full rounded-full transition-all duration-500 ${barColor}`}
           style={{ width: `${safety}%` }}
         />
-      </div>        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-            <span>■ {data.guild.heatBanAt ?? HEAT_DEFAULTS.banAt} = ban</span>
-            <span>▪ {data.guild.heatKickAt ?? HEAT_DEFAULTS.kickAt} = kick</span>
-            <span>▪ {data.guild.heatTimeoutAt ?? HEAT_DEFAULTS.timeoutAt} = tạm khóa</span>
-            <span>▪ {data.guild.heatWarnAt ?? HEAT_DEFAULTS.warnAt} = cảnh báo</span>
-            <span>□ 0 = an toàn</span>
-          </div>
+      </div>{" "}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          <span>■ {data.guild.heatBanAt ?? HEAT_DEFAULTS.banAt} = ban</span>
+          <span>▪ {data.guild.heatKickAt ?? HEAT_DEFAULTS.kickAt} = kick</span>
+          <span>▪ {data.guild.heatTimeoutAt ?? HEAT_DEFAULTS.timeoutAt} = tạm khóa</span>
+          <span>▪ {data.guild.heatWarnAt ?? HEAT_DEFAULTS.warnAt} = cảnh báo</span>
+          <span>□ 0 = an toàn</span>
+        </div>
         <Button
           variant="outline"
           size="sm"

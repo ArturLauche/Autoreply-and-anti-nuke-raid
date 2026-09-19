@@ -61,10 +61,7 @@ check(
 );
 
 // ─── 2. usePublicConfig.ts — mọi nguồn client_id đều qua bộ lọc ──────────────
-const usePublicConfigTs = fs.readFileSync(
-  path.join(ROOT, "src/lib/usePublicConfig.ts"),
-  "utf8",
-);
+const usePublicConfigTs = fs.readFileSync(path.join(ROOT, "src/lib/usePublicConfig.ts"), "utf8");
 
 check(
   "usePublicConfig import pickValidClientId",
@@ -72,10 +69,9 @@ check(
 );
 // Kết hợp Convex + baked phải qua bộ lọc — KHÔNG còn chỗ nào dùng BAKED_CLIENT_ID
 // thô làm clientId (bỏ qua các chỗ đã bọc pickValidClientId(...)).
-const usesRawBakedAsClientId =
-  (usePublicConfigTs.match(/clientId:\s*[^,\n]*BAKED_CLIENT_ID/g) || []).filter(
-    (m) => !m.includes("pickValidClientId"),
-  );
+const usesRawBakedAsClientId = (
+  usePublicConfigTs.match(/clientId:\s*[^,\n]*BAKED_CLIENT_ID/g) || []
+).filter((m) => !m.includes("pickValidClientId"));
 check(
   "không còn gán clientId trực tiếp từ BAKED_CLIENT_ID (phải qua pickValidClientId)",
   usesRawBakedAsClientId.length === 0,
@@ -102,7 +98,8 @@ function pick(...candidates) {
   return "";
 }
 
-const BLOB = 'eyJ2IjoidjIiLCJjIjoidDRsd21wenRaaGRGVFhhajE1NWppckxIeGZEZHIyaFB0c00wWVdXcVZJVnpGOCtHT2I4VzNPOS9BaXlhVUVXQktVN1dkU08xL2F';
+const BLOB =
+  "eyJ2IjoidjIiLCJjIjoidDRsd21wenRaaGRGVFhhajE1NWppckxIeGZEZHIyaFB0c00wWVdXcVZJVnpGOCtHT2I4VzNPOS9BaXlhVUVXQktVN1dkU08xL2F";
 check("blob mã hóa (bug thật 18/09) bị TỪ CHỐI", !isValid(BLOB));
 check("blob base64 có số lẫn vào vẫn bị từ chối", !isValid("eyJ2MTIzNDU2Nzg5MDEyMzQ1"));
 check("chuỗi có khoảng trắng 2 đầu bị trim rồi CHẤP NHẬN", isValid("  123456789012345678  "));
@@ -118,10 +115,7 @@ check(
   "pick ưu tiên giá trị hợp lệ sau khi giá trị đầu bị loại",
   pick(BLOB, "123456789012345678") === "123456789012345678",
 );
-check(
-  "pick KHÔNG fallback về giá trị rác khi mọi ứng viên sai",
-  pick(BLOB, "garbage") === "",
-);
+check("pick KHÔNG fallback về giá trị rác khi mọi ứng viên sai", pick(BLOB, "garbage") === "");
 
 console.log(`\nKết quả OAuth client-id guard: ${pass} PASS, ${fail} FAIL`);
 process.exit(fail ? 1 : 0);

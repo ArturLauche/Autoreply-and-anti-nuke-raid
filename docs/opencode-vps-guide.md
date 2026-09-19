@@ -137,12 +137,12 @@ Thêm khối `provider` vào **cùng cấp** với `permission` (giữ nguyên p
 
 Giải thích từng dòng:
 
-| Dòng | Ý nghĩa |
-|---|---|
-| `"npm": "@ai-sdk/openai-compatible"` | Kiira nói "giọng" OpenAI — dùng bộ kết nối tương thích |
-| `"baseURL"` | Địa chỉ API của Kiira (chính là giá trị `KIRA_BASE_URL` trong `bot/.env` của bot) |
-| `"models"` | ID model phải đúng tên Kiira đặt. Xem danh sách thật: `curl https://kiraai.vn/api/v1/models` (công khai, không cần key) |
-| `"model"` | Model mặc định OpenCode dùng cho việc code |
+| Dòng                                 | Ý nghĩa                                                                                                                 |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `"npm": "@ai-sdk/openai-compatible"` | Kiira nói "giọng" OpenAI — dùng bộ kết nối tương thích                                                                  |
+| `"baseURL"`                          | Địa chỉ API của Kiira (chính là giá trị `KIRA_BASE_URL` trong `bot/.env` của bot)                                       |
+| `"models"`                           | ID model phải đúng tên Kiira đặt. Xem danh sách thật: `curl https://kiraai.vn/api/v1/models` (công khai, không cần key) |
+| `"model"`                            | Model mặc định OpenCode dùng cho việc code                                                                              |
 
 Lưu file (Ctrl+O, Enter) rồi thoát (Ctrl+X). Khởi động lại OpenCode.
 
@@ -249,6 +249,7 @@ t3 connect
 
    Mã `XXXX-XXXX` là mã xác nhận tài khoản trên trang duyệt — KHÔNG phải
    pairing code để điền vào app
+
 2. Mở app T3 Code trên điện thoại → đăng nhập **CÙNG tài khoản** → environment
    VPS tự xuất hiện trong danh sách, không cần điền host/code tay
 3. Khi được hỏi chạy nền, chọn yes (hoặc tự chạy `t3 service install`)
@@ -319,12 +320,12 @@ t3 pair
 
 ### 3.4. Ai cần gì?
 
-| Vai | Công cụ | Địa chỉ |
-|---|---|---|
-| Viết code trên VPS | OpenCode (terminal) | `opencode` trong SSH |
-| Điều khiển từ điện thoại | T3 Code app/web | Play Store / App Store / app.t3.codes |
-| Bot Discord | Process bot (Bun) | `pm2` trên VPS |
-| Dashboard | Freebuff (đang dùng) | protogon.freebuff.app |
+| Vai                      | Công cụ              | Địa chỉ                               |
+| ------------------------ | -------------------- | ------------------------------------- |
+| Viết code trên VPS       | OpenCode (terminal)  | `opencode` trong SSH                  |
+| Điều khiển từ điện thoại | T3 Code app/web      | Play Store / App Store / app.t3.codes |
+| Bot Discord              | Process bot (Bun)    | `pm2` trên VPS                        |
+| Dashboard                | Freebuff (đang dùng) | protogon.freebuff.app                 |
 
 ---
 
@@ -404,11 +405,11 @@ dùng làm self-heal fallback trong `convex/haimiya.ts`, nhất quán về hành
 
 Phân biệt 3 lớp dự phòng:
 
-| Sự cố | Dùng gì |
-|---|---|
-| Nghẽn thoáng qua (503/429) | Proxy tự gánh — không làm gì |
+| Sự cố                               | Dùng gì                                                            |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| Nghẽn thoáng qua (503/429)          | Proxy tự gánh — không làm gì                                       |
 | Model riêng lỗi (DeepSeek chậm/lỗi) | Đổi GLM 5.3 Flash / Mimo V2.5 trong `/models` (cùng gateway Kiira) |
-| **Cả gateway Kiira sập** | **Groq** — provider khác hẳn, độc lập với Kiira |
+| **Cả gateway Kiira sập**            | **Groq** — provider khác hẳn, độc lập với Kiira                    |
 
 Cài 1 lần:
 
@@ -438,14 +439,14 @@ tắt — bước này là của bạn, mất ~5 giây.
 
 Repo đi kèm bộ nâng cấp giúp OpenCode làm việc kỷ luật và an toàn như Freebuff:
 
-| Thành phần | Vị trí | Công dụng |
-|---|---|---|
-| `/verify` | `.opencode/commands/verify.md` | Chạy đủ bộ kiểm chứng (test + typecheck + lint), báo kết quả số — ranh giới "xong việc" |
-| `/fix <mô tả>` | `.opencode/commands/fix.md` | Sửa bug theo quy trình: tái hiện → gốc rễ → vá → test chặn tái diễn |
-| `/ship` | `.opencode/commands/ship.md` | Hoàn tất phiên: kiểm chứng → commit chọn lọc (không push) → báo cáo |
-| `/review` | `.opencode/commands/review.md` | Review diff/code theo 5 lớp như senior reviewer (chỉ nhận xét, không sửa) |
-| Guardrails | `.opencode/plugins/guardrails.js` | Chặn chủ động lệnh bash đọc secret; nhắc lại hợp đồng AGENTS.md khi session dài bị nén |
-| Hộp lịch sử | `.opencode/plugins/session-history.js` + `/history` | Ghi mỗi phiên vào hộp JSONL, tự dọn sau TTL (mặc định 14 ngày) — xem bằng lệnh `/history` |
+| Thành phần     | Vị trí                                              | Công dụng                                                                                 |
+| -------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `/verify`      | `.opencode/commands/verify.md`                      | Chạy đủ bộ kiểm chứng (test + typecheck + lint), báo kết quả số — ranh giới "xong việc"   |
+| `/fix <mô tả>` | `.opencode/commands/fix.md`                         | Sửa bug theo quy trình: tái hiện → gốc rễ → vá → test chặn tái diễn                       |
+| `/ship`        | `.opencode/commands/ship.md`                        | Hoàn tất phiên: kiểm chứng → commit chọn lọc (không push) → báo cáo                       |
+| `/review`      | `.opencode/commands/review.md`                      | Review diff/code theo 5 lớp như senior reviewer (chỉ nhận xét, không sửa)                 |
+| Guardrails     | `.opencode/plugins/guardrails.js`                   | Chặn chủ động lệnh bash đọc secret; nhắc lại hợp đồng AGENTS.md khi session dài bị nén    |
+| Hộp lịch sử    | `.opencode/plugins/session-history.js` + `/history` | Ghi mỗi phiên vào hộp JSONL, tự dọn sau TTL (mặc định 14 ngày) — xem bằng lệnh `/history` |
 
 Bộ này nằm trong repo nên **ai clone repo cũng tự có** — không cần cài thêm gì.
 Ngoài ra `opencode.json` đã bật `autoupdate` (tự cập nhật OpenCode) và tắt
@@ -478,10 +479,10 @@ freebuff                   # lần đầu sẽ in link đăng nhập → mở tr
 
 ### 5.2. Vai trò trong hệ thống
 
-| Công cụ | Model | Dùng khi |
-|---|---|---|
-| OpenCode (chính) | DeepSeek v4.1 Flash qua Kiira | Việc hằng ngày — sửa bug, thêm tính năng, `/verify` |
-| Freebuff CLI | Claude Fable 5.1 (trial) | Việc khó thật sự — thiết kế kiến trúc, bug ma, refactor lớn |
+| Công cụ          | Model                         | Dùng khi                                                    |
+| ---------------- | ----------------------------- | ----------------------------------------------------------- |
+| OpenCode (chính) | DeepSeek v4.1 Flash qua Kiira | Việc hằng ngày — sửa bug, thêm tính năng, `/verify`         |
+| Freebuff CLI     | Claude Fable 5.1 (trial)      | Việc khó thật sự — thiết kế kiến trúc, bug ma, refactor lớn |
 
 ### 5.3. Quy tắc an toàn (bắt buộc)
 
@@ -498,19 +499,19 @@ freebuff                   # lần đầu sẽ in link đăng nhập → mở tr
 
 ## Xử lý sự cố
 
-| Triệu chứng | Nguyên nhân | Cách xử lý |
-|---|---|---|
-| `freebuff` không hiện link đăng nhập | CLI đợi xác thực ở chế độ khác | Chạy `freebuff login` (hoặc `freebuff --help` xem lệnh auth) rồi thử lại |
-| `/verify` `/fix` `/ship` biến mất khỏi menu | OpenCode đang chạy **ngoài thư mục repo** (nhìn `/~` góc màn hình) — các lệnh nằm trong `.opencode/commands/` của repo, chỉ nạp khi mở đúng chỗ | `cd /root/Autoreply-and-anti-nuke-raid && opencode` — hoặc tạo lệnh tắt `alias oc='cd /root/Autoreply-and-anti-nuke-raid && opencode'` |
-| `git commit` bị chặn dù đã bật push tự do | Phiên OpenCode đang chạy **nạp permission CŨ lúc khởi động** — sửa config giữa phiên không có hiệu lực với phiên hiện tại | Thoát OpenCode → mở lại **trong thư mục repo** (config mới của repo được nạp) — agent tự commit/push được ngay |
-| OpenCode không thấy model Kiira | Sai baseURL, ID model sai, hoặc model chưa khai trong `models` | Kiểm tra `opencode.json` — OpenCode chỉ hiện model đã khai báo; lấy đúng ID từ `curl https://kiraai.vn/api/v1/models` |
-| `git commit` bị từ chối trong OpenCode | File `~/.config/opencode/opencode.json` cũ chưa có rule `git add/commit: allow` | Merge lại từ `opencode.json` trong repo |
-| Gõ `t3` báo "command not found" | `~/.local/bin` chưa nằm trong PATH | `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc` |
-| Cài xong báo `libatomic.so.1: cannot open shared object file` | VPS tối giản thiếu thư viện hệ thống | `apt-get update && apt-get install -y libatomic1` rồi chạy lại trình cài |
-| App điện thoại báo "Failed to fetch remote environment" | Ô HOST chứa handle/IP sai, hoặc server chưa chạy | Dùng **Cách A (t3 connect)** — đăng nhập cùng tài khoản, khỏi điền tay; hoặc `t3 pair` trên VPS rồi quét QR |
-| T3 Code không kết nối được VPS | Port SSH/firewall, hoặc VPS tắt | Dùng T3 Connect (đi qua relay của T3); kiểm tra `t3 service status` trên VPS |
-| Agent đọc được file .env | CẤM — phải xảy ra lỗi cấu hình | Kiểm tra rule `read: { "*.env": "deny", ... }` trong `opencode.json` đang dùng |
-| Token Kiira hết nhanh | OpenCode đọc rất nhiều file mỗi task | 30M tokens/ngày thường đủ; nếu hết, chuyển model phụ sang Groq free (console.groq.com) |
+| Triệu chứng                                                   | Nguyên nhân                                                                                                                                     | Cách xử lý                                                                                                                             |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `freebuff` không hiện link đăng nhập                          | CLI đợi xác thực ở chế độ khác                                                                                                                  | Chạy `freebuff login` (hoặc `freebuff --help` xem lệnh auth) rồi thử lại                                                               |
+| `/verify` `/fix` `/ship` biến mất khỏi menu                   | OpenCode đang chạy **ngoài thư mục repo** (nhìn `/~` góc màn hình) — các lệnh nằm trong `.opencode/commands/` của repo, chỉ nạp khi mở đúng chỗ | `cd /root/Autoreply-and-anti-nuke-raid && opencode` — hoặc tạo lệnh tắt `alias oc='cd /root/Autoreply-and-anti-nuke-raid && opencode'` |
+| `git commit` bị chặn dù đã bật push tự do                     | Phiên OpenCode đang chạy **nạp permission CŨ lúc khởi động** — sửa config giữa phiên không có hiệu lực với phiên hiện tại                       | Thoát OpenCode → mở lại **trong thư mục repo** (config mới của repo được nạp) — agent tự commit/push được ngay                         |
+| OpenCode không thấy model Kiira                               | Sai baseURL, ID model sai, hoặc model chưa khai trong `models`                                                                                  | Kiểm tra `opencode.json` — OpenCode chỉ hiện model đã khai báo; lấy đúng ID từ `curl https://kiraai.vn/api/v1/models`                  |
+| `git commit` bị từ chối trong OpenCode                        | File `~/.config/opencode/opencode.json` cũ chưa có rule `git add/commit: allow`                                                                 | Merge lại từ `opencode.json` trong repo                                                                                                |
+| Gõ `t3` báo "command not found"                               | `~/.local/bin` chưa nằm trong PATH                                                                                                              | `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc`                                                         |
+| Cài xong báo `libatomic.so.1: cannot open shared object file` | VPS tối giản thiếu thư viện hệ thống                                                                                                            | `apt-get update && apt-get install -y libatomic1` rồi chạy lại trình cài                                                               |
+| App điện thoại báo "Failed to fetch remote environment"       | Ô HOST chứa handle/IP sai, hoặc server chưa chạy                                                                                                | Dùng **Cách A (t3 connect)** — đăng nhập cùng tài khoản, khỏi điền tay; hoặc `t3 pair` trên VPS rồi quét QR                            |
+| T3 Code không kết nối được VPS                                | Port SSH/firewall, hoặc VPS tắt                                                                                                                 | Dùng T3 Connect (đi qua relay của T3); kiểm tra `t3 service status` trên VPS                                                           |
+| Agent đọc được file .env                                      | CẤM — phải xảy ra lỗi cấu hình                                                                                                                  | Kiểm tra rule `read: { "*.env": "deny", ... }` trong `opencode.json` đang dùng                                                         |
+| Token Kiira hết nhanh                                         | OpenCode đọc rất nhiều file mỗi task                                                                                                            | 30M tokens/ngày thường đủ; nếu hết, chuyển model phụ sang Groq free (console.groq.com)                                                 |
 
 ---
 

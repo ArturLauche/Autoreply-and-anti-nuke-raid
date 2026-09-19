@@ -59,7 +59,13 @@ function waitForPort(port, timeoutMs = 8000) {
 function request(port, reqPath, method = "GET") {
   return new Promise((resolve, reject) => {
     const req = http.request(
-      { host: "127.0.0.1", port, path: reqPath, method, headers: { authorization: "Bearer test-secret" } },
+      {
+        host: "127.0.0.1",
+        port,
+        path: reqPath,
+        method,
+        headers: { authorization: "Bearer test-secret" },
+      },
       (res) => {
         let body = "";
         res.on("data", (c) => (body += c));
@@ -113,7 +119,9 @@ function startMockUpstream(statuses) {
     });
   });
   return new Promise((resolve) =>
-    server.listen(0, "127.0.0.1", () => resolve({ server, hits, bodies, port: server.address().port })),
+    server.listen(0, "127.0.0.1", () =>
+      resolve({ server, hits, bodies, port: server.address().port }),
+    ),
   );
 }
 
@@ -123,7 +131,13 @@ function stopServer(server) {
 
 function startProxy(upstream) {
   const child = spawn(process.execPath === process.argv[0] ? "bun" : "bun", [PROXY_SCRIPT], {
-    env: { ...process.env, KIRA_PROXY_PORT: String(PORT), KIRA_UPSTREAM: upstream, KIRA_PROXY_RETRIES: "2", KIRA_PROXY_TIMEOUT_MS: "4000" },
+    env: {
+      ...process.env,
+      KIRA_PROXY_PORT: String(PORT),
+      KIRA_UPSTREAM: upstream,
+      KIRA_PROXY_RETRIES: "2",
+      KIRA_PROXY_TIMEOUT_MS: "4000",
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   return child;
@@ -141,7 +155,10 @@ function startProxy(upstream) {
       check("proxy khởi động (health 200)", (await waitForPort(PORT)) === 200);
       const res = await request(PORT, "/chat/completions");
       check("503 tạm thời → tự thử lại → client nhận 200", res.status === 200);
-      check("upstream bị gọi đúng 2 lần (1 lỗi + 1 thành công)", mock.hits["/chat/completions"] === 2);
+      check(
+        "upstream bị gọi đúng 2 lần (1 lỗi + 1 thành công)",
+        mock.hits["/chat/completions"] === 2,
+      );
     } finally {
       proxy.kill();
       await stopServer(mock.server);
@@ -186,11 +203,21 @@ function startProxy(upstream) {
     const proxy = startProxy(`http://127.0.0.1:${mock.port}`);
     try {
       await waitForPort(PORT);
-      const payload = { model: "kiira", messages: [{ role: "user", content: "xin chào" }], stream: true };
+      const payload = {
+        model: "kiira",
+        messages: [{ role: "user", content: "xin chào" }],
+        stream: true,
+      };
       const res = await postJson(PORT, "/chat/completions", payload);
       check("POST 503→200: proxy tự thử lại → client nhận 200", res.status === 200);
-      check("POST bị gọi upstream đúng 2 lần (1 lỗi + 1 thành công)", mock.hits["/chat/completions"] === 2);
-      check("body POST gửi lên upstream nguyên vẹn qua lần retry", mock.bodies["/chat/completions"] === JSON.stringify(payload));
+      check(
+        "POST bị gọi upstream đúng 2 lần (1 lỗi + 1 thành công)",
+        mock.hits["/chat/completions"] === 2,
+      );
+      check(
+        "body POST gửi lên upstream nguyên vẹn qua lần retry",
+        mock.bodies["/chat/completions"] === JSON.stringify(payload),
+      );
     } finally {
       proxy.kill();
       await stopServer(mock.server);
@@ -198,30 +225,61 @@ function startProxy(upstream) {
   }
 
   // ─── 2. Khóa hình thức: an toàn secret + cấu hình đúng ──────────────────
-  check("KHÔNG log giá trị Authorization/header (secret không lọt qua log)",
-    !/console\.(log|error|info)\([^)]*headers/i.test(src));
-  check("chỉ chuyển tiếp header an toàn (authorization/content-type/accept/user-agent)",
-    src.includes('PASS_HEADERS = ["authorization", "content-type", "accept", "user-agent"]'));
+  check(
+    "KHÔNG log giá trị Authorization/header (secret không lọt qua log)",
+    !/console\.(log|error|info)\([^)]*headers/i.test(src),
+  );
+  check(
+    "chỉ chuyển tiếp header an toàn (authorization/content-type/accept/user-agent)",
+    src.includes('PASS_HEADERS = ["authorization", "content-type", "accept", "user-agent"]'),
+  );
   check("lắng nghe 127.0.0.1 — không lộ proxy ra internet", src.includes('hostname: "127.0.0.1"'));
-  check("danh sách retryable gồm 408 + 429 + 5xx chuẩn",
-    src.includes("429") && src.includes("408") && src.includes("502") && src.includes("503") && src.includes("504"));
-  check("backoff tăng dần kèm jitter chống thundering herd",
-    src.includes("1000 * 2 ** attempt") && src.includes("Math.random()"));
-  check("mặc định chịu nghẽn 5 lần thử (KIRA_PROXY_RETRIES ?? 5)", src.includes("KIRA_PROXY_RETRIES ?? 5"));
-  check("log mỗi lần thử lại để chẩn đoán qua journalctl",
-    src.includes("thử lại sau"));
-  check("lỗi cứng 400/401/403 không nằm trong danh sách retry", !/\b(400|401|403)\b[^\n]*RETRYABLE/.test(src));
+  check(
+    "danh sách retryable gồm 408 + 429 + 5xx chuẩn",
+    src.includes("429") &&
+      src.includes("408") &&
+      src.includes("502") &&
+      src.includes("503") &&
+      src.includes("504"),
+  );
+  check(
+    "backoff tăng dần kèm jitter chống thundering herd",
+    src.includes("1000 * 2 ** attempt") && src.includes("Math.random()"),
+  );
+  check(
+    "mặc định chịu nghẽn 5 lần thử (KIRA_PROXY_RETRIES ?? 5)",
+    src.includes("KIRA_PROXY_RETRIES ?? 5"),
+  );
+  check("log mỗi lần thử lại để chẩn đoán qua journalctl", src.includes("thử lại sau"));
+  check(
+    "lỗi cứng 400/401/403 không nằm trong danh sách retry",
+    !/\b(400|401|403)\b[^\n]*RETRYABLE/.test(src),
+  );
   check("có health endpoint để giám sát", src.includes("/__health"));
   check("timeout mỗi lượt gọi (không treo vô hạn)", src.includes("AbortSignal.timeout"));
-  check("body đọc MỘT lần thành ArrayBuffer trước vòng retry (không 'Body already used')",
-    src.includes("req.arrayBuffer()") && !/body:\s*await\s+req\.text\(\)/.test(src));
-  check("tôn trọng header Retry-After của upstream", src.includes("retry-after") && src.includes("retryAfterMs"));
-  check("có trần backoff (KIRA_PROXY_MAX_BACKOFF_MS) tránh treo dài", src.includes("KIRA_PROXY_MAX_BACKOFF_MS"));
-  check("dừng thử lại khi client hủy kết nối (AbortSignal.any + req.signal)",
-    src.includes("AbortSignal.any") && src.includes("req.signal"));
-  check("systemd unit đi kèm — proxy tự sống lại khi crash/reboot",
+  check(
+    "body đọc MỘT lần thành ArrayBuffer trước vòng retry (không 'Body already used')",
+    src.includes("req.arrayBuffer()") && !/body:\s*await\s+req\.text\(\)/.test(src),
+  );
+  check(
+    "tôn trọng header Retry-After của upstream",
+    src.includes("retry-after") && src.includes("retryAfterMs"),
+  );
+  check(
+    "có trần backoff (KIRA_PROXY_MAX_BACKOFF_MS) tránh treo dài",
+    src.includes("KIRA_PROXY_MAX_BACKOFF_MS"),
+  );
+  check(
+    "dừng thử lại khi client hủy kết nối (AbortSignal.any + req.signal)",
+    src.includes("AbortSignal.any") && src.includes("req.signal"),
+  );
+  check(
+    "systemd unit đi kèm — proxy tự sống lại khi crash/reboot",
     fs.existsSync(path.join(__dirname, "kiira-retry-proxy.service")) &&
-    fs.readFileSync(path.join(__dirname, "kiira-retry-proxy.service"), "utf8").includes("Restart=always"));
+      fs
+        .readFileSync(path.join(__dirname, "kiira-retry-proxy.service"), "utf8")
+        .includes("Restart=always"),
+  );
 
   console.log(`\nKết quả kiira-proxy: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail > 0 ? 1 : 0);

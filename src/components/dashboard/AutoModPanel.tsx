@@ -267,7 +267,8 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                   <p className="mt-1 max-w-xl text-sm text-muted-foreground">
                     Mỗi vi phạm cộng điểm nhiệt theo cài đặt của module. Nhiệt độ tăng dần, tự giảm
                     theo thời gian; khi chạm ngưỡng <b className="text-foreground">warn</b> thành
-                    viên nhận cảnh báo riêng, rồi tự tăng cấp hình phạt:{" "}                    <b className="text-foreground">tạm khóa</b> →{""}
+                    viên nhận cảnh báo riêng, rồi tự tăng cấp hình phạt:{" "}
+                    <b className="text-foreground">tạm khóa</b> →{""}
                     <b className="text-foreground">kick</b> → <b className="text-danger">ban</b>.
                   </p>
                 </div>
@@ -344,7 +345,9 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
               </div>
               <p className="col-span-full text-xs text-muted-foreground">
                 Ngưỡng phải tăng dần: warn &lt; tạm khóa &lt; kick &lt; ban (tối đa 100 điểm). Thành
-                viên vừa bị phạt mà{" "}                <b className="text-foreground">tái phạm trong {repeat.windowMin} phút</b> sẽ nhận{""}
+                viên vừa bị phạt mà{" "}
+                <b className="text-foreground">tái phạm trong {repeat.windowMin} phút</b> sẽ nhận
+                {""}
                 <b className="text-foreground">×{repeat.multiplier} điểm nhiệt</b> mỗi lần vi phạm —
                 đầy thanh nhanh hơn.
               </p>
@@ -372,8 +375,8 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
               <p className="mt-1 max-w-xl text-sm text-muted-foreground">
                 Khi module dùng hình phạt <b className="text-foreground">Warn</b>, mỗi lần vi phạm
                 đếm <b className="text-foreground">1 warn</b>. Đủ số warn trong cửa sổ thời gian,
-                hình phạt tự <b className="text-foreground">tăng cấp</b> lên mức nặng hơn — song song
-                với hệ thống nhiệt độ.
+                hình phạt tự <b className="text-foreground">tăng cấp</b> lên mức nặng hơn — song
+                song với hệ thống nhiệt độ.
               </p>
             </div>
           </div>
@@ -416,7 +419,9 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
             </div>
             <p className="col-span-full text-xs text-muted-foreground">
               {strikes.limit > 0 ? (
-                <>                  Đang bật: <b className="text-foreground">{strikes.limit} warn</b> trong{""}
+                <>
+                  {" "}
+                  Đang bật: <b className="text-foreground">{strikes.limit} warn</b> trong{""}
                   {strikes.windowMin} phút → tự{" "}
                   <b className="text-foreground">
                     {strikes.punish === "timeout"

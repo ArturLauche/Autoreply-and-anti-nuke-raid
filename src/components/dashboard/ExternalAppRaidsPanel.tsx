@@ -223,7 +223,12 @@ function IncidentList({ guildId }: { guildId: string }) {
             </div>
 
             {s.suspectedSourceName && (
-              <p className={cn("mt-3 text-xs", s.banned ? "text-danger font-semibold" : "text-foreground")}>
+              <p
+                className={cn(
+                  "mt-3 text-xs",
+                  s.banned ? "text-danger font-semibold" : "text-foreground",
+                )}
+              >
                 🎯 {s.banned ? "Đã ban nguồn cơn: " : "Nghi phạm nguồn cơn: "}
                 {s.suspectedSourceName}
                 {s.reason ? ` — ${s.reason}` : ""}

@@ -6,7 +6,10 @@ import { Badge } from "../ui/badge";
 function HeatBar({ value, color }: { value: number; color: string }) {
   return (
     <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-      <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${value}%` }} />
+      <div
+        className={`h-full rounded-full transition-all ${color}`}
+        style={{ width: `${value}%` }}
+      />
     </div>
   );
 }
@@ -24,7 +27,9 @@ export default function HeroChatCard() {
           <span className="h-3 w-3 rounded-full bg-white/25" />
           <span className="h-3 w-3 rounded-full bg-white/25" />
           <span className="h-3 w-3 rounded-full bg-white/25" />
-          <span className="ml-3 text-xs font-medium text-white/40"># general · Protogon Bot 🌸</span>
+          <span className="ml-3 text-xs font-medium text-white/40">
+            # general · Protogon Bot 🌸
+          </span>
         </div>
         <div className="space-y-4 p-5 font-sans">
           {/* Auto reply */}
@@ -80,7 +85,8 @@ export default function HeroChatCard() {
               </span>
             </div>
             <p className="mt-1.5 text-[11px] text-white/60">
-              Tái phạm trong 30 phút → nhiệt <b className="text-white">×2</b> · đã gửi DM cảnh báo ⚠️
+              Tái phạm trong 30 phút → nhiệt <b className="text-white">×2</b> · đã gửi DM cảnh báo
+              ⚠️
             </p>
           </div>
 
@@ -97,7 +103,10 @@ export default function HeroChatCard() {
         </div>
       </div>
       <div className="absolute -right-3 -top-3 animate-float">
-        <Badge variant="success" className="gap-1.5 border border-white/20 bg-[#0a0a0a] px-3 py-1 shadow-md">
+        <Badge
+          variant="success"
+          className="gap-1.5 border border-white/20 bg-[#0a0a0a] px-3 py-1 shadow-md"
+        >
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-60" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />

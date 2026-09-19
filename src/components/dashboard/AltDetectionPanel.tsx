@@ -200,9 +200,7 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <AlertTriangle className="h-3 w-3 text-muted-foreground" /> Tai khoan moi
               </p>
-              <p className="text-2xl font-bold mt-1">
-                {altStats.newAccountCount ?? 0}
-              </p>
+              <p className="text-2xl font-bold mt-1">{altStats.newAccountCount ?? 0}</p>
             </CardContent>
           </Card>
         </div>

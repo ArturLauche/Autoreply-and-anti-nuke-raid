@@ -13,7 +13,7 @@ Phiên làm việc sắp kết thúc. Hoàn tất theo đúng Pha 4 + Pha 5 củ
    Vừa đụng `convex/` mà chưa codegen → chạy `bun convex dev --once` trước.
 3. **Commit chọn lọc**: `git add` đúng file thuộc phiên này (kể cả file test
    chặn tái diễn), KHÔNG add file không liên quan hay file tạm sinh.
-   - Message **tiếng Việt**, dòng đầu ≤72 ký tự, nói rõ *vì sao*
+   - Message **tiếng Việt**, dòng đầu ≤72 ký tự, nói rõ _vì sao_
    - Footer bắt buộc: `🤖 Generated with OpenCode`
 4. **Push** (kiểm chứng ở bước 2 đã XANH): `git push origin main`. Lỗi xác thực
    → in lệnh cho người dùng tự chạy. Chưa kiểm chứng xong thì KHÔNG push.

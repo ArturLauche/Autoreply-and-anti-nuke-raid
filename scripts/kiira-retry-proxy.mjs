@@ -53,7 +53,8 @@ function retryAfterMs(res) {
   const raw = res.headers.get("retry-after");
   if (!raw) return null;
   const seconds = Number(raw);
-  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(MAX_BACKOFF_MS, Math.round(seconds * 1000));
+  if (Number.isFinite(seconds) && seconds >= 0)
+    return Math.min(MAX_BACKOFF_MS, Math.round(seconds * 1000));
   const at = Date.parse(raw);
   if (!Number.isNaN(at)) return Math.min(MAX_BACKOFF_MS, Math.max(0, at - Date.now()));
   return null;
@@ -111,7 +112,9 @@ async function handle(req) {
         lastError = new Error(`upstream ${res.status}`);
         lastStatus = res.status;
         const waitMs = retryAfterMs(res) ?? backoffMs(attempt);
-        console.log(`[kiira-retry-proxy] ${req.method} ${upstreamPath}: upstream ${res.status} → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`);
+        console.log(
+          `[kiira-retry-proxy] ${req.method} ${upstreamPath}: upstream ${res.status} → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`,
+        );
         await sleep(waitMs);
         continue;
       }
@@ -123,13 +126,17 @@ async function handle(req) {
       lastError = err;
       if (attempt < RETRIES) {
         const waitMs = backoffMs(attempt);
-        console.log(`[kiira-retry-proxy] ${req.method} ${upstreamPath}: ${err?.name === "TimeoutError" ? "timeout" : "mất kết nối"} → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`);
+        console.log(
+          `[kiira-retry-proxy] ${req.method} ${upstreamPath}: ${err?.name === "TimeoutError" ? "timeout" : "mất kết nối"} → thử lại sau ${waitMs}ms (lần ${attempt + 1}/${RETRIES})`,
+        );
         await sleep(waitMs);
         continue;
       }
     }
   }
-  console.log(`[kiira-retry-proxy] ${req.method} ${upstreamPath}: hết ${RETRIES} lượt thử (lỗi cuối: ${lastStatus ?? String(lastError)}) — trả lỗi về client`);
+  console.log(
+    `[kiira-retry-proxy] ${req.method} ${upstreamPath}: hết ${RETRIES} lượt thử (lỗi cuối: ${lastStatus ?? String(lastError)}) — trả lỗi về client`,
+  );
   return Response.json(
     { error: "kiira-retry-proxy: upstream vẫn lỗi sau các lần thử lại", detail: String(lastError) },
     { status: 502 },

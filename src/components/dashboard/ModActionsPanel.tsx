@@ -41,7 +41,8 @@ export default function ModActionsPanel({ data }: { data: GuildData }) {
             </h3>
             <p className="text-sm text-muted-foreground">
               Timeout · kick · ban · warn · purge — ghi kèm <b>case N</b> (kiểu Carl-bot), lý do,
-              người thực hiện và phân biệt rõ nguồn:{" "}              <b className="text-foreground">🛠️ lệnh thủ công của mod</b> vs{""}
+              người thực hiện và phân biệt rõ nguồn:{" "}
+              <b className="text-foreground">🛠️ lệnh thủ công của mod</b> vs{""}
               <b className="text-foreground">⚡ bot tự động</b> (auto-mod / anti nuke).
             </p>
           </div>

@@ -34,7 +34,6 @@ export default class RootErrorBoundary extends Component<Props, State> {
 
     return (
       <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 py-16 text-center">
-
         <div className="relative flex max-w-lg flex-col items-center">
           <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary p-2 shadow-sm">
             <BotLogo className="h-full w-full" />
