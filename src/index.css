@@ -33,6 +33,21 @@
     --shadow-color: 0 0% 0%;
   }
 
+  /* Anchor navigation: bấm link trong Nav cuộn mượt tới section, và section
+     dừng dưới header fixed (4rem) thay vì bị che mất tiêu đề. */
+  html {
+    scroll-behavior: smooth;
+  }
+  section[id] {
+    scroll-margin-top: 5rem;
+  }
+  /* Tôn trọng người dùng bật giảm chuyển động. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
   .dark {
     --background: 0 0% 4%;
     --foreground: 0 0% 93%;

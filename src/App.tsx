@@ -38,11 +38,22 @@ function TitleSync() {
   return null;
 }
 
-/** Màn hình chờ tối giản khi chunk route đang tải (vài trăm ms lần đầu). */
+/**
+ * Màn hình chờ khi chunk route đang tải lần đầu: logo + thanh tiến trình mảnh
+ * chạy vô hạn ở đỉnh trang (kiểu GitHub/YouTube — người dùng thấy "đang đi"
+ * thay vì spinner đứng yên giữa màn hình trống).
+ */
 function RouteFallback() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-foreground" />
+    <div className="flex min-h-screen flex-col">
+      {/* Progress bar mảnh bám đỉnh — như top loading bar quen thuộc */}
+      <div aria-hidden className="fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden">
+        <div className="h-full w-1/3 animate-route-progress bg-foreground" />
+      </div>
+      <div className="flex flex-1 flex-col items-center justify-center gap-4">
+        <img src="/favicon.svg" alt="" className="h-10 w-10 animate-pulse-fade" />
+        <p className="text-xs tracking-wide text-muted-foreground">Đang tải…</p>
+      </div>
     </div>
   );
 }

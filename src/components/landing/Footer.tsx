@@ -49,7 +49,7 @@ export default function Footer({
             <div>
               <p className="font-display font-semibold">Protogon Bot</p>
               <p className="text-xs text-muted-foreground">
-                Bot Discord bảo vệ server · trợ lý Haimiya 🌸
+                Bot Discord bảo vệ server · trợ lý Haimiya
               </p>
             </div>
           </div>

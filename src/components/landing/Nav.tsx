@@ -36,23 +36,31 @@ export default function Nav() {
           <span className="font-display text-lg font-bold tracking-tight">
             Protogon<span className="text-primary">.</span>
             <span className="ml-1.5 hidden align-middle text-xs font-semibold text-muted-foreground sm:inline">
-              🌸 cùng trợ lý Haimiya
+              cùng trợ lý Haimiya
             </span>
           </span>
         </Link>
         <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
-          <a href="#features" className="transition-colors hover:text-foreground">
-            Tính năng
-          </a>
-          <a href="#antinuke" className="transition-colors hover:text-foreground">
-            Bảo vệ server
-          </a>
-          <a href="#haimiya" className="transition-colors hover:text-foreground">
-            Haimiya
-          </a>
-          <a href="#how" className="transition-colors hover:text-foreground">
-            Cách hoạt động
-          </a>
+          {(
+            [
+              ["features", "Tính năng"],
+              ["antinuke", "Bảo vệ server"],
+              ["haimiya", "Haimiya"],
+              ["how", "Cách hoạt động"],
+            ] as const
+          ).map(([id, label]) => (
+            <a
+              key={id}
+              href={`#${id}`}
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="transition-colors hover:text-foreground"
+            >
+              {label}
+            </a>
+          ))}
         </nav>
         {me ? (
           <div className="relative">

@@ -69,6 +69,14 @@ const config: Config = {
         lg: "0 12px 32px -12px hsl(var(--shadow-color) / 0.24)",
       },
       keyframes: {
+        "route-progress": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(400%)" },
+        },
+        "pulse-fade": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.45" },
+        },
         "pulse-ring": {
           "0%": { transform: "scale(0.9)", opacity: "0.7" },
           "70%": { transform: "scale(1.6)", opacity: "0" },
@@ -84,6 +92,8 @@ const config: Config = {
         },
       },
       animation: {
+        "route-progress": "route-progress 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite",
+        "pulse-fade": "pulse-fade 1.6s ease-in-out infinite",
         "pulse-ring": "pulse-ring 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         shimmer: "shimmer 2.4s linear infinite",
         float: "float 5s ease-in-out infinite",
