@@ -48,6 +48,7 @@ const INFRA_LEAK_PATTERNS = [
   /\/proc\/\d+\/environ/, // env của process khác
   /\bprintenv\b/, // dump env shell — chứa key provider của OpenCode
   /^\s*env\s*[|>]/, // `env | ...` = dump toàn bộ env ra stdout
+  /\bCONVEX_DEPLOY_KEY\s*=/, // không in/nhét key deploy Convex ra lệnh
 ];
 
 function looksLikeInfraLeak(command) {
@@ -115,6 +116,19 @@ export const GuardrailsPlugin = async () => {
           );
         }
       }
+      // Deploy Convex cũng là hành động production — cùng cổng kiểm chứng.
+      if (input.tool === "bash" && /(^|\s|&&)(npx|bunx|bun)\s+convex\s+deploy\b/.test(command)) {
+        if (!verifyGateActive()) {
+          throw new Error(
+            "GUARDRAIL: Chưa đủ điều kiện deploy Convex. Quy trình bắt buộc: chạy " +
+              "đủ `bun run test` + typecheck + lint + format:check XANH trong phiên " +
+              "(cửa 15 phút) rồi mới `npx convex deploy`. Nếu lệnh báo thiếu " +
+              "CONVEX_DEPLOY_KEY → DỪNG, nhờ người dùng thêm key vào môi trường " +
+              "(export trong shell, không dán key vào chat hay file trong repo) — " +
+              "không tìm lối tắt quanh guardrail.",
+          );
+        }
+      }
     },
 
     // 1.5) Quan sát kết quả bash — phiên chạy đủ bộ kiểm chứng xanh thì mở
@@ -135,7 +149,7 @@ export const GuardrailsPlugin = async () => {
           "- Bị gián đoạn rồi được bảo continue/tiếp đi → TIẾP TỤC ĐÚNG CHỖ DỪNG (xem git diff + todo), không làm lại từ đầu; đi đến khi đủ kiểm chứng xanh + báo cáo mới dừng",
           "- Xong việc = test 41/41 + typecheck + lint XANH, chưa chạy thật thì không claim xanh",
           "- Không đọc secret (.env/.bot-key/key) — cần thì hỏi người dùng; kể cả qua hạ tầng: systemctl cat/show, docker inspect/exec, /proc/*/environ, printenv đều cấm",
-          "- Hạ tầng VPS 3 vùng: 🟢 TỰ LÀM — chẩn đoán (systemctl status, journalctl, docker ps/logs, df, free) + sửa rồi tự restart kiira-retry-proxy + curl /__health thấy ok:true; restart bot `pm2 restart protogon` CHỈ sau khi pull + kiểm chứng đủ 4 lớp xanh (guardrail tự mở cổng 15 phút) — sau restart phải pm2 status online + logs không crash; 🟡 IN LỆNH nhờ người dùng — docker restart, dịch vụ khác; 🔴 CẤM — ufw/iptables, reboot, prune",
+          "- Hạ tầng VPS 3 vùng: 🟢 TỰ LÀM — chẩn đoán (systemctl status, journalctl, docker ps/logs, df, free) + sửa rồi tự restart kiira-retry-proxy + curl /__health thấy ok:true; restart bot `pm2 restart protogon` và deploy `npx convex deploy` CHỈ sau khi pull + kiểm chứng đủ 4 lớp xanh (guardrail tự mở cổng 15 phút) — sau restart bot phải pm2 status online + logs không crash; thiếu CONVEX_DEPLOY_KEY → nhờ người dùng export, không in key; 🟡 IN LỆNH nhờ người dùng — docker restart, dịch vụ khác; 🔴 CẤM — ufw/iptables, reboot, prune",
           "- Được git add + commit + push origin main (tiếng Việt, footer 🤖 Generated with OpenCode) — push CHỈ sau khi cả 3 kiểm chứng XANH trong phiên",
           "- Bug thuộc engine đã có test → bắt buộc thêm test chặn tái diễn",
         ].join("\n"),

@@ -569,36 +569,53 @@ typecheck + lint + format:check, hết hạn sau 15 phút). Quy trình trong l�
 5. Xác minh: `pm2 status` → `protogon` online, `pm2 logs protogon --lines 30
 --nostream` → không crash loop. Chết lại → vá theo log, không restart mù.
 
-**Convex backend KHÔNG deploy tay** — CI (GitHub Actions) tự `npx convex
-deploy` sau mỗi push lên `main`, job deploy chỉ chạy khi lint + test xanh. Cần
-đẩy thay đổi Convex → `git push origin main` là xong; bot và dashboard tự thấy
-bản mới qua URL deployment (không phải restart vì Convex).
+**Convex backend — 2 đường deploy song song, không xung đột:** CI (GitHub
+Actions) tự `npx convex deploy` sau mỗi push lên `main` (job deploy chỉ chạy khi
+lint + test xanh), và agent trên VPS cũng deploy được ngay trong `/deploy` khi
+pull mang thay đổi `convex/` — Convex deploy cùng commit 2 lần chỉ ghi nhận,
+không phá dữ liệu. Bot và dashboard tự thấy bản mới qua URL deployment (không
+phải restart vì Convex).
+
+### Setup 1 lần cho agent deploy Convex từ VPS (bạn làm, ~2 phút)
+
+1. Vào [dashboard.convex.dev](https://dashboard.convex.dev) → chọn deployment →
+   **Settings → Deploy keys → Generate** (đặt tên gợi nhớ, ví dụ `vps-agent`).
+2. Trên VPS, thêm key vào môi trường shell (key KHÔNG vào chat, KHÔNG vào file
+   trong repo — đúng luật secret của AGENTS.md):
+
+   ```bash
+   echo 'export CONVEX_DEPLOY_KEY="dán-key-vào-đây"' >> ~/.bashrc && source ~/.bashrc
+   ```
+
+3. Kiểm tra: `npx convex deploy --dry-run 2>&1 | head -5` không báo thiếu key là
+   xong (chạy trong repo; dùng `--dry-run` cho an toàn).
 
 **Tóm tắt 3 luồng cập nhật sau khi push lên `main`:**
 
-| Thành phần     | Ai cập nhật                                | Điều kiện                      |
-| -------------- | ------------------------------------------ | ------------------------------ |
-| Convex backend | CI tự động (`npx convex deploy`)           | lint + test xanh               |
-| Bot Discord    | Agent trên VPS (`/deploy` → pm2 restart)   | pull + 4 lớp kiểm chứng xanh   |
-| Dashboard web  | Deploy thủ công qua Dokploy (build Docker) | khi cần — front-end ít đổi hơn |
+| Thành phần     | Ai cập nhật                                                             | Điều kiện                      |
+| -------------- | ----------------------------------------------------------------------- | ------------------------------ |
+| Convex backend | CI tự động + agent VPS trong `/deploy` (khi pull có thay đổi `convex/`) | 4 lớp kiểm chứng xanh          |
+| Bot Discord    | Agent trên VPS (`/deploy` → pm2 restart)                                | pull + 4 lớp kiểm chứng xanh   |
+| Dashboard web  | Deploy thủ công qua Dokploy (build Docker)                              | khi cần — front-end ít đổi hơn |
 
 ## Xử lý sự cố
 
-| Triệu chứng                                                   | Nguyên nhân                                                                                                                                     | Cách xử lý                                                                                                                             |
-| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `freebuff` không hiện link đăng nhập                          | CLI đợi xác thực ở chế độ khác                                                                                                                  | Chạy `freebuff login` (hoặc `freebuff --help` xem lệnh auth) rồi thử lại                                                               |
-| `/verify` `/fix` `/ship` biến mất khỏi menu                   | OpenCode đang chạy **ngoài thư mục repo** (nhìn `/~` góc màn hình) — các lệnh nằm trong `.opencode/commands/` của repo, chỉ nạp khi mở đúng chỗ | `cd /root/Autoreply-and-anti-nuke-raid && opencode` — hoặc tạo lệnh tắt `alias oc='cd /root/Autoreply-and-anti-nuke-raid && opencode'` |
-| `git commit` bị chặn dù đã bật push tự do                     | Phiên OpenCode đang chạy **nạp permission CŨ lúc khởi động** — sửa config giữa phiên không có hiệu lực với phiên hiện tại                       | Thoát OpenCode → mở lại **trong thư mục repo** (config mới của repo được nạp) — agent tự commit/push được ngay                         |
-| OpenCode không thấy model Kiira                               | Sai baseURL, ID model sai, hoặc model chưa khai trong `models`                                                                                  | Kiểm tra `opencode.json` — OpenCode chỉ hiện model đã khai báo; lấy đúng ID từ `curl https://kiraai.vn/api/v1/models`                  |
-| `git commit` bị từ chối trong OpenCode                        | File `~/.config/opencode/opencode.json` cũ chưa có rule `git add/commit: allow`                                                                 | Merge lại từ `opencode.json` trong repo                                                                                                |
-| Gõ `t3` báo "command not found"                               | `~/.local/bin` chưa nằm trong PATH                                                                                                              | `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc`                                                         |
-| Cài xong báo `libatomic.so.1: cannot open shared object file` | VPS tối giản thiếu thư viện hệ thống                                                                                                            | `apt-get update && apt-get install -y libatomic1` rồi chạy lại trình cài                                                               |
-| App điện thoại báo "Failed to fetch remote environment"       | Ô HOST chứa handle/IP sai, hoặc server chưa chạy                                                                                                | Dùng **Cách A (t3 connect)** — đăng nhập cùng tài khoản, khỏi điền tay; hoặc `t3 pair` trên VPS rồi quét QR                            |
-| T3 Code không kết nối được VPS                                | Port SSH/firewall, hoặc VPS tắt                                                                                                                 | Dùng T3 Connect (đi qua relay của T3); kiểm tra `t3 service status` trên VPS                                                           |     | Agent đọc được file .env | CẤM — phải xảy ra lỗi cấu hình | Kiểm tra rule `read: { "*.env": "deny", ... }` trong `opencode.json` đang dùng |
-| Agent chạm env hạ tầng (unit systemd/container)               | Vùng 🔴 — guardrails chặn `systemctl cat/show`, `docker inspect/exec`, `printenv`                                                               | Đúng thiết kế. Chẩn đoán bằng `status`/`journalctl`/`docker logs`; cần giá trị env → hỏi người dùng                                    |
-| CI đỏ ở job security trên PR Dependabot                       | GITHUB_TOKEN bị giới hạn quyền trên PR dependabot — gitleaks-action gọi API bị từ chối                                                          | Đã vá 19/09: nhánh CLI chạy gitleaks trực tiếp cho PR dependabot (`ci.yml`); nếu tái diễn thì xem lại version action                   |
-| `/deploy` dừng ở bước restart với lỗi GUARDRAIL               | Chưa chạy đủ 4 lớp kiểm chứng xanh trong phiên, hoặc đã quá 15 phút kể từ lần chạy cuối                                                         | Chạy lại `bun run test && bun tsc -b --noEmit && bun run lint && bun run format:check` rồi restart — không tìm lối tắt quanh guardrail |
-| Token Kiira hết nhanh                                         | OpenCode đọc rất nhiều file mỗi task                                                                                                            | 30M tokens/ngày thường đủ; nếu hết, chuyển model phụ sang Groq free (console.groq.com)                                                 |
+| Triệu chứng                                                            | Nguyên nhân                                                                                                                                     | Cách xử lý                                                                                                                                           |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `freebuff` không hiện link đăng nhập                                   | CLI đợi xác thực ở chế độ khác                                                                                                                  | Chạy `freebuff login` (hoặc `freebuff --help` xem lệnh auth) rồi thử lại                                                                             |
+| `/verify` `/fix` `/ship` biến mất khỏi menu                            | OpenCode đang chạy **ngoài thư mục repo** (nhìn `/~` góc màn hình) — các lệnh nằm trong `.opencode/commands/` của repo, chỉ nạp khi mở đúng chỗ | `cd /root/Autoreply-and-anti-nuke-raid && opencode` — hoặc tạo lệnh tắt `alias oc='cd /root/Autoreply-and-anti-nuke-raid && opencode'`               |
+| `git commit` bị chặn dù đã bật push tự do                              | Phiên OpenCode đang chạy **nạp permission CŨ lúc khởi động** — sửa config giữa phiên không có hiệu lực với phiên hiện tại                       | Thoát OpenCode → mở lại **trong thư mục repo** (config mới của repo được nạp) — agent tự commit/push được ngay                                       |
+| OpenCode không thấy model Kiira                                        | Sai baseURL, ID model sai, hoặc model chưa khai trong `models`                                                                                  | Kiểm tra `opencode.json` — OpenCode chỉ hiện model đã khai báo; lấy đúng ID từ `curl https://kiraai.vn/api/v1/models`                                |
+| `git commit` bị từ chối trong OpenCode                                 | File `~/.config/opencode/opencode.json` cũ chưa có rule `git add/commit: allow`                                                                 | Merge lại từ `opencode.json` trong repo                                                                                                              |
+| Gõ `t3` báo "command not found"                                        | `~/.local/bin` chưa nằm trong PATH                                                                                                              | `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc`                                                                       |
+| Cài xong báo `libatomic.so.1: cannot open shared object file`          | VPS tối giản thiếu thư viện hệ thống                                                                                                            | `apt-get update && apt-get install -y libatomic1` rồi chạy lại trình cài                                                                             |
+| App điện thoại báo "Failed to fetch remote environment"                | Ô HOST chứa handle/IP sai, hoặc server chưa chạy                                                                                                | Dùng **Cách A (t3 connect)** — đăng nhập cùng tài khoản, khỏi điền tay; hoặc `t3 pair` trên VPS rồi quét QR                                          |
+| T3 Code không kết nối được VPS                                         | Port SSH/firewall, hoặc VPS tắt                                                                                                                 | Dùng T3 Connect (đi qua relay của T3); kiểm tra `t3 service status` trên VPS                                                                         |     | Agent đọc được file .env | CẤM — phải xảy ra lỗi cấu hình | Kiểm tra rule `read: { "*.env": "deny", ... }` trong `opencode.json` đang dùng |
+| Agent chạm env hạ tầng (unit systemd/container)                        | Vùng 🔴 — guardrails chặn `systemctl cat/show`, `docker inspect/exec`, `printenv`                                                               | Đúng thiết kế. Chẩn đoán bằng `status`/`journalctl`/`docker logs`; cần giá trị env → hỏi người dùng                                                  |
+| CI đỏ ở job security trên PR Dependabot                                | GITHUB_TOKEN bị giới hạn quyền trên PR dependabot — gitleaks-action gọi API bị từ chối                                                          | Đã vá 19/09: nhánh CLI chạy gitleaks trực tiếp cho PR dependabot (`ci.yml`); nếu tái diễn thì xem lại version action                                 |
+| `/deploy` dừng ở bước restart với lỗi GUARDRAIL                        | Chưa chạy đủ 4 lớp kiểm chứng xanh trong phiên, hoặc đã quá 15 phút kể từ lần chạy cuối                                                         | Chạy lại `bun run test && bun tsc -b --noEmit && bun run lint && bun run format:check` rồi restart — không tìm lối tắt quanh guardrail               |
+| `npx convex deploy` báo "Error: you are not authenticated" / thiếu key | `CONVEX_DEPLOY_KEY` chưa export trong shell VPS (setup 1 lần — mục "Setup 1 lần cho agent deploy Convex từ VPS" phía trên)                      | Người dùng thêm `export CONVEX_DEPLOY_KEY=...` vào `~/.bashrc` rồi `source ~/.bashrc`; agent DỪNG chờ — không in key ra chat, không ghi key vào file |
+| Token Kiira hết nhanh                                                  | OpenCode đọc rất nhiều file mỗi task                                                                                                            | 30M tokens/ngày thường đủ; nếu hết, chuyển model phụ sang Groq free (console.groq.com)                                                               |
 
 ---
 

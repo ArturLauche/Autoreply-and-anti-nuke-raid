@@ -87,6 +87,14 @@
     "pm2 status": "allow",
     "pm2 list": "allow",
     "pm2 logs *": "ask",
+    "convex deploy": "ask",
+    "convex deploy *": "ask",
+    "npx convex deploy": "ask",
+    "npx convex deploy *": "ask",
+    "bunx convex deploy": "ask",
+    "bunx convex deploy *": "ask",
+    "bun convex deploy": "ask",
+    "bun convex deploy *": "ask",
     "webfetch": "allow",
     "external_directory": {
       "**": "deny"
