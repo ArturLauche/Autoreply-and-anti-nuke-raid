@@ -26,9 +26,20 @@ jobs:
           fetch-depth: 0 # gitleaks quét toàn bộ lịch sử commit
       - uses: oven-sh/setup-bun@v2
       - name: Gitleaks — quét secret/token trong lịch sử git
+        # PR từ Dependabot dùng GITHUB_TOKEN bị giới hạn quyền (chỉ read) —
+        # API của gitleaks-action bị từ chối "Resource not accessible by
+        # integration" và làm đỏ cả PRdeps không liên quan. Nhánh CLI chạy
+        # gitleaks trực tiếp (không gọi GitHub API): vẫn quét full lịch sử,
+        # thiếu hẳn phần affiliate/check-for-leaks của action.
+        if: github.actor != 'dependabot[bot]'
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Gitleaks (CLI) — quét secret cho PR Dependabot
+        if: github.actor == 'dependabot[bot]'
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz | tar -xz -C /usr/local/bin gitleaks
+          gitleaks git --redact -v --exit-code 1 .
       - name: Bun audit — chặn CVE mức critical (high/moderate chỉ cảnh báo)
         run: |
           bun install --frozen-lockfile

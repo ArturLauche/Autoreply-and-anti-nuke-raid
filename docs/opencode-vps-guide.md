@@ -536,6 +536,25 @@ ghi ra `findings.json` + `REPORT.md` có bằng chứng nguồn từng dòng.
 Tất cả skills tôn trọng điều khoản repo: không tự mò secret, hết sandbox thì
 không chạy code mục tiêu.
 
+## Tự chữa hạ tầng VPS — 3 vùng quyền (19/09/2026)
+
+Agent được mở quyền chẩn đoán + tự chữa **có kiểm soát** trên VPS. Chi tiết đầy
+đủ nằm trong `AGENTS.md` điều khoản 3; tóm tắt:
+
+| Vùng             | Agent được gì                                                                                                       | Ví dụ                                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 🟢 **TỰ LÀM**    | Chẩn đoán read-only + tự sửa rồi tự restart **kiira-retry-proxy** (bắt buộc health check `ok:true` sau khi restart) | `systemctl status`, `journalctl`, `docker ps/logs`, `df`, `free` · sửa proxy → restart → curl `__health`                |
+| 🟡 **HỎI TRƯỚC** | Chẩn đoán xong → in đúng lệnh + nguyên nhân, người dùng tự chạy (hoặc gật)                                          | restart bot, `docker restart`, `kill`, sửa unit file của dịch vụ khác                                                   |
+| 🔴 **CẤM**       | Không bao giờ — kể cả "để debug"                                                                                    | `systemctl cat/show`, `docker inspect/exec`, `printenv` (rò secret hạ tầng); `ufw`/`iptables`; `reboot`; `docker prune` |
+
+Hai lớp chặn bảo vệ: `opencode.json` permission (theo tên lệnh) + plugin
+`guardrails.js` (theo hành vi — bắt cả lệnh ghép `&&` tìm đường vòng đọc env).
+
+**Quy trình chuẩn khi VPS có dấu hiệu lỗi:** gõ `/health` trong OpenCode — quét
+disk/RAM/load/services/proxy/docker, báo cáo bảng đánh giá kèm đề xuất chia
+[TỰ LÀM] / [CẦN BẠN chạy]. Gật là nó xử phần của nó, còn phần của bạn thì chạy
+đúng lệnh nó in.
+
 ## Xử lý sự cố
 
 | Triệu chứng                                                   | Nguyên nhân                                                                                                                                     | Cách xử lý                                                                                                                             |
@@ -548,8 +567,9 @@ không chạy code mục tiêu.
 | Gõ `t3` báo "command not found"                               | `~/.local/bin` chưa nằm trong PATH                                                                                                              | `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc`                                                         |
 | Cài xong báo `libatomic.so.1: cannot open shared object file` | VPS tối giản thiếu thư viện hệ thống                                                                                                            | `apt-get update && apt-get install -y libatomic1` rồi chạy lại trình cài                                                               |
 | App điện thoại báo "Failed to fetch remote environment"       | Ô HOST chứa handle/IP sai, hoặc server chưa chạy                                                                                                | Dùng **Cách A (t3 connect)** — đăng nhập cùng tài khoản, khỏi điền tay; hoặc `t3 pair` trên VPS rồi quét QR                            |
-| T3 Code không kết nối được VPS                                | Port SSH/firewall, hoặc VPS tắt                                                                                                                 | Dùng T3 Connect (đi qua relay của T3); kiểm tra `t3 service status` trên VPS                                                           |
-| Agent đọc được file .env                                      | CẤM — phải xảy ra lỗi cấu hình                                                                                                                  | Kiểm tra rule `read: { "*.env": "deny", ... }` trong `opencode.json` đang dùng                                                         |
+| T3 Code không kết nối được VPS                                | Port SSH/firewall, hoặc VPS tắt                                                                                                                 | Dùng T3 Connect (đi qua relay của T3); kiểm tra `t3 service status` trên VPS                                                           |     | Agent đọc được file .env | CẤM — phải xảy ra lỗi cấu hình | Kiểm tra rule `read: { "*.env": "deny", ... }` trong `opencode.json` đang dùng |
+| Agent chạm env hạ tầng (unit systemd/container)               | Vùng 🔴 — guardrails chặn `systemctl cat/show`, `docker inspect/exec`, `printenv`                                                               | Đúng thiết kế. Chẩn đoán bằng `status`/`journalctl`/`docker logs`; cần giá trị env → hỏi người dùng                                    |
+| CI đỏ ở job security trên PR Dependabot                       | GITHUB_TOKEN bị giới hạn quyền trên PR dependabot — gitleaks-action gọi API bị từ chối                                                          | Đã vá 19/09: nhánh CLI chạy gitleaks trực tiếp cho PR dependabot (`ci.yml`); nếu tái diễn thì xem lại version action                   |
 | Token Kiira hết nhanh                                         | OpenCode đọc rất nhiều file mỗi task                                                                                                            | 30M tokens/ngày thường đủ; nếu hết, chuyển model phụ sang Groq free (console.groq.com)                                                 |
 
 ---
@@ -563,3 +583,4 @@ không chạy code mục tiêu.
 - [ ] `bot/.env` có `KIRA_API_KEY` nếu muốn bot dùng chung
 - [ ] T3 Code cài trên VPS, app điện thoại kết nối được qua SSH
 - [ ] Test từ điện thoại: chạy `bun run test` thấy kết quả PASS
+- [ ] `/health` trong OpenCode chạy xong ra báo cáo bảng 🟢🟡🔴 (không đụng gì cả — chỉ chẩn đoán)

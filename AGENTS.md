@@ -102,12 +102,18 @@ Các lệnh kiểm chứng đã được allow sẵn trong `opencode.json` — c
    đẩy lên `main` sau khi đã báo cáo kết quả cho người dùng. Chưa kiểm chứng →
    chưa push. Gặp lỗi xác thực khi push → in lệnh cho người dùng tự chạy,
    không tìm lối tắt quanh credentials.
-3. **Không tắt/dời process production**: `pm2 kill`, `kill` PID lạ, `systemctl
-stop/restart` dịch vụ khác. **Ngoại lệ duy nhất — hạ tầng AI của chính agent**:
-   sau khi sửa `scripts/kiira-retry-proxy.mjs` (hoặc unit file), agent ĐƯỢC tự
-   `systemctl restart kiira-retry-proxy` rồi BẮT BUỘC health check
-   `curl http://127.0.0.1:8787/__health` — thấy `"ok":true` mới coi là xong.
-   Restart dịch vụ bot → vẫn in lệnh, nhờ người dùng tự chạy.
+3. **Hạ tầng VPS — 3 vùng quyền** (permission + guardrails trong repo chặn nghiêm):
+
+   | Vùng             | Bao gồm                                                                                                                                                                                                                                                                                             | Agent được gì                                                                                                  |
+   | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+   | 🟢 **TỰ LÀM**    | Chẩn đoán read-only: `systemctl status/is-active`, `journalctl`, `docker ps/logs/stats`, `df`, `free`, `ps`, `du`, `uptime`. Tự chữa **kiira-retry-proxy**: sửa code/unit → `systemctl restart kiira-retry-proxy` → bắt buộc `curl http://127.0.0.1:8787/__health` thấy `"ok":true` mới coi là xong | Làm luôn, không cần hỏi                                                                                        |
+   | 🟡 **HỎI TRƯỚC** | Restart/tắt bot, bất kỳ service nào khác proxy; `docker restart/stop`; `kill`; `pm2`; thay đổi unit file của dịch vụ khác                                                                                                                                                                           | Chẩn đoán xong → **in đúng lệnh + giải thích nguyên nhân**, người dùng tự chạy (hoặc trả lời "ok" thì mới làm) |
+   | 🔴 **CẤM**       | `systemctl cat/show` (unit chứa Environment= với token), `docker inspect/exec/cp/commit`, `/proc/*/environ`, `printenv` (rò secret hạ tầng); `ufw`/`iptables` (tường lửa); `reboot`/`shutdown`; `docker system/volume prune` (xoá dữ liệu)                                                          | Không bao giờ — kể cả "để debug"                                                                               |
+
+   Quy trình tự chữa hạ tầng chuẩn: `/health` → đọc nguyên nhân bằng công cụ 🟢 →
+   sửa thứ thuộc tay mình (repo config + proxy) → kiểm chứng → báo cáo. Lỗi nằm
+   ngoài vùng 🟢 → báo cáo kèm lệnh cho người dùng, không mò.
+
 4. **Không cài dependency mới khi chưa hỏi.** Bot chạy Bun — ưu tiên thứ đã có trong
    `bot/package.json` / `package.json`. Lưu ý: `bun install` theo đúng lockfile trên máy
    mới **không phải** cài dependency mới — được phép, nhưng nên báo trước một dòng.

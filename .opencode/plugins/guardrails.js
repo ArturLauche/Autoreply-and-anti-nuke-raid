@@ -38,15 +38,41 @@ function looksLikeSecretAccess(command) {
   return false;
 }
 
+// Rò secret QUA HẠ TẦNG — đường vòng mà permission theo tên lệnh có thể lọt
+// khi lệnh bị ghép chuỗi (a && b). Unit file systemd chứa Environment=<token>,
+// container chứa env riêng, process khác chứa env trong /proc — agent được
+// chẩn đoán hạ tầng nhưng KHÔNG được soi các chỗ này.
+const INFRA_LEAK_PATTERNS = [
+  /systemctl\s+(cat|show)\s/, // unit file → Environment= chứa KIRA/bot key
+  /docker\s+(inspect|exec|cp)\s/, // env container / copy file ra khỏi container
+  /\/proc\/\d+\/environ/, // env của process khác
+  /\bprintenv\b/, // dump env shell — chứa key provider của OpenCode
+  /^\s*env\s*[|>]/, // `env | ...` = dump toàn bộ env ra stdout
+];
+
+function looksLikeInfraLeak(command) {
+  const cmd = command.toLowerCase();
+  return INFRA_LEAK_PATTERNS.some((re) => re.test(cmd));
+}
+
 export const GuardrailsPlugin = async () => {
   return {
     // 1) Chặn lệnh bash đọc secret trước khi nó chạy
     "tool.execute.before": async (input, output) => {
-      if (input.tool === "bash" && looksLikeSecretAccess(output.args.command || "")) {
+      const command = output.args.command || "";
+      if (input.tool === "bash" && looksLikeSecretAccess(command)) {
         throw new Error(
           "GUARDRAIL: Lệnh này có dấu hiệu đọc nội dung file secret (.env/.bot-key/key). " +
             "Theo AGENTS.md điều khoản 1: DỪNG và hỏi người dùng cung cấp giá trị nếu cần. " +
             "Không tìm lối tắt khác để đọc secret.",
+        );
+      }
+      if (input.tool === "bash" && looksLikeInfraLeak(command)) {
+        throw new Error(
+          "GUARDRAIL: Lệnh này chạm vào chỗ chứa secret của hạ tầng (unit file systemd " +
+            "có Environment=, env của container/process, env của shell). Chẩn đoán bằng " +
+            "status/journalctl/docker logs/df/free là đủ; cần giá trị env cụ thể thì " +
+            "hỏi người dùng (AGENTS.md điều khoản 1 + bảng vùng quyền 🟢🟡🔴).",
         );
       }
     },
@@ -60,8 +86,8 @@ export const GuardrailsPlugin = async () => {
           "- Workflow 5 pha: Hiểu → Kế hoạch (todo) → Thực hiện → Xác minh → Báo cáo+commit",
           "- Bị gián đoạn rồi được bảo continue/tiếp đi → TIẾP TỤC ĐÚNG CHỖ DỪNG (xem git diff + todo), không làm lại từ đầu; đi đến khi đủ kiểm chứng xanh + báo cáo mới dừng",
           "- Xong việc = test 41/41 + typecheck + lint XANH, chưa chạy thật thì không claim xanh",
-          "- Không đọc secret (.env/.bot-key/key) — cần thì hỏi người dùng",
-          "- Sửa kiira-retry-proxy.mjs xong → tự systemctl restart kiira-retry-proxy + curl /__health thấy ok:true mới xong (ngoại lệ duy nhất được restart; bot + dịch vụ khác thì in lệnh nhờ người dùng)",
+          "- Không đọc secret (.env/.bot-key/key) — cần thì hỏi người dùng; kể cả qua hạ tầng: systemctl cat/show, docker inspect/exec, /proc/*/environ, printenv đều cấm",
+          "- Hạ tầng VPS 3 vùng: 🟢 TỰ LÀM — chẩn đoán (systemctl status, journalctl, docker ps/logs, df, free) + sửa rồi tự restart kiira-retry-proxy + curl /__health thấy ok:true; 🟡 IN LỆNH nhờ người dùng — restart/đụng bot, docker, dịch vụ khác; 🔴 CẤM — ufw/iptables, reboot, prune",
           "- Được git add + commit + push origin main (tiếng Việt, footer 🤖 Generated with OpenCode) — push CHỈ sau khi cả 3 kiểm chứng XANH trong phiên",
           "- Bug thuộc engine đã có test → bắt buộc thêm test chặn tái diễn",
         ].join("\n"),
