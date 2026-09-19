@@ -2,6 +2,7 @@ const { PermissionFlagsBits } = require("discord.js");
 const { canManageWithConfig } = require("../util");
 const { sendCaseLog, CASE_LABEL } = require("../caseLog");
 const timeoutWatch = require("../timeoutWatch");
+const { heatSettings } = require("../heat");
 
 /** Phân tích chuỗi thời lượng: "10m", "2h", "1d", "30" (mặc định = phút). */
 function parseDuration(input) {
@@ -191,8 +192,10 @@ async function unbanMember({ guild, userId, executor, reason, guildConfig, store
 }
 
 async function unwarnMember({ guild, userId, heat, executor, reason, guildConfig, store }) {
-  // Kiểm tra member có warn tích lũy không
-  const strikeCount = heat.strikeCount?.(guild.id, userId);
+  // Kiểm tra member có warn tích lũy không. strikeCount cần settings (cửa sổ warn)
+  // — truyền heatSettings(guildConfig) nếu có, tránh TypeError khi heat là tracker thật.
+  const s = heatSettings(guildConfig);
+  const strikeCount = heat.strikeCount?.(guild.id, userId, s);
   if (!strikeCount || strikeCount === 0) {
     throw new Error(`**<@${userId}>** hiện không có warn tích lũy nào.`);
   }

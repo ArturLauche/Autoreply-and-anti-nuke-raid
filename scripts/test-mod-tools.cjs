@@ -373,6 +373,36 @@ Module._load = function (request, parent) {
     check("purgeChannel tối thiểu 1", channel.lastN === 1);
   }
 
+  // ── 13. unwarnMember với HeatTracker THẬT ──
+  // Test cũ dùng mock heat.strikeCount (không cần tham số) nên che bug: bản thật
+  // strikeCount(guildId, userId, s) đọc s.warnStrikeWindowMin → gọi thiếu `s` sẽ
+  // ném TypeError đúng lúc người dùng CÓ warn (chính lúc cần /unwarn).
+  {
+    clear();
+    const { HeatTracker, heatSettings } = require("../bot/src/heat.js");
+    const heat = new HeatTracker({}, {});
+    const s = heatSettings({ warnStrikeLimit: 3, warnStrikePunish: "timeout" });
+    heat.strike("g1", "u1", s, "nguoidung");
+    let threw = "";
+    let out = "";
+    try {
+      out = await mod.unwarnMember({
+        guild: { id: "g1" },
+        userId: "u1",
+        heat,
+        executor: null,
+        reason: undefined,
+        guildConfig: {},
+        store: null,
+      });
+    } catch (e) {
+      threw = e.message;
+    }
+    check("unwarnMember với HeatTracker thật không ném", threw === "", threw);
+    check("unwarnMember xóa đúng warn tích lũy", out.includes("1 warn"));
+    check("sau unwarn, strikeCount về 0", heat.strikeCount("g1", "u1", s) === 0);
+  }
+
   fs.unlinkSync(path.join(__dirname, "..", "bot", "test-djs-mock.cjs"));
   console.log(`\nKết quả mod tools: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail > 0 ? 1 : 0);
