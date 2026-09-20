@@ -27,6 +27,25 @@ module.exports = function createAntiNukeLayer({
   const { handleExternalAppMessage } = externalApp;
 
   /**
+   * Mẫu scam mạng bot đã học từ các vụ raid thật (threat intel) — đưa vào prompt
+   * AI để đối chiếu (huấn luyện bằng dữ liệu thật, 0 token). Lazy-require để
+   * không tạo vòng phụ thuộc module; lỗi → bỏ qua (AI chạy thiếu context).
+   */
+  function learnedThreatContext() {
+    try {
+      const getLearned = require("../filters").getLearnedThreats;
+      if (typeof getLearned !== "function") return undefined;
+      const t = getLearned() || {};
+      const keywords = (t.keywords || []).filter(Boolean);
+      const phrases = (t.phrases || []).filter(Boolean);
+      if (keywords.length === 0 && phrases.length === 0) return undefined;
+      return { keywords, phrases };
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
    * Phát hiện các mẫu tin nhắn gây nhiễu: tin dài cực dài / lặp nội dung và
    * tin "giả blank" (chỉ khoảng trắng + ký tự ẩn). Dùng AI để phân biệt raid
    * (leo thang phạt trực tiếp + lockdown) với vi phạm cá nhân (nhiệt bình thường).
@@ -90,6 +109,7 @@ module.exports = function createAntiNukeLayer({
         cfg.windowSeconds,
         cfg.threshold,
         samples,
+        { knownThreats: learnedThreatContext() },
       );
       // Chỉ coi là raid/nuke khi AI phân loại là "raid" VÀ độ tin cậy đủ cao
       // (>= 0.6) — tránh nhận diện nhầm gây ban nhầm + khóa kênh oan.
@@ -248,6 +268,7 @@ module.exports = function createAntiNukeLayer({
       moduleCfg.windowSeconds,
       moduleCfg.threshold,
       samples,
+      { knownThreats: learnedThreatContext() },
     );
     // Chỉ leo thang thành raid (ban + lockdown) khi AI tự tin >= 0.6.
     const isRaid = ai?.classification === "raid" && (ai?.confidence ?? 0) >= 0.6;

@@ -133,6 +133,18 @@ Module._load = function (request, parent) {
       (await aiClassify({ id: "g1" }, "m", 1, 1, 1)) === null,
     );
     mockAi.classifyThrows = false;
+
+    // knownThreats (mẫu scam bot tự học) được chuyển tiếp cho AI đối chiếu.
+    mockAi.available = true;
+    mockAi.classifyResult = { classification: "raid", confidence: 0.9 };
+    mockAi.lastClassifyArgs = null;
+    await aiClassify({ id: "g1" }, "spam", 6, 10, 5, ["free nitro"], {
+      knownThreats: { keywords: ["free nitro"], phrases: [] },
+    });
+    check(
+      "aiClassify chuyển tiếp knownThreats cho AI",
+      mockAi.lastClassifyArgs?.knownThreats?.keywords?.includes("free nitro") === true,
+    );
   }
 
   // ── 3. aiAnalyzeRaid / aiAnalyzeExternalApp ──

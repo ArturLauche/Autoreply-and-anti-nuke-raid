@@ -24,7 +24,12 @@ if (!LIVE) {
     try {
       body = JSON.parse(opts.body || "{}");
     } catch {}
-    const userMsg = (body.messages || []).map((m) => m.content || "").join("\n");
+    // Chỉ đọc message role=user (dữ liệu vụ việc + mẫu tin nhắn) — system prompt
+    // chứa VÍ DỤ huấn luyện (kể cả mẫu raid) nên không được tính là tín hiệu.
+    const userMsg = (body.messages || [])
+      .filter((m) => m.role === "user")
+      .map((m) => m.content || "")
+      .join("\n");
     // 2 mẫu đầu GIỐNG HỆT cả dòng (không tính trùng tiền tố) hoặc có link mời/scam
     const lines = userMsg.split("\n");
     const sampleOf = (l) => (l.match(/^\d+\. (.*)$/) || [])[1];

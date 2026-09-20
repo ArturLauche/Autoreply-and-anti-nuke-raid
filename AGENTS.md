@@ -160,8 +160,10 @@ Các lệnh kiểm chứng đã được allow sẵn trong `opencode.json` — c
 - **Hợp đồng bot ⇄ Convex**: bot gọi function bằng tên chuỗi
   (`"bot_writes:botClaimBackup"`) — tsc không phủ; đổi tên function phải grep
   - sửa cả 2 phía, script `check-convex-contract.cjs` chốt hạ.
-- **Vấn đề đã biết**: Groq retire `llama-3.3-70b-versatile` 08/2026 — code có self-heal
-  fallback `openai/gpt-oss-120b` trong `convex/haimiya.ts`; đừng hardcode lại model cũ.
+- **Vấn đề đã biết**: Groq retire `llama-3.3-70b-versatile` 08/2026 — self-heal
+  fallback `openai/gpt-oss-120b` có ở cả `convex/haimiya.ts` lẫn `bot/src/ai.js`
+  (mặc định bot đã đổi sang model sống; Kira mặc định `mimo-v2.5` theo danh sách
+  live 20/09/2026); đừng hardcode lại model cũ.
   Gateway Kiira (`KIRA_API_KEY`/`KIRA_BASE_URL`/`KIRA_MODEL`) là provider AI chính của bot.
 - **OAuth dashboard**: `DISCORD_CLIENT_ID` phải là snowflake số (regex `^\d{15,21}$`) —
   đã có bộ lọc `pickValidClientId` + test `scripts/test-oauth-client-id.cjs` chặn giá trị rác.

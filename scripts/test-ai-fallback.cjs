@@ -4,6 +4,7 @@ const path = require("path");
 const Module = require("module");
 
 let calls = [];
+let bodies = [];
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (url) => {
   calls.push(new URL(url).host);
@@ -147,6 +148,116 @@ ai.classifyViolation({
     console.log("[case3: all fail] final:", JSON.stringify(r));
     const ok = calls.length === 2 && r.offline === true;
     console.log(ok ? "PASS case3: all fail → offline an toàn" : "FAIL case3");
+    if (!ok) {
+      globalThis.fetch = realFetch;
+      process.exit(1);
+    }
+
+    // Case 4: model chết (400) → TỰ VÁ: thử lại đúng 1 lần cùng provider với
+    // model dự phòng, KHÔNG nhảy sang provider kế khi tự vá thành công.
+    // Giả lập production còn cấu hình model cũ đã retire (llama-3.3-70b).
+    calls = [];
+    bodies = [];
+    process.env.AI_MODEL = "llama-3.3-70b-versatile";
+    globalThis.fetch = async (url, init) => {
+      calls.push(new URL(url).host);
+      bodies.push(JSON.parse(init.body).model);
+      if (JSON.parse(init.body).model === "openai/gpt-oss-120b") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    classification: "raid",
+                    confidence: 0.9,
+                    reason: "healed",
+                    suggestPunish: "ban",
+                  }),
+                },
+              },
+            ],
+          }),
+        };
+      }
+      return { ok: false, status: 400, json: async () => ({}) };
+    };
+    return ai.classifyViolation({
+      module: "massJoin",
+      count: 8,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: [],
+    });
+  })
+  .then((r) => {
+    const ok =
+      calls.length === 2 &&
+      calls.every((h) => h === "api.groq.com") &&
+      bodies[0] === "llama-3.3-70b-versatile" &&
+      bodies[1] === "openai/gpt-oss-120b" &&
+      r.classification === "raid" &&
+      !r.offline;
+    console.log("[case4: self-heal] models tried:", bodies.join(" -> "));
+    console.log(ok ? "PASS case4: model chết → tự vá 1 lần, không đổi provider" : "FAIL case4");
+    delete process.env.AI_MODEL;
+    if (!ok) {
+      globalThis.fetch = realFetch;
+      process.exit(1);
+    }
+
+    // Case 5: prompt huấn luyện — có few-shot + checklist benign + JSON nghiêm.
+    calls = [];
+    let lastBody = "";
+    globalThis.fetch = async (url, init) => {
+      calls.push(new URL(url).host);
+      lastBody = init.body;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  classification: "benign",
+                  confidence: 0.8,
+                  reason: "x",
+                  suggestPunish: null,
+                }),
+              },
+            },
+          ],
+        }),
+      };
+    };
+    return ai
+      .classifyViolation({
+        module: "spam",
+        count: 3,
+        windowSeconds: 10,
+        threshold: 5,
+        sampleMessages: ["hello anh em"],
+        knownThreats: { keywords: ["free nitro"], phrases: ["claim reward now"] },
+      })
+      .then((r) => ({ r, lastBody }));
+  })
+  .then(({ r, lastBody }) => {
+    const body = JSON.parse(lastBody);
+    const sys = body.messages.find((m) => m.role === "system")?.content ?? "";
+    const usr = body.messages.find((m) => m.role === "user")?.content ?? "";
+    const ok =
+      r.classification === "benign" &&
+      sys.includes("VÍ DỤ") &&
+      sys.includes("DƯƠNG TÍNH GIẢ") &&
+      sys.includes("≥0.8") &&
+      usr.includes("free nitro") &&
+      usr.includes("claim reward now");
+    console.log(
+      ok ? "PASS case5: prompt có few-shot + benign checklist + mẫu scam đã học" : "FAIL case5",
+    );
     globalThis.fetch = realFetch;
     process.exit(ok ? 0 : 1);
   })
