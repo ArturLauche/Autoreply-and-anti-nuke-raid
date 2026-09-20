@@ -1,3 +1,5 @@
+import { translate } from "./i18n";
+
 export const SESSION_TOKEN_KEY = "wio_session_token";
 export const OAUTH_VERIFIER_KEY = "wio_oauth_verifier";
 export const OAUTH_STATE_KEY = "wio_oauth_state";
@@ -215,7 +217,7 @@ export async function exchangeCode(
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
   });
-  if (!res.ok) throw new Error(`Lỗi trao đổi mã OAuth (${res.status})`);
+  if (!res.ok) throw new Error(translate("Lỗi trao đổi mã OAuth ({p0})", { p0: res.status }));
   return res.json();
 }
 
@@ -303,7 +305,8 @@ export async function fetchDiscordUser(accessToken: string): Promise<DiscordUser
   const res = await fetch(`${DISCORD_API}/users/@me`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  if (!res.ok) throw new Error(`Không lấy được thông tin user (${res.status})`);
+  if (!res.ok)
+    throw new Error(translate("Không lấy được thông tin user ({p0})", { p0: res.status }));
   return res.json();
 }
 
@@ -311,7 +314,8 @@ export async function fetchDiscordGuilds(accessToken: string): Promise<DiscordGu
   const res = await fetch(`${DISCORD_API}/users/@me/guilds`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  if (!res.ok) throw new Error(`Không lấy được danh sách server (${res.status})`);
+  if (!res.ok)
+    throw new Error(translate("Không lấy được danh sách server ({p0})", { p0: res.status }));
   return res.json();
 }
 

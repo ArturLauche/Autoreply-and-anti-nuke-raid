@@ -54,10 +54,14 @@ check(
   /DICT\[s\] \?\? s/.test(i18n),
 );
 check(
-  "Từ điển EN gộp 2 file (i18n.en.ts + i18n.en.panels.ts) — không mất bản dịch",
+  "Từ điển EN gộp 3 file (i18n.en.ts + i18n.en.panels.ts + i18n.en.labels.ts) — không mất bản dịch",
   /import \{ EN_PANELS \} from "\.\/i18n\.en\.panels"/.test(i18n) &&
-    /const DICT: Record<string, string> = \{ \.\.\.EN, \.\.\.EN_PANELS \}/.test(i18n) &&
-    fs.existsSync(path.join(ROOT, "src/lib/i18n.en.panels.ts")),
+    /import \{ EN_LABELS \} from "\.\/i18n\.en\.labels"/.test(i18n) &&
+    /const DICT: Record<string, string> = \{ \.\.\.EN, \.\.\.EN_PANELS, \.\.\.EN_LABELS \}/.test(
+      i18n,
+    ) &&
+    fs.existsSync(path.join(ROOT, "src/lib/i18n.en.panels.ts")) &&
+    fs.existsSync(path.join(ROOT, "src/lib/i18n.en.labels.ts")),
 );
 check(
   "dateLocale() trả vi-VN / en-US (không hardcode 1 locale)",

@@ -34,7 +34,7 @@ export default function DmPanel({ data }: { data: GuildData }) {
       setUserId("");
       setMessage("");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Gửi thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Gửi thất bại"));
     } finally {
       setSending(false);
     }

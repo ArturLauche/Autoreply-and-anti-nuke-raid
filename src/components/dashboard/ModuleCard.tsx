@@ -323,7 +323,7 @@ export default function ModuleCard({
                   <button
                     key={opt.value}
                     type="button"
-                    title={opt.hint}
+                    title={translate(opt.hint)}
                     onClick={() => selectMemberPunish(opt.value)}
                     className={cn(
                       "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
@@ -360,7 +360,7 @@ export default function ModuleCard({
                   <button
                     key={opt.value}
                     type="button"
-                    title={opt.hint}
+                    title={translate(opt.hint)}
                     onClick={() => toggleMessageAction(opt.value)}
                     className={cn(
                       "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",

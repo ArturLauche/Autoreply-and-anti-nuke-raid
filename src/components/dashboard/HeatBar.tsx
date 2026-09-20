@@ -59,7 +59,7 @@ export function SafetyBar({ data }: { data: GuildData }) {
       await resetHeat({ token: TOKEN(), guildId: data.guild.discordId });
       toast.success(translate("Đã xóa toàn bộ nhiệt độ vi phạm"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Xóa thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Xóa thất bại"));
     }
   }
 
@@ -133,7 +133,7 @@ export function TopOffenders({ data, limit = 5 }: { data: GuildData; limit?: num
       await resetHeat({ token: TOKEN(), guildId: data.guild.discordId, userId });
       toast.success(translate("Đã xóa nhiệt của {p0}", { p0: username || userId }));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Xóa thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Xóa thất bại"));
     }
   }
 
@@ -206,7 +206,7 @@ export function HeatTable({ data, limit = 20 }: { data: GuildData; limit?: numbe
       await resetHeat({ token: TOKEN(), guildId: g.discordId, userId });
       toast.success(translate("Đã xóa nhiệt của {p0}", { p0: username || userId }));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Xóa thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Xóa thất bại"));
     }
   }
 

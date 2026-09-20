@@ -109,7 +109,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
       await updateModule({ token: TOKEN(), guildId: data.guild.discordId, module, ...patch });
       if (successMsg) toast.success(successMsg);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     }
   }
 
@@ -127,7 +127,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
       await updateSettings({ token: TOKEN(), guildId: data.guild.discordId, ...patch });
       toast.success(translate("Đã lưu cài đặt hệ thống nhiệt độ"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     }
   }
 
@@ -158,7 +158,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
       await updateSettings({ token: TOKEN(), guildId: data.guild.discordId, ...patch });
       toast.success(translate("Đã lưu cài đặt warn tích lũy"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     }
   }
 
@@ -201,7 +201,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
       setBadWordInput("");
       toast.success(translate('Đã thêm "{p0}"', { p0: word }));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Thất bại"));
     }
   }
 
@@ -214,7 +214,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
       });
       toast.success(translate('Đã xóa "{p0}"', { p0: word }));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Thất bại"));
     }
   }
 
@@ -228,11 +228,11 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
       );
       toast.success(
         enabled
-          ? `Đã bật nhóm (${modules.length} module)`
-          : `Đã tắt nhóm (${modules.length} module)`,
+          ? translate("Đã bật nhóm ({p0} module)", { p0: modules.length })
+          : translate("Đã tắt nhóm ({p0} module)", { p0: modules.length }),
       );
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     }
   }
 

@@ -50,7 +50,7 @@ const rel = (p) => path.relative(ROOT, p).split(path.sep).join("/");
 
 // ── Key có trong từ điển EN ────────────────────────────────────────────────
 const enKeys = new Set();
-for (const name of ["i18n.en.ts", "i18n.en.panels.ts"]) {
+for (const name of ["i18n.en.ts", "i18n.en.panels.ts", "i18n.en.labels.ts"]) {
   const p = path.join(SRC, "lib", name);
   if (!fs.existsSync(p)) continue;
   const enSrc = fs.readFileSync(p, "utf8");
@@ -158,11 +158,56 @@ for (const file of codeFiles.filter((f) => /\.(tsx|jsx)$/.test(f))) {
   };
   const isTranslateCall = (node) =>
     ts.isCallExpression(node) && /(^|\.)(translate|t)$/.test(node.expression.getText(sf));
+  // So sánh (`x === "spam"`) dùng chuỗi kỹ thuật trong đối số translate() —
+  // không phải chuỗi hiển thị, không được đòi bản dịch.
+  const isComparison = (node) => {
+    const p = node.parent;
+    return (
+      p &&
+      ts.isBinaryExpression(p) &&
+      [
+        ts.SyntaxKind.EqualsEqualsEqualsToken,
+        ts.SyntaxKind.ExclamationEqualsEqualsToken,
+        ts.SyntaxKind.EqualsEqualsToken,
+        ts.SyntaxKind.ExclamationEqualsToken,
+      ].includes(p.operatorToken.kind)
+    );
+  };
+  // MỌI chuỗi nằm trong đối số translate(…) đều là KEY — kể cả khi không đứng
+  // ngay sau dấu ngoặc: `translate(cond ? "A" : "B")`. Bản regex cũ chỉ bắt
+  // dạng translate("…") nên nhóm ternary lọt lưới: chuỗi được dịch nhưng
+  // KHÔNG có bản EN → UI vẫn hiện tiếng Việt (đúng lỗi người dùng báo).
+  const requireTranslations = (call) => {
+    const walkArgs = (n) => {
+      if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) {
+        if (!isComparison(n) && VIET.test(n.text)) {
+          wrappedKeys.add(n.text);
+          if (!enKeys.has(n.text))
+            problems.push(`THIẾU EN (trong translate): ${rel(file)} — ${n.text}`);
+        }
+        return;
+      }
+      if (ts.isTemplateExpression(n)) {
+        for (const part of [n.head.text, ...n.templateSpans.map((s) => s.literal.text)]) {
+          if (VIET.test(part)) {
+            wrappedKeys.add(part);
+            if (!enKeys.has(part))
+              problems.push(`THIẾU EN (trong translate): ${rel(file)} — ${part}`);
+          }
+        }
+      }
+      ts.forEachChild(n, walkArgs);
+    };
+    for (const arg of call.arguments) walkArgs(arg);
+  };
   // `inExpr` = đang ở trong một {…} của JSX. Chuỗi VI nằm ở đó vẫn hiển thị
   // ({cond ? "Bật" : "Tắt"}, {"Trực tuyến"}, ` · lần cuối ${x}`) nhưng JSXText
   // không bắt được — đúng nhóm "bấm nút không đổi ngôn ngữ" người dùng thấy.
   const visit = (node, inExpr) => {
-    if (isTranslateCall(node)) return; // cả cây đối số đã được dịch
+    if (isTranslateCall(node)) {
+      requireTranslations(node);
+      return; // phần còn lại của cây đã là đối số được dịch
+    }
     if (ts.isJsxText(node)) {
       const raw = node.getText(sf);
       if (VIET.test(raw)) flag(node, "text", raw);
@@ -191,6 +236,102 @@ const rawText = unresolved.filter((u) => u.kind === "text");
 const exprText = unresolved.filter((u) => u.kind === "expr");
 const softAttr = unresolved.filter((u) => u.kind.startsWith("attr "));
 for (const u of unresolved) problems.push(`CHƯA DỊCH (${u.kind}): ${u.file}:${u.line} — ${u.text}`);
+
+// ── 3c. Nhãn DỮ LIỆU (object/array trong src/*.ts) render qua translate(item.label)
+// không đứng sau dấu ngoặc translate( nên các check trên không thấy — đúng
+// nguồn chữ Việt còn sót trên UI (tên/mô tả 32 module, tên nhóm, nhãn hình
+// phạt, giai đoạn nhiệt, nhãn chọn kiểu kênh…). Yêu cầu: mọi chuỗi tiếng Việt
+// trong file dữ liệu phải có bản EN, TRỪ chuỗi kỹ thuật dùng để so khớp/parse
+// dữ liệu backend (includes/replace/test/replace…) và trừ khoá đối tượng.
+const dataLabels = [];
+for (const file of walk(SRC).filter((p) => !/lib[\\/]i18n(\.en(\.panels)?)?\.tsx?$/.test(p))) {
+  if (!/\.(ts|tsx)$/.test(file)) continue;
+  const source = fs.readFileSync(file, "utf8");
+  const sf = ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+  const lineOf = (pos) => sf.getLineAndCharacterOfPosition(pos).line + 1;
+  const isTechnical = (node) => {
+    // So sánh hoặc tham số của hàm xử lý chuỗi → chuỗi kỹ thuật, không phải UI.
+    let p = node.parent;
+    for (let i = 0; i < 3 && p; i++, p = p.parent) {
+      if (ts.isBinaryExpression(p)) return true;
+      if (ts.isCallExpression(p)) {
+        const callee = p.expression.getText(sf);
+        if (
+          /\.(includes|startsWith|endsWith|replace|replaceAll|split|match|test|indexOf|padStart|trim)$/.test(
+            callee,
+          )
+        )
+          return true;
+        if (/^(translate|t|Array|String|JSON|Number|Math|Boolean)$/.test(callee)) return false;
+        return true; // tham số hàm khác: coi là kỹ thuật (toast/API cần rà riêng)
+      }
+      if (ts.isPropertyAssignment(p) || ts.isPropertySignature(p)) {
+        const name = p.name.getText(sf);
+        // value/key/… và TÀI LIỆU TỪ KHOÁ (keywords/tags/patterns/phrases) là
+        // chuỗi kỹ thuật để so khớp — không hiển thị cho người dùng.
+        return /^(value|key|id|ids|punish|module|modules|action|actions|group|groups|type|kind|code|route|path|url|href|event|events|tag|tags|version|locale|lang|keyword|keywords|pattern|patterns|phrase|phrases|slug|alias|aliases|regex|trigger|triggers)$/.test(
+          name,
+        );
+      }
+    }
+    return false;
+  };
+  const visitData = (node) => {
+    if (
+      (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) &&
+      VIET.test(node.text)
+    ) {
+      if (!isTechnical(node))
+        dataLabels.push({ file: rel(file), line: lineOf(node.getStart(sf)), text: node.text });
+      return;
+    }
+    if (ts.isJsxAttribute(node)) return; // đã xử lý ở nhánh JSX
+    ts.forEachChild(node, visitData);
+  };
+  visitData(sf);
+}
+const uniqueDataLabels = [];
+const seenDataKeys = new Set();
+for (const d of dataLabels) {
+  if (seenDataKeys.has(d.text)) continue;
+  seenDataKeys.add(d.text);
+  uniqueDataLabels.push(d);
+}
+for (const d of uniqueDataLabels) {
+  if (!enKeys.has(d.text))
+    problems.push(`THIẾU EN (nhãn dữ liệu): ${d.file}:${d.line} — ${d.text}`);
+}
+
+// ── 3d. Nhãn dữ liệu render TRỰC TIẾP, không qua translate() ───────────────
+// Rule 3c chỉ đòi CÓ bản EN. Nhưng nếu chỗ render vẫn viết {x.label} thì React
+// không hề biết nhãn cần dịch → bấm EN vẫn thấy tiếng Việt (đúng lỗi người dùng
+// báo). Bắt buộc phải là {translate(x.label)}.
+// Miễn trừ: dữ liệu do NGƯỜI DÙNG nhập (tên giveaway, nội dung webhook, panel
+// reaction-role từ DB) — dịch những thứ đó là sai.
+const USER_DATA = /^(g|p|embed|rule|webhook|msg|message)\./;
+const RAW_LABEL =
+  /\{([A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*\??\.(?:label|desc|description|title|hint))\}/g;
+for (const file of codeFiles) {
+  if (!/\.tsx$/.test(file)) continue;
+  const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
+  lines.forEach((line, i) => {
+    if (line.includes("translate(") || line.includes("i18n-ok")) return;
+    for (const m of line.matchAll(RAW_LABEL)) {
+      // `key={f.title}` / `value={x.desc}` là thuộc tính, không phải chữ hiển thị.
+      if (line.slice(0, m.index).trimEnd().endsWith("=")) continue;
+      if (USER_DATA.test(m[1])) continue;
+      problems.push(
+        `CHƯA DỊCH (render nhãn): ${rel(file)}:${i + 1} — {${m[1]}} → bọc translate(${m[1]})`,
+      );
+    }
+  });
+}
 
 // ── 4. Cảnh báo mềm: bản dịch không còn dùng trong code ───────────────────
 // Key chứa dấu nháy nằm trong code ở dạng escape (\") nên phải so cả bản

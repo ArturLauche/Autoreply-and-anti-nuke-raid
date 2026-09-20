@@ -120,7 +120,7 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
       }
       setDialogOpen(false);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     } finally {
       setSaving(false);
     }
@@ -133,17 +133,17 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
         translate('Rule "{p0}" {p1}', { p0: rule.name, p1: enabled ? "đã bật" : "đã tắt" }),
       );
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Thất bại"));
     }
   }
 
   async function handleDelete(rule: AutoReply) {
-    if (!confirm(`Xóa rule "${rule.name}"?`)) return;
+    if (!confirm(translate('Xóa rule "{p0}"?', { p0: rule.name }))) return;
     try {
       await removeRule({ token: TOKEN(), id: rule._id });
       toast.success(translate('Đã xóa "{p0}"', { p0: rule.name }));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Xóa thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Xóa thất bại"));
     }
   }
 

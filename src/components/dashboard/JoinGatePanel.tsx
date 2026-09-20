@@ -102,7 +102,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
       await updateSettings({ token: TOKEN(), guildId: g.discordId, ...p });
       if (msg) toast.success(msg);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     }
   }
 

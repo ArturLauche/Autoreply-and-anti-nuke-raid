@@ -50,7 +50,7 @@ async function fileToDataUrls(file: File): Promise<string[]> {
   // Video: chỉ nhận ≤ 50MB; trích tối đa 3 khung hình (10%/50%/90% thời lượng)
   // và gửi NHƯ ẢNH — model vision hiểu nội dung video qua khung đại diện.
   if (file.type.startsWith("video/")) {
-    if (file.size > 50 * 1024 * 1024) throw new Error("Video quá lớn (tối đa 50MB)");
+    if (file.size > 50 * 1024 * 1024) throw new Error(translate("Video quá lớn (tối đa 50MB)"));
     const url = URL.createObjectURL(file);
     try {
       const video = await new Promise<HTMLVideoElement>((resolve, reject) => {

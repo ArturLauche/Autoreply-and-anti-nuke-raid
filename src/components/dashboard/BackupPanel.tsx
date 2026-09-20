@@ -110,11 +110,16 @@ export default function BackupPanel({ data }: { data: GuildData }) {
       const fresh = parseBotVersion(importStatus.botVersion) >= MIN_IMPORT_BOT_VERSION;
       if (fresh) {
         toast.success(translate("Bot đã khôi phục xong backup từ file"), {
-          description: "Role, kênh, tin nhắn + media và emoji/sticker đã được tạo lại trên server.",
+          description: translate(
+            "Role, kênh, tin nhắn + media và emoji/sticker đã được tạo lại trên server.",
+          ),
         });
       } else {
         toast.info(translate("Yêu cầu đã được xử lý xong"), {
-          description: `Bot đang chạy bản cũ (${importStatus.botVersion || "không rõ"}) nên không xác nhận được kết quả — hãy kiểm tra server trực tiếp và cập nhật bot lên bản mới nhất (v${MIN_IMPORT_BOT_VERSION}+) để nhận báo cáo chính xác.`,
+          description: translate(
+            "Bot đang chạy bản cũ ({p0}) nên không xác nhận được kết quả — hãy kiểm tra server trực tiếp và cập nhật bot lên bản mới nhất (v{p1}+) để nhận báo cáo chính xác.",
+            { p0: importStatus.botVersion || translate("không rõ"), p1: MIN_IMPORT_BOT_VERSION },
+          ),
         });
       }
       setImportWatch(null);
@@ -129,10 +134,16 @@ export default function BackupPanel({ data }: { data: GuildData }) {
       if (Date.now() - importWatch.startedAt > 180_000) {
         const hint =
           importStatus?.botOnline === false
-            ? "Bot đang OFFLINE (không nhận được heartbeat) — hãy khởi động bot trên host rồi tải lại file."
+            ? translate(
+                "Bot đang OFFLINE (không nhận được heartbeat) — hãy khởi động bot trên host rồi tải lại file.",
+              )
             : importStatus?.botOnline === true
-              ? "Bot online nhưng chưa xử lý — có thể bot đang chạy bản cũ, hãy cập nhật bot lên bản mới nhất rồi thử lại."
-              : "Không xác định được trạng thái bot — hãy kiểm tra bot có online không (tab Giám sát bot).";
+              ? translate(
+                  "Bot online nhưng chưa xử lý — có thể bot đang chạy bản cũ, hãy cập nhật bot lên bản mới nhất rồi thử lại.",
+                )
+              : translate(
+                  "Không xác định được trạng thái bot — hãy kiểm tra bot có online không (tab Giám sát bot).",
+                );
         toast.warning(translate("Bot vẫn chưa xử lý file backup"), { description: hint });
         setImportWatch(null);
       }
@@ -156,12 +167,16 @@ export default function BackupPanel({ data }: { data: GuildData }) {
       const fresh = parseBotVersion(importStatus.botVersion) >= MIN_IMPORT_BOT_VERSION;
       if (fresh) {
         toast.success(translate("Bot đã khôi phục xong"), {
-          description:
+          description: translate(
             "Role, kênh, tin nhắn và emoji/sticker đã được tạo lại theo backup. Kiểm tra embed xác nhận trong kênh log.",
+          ),
         });
       } else {
         toast.info(translate("Yêu cầu khôi phục đã được xử lý"), {
-          description: `Bot đang chạy bản cũ (${importStatus.botVersion || "không rõ"}) — hãy kiểm tra server trực tiếp và cập nhật bot lên bản mới nhất (v${MIN_IMPORT_BOT_VERSION}+).`,
+          description: translate(
+            "Bot đang chạy bản cũ ({p0}) — hãy kiểm tra server trực tiếp và cập nhật bot lên bản mới nhất (v{p1}+).",
+            { p0: importStatus.botVersion || translate("không rõ"), p1: MIN_IMPORT_BOT_VERSION },
+          ),
         });
       }
       setRestoreWatch(null);
@@ -192,8 +207,10 @@ export default function BackupPanel({ data }: { data: GuildData }) {
       if (Date.now() - restoreWatch.startedAt > 180_000) {
         const hint =
           importStatus?.botOnline === false
-            ? "Bot đang OFFLINE — khởi động bot trên host rồi bấm Khôi phục lại."
-            : "Bot online nhưng chưa xử lý xong — server lớn kèm tin nhắn có thể mất vài phút; nếu quá lâu hãy cập nhật bot lên bản mới nhất.";
+            ? translate("Bot đang OFFLINE — khởi động bot trên host rồi bấm Khôi phục lại.")
+            : translate(
+                "Bot online nhưng chưa xử lý xong — server lớn kèm tin nhắn có thể mất vài phút; nếu quá lâu hãy cập nhật bot lên bản mới nhất.",
+              );
         toast.warning(translate("Bot vẫn chưa xử lý xong khôi phục"), {
           description: hint,
           duration: 10000,
@@ -225,17 +242,21 @@ export default function BackupPanel({ data }: { data: GuildData }) {
       toast.success(translate("Đã yêu cầu tạo backup — bot thực hiện trong ~20 giây"), {
         description: pushGithub
           ? includeMessages
-            ? "Backup (kèm tin nhắn) sẽ được lưu trên Convex và đẩy lên GitHub (token của chủ bot — dùng chung mọi server)."
-            : "Backup sẽ được lưu trên Convex và đẩy lên GitHub (token của chủ bot — dùng chung mọi server)."
+            ? translate(
+                "Backup (kèm tin nhắn) sẽ được lưu trên Convex và đẩy lên GitHub (token của chủ bot — dùng chung mọi server).",
+              )
+            : translate(
+                "Backup sẽ được lưu trên Convex và đẩy lên GitHub (token của chủ bot — dùng chung mọi server).",
+              )
           : includeMessages
-            ? "Backup (kèm tin nhắn) sẽ được lưu trên Convex."
-            : "Backup sẽ được lưu trên Convex.",
+            ? translate("Backup (kèm tin nhắn) sẽ được lưu trên Convex.")
+            : translate("Backup sẽ được lưu trên Convex."),
       });
       // Tự động tải lại danh sách sau khi bot kịp xử lý; watch lỗi backup (nếu bot báo lỗi).
       setBackupWatch({ startedAt: Date.now() });
       window.setTimeout(refresh, 25000);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Thất bại"));
     } finally {
       setBusy(null);
     }
@@ -250,10 +271,12 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         days: autoOn ? autoDays : 0,
       });
       toast.success(
-        autoOn ? `Đã bật tự động backup mỗi ${autoDays} ngày` : "Đã tắt tự động backup",
+        autoOn
+          ? translate("Đã bật tự động backup mỗi {p0} ngày", { p0: autoDays })
+          : translate("Đã tắt tự động backup"),
       );
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Thất bại"));
     } finally {
       setAutoBusy(false);
     }
@@ -286,7 +309,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         description: `Phần khôi phục: ${parts.join(", ")} ${skipped.length ? `· BỎ QUA: ${skipped.join(", ")}` : "(tất cả)"}.`,
       });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Thất bại"));
     } finally {
       setRestoreOptBusy(false);
     }
@@ -313,9 +336,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         headers: { "Content-Type": file.type || "application/octet-stream" },
         body: file,
       });
-      if (!res.ok) throw new Error("Không tải file lên được — thử lại");
+      if (!res.ok) throw new Error(translate("Không tải file lên được — thử lại"));
       const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
-      if (!storageId) throw new Error("Không nhận được mã file — thử lại");
+      if (!storageId) throw new Error(translate("Không nhận được mã file — thử lại"));
       await requestImportRestore({
         token: TOKEN(),
         guildId: data.guild.discordId,
@@ -330,7 +353,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
       // Bắt đầu theo dõi: bot quét mỗi ~20s, server lớn có thể mất 1-2 phút.
       setImportWatch({ startedAt: Date.now() });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Tải file thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Tải file thất bại"));
     } finally {
       setImportBusy(false);
     }
@@ -371,7 +394,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         description: "Role, quyền role và kênh sẽ được tạo lại theo backup. Kết quả sẽ hiện ở đây.",
       });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Thất bại"));
     } finally {
       setBusy(null);
     }

@@ -135,8 +135,8 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
       await updateConfig({ token, guildId, altSafeMode: v });
       toast.success(
         v
-          ? "Đã bật chế độ an toàn — chỉ phạt khi có đủ bằng chứng"
-          : "Đã tắt chế độ an toàn — phạt theo điểm rủi ro",
+          ? translate("Đã bật chế độ an toàn — chỉ phạt khi có đủ bằng chứng")
+          : translate("Đã tắt chế độ an toàn — phạt theo điểm rủi ro"),
       );
     } catch (e: unknown) {
       toast.error((e as Error).message);
@@ -236,7 +236,7 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
                     disabled={saving}
                   >
                     <Icon className={`h-3.5 w-3.5 mr-1.5 ${opt.color}`} />
-                    {opt.label}
+                    {translate(opt.label)}
                   </Button>
                 );
               })}

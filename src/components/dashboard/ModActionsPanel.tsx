@@ -19,9 +19,12 @@ function styleFor(action: string): string {
   return "bg-secondary text-secondary-foreground border border-border";
 }
 
+/** Nhãn hành động: dữ liệu do bot ghi nên phần chữ tiếng Việt (bản cũ) được dịch
+ *  ngay tại đây — translate() trả về nguyên chuỗi nếu không có trong từ điển,
+ *  nên dữ liệu kỹ thuật ("timeout · case 30") không bị đổi. */
 function labelFor(action: string): string {
-  if (action.includes("Tự động")) return `⚡ ${action.replace("Tự động: ", "")}`;
-  return `🛠️ ${action}`;
+  if (action.includes("Tự động")) return `⚡ ${translate(action.replace("Tự động: ", ""))}`;
+  return `🛠️ ${translate(action)}`;
 }
 
 /** Nguồn của hành động: "mod" = lệnh thủ công của mod, "bot" = bot tự động.

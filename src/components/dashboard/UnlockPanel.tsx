@@ -77,7 +77,7 @@ export default function UnlockPanel({
         toast.error(translate("Sai mật khẩu rồi, thử lại nhé senpai!"));
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Mở khóa thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Mở khóa thất bại"));
     } finally {
       setChecking(false);
     }

@@ -446,8 +446,10 @@ function ThreatIntelCard({
       const res = await onLearnNow();
       setLearnMsg(
         res.ok
-          ? "✅ Đã gửi yêu cầu — bot sẽ học ngay (xem kết quả trong lịch sử bên dưới, tối đa ~10 phút)"
-          : `⚠️ ${res.error ?? "Không gửi được yêu cầu"}`,
+          ? translate(
+              "✅ Đã gửi yêu cầu — bot sẽ học ngay (xem kết quả trong lịch sử bên dưới, tối đa ~10 phút)",
+            )
+          : `⚠️ ${res.error ?? translate("Không gửi được yêu cầu")}`,
       );
     } finally {
       setLearning(false);

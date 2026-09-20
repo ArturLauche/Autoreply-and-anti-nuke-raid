@@ -212,7 +212,7 @@ function EmojiPicker({
               {EMOJI_CATEGORIES.map((cat) => (
                 <div key={cat.label}>
                   <p className="px-1 pb-1 text-[11px] font-semibold text-muted-foreground">
-                    {cat.label}
+                    {translate(cat.label)}
                   </p>
                   <div className="grid grid-cols-8 gap-1">
                     {cat.emojis.map((emoji) => (
@@ -286,7 +286,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
   const [saving, setSaving] = useState(false);
 
   function channelName(id: string) {
-    return textChannels.find((c) => c.channelId === id)?.name ?? "kênh đã xóa";
+    return textChannels.find((c) => c.channelId === id)?.name ?? translate("kênh đã xóa");
   }
   function roleName(id: string) {
     return roleOptions.find((r) => r.roleId === id)?.name ?? id;
@@ -353,7 +353,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
       setChannelId("");
       setRows([{ emoji: "✅", roleId: "" }]);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     } finally {
       setSaving(false);
     }

@@ -83,9 +83,11 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
   }
 
   // Welcome embed preview
-  const previewTitle = localTitle || "🌸 Chào mừng bạn!";
-  const previewDesc = (localDesc || "Bạn đã xác minh thành công. Chào mừng bạn đến với server!")
-    .replace(/\{user\}/g, "@thành viên")
+  const previewTitle = localTitle || translate("🌸 Chào mừng bạn!");
+  const previewDesc = (
+    localDesc || translate("Bạn đã xác minh thành công. Chào mừng bạn đến với server!")
+  )
+    .replace(/\{user\}/g, translate("@thành viên"))
     .replace(/\{server\}/g, g.name || "Server");
   const previewColor = localColor || "#111111";
 

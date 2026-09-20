@@ -239,7 +239,9 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
     }
     if (!isValidWebhookUrl(webhookUrl)) {
       toast.error(
-        "URL webhook không hợp lệ — phải đúng định dạng discord.com/api/webhooks/{id}/{token}",
+        translate(
+          "URL webhook không hợp lệ — phải đúng định dạng discord.com/api/webhooks/{id}/{token}",
+        ),
       );
       return;
     }

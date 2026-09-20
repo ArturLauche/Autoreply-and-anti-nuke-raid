@@ -9,6 +9,7 @@ import {
 } from "react";
 import { EN } from "./i18n.en";
 import { EN_PANELS } from "./i18n.en.panels";
+import { EN_LABELS } from "./i18n.en.labels";
 
 /**
  * Đa ngôn ngữ kiểu gettext: chuỗi tiếng Việt trong code là KEY —
@@ -19,8 +20,8 @@ import { EN_PANELS } from "./i18n.en.panels";
  */
 export type Lang = "vi" | "en";
 
-/** Từ điển EN: đợt 1 (i18n.en.ts) + đợt 2 (i18n.en.panels.ts). */
-const DICT: Record<string, string> = { ...EN, ...EN_PANELS };
+/** Từ điển EN: đợt 1 (i18n.en.ts) + panel (i18n.en.panels.ts) + nhãn dữ liệu (i18n.en.labels.ts). */
+const DICT: Record<string, string> = { ...EN, ...EN_PANELS, ...EN_LABELS };
 
 const LANG_KEY = "protogon-lang";
 

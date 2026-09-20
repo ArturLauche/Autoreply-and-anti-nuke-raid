@@ -127,8 +127,10 @@ export function Features() {
                 <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                   <f.icon className="h-5 w-5" />
                 </div>
-                <h3 className="font-display text-lg font-semibold">{f.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
+                <h3 className="font-display text-lg font-semibold">{translate(f.title)}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  {translate(f.desc)}
+                </p>
               </div>
             </motion.div>
           ))}
@@ -280,7 +282,7 @@ function HeatLadder() {
             className={`rounded-lg border p-3 ${t.chip}`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold">{t.label}</span>
+              <span className="text-xs font-bold">{translate(t.label)}</span>
               <span className="font-mono text-[10px] font-semibold opacity-80">{t.range}</span>
             </div>
             <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
@@ -565,9 +567,11 @@ export function HowItWorks() {
               <span className="font-mono text-4xl font-bold text-primary/25">{s.n}</span>
               <div className="mt-2 flex items-center gap-3">
                 <s.icon className="h-5 w-5 text-primary" />
-                <h3 className="font-display text-lg font-semibold">{s.title}</h3>
+                <h3 className="font-display text-lg font-semibold">{translate(s.title)}</h3>
               </div>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.desc}</p>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                {translate(s.desc)}
+              </p>
             </motion.div>
           ))}
         </div>

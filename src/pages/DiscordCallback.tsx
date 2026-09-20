@@ -27,20 +27,26 @@ import { translate } from "../lib/i18n";
  */
 function friendlyAuthError(raw: string): string {
   if (raw.includes("NEED_CLIENT_SECRET_EXCHANGE")) {
-    return "Cấu hình đăng nhập chưa hoàn tất — thử lại sau ít phút.";
+    return translate("Cấu hình đăng nhập chưa hoàn tất — thử lại sau ít phút.");
   }
   // Lỗi trao đổi token từ Discord (5xx) → Discord đang sự cố, không phải lỗi dashboard.
   const m = raw.match(/Discord token API lỗi (\d{3})/);
   if (m && Number(m[1]) >= 500) {
-    return `Discord đang gặp sự cố tạm thời (lỗi ${m[1]} từ phía Discord). Vui lòng thử lại sau ít phút — trạng thái: status.discord.com`;
+    return translate(
+      "Discord đang gặp sự cố tạm thời (lỗi {p0} từ phía Discord). Vui lòng thử lại sau ít phút — trạng thái: status.discord.com",
+      { p0: m[1] },
+    );
   }
   if (/Không lấy được thông tin người dùng \((\d{3})\)/.test(raw)) {
     const code = raw.match(/\((\d{3})\)/)?.[1];
     if (code && Number(code) >= 500) {
-      return `Discord đang gặp sự cố tạm thời (lỗi ${code} từ phía Discord). Vui lòng thử lại sau ít phút — trạng thái: status.discord.com`;
+      return translate(
+        "Discord đang gặp sự cố tạm thời (lỗi {p0} từ phía Discord). Vui lòng thử lại sau ít phút — trạng thái: status.discord.com",
+        { p0: code },
+      );
     }
   }
-  return raw || "Đăng nhập thất bại, vui lòng thử lại.";
+  return raw || translate("Đăng nhập thất bại, vui lòng thử lại.");
 }
 
 export default function DiscordCallback() {
@@ -54,7 +60,7 @@ export default function DiscordCallback() {
   useEffect(() => {
     if (configLoading) return;
     if (configError) {
-      setError("Không thể kết nối tới máy chủ Protogon. Vui lòng thử lại sau.");
+      setError(translate("Không thể kết nối tới máy chủ Protogon. Vui lòng thử lại sau."));
       return;
     }
     const params = new URLSearchParams(window.location.search);
@@ -97,15 +103,15 @@ export default function DiscordCallback() {
       }
 
       if (oauthError || !code) {
-        setError(oauthError ?? "Thiếu mã xác nhận từ Discord.");
+        setError(oauthError ?? translate("Thiếu mã xác nhận từ Discord."));
         return;
       }
       if (!clientId) {
-        setError("DISCORD_CLIENT_ID chưa được cấu hình trong API Keys.");
+        setError(translate("DISCORD_CLIENT_ID chưa được cấu hình trong API Keys."));
         return;
       }
       if (!verifier || !savedState || savedState !== state) {
-        setError("Phiên đăng nhập không hợp lệ. Vui lòng thử lại.");
+        setError(translate("Phiên đăng nhập không hợp lệ. Vui lòng thử lại."));
         return;
       }
       try {

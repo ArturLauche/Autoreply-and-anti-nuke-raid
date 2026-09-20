@@ -37,7 +37,9 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
       .filter((s) => /^\d{15,20}$/.test(s));
     if (ids.length === 0) {
       toast.error(
-        "Nhập ID Discord hợp lệ (15–20 chữ số), cách nhau bởi dấu phẩy hoặc khoảng trắng.",
+        translate(
+          "Nhập ID Discord hợp lệ (15–20 chữ số), cách nhau bởi dấu phẩy hoặc khoảng trắng.",
+        ),
       );
       return;
     }
@@ -61,7 +63,7 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
       });
       toast.success(translate("Đã lưu whitelist — bot áp dụng trong vòng ~3 phút"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     } finally {
       setSaving(false);
     }

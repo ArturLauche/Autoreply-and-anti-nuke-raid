@@ -102,16 +102,18 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
       await updateModule({ token: TOKEN(), guildId: data.guild.discordId, module, ...patch });
       if (successMsg) toast.success(successMsg);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     }
   }
 
   async function toggleGlobal(enabled: boolean) {
     try {
       await setGlobal({ token: TOKEN(), guildId: data.guild.discordId, enabled });
-      toast.success(enabled ? "Đã bật toàn bộ chống nuke" : "Đã tắt toàn bộ chống nuke");
+      toast.success(
+        enabled ? translate("Đã bật toàn bộ chống nuke") : translate("Đã tắt toàn bộ chống nuke"),
+      );
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Thất bại"));
     }
   }
 
@@ -125,10 +127,13 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
         preset: key as "small" | "community" | "highrisk",
       });
       toast.success(
-        `Đã áp preset "${res.label}": ${res.modulesUpdated + res.modulesCreated} module`,
+        translate('Đã áp preset "{p0}": {p1} module', {
+          p0: res.label,
+          p1: res.modulesUpdated + res.modulesCreated,
+        }),
       );
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Áp preset thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Áp preset thất bại"));
     } finally {
       setPresetApplying(null);
     }
@@ -137,9 +142,11 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
   async function toggleRelay(field: "relayShare" | "relayReceive", value: boolean) {
     try {
       await setRelaySettings({ token: TOKEN(), guildId: data.guild.discordId, [field]: value });
-      toast.success(value ? "Đã bật chia sẻ threat relay" : "Đã tắt threat relay");
+      toast.success(
+        value ? translate("Đã bật chia sẻ threat relay") : translate("Đã tắt threat relay"),
+      );
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Thất bại"));
     }
   }
 
@@ -148,7 +155,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
       await updateLockdown({ token: TOKEN(), guildId: data.guild.discordId, ...patch });
       toast.success(translate("Đã lưu cài đặt khóa kênh"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     }
   }
 
@@ -157,7 +164,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
       await requestUnlock({ token: TOKEN(), guildId: data.guild.discordId });
       toast.success(translate("Đã yêu cầu mở khóa — bot thực hiện trong vài giây"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Thất bại"));
     }
   }
 
@@ -166,7 +173,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
       await updateSettings({ token: TOKEN(), guildId: data.guild.discordId, ...patch });
       toast.success(translate("Đã lưu cài đặt Raid Intel — bot áp dụng trong ~3 phút"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     }
   }
 
@@ -180,11 +187,11 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
       );
       toast.success(
         enabled
-          ? `Đã bật nhóm (${modules.length} module)`
-          : `Đã tắt nhóm (${modules.length} module)`,
+          ? translate("Đã bật nhóm ({p0} module)", { p0: modules.length })
+          : translate("Đã tắt nhóm ({p0} module)", { p0: modules.length }),
       );
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     }
   }
 

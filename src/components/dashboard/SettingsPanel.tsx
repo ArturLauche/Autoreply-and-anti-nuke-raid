@@ -76,9 +76,11 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
         guildId: data.guild.discordId,
         dailyReportEnabled: v,
       });
-      toast.success(v ? "Đã bật báo cáo hàng ngày" : "Đã tắt báo cáo hàng ngày");
+      toast.success(
+        v ? translate("Đã bật báo cáo hàng ngày") : translate("Đã tắt báo cáo hàng ngày"),
+      );
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     }
   }
 
@@ -89,9 +91,9 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
         guildId: data.guild.discordId,
         emergencyAlertEnabled: v,
       });
-      toast.success(v ? "Đã bật cảnh báo khẩn" : "Đã tắt cảnh báo khẩn");
+      toast.success(v ? translate("Đã bật cảnh báo khẩn") : translate("Đã tắt cảnh báo khẩn"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     }
   }
 
@@ -102,9 +104,9 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
         guildId: data.guild.discordId,
         logPingEveryone: v,
       });
-      toast.success(v ? "Đã bật ping @everyone" : "Đã tắt ping @everyone");
+      toast.success(v ? translate("Đã bật ping @everyone") : translate("Đã tắt ping @everyone"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     }
   }
 
@@ -126,7 +128,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
       });
       toast.success(translate("Đã lưu cài đặt — bot áp dụng trong vòng ~3 phút"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     } finally {
       setSaving(false);
     }
@@ -585,7 +587,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                   <span className="font-medium text-foreground">
                     {translate(SERVER_THEMES[theme]?.label ?? "—")}
                   </span>{" "}
-                  — {SERVER_THEMES[theme]?.desc}
+                  — {translate(SERVER_THEMES[theme]?.desc ?? "—")}
                 </p>
                 <Button
                   size="sm"

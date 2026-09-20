@@ -77,7 +77,10 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
         headers: { "Content-Type": file.type || "image/png" },
         body: file,
       });
-      if (!res.ok) throw new Error(`Upload ảnh lên máy chủ thất bại (HTTP ${res.status})`);
+      if (!res.ok)
+        throw new Error(
+          translate("Upload ảnh lên máy chủ thất bại (HTTP {p0})", { p0: res.status }),
+        );
       let storageId = "";
       try {
         const data = (await res.json()) as { storageId?: string };
@@ -86,7 +89,9 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
         // phản hồi không phải JSON
       }
       if (!storageId)
-        throw new Error("Không nhận được ID ảnh từ máy chủ — thử dán đường dẫn ảnh thay thế");
+        throw new Error(
+          translate("Không nhận được ID ảnh từ máy chủ — thử dán đường dẫn ảnh thay thế"),
+        );
       const out = await saveBrandingUpload({
         token,
         guildId,
@@ -95,13 +100,13 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
       });
       toast.success(
         slot === "bot"
-          ? "Đã đổi avatar bot — áp dụng toàn web"
-          : "Đã đổi avatar Haimiya — áp dụng toàn web 🎀",
+          ? translate("Đã đổi avatar bot — áp dụng toàn web")
+          : translate("Đã đổi avatar Haimiya — áp dụng toàn web 🎀"),
       );
       setUrls((u) => ({ ...u, [slot]: "" }));
       void out;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Upload thất bại");
+      toast.error(err instanceof Error ? err.message : translate("Upload thất bại"));
     } finally {
       setUploading(null);
     }
@@ -123,7 +128,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
       toast.success(translate("Đã lưu ảnh mới — áp dụng toàn web"));
       setUrls((u) => ({ ...u, [slot]: "" }));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Lưu thất bại");
+      toast.error(err instanceof Error ? err.message : translate("Lưu thất bại"));
     } finally {
       setSavingUrl(null);
     }
@@ -138,7 +143,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
       });
       toast.success(translate("Đã xóa ảnh tùy chỉnh — trở về mặc định"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Xóa thất bại");
+      toast.error(err instanceof Error ? err.message : translate("Xóa thất bại"));
     }
   }
 
@@ -182,8 +187,10 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
                   )}
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium">{SLOT_META[slot].title}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{SLOT_META[slot].desc}</p>
+                  <p className="text-sm font-medium">{translate(SLOT_META[slot].title)}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {translate(SLOT_META[slot].desc)}
+                  </p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     <Button
                       size="sm"

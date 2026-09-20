@@ -67,7 +67,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
   const past = data.giveaways.filter((g) => g.status !== "active").slice(0, 10);
 
   function channelName(id: string) {
-    return textChannels.find((c) => c.channelId === id)?.name ?? "kênh đã xóa";
+    return textChannels.find((c) => c.channelId === id)?.name ?? translate("kênh đã xóa");
   }
 
   async function handleCreate() {
@@ -100,7 +100,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
       setImageUrl("");
       setEndMessage("");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Tạo thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Tạo thất bại"));
     } finally {
       setSaving(false);
     }

@@ -40,7 +40,7 @@ export default class PanelErrorBoundary extends Component<Props, State> {
   render() {
     if (!this.state.error) return this.props.children;
 
-    const msg = this.state.error?.message || "Lỗi không xác định";
+    const msg = this.state.error?.message || translate("Lỗi không xác định");
     const isMissingFunction =
       /(function|query|mutation|action).*(not found|không tồn tại)|server error/i.test(msg);
 

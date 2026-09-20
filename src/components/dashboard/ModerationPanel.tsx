@@ -63,7 +63,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
       await updateSettings({ token: TOKEN(), guildId: data.guild.discordId, ...patch });
       toast.success(translate("Đã lưu — bot áp dụng trong vòng ~3 phút"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     } finally {
       setSaving(false);
     }
@@ -194,7 +194,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                   </Select>
                 </div>
                 <p className="mt-3 rounded-lg bg-secondary/40 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
-                  {PUNISH_NOTICE_LEVELS.find((l) => l.value === level)?.hint}
+                  {translate(PUNISH_NOTICE_LEVELS.find((l) => l.value === level)?.hint ?? "")}
                   <span className="mt-1 block font-mono text-[10px] text-foreground/80">
                     {previewFor(action, level)}
                   </span>
