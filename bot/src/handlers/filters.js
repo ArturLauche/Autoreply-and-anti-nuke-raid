@@ -631,6 +631,20 @@ module.exports._setThreatIntelForTest = (keywords, phrases) => {
   threatPhrases = phrases || [];
   threatLoadedAt = Date.now();
 };
+/**
+ * Đọc mẫu scam mạng đã học (cho AI đối chiếu khi phân loại raid — "huấn luyện"
+ * bằng dữ liệu raid thật, 0 token). Trả bản sao đã cắt gọn, không bao giờ throw.
+ */
+module.exports.getLearnedThreats = () => {
+  try {
+    return {
+      keywords: (threatKeywords || []).slice(0, 20),
+      phrases: (threatPhrases || []).slice(0, 10),
+    };
+  } catch {
+    return { keywords: [], phrases: [] };
+  }
+};
 /** Hook threatEngine + test: nạp danh sách domain URLhaus (Set/array hostname). */
 module.exports._setUrlhausDomainsForTest = (domains) => {
   urlhausDomains = new Set(domains || []);

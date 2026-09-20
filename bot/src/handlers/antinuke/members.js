@@ -16,6 +16,7 @@ const {
   isExempt,
   memberSuspicionScore,
   joinClusterSuspicion,
+  joinWaveVerdict,
 } = require("./shared");
 
 module.exports = function createAntiNukeLayer({ store, state, core, ai, raidIntel }) {
@@ -23,7 +24,14 @@ module.exports = function createAntiNukeLayer({ store, state, core, ai, raidInte
   const { joiners, lastConfigs, botAddTimes } = state.state;
   const { punishWithHeat, maybeLockdown } = core;
   const { clusterStats } = ai;
+  // Ý kiến thứ hai của AI (best-effort, có thể không có trong test) — dùng để
+  // PHỦ QUYẾT cụm nghi vấn trước khi phạt (chống báo raid tào lao).
+  const { aiAnalyzeRaid } = ai ?? {};
   const { huntRaidSource, recordRaidSample } = raidIntel;
+  // 1 làn sóng join = 1 lần xử lý + 1 thông báo. Join nối tiếp trong cùng đợt
+  // KHÔNG bắn thêm sự kiện/phạt lặp (trước đây mỗi join vượt ngưỡng chạy lại
+  // toàn bộ pipeline → log trùng + phạt lặp + lockdown lặp).
+  const WAVE_KEY = "__wave__";
 
   /**
    * Cảnh báo bot lạ mới được thêm vào server — CHỈ CẢNH BÁO, không phạt.
@@ -199,10 +207,21 @@ module.exports = function createAntiNukeLayer({ store, state, core, ai, raidInte
     joiners.set(guild.id, fresh);
     if (fresh.length < moduleCfg.threshold) return;
 
+    // CHỐNG XỬ LÝ TRÙNG 1 làn sóng: join đầu chạm ngưỡng đánh dấu NGAY (đồng
+    // bộ, trước mọi await) để các join nối tiếp trong cùng đợt bỏ qua — trước
+    // đây mỗi join vượt ngưỡng chạy lại toàn bộ pipeline → log trùng, phạt
+    // lặp, lockdown lặp, mẫu raid trùng. Cooldown = cửa sổ module (đuôi sóng
+    // cũ tự rớt khỏi cửa sổ khi cooldown hết).
+    const waveCooldownMs = Math.max(30_000, (moduleCfg.windowSeconds || 10) * 1000);
+    if (wasHandled(guild.id, "massJoin", WAVE_KEY)) return;
+    markHandled(guild.id, "massJoin", WAVE_KEY, waveCooldownMs);
+    // Đợt mới đếm độc lập — tránh cộng dồn đuôi sóng cũ vào sóng sau.
+    joiners.set(guild.id, []);
+
     // CHỐNG BAN NHẦM: soi hồ sơ toàn cụm TRƯỚC khi phạt (trước đây đủ ngưỡng là
     // kick + khóa kênh ngay cả với làn sóng thành viên thật → ban oan cả server).
     // Raid thật: đa số acc mới/default avatar. Tăng trưởng tự nhiên: hồ sơ bình thường
-    // → chỉ ghi nhận, KHÔNG phạt, KHÔNG khóa kênh.
+    // → chỉ ghi nhận, KHÔNG phạt, KHÔNG khóa kênh, KHÔNG gửi thông báo raid.
     const profiles = []; // hồ sơ cụm tài khoản raid → Raid Intel
     for (const j of fresh) {
       const m = await guild.members.fetch(j.id).catch(() => null);
@@ -216,10 +235,67 @@ module.exports = function createAntiNukeLayer({ store, state, core, ai, raidInte
       });
     }
     const sus = joinClusterSuspicion(profiles);
-    if (sus.total === 0 || sus.ratio < 0.5) {
+    let verdict = joinWaveVerdict(sus);
+
+    // Ý KIẾN THỨ HAI CỦA AI (best-effort): AI phân tích hồ sơ cụm và PHỦ QUYẾT
+    // khi kết luận KHÔNG phối hợp với độ tin cậy đủ → hạ raid/watch xuống mức
+    // nhẹ hơn. AI offline/lỗi/thiếu → giữ nguyên phán quyết deterministic.
+    if (verdict.level !== "calm" && typeof aiAnalyzeRaid === "function") {
+      try {
+        const now = Date.now();
+        const lines = profiles
+          .slice(0, 12)
+          .map((p, i) => {
+            const age = p.createdAt ? Math.round((now - p.createdAt) / 86_400_000) : "?";
+            return `${i + 1}. ${p.username || "?"} (acc ${age} ngày, avatar ${p.avatar ? "có" : "không"})`;
+          })
+          .join("\n");
+        const aiRes = await aiAnalyzeRaid(
+          guild,
+          "massJoin",
+          fresh.length,
+          moduleCfg.windowSeconds,
+          moduleCfg.threshold,
+          lines,
+          undefined,
+        );
+        if (aiRes && aiRes.offline !== true && typeof aiRes.coordinated === "boolean") {
+          const aiWhy = aiRes.reasoning || aiRes.reason || "";
+          if (aiRes.coordinated === false && (aiRes.confidence ?? 0) >= 0.5) {
+            verdict = {
+              level: "watch",
+              reason: `AI đánh giá KHÔNG phối hợp (${aiWhy}) — chỉ theo dõi`,
+            };
+          } else if (
+            aiRes.coordinated === true &&
+            (aiRes.confidence ?? 0) >= 0.8 &&
+            verdict.level === "watch"
+          ) {
+            verdict = { level: "raid", reason: `AI xác nhận phối hợp (${aiWhy})` };
+          }
+        }
+      } catch {
+        // AI lỗi → giữ phán quyết deterministic
+      }
+    }
+
+    if (verdict.level === "calm") {
       await recordEvent(guild.id, {
         module: "massJoin",
-        action: `bỏ qua — hồ sơ bình thường (${sus.suspicious}/${sus.total} tài khoản đáng ngờ)`,
+        action: `bỏ qua — ${verdict.reason}`,
+        count: fresh.length,
+        windowSeconds: moduleCfg.windowSeconds,
+        threshold: moduleCfg.threshold,
+        punish: "none",
+      });
+      // Hồ sơ bình thường → KHÔNG gửi thông báo ra kênh (chống spam "bị raid").
+      return;
+    }
+
+    if (verdict.level === "watch") {
+      await recordEvent(guild.id, {
+        module: "massJoin",
+        action: `theo dõi — ${verdict.reason}`,
         count: fresh.length,
         windowSeconds: moduleCfg.windowSeconds,
         threshold: moduleCfg.threshold,
@@ -229,8 +305,8 @@ module.exports = function createAntiNukeLayer({ store, state, core, ai, raidInte
         guild,
         config,
         logEmbed({
-          title: "🛡️ Anti Nuke/Raid: Raid thành viên — KHÔNG xử lý",
-          description: `**${fresh.length}** thành viên vào trong **${moduleCfg.windowSeconds}s** nhưng hồ sơ tài khoản bình thường (nhiều khả năng tăng trưởng tự nhiên). Bot bỏ qua để tránh ban nhầm.`,
+          title: "👀 Anti Nuke/Raid: Theo dõi làn sóng vào nhanh",
+          description: `**${fresh.length}** thành viên vào trong **${moduleCfg.windowSeconds}s** — ${verdict.reason}. Bot chỉ theo dõi, chưa xử lý ai.`,
           color: Colors.Yellow,
           fields: [
             {
@@ -238,11 +314,62 @@ module.exports = function createAntiNukeLayer({ store, state, core, ai, raidInte
               value: `${sus.suspicious}/${sus.total || 0}`,
               inline: true,
             },
-            { name: "Acc mới <7 ngày", value: String(sus.freshAccounts), inline: true },
-            { name: "Nguồn", value: "🛡️ Tự động — gate chống ban nhầm", inline: true },
+            {
+              name: "Tín hiệu",
+              value: (sus.strongSignals || []).join(", ") || "không rõ",
+              inline: true,
+            },
+            { name: "Nguồn", value: "🛡️ Tự động — theo dõi", inline: true },
           ],
           footer: "Protogon · Anti Nuke/Raid",
         }),
+        "general",
+      );
+      return;
+    }
+
+    // Mức "raid": cụm đáng ngờ + có tín hiệu phối hợp. Gate CÁ NHÂN nâng lên
+    // điểm >= 4 — acc mới (2đ) PHẢI kèm thêm ÍT NHẤT 2 tín hiệu độc lập nữa
+    // mới bị phạt (trước đây acc mới + default avatar = 3đ đã bị kick → oan
+    // người thật mới lập acc trong sóng đông).
+    const punishable = profiles.filter(
+      (p) =>
+        memberSuspicionScore({
+          id: p.id,
+          username: p.username,
+          avatar: p.avatar,
+          createdAt: p.createdAt,
+        }) >= 4,
+    );
+    if (punishable.length === 0) {
+      // Cụm "raid" nhưng không acc nào đủ bar phạt cá nhân → hạ cấp theo dõi:
+      // không lockdown, không báo động đỏ oan.
+      await recordEvent(guild.id, {
+        module: "massJoin",
+        action: `theo dõi — cụm nghi vấn nhưng không có tài khoản nào đủ ngưỡng phạt (${verdict.reason})`,
+        count: fresh.length,
+        windowSeconds: moduleCfg.windowSeconds,
+        threshold: moduleCfg.threshold,
+        punish: "none",
+      });
+      await sendLog(
+        guild,
+        config,
+        logEmbed({
+          title: "👀 Anti Nuke/Raid: Theo dõi làn sóng vào nhanh",
+          description: `**${fresh.length}** thành viên vào trong **${moduleCfg.windowSeconds}s** — cụm nghi vấn nhưng không có tài khoản nào đủ ngưỡng phạt cá nhân. Bot chỉ theo dõi.`,
+          color: Colors.Yellow,
+          fields: [
+            {
+              name: "Tài khoản đáng ngờ",
+              value: `${sus.suspicious}/${sus.total || 0}`,
+              inline: true,
+            },
+            { name: "Nguồn", value: "🛡️ Tự động — theo dõi", inline: true },
+          ],
+          footer: "Protogon · Anti Nuke/Raid",
+        }),
+        "general",
       );
       return;
     }
@@ -255,23 +382,32 @@ module.exports = function createAntiNukeLayer({ store, state, core, ai, raidInte
     let purgedCount = 0;
     const purgeLimit = actions.includes("purgeMessages") ? 3 : 0;
     for (const j of fresh) {
+      // Đợt đã xử lý acc này rồi (sóng dài quá cooldown) → bỏ qua, chống phạt lặp.
+      if (wasHandled(guild.id, "massJoin", j.id)) continue;
       const m = await guild.members.fetch(j.id).catch(() => null);
       if (!m || isExempt(m, moduleCfg, config)) continue;
       // CHỐNG BAN NHẦM CÁ NHÂN: trong cụm hỗn hợp (raid lẫn người thật), chỉ phạt
-      // tài khoản ĐÁNG NGỜ (điểm >= 2). Thành viên thật đi kèm làn sóng (acc cũ,
-      // có avatar, tên người) được bỏ qua thay vì bị kick oan cả cụm.
+      // tài khoản ĐỦ 2 tín hiệu độc lập trở lên (điểm >= 4: acc mới + avatar mặc
+      // định + tên máy, hoặc các tổ hợp tương đương). Thành viên thật đi kèm làn
+      // sóng (acc cũ, có avatar, tên người) được bỏ qua thay vì bị kick oan cả cụm.
       if (
         memberSuspicionScore({
           id: m.id,
           username: m.user?.username,
           avatar: m.user?.avatar,
           createdAt: m.user?.createdTimestamp,
-        }) < 3
+        }) < 4
       ) {
         skippedReal.push(m.id);
         continue;
       }
       const res = await punishWithHeat(guild, m, moduleCfg, reason);
+      markHandled(
+        guild.id,
+        "massJoin",
+        j.id,
+        Math.max(120_000, (moduleCfg.windowSeconds || 10) * 6 * 1000),
+      );
       results.push(`<@${j.id}>: ${res.action}`);
       if (purgedCount < purgeLimit) {
         const cleanup = await cleanupMessages({

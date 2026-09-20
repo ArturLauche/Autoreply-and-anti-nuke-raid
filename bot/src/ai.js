@@ -15,10 +15,16 @@
  *                       → ƯU TIÊN CHO RESEARCH/HỌC HỎI (chatForResearch dùng trước,
  *                       không ăn hạn mức Groq/NVIDIA giữ cho chống raid realtime).
  *   KIRA_BASE_URL     — (tùy chọn) mặc định https://kiraai.vn/api/v1
- *   KIRA_MODEL        — (tùy chọn) mặc định "mimo-v2.5-free"
+ *   KIRA_MODEL        — (tùy chọn) mặc định "mimo-v2.5" (bản "-free" đã biến mất
+ *                       khỏi danh sách model live của Kira — kiểm 20/09/2026)
+ *   KIRA_USE_PROXY    — (tùy chọn) "1" = đi qua proxy retry local 127.0.0.1:8787
+ *                       (scripts/kiira-retry-proxy.mjs) để hưởng retry/backoff/
+ *                       breaker thay vì gọi thẳng kiraai.vn. Mặc định tắt.
+ *   KIRA_PROXY_PORT   — (tùy chọn) cổng proxy khi KIRA_USE_PROXY=1 (mặc định 8787)
  *   AI_BASE_URL       — (tùy chọn) gateway tương thích OpenAI khác
  *   AI_API_KEY        — (tùy chọn) key cho gateway trên
- *   AI_MODEL          — (tùy chọn) mặc định "llama-3.3-70b-versatile" (Groq)
+ *   AI_MODEL          — (tùy chọn) mặc định "openai/gpt-oss-120b" (Groq khuyến nghị
+ *                       thay llama-3.3-70b-versatile đã bị retire 08/2026)
  *   OPENAI_API_KEY    — (tùy chọn) fallback trả phí
  *
  * KHÔNG có key nào → mọi hàm trả { offline: true } và bot chạy theo điểm nghi
@@ -27,14 +33,20 @@
  * FALLBACK: provider đầu tiên lỗi (4xx/5xx, timeout, mạng) → thử provider kế
  * tiếp trong cùng một lượt gọi, với timeout riêng ngắn hơn. Key NIM nào xuất
  * hiện trước trong env sẽ được xếp trước.
+ * TỰ VÁ MODEL: gateway trả 400/404 (model chết/bị retire — đã xảy ra với
+ * llama-3.3-70b-versatile 08/2026) → thử lại ĐÚNG 1 lần với FALLBACK_MODEL
+ * trước khi chuyển provider (giống self-heal của convex/haimiya.ts).
  */
 
-const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+/** Model thay thế Groq khuyến nghị — còn được phục vụ (xác minh 20/09/2026). */
+const DEFAULT_MODEL = "openai/gpt-oss-120b";
+/** Model dự phòng khi model cấu hình chết (400/404) — thử lại đúng 1 lần. */
+const FALLBACK_MODEL = "openai/gpt-oss-120b";
 const DEEPSEEK_NIM_MODEL = "deepseek-ai/deepseek-v4-pro-0813";
 const NIM_BASE_URL = "https://integrate.api.nvidia.com/v1";
 /** Kira AI (kiraai.vn) — free 30M tokens/ngày, dùng riêng cho research/học hỏi. */
 const KIRA_BASE_URL = "https://kiraai.vn/api/v1";
-const KIRA_DEFAULT_MODEL = "mimo-v2.5-free";
+const KIRA_DEFAULT_MODEL = "mimo-v2.5";
 const TIMEOUT_MS = 12_000;
 /** Thời gian trừ đi mỗi lần chuyển provider (provider sau có ít thời gian hơn). */
 const FALLBACK_BUDGET_MS = 2_000;
@@ -114,7 +126,7 @@ function providerChain() {
   if (kira) {
     add({
       key: kira,
-      baseUrl: (process.env.KIRA_BASE_URL || KIRA_BASE_URL).replace(/\/+$/, ""),
+      baseUrl: kiraBaseUrl(),
       model: process.env.KIRA_MODEL || KIRA_DEFAULT_MODEL,
       label: "kira-mimo",
     });
@@ -162,32 +174,43 @@ async function chat(messages, { maxTokens = 250, temperature = 0.2, timeoutMs = 
   return null;
 }
 
-/** Một lần gọi tới 1 provider — trả content hoặc null, không throw. */
+/** Một lần gọi tới 1 provider — trả content hoặc null, không throw.
+ * TỰ VÁ MODEL: gateway trả 400/404 (model chết/bị retire) → thử lại đúng 1 lần
+ * với FALLBACK_MODEL trong cùng lượt (không tốn lượt provider kế tiếp). */
 async function chatOne(p, messages, { maxTokens, temperature, timeoutMs }) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const body = {
-      model: p.model,
-      messages,
-      max_tokens: maxTokens,
-      temperature,
-      ...(p.extraBody || {}),
-    };
-    const res = await fetch(`${p.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${p.key}` },
-      body: JSON.stringify(body),
-      signal: ctrl.signal,
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.choices?.[0]?.message?.content?.trim() ?? null;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
+  const models = p.model === FALLBACK_MODEL ? [p.model] : [p.model, FALLBACK_MODEL];
+  for (const model of models) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const body = {
+        model,
+        messages,
+        max_tokens: maxTokens,
+        temperature,
+        ...(p.extraBody || {}),
+      };
+      const res = await fetch(`${p.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${p.key}` },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      });
+      if (!res.ok) {
+        // Model chết (400/404) mà còn model dự phòng chưa thử → thử tiếp vòng sau.
+        // Lỗi khác (401/429/5xx/mạng) → bỏ provider này ngay, sang provider kế.
+        if ((res.status === 400 || res.status === 404) && model !== FALLBACK_MODEL) continue;
+        return null;
+      }
+      const data = await res.json();
+      return data?.choices?.[0]?.message?.content?.trim() ?? null;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
   }
+  return null;
 }
 
 /** Trích JSON object đầu tiên trong chuỗi trả lời của model. */
@@ -205,6 +228,9 @@ function extractJson(raw) {
 /**
  * Phân loại sự kiện vi phạm: raid / individual / benign.
  * Trả { classification, confidence, reason, suggestPunish, offline }.
+ * knownThreats (tùy chọn): { keywords: [], phrases: [] } — mẫu scam mạng đã
+ * được xác nhận, bot tự học từ các vụ raid thật (raidSamples → threat intel).
+ * Truyền vào để AI đối chiếu, thay vì đoán chay.
  */
 async function classifyViolation({
   module,
@@ -214,6 +240,7 @@ async function classifyViolation({
   sampleMessages = [],
   recentJoins,
   memberCount,
+  knownThreats = null,
 }) {
   if (!aiAvailable())
     return {
@@ -223,13 +250,30 @@ async function classifyViolation({
       offline: true,
     };
   const samples = (sampleMessages || []).slice(0, 6).map((s) => String(s).slice(0, 200));
-  const system = `Bạn là chuyên gia an ninh Discord. Phân loại một sự kiện vi phạm vừa xảy ra:
-- "raid": tấn công có tổ chức / tự động — bot-account, hàng loạt tài khoản cùng lúc, nội dung lặp lại giống hệt nhau, tin nhắn cực dài hoặc giả blank (chỉ khoảng trắng / ký tự ẩn) gây nhiễu loạn kênh, hoặc kết hợp với làn sóng thành viên mới vào.
-- "individual": chỉ một thành viên vi phạm nhẹ (spam bình thường, nói tục, gửi nhanh vài tin) — xử lý moderation thông thường.
-- "benign": có thể là dương tính giả, không cần phạt.
-Chỉ trả lời JSON thuần (không markdown) dạng: {"classification": "raid|individual|benign", "confidence": 0-1, "reason": "ngắn gọn tiếng Việt", "suggestPunish": "warn|timeout|kick|ban|null"}`;
+  const learned = [];
+  for (const k of (knownThreats?.keywords || []).slice(0, 12)) {
+    if (k) learned.push(`từ khóa: ${String(k).slice(0, 40)}`);
+  }
+  for (const p of (knownThreats?.phrases || []).slice(0, 8)) {
+    if (p) learned.push(`cụm: "${String(p).slice(0, 60)}"`);
+  }
+  const system = `Bạn là chuyên gia an ninh Discord. Phân loại một sự kiện vi phạm vừa xảy ra.
+QUY TẮC PHÂN LOẠI (đọc kỹ trước khi kết luận):
+- "raid": tấn công CÓ TỔ CHỨC — cần ÍT NHẤT 2 tín hiệu độc lập: (a) nhiều tài khoản cùng lúc (đặc biệt acc mới/default avatar/tên dạng máy), (b) nội dung lặp lại giống hệt hoặc gần giống, (c) tin cực dài/giả blank gây nhiễu, (d) @everyone/@here + link lạ, (e) kết hợp làn sóng thành viên mới vào.
+- "individual": CHỈ 1 người vi phạm (spam nhanh vài tin, nói tục, caps) — không có tín hiệu (a)-(e) đi kèm.
+- "benign": DƯƠNG TÍNH GIẢ — kiểm tra checklist này TRƯỚC khi phạt: chat giveaway/event bình thường của server; bạn bè rủ nhau spam sticker/emoji; bot hợp pháp (nhạc, log, leveling) nhắn tin hệ thống; người dùng trích dẫn/lặp tin để thảo luận. Không có link lạ + không có làn sóng acc mới = benign.
+ĐỘ TIN CẬY: ≥0.8 chỉ khi có ≥2 tín hiệu độc lập; 0.5-0.7 khi chỉ 1 tín hiệu; <0.5 khi phải đoán.
+VÍ DỤ:
+- 8 tin "@everyone FREE NITRO discord-gift.ru" giống hệt từ 3 acc mới → {"classification":"raid","confidence":0.9}
+- 1 người gửi 7 tin "haha" liên tiếp, acc 2 năm → {"classification":"individual","confidence":0.85}
+- 5 người cùng spam sticker chào mừng tân binh → {"classification":"benign","confidence":0.8}
+Chỉ trả lời JSON thuần (không markdown, đúng key): {"classification": "raid|individual|benign", "confidence": 0-1, "reason": "ngắn gọn tiếng Việt", "suggestPunish": "warn|timeout|kick|ban|null"}`;
   const user = `Sự kiện: module "${module}" — ${count} lần trong ${windowSeconds}s (ngưỡng ${threshold}).
-Thành viên mới gần đây: ${recentJoins ?? 0}. Thành viên server: ${memberCount ?? "?"}.
+Thành viên mới gần đây: ${recentJoins ?? 0}. Thành viên server: ${memberCount ?? "?"}.${
+    learned.length
+      ? `\nMẫu scam mạng ĐÃ XÁC NHẬN (bot tự học từ các vụ raid thật — khớp mẫu này là tín hiệu raid mạnh):\n- ${learned.join("\n- ")}`
+      : ""
+  }
 Mẫu tin nhắn:
 ${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).join("\n") : "(không có)"}`;
   const raw = await chat(
@@ -237,7 +281,7 @@ ${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).join("\n") : "(không
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    { maxTokens: 200 },
+    { maxTokens: 280 },
   );
   const parsed = extractJson(raw);
   if (!parsed || !["raid", "individual", "benign"].includes(parsed.classification)) {
@@ -280,10 +324,17 @@ async function analyzeRaid({
       offline: true,
     };
   const system = `Bạn là chuyên gia an ninh Discord chuyên điều tra RAID/NUKE.
-Phân tích dữ liệu một vụ tấn công server vừa xảy ra và trả lời:
-- "coordinated": vụ này có phải tấn công PHỐI HỢP (raid/nuke) hay chỉ là cá nhân vi phạm.
-- "sourceHint": ai là nghi phạm NGUỒN CƠN đứng sau (tài khoản chủ mưu)? Gợi ý: acc cũ nhất trong cụm, người có avatar/username giống các tài khoản khác, người tạo invite, kẻ thực hiện hành vi phá hoại trong audit log. Trả null nếu chưa đủ tín hiệu.
-- Chỉ trả lời JSON thuần (không markdown): {"coordinated": true|false|null, "confidence": 0-1, "reasoning": "ngắn gọn tiếng Việt", "sourceHint": "username hoặc null"}`;
+QUY TẮC KẾT LUẬN (đọc kỹ — sai ở đây là ban oan cả server):
+- "coordinated": true — CHỈ khi có ÍT NHẤT 2 bằng chứng PHỐI HỢP độc lập trong dữ liệu: (a) nhiều acc mới lập (<7 ngày) cùng lúc, (b) avatar mặc định/trùng nhau hàng loạt, (c) username dạng máy (chữ + đuôi số) hoặc giống nhau, (d) vào server cùng nhịp vài giây, (e) có kẻ tạo invite + thực hiện phá hoại (ban/kick/xóa kênh) trong audit log, (f) tin nhắn spam @everyone/link lạ đi kèm.
+- "coordinated": false — khi dữ liệu GIẢI THÍCH ĐƯỢC bằng hoạt động thường: bạn bè rủ nhau vào (tên người, có avatar, tuổi acc rải rác), server viral/được quảng bá (làn sóng vào nhưng hồ sơ bình thường), mod đang dọn kênh (audit log là người có quyền), event/giveaway của server.
+- Chưa đủ dữ liệu → "coordinated": null (không đoán mò).
+- "sourceHint": username kẻ chủ mưu khả dĩ nhất (người tạo invite + có hành vi phá hoại + hồ sơ trùng cụm raid). Trả null nếu chưa đủ tín hiệu — THÀ null còn hơn chỉ bừa.
+ĐỘ TIN CẬY: ≥0.8 chỉ khi có ≥2 bằng chứng (a)-(f); 0.5-0.7 khi 1 bằng chứng mạnh; <0.5 khi suy luận gián tiếp.
+VÍ DỤ:
+- 8 acc 1 ngày tuổi + default avatar + tên user1001..user1008 + cùng vào trong 5s → {"coordinated":true,"confidence":0.9}
+- 6 bạn acc 2-3 ngày + có avatar + tên người + vào rải rác + không ai phá hoại → {"coordinated":false,"confidence":0.85}
+- Chỉ 2 acc mới, không thêm tín hiệu → {"coordinated":null,"confidence":0.3}
+- Chỉ trả lời JSON thuần (không markdown): {"coordinated": true|false|null, "confidence": 0-1, "reasoning": "ngắn gọn tiếng Việt, nêu rõ bằng chứng (a)-(f)", "sourceHint": "username hoặc null"}`;
   const user = `Vụ: module "${module}" — ${count} lần trong ${windowSeconds}s (ngưỡng ${threshold}).
 Hồ sơ cụm tài khoản:
 ${clusterProfile || "(không có)"}
@@ -345,6 +396,10 @@ PHÂN TÍCH hồ sơ kết nối app / tin nhắn app vừa xảy ra và xác đ
   5) App tạo webhook để spam rồi xóa webhook ngay (xóa dấu vết).
 - isRaid=false: chỉ một vài người dùng/ứng dụng bình thường kết nối (vd mod thử app mới, app quen thuộc) hoặc app gửi tin hoạt động hợp lệ (nhạc, leveling, thông báo — không có tín hiệu spam ở trên).
 - Trả null nếu chưa đủ thông tin để kết luận.
+ĐỘ TIN CẬY: ≥0.8 chỉ khi có ≥2 tín hiệu (1)-(5); 0.5-0.7 khi 1 tín hiệu mạnh.
+VÍ DỤ:
+- 4 acc mới cùng kết nối app "Free Nitro Premium" + spam @everyone link lạ → {"isRaid":true,"confidence":0.9}
+- 1 mod kết nối app nhạc quen thuộc, không spam → {"isRaid":false,"confidence":0.85}
 Chỉ trả lời JSON thuần (không markdown): {"isRaid": true|false|null, "confidence": 0-1, "reason": "ngắn gọn tiếng Việt"}`;
   const user = `Vụ: ${count} kết nối app ngoài trong ${windowSeconds}s (ngưỡng ${threshold}). Thành viên server: ${memberCount ?? "?"}. Thành viên mới gần đây: ${recentJoins ?? 0}.
 Hồ sơ kết nối / tin nhắn app:
@@ -387,6 +442,19 @@ async function chatForResearch(messages, opts = {}) {
 }
 
 /**
+ * Base URL cho provider Kira: mặc định gọi thẳng gateway; KIRA_USE_PROXY=1 thì
+ * đi qua proxy retry local (127.0.0.1:8787) để hưởng retry/backoff/breaker.
+ * Proxy chỉ forward Authorization nên key vẫn là KIRA_API_KEY của bot.
+ */
+function kiraBaseUrl() {
+  if (String(process.env.KIRA_USE_PROXY || "").trim() === "1") {
+    const port = Number(process.env.KIRA_PROXY_PORT || 8787);
+    return `http://127.0.0.1:${port}`;
+  }
+  return (process.env.KIRA_BASE_URL || KIRA_BASE_URL).replace(/\/+$/, "");
+}
+
+/**
  * Chuỗi provider RIÊNG cho học hỏi/research: Kira AI (Mimo V2.5, free 30M
  * tokens/ngày) đứng TRƯỚC, sau đó mới tới chuỗi chung. Nhờ vậy lượt học không
  * ăn hạn mức Groq/NVIDIA — hạn mức đó dành trọn cho chống raid realtime.
@@ -398,7 +466,7 @@ function researchChain() {
   if (kira) {
     chain.push({
       key: kira,
-      baseUrl: (process.env.KIRA_BASE_URL || KIRA_BASE_URL).replace(/\/+$/, ""),
+      baseUrl: kiraBaseUrl(),
       model: process.env.KIRA_MODEL || KIRA_DEFAULT_MODEL,
       label: "kira-mimo",
     });

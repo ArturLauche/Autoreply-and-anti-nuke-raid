@@ -10,6 +10,98 @@ _(trống — mọi việc đã xong hoặc chờ yêu cầu mới)_
 
 ---
 
+## 2026-09-20 — Kiểm tra sức khỏe AI bot + huấn luyện nhận diện raid/nuke
+
+- 🔍 Chẩn đoán: chain fallback + offline an toàn vẫn tốt (test xanh); Kira gateway live (44 model) NHƯNG 2 default đã chết — Groq `llama-3.3-70b-versatile` (retire 08/2026) và Kira `mimo-v2.5-free` (không còn trong danh sách live). Bot không có self-heal như `haimiya.ts` → call model chết đốt cả chain.
+- ✅ Vá `bot/src/ai.js`: default Groq → `openai/gpt-oss-120b`, Kira → `mimo-v2.5`, tự vá 400/404 thử lại 1 lần cùng provider, `KIRA_USE_PROXY=1` opt-in qua proxy retry local.
+- ✅ "Huấn luyện": few-shot raid/benign + checklist dương tính giả + hiệu chuẩn confidence (≥0.8 chỉ khi ≥2 tín hiệu) cho cả 3 prompt; `classifyViolation` nhận `knownThreats` — mẫu scam bot tự học từ raid thật (filters → messages → AI, 0 token).
+- 🧪 Test: ai-fallback +2 case (self-heal, prompt markers) · antinuke-ai +1 (knownThreats passthrough) · misfire-guard +2 (getter) · chat-flow-classify sửa mock (chỉ đọc user msg, ví dụ system không tính là tín hiệu) · eval live tay `scripts/test-ai-raid-eval.mjs` (6 case, SKIP khi không key). 55/55 suites · tsc · lint · format · repo-map · contract · i18n xanh.
+- 📁 File đụng: `bot/src/{ai.js,handlers/filters.js,handlers/antinuke/{ai,messages}.js}`, `bot/README.md`, `AGENTS.md`, `scripts/{test-ai-fallback,test-antinuke-ai,test-misfire-guard,test-chat-flow-classify}.cjs` + mới `test-ai-raid-eval.mjs`, `docs/{decision-log,agent-journal}.md`
+- ▶️ Tiếp theo: chạy `node scripts/test-ai-raid-eval.mjs` trên VPS (có key) để đo chính xác/trễ thực tế sau đợt huấn luyện này.
+
+---
+
+## 2026-09-20 — Nâng cấp nhận diện raid + vá log sai kênh/trùng (massJoin, routing, raidIntel)
+
+- 🐛 3 gốc rễ tìm bằng test RED trên code cũ:
+  1. `handleRaidJoin` multi-fire: mỗi join vượt ngưỡng chạy lại toàn pipeline → N-T+1 log "Raid thành viên!" + phạt lặp + recordEvent/sample trùng (test cũ còn ghi nhận hành vi bug).
+  2. `deliverViaWebhooks` gửi case ban/kick qua webhook mặc định ở kênh log chung thay vì kênh hình phạt đã cấu hình (sai kênh); `inferEventType` gắn nhãn "raid" cho mọi log antinuke.
+  3. Gate cụm ratio≥0.5 với điểm≥2 coi acc mới đơn lẻ là raid → báo raid oan sóng bạn bè acc mới.
+- ✅ Vá: wave dedupe 1 sóng=1 xử lý (markHandled + reset joiners) · `raidLikely` yêu cầu ≥1 tín hiệu phối hợp cứng/≥2 mềm + `joinWaveVerdict` 3 mức raid/watch/calm (calm im lặng, watch vàng, raid đỏ) · gate cá nhân 3→4 · AI `aiAnalyzeRaid` phủ quyết trước phạt · `huntRaidSource` audit hủy diệt +5 / lành tính +2 · routing webhook đúng kênh + `inferEventType` export để test.
+- 🧪 Test: false-positive +3 case (27), member-layers +4 (22, gồm dedupe/AI veto/gate 4), webhook-hub +10 routing (29), antinuke-ai +1 (40). 55/55 suites · tsc · lint · format · repo-map · convex-contract xanh.
+- 📁 File đụng: `bot/src/handlers/antinuke/{shared,members,raidIntel,index}.js`, `bot/src/{util,webhookHub}.js`, 4 suite test, `docs/{decision-log,agent-journal}.md`
+- ▶️ Tiếp theo: theo dõi production xem còn báo raid oan/kênh sai không; cân nhắc ngưỡng `raidLikely` nếu raid tool né (đổi tên/avt).
+
+> Lưu ý phiên 20/09/2026: local từng đi sau `origin/main` 3 commit (đợt i18n).
+> Nếu thấy cây thiếu `src/lib/i18n.tsx`/`LangSwitch.tsx` → pull trước khi làm.
+
+---
+
+## 2026-09-20 — Vá bot tự xoay botKey khi bị Convex từ chối + deploy production
+
+- 🐛 Sự cố deploy thật: sau `pm2 restart`, Convex từ chối mọi call (`Chìa khóa
+bot không hợp lệ (botKey)`) — file cache `/protogon/bot/.bot-key` lệch seed
+  phía server, và `ensureBotKey()` chỉ bootstrap khi CHƯA có key → bot kẹt
+  vĩnh viễn, phải nhờ người xóa tay cache. Chữa tức thời: xoay key thủ công
+  (xóa cache → restart → bot bootstrap, prewarm 0/8 → 8/8).
+- ✅ Vá gốc rễ `bot/src/convex.js`: `isBotKeyRejection()` nhận diện lỗi từ chối
+  key (so khớp thông điệp đặc thù của botAuth.ts — không nhầm lỗi mạng); proxy
+  `query/mutation/action` bắt lỗi này → `rotateBotKey()` (bỏ key + xóa cache
+  file + bootstrap lại qua Discord token) → **retry đúng call đó 1 lần**. Lỗi
+  mạng/validator khác KHÔNG xoay oan; xoay dồn dập bị chặn (flag `_rotating`).
+- 🧪 TDD: thêm 4 case vào `scripts/test-convex-client.cjs` (red trên code cũ:
+  call bị từ chối → chết, 0 lượt xoay; xanh sau vá: 1 lượt xoay + retry thành
+  công + cache file ghi lại key mới + lỗi mạng không xoay). 28 pass.
+- 🧪 Deploy: pull up-to-date · 4 lớp xanh · Convex bỏ qua (không đổi convex/) ·
+  pm2 online ổn định, sync nhịp đều, prewarm 8/8, guild mới join được bắt.
+- ▶️ Tiếp theo: không có — chờ yêu cầu mới
+
+---
+
+## 2026-09-20 — Review toàn bộ bot/src: vá 4 bug bảo mật/hành vi
+
+- 🐛 4 bug thật khi review ~15k dòng `bot/src/`:
+  1. `antinuke/messages.js` gọi `reportSignatureBatch` 2 lần liên tiếp trong
+     nhánh raid → Convex dedupe tăng weight mỗi lần → 1 server tự nâng weight
+     signature 1→2, vượt `MIN_WEIGHT_AGED=2` → signature "xác nhận bởi 1
+     server" được phân phối toàn mạng (vỡ chống đầu độc relay).
+  2. `joinGate.js` burst auto-lockdown chỉ gọi `botUpdateLockdown` (cờ tính
+     năng) — không gọi `botLockState { until }` → `lockdownUntil` không bao
+     giờ được ghi → `tickUnlocks` không mở → server khóa kênh VĨNH VIỄN.
+  3. `interactionCreate.js` khai báo Map `verifyAttempts` (rate-limit captcha
+     DM) + vòng dọn, nhưng KHÔNG BAO GIỜ check → spam nút "Nhận mã" = bot DM
+     vô hạn. Vá: check 3 lần/10 phút trước khi tạo mã.
+  4. `captchaStore.verifyCode` không hủy mã khi sai → brute-force 10^6 tổ hợp
+     trong cửa sổ 5 phút đoán trúng captcha 6 chữ số. Vá: sai 5 lần hủy mã.
+- ✅ Thêm suite `scripts/test-bot-contracts.cjs` (hermetic: regex + require
+  captchaStore) chặn cả 4; suite 54 → **55**.
+- 📁 File đụng: `bot/src/handlers/antinuke/messages.js`, `bot/src/handlers/joinGate.js`,
+  `bot/src/handlers/interactionCreate.js`, `bot/src/captchaStore.js`,
+  `scripts/test-bot-contracts.cjs`, `AGENTS.md`, `docs/repo-map.md`,
+  `.opencode/plugins/guardrails.js`
+- 🧪 Kiểm chứng: 55/55 suites · tsc · lint · format · repo-map · convex-contract xanh
+
+## 2026-09-20 — Lá chắn hợp đồng web (test-web-contracts) + vá 3 bug dashboard/landing
+
+- 🐛 3 bug thật khi scan `src/`:
+  1. `OverviewPanel.RecentEvents` đọc `localStorage.getItem("wio_session_token")`
+     thô → chế độ "Lưu đăng nhập" gửi blob JSON `{"t","e"}` làm token (backend
+     từ chối), chế độ session gửi `""` → khối "hoạt động gần đây" luôn trắng.
+     Vá bằng `getSessionToken()`.
+  2. `Landing` dispatch event `"haimiya-open"` (hero + `HaimiyaSection`) nhưng
+     KHÔNG mount `<HaimiyaChat/>` → bấm "Hỏi Haimiya" chết lặng. Vá: mount chat.
+  3. `AnalyticsPanel` + `AuditLogPanel` chết (không ai import) vẫn nằm repo →
+     hiểu nhầm còn dùng. Đã xoá (lịch sử thật do `GuildHistory` phục vụ).
+- ✅ Thêm suite hermetic `scripts/test-web-contracts.cjs` chặn tái diễn cả 3:
+  kỷ luật token (chỉ `lib/discord.ts` chạm storage thô), trang dispatch
+  `haimiya-open` phải mount chat, không panel chết. Suite 53 → **54**.
+- 📁 File đụng: `src/components/dashboard/OverviewPanel.tsx`,
+  `src/pages/Landing.tsx`, `src/components/landing/shared.tsx`,
+  `scripts/test-web-contracts.cjs`, `AGENTS.md`, `docs/{repo-map,agent-journal}.md`,
+  `.opencode/plugins/guardrails.js`
+- 🧪 Kiểm chứng: 54/54 suites · tsc · lint · format · repo-map · convex-contract ·
+  i18n đều xanh
+
 ## 2026-09-20 — Đa ngôn ngữ VI/EN phủ HẾT (gồm chuỗi nội suy) + thu gọn layout mobile
 
 - 🐛 Gốc rễ "một số nút/nội dung không đổi sang tiếng Anh": lá chắn cũ chỉ rà

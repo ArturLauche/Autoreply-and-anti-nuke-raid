@@ -9,8 +9,10 @@ module.exports = function createAntiNukeLayer({ state }) {
 
   /** Gọi AI phân loại sự kiện raid vs cá nhân. Trả về null khi AI không có.
    *  Chạy TRỰC TIẾP từ process bot (bot/src/ai.js) — không tốn Convex actions.
+   *  opts.knownThreats (tùy chọn): { keywords, phrases } — mẫu scam mạng đã xác
+   *  nhận để AI đối chiếu (bot tự học từ các vụ raid thật, 0 token).
    */
-  async function aiClassify(guild, module, count, windowSeconds, threshold, samples) {
+  async function aiClassify(guild, module, count, windowSeconds, threshold, samples, opts = {}) {
     try {
       if (!aiClient.aiAvailable()) return null;
       const recentJoins = joiners.get(guild.id)?.length ?? 0;
@@ -23,6 +25,7 @@ module.exports = function createAntiNukeLayer({ state }) {
           sampleMessages: samples,
           recentJoins,
           memberCount: guild.memberCount ?? undefined,
+          knownThreats: opts?.knownThreats ?? undefined,
         }),
         new Promise((r) => setTimeout(() => r(null), 6000)),
       ]);

@@ -133,6 +133,18 @@ Module._load = function (request, parent) {
       (await aiClassify({ id: "g1" }, "m", 1, 1, 1)) === null,
     );
     mockAi.classifyThrows = false;
+
+    // knownThreats (mẫu scam bot tự học) được chuyển tiếp cho AI đối chiếu.
+    mockAi.available = true;
+    mockAi.classifyResult = { classification: "raid", confidence: 0.9 };
+    mockAi.lastClassifyArgs = null;
+    await aiClassify({ id: "g1" }, "spam", 6, 10, 5, ["free nitro"], {
+      knownThreats: { keywords: ["free nitro"], phrases: [] },
+    });
+    check(
+      "aiClassify chuyển tiếp knownThreats cho AI",
+      mockAi.lastClassifyArgs?.knownThreats?.keywords?.includes("free nitro") === true,
+    );
   }
 
   // ── 3. aiAnalyzeRaid / aiAnalyzeExternalApp ──
@@ -367,6 +379,39 @@ Module._load = function (request, parent) {
       res.suspectedSourceId === "raider-1" && res.banned === true,
     );
     check("executor cũ (>30 phút) bị loại", !res.reason.includes("cu"));
+  }
+
+  // ── 12b. audit executor LÀNH TÍNH (tạo invite/kênh) chỉ +2 → không đủ ngưỡng ban ──
+  {
+    bans.length = 0;
+    const now = Date.now();
+    const { AuditLogEvent } = require("../bot/test-djs-mock.cjs");
+    const auditEntries = [
+      {
+        executor: { id: "mod-lanh", username: "mod-tao-invite" },
+        action: AuditLogEvent.InviteCreate,
+        createdTimestamp: now - 60_000,
+      },
+    ];
+    const guild = makeGuild({
+      fetchAuditLogs: async () => ({ entries: { values: () => auditEntries[Symbol.iterator]() } }),
+    });
+    // Cụm gồm 1 acc hồ sơ SẠCH (0 điểm) + mod tạo invite (+2) = 2 < 4 → không ban oan.
+    const cleanCluster = [
+      {
+        id: "clean-2",
+        username: "nguoidung",
+        avatar: "unique-avatar",
+        createdAt: now - 30 * DAY,
+        joinedAt: now,
+      },
+    ];
+    const { huntRaidSource } = createRaidIntel({ client, store, ai: {} });
+    const res = await huntRaidSource(guild, {}, cleanCluster, []);
+    check(
+      "mod tạo invite gần đây (+2) KHÔNG bị ban oan làm nguồn raid",
+      res.banned === false && bans.length === 0,
+    );
   }
 
   // ── 13. recordRaidSample: ghi mutation, nuốt lỗi ──

@@ -128,6 +128,25 @@ function mkAttachments(names) {
   );
   filters._setThreatIntelForTest([], []);
 
+  console.log("== 4b. getLearnedThreats: đọc mẫu scam đã học cho AI đối chiếu ==");
+  filters._setThreatIntelForTest(["password", "free nitro"], ["claim reward now"]);
+  const learned =
+    typeof filters.getLearnedThreats === "function"
+      ? filters.getLearnedThreats()
+      : { keywords: [], phrases: [] };
+  check(
+    "getLearnedThreats trả keywords/phrases đã nạp",
+    learned.keywords.includes("free nitro") && learned.phrases.includes("claim reward now"),
+  );
+  check(
+    "getLearnedThreats không ném khi intel rỗng",
+    (() => {
+      filters._setThreatIntelForTest([], []);
+      const empty = filters.getLearnedThreats();
+      return Array.isArray(empty.keywords) && Array.isArray(empty.phrases);
+    })(),
+  );
+
   console.log("== 5. Heat: thành viên vô tội một lần vi phạm nhẹ KHÔNG bị kick/ban ==");
   const heat = new HeatTracker({}, {});
   const s = heatSettings({}); // mặc định: warn 25 / timeout 40 / kick 70 / ban 90

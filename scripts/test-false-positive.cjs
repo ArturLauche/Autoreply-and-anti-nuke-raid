@@ -1,6 +1,12 @@
 // Test gate chống ban nhầm: joinClusterSuspicion (cụm) + memberSuspicionScore
-// (cá nhân trong cụm hỗn hợp). Pure functions — chạy: node scripts/test-false-positive.cjs
-const { joinClusterSuspicion, memberSuspicionScore } = require("../bot/src/handlers/antinuke");
+// (cá nhân trong cụm hỗn hợp) + joinWaveVerdict (phân biệt raid thật / tăng
+// trưởng tự nhiên bằng tín hiệu phối hợp: avatar dùng chung, tên máy, acc mới
+// ồ ạt, vào dồn dập). Pure functions — chạy: node scripts/test-false-positive.cjs
+const {
+  joinClusterSuspicion,
+  memberSuspicionScore,
+  joinWaveVerdict,
+} = require("../bot/src/handlers/antinuke");
 
 let pass = 0;
 let fail = 0;
@@ -103,6 +109,60 @@ console.log("Case 8: cụm hỗn hợp thật (raid bot + bạn bè thật mới
     "bạn thật acc mới không bị phạt",
     realNew.every((p) => memberSuspicionScore(p, now) < 3),
   );
+}
+
+console.log("Case 9: raid thật → cụm có tín hiệu phối hợp mạnh (raidLikely)");
+{
+  const profiles = Array.from({ length: 8 }, (_, i) => mk(i, 1, false, true));
+  const sus = joinClusterSuspicion(profiles, now);
+  check("raidLikely = true", sus.raidLikely === true);
+  check(
+    "có tín hiệu phối hợp (tên máy / avatar mặc định / acc mới ồ ạt / dồn dập)",
+    Array.isArray(sus.strongSignals) && sus.strongSignals.length > 0,
+  );
+  check("verdict = raid", joinWaveVerdict(sus).level === "raid");
+}
+
+console.log(
+  "Case 10: sóng tăng trưởng THẬT (acc mới nhưng có avatar + tên người) → KHÔNG phải raid",
+);
+{
+  // 6 bạn thật rủ nhau vào RẢI RÁC vài giây (không cùng mili-giây như tool):
+  // acc 2-3 ngày, có avatar, tên người → mỗi acc điểm 2 (mới). Chỉ còn đúng 1
+  // tín hiệu mềm ("acc mới ồ ạt") → KHÔNG đủ kết luận raid. Trước đây ratio=1.0
+  // → bị coi là raid oan.
+  const profiles = Array.from({ length: 6 }, (_, i) => ({
+    ...mk(i, 2, true, false),
+    joinedAt: now - i * 2000,
+  }));
+  const sus = joinClusterSuspicion(profiles, now);
+  console.log("   ", JSON.stringify(sus));
+  check("không còn raidLikely oan", sus.raidLikely === false);
+  check("verdict không phải raid", joinWaveVerdict(sus).level !== "raid");
+}
+
+console.log("Case 11: avatar dùng chung trong cụm → tín hiệu phối hợp mạnh");
+{
+  // 4 acc (2 cặp avatar trùng) + tên người + acc 5 ngày: hồ sơ cá nhân yếu
+  // (điểm 2) nhưng avatar trùng nhau là bằng chứng phối hợp độc lập.
+  const profiles = [0, 1, 2, 3].map((i) => mk(i, 5, true, false));
+  profiles[0].avatar = "shared-1";
+  profiles[1].avatar = "shared-1";
+  profiles[2].avatar = "shared-2";
+  profiles[3].avatar = "shared-2";
+  const sus = joinClusterSuspicion(profiles, now);
+  console.log("   ", JSON.stringify(sus));
+  check("phát hiện nhóm avatar trùng", (sus.sharedAvatarGroups ?? 0) >= 1);
+  check("avatar trùng là tín hiệu phối hợp", (sus.strongSignals ?? []).length > 0);
+}
+
+console.log("Case 12: joinWaveVerdict phân 3 mức raid/watch/calm");
+{
+  check("cụm rỗng → calm", joinWaveVerdict(joinClusterSuspicion([], now)).level === "calm");
+  const raid = Array.from({ length: 8 }, (_, i) => mk(i, 1, false, true));
+  check("raid thật → raid", joinWaveVerdict(joinClusterSuspicion(raid, now)).level === "raid");
+  const calm = Array.from({ length: 8 }, (_, i) => mk(100 + i, 400, true, false));
+  check("người thật → calm", joinWaveVerdict(joinClusterSuspicion(calm, now)).level === "calm");
 }
 
 console.log(`\nKết quả: ${pass} PASS, ${fail} FAIL`);

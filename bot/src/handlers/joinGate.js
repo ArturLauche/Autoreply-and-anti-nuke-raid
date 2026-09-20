@@ -249,6 +249,19 @@ module.exports = async function joinGate(client, member, store) {
               } catch {}
             }
           }
+          // Đặt hạn mở khóa TRÊN CONVEX (botLockState) — trước đây chỉ gọi
+          // botUpdateLockdown (bật cờ tính năng) nên lockdownUntil không bao
+          // giờ được ghi: tickUnlocks chỉ mở khi lockdownRequested hoặc hết hạn
+          // → server bị khóa kênh VĨNH VIỄN cho tới khi mod tự /antinuke unlock.
+          // Phút phút = cấu hình lockdownMinutes (mặc định 5, trần 120) khớp
+          // trần validation botUpdateLockdown của Convex.
+          const lockMinutes = Math.max(1, Math.min(120, config.lockdownMinutes || 5));
+          await store.client
+            .mutation("bot_writes:botLockState", {
+              guildId: member.guild.id,
+              until: Date.now() + lockMinutes * 60_000,
+            })
+            .catch(() => {});
           // Update config for auto-unlock
           await store.client
             .mutation("bot_writes:botUpdateLockdown", {

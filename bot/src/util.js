@@ -61,33 +61,50 @@ async function sendToChannel(guild, channelId, embed) {
 /**
  * Gửi embed qua webhook (nếu guild có webhook khớp hạng mục sự kiện).
  * Trả về true khi ÍT NHẤT 1 webhook nhận thành công — caller bỏ qua kênh thường.
- * Không có webhook / gửi thất bại → fallback gửi trực tiếp vào kênh (an toàn).
+ * Webhook PHẢI nằm đúng kênh đích (targetChannelId): webhook mặc định sống ở
+ * kênh log chung nhưng log moderation cần sang kênh hình phạt riêng — gửi qua
+ * webhook lạc kênh là "gửi sai kênh". Không có webhook đúng kênh → gửi trực
+ * tiếp vào kênh đích (không tạo webhook mới ồ ạt, không dùng webhook kênh khác).
  * meta: { action, reason, user, mod } để chèn vào placeholder nội dung kèm.
  */
 async function deliverViaWebhooks(guild, eventType, embed, meta = {}, targetChannelId) {
   if (!guild) return false;
   try {
     const hub = require("./webhookHub");
-    let matched = await hub.matchFor(guild.id, eventType);
+    const matched = await hub.matchFor(guild.id, eventType);
 
-    // Nếu chưa có webhook nào — thử tạo on-the-fly "Protogon Log".
-    // targetChannelId: kênh ưu tiên tạo webhook (modLog → log).
-    if (matched.length === 0 && targetChannelId) {
+    // Ưu tiên webhook nằm ĐÚNG kênh đích; webhook kênh khác bị loại để log
+    // không nhảy sang kênh sai (vd case ban vào kênh log chung thay vì kênh phạt).
+    const sameChannel = targetChannelId
+      ? matched.filter((w) => w.channelId === targetChannelId)
+      : matched;
+
+    // Chưa có webhook nào đúng kênh và chưa có webhook nào cả — thử tạo
+    // on-the-fly "Protogon Log" trong kênh đích.
+    if (sameChannel.length === 0 && matched.length === 0 && targetChannelId) {
       const created = await hub.ensureDefaultWebhook(guild, targetChannelId);
-      if (created) matched = [created];
+      if (created && (!created.channelId || created.channelId === targetChannelId)) {
+        try {
+          await hub.send(created, embed, { guildName: guild.name, ...meta });
+          return true;
+        } catch {
+          // tạo được nhưng gửi lỗi → rơi xuống gửi kênh thường bên dưới
+        }
+      }
     }
 
-    if (matched.length === 0) {
-      // Fallback: gửi trực tiếp vào kênh (khi webhook không tạo được — thiếu quyền ManageWebhooks)
+    if (sameChannel.length === 0) {
+      // Không có webhook đúng kênh — gửi trực tiếp vào kênh đích (khi webhook
+      // không tạo được — thiếu quyền ManageWebhooks — hoặc webhook nằm kênh khác).
       return await sendToChannel(guild, targetChannelId, embed);
     }
     let sent = 0;
-    for (const wh of matched) {
+    for (const wh of sameChannel) {
       try {
         await hub.send(wh, embed, { guildName: guild.name, ...meta });
         sent++;
       } catch {
-        // webhook hỏng (đã xóa / thiếu quyền) — thử webhook khác
+        // webhook hỏng (đã xóa / thiếu quyền) — thử webhook khác cùng kênh
       }
     }
     if (sent === 0 && targetChannelId) {
@@ -110,9 +127,13 @@ async function deliverViaWebhooks(guild, eventType, embed, meta = {}, targetChan
 function inferEventType(embed, fallback = "general") {
   const title = String(embed?.data?.title || embed?.title || "");
   if (/anti nuke\/raid/i.test(title)) {
-    return /raid/i.test(title) ? "raid" : "antinuke";
+    // CHỈ báo raid thật (làn sóng thành viên) mới là "raid"; các module nuke
+    // cấu trúc (ban/kick/xóa kênh…) là "antinuke" — trước đây chữ "Raid" trong
+    // cụm "Nuke/Raid" khiến MỌI log antinuke bị gắn nhãn raid, webhook lọc
+    // riêng "antinuke" không bao giờ nhận được log.
+    return /raid thành viên|massjoin/i.test(title) ? "raid" : "antinuke";
   }
-  if (/join gate|alt detected|verify/i.test(title)) return "join";
+  if (/join gate|alt detect|verify/i.test(title)) return "join";
   if (/lockdown|khóa kênh/i.test(title)) return "raid";
   return fallback;
 }
@@ -195,6 +216,7 @@ module.exports = {
   logEmbed,
   sendLog,
   sendModLog,
+  inferEventType,
   mentionRoles,
   Colors,
 };

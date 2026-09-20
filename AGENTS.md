@@ -72,7 +72,7 @@ thôi. Khi nghi file có thể sửa dở: xem `git diff` trước khi sửa ti�
 
 Đơn vị công việc chỉ coi là XONG khi tất cả điều này thoả:
 
-- [ ] `bun run test` — toàn bộ suites xanh (hiện tại **53 suites** — số liệu 20/09/2026; nếu runner báo ít hơn nhiều → có suite bị bỏ sót, điều tra trước khi kết luận xanh). Số liệu này phải khớp với `CONTRACT_SUITES` trong `.opencode/plugins/guardrails.js` — đổi suite mới phải sửa CẢ HAI chỗ trong cùng commit
+- [ ] `bun run test` — toàn bộ suites xanh (hiện tại **55 suites** — số liệu 20/09/2026; nếu runner báo ít hơn nhiều → có suite bị bỏ sót, điều tra trước khi kết luận xanh). Số liệu này phải khớp với `CONTRACT_SUITES` trong `.opencode/plugins/guardrails.js` — đổi suite mới phải sửa CẢ HAI chỗ trong cùng commit
 - [ ] `bun tsc -b --noEmit` — typecheck sạch
 - [ ] `bun run lint` — sạch
 - [ ] `node scripts/check-repo-map.cjs` — bản đồ khớp cấu trúc thật (chỉ khi
@@ -160,8 +160,10 @@ Các lệnh kiểm chứng đã được allow sẵn trong `opencode.json` — c
 - **Hợp đồng bot ⇄ Convex**: bot gọi function bằng tên chuỗi
   (`"bot_writes:botClaimBackup"`) — tsc không phủ; đổi tên function phải grep
   - sửa cả 2 phía, script `check-convex-contract.cjs` chốt hạ.
-- **Vấn đề đã biết**: Groq retire `llama-3.3-70b-versatile` 08/2026 — code có self-heal
-  fallback `openai/gpt-oss-120b` trong `convex/haimiya.ts`; đừng hardcode lại model cũ.
+- **Vấn đề đã biết**: Groq retire `llama-3.3-70b-versatile` 08/2026 — self-heal
+  fallback `openai/gpt-oss-120b` có ở cả `convex/haimiya.ts` lẫn `bot/src/ai.js`
+  (mặc định bot đã đổi sang model sống; Kira mặc định `mimo-v2.5` theo danh sách
+  live 20/09/2026); đừng hardcode lại model cũ.
   Gateway Kiira (`KIRA_API_KEY`/`KIRA_BASE_URL`/`KIRA_MODEL`) là provider AI chính của bot.
 - **OAuth dashboard**: `DISCORD_CLIENT_ID` phải là snowflake số (regex `^\d{15,21}$`) —
   đã có bộ lọc `pickValidClientId` + test `scripts/test-oauth-client-id.cjs` chặn giá trị rác.

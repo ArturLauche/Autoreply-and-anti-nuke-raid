@@ -9,8 +9,18 @@ function genCaptcha() {
 }
 
 function setCode(guildId, userId, code) {
-  store.set(`${guildId}:${userId}`, { code, expiresAt: Date.now() + 5 * 60_000 });
+  store.set(`${guildId}:${userId}`, {
+    code,
+    expiresAt: Date.now() + 5 * 60_000,
+    // Chống brute-force: sai quá MAX_WRONG_ATTEMPTS lần thì mã bị hủy — kẻ
+    // đoán mã 6 chữ số trong cửa sổ 5 phút phải xin mã mới (mỗi lần xin mới
+    // bị rate-limit 3 lần/10 phút ở nút "Nhận mã xác minh").
+    wrongAttempts: 0,
+  });
 }
+
+/** Sai quá số lần này mã bị hủy ngay (phải bấm nút xin mã mới). */
+const MAX_WRONG_ATTEMPTS = 5;
 
 function verifyCode(guildId, userId, input) {
   const key = `${guildId}:${userId}`;
@@ -20,7 +30,16 @@ function verifyCode(guildId, userId, input) {
     store.delete(key);
     return { ok: false, reason: "expired" };
   }
-  if (entry.code !== input.trim()) return { ok: false, reason: "wrong" };
+  if (entry.code !== input.trim()) {
+    entry.wrongAttempts += 1;
+    if (entry.wrongAttempts >= MAX_WRONG_ATTEMPTS) {
+      // Hủy mã — trả reason "wrong" (thông điệp UX đã hướng dẫn xin mã mới);
+      // kẻ brute-force không phân biệt được lý do hủy.
+      store.delete(key);
+      return { ok: false, reason: "wrong" };
+    }
+    return { ok: false, reason: "wrong" };
+  }
   store.delete(key);
   return { ok: true };
 }
@@ -33,4 +52,4 @@ setInterval(() => {
   }
 }, 300_000);
 
-module.exports = { genCaptcha, setCode, verifyCode };
+module.exports = { genCaptcha, setCode, verifyCode, MAX_WRONG_ATTEMPTS };

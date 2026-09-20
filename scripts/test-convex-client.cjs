@@ -11,6 +11,8 @@
 //   - ruleCooldowns: isCooledDown/recordReply + chống phình Map > 500.
 //   - sendHeartbeat: Convex chết → _heartbeatOk=false, không ném.
 const Module = require("module");
+const fs = require("fs");
+const path = require("path");
 
 // Mock convex/browser — ConvexHttpClient ghi nhận call, lỗi theo kịch bản.
 const calls = [];
@@ -278,6 +280,85 @@ function freshStore() {
       })(),
     );
     delete process.env.BOT_KEY;
+  }
+
+  // ── 12. Key cache LỆCH → tự xoay key (bootstrap lại) + retry call ─────────
+  // Sự cố thật 20/09/2026: bot chạy từ /protogon/bot nạp key cache cũ bị Convex
+  // từ chối ("Chìa khóa bot không hợp lệ") — ensureBotKey() chỉ bootstrap khi
+  // CHƯA có key nên bot kẹt vĩnh viễn, phải nhờ người xóa tay .bot-key.
+  // Hợp đồng mới: call bị từ chối botKey → xoay key (bỏ cache file + bootstrap
+  // qua DISCORD_TOKEN) → retry đúng call đó 1 lần; xoay lại dồn dập bị chặn.
+  {
+    process.env.CONVEX_URL = "https://test.convex.cloud";
+    delete process.env.BOT_KEY;
+    // Bootstrap cần DISCORD_TOKEN — test mock action nên token là chuỗi giả.
+    process.env.DISCORD_TOKEN = "test-token-for-bootstrap";
+    calls.length = 0;
+    const store = new ConvexStore();
+    // Giả lập key cache lệch: bot "vừa nạp" một key server không nhận.
+    store.botKey = "stale-key-from-cache";
+    // Giả lập bootstrap: cấp key MỚI hợp lệ, ghi file (temp dir — không đụng .env).
+    const os = require("os");
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "convex-test-"));
+    const realCwd = process.cwd();
+    let rotations = 0;
+    const rawQuery = store._rawClient.query.bind(store._rawClient);
+    store._rawClient.query = async (name, args) => {
+      // Call dùng key STALE → Convex từ chối; call sau khi xoay → OK.
+      if (args?.botKey === "stale-key-from-cache") {
+        const e = new Error("Uncaught Error: Chìa khóa bot không hợp lệ (botKey)");
+        e.statusCode = 500;
+        throw e;
+      }
+      return rawQuery(name, args);
+    };
+    store._rawClient.action = async (name) => {
+      if (name === "botBootstrapAction:requestBotKey") {
+        rotations++;
+        calls.push({ kind: "action", name, args: { botToken: "***" } });
+        return { ok: true, botKey: `fresh-key-${rotations}` };
+      }
+      return { ok: true };
+    };
+    // Chạy bootstrap trong temp dir để file .bot-key ghi vào đó (bền với test).
+    process.chdir(tmpDir);
+    let res = null;
+    let threw = false;
+    try {
+      res = await store.getConfig("g-key-rotate");
+    } catch {
+      threw = true;
+    }
+    process.chdir(realCwd);
+    check(
+      "call bị từ chối botKey → tự xoay key (bootstrap lại) rồi thành công",
+      !threw && res?.config === true && rotations === 1,
+      `rotations=${rotations}, threw=${threw}`,
+    );
+    check("sau xoay, call dùng key MỚI (không phải key stale)", store.botKey === "fresh-key-1");
+    check(
+      "file cache .bot-key được ghi lại với key mới",
+      fs.existsSync(path.join(tmpDir, ".bot-key")),
+    );
+    // Lỗi KHÔNG phải botKey (mạng/5xx thường) → KHÔNG xoay key.
+    rotations = 0;
+    const store2 = freshStore();
+    store2.botKey = "some-key";
+    store2._rawClient.action = async () => {
+      rotations++;
+      return { ok: true, botKey: "x" };
+    };
+    failMode = { code: "ECONNRESET" };
+    threw = false;
+    try {
+      await store2.query("x:y", {});
+    } catch {
+      threw = true;
+    }
+    failMode = null;
+    check("lỗi mạng thường → KHÔNG xoay key (chỉ retry thường)", rotations === 0 && threw);
+    delete process.env.DISCORD_TOKEN;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 
   console.log(`\nKết quả: ${pass} pass, ${fail} fail`);

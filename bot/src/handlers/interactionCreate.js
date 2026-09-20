@@ -118,6 +118,24 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       if (!member.roles.cache.has(unverifiedRoleId)) {
         return interaction.reply({ content: "✅ Bạn đã xác minh rồi!", ephemeral: true });
       }
+      // RATE-LIMIT 3 lần/10 phút/user (verifyAttempts): chặn spam bấm nút nhận
+      // mã — bot gửi DM mã mỗi lần bấm, kẻ xấu dùng bot làm vòi DM phiền người.
+      // Entry cũ của Map có vòng dọn 5 phút sẵn bên dưới; kiểm tra + ghi tại đây.
+      {
+        const attempts = verifyAttempts.get(interaction.user.id);
+        if (attempts && Date.now() - attempts.lastAttemptAt < VERIFY_RATE_WINDOW_MS) {
+          if (attempts.attempts >= 3) {
+            return interaction.reply({
+              content: "⏳ Bạn đã yêu cầu mã quá nhiều lần — thử lại sau khoảng 10 phút.",
+              ephemeral: true,
+            });
+          }
+          attempts.attempts += 1;
+          attempts.lastAttemptAt = Date.now();
+        } else {
+          verifyAttempts.set(interaction.user.id, { attempts: 1, lastAttemptAt: Date.now() });
+        }
+      }
       // Tạo mã captcha và gửi DM
       const code = genCaptcha();
       setCode(guild.id, interaction.user.id, code);
