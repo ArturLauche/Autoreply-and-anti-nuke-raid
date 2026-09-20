@@ -32,7 +32,7 @@ Thêm 1 entry lên **đầu** file, đúng khung:
 
 - ✅ Xong: <2-3 gạch đầu dòng, mỗi dòng 1 kết quả kiểm chứng được>
 - 📁 File đụng: <path chính, tối đa 5 file>
-- 🧪 Kiểm chứng: <vd "51/51 suites · tsc OK · build 9.5s">
+- 🧪 Kiểm chứng: <vd "52/52 suites · tsc OK · build 9.5s">
 - ▶️ Tiếp theo: <1 dòng — việc kế hoặc "không có, chờ yêu cầu">
 ```
 

@@ -5,8 +5,7 @@
 // redirect từ file env…), kể cả khi agent tự tạo file mới rồi dùng lệnh đọc nó.
 // Kèm theo: giữ "hợp đồng" AGENTS.md không bị mai một khi session dài bị nén.
 //
-// Lấy cảm hứng từ cơ chế Keys/Environment của Freebuff: agent không bao giờ tự
-// đọc được giá trị secret — cần thì phải hỏi người dùng.
+// Lấy cảm hứng từ cơ chế Keys/Environment của Freebuff: agent không bao giờ tự// đọc được giá trị secret — cần thì phải hỏi người dùng.
 
 const SECRET_HINTS = [".env", ".bot-key", "auth.json", "id_rsa", "credentials.json"];
 
@@ -60,6 +59,8 @@ function looksLikeInfraLeak(command) {
 // phiên đã chạy đủ bộ kiểm chứng xanh. Agent ghi dấu bằng biến môi trường
 // GUARDRAIL_VERIFIED=1 ngay sau khi test/typecheck/lint/format đạt; plugin chỉ
 // chấp nhận dấu trong 15 phút (đủ cho 1 nhịp deploy, hết hạn phải chạy lại).
+// Số suites phải khớp AGENTS.md Pha 4 — đổi suite phải sửa CẢ HAI chỗ.
+const CONTRACT_SUITES = 52;
 let verifiedAt = 0;
 const VERIFY_WINDOW_MS = 15 * 60 * 1000;
 
@@ -165,7 +166,7 @@ export const GuardrailsPlugin = async () => {
           "## Hợp đồng cần nhớ (từ AGENTS.md)",
           "- Workflow 5 pha: Hiểu → Kế hoạch (todo) → Thực hiện → Xác minh → Báo cáo+commit",
           "- Bị gián đoạn rồi được bảo continue/tiếp đi → TIẾP TỤC ĐÚNG CHỖ DỪNG (xem git diff + todo), không làm lại từ đầu; đi đến khi đủ kiểm chứng xanh + báo cáo mới dừng",
-          "- Xong việc = test 41/41 + typecheck + lint XANH, chưa chạy thật thì không claim xanh",
+          `- Xong việc = test xanh toàn bộ (hiện ${CONTRACT_SUITES} suites — khớp AGENTS.md; thêm/xoá suite phải sửa CẢ HAI) + typecheck + lint XANH, chưa chạy thật thì không claim xanh`,
           "- Không đọc secret (.env/.bot-key/key) — cần thì hỏi người dùng; kể cả qua hạ tầng: systemctl cat/show, docker inspect/exec, /proc/*/environ, printenv đều cấm",
           "- Hạ tầng VPS 3 vùng: 🟢 TỰ LÀM — chẩn đoán (systemctl status, journalctl, docker ps/logs, df, free) + sửa rồi tự restart kiira-retry-proxy + curl /__health thấy ok:true; restart bot `pm2 restart protogon-bot` và deploy `npx convex deploy` CHỈ sau khi pull + kiểm chứng đủ 4 lớp xanh (guardrail tự mở cổng 15 phút) — sau restart bot phải pm2 status online + logs không crash; thiếu CONVEX_DEPLOY_KEY → nhờ người dùng export, không in key; 🟡 IN LỆNH nhờ người dùng — docker restart, dịch vụ khác; 🔴 CẤM — ufw/iptables, reboot, prune",
           "- Được git add + commit + push origin main (tiếng Việt, footer 🤖 Generated with OpenCode) — push CHỈ sau khi cả 3 kiểm chứng XANH trong phiên",

@@ -16,7 +16,7 @@ _(trống — mọi việc đã xong hoặc chờ yêu cầu mới)_
   (gộp bộ kiểm chứng 1 lệnh, re-check tối thiểu theo bảng delta)
 - 📁 File đụng: `.opencode/skills/token-economy/SKILL.md`,
   `.opencode/skills/verification-loop/SKILL.md`
-- 🧪 Kiểm chứng: format OK · lint OK (chỉ file md)
+- 🧪 Kiểm chứng: format OK · lint OK · 52/52 suites (audit cấu trúc hợp đồng)
 - ▶️ Tiếp theo: pull về VPS để OpenCode session mới nhận 2 skill
 
 ## 2026-09-20 — Merge redesign + polish Taskbar/nav/loading

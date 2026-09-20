@@ -45,12 +45,17 @@ Mỗi mục todo = một kết quả kiểm chứng được, không phải mộ
 
 - Làm đúng **một mục todo** một lúc; xong cái nào cập nhật todo cái đó (không đợi cuối)
 - Việc phát sinh giữa chừng → **thêm vào todo** rồi làm, không làm lén ngoài kế hoạch
-- **Skills tự kích hoạt theo ngữ cảnh** (đọc qua mô tả skill rồi nạp khi khớp):
-  debug bug thật → `debugging-and-error-recovery`; đụng input/auth/data/
-  dependency → `security-and-hardening`; vá logic/đổi hành vi →
-  `test-driven-development`; quyết định rủi ro cao ở production →
-  `doubt-driven-development`; trước merge → `code-review-and-quality`. Audit
-  bảo mật lớn gọi `/audit`
+- **Skills tự kích hoạt theo ngữ cảnh** (đọc qua mô tả skill rồi nạp khi khớp —
+  12 skills trong `.opencode/skills/`):
+  - Nhánh việc: debug bug thật → `debugging-and-error-recovery`; đụng
+    input/auth/data/dependency → `security-and-hardening`; vá logic/đổi hành
+    vi → `test-driven-development`; quyết định rủi ro cao ở production →
+    `doubt-driven-development`; trước merge → `code-review-and-quality`;
+    audit bảo mật lớn gọi `/audit`
+  - Nền tảng phiên: đầu phiên → `repo-map` (định hướng) + `progress-journal`
+    (chỗ dừng) + `decision-log` (quyết định chốt sẵn); lập kế hoạch ≥3 bước
+    → `strategy-mindmap`; đọc file/chạy lệnh nhiều → `token-economy`; chạy
+    kiểm chứng → `verification-loop` (gộp 1 lệnh + re-check tối thiểu)
 - Giữa các bước, tóm tắt ngắn (progress note) những gì vừa làm + phát hiện — người theo
   dõi phải hiểu tiến độ mà không cần đọc diff
 
@@ -65,9 +70,11 @@ thôi. Khi nghi file có thể sửa dở: xem `git diff` trước khi sửa ti�
 
 Đơn vị công việc chỉ coi là XONG khi tất cả điều này thoả:
 
-- [ ] `bun run test` — toàn bộ suites xanh (hiện tại **49 suites** — số liệu 19/09/2026; nếu runner báo ít hơn nhiều → có suite bị bỏ sót, điều tra trước khi kết luận xanh)
+- [ ] `bun run test` — toàn bộ suites xanh (hiện tại **52 suites** — số liệu 20/09/2026; nếu runner báo ít hơn nhiều → có suite bị bỏ sót, điều tra trước khi kết luận xanh). Số liệu này phải khớp với `CONTRACT_SUITES` trong `.opencode/plugins/guardrails.js` — đổi suite mới phải sửa CẢ HAI chỗ trong cùng commit
 - [ ] `bun tsc -b --noEmit` — typecheck sạch
 - [ ] `bun run lint` — sạch
+- [ ] `node scripts/check-repo-map.cjs` — bản đồ khớp cấu trúc thật (chỉ khi
+      thêm/xoá trang/panel/module/Convex function; CI cũng chặn bước này)
 - [ ] `bun run format:check` — format Prettier sạch. Lệch format → chạy `bun run format` rồi kiểm tra lại (đây là biến đổi tất-định, tự sửa được; CI đã đỏ 5 run liên tiếp vì quên bước này — 19/09/2026)
 - [ ] Đụng file trong `convex/` → chạy `bun convex dev --once` (codegen) **trước** typecheck
 - [ ] Bug thuộc engine đã có test (antinuke, altDetection, heat, joinGate, backup,
