@@ -152,13 +152,15 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
           className="gap-1.5 px-3 py-1.5"
         >
           <DoorOpen className="h-3.5 w-3.5" />
-          {g.joinGateEnabled ? `Đang bật · ${activeChecks} tiêu chí` : "Đang tắt"}
+          {g.joinGateEnabled
+            ? translate("Đang bật · {p0} tiêu chí", { p0: activeChecks })
+            : translate("Đang tắt")}
         </Badge>
       </div>
 
       {/* Toggle chính */}
       <Card className={g.joinGateEnabled ? "border-primary/30 bg-primary/5" : ""}>
-        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5">
           <div className="flex items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
               <DoorOpen className="h-5 w-5" />
@@ -177,7 +179,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
           <Switch
             checked={g.joinGateEnabled}
             onCheckedChange={(v) =>
-              patch({ joinGateEnabled: v }, v ? "Đã bật Join Gate" : "Đã tắt Join Gate")
+              patch({ joinGateEnabled: v }, translate(v ? "Đã bật Join Gate" : "Đã tắt Join Gate"))
             }
           />
         </CardContent>
@@ -196,7 +198,9 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
         <GateRow
           icon={CalendarClock}
           title={translate("Chặn tài khoản quá mới")}
-          desc="Tài khoản tạo ít hơn số ngày dưới đây sẽ bị chặn (0 = tắt). Selfbot thường dùng tài khoản mới tạo hàng loạt."
+          desc={translate(
+            "Tài khoản tạo ít hơn số ngày dưới đây sẽ bị chặn (0 = tắt). Selfbot thường dùng tài khoản mới tạo hàng loạt.",
+          )}
           checked={g.joinGateMinAgeDays > 0}
           onToggle={(v) => patch({ joinGateMinAgeDays: v ? 7 : 0 })}
         />
@@ -222,7 +226,9 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
         <GateRow
           icon={Image}
           title={translate("Yêu cầu có avatar riêng")}
-          desc="Tài khoản không có ảnh đại diện riêng (đang dùng hình mặc định) sẽ bị chặn."
+          desc={translate(
+            "Tài khoản không có ảnh đại diện riêng (đang dùng hình mặc định) sẽ bị chặn.",
+          )}
           checked={g.joinGateRequireAvatar}
           onToggle={(v) => patch({ joinGateRequireAvatar: v })}
         />
@@ -230,7 +236,9 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
         <GateRow
           icon={BadgeCheck}
           title={translate("Yêu cầu có huy hiệu tài khoản")}
-          desc="Tài khoản không có bất kỳ huy hiệu công khai nào (flag = 0) sẽ bị chặn — selfbot mới hầu như không có huy hiệu."
+          desc={translate(
+            "Tài khoản không có bất kỳ huy hiệu công khai nào (flag = 0) sẽ bị chặn — selfbot mới hầu như không có huy hiệu.",
+          )}
           checked={g.joinGateRequireFlag}
           onToggle={(v) => patch({ joinGateRequireFlag: v })}
         />
@@ -238,7 +246,9 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
         <GateRow
           icon={Lock}
           title={translate("Chặn lượt vào khi đang bị raid")}
-          desc="Khi server đang khóa kênh (raid), mọi thành viên mới đều bị xử lý — chặn đà tấn công thứ hai."
+          desc={translate(
+            "Khi server đang khóa kênh (raid), mọi thành viên mới đều bị xử lý — chặn đà tấn công thứ hai.",
+          )}
           checked={g.joinGateRaidKick}
           onToggle={(v) => patch({ joinGateRaidKick: v })}
         />
@@ -254,7 +264,9 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
         <GateRow
           icon={ShieldQuestion}
           title={translate("Hình thức xử lý")}
-          desc="Kick = thành viên có thể quay lại; Ban = chặn vĩnh viễn (mạnh hơn với selfbot)."
+          desc={translate(
+            "Kick = thành viên có thể quay lại; Ban = chặn vĩnh viễn (mạnh hơn với selfbot).",
+          )}
           checked={g.joinGatePunish === "ban"}
           onToggle={(v) => patch({ joinGatePunish: v ? "ban" : "kick" })}
         />
@@ -270,7 +282,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
 
       {/* Danh sách trắng */}
       <Card>
-        <CardContent className="p-5">
+        <CardContent className="p-4 sm:p-5">
           <div className="flex items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
               <UserPlus className="h-5 w-5" />
@@ -313,7 +325,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
                   <button
                     onClick={() => removeWhitelist(id)}
                     className="text-muted-foreground/60 transition-colors hover:text-destructive"
-                    aria-label={`Xóa ${id}`}
+                    aria-label={translate("Xóa {p0}", { p0: id })}
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>

@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { EN } from "./i18n.en";
+import { EN_PANELS } from "./i18n.en.panels";
 
 /**
  * Đa ngôn ngữ kiểu gettext: chuỗi tiếng Việt trong code là KEY —
@@ -17,6 +18,9 @@ import { EN } from "./i18n.en";
  * bản dịch EN để không lọt tiếng Việt sang người dùng EN.
  */
 export type Lang = "vi" | "en";
+
+/** Từ điển EN: đợt 1 (i18n.en.ts) + đợt 2 (i18n.en.panels.ts). */
+const DICT: Record<string, string> = { ...EN, ...EN_PANELS };
 
 const LANG_KEY = "protogon-lang";
 
@@ -46,7 +50,7 @@ function formatVars(s: string, vars?: Record<string, string | number>): string {
 /** Dịch một chuỗi VI sang ngôn ngữ hiện tại (ngoài React — ưu tiên dùng useT). */
 export function translate(s: string, vars?: Record<string, string | number>): string {
   if (currentLang === "vi") return formatVars(s, vars);
-  return formatVars(EN[s] ?? s, vars);
+  return formatVars(DICT[s] ?? s, vars);
 }
 
 /** Ngôn ngữ hiện tại — dùng khi cần gửi lựa chọn lên backend (ví dụ AI). */
@@ -95,7 +99,7 @@ export function LangProvider({ children }: { children: ReactNode }) {
 
   const t = useCallback(
     (s: string, vars?: Record<string, string | number>) =>
-      lang === "vi" ? formatVars(s, vars) : formatVars(EN[s] ?? s, vars),
+      lang === "vi" ? formatVars(s, vars) : formatVars(DICT[s] ?? s, vars),
     [lang],
   );
   const value = useMemo(() => ({ lang, setLang, t, dateLocale }), [lang, setLang, t]);

@@ -105,7 +105,7 @@ export function Features() {
             variants={fadeUp}
             className="font-display text-3xl font-bold tracking-tight md:text-5xl"
           >
-            Bảo vệ toàn diện &amp; giao tiếp cho server của bạn
+            {translate("Bảo vệ toàn diện & giao tiếp cho server của bạn")}
           </motion.h2>
           <motion.p variants={fadeUp} className="mt-4 text-muted-foreground">
             {translate(
@@ -123,7 +123,7 @@ export function Features() {
         >
           {items.map((f) => (
             <motion.div key={f.title} variants={fadeUp}>
-              <div className="card-hover group h-full rounded-xl border border-border bg-card p-6">
+              <div className="card-hover group h-full rounded-xl border border-border bg-card p-4 sm:p-6">
                 <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                   <f.icon className="h-5 w-5" />
                 </div>
@@ -140,9 +140,10 @@ export function Features() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-60px" }}
           transition={{ duration: 0.5 }}
-          className="mt-10 grid gap-3 rounded-2xl border border-border bg-card/60 p-6 sm:grid-cols-2 lg:grid-cols-4"
+          className="mt-10 grid gap-3 rounded-2xl border border-border bg-card/60 p-4 sm:p-6 sm:grid-cols-2 lg:grid-cols-4"
         >
           {[
+            // i18n-ok: nhãn dịch lúc render bằng translate(b.t)/translate(b.d)
             { icon: Crown, t: "Warn tích lũy", d: "Đủ N lần warn → tự tăng cấp hình phạt" },
             {
               icon: LayoutDashboard,
@@ -161,8 +162,8 @@ export function Features() {
                 <b.icon className="h-4 w-4" />
               </span>
               <div>
-                <p className="text-sm font-semibold">{b.t}</p>
-                <p className="text-xs text-muted-foreground">{b.d}</p>
+                <p className="text-sm font-semibold">{translate(b.t)}</p>
+                <p className="text-xs text-muted-foreground">{translate(b.d)}</p>
               </div>
             </div>
           ))}
@@ -209,16 +210,19 @@ export function HiddenFeatures() {
             variants={fadeUp}
             className="mt-6 flex flex-wrap items-center justify-center gap-2"
           >
-            {["Chỉ dành chủ sở hữu bot", "Mở khóa bằng mật khẩu", "Được bảo vệ chặt chẽ"].map(
-              (t) => (
-                <span
-                  key={t}
-                  className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1 text-xs text-muted-foreground"
-                >
-                  {t}
-                </span>
-              ),
-            )}
+            {[
+              // i18n-ok: nhãn dịch lúc render bằng translate(t)
+              "Chỉ dành chủ sở hữu bot",
+              "Mở khóa bằng mật khẩu",
+              "Được bảo vệ chặt chẽ",
+            ].map((t) => (
+              <span
+                key={t}
+                className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1 text-xs text-muted-foreground"
+              >
+                {translate(t)}
+              </span>
+            ))}
           </motion.div>
         </motion.div>
       </div>
@@ -338,8 +342,10 @@ export function AntiNuke() {
               {translate("trước khi server sụp đổ")}{" "}
             </h2>
             <p className="mt-4 max-w-lg text-muted-foreground">
-              {translate("Hai lớp phòng thủ:")} <b className="text-foreground">Anti Nuke</b> (24
-              module) canh cấu trúc server (ban/kick hàng loạt, phá kênh, phá role…) và{" "}
+              {translate("Hai lớp phòng thủ:")} <b className="text-foreground">Anti Nuke</b>{" "}
+              {translate(
+                "(24 module) canh cấu trúc server (ban/kick hàng loạt, phá kênh, phá role…) và",
+              )}{" "}
               <b className="text-foreground">Moderation</b>{" "}
               {translate(
                 "(8 module) lọc nội dung độc hại mỗi ngày. Vượt ngưỡng → xác định thủ phạm qua audit log, phạt theo cài đặt và cảnh báo real-time tới kênh log.",
@@ -347,6 +353,7 @@ export function AntiNuke() {
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
               {[
+                // i18n-ok: nhãn dịch lúc render bằng translate(t)
                 "Phạt trực tiếp",
                 "Khóa kênh khi raid",
                 "Miễn trừ role",
@@ -357,7 +364,7 @@ export function AntiNuke() {
                   key={t}
                   className="rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs text-muted-foreground"
                 >
-                  {t}
+                  {translate(t)}
                 </span>
               ))}
             </div>
@@ -371,7 +378,7 @@ export function AntiNuke() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.6, delay: 0.15 }}
-            className="rounded-2xl border border-border bg-card p-6 shadow-md"
+            className="rounded-2xl border border-border bg-card p-4 sm:p-6 shadow-md"
           >
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2 font-display font-semibold">
@@ -474,6 +481,7 @@ export function HaimiyaSection() {
             </p>
             <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
               {[
+                // i18n-ok: nhãn dịch lúc render bằng translate(t)
                 "Giải đáp tức thì, 24/7 — không cần chờ đợi",
                 "Biết rõ từng tính năng & cách cấu hình của Protogon",
                 "Trả lời rõ ràng, nghiêm túc — trên web lẫn trong dashboard",
@@ -482,7 +490,7 @@ export function HaimiyaSection() {
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs text-primary">
                     🌸
                   </span>
-                  {t}
+                  {translate(t)}
                 </li>
               ))}
             </ul>
@@ -552,7 +560,7 @@ export function HowItWorks() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-60px" }}
               transition={{ duration: 0.5, delay: i * 0.12 }}
-              className="relative rounded-xl border border-border bg-card p-6"
+              className="relative rounded-xl border border-border bg-card p-4 sm:p-6"
             >
               <span className="font-mono text-4xl font-bold text-primary/25">{s.n}</span>
               <div className="mt-2 flex items-center gap-3">

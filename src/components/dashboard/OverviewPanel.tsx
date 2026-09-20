@@ -34,7 +34,7 @@ function RecentEvents({ data }: { data: GuildData }) {
 
   return (
     <Card>
-      <CardContent className="p-5">
+      <CardContent className="p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 font-display font-semibold">
             <ShieldAlert className="h-4 w-4 text-primary" />{" "}
@@ -42,8 +42,11 @@ function RecentEvents({ data }: { data: GuildData }) {
           </h3>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary">
-              Báo cáo hàng ngày: {data.guild.dailyReportEnabled ? "Bật" : "Tắt"}
-              {data.guild.lastReportAt ? ` · lần cuối ${timeAgo(data.guild.lastReportAt)}` : ""}
+              {translate("Báo cáo hàng ngày:")}{" "}
+              {translate(data.guild.dailyReportEnabled ? "Bật" : "Tắt")}
+              {data.guild.lastReportAt
+                ? ` · ${translate("lần cuối")} ${timeAgo(data.guild.lastReportAt)}`
+                : ""}
             </Badge>
             <Link to={`/dashboard/${data.guild.discordId}/history`}>
               <Button variant="outline" size="sm">
@@ -75,15 +78,15 @@ function RecentEvents({ data }: { data: GuildData }) {
                   <p className="text-sm font-medium">
                     {ANTINUKE_MODULE_META[e.module]?.label ?? e.module}
                     <span className="ml-2 text-xs font-normal text-muted-foreground">
-                      {e.count} lượt · {e.windowSeconds}s
+                      {e.count} {translate("lượt")} · {e.windowSeconds}s
                     </span>
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
                     {e.action}
                     {e.executorName
-                      ? ` · thủ phạm ${e.executorName}`
+                      ? ` · ${translate("thủ phạm")} ${e.executorName}`
                       : e.executorId
-                        ? ` · thủ phạm <@${e.executorId}>`
+                        ? ` · ${translate("thủ phạm")} <@${e.executorId}>`
                         : ""}
                   </p>
                 </div>
@@ -109,53 +112,55 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
       icon: MessageSquareReply,
       label: "Rule auto reply",
       value: data.autoReplies.length,
-      sub: `${data.autoReplies.filter((r) => r.enabled).length} đang bật`,
+      sub: translate("{p0} đang bật", {
+        p0: data.autoReplies.filter((r) => r.enabled).length,
+      }),
       tone: "bg-foreground text-primary-foreground",
     },
     {
       icon: ShieldCheck,
       label: "Module chống nuke",
       value: `${enabledModules}/${data.modules.length}`,
-      sub: data.guild.antinukeEnabled ? "Đang bảo vệ" : "Đã tắt toàn bộ",
+      sub: data.guild.antinukeEnabled ? translate("Đang bảo vệ") : translate("Đã tắt toàn bộ"),
       tone: "bg-foreground/80 text-primary-foreground",
     },
     {
       icon: Users,
       label: "Thành viên",
       value: data.guild.memberCount?.toLocaleString(dateLocale()) ?? "?",
-      sub: "đồng bộ qua bot",
+      sub: translate("đồng bộ qua bot"),
       tone: "bg-foreground/60 text-primary-foreground",
     },
     {
       icon: Hash,
       label: "Kênh log",
-      value: logChannel ? `#${logChannel.name}` : "Chưa đặt",
-      sub: logChannel ? "cảnh báo & sự kiện" : "đặt trong Cài đặt",
+      value: logChannel ? `#${logChannel.name}` : translate("Chưa đặt"),
+      sub: logChannel ? translate("cảnh báo & sự kiện") : translate("đặt trong Cài đặt"),
       tone: "bg-secondary text-secondary-foreground border border-border",
     },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
           <Card key={s.label} className="card-hover">
-            <CardContent className="p-5">
+            <CardContent className="p-4 sm:p-5">
               <span
                 className={`mb-3 flex h-10 w-10 items-center justify-center rounded-lg ${s.tone}`}
               >
                 <s.icon className="h-5 w-5" />
               </span>
-              <p className="font-display text-2xl font-bold">{s.value}</p>
-              <p className="mt-0.5 text-xs font-medium text-foreground/80">{s.label}</p>
-              <p className="text-xs text-muted-foreground">{s.sub}</p>
+              <p className="font-display text-2xl font-bold">{translate(String(s.value))}</p>
+              <p className="mt-0.5 text-xs font-medium text-foreground/80">{translate(s.label)}</p>
+              <p className="text-xs text-muted-foreground">{translate(s.sub)}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
       <Card>
-        <CardContent className="grid gap-6 p-5 lg:grid-cols-2">
+        <CardContent className="grid gap-6 p-4 sm:p-5 lg:grid-cols-2">
           <div className="flex flex-col justify-center gap-3">
             <h3 className="flex items-center gap-2 font-display font-semibold">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary text-foreground">
@@ -180,7 +185,7 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
       </Card>
 
       <Card>
-        <CardContent className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
+        <CardContent className="flex flex-col gap-4 p-4 sm:p-5 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
             <span
               className={`relative flex h-10 w-10 items-center justify-center rounded-lg ${
@@ -198,11 +203,11 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
               <p className="font-display font-semibold">
                 {translate("Trạng thái bot")}{" "}
                 <Badge variant={data.guild.botInGuild ? "success" : "danger"} className="ml-2">
-                  {data.guild.botInGuild ? "Trực tuyến" : "Không hoạt động"}
+                  {translate(data.guild.botInGuild ? "Trực tuyến" : "Không hoạt động")}
                 </Badge>
               </p>
               <p className="text-xs text-muted-foreground">
-                Lần cuối đồng bộ: {timeAgo(data.guild.lastHeartbeat)} · prefix{" "}
+                {translate("Lần cuối đồng bộ:")} {timeAgo(data.guild.lastHeartbeat)} · prefix{" "}
                 <code className="font-mono text-primary">{data.guild.prefix}</code>
               </p>
             </div>
@@ -231,13 +236,14 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
       <RecentEvents data={data} />
 
       <Card>
-        <CardContent className="p-5">
+        <CardContent className="p-4 sm:p-5">
           <h3 className="font-display font-semibold">{translate("Ghi chú nhanh")}</h3>
           <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
             <li className="flex gap-2">
               <span className="text-primary">•</span>
               {translate("Rule auto reply dùng placeholder")}{" "}
-              <code className="font-mono text-xs">{"{user}"}</code> để tag người nhắn,{" "}
+              <code className="font-mono text-xs">{"{user}"}</code>{" "}
+              {translate("để tag người nhắn,")}{" "}
               <code className="font-mono text-xs">{"{username}"}</code>{" "}
               {translate("để lấy tên họ.")}{" "}
             </li>

@@ -42,7 +42,7 @@ export default function DmPanel({ data }: { data: GuildData }) {
 
   return (
     <Card>
-      <CardContent className="p-5">
+      <CardContent className="p-4 sm:p-5">
         <h3 className="flex items-center gap-2 font-display font-semibold">
           <Mail className="h-4 w-4 text-primary" /> {translate("Gửi tin nhắn DM trực tiếp")}{" "}
         </h3>
@@ -75,7 +75,7 @@ export default function DmPanel({ data }: { data: GuildData }) {
           </div>
           <Button onClick={handleSend} disabled={sending || !userId.trim() || !message.trim()}>
             {sending ? (
-              "Đang gửi…"
+              translate("Đang gửi…")
             ) : (
               <>
                 <Send className="h-4 w-4" /> {translate("Gửi DM")}{" "}
@@ -89,8 +89,8 @@ export default function DmPanel({ data }: { data: GuildData }) {
               <p className="mt-0.5 opacity-90">{data.guild.dmError}</p>
               {data.guild.dmErrorAt ? (
                 <p className="mt-0.5 opacity-70">
-                  {new Date(data.guild.dmErrorAt).toLocaleString(dateLocale())} — thường do người
-                  nhận tắt DM hoặc không dùng chung server với bot
+                  {new Date(data.guild.dmErrorAt).toLocaleString(dateLocale())}{" "}
+                  {translate("— thường do người nhận tắt DM hoặc không dùng chung server với bot")}
                 </p>
               ) : null}
             </div>

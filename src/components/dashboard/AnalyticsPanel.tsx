@@ -51,7 +51,7 @@ export default function AnalyticsPanel({ token, guildId }: AnalyticsPanelProps) 
   if (analytics === undefined || analytics === null) {
     return (
       <Card>
-        <CardContent className="p-6 text-center text-muted-foreground">
+        <CardContent className="p-4 sm:p-6 text-center text-muted-foreground">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto" />
         </CardContent>
       </Card>
@@ -199,7 +199,9 @@ export default function AnalyticsPanel({ token, guildId }: AnalyticsPanelProps) 
             <div className="flex justify-between">
               <span className="text-muted-foreground">{translate("Tự động:")}</span>
               <span className="font-medium">
-                {backupAnalytics.autoDays > 0 ? `Mỗi ${backupAnalytics.autoDays} ngày` : "Tắt"}
+                {backupAnalytics.autoDays > 0
+                  ? translate("Mỗi {p0} ngày", { p0: backupAnalytics.autoDays })
+                  : translate("Tắt")}
               </span>
             </div>
             <div className="flex justify-between">
@@ -207,7 +209,7 @@ export default function AnalyticsPanel({ token, guildId }: AnalyticsPanelProps) 
               <span className="font-medium">
                 {backupAnalytics.lastBackupAt
                   ? new Date(backupAnalytics.lastBackupAt).toLocaleString(dateLocale())
-                  : "Chưa backup"}
+                  : translate("Chưa backup")}
               </span>
             </div>
           </CardContent>

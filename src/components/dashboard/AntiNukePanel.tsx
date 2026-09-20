@@ -223,10 +223,10 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
             <ShieldAlert className="h-5 w-5 text-primary" />
             <div>
               <p className="text-sm font-semibold">
-                {data.guild.antinukeEnabled ? "Đang bảo vệ server" : "Đã tắt toàn bộ"}
+                {translate(data.guild.antinukeEnabled ? "Đang bảo vệ server" : "Đã tắt toàn bộ")}
               </p>
               <p className="text-xs text-muted-foreground">
-                {enabledCount}/{NUKE_MODULES.length} module chống nuke bật
+                {enabledCount}/{NUKE_MODULES.length} {translate("module chống nuke bật")}
               </p>
             </div>
             <Switch checked={data.guild.antinukeEnabled} onCheckedChange={toggleGlobal} />
@@ -245,7 +245,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
       {/* Preset 1-chạm + Threat Relay (Đợt 6) */}
       <div className="grid gap-4 xl:grid-cols-2">
         <Card className="border-primary/30 bg-primary/5">
-          <CardContent className="p-5">
+          <CardContent className="p-4 sm:p-5">
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
                 <Crosshair className="h-5 w-5" />
@@ -259,6 +259,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                 </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-3">
                   {[
+                    // i18n-ok: tên/mô tả preset dịch lúc render bằng translate(p.name)
                     { key: "small", name: "Server nhỏ", desc: "< 500 thành viên" },
                     { key: "community", name: "Cộng đồng", desc: "500 – 10k" },
                     { key: "highrisk", name: "Rủi ro cao", desc: "Trading / tài sản" },
@@ -272,7 +273,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                           disabled={presetApplying !== null}
                           onClick={() => doApplyPreset(p.key)}
                         >
-                          {presetApplying === p.key ? "Đang áp…" : "Xác nhận"}
+                          {translate(presetApplying === p.key ? "Đang áp…" : "Xác nhận")}
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => setConfirmPreset(null)}>
                           ✕
@@ -287,9 +288,9 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                         disabled={presetApplying !== null}
                         onClick={() => setConfirmPreset(p.key)}
                       >
-                        <span className="text-xs font-semibold">{p.name}</span>
+                        <span className="text-xs font-semibold">{translate(p.name)}</span>
                         <span className="text-[10px] font-normal text-muted-foreground">
-                          {p.desc}
+                          {translate(p.desc)}
                         </span>
                       </Button>
                     ),
@@ -301,7 +302,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
         </Card>
 
         <Card>
-          <CardContent className="p-5">
+          <CardContent className="p-4 sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
@@ -318,8 +319,8 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                   </p>
                   {relayStatus && (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Hiện có {relayStatus.activeSignatures} signature từ{" "}
-                      {relayStatus.distinctSources} nguồn
+                      {translate("Hiện có")} {relayStatus.activeSignatures}{" "}
+                      {translate("signature từ")} {relayStatus.distinctSources} {translate("nguồn")}
                     </p>
                   )}
                 </div>
@@ -348,7 +349,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
       {/* Khóa kênh + Raid Intel — 2 thẻ cạnh nhau trên màn hình rộng, không giãn ngang */}
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
-          <CardContent className="p-5">
+          <CardContent className="p-4 sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
@@ -385,7 +386,8 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                 {locked ? (
                   <>
                     <Badge variant="danger" className="gap-1.5 px-3 py-1">
-                      <Lock className="h-3 w-3" /> Đang khóa — tự mở sau ~{minutesLeft} phút
+                      <Lock className="h-3 w-3" />{" "}
+                      {translate("Đang khóa — tự mở sau ~{p0} phút", { p0: minutesLeft })}
                     </Badge>
                     <Button variant="secondary" size="sm" onClick={unlockNow}>
                       <Unlock className="h-3.5 w-3.5" /> {translate("Mở khóa ngay")}{" "}
@@ -407,7 +409,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
 
         {/* Raid Intel — thu thập dữ liệu + săn nguồn cơn raid */}
         <Card>
-          <CardContent className="p-5">
+          <CardContent className="p-4 sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
@@ -418,7 +420,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                     {translate("Raid Intel — săn nguồn cơn raid 🎯")}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Thu thập mẫu raid + AI phân tích để tìm{" "}
+                    {translate("Thu thập mẫu raid + AI phân tích để tìm")}{" "}
                     <b className="text-foreground">{translate("kẻ chủ mưu")}</b>{" "}
                     {translate(
                       "(acc trùng avatar/username, người tạo invite, audit log) rồi tự ban.",
@@ -428,7 +430,9 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
               </div>
               <Badge variant="secondary" className="shrink-0 gap-1.5 px-3 py-1.5">
                 <Database className="h-3.5 w-3.5" />
-                {raidIntel ? `${raidIntel.count} mẫu` : "đang tải…"}
+                {raidIntel
+                  ? translate("{p0} mẫu", { p0: raidIntel.count })
+                  : translate("đang tải…")}
               </Badge>
             </div>
 
@@ -463,7 +467,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
               <div className="mt-4">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Vụ gần đây ({raidIntel.recent.length})
+                    {translate("Vụ gần đây")} ({raidIntel.recent.length})
                   </p>
                   {totalPages > 1 && (
                     <div className="flex items-center gap-1">
@@ -501,8 +505,9 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                         {s.module}
                       </code>
                       <span className="text-muted-foreground">
-                        {s.count} lượt{s.clusterMemberCount ? ` · ${s.clusterMemberCount} acc` : ""}{" "}
-                        · {timeAgo(s.createdAt)}
+                        {s.count} {translate("lượt")}
+                        {s.clusterMemberCount ? ` · ${s.clusterMemberCount} acc` : ""} ·{" "}
+                        {timeAgo(s.createdAt)}
                       </span>
                       {s.aiClassification && (
                         <Badge
@@ -524,8 +529,8 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                           className={s.banned ? "text-danger font-semibold" : "text-foreground"}
                         >
                           {s.banned
-                            ? `🎯 đã ban nguồn cơn: ${s.suspectedSourceName}`
-                            : `nghi: ${s.suspectedSourceName}`}
+                            ? `🎯 ${translate("đã ban nguồn cơn")}: ${s.suspectedSourceName}`
+                            : `${translate("nghi")}: ${s.suspectedSourceName}`}
                         </span>
                       )}
                     </li>
@@ -545,10 +550,10 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
           return (
             <div key={group.label}>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-display text-sm font-semibold">{group.label}</h3>
+                <h3 className="font-display text-sm font-semibold">{translate(group.label)}</h3>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">
-                    {on}/{group.modules.length} bật
+                    {on}/{group.modules.length} {translate("bật")}
                   </span>
                   <Button
                     variant="secondary"
@@ -556,7 +561,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                     className="h-7 px-2.5 text-xs"
                     onClick={() => toggleGroup(group.modules, !allOn)}
                   >
-                    {allOn ? "Tắt tất cả" : "Bật tất cả"}
+                    {translate(allOn ? "Tắt tất cả" : "Bật tất cả")}
                   </Button>
                 </div>
               </div>
@@ -568,7 +573,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                     module={key}
                     config={configFor(key)}
                     patchModule={patchModule}
-                    unit="vi phạm"
+                    unit={translate("vi phạm")}
                     showHeat={false}
                     compact
                   />

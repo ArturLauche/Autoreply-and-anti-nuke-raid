@@ -157,7 +157,7 @@ export default function GuildHistory() {
                 <SelectItem value="all">{translate("Tất cả module")}</SelectItem>
                 {ANTINUKE_ORDER.map((m) => (
                   <SelectItem key={m} value={m}>
-                    {ANTINUKE_MODULE_META[m].label}
+                    {translate(ANTINUKE_MODULE_META[m].label)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -205,9 +205,11 @@ export default function GuildHistory() {
                 <ShieldAlert className="h-6 w-6" />
               </span>
               <p className="max-w-sm text-sm text-muted-foreground">
-                {hasActiveFilter
-                  ? "Không có sự kiện nào khớp với bộ lọc hiện tại."
-                  : "Chưa có sự kiện chống nuke nào được ghi nhận."}
+                {translate(
+                  hasActiveFilter
+                    ? "Không có sự kiện nào khớp với bộ lọc hiện tại."
+                    : "Chưa có sự kiện chống nuke nào được ghi nhận.",
+                )}
               </p>
             </CardContent>
           </Card>
@@ -225,19 +227,22 @@ export default function GuildHistory() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-medium">
-                        {ANTINUKE_MODULE_META[e.module]?.label ?? e.module}
+                        {translate(ANTINUKE_MODULE_META[e.module]?.label ?? e.module)}
                       </p>
                       <Badge variant="outline">
-                        {e.count} lượt · ngưỡng {e.threshold} trong {e.windowSeconds}s
+                        {e.count} {translate("lượt")} · {translate("ngưỡng")} {e.threshold}{" "}
+                        {translate("trong")} {e.windowSeconds}s
                       </Badge>
-                      <Badge variant="secondary">{PUNISH_LABEL[e.punish] ?? e.punish}</Badge>
+                      <Badge variant="secondary">
+                        {translate(PUNISH_LABEL[e.punish] ?? e.punish)}
+                      </Badge>
                     </div>
                     <p className="mt-0.5 truncate text-sm text-muted-foreground">
                       {e.action}
                       {e.executorName
-                        ? ` · thủ phạm ${e.executorName}`
+                        ? ` · ${translate("thủ phạm")} ${e.executorName}`
                         : e.executorId
-                          ? ` · thủ phạm <@${e.executorId}>`
+                          ? ` · ${translate("thủ phạm")} <@${e.executorId}>`
                           : ""}
                     </p>
                   </div>
@@ -258,12 +263,12 @@ export default function GuildHistory() {
               ) : (
                 <ChevronDown className="h-4 w-4" />
               )}
-              Tải thêm sự kiện
+              {translate("Tải thêm sự kiện")}
             </Button>
           )}
           {status === "Exhausted" && results.length > 0 && (
             <p className="text-xs text-muted-foreground">
-              — Đã hiển thị toàn bộ {results.length} sự kiện —
+              {translate("— Đã hiển thị toàn bộ")} {results.length} {translate("sự kiện")} —
             </p>
           )}
         </div>

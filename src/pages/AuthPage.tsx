@@ -74,6 +74,7 @@ export default function AuthPage() {
           </h1>
           <ul className="mt-8 space-y-4">
             {[
+              // i18n-ok: nhãn được dịch lúc render bằng translate(t)
               "Hệ thống nhiệt độ 4 giai đoạn + warn tích lũy",
               "Join Gate chống selfbot khi vào server",
               "Chặn link độc hại & file nguy hiểm",
@@ -160,12 +161,13 @@ export default function AuthPage() {
                     {translate("Không kết nối được máy chủ")}{" "}
                   </p>
                   <p className="mt-2 leading-relaxed text-danger/80">
-                    Máy chủ backend của Protogon hiện không truy cập được từ trang web này (lỗi kết
-                    nối Convex). Nếu bạn là quản trị viên, hãy kiểm tra cấu hình{" "}
+                    {translate(
+                      "Máy chủ backend của Protogon hiện không truy cập được từ trang web này (lỗi kết nối Convex). Nếu bạn là quản trị viên, hãy kiểm tra cấu hình",
+                    )}{" "}
                     <code className="rounded bg-black/30 px-1.5 py-0.5 font-mono text-xs">
                       VITE_CONVEX_URL
                     </code>{" "}
-                    và thử lại sau ít phút.
+                    {translate("và thử lại sau ít phút.")}
                   </p>
                 </div>
               ) : (
@@ -174,11 +176,11 @@ export default function AuthPage() {
                     <KeyRound className="h-4 w-4" /> {translate("Cần cấu hình Client ID")}{" "}
                   </p>
                   <p className="mt-2 leading-relaxed text-muted-foreground">
-                    Để đăng nhập, bạn cần tạo ứng dụng Discord và điền{" "}
+                    {translate("Để đăng nhập, bạn cần tạo ứng dụng Discord và điền")}{" "}
                     <code className="rounded bg-black/30 px-1.5 py-0.5 font-mono text-xs">
                       DISCORD_CLIENT_ID
                     </code>{" "}
-                    vào mục API Keys. Cách làm:
+                    {translate("vào mục API Keys. Cách làm:")}
                   </p>
                   <ol className="mt-3 list-decimal space-y-1.5 pl-4 text-muted-foreground">
                     <li>{translate("Tạo bot tại Discord Developer Portal")}</li>
@@ -189,11 +191,11 @@ export default function AuthPage() {
                       {translate("Dán vào API Keys với tên")} <b>DISCORD_CLIENT_ID</b>
                     </li>
                     <li>
-                      Thêm redirect URI{" "}
+                      {translate("Thêm redirect URI")}{" "}
                       <code className="rounded bg-black/30 px-1 font-mono text-xs">
                         {window.location.origin}/discord/callback
                       </code>{" "}
-                      vào <b>OAuth2 → Redirects</b> {translate("của ứng dụng")}{" "}
+                      {translate("vào")} <b>OAuth2 → Redirects</b> {translate("của ứng dụng")}{" "}
                     </li>
                   </ol>
                 </div>
@@ -201,8 +203,8 @@ export default function AuthPage() {
 
               <p className="text-center text-xs leading-relaxed text-muted-foreground">
                 {translate("Khi đăng nhập, Protogon cần quyền")}{" "}
-                <b className="text-foreground">identify</b> và{" "}
-                <b className="text-foreground">guilds</b>{" "}
+                <b className="text-foreground">identify</b> {translate("và")}{" "}
+                <b className="text-foreground">guilds</b> {translate("và")}{" "}
                 {translate(
                   "để hiển thị server bạn quản lý. Chúng tôi không lưu mật khẩu hay tin nhắn của bạn.",
                 )}{" "}

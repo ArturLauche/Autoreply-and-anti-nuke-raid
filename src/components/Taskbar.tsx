@@ -164,6 +164,7 @@ export default function Taskbar() {
               <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-secondary/50 p-1">
                 {(
                   [
+                    // i18n-ok: nhãn được dịch lúc render bằng translate(label)
                     ["light", "Sáng", Sun],
                     ["dark", "Tối", Moon],
                   ] as const

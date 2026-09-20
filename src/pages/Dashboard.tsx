@@ -185,7 +185,7 @@ export default function Dashboard() {
 
           <div className="mb-8 grid gap-4 sm:grid-cols-3">
             <Card className="card-hover">
-              <CardContent className="flex items-center gap-4 p-5">
+              <CardContent className="flex items-center gap-4 p-4 sm:p-5">
                 <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/15 text-primary">
                   <Server className="h-5 w-5" />
                 </span>
@@ -196,7 +196,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
             <Card className="card-hover">
-              <CardContent className="flex items-center gap-4 p-5">
+              <CardContent className="flex items-center gap-4 p-4 sm:p-5">
                 <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-secondary text-foreground">
                   <Bot className="h-5 w-5" />
                 </span>
@@ -211,7 +211,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
             <Card className="card-hover">
-              <CardContent className="flex items-center gap-4 p-5">
+              <CardContent className="flex items-center gap-4 p-4 sm:p-5">
                 <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-secondary text-foreground">
                   <Users className="h-5 w-5" />
                 </span>
@@ -236,7 +236,7 @@ export default function Dashboard() {
                     {translate("Chưa có server nào")}
                   </h2>
                   <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                    Mời Protogon vào server của bạn rồi quay lại đây. Cần quyền{" "}
+                    {translate("Mời Protogon vào server của bạn rồi quay lại đây. Cần quyền")}{" "}
                     <b className="text-foreground">{translate("Quản lý server")}</b>{" "}
                     {translate("để chỉnh cấu hình.")}{" "}
                   </p>
@@ -284,7 +284,7 @@ export default function Dashboard() {
                   return (
                     <Card key={guild.discordId} className="card-hover overflow-hidden">
                       <div className="h-1 w-full bg-foreground/80" />
-                      <CardContent className="p-5">
+                      <CardContent className="p-4 sm:p-5">
                         <div className="flex items-start gap-3">
                           {icon ? (
                             <img src={icon} alt="" className="h-12 w-12 rounded-xl" />
@@ -296,8 +296,9 @@ export default function Dashboard() {
                           <div className="min-w-0 flex-1">
                             <p className="truncate font-display font-semibold">{guild.name}</p>
                             <p className="text-xs text-muted-foreground">
-                              {guild.memberCount?.toLocaleString(dateLocale()) ?? "?"} thành viên ·
-                              prefix <code className="font-mono text-primary">{guild.prefix}</code>
+                              {guild.memberCount?.toLocaleString(dateLocale()) ?? "?"}{" "}
+                              {translate("thành viên · prefix")}{" "}
+                              <code className="font-mono text-primary">{guild.prefix}</code>
                             </p>
                           </div>
                         </div>
@@ -314,7 +315,7 @@ export default function Dashboard() {
                           )}
                           <Badge variant={guild.antinukeEnabled ? "default" : "secondary"}>
                             <ShieldAlert className="h-3 w-3" />
-                            {guild.antinukeEnabled ? "Chống nuke bật" : "Chống nuke tắt"}
+                            {translate(guild.antinukeEnabled ? "Chống nuke bật" : "Chống nuke tắt")}
                           </Badge>
                         </div>
                         <div className="mt-4">
@@ -323,8 +324,8 @@ export default function Dashboard() {
                             variant={guild.botInGuild ? "default" : "secondary"}
                             onClick={() => {
                               if (!guild.botInGuild && clientId) {
-                                toast("Mời bot vào server trước khi quản lý", {
-                                  description: "Bạn sẽ được chuyển tới trang mời bot.",
+                                toast(translate("Mời bot vào server trước khi quản lý"), {
+                                  description: translate("Bạn sẽ được chuyển tới trang mời bot."),
                                 });
                                 window.open(buildBotInviteUrl(clientId), "_blank");
                                 return;
@@ -332,7 +333,7 @@ export default function Dashboard() {
                               navigate(`/dashboard/${guild.discordId}`);
                             }}
                           >
-                            {guild.botInGuild ? "Quản lý" : "Mời bot"}
+                            {translate(guild.botInGuild ? "Quản lý" : "Mời bot")}
                           </Button>
                         </div>
                       </CardContent>

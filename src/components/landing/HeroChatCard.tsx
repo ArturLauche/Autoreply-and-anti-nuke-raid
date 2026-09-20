@@ -32,7 +32,7 @@ export default function HeroChatCard() {
             # general · Protogon Bot 🌸
           </span>
         </div>
-        <div className="space-y-4 p-5 font-sans">
+        <div className="space-y-4 p-4 sm:p-5 font-sans">
           {/* Auto reply */}
           <div className="flex items-end gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-xs font-bold text-white">
@@ -101,7 +101,8 @@ export default function HeroChatCard() {
               <UserCheck className="h-4 w-4" /> {translate("JOIN GATE — TỰ ĐỘNG CHẶN SELFBOT")}{" "}
             </div>
             <p className="mt-1 text-[11px] text-white/60">
-              🚪 <span className="font-mono text-white/80">selfbot_9123</span> bị chặn: tài khoản{" "}
+              🚪 <span className="font-mono text-white/80">selfbot_9123</span>{" "}
+              {translate("bị chặn: tài khoản")}{" "}
               <b className="text-white">{translate("mới 2 ngày")}</b>
               {translate(", không avatar, không huy hiệu → đã kick.")}{" "}
             </p>

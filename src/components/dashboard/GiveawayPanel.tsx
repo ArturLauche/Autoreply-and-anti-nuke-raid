@@ -108,7 +108,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
 
   return (
     <Card>
-      <CardContent className="p-5">
+      <CardContent className="p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="flex items-center gap-2 font-display font-semibold">
@@ -149,33 +149,34 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                   </p>
                   {g.postError && (
                     <p className="mt-1 rounded-md border border-danger/30 bg-danger/10 px-2 py-1 text-xs text-danger">
-                      ⚠️ Bot không gửi được bảng: {g.postError}
+                      {translate("⚠️ Bot không gửi được bảng:")} {g.postError}
                     </p>
                   )}
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     <Timer className="mr-1 inline h-3 w-3" />
-                    kết thúc{" "}
+                    {translate("kết thúc")}{" "}
                     {g.endsAt <= Date.now()
-                      ? "bất cứ lúc nào"
+                      ? translate("bất cứ lúc nào")
                       : new Date(g.endsAt).toLocaleString(dateLocale())}
                     {" · "}
                     <Users className="mr-1 inline h-3 w-3" />
-                    {g.entriesCount} người tham gia · {g.winnerCount} người thắng
-                    {g.prizeRoleId ? " · 🎖️ cấp role thưởng" : ""}
-                    {g.dmWinners ? " · DM người thắng" : ""}
-                    {g.imageUrl ? " · 🖼️ có ảnh" : ""}
+                    {g.entriesCount} {translate("người tham gia")} · {g.winnerCount}{" "}
+                    {translate("người thắng")}
+                    {g.prizeRoleId ? translate(" · 🎖️ cấp role thưởng") : ""}
+                    {g.dmWinners ? translate(" · DM người thắng") : ""}
+                    {g.imageUrl ? translate(" · 🖼️ có ảnh") : ""}
                   </p>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={async () => {
-                    if (!confirm(`Hủy giveaway "${g.title}"?`)) return;
+                    if (!confirm(translate('Hủy giveaway "{p0}"?', { p0: g.title }))) return;
                     try {
                       await cancelGiveaway({ token, guildId, giveawayId: g._id });
                       toast.success(translate("Đã hủy giveaway"));
                     } catch (e) {
-                      toast.error(e instanceof Error ? e.message : "Hủy thất bại");
+                      toast.error(e instanceof Error ? e.message : translate("Hủy thất bại"));
                     }
                   }}
                 >
@@ -197,11 +198,11 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                   <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
                     {g.title}
                     <Badge variant={g.status === "ended" ? "success" : "secondary"}>
-                      {g.status === "ended" ? "đã kết thúc" : "đã hủy"}
+                      {translate(g.status === "ended" ? "đã kết thúc" : "đã hủy")}
                     </Badge>
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    #{channelName(g.channelId)} · {g.entriesCount} lượt tham gia
+                    #{channelName(g.channelId)} · {g.entriesCount} {translate("lượt tham gia")}
                     {g.winners.length > 0 && (
                       <>
                         {" · "}
@@ -294,7 +295,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                     <SelectContent>
                       {DURATION_PRESETS.map((d) => (
                         <SelectItem key={d.minutes} value={String(d.minutes)}>
-                          {d.label}
+                          {translate(d.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -342,14 +343,16 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                   <SelectContent>
                     {TEMPLATE_PRESETS.map((t) => (
                       <SelectItem key={t.value} value={t.value}>
-                        {t.label} — {t.desc}
+                        {translate(t.label)} — {translate(t.desc)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="grid gap-1.5">
-                <Label>Lời dẫn tùy chỉnh (hiển thị đầu embed, để trống = dùng giải thưởng)</Label>
+                <Label>
+                  {translate("Lời dẫn tùy chỉnh (hiển thị đầu embed, để trống = dùng giải thưởng)")}
+                </Label>
                 <Textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
@@ -390,7 +393,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
             </div>
             <DialogFooter>
               <Button onClick={handleCreate} disabled={saving || !title || !prize || !channelId}>
-                {saving ? "Đang tạo…" : "Tạo giveaway 🎉"}
+                {translate(saving ? "Đang tạo…" : "Tạo giveaway 🎉")}
               </Button>
             </DialogFooter>
           </DialogContent>

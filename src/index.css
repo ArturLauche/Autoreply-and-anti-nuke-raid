@@ -107,6 +107,20 @@
   /* Khóa tràn ngang toàn trang: không bao giờ có thanh cuộn ngang. */
   #root {
     overflow-x: clip;
+    max-width: 100%;
+  }
+
+  /* Điện thoại: nguồn tràn ngang phổ biến nhất là chuỗi không có khoảng trắng
+     (ID Discord, URL, token, tên kênh tiếng Việt viết liền). #root đặt
+     overflow-x: clip nên phần tràn bị CẮT MẤT, không cuộn xem được — cho phép
+     ngắt giữa chuỗi với các phần tử kỹ thuật để không bao giờ xảy ra. */
+  @media (max-width: 767px) {
+    #root code,
+    #root kbd,
+    #root .font-mono,
+    #root .break-anywhere {
+      overflow-wrap: anywhere;
+    }
   }
 
   /* Mobile: chống double-tap zoom khi bấm nhanh nút/toggle (trải nghiệm app-like).

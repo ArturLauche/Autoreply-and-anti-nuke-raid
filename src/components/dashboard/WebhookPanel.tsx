@@ -301,7 +301,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* ===== WEBHOOK MẶC ĐỊNH ===== */}
       <div className="rounded-xl border border-primary/25 bg-primary/5 p-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -310,7 +310,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
           </span>
           <div className="min-w-0 flex-1">
             <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-              Webhook mặc định của bot{" "}
+              {translate("Webhook mặc định của bot")}{" "}
               <Badge variant="secondary" className="text-[10px]">
                 {translate("MẶC ĐỊNH — tự động")}{" "}
               </Badge>
@@ -318,13 +318,16 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
             <p className="mt-0.5 text-xs text-muted-foreground">
               {defaultWh ? (
                 <>
-                  {translate("Tên")} <b className="text-foreground">{defaultWh.name}</b> · kênh{" "}
+                  {translate("Tên")} <b className="text-foreground">{defaultWh.name}</b>{" "}
+                  {translate("· kênh")}{" "}
                   <b className="text-foreground">
                     #{" "}
                     {data.channels?.find((c) => c.channelId === defaultWh.channelId)?.name ??
-                      "kênh đã bị xóa"}
+                      translate("kênh đã bị xóa")}
                   </b>{" "}
-                  (theo Kênh log trong Cài đặt) · nhận mọi log hình phạt & anti nuke/raid.
+                  {translate(
+                    "(theo Kênh log trong Cài đặt) · nhận mọi log hình phạt & anti nuke/raid.",
+                  )}
                 </>
               ) : (
                 <>
@@ -343,7 +346,9 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
               onCheckedChange={async (v) => {
                 try {
                   await toggleDefaultWebhook({ token, guildId: g.discordId });
-                  toast.success(v ? "Đã bật webhook mặc định" : "Đã tắt webhook mặc định");
+                  toast.success(
+                    translate(v ? "Đã bật webhook mặc định" : "Đã tắt webhook mặc định"),
+                  );
                 } catch (e: unknown) {
                   toast.error(String(e));
                 }
@@ -644,7 +649,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
                       {username || "Protogon Bot"}
                     </span>
                     <span className="text-[11px] text-[#b5bac1]">
-                      Hôm nay lúc{" "}
+                      {translate("Hôm nay lúc")}{" "}
                       {new Date().toLocaleTimeString(dateLocale(), {
                         hour: "2-digit",
                         minute: "2-digit",
@@ -665,7 +670,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
         <div className="flex items-center gap-3">
           <Button onClick={handleSend} disabled={sending || !webhookUrl.trim()} className="gap-2">
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            {sending ? "Đang gửi..." : "Gửi embed"}
+            {translate(sending ? "Đang gửi..." : "Gửi embed")}
           </Button>
           {result && (
             <span
@@ -691,7 +696,9 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
             <b className="text-foreground">{translate("Tạo webhook")}</b> → Copy URL.
           </p>
           <p className="mt-1">
-            • Dán URL vào ô trên, soạn embed với tiêu đề, mô tả, màu sắc, fields... rồi bấm{" "}
+            {translate(
+              "• Dán URL vào ô trên, soạn embed với tiêu đề, mô tả, màu sắc, fields... rồi bấm",
+            )}{" "}
             <b className="text-foreground">{translate("Gửi embed")}</b>.
           </p>
           <p className="mt-1">

@@ -384,7 +384,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
           <DatabaseBackup className="h-5 w-5 text-primary" /> Backup server
         </h2>
         <p className="text-sm text-muted-foreground">
-          Chụp cấu trúc server (role, quyền role, kênh + quyền kênh) lên{" "}
+          {translate("Chụp cấu trúc server (role, quyền role, kênh + quyền kênh) lên")}{" "}
           <b className="text-foreground">{translate("đám mây GitHub")}</b>
           {translate(". Khi server bị nuke/raid phá sập hoàn toàn, mời bot vào")}{" "}
           <b className="text-foreground">{translate("server phụ")}</b>{" "}
@@ -397,7 +397,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
               {translate("Lần backup trước")} <b>{translate("thất bại")}</b>:{" "}
-              {importStatus.backupError} — khắc phục rồi bấm Backup ngay lại.
+              {importStatus.backupError} {translate("— khắc phục rồi bấm Backup ngay lại.")}
             </span>
           </p>
         )}
@@ -408,8 +408,10 @@ export default function BackupPanel({ data }: { data: GuildData }) {
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
               {translate("Lần khôi phục trước")} <b>{translate("thất bại")}</b>:{" "}
-              {importStatus.restoreError} — khắc phục (bot còn trong server, đủ quyền Administrator)
-              rồi bấm Khôi phục lại.
+              {importStatus.restoreError}{" "}
+              {translate(
+                "— khắc phục (bot còn trong server, đủ quyền Administrator) rồi bấm Khôi phục lại.",
+              )}
             </span>
           </p>
         )}
@@ -427,19 +429,21 @@ export default function BackupPanel({ data }: { data: GuildData }) {
 
       {/* Tạo backup */}
       <Card>
-        <CardContent className="grid gap-4 p-5 sm:grid-cols-[1fr_auto]">
+        <CardContent className="grid gap-4 p-4 sm:p-5 sm:grid-cols-[1fr_auto]">
           <div className="grid gap-3">
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
                 <CloudUpload className="h-5 w-5" />
               </span>
               <div>
-                <p className="font-display font-semibold">Tạo backup cho “{data.guild.name}”</p>
+                <p className="font-display font-semibold">
+                  {translate("Tạo backup cho")} “{data.guild.name}”
+                </p>
                 <p className="mt-1 max-w-xl text-sm text-muted-foreground">
                   {translate("Bot chụp toàn bộ")} <b className="text-foreground">role</b>{" "}
                   {translate("(tên, màu, hoist, mentionable, quyền),")}{" "}
-                  <b className="text-foreground">{translate("kênh")}</b> (danh mục, văn bản, thoại…)
-                  kèm quyền truy cập từng kênh, cùng{" "}
+                  <b className="text-foreground">{translate("kênh")}</b>{" "}
+                  {translate("(danh mục, văn bản, thoại…) kèm quyền truy cập từng kênh, cùng")}{" "}
                   <b className="text-foreground">emoji + sticker</b>{" "}
                   {translate(
                     "và cấu hình cơ bản (prefix, từ ngữ xấu, role mod/admin, kênh log).",
@@ -464,9 +468,10 @@ export default function BackupPanel({ data }: { data: GuildData }) {
               </label>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Backup luôn được lưu trong Convex; đẩy lên GitHub giúp bạn còn giữ được dữ liệu ngay
-              cả khi Convex bị xóa. Mọi server đều dùng chung{" "}
-              <code className="font-mono">GITHUB_TOKEN</code> của{" "}
+              {translate(
+                "Backup luôn được lưu trong Convex; đẩy lên GitHub giúp bạn còn giữ được dữ liệu ngay cả khi Convex bị xóa. Mọi server đều dùng chung",
+              )}{" "}
+              <code className="font-mono">GITHUB_TOKEN</code> {translate("của")}{" "}
               <b className="text-foreground">{translate("chủ sở hữu bot")}</b>{" "}
               {translate("(đã đặt trong Keys) — owner các server khác")}{" "}
               <b className="text-foreground">{translate("không cần tự dán token")}</b>{" "}
@@ -493,7 +498,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
 
       {/* Khôi phục từ file backup của bot nuke (.msc / .json) */}
       <Card>
-        <CardContent className="grid gap-4 p-5">
+        <CardContent className="grid gap-4 p-4 sm:p-5">
           <div className="flex items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
               <FileUp className="h-5 w-5" />
@@ -505,14 +510,16 @@ export default function BackupPanel({ data }: { data: GuildData }) {
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
                 {translate("Nếu server bị một con")} <b className="text-foreground">bot nuke</b>{" "}
                 {translate("phá sập mà bạn giữ được file backup của nó (định dạng")}{" "}
-                <code className="font-mono">.msc</code> hoặc{" "}
-                <code className="font-mono">.json</code>), tải file lên đây — bot sẽ{" "}
+                <code className="font-mono">.msc</code> {translate("hoặc")}{" "}
+                <code className="font-mono">.json</code>
+                {translate("), tải file lên đây — bot sẽ")}{" "}
                 <b className="text-foreground">{translate("nhận diện định dạng")}</b>{" "}
                 {translate("(JSON thường / base64 / có lớp bọc), tạo lại")}{" "}
                 <b className="text-foreground">{translate("role + kênh đúng thứ tự")}</b>{" "}
                 {translate("như trong file, phục hồi")}{" "}
                 <b className="text-foreground">{translate("tin nhắn")}</b>,{" "}
-                <b className="text-foreground">{translate("đăng lại media")}</b> (ảnh/video…) và{" "}
+                <b className="text-foreground">{translate("đăng lại media")}</b>{" "}
+                {translate("(ảnh/video…) và")}{" "}
                 <b className="text-foreground">{translate("tạo lại emoji/sticker")}</b>{" "}
                 {translate("nếu file có lưu.")}{" "}
               </p>
@@ -564,9 +571,13 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                 parseBotVersion(importStatus.botVersion) < MIN_IMPORT_BOT_VERSION && (
                   <p className="flex items-center gap-2 text-foreground">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                    Bot đang chạy bản cũ ({importStatus.botVersion ?? "không rõ"}) — cần cập nhật
-                    bot lên bản mới nhất (v{MIN_IMPORT_BOT_VERSION}+) để khôi phục và báo kết quả
-                    chính xác.
+                    {translate(
+                      "Bot đang chạy bản cũ ({version}) — cần cập nhật bot lên bản mới nhất (v{min}+) để khôi phục và báo kết quả chính xác.",
+                      {
+                        version: importStatus.botVersion ?? translate("không rõ"),
+                        min: MIN_IMPORT_BOT_VERSION,
+                      },
+                    )}
                   </p>
                 )}
             </div>
@@ -575,8 +586,8 @@ export default function BackupPanel({ data }: { data: GuildData }) {
             <p className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
-                {translate("Lần thử trước")} <b>{translate("thất bại")}</b>: {importStatus.error} —
-                kiểm tra lại file rồi tải lên.
+                {translate("Lần thử trước")} <b>{translate("thất bại")}</b>: {importStatus.error}{" "}
+                {translate("— kiểm tra lại file rồi tải lên.")}
               </span>
             </p>
           )}
@@ -592,7 +603,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
 
       {/* Tự động backup định kỳ (2-30 ngày) */}
       <Card className="border-border/70">
-        <CardContent className="grid gap-4 p-5">
+        <CardContent className="grid gap-4 p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
@@ -602,9 +613,10 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                 <p className="font-display font-semibold">{translate("Tự động backup định kỳ")}</p>
                 <p className="mt-1 max-w-xl text-sm text-muted-foreground">
                   {translate("Bot tự chụp backup + đẩy lên")}{" "}
-                  <b className="text-foreground">{translate("GitHub của chủ bot")}</b> mỗi{" "}
-                  <b className="text-foreground">{translate("N ngày")}</b> {translate("(tối thiểu")}{" "}
-                  <b>2</b>, tối đa <b>30</b>
+                  <b className="text-foreground">{translate("GitHub của chủ bot")}</b>{" "}
+                  {translate("mỗi")} <b className="text-foreground">{translate("N ngày")}</b>{" "}
+                  {translate("(tối thiểu")} <b>2</b>
+                  {translate(", tối đa")} <b>30</b>
                   {translate("). Chỉ giữ")}{" "}
                   <b className="text-foreground">{translate("3 bản mới nhất")}</b>{" "}
                   {translate(
@@ -615,7 +627,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                   {autoOn ? (
                     data.guild.lastBackupAt ? (
                       <>
-                        Backup gần nhất:{" "}
+                        {translate("Backup gần nhất:")}{" "}
                         <b className="text-foreground">
                           {new Date(data.guild.lastBackupAt).toLocaleString(dateLocale(), {
                             day: "2-digit",
@@ -625,7 +637,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                             minute: "2-digit",
                           })}
                         </b>{" "}
-                        · lần tới:{" "}
+                        {translate("· lần tới:")}{" "}
                         <b className="text-foreground">
                           {new Date(data.guild.lastBackupAt + autoDays * 86_400_000).toLocaleString(
                             dateLocale(),
@@ -640,10 +652,12 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                         </b>
                       </>
                     ) : (
-                      "Bật lên là bot chụp bản đầu tiên trong khoảng 1 phút, sau đó lặp lại theo chu kỳ bạn chọn."
+                      translate(
+                        "Bật lên là bot chụp bản đầu tiên trong khoảng 1 phút, sau đó lặp lại theo chu kỳ bạn chọn.",
+                      )
                     )
                   ) : (
-                    "Đang tắt — bot chỉ backup khi bạn bấm “Backup ngay” hoặc dùng lệnh."
+                    translate("Đang tắt — bot chỉ backup khi bạn bấm “Backup ngay” hoặc dùng lệnh.")
                   )}
                 </p>
               </div>
@@ -668,7 +682,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
             </label>
             <Button size="sm" onClick={saveAuto} disabled={autoBusy}>
               {autoBusy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              Lưu lịch tự động
+              {translate("Lưu lịch tự động")}
             </Button>
           </div>
         </CardContent>
@@ -676,7 +690,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
 
       {/* Tùy chỉnh khôi phục: bật/tắt role + emoji/sticker (cả 2 nguồn backup) */}
       <Card className="border-border/70">
-        <CardContent className="grid gap-4 p-5">
+        <CardContent className="grid gap-4 p-4 sm:p-5">
           <div className="flex items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
               <ShieldCheck className="h-5 w-5" />
@@ -684,8 +698,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
             <div>
               <p className="font-display font-semibold">{translate("Tùy chỉnh khôi phục")}</p>
               <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                Bật/tắt từng phần khi bot khôi phục — áp dụng cho{" "}
-                <b className="text-foreground">{translate("cả backup của Protogon")}</b> lẫn{" "}
+                {translate("Bật/tắt từng phần khi bot khôi phục — áp dụng cho")}{" "}
+                <b className="text-foreground">{translate("cả backup của Protogon")}</b>{" "}
+                {translate("lẫn")}{" "}
                 <b className="text-foreground">{translate("file backup của bot nuke")}</b>{" "}
                 {translate(
                   "(.msc/.json tải lên). Phần tắt sẽ được bỏ qua khi khôi phục (kênh, tin nhắn + media vẫn được xử lý bình thường).",
@@ -726,7 +741,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
           <div className="flex items-center gap-3">
             <Button size="sm" onClick={saveRestoreOptions} disabled={restoreOptBusy}>
               {restoreOptBusy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              Lưu tùy chỉnh khôi phục
+              {translate("Lưu tùy chỉnh khôi phục")}
             </Button>
             {(data.guild.restoreRolesEnabled ?? true) !== restoreRoles ||
             (data.guild.restoreEmojisEnabled ?? true) !== restoreEmojis ||
@@ -773,20 +788,20 @@ export default function BackupPanel({ data }: { data: GuildData }) {
               "chứa file JSON cấu trúc server — bạn không cần tạo repo, không tốn bộ nhớ GitHub. Chỉ cần",
             )}{" "}
             <b className="text-foreground">{translate("một")}</b>{" "}
-            <code className="font-mono">GITHUB_TOKEN</code> (quyền{" "}
-            <code className="font-mono">gist</code>) của{" "}
-            <b className="text-foreground">{translate("chủ sở hữu bot")}</b>{" "}
+            <code className="font-mono">GITHUB_TOKEN</code> {translate("(quyền")}{" "}
+            <code className="font-mono">gist</code>
+            {translate(") của")} <b className="text-foreground">{translate("chủ sở hữu bot")}</b>{" "}
             {translate("đặt trong tab")} <b>Keys / API keys</b>{" "}
             {translate(
               "— mọi server dùng chung, các owner server khác không phải cấu hình gì. Bot giữ tối đa 3 bản backup mới nhất cho mỗi server.",
             )}{" "}
           </p>
           <p className="mt-2">
-            💡 Ngoài dashboard, bạn cũng có thể dùng lệnh trong Discord:{" "}
+            {translate("💡 Ngoài dashboard, bạn cũng có thể dùng lệnh trong Discord:")}{" "}
             <code className="font-mono">!backup</code> ·{" "}
             <code className="font-mono">!backup list</code> ·{" "}
-            <code className="font-mono">!backup restore &lt;số&gt;</code> hoặc{" "}
-            <code className="font-mono">/backup</code>.
+            <code className="font-mono">{translate("!backup restore <số>")}</code>{" "}
+            {translate("hoặc")} <code className="font-mono">/backup</code>.
           </p>
         </div>
       </div>
@@ -810,12 +825,14 @@ function BackupListCard({
 
   return (
     <Card>
-      <CardContent className="p-5">
+      <CardContent className="p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <FolderTree className="h-4 w-4 text-primary" />
             <p className="font-display font-semibold">{translate("Backup có sẵn")}</p>
-            <Badge variant="secondary">{(backups ?? []).length} bản</Badge>
+            <Badge variant="secondary">
+              {(backups ?? []).length} {translate("bản")}
+            </Badge>
           </div>
           <div className="flex items-center gap-2">
             {backups === undefined && (
@@ -908,7 +925,7 @@ function BackupListCard({
                       <Users className="h-3 w-3" /> {b.roleCount} role
                     </span>
                     <span className="flex items-center gap-1">
-                      <FolderTree className="h-3 w-3" /> {b.channelCount} kênh
+                      <FolderTree className="h-3 w-3" /> {b.channelCount} {translate("kênh")}
                     </span>
                   </p>
                 </div>
@@ -933,7 +950,7 @@ function BackupListCard({
                     ) : (
                       <RefreshCw className="h-3.5 w-3.5" />
                     )}
-                    Khôi phục vào server này
+                    {translate("Khôi phục vào server này")}
                   </Button>
                 </div>
               </div>

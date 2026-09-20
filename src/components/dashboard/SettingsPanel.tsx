@@ -160,7 +160,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
         {/* ── Cơ bản: prefix + kênh log + báo cáo ─────────────────────── */}
         <TabsContent value="basic">
           <Card>
-            <CardContent className="space-y-4 p-5">
+            <CardContent className="space-y-4 p-4 sm:p-5">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="grid gap-1.5">
                   <Label>{translate("Prefix lệnh")}</Label>
@@ -171,7 +171,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                     placeholder="!"
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    1–3 ký tự đặc biệt — lệnh text như{" "}
+                    {translate("1–3 ký tự đặc biệt — lệnh text như")}{" "}
                     <code className="font-mono text-primary">{prefix}help</code>
                     {translate(". Slash command hoạt động độc lập.")}{" "}
                   </p>
@@ -288,8 +288,10 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                     <p className="text-sm font-medium">{translate("Tùy chỉnh Webhook Log")}</p>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
-                    Webhook "{webhookData[0]?.name}" tự gửi log khi có sự kiện. Tùy chỉnh loại sự
-                    kiện, màu embed và nội dung kèm.
+                    {translate("Webhook")} "{webhookData[0]?.name}"{" "}
+                    {translate(
+                      "tự gửi log khi có sự kiện. Tùy chỉnh loại sự kiện, màu embed và nội dung kèm.",
+                    )}
                   </p>
                   <div className="grid gap-1.5">
                     <Label>{translate("Loại sự kiện nhận log")}</Label>
@@ -309,24 +311,26 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                               : "bg-background text-muted-foreground border-border hover:border-primary/50"
                           }`}
                         >
-                          {et === "antinuke"
-                            ? "🛡️ Chống nuke"
-                            : et === "mod"
-                              ? "⚙️ Moderation"
-                              : et === "join"
-                                ? "📥 Vào server"
-                                : et === "leave"
-                                  ? "📤 Rời server"
-                                  : et === "general"
-                                    ? "📋 Chung"
-                                    : "🌐 Tất cả"}
+                          {translate(
+                            et === "antinuke"
+                              ? "🛡️ Chống nuke"
+                              : et === "mod"
+                                ? "⚙️ Moderation"
+                                : et === "join"
+                                  ? "📥 Vào server"
+                                  : et === "leave"
+                                    ? "📤 Rời server"
+                                    : et === "general"
+                                      ? "📋 Chung"
+                                      : "🌐 Tất cả",
+                          )}
                         </button>
                       ))}
                     </div>
                   </div>
                   <div className="grid gap-1.5 sm:grid-cols-2">
                     <div className="grid gap-1.5">
-                      <Label>Màu embed (hex, để trống = mặc định)</Label>
+                      <Label>{translate("Màu embed (hex, để trống = mặc định)")}</Label>
                       <Input
                         type="color"
                         value={webhookColor || "#111111"}
@@ -366,14 +370,16 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                           });
                           toast.success(translate("Đã lưu webhook log"));
                         } catch (e) {
-                          toast.error(e instanceof Error ? e.message : "Lỗi lưu webhook");
+                          toast.error(
+                            e instanceof Error ? e.message : translate("Lỗi lưu webhook"),
+                          );
                         } finally {
                           setWebhookSaving(false);
                         }
                       }}
                       disabled={webhookSaving}
                     >
-                      {webhookSaving ? "Đang lưu…" : "Lưu webhook"}
+                      {translate(webhookSaving ? "Đang lưu…" : "Lưu webhook")}
                     </Button>
                   </div>
                 </div>
@@ -381,7 +387,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
 
               <div className="flex justify-end">
                 <Button onClick={handleSave} disabled={saving}>
-                  <Save className="h-4 w-4" /> {saving ? "Đang lưu…" : "Lưu cài đặt"}
+                  <Save className="h-4 w-4" /> {translate(saving ? "Đang lưu…" : "Lưu cài đặt")}
                 </Button>
               </div>
             </CardContent>
@@ -391,7 +397,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
         {/* ── Phân quyền: role mod + admin ─────────────────────────────── */}
         <TabsContent value="roles">
           <Card>
-            <CardContent className="space-y-4 p-5">
+            <CardContent className="space-y-4 p-4 sm:p-5">
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="grid gap-1.5">
                   <Label className="flex items-center gap-1.5">
@@ -402,8 +408,8 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                     value={modRoles}
                     onChange={setModRoles}
                     placeholder={translate("Chọn role mod…")}
-                    emptyLabel="Chưa có role được đồng bộ"
-                    searchPlaceholder="Gõ tên role để tìm nhanh…"
+                    emptyLabel={translate("Chưa có role được đồng bộ")}
+                    searchPlaceholder={translate("Gõ tên role để tìm nhanh…")}
                   />
                   <p className="text-[11px] text-muted-foreground">
                     {translate(
@@ -420,8 +426,8 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                     value={adminRoles}
                     onChange={setAdminRoles}
                     placeholder={translate("Chọn role admin…")}
-                    emptyLabel="Chưa có role được đồng bộ"
-                    searchPlaceholder="Gõ tên role để tìm nhanh…"
+                    emptyLabel={translate("Chưa có role được đồng bộ")}
+                    searchPlaceholder={translate("Gõ tên role để tìm nhanh…")}
                   />
                   <p className="text-[11px] text-muted-foreground">
                     {translate("Miễn trừ hoàn toàn khỏi mọi module chống nuke.")}{" "}
@@ -431,7 +437,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
 
               <div className="flex justify-end">
                 <Button onClick={handleSave} disabled={saving}>
-                  <Save className="h-4 w-4" /> {saving ? "Đang lưu…" : "Lưu phân quyền"}
+                  <Save className="h-4 w-4" /> {translate(saving ? "Đang lưu…" : "Lưu phân quyền")}
                 </Button>
               </div>
             </CardContent>
@@ -441,7 +447,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
         {/* ── Bảo mật: mật khẩu tính năng ẩn ───────────────────────────── */}
         <TabsContent value="security">
           <Card>
-            <CardContent className="space-y-3 p-5">
+            <CardContent className="space-y-3 p-4 sm:p-5">
               <div>
                 <p className="flex items-center gap-1.5 font-medium">
                   <KeyRound className="h-4 w-4 text-primary" />{" "}
@@ -474,8 +480,8 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                     onChange={(e) => setHiddenPasswordInput(e.target.value)}
                     placeholder={
                       data.guild.hiddenPasswordSet
-                        ? "Nhập mật khẩu mới để thay đổi…"
-                        : "Nhập mật khẩu (4–64 ký tự)…"
+                        ? translate("Nhập mật khẩu mới để thay đổi…")
+                        : translate("Nhập mật khẩu (4–64 ký tự)…")
                     }
                     maxLength={64}
                   />
@@ -494,14 +500,14 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                         toast.success(translate("Đã đặt mật khẩu tính năng ẩn"));
                         setHiddenPasswordInput("");
                       } catch (e) {
-                        toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+                        toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
                       } finally {
                         setHiddenSaving(false);
                       }
                     }}
                   >
                     <KeyRound className="h-4 w-4" />
-                    {data.guild.hiddenPasswordSet ? "Đổi mật khẩu" : "Đặt mật khẩu"}
+                    {translate(data.guild.hiddenPasswordSet ? "Đổi mật khẩu" : "Đặt mật khẩu")}
                   </Button>
                   {data.guild.hiddenPasswordSet && (
                     <Button
@@ -517,7 +523,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                           });
                           toast.success(translate("Đã xóa mật khẩu tính năng ẩn"));
                         } catch (e) {
-                          toast.error(e instanceof Error ? e.message : "Xóa thất bại");
+                          toast.error(e instanceof Error ? e.message : translate("Xóa thất bại"));
                         } finally {
                           setHiddenSaving(false);
                         }
@@ -527,7 +533,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                     </Button>
                   )}
                   <span className="text-xs text-muted-foreground">
-                    Trạng thái:{" "}
+                    {translate("Trạng thái:")}{" "}
                     {data.guild.hiddenPasswordSet ? (
                       <span className="font-medium text-foreground">
                         {translate("Đã đặt mật khẩu")}
@@ -547,7 +553,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
         {/* ── Giao diện: chủ đề màu server ─────────────────────────────── */}
         <TabsContent value="appearance">
           <Card>
-            <CardContent className="p-5">
+            <CardContent className="p-4 sm:p-5">
               <p className="text-sm font-medium">{translate("Độ tương phản của server")}</p>
               <p className="mb-3 text-[11px] text-muted-foreground">
                 {translate(
@@ -569,15 +575,15 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                       className="h-8 w-full rounded-lg border border-border"
                       style={{ background: t.swatch }}
                     />
-                    <span className="text-xs font-medium">{t.label}</span>
+                    <span className="text-xs font-medium">{translate(t.label)}</span>
                   </button>
                 ))}
               </div>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-secondary/30 px-3 py-2">
                 <p className="text-xs text-muted-foreground">
-                  Đang chọn:{" "}
+                  {translate("Đang chọn:")}{" "}
                   <span className="font-medium text-foreground">
-                    {SERVER_THEMES[theme]?.label ?? "—"}
+                    {translate(SERVER_THEMES[theme]?.label ?? "—")}
                   </span>{" "}
                   — {SERVER_THEMES[theme]?.desc}
                 </p>
@@ -594,13 +600,13 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                       });
                       toast.success(translate("Đã áp dụng sắc độ mới"));
                     } catch (e) {
-                      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+                      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
                     } finally {
                       setThemeSaving(false);
                     }
                   }}
                 >
-                  <Palette className="h-4 w-4" /> {themeSaving ? "Đang lưu…" : "Áp dụng"}
+                  <Palette className="h-4 w-4" /> {translate(themeSaving ? "Đang lưu…" : "Áp dụng")}
                 </Button>
               </div>
             </CardContent>

@@ -18,7 +18,7 @@ export default function AuditLogPanel({ token, guildId }: AuditLogPanelProps) {
   if (logs === undefined) {
     return (
       <Card>
-        <CardContent className="p-6 text-center text-muted-foreground">
+        <CardContent className="p-4 sm:p-6 text-center text-muted-foreground">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto" />
         </CardContent>
       </Card>

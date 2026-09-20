@@ -114,7 +114,11 @@ function AdminContent() {
               <p className="mt-1.5 font-mono text-lg font-bold">
                 {lat !== null ? `${lat} ms` : "—"}
               </p>
-              {rate && <span className={cn("text-xs font-semibold", rate.cls)}>{rate.label}</span>}
+              {rate && (
+                <span className={cn("text-xs font-semibold", rate.cls)}>
+                  {translate(rate.label)}
+                </span>
+              )}
             </div>
             <div className="rounded-xl border border-border bg-card p-4">
               <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -122,8 +126,11 @@ function AdminContent() {
               </p>
               <p className="mt-1.5 font-display text-lg font-bold">
                 {status
-                  ? `${status.guildCount} server · ${status.memberCount.toLocaleString(dateLocale())} thành viên`
-                  : "đang tải…"}
+                  ? translate("{p0} server · {p1} thành viên", {
+                      p0: status.guildCount,
+                      p1: status.memberCount.toLocaleString(dateLocale()),
+                    })
+                  : translate("đang tải…")}
               </p>
               <p
                 className={cn(
@@ -208,7 +215,10 @@ function AdminContent() {
                     const res = await requestLearn({ token, requestedBy: "web-admin" });
                     return res;
                   } catch (e) {
-                    return { ok: false, error: e instanceof Error ? e.message : "Lỗi kết nối" };
+                    return {
+                      ok: false,
+                      error: e instanceof Error ? e.message : translate("Lỗi kết nối"),
+                    };
                   }
                 }}
               />
@@ -217,10 +227,11 @@ function AdminContent() {
                   <ShieldCheck className="h-4 w-4" /> {translate("Chìa khóa bảo mật API")}{" "}
                 </p>
                 <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                  Khi đã đặt seed, MỌI lệnh của bot yêu cầu chìa khóa khớp — kẻ ngoài không thể giả
-                  mạo heartbeat/backup/lockdown. Trên VPS dán giá trị seed VỪA NHẬP vào biến{" "}
+                  {translate(
+                    "Khi đã đặt seed, MỌI lệnh của bot yêu cầu chìa khóa khớp — kẻ ngoài không thể giả mạo heartbeat/backup/lockdown. Trên VPS dán giá trị seed VỪA NHẬP vào biến",
+                  )}{" "}
                   <code className="mx-1 rounded bg-muted px-1 py-0.5 text-[11px]">BOT_KEY</code>{" "}
-                  trong bot/.env rồi{" "}
+                  {translate("trong bot/.env rồi")}{" "}
                   <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
                     pm2 restart protogon-bot
                   </code>
@@ -252,11 +263,13 @@ function AdminContent() {
                           ownerSeed: ownerSeedInput.trim(),
                         });
                         setSecretMsg(
-                          `Đã bật bảo vệ ✅ — dán giá trị seed VỪA NHẬP vào BOT_KEY trên VPS (không hiện lại ở đây).`,
+                          translate(
+                            "Đã bật bảo vệ ✅ — dán giá trị seed VỪA NHẬP vào BOT_KEY trên VPS (không hiện lại ở đây).",
+                          ),
                         );
                         setOwnerSeedInput("");
                       } catch {
-                        setSecretMsg("Lỗi khi đặt seed — thử lại.");
+                        setSecretMsg(translate("Lỗi khi đặt seed — thử lại."));
                       }
                     }}
                     className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
@@ -275,7 +288,7 @@ function AdminContent() {
                   {translate("🔒 Quyền riêng tư")}
                 </p>
                 <p>
-                  Cửa sổ Admin chỉ hiển thị trong taskbar với{" "}
+                  {translate("Cửa sổ Admin chỉ hiển thị trong taskbar với")}{" "}
                   <b className="text-foreground">{translate("chủ sở hữu bot")}</b>{" "}
                   {translate(
                     "(khớp tài khoản Discord đã tạo bot). Người dùng khác không thấy nút này và không truy cập được trang này.",
@@ -332,7 +345,9 @@ function SelfDiagnoseCard({
             checked={!!diag?.enabled}
             onChange={(e) => onToggle(e.target.checked)}
           />
-          <span className="text-xs font-semibold">{diag?.enabled ? "Đang bật" : "Đang tắt"}</span>
+          <span className="text-xs font-semibold">
+            {translate(diag?.enabled ? "Đang bật" : "Đang tắt")}
+          </span>
         </label>
       </div>
 
@@ -353,7 +368,7 @@ function SelfDiagnoseCard({
                   day: "2-digit",
                   month: "2-digit",
                 })
-              : "chưa có"}
+              : translate("chưa có")}
           </b>
         </div>
         <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
@@ -470,7 +485,7 @@ function ThreatIntelCard({
             onChange={(e) => onToggle(e.target.checked)}
           />
           <span className="text-xs font-semibold">
-            {threat?.researchEnabled ? "Đang bật" : "Đang tắt"}
+            {translate(threat?.researchEnabled ? "Đang bật" : "Đang tắt")}
           </span>
         </label>
       </div>
@@ -488,8 +503,8 @@ function ThreatIntelCard({
           <p className="mt-0.5 opacity-90">{threat.lastError}</p>
           {threat.lastErrorAt ? (
             <p className="mt-0.5 opacity-70">
-              {new Date(threat.lastErrorAt).toLocaleString(dateLocale())} — bấm "Học ngay" để thử
-              lại
+              {new Date(threat.lastErrorAt).toLocaleString(dateLocale())}{" "}
+              {translate('— bấm "Học ngay" để thử lại')}
             </p>
           ) : null}
         </div>
@@ -502,8 +517,9 @@ function ThreatIntelCard({
           checked={threat?.aiWeeklyEnabled ?? true}
           onChange={(e) => onToggleAi(e.target.checked)}
         />
-        Cho phép AI tổng hợp (Mimo V2.5 qua Kira AI — free 30M tokens/ngày riêng cho việc học; tổng
-        hợp mỗi lượt khi có dữ liệu mới, không đụng hạn mức Groq/NVIDIA)
+        {translate(
+          "Cho phép AI tổng hợp (Mimo V2.5 qua Kira AI — free 30M tokens/ngày riêng cho việc học; tổng hợp mỗi lượt khi có dữ liệu mới, không đụng hạn mức Groq/NVIDIA)",
+        )}
       </label>
 
       <label className="mt-1.5 flex cursor-pointer items-start gap-2 text-[11px] leading-relaxed">
@@ -521,7 +537,7 @@ function ThreatIntelCard({
       <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
         <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
           <span className="text-muted-foreground">{translate("Lượt chạy gần nhất:")}</span>{" "}
-          <b>{lastRun ?? "chưa có"}</b>
+          <b>{lastRun ?? translate("chưa có")}</b>
         </div>
         <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
           <span className="text-muted-foreground">{translate("Tổng lượt:")}</span>{" "}
@@ -537,7 +553,7 @@ function ThreatIntelCard({
         </div>
         <div className="col-span-2 rounded-lg bg-secondary/40 px-2.5 py-1.5">
           <span className="text-muted-foreground">
-            Nguồn lượt trước ({threat?.lastSourceCount ?? 0}):
+            {translate("Nguồn lượt trước")} ({threat?.lastSourceCount ?? 0}):
           </span>{" "}
           <b>{threat?.lastSources?.length ? threat.lastSources.join(", ") : "—"}</b>
         </div>
@@ -554,11 +570,11 @@ function ThreatIntelCard({
           <div>
             <p className="text-xs font-semibold text-foreground">{translate("🖐️ Học thủ công")}</p>
             <p className="text-[11px] text-muted-foreground">
-              Kích hoạt bot học NGAY từ nguồn mở + AI tổng hợp. Lần cuối:{" "}
+              {translate("Kích hoạt bot học NGAY từ nguồn mở + AI tổng hợp. Lần cuối:")}{" "}
               {threat?.manualLastAt
                 ? new Date(threat.manualLastAt).toLocaleString(dateLocale())
-                : "chưa có"}
-              {threat?.manualLastBy ? ` · bởi ${threat.manualLastBy}` : ""}
+                : translate("chưa có")}
+              {threat?.manualLastBy ? ` · ${translate("bởi")} ${threat.manualLastBy}` : ""}
             </p>
           </div>
           <button
@@ -572,7 +588,9 @@ function ThreatIntelCard({
             ) : (
               <Play className="h-3.5 w-3.5" />
             )}
-            {threat?.manualPending ? "Bot đang học…" : learning ? "Đang gửi…" : "Học ngay"}
+            {translate(
+              threat?.manualPending ? "Bot đang học…" : learning ? "Đang gửi…" : "Học ngay",
+            )}
           </button>
         </div>
         {learnMsg && <p className="mt-2 text-[11px] text-muted-foreground">{learnMsg}</p>}
@@ -582,7 +600,7 @@ function ThreatIntelCard({
       {history && history.length > 0 && (
         <div className="mt-3">
           <p className="mb-1.5 text-[11px] font-semibold text-foreground">
-            Lịch sử học ({history.length} lượt gần nhất)
+            {translate("Lịch sử học")} ({history.length} {translate("lượt gần nhất")})
           </p>
           <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg bg-secondary/30 p-2">
             {history.map((r) => (
@@ -602,9 +620,9 @@ function ThreatIntelCard({
                 </span>
                 <span className="font-medium">
                   {" "}
-                  <b className="text-foreground">+{r.newKeywords}</b> từ khóa{""}
-                  {r.aiUsed && <span title={translate("AI tổng hợp (Mimo V2.5)")}>🧠</span>} · nhớ{" "}
-                  {r.totalKeywords}
+                  <b className="text-foreground">+{r.newKeywords}</b> {translate("từ khóa")}{" "}
+                  {r.aiUsed && <span title={translate("AI tổng hợp (Mimo V2.5)")}>🧠</span>}{" "}
+                  {translate("· nhớ")} {r.totalKeywords}
                 </span>
               </div>
             ))}
@@ -614,7 +632,8 @@ function ThreatIntelCard({
 
       <div className="mt-3">
         <p className="mb-1.5 text-[11px] font-semibold text-foreground">
-          Từ khóa đã học ({(threat?.keywords?.length ?? 0) + (threat?.scamPhrases?.length ?? 0)})
+          {translate("Từ khóa đã học")} (
+          {(threat?.keywords?.length ?? 0) + (threat?.scamPhrases?.length ?? 0)})
         </p>
         <div className="flex max-h-28 flex-wrap gap-1 overflow-y-auto">
           {threat && (threat.keywords?.length ?? 0) + (threat.scamPhrases?.length ?? 0) === 0 && (

@@ -76,15 +76,18 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
           </h2>
           <p className="text-sm text-muted-foreground">
             {translate("Người dùng / role trong danh sách này sẽ")}{" "}
-            <b className="text-foreground">{translate("không bị")}</b> moderation, anti-raid và
-            anti-nuke xử lý — <b className="text-foreground">chỉ áp dụng cho {data.guild.name}</b>
+            <b className="text-foreground">{translate("không bị")}</b>{" "}
+            {translate("moderation, anti-raid và anti-nuke xử lý —")}{" "}
+            <b className="text-foreground">
+              {translate("chỉ áp dụng cho")} {data.guild.name}
+            </b>
             {translate(
               ". Mỗi server dùng bot có danh sách whitelist riêng (local), không chia sẻ giữa các server.",
             )}{" "}
           </p>
         </div>
         <Button onClick={handleSave} disabled={saving}>
-          <Save className="h-4 w-4" /> {saving ? "Đang lưu…" : "Lưu whitelist"}
+          <Save className="h-4 w-4" /> {translate(saving ? "Đang lưu…" : "Lưu whitelist")}
         </Button>
       </div>
 
@@ -110,8 +113,8 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
               value={whitelistRoles}
               onChange={setWhitelistRoles}
               placeholder={translate("Chọn role miễn trừ…")}
-              emptyLabel="Chưa có role được đồng bộ"
-              searchPlaceholder="Gõ tên role để tìm nhanh…"
+              emptyLabel={translate("Chưa có role được đồng bộ")}
+              searchPlaceholder={translate("Gõ tên role để tìm nhanh…")}
             />
             <p className="mt-3 text-xs text-muted-foreground">
               {translate(
@@ -128,9 +131,11 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
               {translate("Người dùng được miễn trừ")}{" "}
             </CardTitle>
             <CardDescription>
-              {translate("Nhập")} <b>ID Discord</b> của người dùng (bật Chế độ nhà phát triển trong
-              Discord → chuột phải tên người dùng → Sao chép ID người dùng) để họ không bị hệ thống
-              xử lý <b className="text-foreground">{translate("tại server này")}</b>.
+              {translate("Nhập")} <b>ID Discord</b>{" "}
+              {translate(
+                "của người dùng (bật Chế độ nhà phát triển trong Discord → chuột phải tên người dùng → Sao chép ID người dùng) để họ không bị hệ thống xử lý",
+              )}{" "}
+              <b className="text-foreground">{translate("tại server này")}</b>.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -165,7 +170,7 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
                     <button
                       onClick={() => removeUser(id)}
                       className="text-primary/60 transition-colors hover:text-danger"
-                      aria-label={`Xóa ${id}`}
+                      aria-label={translate("Xóa {p0}", { p0: id })}
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
@@ -174,28 +179,30 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              {whitelistUsers.length}/100 người dùng · {whitelistRoles.length}/100 role
+              {whitelistUsers.length}/100 {translate("người dùng")} · {whitelistRoles.length}/100
+              role
             </p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardContent className="flex items-start gap-3 p-5">
+        <CardContent className="flex items-start gap-3 p-4 sm:p-5">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
             <ShieldCheck className="h-5 w-5" />
           </span>
           <div className="text-sm text-muted-foreground">
             <p className="font-semibold text-foreground">{translate("Nguyên tắc ưu tiên")}</p>
             <p className="mt-1">
-              Danh sách áp dụng cho{" "}
-              <b className="text-foreground">toàn bộ module của server {data.guild.name}</b>: spam,
-              từ ngữ xấu, link mời, link độc hại, file nguy hiểm, raid thành viên, ban/kick hàng
-              loạt, tạo/xóa kênh &amp; role hàng loạt, webhook/thread hàng loạt… Người dùng/role
-              trong danh sách được bỏ qua hoàn toàn — không cộng nhiệt, không xóa tin, không ban.
-              Danh sách này{" "}
+              {translate("Danh sách áp dụng cho")}{" "}
+              <b className="text-foreground">
+                {translate("toàn bộ module của server")} {data.guild.name}
+              </b>
+              {translate(
+                ": spam, từ ngữ xấu, link mời, link độc hại, file nguy hiểm, raid thành viên, ban/kick hàng loạt, tạo/xóa kênh & role hàng loạt, webhook/thread hàng loạt… Người dùng/role trong danh sách được bỏ qua hoàn toàn — không cộng nhiệt, không xóa tin, không ban. Danh sách này",
+              )}{" "}
               <b className="text-foreground">{translate("không ảnh hưởng đến các server khác")}</b>{" "}
-              đang dùng bot.
+              {translate("đang dùng bot.")}
             </p>
             <p className="mt-1">
               {translate(

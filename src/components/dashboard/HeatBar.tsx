@@ -75,7 +75,11 @@ export function SafetyBar({ data }: { data: GuildData }) {
             {translate("Nhiệt cao nhất:")}{" "}
             <span className={`font-semibold ${barText}`}>{maxHeat}/100</span>
           </p>
-          <p>Nhiệt giảm {data.guild.heatDecayPerMin ?? HEAT_DEFAULTS.decayPerMin} điểm/phút</p>
+          <p>
+            {translate("Nhiệt giảm {p0} điểm/phút", {
+              p0: data.guild.heatDecayPerMin ?? HEAT_DEFAULTS.decayPerMin,
+            })}
+          </p>
         </div>
       </div>
       <div className="h-3 w-full overflow-hidden rounded-full bg-secondary">
@@ -88,9 +92,13 @@ export function SafetyBar({ data }: { data: GuildData }) {
         <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
           <span>■ {data.guild.heatBanAt ?? HEAT_DEFAULTS.banAt} = ban</span>
           <span>▪ {data.guild.heatKickAt ?? HEAT_DEFAULTS.kickAt} = kick</span>
-          <span>▪ {data.guild.heatTimeoutAt ?? HEAT_DEFAULTS.timeoutAt} = tạm khóa</span>
-          <span>▪ {data.guild.heatWarnAt ?? HEAT_DEFAULTS.warnAt} = cảnh báo</span>
-          <span>□ 0 = an toàn</span>
+          <span>
+            ▪ {data.guild.heatTimeoutAt ?? HEAT_DEFAULTS.timeoutAt} {translate("= tạm khóa")}
+          </span>
+          <span>
+            ▪ {data.guild.heatWarnAt ?? HEAT_DEFAULTS.warnAt} {translate("= cảnh báo")}
+          </span>
+          <span>□ {translate("0 = an toàn")}</span>
         </div>
         <Button
           variant="outline"
@@ -147,12 +155,12 @@ export function TopOffenders({ data, limit = 5 }: { data: GuildData; limit?: num
                   </Badge>
                 )}
                 <span className="font-mono text-sm font-semibold tabular-nums">{h.heat}/100</span>
-                <Badge className={TIER_STYLE[tier]}>{HEAT_TIER_LABEL[tier]}</Badge>
+                <Badge className={TIER_STYLE[tier]}>{translate(HEAT_TIER_LABEL[tier])}</Badge>
                 <button
                   onClick={() => resetUser(h.userId, h.username)}
                   className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger"
-                  title={`Xóa nhiệt của ${h.username || h.userId}`}
-                  aria-label={`Xóa nhiệt của ${h.username || h.userId}`}
+                  title={translate("Xóa nhiệt của {p0}", { p0: h.username || h.userId })}
+                  aria-label={translate("Xóa nhiệt của {p0}", { p0: h.username || h.userId })}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -227,12 +235,12 @@ export function HeatTable({ data, limit = 20 }: { data: GuildData; limit?: numbe
                         ⚠️ {h.warnStrikes}/{strikeLimit}
                       </Badge>
                     )}
-                    <Badge className={TIER_STYLE[tier]}>{HEAT_TIER_LABEL[tier]}</Badge>
+                    <Badge className={TIER_STYLE[tier]}>{translate(HEAT_TIER_LABEL[tier])}</Badge>
                     <button
                       onClick={() => resetUser(h.userId, h.username)}
                       className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger"
-                      title={`Xóa nhiệt của ${h.username || h.userId}`}
-                      aria-label={`Xóa nhiệt của ${h.username || h.userId}`}
+                      title={translate("Xóa nhiệt của {p0}", { p0: h.username || h.userId })}
+                      aria-label={translate("Xóa nhiệt của {p0}", { p0: h.username || h.userId })}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>

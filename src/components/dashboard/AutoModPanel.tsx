@@ -251,13 +251,13 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
         </div>
         <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
           <ShieldCheck className="h-3.5 w-3.5" />
-          {enabledCount}/{MODERATION_MODULES.length} module đang bật
+          {enabledCount}/{MODERATION_MODULES.length} {translate("module đang bật")}
         </Badge>
       </div>
 
       {/* Hệ thống nhiệt độ */}
       <Card>
-        <CardContent className="grid gap-5 p-5 lg:grid-cols-2">
+        <CardContent className="grid gap-4 sm:gap-5 p-4 sm:p-5 lg:grid-cols-2">
           <div>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-start gap-3">
@@ -269,9 +269,11 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                     {translate("Hệ thống nhiệt độ vi phạm")}
                   </p>
                   <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                    Mỗi vi phạm cộng điểm nhiệt theo cài đặt của module. Nhiệt độ tăng dần, tự giảm
-                    theo thời gian; khi chạm ngưỡng <b className="text-foreground">warn</b> thành
-                    viên nhận cảnh báo riêng, rồi tự tăng cấp hình phạt:{" "}
+                    {translate(
+                      "Mỗi vi phạm cộng điểm nhiệt theo cài đặt của module. Nhiệt độ tăng dần, tự giảm theo thời gian; khi chạm ngưỡng",
+                    )}{" "}
+                    <b className="text-foreground">warn</b>{" "}
+                    {translate("thành viên nhận cảnh báo riêng, rồi tự tăng cấp hình phạt:")}{" "}
                     <b className="text-foreground">{translate("tạm khóa")}</b> →{""}
                     <b className="text-foreground">kick</b> → <b className="text-danger">ban</b>.
                   </p>
@@ -356,11 +358,16 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                 />
               </div>
               <p className="col-span-full text-xs text-muted-foreground">
-                Ngưỡng phải tăng dần: warn &lt; tạm khóa &lt; kick &lt; ban (tối đa 100 điểm). Thành
-                viên vừa bị phạt mà{" "}
-                <b className="text-foreground">tái phạm trong {repeat.windowMin} phút</b> sẽ nhận
-                {""}
-                <b className="text-foreground">×{repeat.multiplier} điểm nhiệt</b>{" "}
+                {translate(
+                  "Ngưỡng phải tăng dần: warn < tạm khóa < kick < ban (tối đa 100 điểm). Thành viên vừa bị phạt mà",
+                )}{" "}
+                <b className="text-foreground">
+                  {translate("tái phạm trong {p0} phút", { p0: repeat.windowMin })}
+                </b>{" "}
+                {translate("sẽ nhận")}{" "}
+                <b className="text-foreground">
+                  ×{repeat.multiplier} {translate("điểm nhiệt")}
+                </b>{" "}
                 {translate("mỗi lần vi phạm — đầy thanh nhanh hơn.")}{" "}
               </p>
             </div>
@@ -377,7 +384,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
 
       {/* Warn tích lũy */}
       <Card>
-        <CardContent className="grid gap-5 p-5 lg:grid-cols-[1fr_1fr]">
+        <CardContent className="grid gap-4 sm:gap-5 p-4 sm:p-5 lg:grid-cols-[1fr_1fr]">
           <div className="flex items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
               <AlertTriangle className="h-5 w-5" />
@@ -397,7 +404,9 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <div className="grid gap-1.5">
-              <Label className="text-xs text-muted-foreground">Số warn để tăng cấp (0 = tắt)</Label>
+              <Label className="text-xs text-muted-foreground">
+                {translate("Số warn để tăng cấp (0 = tắt)")}
+              </Label>
               <ModuleNumber
                 value={strikes.limit}
                 min={0}
@@ -438,17 +447,21 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
               {strikes.limit > 0 ? (
                 <>
                   {" "}
-                  Đang bật: <b className="text-foreground">{strikes.limit} warn</b> trong{""}
-                  {strikes.windowMin} phút → tự{" "}
+                  {translate("Đang bật:")} <b className="text-foreground">{strikes.limit} warn</b>{" "}
+                  {translate("trong {p0} phút → tự", { p0: strikes.windowMin })}{" "}
                   <b className="text-foreground">
-                    {strikes.punish === "timeout"
-                      ? "tạm khóa"
-                      : strikes.punish === "kick"
-                        ? "kick"
-                        : "ban"}
+                    {translate(
+                      strikes.punish === "timeout"
+                        ? "tạm khóa"
+                        : strikes.punish === "kick"
+                          ? "kick"
+                          : "ban",
+                    )}
                   </b>{" "}
-                  (mặc định: {WARN_STRIKE_DEFAULTS.limit} warn / {WARN_STRIKE_DEFAULTS.windowMin}{" "}
-                  phút).
+                  {translate("(mặc định: {limit} warn / {window} phút).", {
+                    limit: WARN_STRIKE_DEFAULTS.limit,
+                    window: WARN_STRIKE_DEFAULTS.windowMin,
+                  })}
                 </>
               ) : (
                 <>
@@ -464,7 +477,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
 
       {/* Danh sách từ ngữ xấu */}
       <Card className="border-danger/25">
-        <CardContent className="p-5">
+        <CardContent className="p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-danger/15 text-danger">
@@ -482,7 +495,9 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                 </p>
               </div>
             </div>
-            <Badge variant="secondary">{data.guild.badWords?.length ?? 0}/100 từ</Badge>
+            <Badge variant="secondary">
+              {data.guild.badWords?.length ?? 0}/100 {translate("từ")}
+            </Badge>
           </div>
 
           <div className="mt-4 flex gap-2">
@@ -516,7 +531,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                   <button
                     onClick={() => removeBadWord(w)}
                     className="text-danger/60 transition-colors hover:text-danger"
-                    aria-label={`Xóa ${w}`}
+                    aria-label={translate("Xóa {p0}", { p0: w })}
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -535,10 +550,10 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
           return (
             <div key={group.label}>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-display text-sm font-semibold">{group.label}</h3>
+                <h3 className="font-display text-sm font-semibold">{translate(group.label)}</h3>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">
-                    {on}/{group.modules.length} bật
+                    {on}/{group.modules.length} {translate("bật")}
                   </span>
                   <Button
                     variant="secondary"
@@ -546,7 +561,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                     className="h-7 px-2.5 text-xs"
                     onClick={() => toggleGroup(group.modules, !allOn)}
                   >
-                    {allOn ? "Tắt tất cả" : "Bật tất cả"}
+                    {translate(allOn ? "Tắt tất cả" : "Bật tất cả")}
                   </Button>
                 </div>
               </div>
@@ -558,15 +573,15 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                     module={key}
                     config={configFor(key)}
                     patchModule={patchModule}
-                    unit={
+                    unit={translate(
                       key === "spam"
                         ? "tin nhắn"
                         : key === "mention"
                           ? "tin có mention"
                           : key === "attachment"
                             ? "tin có ảnh/file"
-                            : "vi phạm"
-                    }
+                            : "vi phạm",
+                    )}
                   />
                 ))}
               </div>

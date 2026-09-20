@@ -238,11 +238,12 @@ export default function GuildPage() {
             {/* Sidebar — min-w-0: nếu thiếu, nội dung panel rộng (bảng hình
                 phạt 720px…) sẽ kéo cả track grid rộng hơn màn hình và bị
                 overflow-x-clip cắt mất mép phải (không cuộn xem được). */}
-            <aside className="h-fit min-w-0 lg:sticky lg:top-6">
-              {/* Mobile: nav cuộn ngang 1 hàng — ẩn thanh cuộn, thêm mũi tên chỉ
-                còn mục bên phải; cuộn bằng tay quét tự nhiên trên điện thoại. */}
+            <aside className="h-fit min-w-0 max-lg:sticky max-lg:top-0 max-lg:z-20 lg:sticky lg:top-6">
+              {/* Mobile: nav là app tab bar dính trên đầu (sticky) — đổi mục cấu
+                hình không phải cuộn ngược lên tìm. Cuộn ngang 1 hàng, ẩn thanh
+                cuộn; pr-3 để mục cuối không dính sát mép khi quét tay. */}
               <nav
-                className="flex min-w-0 gap-1 overflow-x-auto rounded-xl border border-border bg-card/50 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-col lg:overflow-visible lg:px-1.5"
+                className="flex min-w-0 gap-1 overflow-x-auto rounded-xl border border-border bg-card/50 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-lg:-mx-3 max-lg:rounded-none max-lg:border-x-0 max-lg:border-t-0 max-lg:bg-background/95 max-lg:px-3 max-lg:pr-4 max-lg:backdrop-blur lg:flex-col lg:overflow-visible lg:px-1.5"
                 aria-label={translate("Điều hướng bảng điều khiển")}
               >
                 {NAV_ITEMS.map((item) => {
@@ -275,19 +276,27 @@ export default function GuildPage() {
               </nav>
               <div className="mt-4 hidden rounded-xl border border-border bg-secondary/50 p-4 text-xs text-muted-foreground lg:block">
                 <p className="mb-2 font-medium text-foreground">{translate("Haimiya gợi ý")}</p>
-                <p>• Auto-mod = spam tin, mention, từ xấu, ảnh/file, link mời + link độc hại.</p>
-                <p className="mt-1">
-                  • Moderation = thông báo sau khi bot phạt (ban · timeout · warn · kick) — chọn mức
-                  chi tiết riêng cho từng hành động.
+                <p>
+                  {translate(
+                    "• Auto-mod = spam tin, mention, từ xấu, ảnh/file, link mời + link độc hại.",
+                  )}
                 </p>
-                <p className="mt-1">• Join Gate = chặn selfbot khi vào server.</p>
+                <p className="mt-1">
+                  {translate(
+                    "• Moderation = thông báo sau khi bot phạt (ban · timeout · warn · kick) — chọn mức chi tiết riêng cho từng hành động.",
+                  )}
+                </p>
+                <p className="mt-1">{translate("• Join Gate = chặn selfbot khi vào server.")}</p>
                 <p className="mt-1">{translate("• Nuke/raid phạt trực tiếp, không cộng nhiệt.")}</p>
                 <p className="mt-1">
-                  • ⭐ Whitelist = chọn người dùng/role miễn trừ moderation, anti-raid và nuke.
+                  {translate(
+                    "• ⭐ Whitelist = chọn người dùng/role miễn trừ moderation, anti-raid và nuke.",
+                  )}
                 </p>
                 <p className="mt-1">
-                  • 💾 Backup server = chụp role + kênh lên đám mây riêng; khôi phục lại khi server
-                  bị nuke phá sập.
+                  {translate(
+                    "• 💾 Backup server = chụp role + kênh lên đám mây riêng; khôi phục lại khi server bị nuke phá sập.",
+                  )}
                 </p>
                 <p className="mt-1">
                   {translate(
@@ -303,7 +312,9 @@ export default function GuildPage() {
                   {translate("• Mỗi server có độ tương phản riêng trong Cài đặt.")}
                 </p>
                 <p className="mt-1">
-                  • 🔗 Webhook & Log = bot tự tạo webhook tên/avatar/màu tùy chỉnh để nhận log.
+                  {translate(
+                    "• 🔗 Webhook & Log = bot tự tạo webhook tên/avatar/màu tùy chỉnh để nhận log.",
+                  )}
                 </p>
                 <p className="mt-1">{translate("• Thay đổi áp dụng trong ~3 phút.")}</p>
               </div>

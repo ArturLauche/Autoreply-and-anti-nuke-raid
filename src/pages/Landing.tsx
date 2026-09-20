@@ -55,7 +55,7 @@ export default function Landing() {
               >
                 Bot Discord
                 <span className="block text-primary">{translate("bảo vệ toàn diện")}</span>
-                <span className="block">tự trả lời &amp; chống raid</span>
+                <span className="block">{translate("tự trả lời & chống raid")}</span>
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0, y: 24 }}
@@ -65,11 +65,12 @@ export default function Landing() {
               >
                 Tag <span className="font-mono text-primary">@protogon</span>{" "}
                 {translate("hoặc nhắc từ khóa — bot trả lời ngay. Hệ thống")}{" "}
-                <b className="text-foreground">{translate("nhiệt độ 4 giai đoạn")}</b> kèm warn tích
-                lũy, <b className="text-foreground">{translate("Join Gate chống selfbot")}</b>,{" "}
+                <b className="text-foreground">{translate("nhiệt độ 4 giai đoạn")}</b>{" "}
+                {translate("kèm warn tích lũy")},{" "}
+                <b className="text-foreground">{translate("Join Gate chống selfbot")}</b>,{" "}
                 <b className="text-foreground">{translate("chặn link độc hại & file nguy hiểm")}</b>{" "}
-                và <b className="text-foreground">{translate("32 module bảo vệ")}</b> canh server
-                24/7.
+                {translate("và")} <b className="text-foreground">{translate("32 module bảo vệ")}</b>{" "}
+                {translate("canh server 24/7.")}
               </motion.p>
               <motion.div
                 initial={{ opacity: 0, y: 24 }}
@@ -94,14 +95,17 @@ export default function Landing() {
                 transition={{ duration: 0.8, delay: 0.5 }}
                 className="mx-auto mt-10 grid max-w-md grid-cols-3 gap-4 border-t border-border pt-6 lg:mx-0"
               >
-                {[
-                  ["32", "Module bảo vệ"],
-                  ["4", "Giai đoạn nhiệt"],
-                  ["24/7", "Giám sát tự động"],
-                ].map(([v, l]) => (
+                {(
+                  [
+                    // i18n-ok: nhãn dịch lúc render bằng translate(l)
+                    ["32", "Module bảo vệ"],
+                    ["4", "Giai đoạn nhiệt"],
+                    ["24/7", "Giám sát tự động"],
+                  ] as const
+                ).map(([v, l]) => (
                   <div key={l}>
                     <p className="font-display text-2xl font-bold text-primary">{v}</p>
-                    <p className="text-xs text-muted-foreground">{l}</p>
+                    <p className="text-xs text-muted-foreground">{translate(l)}</p>
                   </div>
                 ))}
               </motion.div>

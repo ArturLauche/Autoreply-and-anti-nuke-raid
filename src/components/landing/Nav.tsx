@@ -45,6 +45,7 @@ export default function Nav() {
         <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
           {(
             [
+              // i18n-ok: nhãn dịch lúc render bằng translate(label)
               ["features", "Tính năng"],
               ["antinuke", "Bảo vệ server"],
               ["haimiya", "Haimiya"],
@@ -60,7 +61,7 @@ export default function Nav() {
               }}
               className="transition-colors hover:text-foreground"
             >
-              {label}
+              {translate(label)}
             </a>
           ))}
         </nav>

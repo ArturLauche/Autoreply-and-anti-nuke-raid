@@ -10,6 +10,10 @@
  *      giờ được dịch vì eval một lần lúc import.
  *   3. Quên gắn LangProvider, hoặc App không phải consumer → đổi ngôn ngữ
  *      nhưng cây UI không re-render (React bail-out khi element không đổi).
+ *   4. Chữ Việt nằm TRỰC TIẾP trong JSX (kể cả trong {…} của biểu thức và trong
+ *      nhãn dữ liệu cấp module) — không có translate() nào để dịch. Đợt trước
+ *      chỉ rà bằng regex theo dòng nên bỏ sót text node một từ và cả nhóm trong
+ *      {"…"}; nay check-i18n.cjs bắt bằng parser TypeScript và FAIL cứng.
  *
  * Ngoài ra khoá: định dạng ngày/giờ theo ngôn ngữ (bug locale rác "vi-VV"),
  * công tắc ngôn ngữ có mặt ở chrome mọi trang, và Convex nhận lang để AI trả
@@ -45,7 +49,16 @@ check(
     /export function dateLocale/.test(i18n) &&
     /export function currentLanguage/.test(i18n),
 );
-check("translate() rơi về chuỗi VI khi thiếu bản dịch (không vỡ UI)", /EN\[s\] \?\? s/.test(i18n));
+check(
+  "translate() rơi về chuỗi VI khi thiếu bản dịch (không vỡ UI)",
+  /DICT\[s\] \?\? s/.test(i18n),
+);
+check(
+  "Từ điển EN gộp 2 file (i18n.en.ts + i18n.en.panels.ts) — không mất bản dịch",
+  /import \{ EN_PANELS \} from "\.\/i18n\.en\.panels"/.test(i18n) &&
+    /const DICT: Record<string, string> = \{ \.\.\.EN, \.\.\.EN_PANELS \}/.test(i18n) &&
+    fs.existsSync(path.join(ROOT, "src/lib/i18n.en.panels.ts")),
+);
 check(
   "dateLocale() trả vi-VN / en-US (không hardcode 1 locale)",
   /currentLang === "vi" \? "vi-VN" : "en-US"/.test(i18n),
@@ -160,6 +173,25 @@ check(
 );
 
 // ─── 8. Lá chắn CI: mọi chuỗi người dùng phải có bản EN ───────────────────
+// Bắt bằng parser TypeScript (không phải regex theo dòng) → phủ cả text node
+// nhiều dòng, text node một từ, góc {"…"} và {cond ? "A" : "B"}.
+const guardSrc = read("scripts/check-i18n.cjs");
+check(
+  "check-i18n.cjs phát hiện chữ Việt bằng parser TypeScript (ts.isJsxText)",
+  /ts\.isJsxText/.test(guardSrc) && /CHƯA DỊCH/.test(guardSrc),
+);
+check(
+  "check-i18n.cjs đọc cả 2 file từ điển EN (không bỏ sót đợt bổ sung)",
+  /i18n\.en\.panels\.ts/.test(guardSrc),
+);
+check(
+  "Không còn chữ Việt chưa bọc translate() trong JSX (0 mục)",
+  execFileSync("node", [path.join(__dirname, "check-i18n.cjs"), "--all"], {
+    cwd: ROOT,
+    encoding: "utf8",
+  }).includes("0 FAIL"),
+);
+
 let guardOk = false;
 let guardOut;
 try {

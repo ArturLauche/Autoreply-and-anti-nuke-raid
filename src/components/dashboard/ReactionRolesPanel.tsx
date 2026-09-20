@@ -169,7 +169,9 @@ function EmojiPicker({
             <Smile className="h-4 w-4 text-primary" /> {translate("Chọn emoji")}{" "}
           </DialogTitle>
           <DialogDescription>
-            Chọn từ gợi ý bên dưới hoặc dán emoji tùy chỉnh: emoji unicode, custom emoji{" "}
+            {translate(
+              "Chọn từ gợi ý bên dưới hoặc dán emoji tùy chỉnh: emoji unicode, custom emoji",
+            )}{" "}
             <code className="rounded bg-secondary px-1">&lt;:name:id&gt;</code>{" "}
             {translate("hoặc ID emoji.")}{" "}
           </DialogDescription>
@@ -247,7 +249,8 @@ function EmojiPicker({
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              {translate("Đang chọn:")} <span className="font-mono">{value || "chưa có"}</span>
+              {translate("Đang chọn:")}{" "}
+              <span className="font-mono">{value || translate("chưa có")}</span>
             </p>
           </div>
         </div>
@@ -358,7 +361,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
 
   return (
     <Card>
-      <CardContent className="p-5">
+      <CardContent className="p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="flex items-center gap-2 font-display font-semibold">
@@ -414,7 +417,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
                   </p>
                   {(p.description || p.thumbnailUrl) && (
                     <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground/80">
-                      {p.thumbnailUrl ? "🖼️ có thumbnail · " : ""}
+                      {p.thumbnailUrl ? translate("🖼️ có thumbnail ·") : ""}{" "}
                       {p.description ? `"${p.description}"` : ""}
                     </p>
                   )}
@@ -431,13 +434,13 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    title={p.enabled ? "Tắt bảng" : "Bật bảng"}
+                    title={translate(p.enabled ? "Tắt bảng" : "Bật bảng")}
                     onClick={async () => {
                       try {
                         await togglePanel({ token, guildId, panelId: p._id });
-                        toast.success(p.enabled ? "Đã tắt bảng" : "Đã bật bảng");
+                        toast.success(translate(p.enabled ? "Đã tắt bảng" : "Đã bật bảng"));
                       } catch (e) {
-                        toast.error(e instanceof Error ? e.message : "Thất bại");
+                        toast.error(e instanceof Error ? e.message : translate("Thất bại"));
                       }
                     }}
                   >
@@ -448,12 +451,12 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
                     size="icon-sm"
                     title={translate("Xóa bảng")}
                     onClick={async () => {
-                      if (!confirm(`Xóa bảng "${p.label}"?`)) return;
+                      if (!confirm(translate('Xóa bảng "{p0}"?', { p0: p.label }))) return;
                       try {
                         await deletePanel({ token, guildId, panelId: p._id });
                         toast.success(translate("Đã xóa bảng (tin nhắn cũ trong Discord vẫn còn)"));
                       } catch (e) {
-                        toast.error(e instanceof Error ? e.message : "Xóa thất bại");
+                        toast.error(e instanceof Error ? e.message : translate("Xóa thất bại"));
                       }
                     }}
                   >
@@ -469,12 +472,14 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {editingPanel ? "Sửa bảng reaction role" : "Tạo bảng reaction role"}
+                {translate(editingPanel ? "Sửa bảng reaction role" : "Tạo bảng reaction role")}
               </DialogTitle>
               <DialogDescription>
-                {editingPanel
-                  ? "Bot sẽ gửi bảng mới với nội dung đã chỉnh trong vòng ~1 phút (tin nhắn cũ vẫn còn)."
-                  : "Bot sẽ gửi một tin nhắn vào kênh đã chọn kèm các emoji. Thành viên bấm emoji để nhận role."}
+                {translate(
+                  editingPanel
+                    ? "Bot sẽ gửi bảng mới với nội dung đã chỉnh trong vòng ~1 phút (tin nhắn cũ vẫn còn)."
+                    : "Bot sẽ gửi một tin nhắn vào kênh đã chọn kèm các emoji. Thành viên bấm emoji để nhận role.",
+                )}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-3">
@@ -594,7 +599,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
                   rows.some((r) => !r.emoji || !r.roleId)
                 }
               >
-                {saving ? "Đang lưu…" : editingPanel ? "Lưu thay đổi" : "Tạo bảng"}
+                {translate(saving ? "Đang lưu…" : editingPanel ? "Lưu thay đổi" : "Tạo bảng")}
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -71,7 +71,7 @@ function IncidentList({ guildId }: { guildId: string }) {
           {translate("Chưa có vụ raid external app nào bị chặn")}
         </p>
         <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-          Khi bot phát hiện loạt kết nối ứng dụng ngoài vượt ngưỡng module{" "}
+          {translate("Khi bot phát hiện loạt kết nối ứng dụng ngoài vượt ngưỡng module")}{" "}
           <code className="font-mono text-[10px]">{translate("Raid bằng ứng dụng ngoài")}</code>{" "}
           {translate(
             "(hoặc một app đáng ngờ: giả mạo app nổi tiếng / tên scam / do acc mới kết nối / app spam @everyone + link lừa đảo), vụ đó sẽ xuất hiện ở đây kèm AI verdict, ứng dụng và người dùng đã bị xử lý.",
@@ -97,7 +97,9 @@ function IncidentList({ guildId }: { guildId: string }) {
           </p>
           <p className="mt-1 font-display text-lg font-bold">
             {totalPunished}{" "}
-            <span className="text-xs font-normal text-muted-foreground">({uniqueUsers} người)</span>
+            <span className="text-xs font-normal text-muted-foreground">
+              ({uniqueUsers} {translate("người")})
+            </span>
           </p>
         </div>
         <div className="rounded-xl border border-border bg-card p-3.5">
@@ -153,7 +155,8 @@ function IncidentList({ guildId }: { guildId: string }) {
                   </Badge>
                 )}
                 <Badge variant="secondary" className="gap-1 px-2 py-0.5 text-[10px]">
-                  <Database className="h-3 w-3" /> {s.count} kết nối / {s.windowSeconds}s
+                  <Database className="h-3 w-3" /> {s.count} {translate("kết nối")} /{" "}
+                  {s.windowSeconds}s
                 </Badge>
               </div>
             </div>
@@ -180,13 +183,15 @@ function IncidentList({ guildId }: { guildId: string }) {
                           <span className="font-mono text-[11px]">{a.appName ?? "?"}</span>
                         </span>
                         {a.executorName && (
-                          <span className="text-muted-foreground">bởi {a.executorName}</span>
+                          <span className="text-muted-foreground">
+                            {translate("bởi")} {a.executorName}
+                          </span>
                         )}
                       </li>
                     ))}
                     {s.apps.length > 5 && (
                       <li className="text-[11px] text-muted-foreground">
-                        +{s.apps.length - 5} app khác…
+                        +{s.apps.length - 5} {translate("app khác…")}
                       </li>
                     )}
                   </ul>
@@ -201,8 +206,8 @@ function IncidentList({ guildId }: { guildId: string }) {
                 {s.punished.length === 0 ? (
                   <p className="text-xs text-muted-foreground">
                     {s.action && s.action.length > 0
-                      ? "Chưa xác định được người dùng — chỉ ghi nhận"
-                      : "Không có"}
+                      ? translate("Chưa xác định được người dùng — chỉ ghi nhận")
+                      : translate("Không có")}
                   </p>
                 ) : (
                   <ul className="space-y-1.5">
@@ -235,7 +240,7 @@ function IncidentList({ guildId }: { guildId: string }) {
                   s.banned ? "text-danger font-semibold" : "text-foreground",
                 )}
               >
-                🎯 {s.banned ? "Đã ban nguồn cơn: " : "Nghi phạm nguồn cơn: "}
+                🎯 {translate(s.banned ? "Đã ban nguồn cơn:" : "Nghi phạm nguồn cơn:")}{" "}
                 {s.suspectedSourceName}
                 {s.reason ? ` — ${s.reason}` : ""}
               </p>
@@ -264,8 +269,8 @@ export default function ExternalAppRaidsPanel({ data }: { data: GuildData }) {
           </h2>
           <p className="max-w-2xl text-sm text-muted-foreground">
             {translate("Danh sách các vụ bot đã chặn khi loạt")}{" "}
-            <b className="text-foreground">external app</b> (ứng dụng mở rộng) được kết nối ồ ạt
-            hoặc app spam vào server — kèm{" "}
+            <b className="text-foreground">external app</b>{" "}
+            {translate("(ứng dụng mở rộng) được kết nối ồ ạt hoặc app spam vào server — kèm")}{" "}
             <b className="text-foreground">{translate("AI nhận diện")}</b>{" "}
             {translate(
               "người dùng app có đang raid không. AI học hỏi các dạng raid app ngoài (sockpuppet cài app, app giả mạo/tên scam, spam @everyone/link lừa đảo, webhook spam) để chặn cả biến thể tương tự: app nào được kết nối, ai đã bị xử lý.",
@@ -279,7 +284,8 @@ export default function ExternalAppRaidsPanel({ data }: { data: GuildData }) {
 
       {moduleCfg && !moduleCfg.enabled && (
         <div className="rounded-xl border border-border bg-secondary px-4 py-3 text-sm text-foreground">
-          ⚠️ Module <b>{translate("Raid bằng ứng dụng ngoài")}</b> đang tắt — bật lại trong mục{" "}
+          ⚠️ Module <b>{translate("Raid bằng ứng dụng ngoài")}</b>{" "}
+          {translate("đang tắt — bật lại trong mục")}{" "}
           <b>{translate("Chống nuke / raid → Thành viên & quyền")}</b>{" "}
           {translate("để bot tiếp tục chặn.")}{" "}
         </div>

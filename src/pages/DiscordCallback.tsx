@@ -157,7 +157,7 @@ export default function DiscordCallback() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-md text-center">
         {error ? (
-          <div className="rounded-2xl border border-danger/30 bg-danger/10 p-6">
+          <div className="rounded-2xl border border-danger/30 bg-danger/10 p-4 sm:p-6">
             <AlertTriangle className="mx-auto h-8 w-8 text-danger" />
             <h1 className="mt-3 font-display text-lg font-semibold">
               {translate("Đăng nhập thất bại")}

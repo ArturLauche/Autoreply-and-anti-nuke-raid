@@ -218,7 +218,7 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
 
       {/* Configuration */}
       <Card>
-        <CardContent className="p-5 space-y-5">
+        <CardContent className="p-4 sm:p-5 space-y-5">
           <h4 className="font-semibold text-foreground">Cau hinh</h4>
 
           {/* Punish */}
@@ -304,10 +304,10 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
                   {translate("Chế độ an toàn (chống chặn nhầm)")}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  {translate("Chỉ phạt khi có")} <b>{translate("đủ bằng chứng độc lập")}</b>: 2+ tín
-                  hiệu mạnh → phạt đúng cấu hình; 1 tín hiệu → hạ cấp nhẹ hơn (ban → kick, kick →
-                  timeout); 0 tín hiệu → chỉ theo dõi. Tắt để phạt theo điểm rủi ro như cũ (dễ chặn
-                  nhầm hơn).
+                  {translate("Chỉ phạt khi có")} <b>{translate("đủ bằng chứng độc lập")}</b>
+                  {translate(
+                    ": 2+ tín hiệu mạnh → phạt đúng cấu hình; 1 tín hiệu → hạ cấp nhẹ hơn (ban → kick, kick → timeout); 0 tín hiệu → chỉ theo dõi. Tắt để phạt theo điểm rủi ro như cũ (dễ chặn nhầm hơn).",
+                  )}
                 </p>
               </div>
             </div>
@@ -318,7 +318,7 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
 
       {/* Recent Joins */}
       <Card>
-        <CardContent className="p-5">
+        <CardContent className="p-4 sm:p-5">
           <h4 className="font-semibold text-foreground mb-4">
             {translate("Lượt join gần đây")} ({joins.length})
           </h4>
@@ -420,7 +420,7 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
       {/* Top Risk Factors */}
       {altStats?.topFactors && (
         <Card>
-          <CardContent className="p-5">
+          <CardContent className="p-4 sm:p-5">
             <h4 className="font-semibold text-foreground mb-3">
               {translate("Yếu tố rủi ro phổ biến")}
             </h4>

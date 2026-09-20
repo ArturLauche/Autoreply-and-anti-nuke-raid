@@ -24,9 +24,10 @@ function labelFor(action: string): string {
   return `🛠️ ${action}`;
 }
 
-/** Nguồn của hành động: bot tự động (không có executor) hay lệnh thủ công của mod. */
+/** Nguồn của hành động: "mod" = lệnh thủ công của mod, "bot" = bot tự động.
+ *  Trả khóa ổn định (không phải chuỗi hiển thị) để nhãn dịch được theo ngôn ngữ. */
 function sourceOf(a: { executorId: string | null; executorName: string | null }) {
-  return a.executorId || a.executorName ? "Lệnh mod" : "Bot tự động";
+  return a.executorId || a.executorName ? "mod" : "bot";
 }
 
 export default function ModActionsPanel({ data }: { data: GuildData }) {
@@ -34,21 +35,23 @@ export default function ModActionsPanel({ data }: { data: GuildData }) {
 
   return (
     <Card>
-      <CardContent className="p-5">
+      <CardContent className="p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="flex items-center gap-2 font-display font-semibold">
               <Gavel className="h-4 w-4 text-primary" /> {translate("Bảng hình phạt")}{" "}
             </h3>
             <p className="text-sm text-muted-foreground">
-              {translate("Timeout · kick · ban · warn · purge — ghi kèm")} <b>case N</b> (kiểu
-              Carl-bot), lý do, người thực hiện và phân biệt rõ nguồn:{" "}
+              {translate("Timeout · kick · ban · warn · purge — ghi kèm")} <b>case N</b>{" "}
+              {translate("(kiểu Carl-bot), lý do, người thực hiện và phân biệt rõ nguồn:")}{" "}
               <b className="text-foreground">{translate("🛠️ lệnh thủ công của mod")}</b> vs{""}
               <b className="text-foreground">{translate("⚡ bot tự động")}</b> (auto-mod / anti
               nuke).
             </p>
           </div>
-          <Badge variant="secondary">{actions.length} hành động gần nhất</Badge>
+          <Badge variant="secondary">
+            {actions.length} {translate("hành động gần nhất")}
+          </Badge>
         </div>
 
         {actions.length === 0 ? (
@@ -89,12 +92,12 @@ export default function ModActionsPanel({ data }: { data: GuildData }) {
                     <td className="py-2.5 pr-3">
                       <Badge
                         className={
-                          sourceOf(a) === "Lệnh mod"
+                          sourceOf(a) === "mod"
                             ? "gap-1 bg-secondary text-secondary-foreground border border-border"
                             : "gap-1 bg-foreground/10 text-foreground border border-foreground/20"
                         }
                       >
-                        {sourceOf(a) === "Lệnh mod" ? "🛠️ Lệnh mod" : "⚡ Bot tự động"}
+                        {translate(sourceOf(a) === "mod" ? "🛠️ Lệnh mod" : "⚡ Bot tự động")}
                       </Badge>
                     </td>
                     <td className="py-2.5 pr-3">
@@ -109,7 +112,7 @@ export default function ModActionsPanel({ data }: { data: GuildData }) {
                       </p>
                     </td>
                     <td className="py-2.5 pr-3 text-muted-foreground">
-                      <p>{a.reason || a.details || "Không có"}</p>
+                      <p>{a.reason || a.details || translate("Không có")}</p>
                     </td>
                   </tr>
                 ))}

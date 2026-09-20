@@ -10,6 +10,36 @@ _(trống — mọi việc đã xong hoặc chờ yêu cầu mới)_
 
 ---
 
+## 2026-09-20 — Đa ngôn ngữ VI/EN phủ HẾT (gồm chuỗi nội suy) + thu gọn layout mobile
+
+- 🐛 Gốc rễ "một số nút/nội dung không đổi sang tiếng Anh": lá chắn cũ chỉ rà
+  bằng **regex theo dòng** nên bỏ sót 2 nhóm — text node một từ/nhiều dòng và
+  chữ Việt nằm trong `{…}` (ví dụ `{cond ? "Trực tuyến" : "Không hoạt động"}`,
+  `` ` · lần cuối ${x}` ``). Ngoài ra nhãn dữ liệu cấp module render trực tiếp
+  (`{ANTINUKE_MODULE_META[m].label}`, `{HEAT_TIER_LABEL[tier]}`, `{group.label}`)
+  chưa qua translate() nên không bao giờ dịch.
+- ✅ `scripts/check-i18n.cjs` nay phân tích bằng **parser TypeScript**
+  (`ts.isJsxText` + duyệt `JsxExpression`) → phủ text node nhiều dòng, biểu thức
+  `{}`, template literal, thuộc tính JSX; **FAIL cứng** thay vì cảnh báo mềm.
+  Có cơ chế miễn trừ tường minh `// i18n-ok: <lý do>` cho nhãn được dịch lúc
+  render (không dùng để che lỗi).
+- ✅ Dịch trọn phần còn lại: **+225 key EN** (`src/lib/i18n.en.panels.ts` — đợt 2,
+  gộp trong `i18n.tsx` bằng `DICT = { ...EN, ...EN_PANELS }`), sửa cả key nháy
+  đơn (`translate('Chỉnh sửa "{p0}"')`) mà regex cũ bỏ sót. Hiện **1018 key
+  translate() ⇄ 1080 bản EN, 0 mục chưa dịch**.
+- ✅ Mobile: thu gọn padding/khoảng cách (`p-5` → `p-4 sm:p-5`, `p-6`,
+  `space-y-6`, `gap-5`) trên toàn dashboard + landing; nav mục cấu hình thành
+  **app tab bar dính trên đầu** (`max-lg:sticky`, `-mx-3` chạm mép, nền mờ) để
+  đổi mục không phải cuộn ngược; `#root` thêm `max-width: 100%` và trên
+  mobile cho phép ngắt chuỗi trong `code/.font-mono` (`overflow-wrap: anywhere`)
+  — nguồn tràn phải phổ biến nhất là ID/URL/token không có khoảng trắng.
+- ⚠️ Chưa kiểm chứng được bằng mắt: sandbox không có trình duyệt headless nên
+  không đo được `scrollWidth` thật ở 360px. Bằng chứng hiện có: tsc/lint/format
+  xanh, 53/53 suite, preview ready — nếu người dùng còn thấy tràn thì cần ảnh
+  chụp đúng chỗ.
+
+---
+
 ## 2026-09-20 — Fix "khoá kín" tràn ngang + thiết kế lại trang server cho điện thoại
 
 - 🐛 Gốc rễ lỗi "nội dung bị khoá kín" (không xem được mép phải): `#root`

@@ -159,7 +159,7 @@ export default function StatsPage() {
 
           {guildId && rows && (
             <Card className="mt-4">
-              <CardContent className="p-5">
+              <CardContent className="p-4 sm:p-5">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Flame className="h-4 w-4 text-primary" />
@@ -182,10 +182,16 @@ export default function StatsPage() {
                 </div>
 
                 <p className="mb-4 text-xs text-muted-foreground">
-                  Nhiệt giảm {HEAT_DEFAULTS.decayPerMin} điểm/phút — thành viên ngoan tự rời bảng
-                  sau một lúc im giọng. ▪ {HEAT_DEFAULTS.warnAt} cảnh báo · ▪{" "}
-                  {HEAT_DEFAULTS.timeoutAt} tạm khóa · ▪ {HEAT_DEFAULTS.kickAt} kick · ■{" "}
-                  {HEAT_DEFAULTS.banAt} ban
+                  {translate(
+                    "Nhiệt giảm {decay} điểm/phút — thành viên ngoan tự rời bảng sau một lúc im giọng. ▪ {warn} cảnh báo · ▪ {timeout} tạm khóa · ▪ {kick} kick · ■ {ban} ban",
+                    {
+                      decay: HEAT_DEFAULTS.decayPerMin,
+                      warn: HEAT_DEFAULTS.warnAt,
+                      timeout: HEAT_DEFAULTS.timeoutAt,
+                      kick: HEAT_DEFAULTS.kickAt,
+                      ban: HEAT_DEFAULTS.banAt,
+                    },
+                  )}
                 </p>
 
                 {ranked.length === 0 ? (
@@ -218,11 +224,11 @@ export default function StatsPage() {
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="truncate font-medium">{r.username}</p>
                               <Badge variant="outline" className={TIER_STYLE[tier]}>
-                                {HEAT_TIER_LABEL[tier] ?? tier}
+                                {translate(HEAT_TIER_LABEL[tier] ?? tier)}
                               </Badge>
                               {(r.warnStrikes ?? 0) > 0 && (
                                 <Badge variant="secondary" className="px-2 py-0.5 text-[10px]">
-                                  {r.warnStrikes} lần cảnh báo
+                                  {r.warnStrikes} {translate("lần cảnh báo")}
                                 </Badge>
                               )}
                             </div>

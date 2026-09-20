@@ -205,14 +205,14 @@ export default function ModuleCard({
         </span>
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-2 truncate text-sm font-semibold">
-            {meta.label}
+            {translate(meta.label)}
             {!config.enabled && (
               <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px]">
                 {translate("tắt")}{" "}
               </Badge>
             )}
           </p>
-          <p className="truncate text-xs text-muted-foreground">{meta.description}</p>
+          <p className="truncate text-xs text-muted-foreground">{translate(meta.description)}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <div className="hidden items-center gap-1.5 md:flex">
@@ -221,7 +221,7 @@ export default function ModuleCard({
             </Badge>
             {actions.map((a) => (
               <Badge key={a} className={cn("px-2 py-0.5 text-[10px]", ACTION_STYLE[a])}>
-                {ACTION_LABEL[a]}
+                {translate(ACTION_LABEL[a])}
               </Badge>
             ))}
             {!hasMemberPunish && (
@@ -258,7 +258,9 @@ export default function ModuleCard({
             )}
           >
             <div className="grid gap-1">
-              <Label className="text-[11px] text-muted-foreground">Ngưỡng ({unit})</Label>
+              <Label className="text-[11px] text-muted-foreground">
+                {translate("Ngưỡng")} ({unit})
+              </Label>
               <ModuleNumber
                 value={config.threshold}
                 min={1}
@@ -338,7 +340,7 @@ export default function ModuleCard({
                     >
                       {active && <span className="h-1 w-1 rounded-full bg-primary-foreground" />}
                     </span>
-                    {opt.label}
+                    {translate(opt.label)}
                   </button>
                 );
               })}
@@ -389,7 +391,7 @@ export default function ModuleCard({
                         </svg>
                       )}
                     </span>
-                    {opt.label}
+                    {translate(opt.label)}
                   </button>
                 );
               })}
@@ -397,9 +399,9 @@ export default function ModuleCard({
           </div>
 
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            💡 <b className="text-foreground">{translate("Xóa tin phát hiện")}</b> = xóa ngay tin vi
-            phạm · <b className="text-foreground">Purge</b> = xóa hàng loạt tin liên quan vụ vi
-            phạm.
+            💡 <b className="text-foreground">{translate("Xóa tin phát hiện")}</b>{" "}
+            {translate("= xóa ngay tin vi phạm ·")} <b className="text-foreground">Purge</b>{" "}
+            {translate("= xóa hàng loạt tin liên quan vụ vi phạm.")}
             {showHeat ? (
               <> {translate("Nhiệt tự giảm theo phút — đủ ngưỡng sẽ tự tăng cấp hình phạt.")}</>
             ) : (
@@ -417,8 +419,8 @@ export default function ModuleCard({
               value={config.whitelistRoles}
               onChange={(v) => patchModule(module, { whitelistRoles: v })}
               placeholder={translate("Không có — tất cả role đều bị kiểm tra")}
-              emptyLabel="Chưa có role được đồng bộ"
-              searchPlaceholder="Gõ tên role để tìm nhanh…"
+              emptyLabel={translate("Chưa có role được đồng bộ")}
+              searchPlaceholder={translate("Gõ tên role để tìm nhanh…")}
             />
           </div>
         </CardContent>

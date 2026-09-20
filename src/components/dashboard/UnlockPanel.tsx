@@ -111,7 +111,7 @@ export default function UnlockPanel({
           />
           <Button onClick={unlock} disabled={checking || !password} className="w-full">
             {checking ? (
-              "Đang kiểm tra…"
+              translate("Đang kiểm tra…")
             ) : (
               <>
                 <KeyRound className="h-4 w-4" /> {translate("Mở khóa")}{" "}

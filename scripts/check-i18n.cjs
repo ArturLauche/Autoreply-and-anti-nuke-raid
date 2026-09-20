@@ -19,6 +19,7 @@
  *   4. Key EN không còn xuất hiện trong code (bản dịch chết).
  *
  * Dùng: node scripts/check-i18n.cjs
+ *       node scripts/check-i18n.cjs --all   # in HẾT danh sách việc còn lại
  */
 
 const fs = require("fs");
@@ -48,12 +49,16 @@ function walk(dir) {
 const rel = (p) => path.relative(ROOT, p).split(path.sep).join("/");
 
 // ── Key có trong từ điển EN ────────────────────────────────────────────────
-const enSrc = fs.readFileSync(path.join(SRC, "lib/i18n.en.ts"), "utf8");
 const enKeys = new Set();
-for (const m of enSrc.matchAll(
-  /^\s{2}(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|([^\s:]+))\s*:/gm,
-)) {
-  enKeys.add(m[1] !== undefined ? unescapeJs(m[1]) : m[2] !== undefined ? m[2] : m[3]);
+for (const name of ["i18n.en.ts", "i18n.en.panels.ts"]) {
+  const p = path.join(SRC, "lib", name);
+  if (!fs.existsSync(p)) continue;
+  const enSrc = fs.readFileSync(p, "utf8");
+  for (const m of enSrc.matchAll(
+    /^\s{2}(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|([^\s:]+))\s*:/gm,
+  )) {
+    enKeys.add(m[1] !== undefined ? unescapeJs(m[1]) : m[2] !== undefined ? m[2] : m[3]);
+  }
 }
 
 const problems = [];
@@ -66,6 +71,13 @@ for (const file of codeFiles) {
   // (?<![A-Za-z0-9_$.]) để KHÔNG khớp `import(` (kết thúc bằng "t(" ).
   for (const m of src.matchAll(/(?<![A-Za-z0-9_$.])(?:translate|t)\(\s*"((?:[^"\\]|\\.)*)"/g)) {
     const key = unescapeJs(m[1]);
+    wrappedKeys.add(key);
+    if (!enKeys.has(key)) problems.push(`THIẾU EN: ${rel(file)} — ${key.slice(0, 80)}`);
+  }
+  // Chuỗi nháy ĐƠN (thường dùng khi key chứa dấu ") — bản regex cũ bỏ sót
+  // nhóm này nên key nháy đơn lọt lưới hoàn toàn.
+  for (const m of src.matchAll(/(?<![A-Za-z0-9_$.])(?:translate|t)\(\s*'((?:[^'\\\n]|\\.)*)'/g)) {
+    const key = unescapeJs(m[1].replace(/\\'/g, "'"));
     wrappedKeys.add(key);
     if (!enKeys.has(key)) problems.push(`THIẾU EN: ${rel(file)} — ${key.slice(0, 80)}`);
   }
@@ -95,40 +107,90 @@ if (fs.existsSync(kbPath)) {
     if (!enKeys.has(key)) problems.push(`THIẾU EN (Haimiya): ${key.slice(0, 80)}`);
 }
 
-// ── 3. Cảnh báo mềm: thuộc tính JSX có dấu tiếng Việt chưa bọc translate() ──
-const softAttr = [];
-for (const file of codeFiles) {
-  const src = fs.readFileSync(file, "utf8");
-  for (const m of src.matchAll(
-    /\b(label|title|placeholder|aria-label|alt)=("([^"\n]*)"|\{`([^`$\n]*)`\})/g,
-  )) {
-    const value = m[3] !== undefined ? m[3] : m[4];
-    if (value && VIET.test(value) && !/translate\(|t\(/.test(value))
-      softAttr.push(`${rel(file)} — ${m[1]}="${value.slice(0, 60)}"`);
-  }
-}
-
-// ── 3b. Đo phần CÒN LẠI: chữ tiếng Việt nằm trực tiếp trong JSX (text node)
-// mà chưa bọc translate(). Đây là các câu bị nội suy `{…}` nên codemod đợt
-// đầu không khớp mẫu an toàn — không fail CI (đang hoàn thiện dần) nhưng đo
-// được để mỗi phiên thấy tiến độ.
-const VIET_RE = /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđĐ]/;
-const rawText = [];
+// ── 3. Chữ Việt còn nằm TRỰC TIẾP trong JSX (text node) hoặc trong thuộc
+// tính dạng chuỗi → chưa bọc translate(), người dùng EN sẽ đọc tiếng Việt.
+//
+// Phát hiện bằng PARSER THẬT (typescript đã có trong devDependency) chứ không
+// dùng regex theo dòng: JsxText mới là chữ hiển thị thật, còn comment / code
+// JS / chuỗi trong translate() đều không phải JsxText nên KHÔNG báo nhầm.
+// Bản regex cũ bỏ sót text node một từ đứng riêng dòng (nút "Backup ngay")
+// và bỏ sót text node nhiều dòng — đúng kiểu lọt âm thầm cần chặn.
+const ts = require("typescript");
+const unresolved = [];
 for (const file of codeFiles.filter((f) => /\.(tsx|jsx)$/.test(f))) {
-  const src = fs
-    .readFileSync(file, "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .replace(/(^|[^:])\/\/[^\n]*/g, "$1 ")
-    .replace(/"((?:[^"\\\n]|\\.)*)"/g, '""')
-    .replace(/'((?:[^'\\\n]|\\.)*)'/g, "''")
-    .replace(/`(?:\\.|[^`\\])*`/g, "``");
-  src.split("\n").forEach((line, i) => {
-    if (!VIET_RE.test(line)) return;
-    if (/^\s*(\/\/|\*)/.test(line)) return;
-    if (/^\s*[A-Za-z]+\s*[=(]/.test(line) === false && !/[<>{}]/.test(line)) return;
-    rawText.push(`${rel(file)}:${i + 1} — ${line.trim().slice(0, 70)}`);
-  });
+  const source = fs.readFileSync(file, "utf8");
+  const sf = ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.JSX,
+  );
+  const lineOf = (pos) => sf.getLineAndCharacterOfPosition(pos).line + 1;
+  // Miễn trừ có ghi chú: dữ liệu nhãn được dịch LÚC RENDER (translate(label))
+  // nên chuỗi gốc còn tiếng Việt là đúng ý — đánh dấu `// i18n-ok: <lý do>`
+  // trong vòng 2 dòng phía trên để script không báo nhầm.
+  const sourceLines = source.split("\n");
+  const suppressed = (node, line) => {
+    // 1) Mảng/object chứa node có ghi chú i18n-ok → cả khối được miễn trừ
+    //    (nhãn dữ liệu dịch lúc render, ví dụ translate(item.label)).
+    //    Duyệt MỌI mảng/object bao ngoài (tuple lồng trong mảng lớn vẫn tính).
+    let sawContainer = false;
+    for (let p = node.parent; p; p = p.parent) {
+      if (ts.isArrayLiteralExpression(p) || ts.isObjectLiteralExpression(p)) {
+        sawContainer = true;
+        if (p.getText(sf).includes("i18n-ok")) return true;
+      }
+    }
+    if (sawContainer) return false;
+    // 2) Không thuộc mảng/object: dùng ghi chú gần đó (±2 dòng phía trên).
+    return sourceLines.slice(Math.max(0, line - 3), line + 1).some((l) => l.includes("i18n-ok"));
+  };
+  const flag = (node, kind, value) => {
+    const line = lineOf(node.getStart(sf));
+    if (suppressed(node, line)) return;
+    unresolved.push({
+      file: rel(file),
+      line,
+      kind,
+      text: value.replace(/\s+/g, " ").trim().slice(0, 70),
+    });
+  };
+  const isTranslateCall = (node) =>
+    ts.isCallExpression(node) && /(^|\.)(translate|t)$/.test(node.expression.getText(sf));
+  // `inExpr` = đang ở trong một {…} của JSX. Chuỗi VI nằm ở đó vẫn hiển thị
+  // ({cond ? "Bật" : "Tắt"}, {"Trực tuyến"}, ` · lần cuối ${x}`) nhưng JSXText
+  // không bắt được — đúng nhóm "bấm nút không đổi ngôn ngữ" người dùng thấy.
+  const visit = (node, inExpr) => {
+    if (isTranslateCall(node)) return; // cả cây đối số đã được dịch
+    if (ts.isJsxText(node)) {
+      const raw = node.getText(sf);
+      if (VIET.test(raw)) flag(node, "text", raw);
+      return;
+    }
+    if (ts.isJsxAttribute(node) && node.initializer && ts.isStringLiteral(node.initializer)) {
+      const value = node.initializer.text;
+      if (VIET.test(value)) flag(node, `attr ${node.name.getText(sf)}`, value);
+    }
+    if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) && inExpr) {
+      // Bỏ qua giá trị thuộc tính JSX — nhánh JsxAttribute đã xử lý riêng.
+      const isAttrValue = ts.isJsxAttribute(node.parent);
+      if (!isAttrValue && VIET.test(node.text)) flag(node, "expr", node.text);
+    }
+    if (inExpr && ts.isTemplateExpression(node)) {
+      if (VIET.test(node.head.text)) flag(node, "expr", node.head.text);
+      for (const span of node.templateSpans)
+        if (VIET.test(span.literal.text)) flag(span.literal, "expr", span.literal.text);
+    }
+    const next = ts.isJsxExpression(node) ? true : inExpr;
+    ts.forEachChild(node, (child) => visit(child, next));
+  };
+  visit(sf, false);
 }
+const rawText = unresolved.filter((u) => u.kind === "text");
+const exprText = unresolved.filter((u) => u.kind === "expr");
+const softAttr = unresolved.filter((u) => u.kind.startsWith("attr "));
+for (const u of unresolved) problems.push(`CHƯA DỊCH (${u.kind}): ${u.file}:${u.line} — ${u.text}`);
 
 // ── 4. Cảnh báo mềm: bản dịch không còn dùng trong code ───────────────────
 // Key chứa dấu nháy nằm trong code ở dạng escape (\") nên phải so cả bản
@@ -154,15 +216,29 @@ if (rawText.length) {
     `\nℹ️  Còn ${rawText.length} dòng chữ Việt trong JSX chưa bọc translate() ` +
       "(câu bị nội suy {…} nhiều mảnh — cần gộp thành 1 key có placeholder {p0}):",
   );
-  for (const s of rawText.slice(0, 8)) console.log(`   · ${s}`);
-  if (rawText.length > 8) console.log(`   … còn ${rawText.length - 8} dòng`);
+  const rawShow = process.argv.includes("--all") ? rawText : rawText.slice(0, 8);
+  for (const s of rawShow) console.log(`   · ${s.file}:${s.line} — ${s.text}`);
+  if (rawShow.length < rawText.length)
+    console.log(`   … còn ${rawText.length - rawShow.length} dòng`);
+}
+if (exprText.length) {
+  console.log(
+    `\nℹ️  ${exprText.length} chuỗi Việt nằm trong biểu thức JSX {} chưa bọc translate() ` +
+      "(nhãn điều kiện, template literal, chuỗi hiển thị trực tiếp):",
+  );
+  const exprShow = process.argv.includes("--all") ? exprText : exprText.slice(0, 8);
+  for (const s of exprShow) console.log(`   · ${s.file}:${s.line} — ${s.text}`);
+  if (exprShow.length < exprText.length)
+    console.log(`   … còn ${exprText.length - exprShow.length} dòng`);
 }
 if (softAttr.length) {
   console.log(
     `\nℹ️  ${softAttr.length} thuộc tính JSX có tiếng Việt chưa bọc translate() (rà tay):`,
   );
-  for (const s of softAttr.slice(0, 15)) console.log(`   · ${s}`);
-  if (softAttr.length > 15) console.log(`   … còn ${softAttr.length - 15} mục`);
+  const attrShow = process.argv.includes("--all") ? softAttr : softAttr.slice(0, 15);
+  for (const s of attrShow) console.log(`   · ${s.file}:${s.line} — ${s.text}`);
+  if (attrShow.length < softAttr.length)
+    console.log(`   … còn ${softAttr.length - attrShow.length} mục`);
 }
 if (deadKeys.length) {
   console.log(
@@ -173,9 +249,11 @@ if (deadKeys.length) {
 }
 
 if (problems.length) {
-  console.error(`\n❌ i18n guard: ${problems.length} key chưa có bản EN`);
-  for (const p of problems.slice(0, 40)) console.error(`   ${p}`);
-  if (problems.length > 40) console.error(`   … còn ${problems.length - 40} mục`);
+  console.error(`\n❌ i18n guard: ${problems.length} mục chưa dịch / thiếu bản EN`);
+  const all = process.argv.includes("--all");
+  for (const p of all ? problems : problems.slice(0, 40)) console.error(`   ${p}`);
+  if (!all && problems.length > 40)
+    console.error(`   … còn ${problems.length - 40} mục (--all để in hết)`);
   console.error("\nThêm bản dịch vào src/lib/i18n.en.ts (key = nguyên chuỗi tiếng Việt).");
   process.exit(1);
 }

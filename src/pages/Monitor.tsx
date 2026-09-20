@@ -116,7 +116,7 @@ export default function Monitor() {
                     status?.online ? "bg-foreground" : "bg-danger",
                   )}
                 />
-                {status ? (status.online ? "Online" : "Offline") : "đang tải…"}
+                {status ? (status.online ? "Online" : "Offline") : translate("đang tải…")}
               </p>
             </div>
             <div className="rounded-xl border border-border bg-card p-4">
@@ -158,9 +158,10 @@ export default function Monitor() {
                       {translate("Biểu đồ độ trễ (5 giây / mẫu)")}{" "}
                     </h2>
                     <p className="text-xs text-muted-foreground">
-                      Trung bình:{" "}
-                      <b className="text-foreground">{avg !== null ? `${avg} ms` : "—"}</b> · Tối
-                      đa:{" "}
+                      {translate("Trung bình:")}{" "}
+                      <b className="text-foreground">{avg !== null ? `${avg} ms` : "—"}</b>
+                      {" · "}
+                      {translate("Tối đa:")}{" "}
                       <b className="text-foreground">
                         {history.length > 0 ? `${Math.max(...history)} ms` : "—"}
                       </b>
@@ -172,7 +173,7 @@ export default function Monitor() {
                       rate ? `${rate.cls} bg-current/10` : "bg-muted text-muted-foreground",
                     )}
                   >
-                    {rate ? rate.label : "đang đo"}
+                    {rate ? translate(rate.label) : translate("đang đo")}
                   </span>
                 </div>
                 <div className="mt-3">
@@ -180,7 +181,8 @@ export default function Monitor() {
                 </div>
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   {" "}
-                  Đánh giá: <b className="text-foreground">Nhanh</b> (&lt; 300ms) ·{""}
+                  {translate("Đánh giá:")} <b className="text-foreground">{translate("Nhanh")}</b>{" "}
+                  (&lt; 300ms) ·{""}
                   <b className="text-foreground">{translate("Trung bình")}</b> (300–800ms) ·{""}
                   <b className="text-danger">{translate("Chậm")}</b> (&gt; 800ms) ·{""}
                   <b className="text-danger">{translate("Sự cố")}</b> (&gt; 1200ms)
@@ -191,7 +193,7 @@ export default function Monitor() {
               <div className="rounded-xl border border-border bg-card p-4">
                 <h2 className="flex items-center gap-2 font-display text-base font-bold">
                   <AlertTriangle className="h-4 w-4 text-danger" />
-                  Sự cố ({incidents.length})
+                  {translate("Sự cố")} ({incidents.length})
                 </h2>
                 {incidents.length === 0 ? (
                   <p className="mt-2 text-sm text-foreground">

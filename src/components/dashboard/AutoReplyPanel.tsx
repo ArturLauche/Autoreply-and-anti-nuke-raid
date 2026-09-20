@@ -181,7 +181,7 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
               key={rule._id}
               className={`transition-opacity ${rule.enabled ? "" : "opacity-60"}`}
             >
-              <CardContent className="p-5">
+              <CardContent className="p-4 sm:p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -198,7 +198,7 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
                         )}
                       </Badge>
                       <Badge variant={rule.enabled ? "success" : "secondary"}>
-                        {rule.enabled ? "Đang bật" : "Đã tắt"}
+                        {translate(rule.enabled ? "Đang bật" : "Đã tắt")}
                       </Badge>
                       <Badge variant="outline" className="gap-1">
                         <Timer className="h-3 w-3" /> {rule.cooldownSeconds}s
@@ -221,8 +221,8 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
                     </p>
                     <p className="mt-2 text-xs text-muted-foreground">
                       {rule.channels.length === 0
-                        ? "Áp dụng mọi kênh"
-                        : `${rule.channels.length} kênh được chọn`}
+                        ? translate("Áp dụng mọi kênh")
+                        : translate("{p0} kênh được chọn", { p0: rule.channels.length })}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -250,7 +250,9 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editing ? `Chỉnh sửa "${editing.name}"` : "Thêm rule auto reply"}
+              {editing
+                ? translate('Chỉnh sửa "{p0}"', { p0: editing.name })
+                : translate("Thêm rule auto reply")}
             </DialogTitle>
             <DialogDescription>
               {translate("Bot sẽ trả lời thành viên khi điều kiện kích hoạt được thỏa mãn.")}{" "}
@@ -283,9 +285,11 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                {form.triggerType === "mention"
-                  ? "Kích hoạt khi thành viên tag bot trong tin nhắn."
-                  : "Kích hoạt khi tin nhắn chứa một trong các từ khóa bên dưới."}
+                {translate(
+                  form.triggerType === "mention"
+                    ? "Kích hoạt khi thành viên tag bot trong tin nhắn."
+                    : "Kích hoạt khi tin nhắn chứa một trong các từ khóa bên dưới.",
+                )}
               </p>
             </div>
 
@@ -312,26 +316,28 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
                 onChange={(e) => setForm({ ...form, response: e.target.value })}
               />
               <p className="text-xs text-muted-foreground">
-                Placeholder: <code className="font-mono">{"{user}"}</code> tag người nhắn,{" "}
-                <code className="font-mono">{"{username}"}</code>{" "}
+                Placeholder: <code className="font-mono">{"{user}"}</code>{" "}
+                {translate("tag người nhắn,")} <code className="font-mono">{"{username}"}</code>{" "}
                 {translate("lấy tên thành viên.")}{" "}
               </p>
             </div>
 
             <div className="grid gap-2">
-              <Label>Chỉ áp dụng cho kênh (bỏ trống = mọi kênh)</Label>
+              <Label>{translate("Chỉ áp dụng cho kênh (bỏ trống = mọi kênh)")}</Label>
               <MultiSelect
                 options={channelOptions}
                 value={form.channels}
                 onChange={(v) => setForm({ ...form, channels: v })}
                 placeholder={translate("Tất cả kênh")}
-                emptyLabel="Chưa có kênh nào được đồng bộ"
-                searchPlaceholder="Gõ tên kênh để tìm nhanh…"
+                emptyLabel={translate("Chưa có kênh nào được đồng bộ")}
+                searchPlaceholder={translate("Gõ tên kênh để tìm nhanh…")}
               />
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="rule-cooldown">Cooldown (giây, 0 = không giới hạn)</Label>
+              <Label htmlFor="rule-cooldown">
+                {translate("Cooldown (giây, 0 = không giới hạn)")}
+              </Label>
               <Input
                 id="rule-cooldown"
                 type="number"
@@ -348,7 +354,7 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
               {translate("Hủy")}{" "}
             </Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? "Đang lưu…" : editing ? "Lưu thay đổi" : "Tạo rule"}
+              {translate(saving ? "Đang lưu…" : editing ? "Lưu thay đổi" : "Tạo rule")}
             </Button>
           </DialogFooter>
         </DialogContent>

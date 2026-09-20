@@ -46,7 +46,7 @@ export default class PanelErrorBoundary extends Component<Props, State> {
 
     return (
       <Card className="border-danger/30">
-        <CardContent className="flex flex-col items-start gap-3 p-6">
+        <CardContent className="flex flex-col items-start gap-3 p-4 sm:p-6">
           <div className="flex items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-danger/15 text-danger">
               <AlertTriangle className="h-5 w-5" />
@@ -62,8 +62,10 @@ export default class PanelErrorBoundary extends Component<Props, State> {
               </p>
               {isMissingFunction && (
                 <p className="mt-2 rounded-lg bg-secondary px-3 py-2 text-xs text-muted-foreground">
-                  {translate("💡 Với mục")} <b>Backup server / Moderation</b>: backend Convex
-                  production đang chạy bản cũ, chưa có các hàm mới. Chủ dự án cần chạy{" "}
+                  {translate("💡 Với mục")} <b>Backup server / Moderation</b>
+                  {translate(
+                    ": backend Convex production đang chạy bản cũ, chưa có các hàm mới. Chủ dự án cần chạy",
+                  )}{" "}
                   <code className="font-mono">npx convex deploy</code>{" "}
                   {translate(
                     "tại thư mục gốc dự án để cập nhật backend (xem hướng dẫn trong README).",

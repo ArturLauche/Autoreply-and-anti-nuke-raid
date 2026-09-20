@@ -45,7 +45,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
   if (!data.guild.isBotOwner) {
     return (
       <Card>
-        <CardContent className="flex items-center gap-3 p-5 text-sm text-muted-foreground">
+        <CardContent className="flex items-center gap-3 p-4 sm:p-5 text-sm text-muted-foreground">
           <Palette className="h-5 w-5 shrink-0 text-primary" />
           {translate("Tùy chỉnh giao diện chỉ dành cho")} <b>{translate("admin sở hữu bot")}</b>.
         </CardContent>
@@ -149,7 +149,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
 
   return (
     <Card>
-      <CardContent className="p-5">
+      <CardContent className="p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="flex items-center gap-2 font-display font-semibold">
@@ -192,7 +192,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
                       disabled={uploading !== null}
                     >
                       <Upload className="h-3.5 w-3.5" />
-                      {uploading === slot ? "Đang tải…" : "Tải ảnh lên"}
+                      {translate(uploading === slot ? "Đang tải…" : "Tải ảnh lên")}
                     </Button>
                     {current[slot] && (
                       <Button size="sm" variant="outline" onClick={() => removeAvatar(slot)}>

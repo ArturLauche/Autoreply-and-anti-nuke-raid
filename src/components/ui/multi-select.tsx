@@ -160,7 +160,9 @@ export function MultiSelect({
               <div className="px-3 py-2 text-sm text-muted-foreground">{emptyLabel}</div>
             )}
             {options.length > 0 && filtered.length === 0 && (
-              <div className="px-3 py-2 text-sm text-muted-foreground">Không khớp "{query}"</div>
+              <div className="px-3 py-2 text-sm text-muted-foreground">
+                {translate("Không khớp")} "{query}"
+              </div>
             )}
             {filtered.map((opt) => {
               const selected = value.includes(opt.value);
@@ -184,7 +186,7 @@ export function MultiSelect({
                   >
                     {selected && <Check className="h-3 w-3" />}
                   </span>
-                  <span className="flex-1 truncate">{opt.label}</span>
+                  <span className="flex-1 truncate">{translate(opt.label)}</span>
                   {opt.sublabel && (
                     <span className="text-xs text-muted-foreground">{opt.sublabel}</span>
                   )}

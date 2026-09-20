@@ -71,8 +71,10 @@ export default function Footer({
         </div>
         <div className="mt-6 flex flex-col items-center justify-between gap-3 border-t border-border/60 pt-6 md:flex-row">
           <p className="text-center text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Protogon Bot · Tự trả lời thông minh, nhiệt độ vi phạm,
-            Join Gate & phòng thủ chống raid cho Discord
+            © {new Date().getFullYear()}{" "}
+            {translate(
+              "Protogon Bot · Tự trả lời thông minh, nhiệt độ vi phạm, Join Gate & phòng thủ chống raid cho Discord",
+            )}
           </p>
           <FooterOwner />
         </div>

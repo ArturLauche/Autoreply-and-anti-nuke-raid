@@ -87,13 +87,14 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
         </div>
         <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
           <BellRing className="h-3.5 w-3.5" />
-          {Object.values(notice).filter((l) => l !== "none").length}/4 đang bật thông báo
+          {Object.values(notice).filter((l) => l !== "none").length}/4{" "}
+          {translate("đang bật thông báo")}
         </Badge>
       </div>
 
       {/* Chọn kênh thông báo */}
       <Card className="border-primary/25">
-        <CardContent className="grid gap-4 p-5 sm:grid-cols-[1fr_auto]">
+        <CardContent className="grid gap-4 p-4 sm:p-5 sm:grid-cols-[1fr_auto]">
           <div className="grid gap-1.5">
             <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Hash className="h-3.5 w-3.5" /> {translate("Kênh gửi thông báo hình phạt")}{" "}
@@ -129,7 +130,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                 })
               }
             >
-              {saving ? "Đang lưu…" : "Lưu kênh"}
+              {translate(saving ? "Đang lưu…" : "Lưu kênh")}
             </Button>
           </div>
         </CardContent>
@@ -141,16 +142,19 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
           const level = notice[action] ?? "none";
           return (
             <Card key={action}>
-              <CardContent className="p-5">
+              <CardContent className="p-4 sm:p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-display font-semibold">{PUNISH_NOTICE_ACTION_LABEL[action]}</p>
+                  <p className="font-display font-semibold">
+                    {translate(PUNISH_NOTICE_ACTION_LABEL[action])}
+                  </p>
                   <Badge className={cn("gap-1 px-2.5 py-1", LEVEL_BADGE[level])}>
-                    {PUNISH_NOTICE_LEVELS.find((l) => l.value === level)?.label}
+                    {translate(PUNISH_NOTICE_LEVELS.find((l) => l.value === level)?.label ?? "")}
                   </Badge>
                 </div>
                 <div className="mt-3 grid gap-1.5">
                   <Label className="text-xs text-muted-foreground">
-                    Nội dung thông báo sau khi bot {action === "warn" ? "warn" : action}
+                    {translate("Nội dung thông báo sau khi bot")}{" "}
+                    {action === "warn" ? "warn" : action}
                   </Label>
                   <Select
                     value={level}
@@ -183,7 +187,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                     <SelectContent>
                       {PUNISH_NOTICE_LEVELS.map((l) => (
                         <SelectItem key={l.value} value={l.value}>
-                          {l.label}
+                          {translate(l.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -207,7 +211,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
         {translate("bot gửi sau khi phạt — kể cả")}{" "}
         <b className="text-foreground">{translate("tự động")}</b>{" "}
         {translate("(chống nuke / auto-mod — Responsible moderator hiển thị là “Bot tự động”) lẫn")}{" "}
-        <b className="text-foreground">{translate("thủ công")}</b> từ lệnh{" "}
+        <b className="text-foreground">{translate("thủ công")}</b> {translate("từ lệnh")}{" "}
         <code className="font-mono">/mod</code>{" "}
         {translate("(hiển thị tên người thực hiện). Lý do để trống → ghi “không có lý do”. Chọn")}{" "}
         <b>{translate("Không gửi tin nhắn")}</b>{" "}

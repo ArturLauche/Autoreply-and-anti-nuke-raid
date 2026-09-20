@@ -33,7 +33,7 @@ export default function UpdateWindow({
             {translate("Cập nhật gần nhất")}{" "}
           </p>
           <p className="mt-0.5 font-mono text-sm font-bold text-foreground">
-            {lastUpdate ? fmtVietnam(lastUpdate) : "chưa có dữ liệu"}
+            {lastUpdate ? fmtVietnam(lastUpdate) : translate("chưa có dữ liệu")}
           </p>
         </div>
         <div className="rounded-lg bg-background/60 p-2.5">
@@ -46,8 +46,11 @@ export default function UpdateWindow({
         </div>
       </div>
       <p className="mt-2.5 text-[11px] text-muted-foreground">
-        Bot tự đồng bộ dữ liệu (trạng thái, số server, chủ sở hữu) lên máy chủ{" "}
-        <b className="text-foreground">mỗi {SYNC_INTERVAL_MS / 1000} giây</b>.
+        {translate("Bot tự đồng bộ dữ liệu (trạng thái, số server, chủ sở hữu) lên máy chủ")}{" "}
+        <b className="text-foreground">
+          {translate("mỗi {p0} giây", { p0: SYNC_INTERVAL_MS / 1000 })}
+        </b>
+        .
       </p>
       {showRefresh && onRefresh && (
         <button
