@@ -13,6 +13,27 @@ _(trống — mọi việc đã xong hoặc chờ yêu cầu mới)_
 
 ---
 
+## 2026-09-20 — Vá bot tự xoay botKey khi bị Convex từ chối + deploy production
+
+- 🐛 Sự cố deploy thật: sau `pm2 restart`, Convex từ chối mọi call (`Chìa khóa
+bot không hợp lệ (botKey)`) — file cache `/protogon/bot/.bot-key` lệch seed
+  phía server, và `ensureBotKey()` chỉ bootstrap khi CHƯA có key → bot kẹt
+  vĩnh viễn, phải nhờ người xóa tay cache. Chữa tức thời: xoay key thủ công
+  (xóa cache → restart → bot bootstrap, prewarm 0/8 → 8/8).
+- ✅ Vá gốc rễ `bot/src/convex.js`: `isBotKeyRejection()` nhận diện lỗi từ chối
+  key (so khớp thông điệp đặc thù của botAuth.ts — không nhầm lỗi mạng); proxy
+  `query/mutation/action` bắt lỗi này → `rotateBotKey()` (bỏ key + xóa cache
+  file + bootstrap lại qua Discord token) → **retry đúng call đó 1 lần**. Lỗi
+  mạng/validator khác KHÔNG xoay oan; xoay dồn dập bị chặn (flag `_rotating`).
+- 🧪 TDD: thêm 4 case vào `scripts/test-convex-client.cjs` (red trên code cũ:
+  call bị từ chối → chết, 0 lượt xoay; xanh sau vá: 1 lượt xoay + retry thành
+  công + cache file ghi lại key mới + lỗi mạng không xoay). 28 pass.
+- 🧪 Deploy: pull up-to-date · 4 lớp xanh · Convex bỏ qua (không đổi convex/) ·
+  pm2 online ổn định, sync nhịp đều, prewarm 8/8, guild mới join được bắt.
+- ▶️ Tiếp theo: không có — chờ yêu cầu mới
+
+---
+
 ## 2026-09-20 — Review toàn bộ bot/src: vá 4 bug bảo mật/hành vi
 
 - 🐛 4 bug thật khi review ~15k dòng `bot/src/`:

@@ -14,6 +14,26 @@ const CONFIG_TTL_PENDING_MS = 30_000;
 const MAX_RETRIES = 3;
 const BASE_RETRY_DELAY_MS = 500;
 
+/** Đường dẫn file cache botKey (nội bộ bootstrap + xoay key). */
+function botKeyFilePath() {
+  const path = require("path");
+  return path.join(process.cwd(), ".bot-key");
+}
+
+/**
+ * Lỗi có PHẢI là Convex từ chối botKey không? Nhận diện theo thông điệp thật
+ * từ convex/botAuth.ts ("Chìa khóa bot không hợp lệ (botKey)" / "Chìa khóa bot
+ * chưa được cấp phát") — so khớp thông điệp vì Convex trả Server Error 500
+ * (không có mã lỗi riêng cho auth), và thông điệp tiếng Việt đặc thù đủ khó
+ * trùng với lỗi khác. KHÔNG khớp lỗi mạng/validator khác → không xoay oan.
+ */
+function isBotKeyRejection(err) {
+  const msg = String(err?.message ?? err ?? "");
+  return (
+    msg.includes("Chìa khóa bot không hợp lệ") || msg.includes("Chìa khóa bot chưa được cấp phát")
+  );
+}
+
 /**
  * Wraps a Convex HTTP call with retry + exponential backoff.
  * Transient network errors and 5xx are retried; 4xx (except 429) fail immediately.
@@ -84,7 +104,21 @@ class ConvexStore {
           if (self.botKey && payload.botKey === undefined) {
             payload.botKey = self.botKey;
           }
-          return target[prop](fnName, payload);
+          try {
+            return await target[prop](fnName, payload);
+          } catch (e) {
+            // Key cache LỆCH (server đã xoay seed / key cũ hết hạn): Convex từ
+            // chối → tự xoay key (bỏ cache + bootstrap lại) rồi retry ĐÚNG call
+            // đó 1 lần. Sự cố thật 20/09/2026: bot kẹt vĩnh viễn với key stale,
+            // phải nhờ người xóa tay .bot-key + restart. Chỉ xoay khi lỗi THẬT
+            // là từ chối botKey (không nhầm với lỗi mạng) và chỉ retry 1 lần.
+            if (isBotKeyRejection(e)) {
+              await self.rotateBotKey();
+              const retry = { ...payload, botKey: self.botKey };
+              return target[prop](fnName, retry);
+            }
+            throw e;
+          }
         };
       },
     });
@@ -109,8 +143,7 @@ class ConvexStore {
     this._botKeyPromise = (async () => {
       try {
         const fs = require("fs");
-        const path = require("path");
-        const keyFile = path.join(process.cwd(), ".bot-key");
+        const keyFile = botKeyFilePath();
         if (fs.existsSync(keyFile)) {
           const cached = fs.readFileSync(keyFile, "utf8").trim();
           if (/^[0-9a-f]{64}$/.test(cached)) {
@@ -149,6 +182,36 @@ class ConvexStore {
       }
     })();
     return this._botKeyPromise;
+  }
+
+  /**
+   * XOAY KEY KHI BỊ TỪ CHỐI: key cache hiện tại lệch seed phía server (server
+   * đã xoay seed / key cũ hết hạn). Bỏ key bộ nhớ + xóa file cache rồi bootstrap
+   * CẤP PHÁT LẠI key mới qua Discord token. Không ném — xoay lỗi thì call gọi
+   * xoay nhận lỗi gốc từ Convex (retry bằng key null bị server từ chối như cũ).
+   */
+  async rotateBotKey() {
+    if (this._rotating) {
+      await this._rotating.catch(() => {});
+      return;
+    }
+    this._rotating = (async () => {
+      try {
+        const fs = require("fs");
+        this.botKey = undefined;
+        try {
+          fs.rmSync(botKeyFilePath(), { force: true });
+        } catch {}
+        // Reset promise bootstrap để ensureBotKey chạy lại từ đầu (không trả
+        // promise cũ đã cache key stale).
+        this._botKeyPromise = null;
+        await this.ensureBotKey();
+        console.log("[auth] 🔄 Đã xoay botKey sau khi bị Convex từ chối (key cache lệch)");
+      } finally {
+        this._rotating = null;
+      }
+    })();
+    await this._rotating.catch(() => {});
   }
 
   /**
