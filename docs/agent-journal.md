@@ -10,6 +10,33 @@ _(trống — mọi việc đã xong hoặc chờ yêu cầu mới)_
 
 ---
 
+## 2026-09-20 — Fix "khoá kín" tràn ngang + thiết kế lại trang server cho điện thoại
+
+- 🐛 Gốc rễ lỗi "nội dung bị khoá kín" (không xem được mép phải): `#root`
+  đặt `overflow-x: clip` — cố ý để không bao giờ có thanh cuộn ngang — nhưng
+  con của grid (`grid lg:grid-cols-[230px_1fr]`) thiếu `min-w-0`, nên nội
+  dung rộng bên trong panel kéo cả track grid rộng hơn màn hình → phần tràn
+  bị cắt vĩnh viễn thay vì cuộn tới được. Kèm theo: nav sidebar dùng `-mx-4`
+  vượt quá padding 12px (`max-sm:px-3`) của container mobile.
+- ✅ Sửa: thêm `min-w-0` cho con grid ở GuildPage/Admin/Monitor + bỏ `-mx-4`
+  ở nav; header trang server tách 2 hàng cho mobile (hàng 1: quay lại + nhận
+  diện server + hành động; hàng 2: dải badge cuộn ngang `-mx-3 px-3` khớp
+  đúng padding nên chạm mép màn hình mà KHÔNG vượt), nút "Mời thêm" chỉ còn
+  icon trên mobile, badge dùng chung 1 khai báo cho 2 hàng; padding header
+  khớp padding nội dung (`max-sm:px-3`) để không lệch trục.
+- ✅ Kèm: panel Alt Detection trước đây viết tiếng Việt KHÔNG DẤU ("Tat",
+  "Canh bao", "Rui ro", "Luot join", "Yeu to"…) — trông như UI lỗi; đã thêm
+  dấu + bọc translate + 22 key EN (nhãn rủi ro dùng key "Rủi ro …" vì
+  "Trung bình" đã là key chỉ số thống kê khác).
+- 📁 File đụng: `src/pages/{GuildPage,Admin,Monitor}.tsx`,
+  `src/components/dashboard/AltDetectionPanel.tsx`, `src/lib/i18n.en.ts`,
+  `docs/agent-journal.md`
+- 🧪 Kiểm chứng: i18n OK · repo-map OK · contract OK · format · lint · tsc ·
+  53/53 suites · preview ready (bản mới đã được serve, kiểm bằng cách tải
+  module GuildPage/AltDetectionPanel qua Vite)
+- ▶️ Tiếp theo: vẫn còn 144 câu nội suy trong panel chưa bọc translate
+  (mục "Đang dở" của entry ngay dưới)
+
 ## 2026-09-20 — Đa ngôn ngữ VI/EN toàn web + Haimiya chat
 
 - ✅ Xong: lõi i18n kiểu gettext (`src/lib/i18n.tsx` — LangProvider/useT,

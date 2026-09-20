@@ -136,8 +136,11 @@ function AdminContent() {
             </div>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
-            <div className="rounded-xl border border-border bg-card p-4">
+          {/* min-w-0 trên con grid: nếu thiếu, nội dung rộng (log dài, ID mono)
+              kéo cả track rộng hơn màn hình → #root overflow-x:clip cắt mất
+              mép phải mà người dùng không cuộn xem được. */}
+          <div className="grid min-w-0 gap-4 lg:grid-cols-[1fr_20rem]">
+            <div className="min-w-0 rounded-xl border border-border bg-card p-4">
               <h2 className="flex items-center gap-2 font-display text-base font-bold">
                 <Activity className="h-4 w-4 text-primary" />
                 {translate("Nhật ký sự cố chi tiết")}{" "}

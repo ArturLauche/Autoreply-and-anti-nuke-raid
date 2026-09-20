@@ -29,10 +29,13 @@ const PUNISH_OPTIONS = [
   { value: "verify", label: "Re-verify", icon: ShieldCheck, color: "text-muted-foreground" },
 ] as const;
 
+// Nhãn ở đây chuỗi tiếng Việt CÓ DẤU (trước đây viết không dấu: "Tat",
+// "Canh bao"… trông như UI lỗi) và được dịch lúc render, không dịch lúc
+// import — hằng số cấp module chỉ eval một lần.
 const VPN_MODES = [
-  { value: "off", label: "Tat", desc: "Khong kiem tra VPN" },
-  { value: "warn", label: "Canh bao", desc: "Ghi log VPN nhung khong chan" },
-  { value: "strict", label: "Nghiem ngat", desc: "Chan VPN/Proxy ngay lap tuc" },
+  { value: "off", label: "Tắt", desc: "Không kiểm tra VPN" },
+  { value: "warn", label: "Cảnh báo", desc: "Ghi log VPN nhưng không chặn" },
+  { value: "strict", label: "Nghiêm ngặt", desc: "Chặn VPN/Proxy ngay lập tức" },
 ] as const;
 
 function riskColor(score: number) {
@@ -42,20 +45,24 @@ function riskColor(score: number) {
   return "bg-secondary text-muted-foreground border-border";
 }
 
+/** Nhãn mức rủi ro — gọi trong lúc render nên translate() luôn đúng ngôn ngữ. */
 function riskLabel(score: number) {
-  if (score >= 70) return "Cao";
-  if (score >= 40) return "Trung binh";
-  if (score >= 20) return "Thap";
-  return "An toan";
+  // Dùng key "Rủi ro …" thay vì "Cao/Trung bình/Thấp": "Trung bình" đã là key
+  // của chỉ số thống kê khác (nghĩa "Average") nên không thể dùng lại.
+  if (score >= 70) return translate("Rủi ro cao");
+  if (score >= 40) return translate("Rủi ro trung bình");
+  if (score >= 20) return translate("Rủi ro thấp");
+  return translate("An toàn");
 }
 
+/** Tuổi tài khoản dạng người đọc được — placeholder {n} để dịch trọn câu. */
 function formatAge(createdAt: number) {
   const days = Math.floor((Date.now() - createdAt) / 86_400_000);
-  if (days < 1) return "hom nay";
-  if (days === 1) return "1 ngay";
-  if (days < 30) return `${days} ngay`;
-  if (days < 365) return `${Math.floor(days / 30)} thang`;
-  return `${Math.floor(days / 365)} nam`;
+  if (days < 1) return translate("hôm nay");
+  if (days === 1) return translate("1 ngày");
+  if (days < 30) return translate("{n} ngày", { n: days });
+  if (days < 365) return translate("{n} tháng", { n: Math.floor(days / 30) });
+  return translate("{n} năm", { n: Math.floor(days / 365) });
 }
 
 type AltConfigData = Record<string, any>;
@@ -87,7 +94,9 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
     setSaving(true);
     try {
       await updateConfig({ token, guildId, altDetectionEnabled: !enabled });
-      toast.success(enabled ? "Da tat alt detection" : "Da bat alt detection");
+      toast.success(
+        enabled ? translate("Đã bật Alt Detection") : translate("Đã tắt Alt Detection"),
+      );
     } catch (e: unknown) {
       toast.error((e as Error).message);
     }
@@ -175,7 +184,7 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Users className="h-3 w-3" /> Luot join (7 ngay)
+                <Users className="h-3 w-3" /> {translate("Lượt join (7 ngày)")}
               </p>
               <p className="text-2xl font-bold mt-1">{altStats.totalJoins7d ?? 0}</p>
             </CardContent>
@@ -183,7 +192,7 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <ShieldAlert className="h-3 w-3 text-danger" /> Rui ro cao
+                <ShieldAlert className="h-3 w-3 text-danger" /> {translate("Rủi ro cao")}
               </p>
               <p className="text-2xl font-bold mt-1 text-danger">{altStats.highRiskCount ?? 0}</p>
             </CardContent>
@@ -257,7 +266,7 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
           {/* VPN Mode */}
           <div>
             <label className="text-sm font-medium text-foreground mb-2 block">
-              Che do VPN/Proxy
+              {translate("Chế độ VPN/Proxy")}
             </label>
             <div className="flex flex-wrap gap-2">
               {VPN_MODES.map((mode) => {
@@ -269,9 +278,9 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
                     onClick={() => setVpnMode(mode.value)}
                     disabled={saving}
                   >
-                    {mode.label}
-                    <span className="ml-1.5 text-xs text-muted-foreground hidden sm:inline">
-                      -- {mode.desc}
+                    {translate(mode.label)}
+                    <span className="ml-1.5 hidden text-xs text-muted-foreground sm:inline">
+                      -- {translate(mode.desc)}
                     </span>
                   </Button>
                 );
@@ -310,21 +319,25 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
       {/* Recent Joins */}
       <Card>
         <CardContent className="p-5">
-          <h4 className="font-semibold text-foreground mb-4">Luot join gan day ({joins.length})</h4>
+          <h4 className="font-semibold text-foreground mb-4">
+            {translate("Lượt join gần đây")} ({joins.length})
+          </h4>
           {joins.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Chua co du lieu join nao.</p>
+            <p className="text-sm text-muted-foreground">
+              {translate("Chưa có dữ liệu join nào.")}
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-xs text-muted-foreground">
-                    <th className="pb-2 pr-4">Thanh vien</th>
-                    <th className="pb-2 pr-4 text-center">Rui ro</th>
-                    <th className="pb-2 pr-4 text-center">Bang chung</th>
-                    <th className="pb-2 pr-4 text-center">Xu ly</th>
-                    <th className="pb-2 pr-4 text-center">Tuoi</th>
+                    <th className="pb-2 pr-4">{translate("Thành viên")}</th>
+                    <th className="pb-2 pr-4 text-center">{translate("Rủi ro")}</th>
+                    <th className="pb-2 pr-4 text-center">{translate("Bằng chứng")}</th>
+                    <th className="pb-2 pr-4 text-center">{translate("Xử lý")}</th>
+                    <th className="pb-2 pr-4 text-center">{translate("Tuổi")}</th>
                     <th className="pb-2 pr-4 text-center">VPN</th>
-                    <th className="pb-2">Yeu to</th>
+                    <th className="pb-2">{translate("Yếu tố")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -408,7 +421,9 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
       {altStats?.topFactors && (
         <Card>
           <CardContent className="p-5">
-            <h4 className="font-semibold text-foreground mb-3">Yeu to rui ro pho bien</h4>
+            <h4 className="font-semibold text-foreground mb-3">
+              {translate("Yếu tố rủi ro phổ biến")}
+            </h4>
             <div className="space-y-2">
               {(altStats.topFactors as Array<[string, number]>).map(([factor, count]) => (
                 <div key={factor} className="flex items-center gap-3">

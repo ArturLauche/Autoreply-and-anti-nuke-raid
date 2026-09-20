@@ -135,6 +135,29 @@ export default function GuildPage() {
     data.guild.lastHeartbeat !== null &&
     Date.now() - data.guild.lastHeartbeat < 180_000;
 
+  // Badge trạng thái server — khai báo 1 lần, dùng lại ở hàng desktop (dưới
+  // tên) và dải cuộn ngang ở mobile, tránh 2 bản JSX lệch nhau.
+  const badges = (
+    <>
+      <Badge variant="outline" className="shrink-0 font-mono">
+        {data.guild.prefix} prefix
+      </Badge>
+      <Badge variant="secondary" className="shrink-0">
+        {data.guild.memberCount?.toLocaleString(dateLocale()) ?? "?"} {translate("thành viên")}
+      </Badge>
+      <Badge variant={data.guild.antinukeEnabled ? "default" : "secondary"} className="shrink-0">
+        <ShieldAlert className="h-3 w-3" />
+        {data.guild.antinukeEnabled ? translate("Chống nuke bật") : translate("Chống nuke tắt")}
+      </Badge>
+      <Badge variant={online ? "success" : "secondary"} className="shrink-0">
+        <span
+          className={`h-1.5 w-1.5 rounded-full ${online ? "bg-foreground" : "bg-muted-foreground"}`}
+        />
+        Bot {online ? "online" : "offline"} · {timeAgo(data.guild.lastHeartbeat)}
+      </Badge>
+    </>
+  );
+
   // Chủ đề màu riêng của server — ghi đè CSS var trong phạm vi trang này.
   const theme = SERVER_THEMES[data.guild.theme] ?? SERVER_THEMES[DEFAULT_THEME];
   const themeVars = {
@@ -147,78 +170,79 @@ export default function GuildPage() {
       <HaimiyaChat position="dashboard" />
       <div className="relative z-10">
         <header className="border-b border-border/60 bg-background/70 backdrop-blur">
-          <div className="container py-4 sm:py-6">
-            <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
-              <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-                <Link
-                  to="/dashboard"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Link>
-                {icon ? (
-                  <img
-                    src={icon}
-                    alt=""
-                    className="h-12 w-12 shrink-0 rounded-2xl max-sm:h-10 max-sm:w-10"
+          {/* Header 2 hàng cho điện thoại: hàng 1 là điều hướng + nhận diện
+              server + hành động (mời bot, đổi ngôn ngữ); hàng 2 là dải badge
+              cuộn ngang. Trước đây tất cả nằm trong 1 hàng flex-wrap nên
+              badge đội chiều cao và hàng hành động bị đẩy xuống, tràn khỏi
+              mép phải (trang bị overflow-x-clip nên phần tràn không xem được). */}
+          <div className="container py-3 max-sm:px-3 sm:py-5">
+            <div className="flex items-center gap-2.5 sm:gap-4">
+              <Link
+                to="/dashboard"
+                aria-label={translate("← Về danh sách server")}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+              {icon ? (
+                <img
+                  src={icon}
+                  alt=""
+                  className="h-10 w-10 shrink-0 rounded-xl sm:h-12 sm:w-12 sm:rounded-2xl"
+                />
+              ) : (
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary font-display text-base font-bold text-muted-foreground sm:h-12 sm:w-12 sm:rounded-2xl sm:text-lg">
+                  {data.guild.name.slice(0, 2).toUpperCase()}
+                </span>
+              )}
+              <div className="flex min-w-0 flex-1 flex-col">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <BotLogo
+                    className="hidden h-10 w-10 shrink-0 ring-2 ring-primary/25 sm:block"
+                    fallbackClassName="h-6 w-6"
                   />
-                ) : (
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-secondary font-display text-lg font-bold text-muted-foreground max-sm:h-10 max-sm:w-10">
-                    {data.guild.name.slice(0, 2).toUpperCase()}
-                  </span>
-                )}
-                <div className="min-w-0">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <BotLogo
-                      className="h-10 w-10 shrink-0 ring-2 ring-primary/25 max-sm:hidden"
-                      fallbackClassName="h-6 w-6"
-                    />
-                    <h1 className="min-w-0 truncate font-display text-2xl font-bold tracking-tight max-sm:text-lg">
-                      {data.guild.name}
-                    </h1>
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5 max-sm:gap-1">
-                    <Badge variant="outline" className="font-mono">
-                      {data.guild.prefix} prefix
-                    </Badge>
-                    <Badge variant="secondary">
-                      {data.guild.memberCount?.toLocaleString(dateLocale()) ?? "?"} thành viên
-                    </Badge>
-                    <Badge variant={data.guild.antinukeEnabled ? "default" : "secondary"}>
-                      <ShieldAlert className="h-3 w-3" />
-                      {data.guild.antinukeEnabled ? "Chống nuke bật" : "Chống nuke tắt"}
-                    </Badge>
-                    <Badge variant={online ? "success" : "secondary"}>
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${online ? "bg-foreground" : "bg-muted-foreground"}`}
-                      />
-                      Bot {online ? "online" : "offline"} · {timeAgo(data.guild.lastHeartbeat)}
-                    </Badge>
-                  </div>
+                  <h1 className="min-w-0 truncate font-display text-lg font-bold tracking-tight sm:text-2xl">
+                    {data.guild.name}
+                  </h1>
                 </div>
+                <div className="mt-1.5 hidden flex-wrap items-center gap-1.5 sm:flex">{badges}</div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                 <LangSwitch />
                 {clientId && (
-                  <a href={buildBotInviteUrl(clientId)} target="_blank" rel="noreferrer">
-                    <Badge variant="secondary" className="cursor-pointer px-3 py-1.5">
-                      <Bot className="h-3.5 w-3.5" /> {translate("Mời thêm")}{" "}
+                  <a
+                    href={buildBotInviteUrl(clientId)}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={translate("Mời thêm")}
+                  >
+                    <Badge variant="secondary" className="cursor-pointer px-2 py-1.5 sm:px-3">
+                      <Bot className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">{translate("Mời thêm")}</span>
                     </Badge>
                   </a>
                 )}
               </div>
             </div>
+
+            {/* Mobile: badge thành dải cuộn ngang, -mx-3/px-3 khớp đúng padding
+                container ở mobile nên dải chạm mép màn hình mà KHÔNG vượt quá. */}
+            <div className="-mx-3 mt-2.5 flex items-center gap-1.5 overflow-x-auto px-3 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden">
+              {badges}
+            </div>
           </div>
         </header>
 
-        <main className="container py-4 max-sm:px-3 max-sm:pb-32 sm:py-8">
-          <div className="grid gap-6 lg:grid-cols-[230px_1fr]">
-            {/* Sidebar */}
-            <aside className="h-fit lg:sticky lg:top-6">
+        <main className="container w-full max-w-full py-4 max-sm:px-3 max-sm:pb-32 sm:py-8">
+          <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-[230px_1fr]">
+            {/* Sidebar — min-w-0: nếu thiếu, nội dung panel rộng (bảng hình
+                phạt 720px…) sẽ kéo cả track grid rộng hơn màn hình và bị
+                overflow-x-clip cắt mất mép phải (không cuộn xem được). */}
+            <aside className="h-fit min-w-0 lg:sticky lg:top-6">
               {/* Mobile: nav cuộn ngang 1 hàng — ẩn thanh cuộn, thêm mũi tên chỉ
                 còn mục bên phải; cuộn bằng tay quét tự nhiên trên điện thoại. */}
               <nav
-                className="-mx-4 flex gap-1 overflow-x-auto rounded-xl border border-border bg-card/50 p-1.5 px-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:mx-0 lg:flex-col lg:overflow-visible lg:px-1.5"
+                className="flex min-w-0 gap-1 overflow-x-auto rounded-xl border border-border bg-card/50 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-col lg:overflow-visible lg:px-1.5"
                 aria-label={translate("Điều hướng bảng điều khiển")}
               >
                 {NAV_ITEMS.map((item) => {
@@ -289,7 +313,7 @@ export default function GuildPage() {
                 Mỗi panel là lazy chunk: mở tab nào mới tải JS tab đó. Suspense nằm
                 Ở ĐÂY (không để bubble lên App) để fallback chỉ thay vùng panel,
                 header/sidebar giữ nguyên khi đang tải chunk. */}
-            <div>
+            <div className="min-w-0">
               <PanelErrorBoundary key={section}>
                 <Suspense fallback={<PanelFallback />}>
                   {section === "overview" && <OverviewPanel data={data} />}

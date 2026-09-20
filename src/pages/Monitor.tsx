@@ -145,8 +145,11 @@ export default function Monitor() {
             </div>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
-            <div className="space-y-4">
+          {/* min-w-0: chặn nội dung rộng kéo track grid vượt màn hình (xem
+              chú thích ở GuildPage) — #root đặt overflow-x:clip nên phần tràn
+              sẽ bị cắt vĩnh viễn. */}
+          <div className="grid min-w-0 gap-4 lg:grid-cols-[1fr_20rem]">
+            <div className="min-w-0 space-y-4">
               {/* Biểu đồ độ trễ */}
               <div className="rounded-xl border border-border bg-card p-4">
                 <div className="flex items-center justify-between">
