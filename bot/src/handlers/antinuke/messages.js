@@ -116,10 +116,12 @@ module.exports = function createAntiNukeLayer({
           reason,
           lockdownActive: isLocked(message.guild.id),
         }).catch(() => {});
-        // Threat Relay (Đợt 6): đóng góp signature raid massMessage (fire-and-forget).
-        relayClient.reportSignatureBatch(message.guild.id, "spam-text", samples);
         // Threat Relay (Đợt 6): đóng góp signature raid cho toàn mạng (fire-and-
         // forget; Convex kiểm guild có bật relayShare — không thì bỏ qua).
+        // GỘP 1 LẦN: gọi 2 lần liên tiếp trước đây làm Convex dedupe tăng weight
+        // +1 cho mỗi lượt → 1 server tự nâng weight 1→2, signature "xác nhận bởi
+        // 1 server" được phân phối toàn mạng như 2 server cùng thấy (vỡ lỗ hổng
+        // chống đầu độc relay MIN_WEIGHT_AGED = 2).
         relayClient.reportSignatureBatch(message.guild.id, "spam-text", samples);
       } else if (isBenign) {
         // Dương tính giả: chỉ xóa tin nhắn, không phạt, không cộng nhiệt.

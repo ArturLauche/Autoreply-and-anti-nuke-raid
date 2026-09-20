@@ -13,6 +13,29 @@ _(trống — mọi việc đã xong hoặc chờ yêu cầu mới)_
 
 ---
 
+## 2026-09-20 — Review toàn bộ bot/src: vá 4 bug bảo mật/hành vi
+
+- 🐛 4 bug thật khi review ~15k dòng `bot/src/`:
+  1. `antinuke/messages.js` gọi `reportSignatureBatch` 2 lần liên tiếp trong
+     nhánh raid → Convex dedupe tăng weight mỗi lần → 1 server tự nâng weight
+     signature 1→2, vượt `MIN_WEIGHT_AGED=2` → signature "xác nhận bởi 1
+     server" được phân phối toàn mạng (vỡ chống đầu độc relay).
+  2. `joinGate.js` burst auto-lockdown chỉ gọi `botUpdateLockdown` (cờ tính
+     năng) — không gọi `botLockState { until }` → `lockdownUntil` không bao
+     giờ được ghi → `tickUnlocks` không mở → server khóa kênh VĨNH VIỄN.
+  3. `interactionCreate.js` khai báo Map `verifyAttempts` (rate-limit captcha
+     DM) + vòng dọn, nhưng KHÔNG BAO GIỜ check → spam nút "Nhận mã" = bot DM
+     vô hạn. Vá: check 3 lần/10 phút trước khi tạo mã.
+  4. `captchaStore.verifyCode` không hủy mã khi sai → brute-force 10^6 tổ hợp
+     trong cửa sổ 5 phút đoán trúng captcha 6 chữ số. Vá: sai 5 lần hủy mã.
+- ✅ Thêm suite `scripts/test-bot-contracts.cjs` (hermetic: regex + require
+  captchaStore) chặn cả 4; suite 54 → **55**.
+- 📁 File đụng: `bot/src/handlers/antinuke/messages.js`, `bot/src/handlers/joinGate.js`,
+  `bot/src/handlers/interactionCreate.js`, `bot/src/captchaStore.js`,
+  `scripts/test-bot-contracts.cjs`, `AGENTS.md`, `docs/repo-map.md`,
+  `.opencode/plugins/guardrails.js`
+- 🧪 Kiểm chứng: 55/55 suites · tsc · lint · format · repo-map · convex-contract xanh
+
 ## 2026-09-20 — Lá chắn hợp đồng web (test-web-contracts) + vá 3 bug dashboard/landing
 
 - 🐛 3 bug thật khi scan `src/`:
