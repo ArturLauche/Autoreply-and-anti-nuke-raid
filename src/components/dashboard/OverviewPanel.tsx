@@ -16,7 +16,7 @@ import { api } from "../../../convex/_generated/api";
 import { Card, CardContent } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { buildBotInviteUrl } from "../../lib/discord";
+import { buildBotInviteUrl, getSessionToken } from "../../lib/discord";
 import { usePublicConfig } from "../../lib/usePublicConfig";
 import { timeAgo } from "../../lib/utils";
 import { ANTINUKE_MODULE_META } from "../../lib/constants";
@@ -25,7 +25,10 @@ import type { AntiNukeEvent, GuildData } from "../../lib/types";
 
 import { dateLocale, translate } from "../../lib/i18n";
 function RecentEvents({ data }: { data: GuildData }) {
-  const token = localStorage.getItem("wio_session_token") ?? "";
+  // Token qua getSessionToken(): bóc đúng cả 2 dạng lưu (sessionStorage thô
+  // khi không "Lưu đăng nhập", localStorage JSON {"t","e"} khi có lưu) —
+  // đọc thô ở đây làm khối "hoạt động gần đây" luôn trắng ở chế độ lưu.
+  const token = getSessionToken();
   const recent = useQuery(api.reports.recentForGuild, {
     token,
     guildId: data.guild.discordId,

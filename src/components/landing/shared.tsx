@@ -2,7 +2,7 @@ import { useQuery } from "convex/react";
 import { Link } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "../ui/button";
-import HaimiyaChat, { HaimiyaAvatar } from "../HaimiyaChat";
+import { HaimiyaAvatar } from "../HaimiyaChat";
 import SectionBoundary from "../SectionBoundary";
 import { useBranding } from "../../lib/useBranding";
 import { getSessionToken } from "../../lib/discord";
@@ -66,5 +66,3 @@ export function useMeSession() {
   const me = useQuery(api.sessions.me, token ? { token } : "skip") as MeData | null | undefined;
   return { token, me };
 }
-
-export { HaimiyaChat };

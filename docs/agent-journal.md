@@ -8,7 +8,31 @@
 
 _(trống — mọi việc đã xong hoặc chờ yêu cầu mới)_
 
+> Lưu ý phiên 20/09/2026: local từng đi sau `origin/main` 3 commit (đợt i18n).
+> Nếu thấy cây thiếu `src/lib/i18n.tsx`/`LangSwitch.tsx` → pull trước khi làm.
+
 ---
+
+## 2026-09-20 — Lá chắn hợp đồng web (test-web-contracts) + vá 3 bug dashboard/landing
+
+- 🐛 3 bug thật khi scan `src/`:
+  1. `OverviewPanel.RecentEvents` đọc `localStorage.getItem("wio_session_token")`
+     thô → chế độ "Lưu đăng nhập" gửi blob JSON `{"t","e"}` làm token (backend
+     từ chối), chế độ session gửi `""` → khối "hoạt động gần đây" luôn trắng.
+     Vá bằng `getSessionToken()`.
+  2. `Landing` dispatch event `"haimiya-open"` (hero + `HaimiyaSection`) nhưng
+     KHÔNG mount `<HaimiyaChat/>` → bấm "Hỏi Haimiya" chết lặng. Vá: mount chat.
+  3. `AnalyticsPanel` + `AuditLogPanel` chết (không ai import) vẫn nằm repo →
+     hiểu nhầm còn dùng. Đã xoá (lịch sử thật do `GuildHistory` phục vụ).
+- ✅ Thêm suite hermetic `scripts/test-web-contracts.cjs` chặn tái diễn cả 3:
+  kỷ luật token (chỉ `lib/discord.ts` chạm storage thô), trang dispatch
+  `haimiya-open` phải mount chat, không panel chết. Suite 53 → **54**.
+- 📁 File đụng: `src/components/dashboard/OverviewPanel.tsx`,
+  `src/pages/Landing.tsx`, `src/components/landing/shared.tsx`,
+  `scripts/test-web-contracts.cjs`, `AGENTS.md`, `docs/{repo-map,agent-journal}.md`,
+  `.opencode/plugins/guardrails.js`
+- 🧪 Kiểm chứng: 54/54 suites · tsc · lint · format · repo-map · convex-contract ·
+  i18n đều xanh
 
 ## 2026-09-20 — Đa ngôn ngữ VI/EN phủ HẾT (gồm chuỗi nội suy) + thu gọn layout mobile
 
