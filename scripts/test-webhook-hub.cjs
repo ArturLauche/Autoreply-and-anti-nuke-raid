@@ -361,6 +361,106 @@ function fakeEmbed(color = 0xff0000) {
     );
   }
 
+  // ── 7. util.sendLog/sendModLog: định tuyến ĐÚNG kênh, không gửi trùng ─────
+  // Gốc rễ từng gặp: case log moderation (ban/kick) đi qua webhook mặc định
+  // nằm ở kênh log chung thay vì kênh hình phạt đã cấu hình (sai kênh); log
+  // antinuke nào cũng bị gắn nhãn "raid" vì chữ "Raid" trong "Nuke/Raid".
+  {
+    const util = require("../bot/src/util.js");
+    const sentChannels = [];
+    const guild = {
+      id: "g-route",
+      name: "G-Route",
+      channels: {
+        fetch: async (cid) => ({
+          id: cid,
+          isTextBased: () => true,
+          send: async (payload) => {
+            sentChannels.push({ channelId: cid, payload });
+            return {};
+          },
+        }),
+      },
+    };
+    // Webhook mặc định DUY NHẤT nằm ở kênh log chung ch-log.
+    const store = makeStore({
+      webhooks: [
+        {
+          _id: "def-log",
+          isDefault: true,
+          enabled: true,
+          eventTypes: ["all"],
+          webhookId: "w-log",
+          token: "t-log",
+          channelId: "ch-log",
+        },
+      ],
+    });
+    hub.init({}, store);
+    hub.invalidateCache("g-route");
+    const fakeEmbed = { data: { title: "Test" } };
+
+    // 7a. Case ban về kênh phạt ch-punish: webhook ch-log bị loại → gửi thẳng
+    // ch-punish, KHÔNG dùng webhook lạc kênh.
+    const whBefore = whClients.length;
+    sentChannels.length = 0;
+    await util.sendModLog(guild, {}, fakeEmbed, "ch-punish", "ban", {});
+    check(
+      "case ban → thẳng kênh phạt ch-punish (không qua webhook kênh khác)",
+      sentChannels.length === 1 && sentChannels[0].channelId === "ch-punish",
+    );
+    check("case ban → không tạo WebhookClient mới", whClients.length === whBefore);
+
+    // 7b. Case ban về đúng ch-log (nơi webhook sống) → đi qua webhook.
+    sentChannels.length = 0;
+    await util.sendModLog(guild, {}, fakeEmbed, "ch-log", "ban", {});
+    const usedWh = whClients[whClients.length - 1];
+    check(
+      "case ban đúng kênh webhook → gửi qua webhook",
+      sentChannels.length === 0 && usedWh?.id === "w-log" && usedWh.sent.length === 1,
+    );
+
+    // 7c. Log raid khẩn (critical) → chỉ kênh log chung; webhook kênh khác bị bỏ.
+    sentChannels.length = 0;
+    const whBefore2 = whClients.length;
+    await util.sendLog(guild, { logChannelId: "ch-log2" }, fakeEmbed, "raid", {});
+    check(
+      "log raid → thẳng kênh log chung ch-log2 (webhook ch-log bị loại)",
+      sentChannels.length === 1 && sentChannels[0].channelId === "ch-log2",
+    );
+    check("log raid lạc kênh → không dùng webhook", whClients.length === whBefore2);
+
+    // 7d. Log raid + webhook cùng kênh log → qua webhook, không gửi kênh trùng.
+    sentChannels.length = 0;
+    await util.sendLog(guild, { logChannelId: "ch-log" }, fakeEmbed, "raid", {});
+    const usedWh2 = whClients[whClients.length - 1];
+    check(
+      "log raid cùng kênh webhook → 1 lần qua webhook, không trùng kênh",
+      sentChannels.length === 0 && usedWh2?.id === "w-log",
+    );
+  }
+
+  // ── 8. util.inferEventType: phân biệt raid thật vs nuke cấu trúc ───────────
+  {
+    const util = require("../bot/src/util.js");
+    check(
+      "Ban hàng loạt → antinuke (không phải raid)",
+      util.inferEventType({ data: { title: "🚨 Anti Nuke/Raid: Ban hàng loạt" } }) === "antinuke",
+    );
+    check(
+      "Raid thành viên → raid",
+      util.inferEventType({ data: { title: "🚨 Anti Nuke/Raid: Raid thành viên!" } }) === "raid",
+    );
+    check(
+      "Alt Detection → join (khớp 'alt detect')",
+      util.inferEventType({ data: { title: "🔍 Alt Detection: user-x" } }) === "join",
+    );
+    check(
+      "Join Gate → join",
+      util.inferEventType({ data: { title: "🚪 Join Gate: đã chặn thành viên" } }) === "join",
+    );
+  }
+
   console.log(`\nKết quả: ${pass} pass, ${fail} fail`);
   process.exit(fail > 0 ? 1 : 0);
 })().catch((e) => {

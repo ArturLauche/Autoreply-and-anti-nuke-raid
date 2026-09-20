@@ -200,6 +200,7 @@ module.exports.MODULE_LABELS = shared.MODULE_LABELS;
 module.exports.messageFingerprint = shared.messageFingerprint;
 module.exports.isExternalAppSpam = shared.isExternalAppSpam;
 module.exports.joinClusterSuspicion = shared.joinClusterSuspicion;
+module.exports.joinWaveVerdict = shared.joinWaveVerdict;
 module.exports.memberSuspicionScore = shared.memberSuspicionScore;
 module.exports.isExempt = shared.isExempt;
 module.exports.isTrustedBotMember = shared.isTrustedBotMember;

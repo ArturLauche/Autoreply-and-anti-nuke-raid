@@ -15,9 +15,11 @@ module.exports = function createAntiNukeLayer({ client, store, ai }) {
    * extraExecutors: [User] — kẻ thực hiện hành vi phá hoại (audit log) gần đây.
    *
    * Điểm nghi vấn deterministic (chạy được cả khi AI offline):
-   *   +5  kẻ thực hiện hành vi phá hoại (audit log) / tạo invite
+   *   +5  kẻ thực hiện hành vi HỦY DIỆT (ban/kick/xóa kênh-role-thread, tạo
+   *       webhook) / executor của vụ cấu trúc đã xác nhận
    *   +3  avatar trùng với >= 1 acc khác trong cụm (cùng bộ tài nguyên)
-   *   +2  acc mới < 7 ngày (sockpuppet) HOẶC acc cũ >= 180 ngày (nghi chủ acc chính)
+   *   +2  acc mới < 7 ngày (sockpuppet) HOẶC acc cũ >= 180 ngày (nghi chủ acc
+   *       chính) HOẶC hoạt động quản trị lành tính gần đây (tạo kênh/role/invite)
    *   +1  username dạng máy (chữ + đuôi số) / vào cùng nhịp 3 giây
    * AI phân tích thêm (best-effort): nếu AI khẳng định "coordinated", điểm tăng.
    * Nghi phạm điểm >= 4 → ban (theo raidHuntBanSuspects) với lý do Raid Intel.
@@ -83,31 +85,48 @@ module.exports = function createAntiNukeLayer({ client, store, ai }) {
       push(m.id, m.username, score, parts);
     }
 
-    // Kẻ thực hiện hành vi phá hoại / tạo invite gần đây (audit log) — tín hiệu mạnh nhất.
-    const auditExecutors = [];
+    // Kẻ thực hiện hành vi gần đây (audit log) — phân tầng điểm theo MỨC PHÁ HOẠI:
+    // hành vi HỦY DIỆT (ban/kick/xóa kênh/role/thread, tạo webhook) = +5 (mạnh);
+    // hành vi TẠO MỚI lành tính (tạo kênh/role, tạo invite) = +2 — mod làm việc
+    // thường ngày (mở kênh sự kiện, tạo link mời) KHÔNG bị đẩy oan lên diện ban
+    // (ngưỡng 4) chỉ vì trùng thời điểm sóng join.
+    const DESTRUCTIVE_ACTIONS = new Set([
+      AuditLogEvent.MemberBanAdd,
+      AuditLogEvent.MemberKick,
+      AuditLogEvent.ChannelDelete,
+      AuditLogEvent.RoleDelete,
+      AuditLogEvent.WebhookCreate,
+      AuditLogEvent.ThreadDelete,
+    ]);
+    const BENIGN_ACTIONS = new Set([
+      AuditLogEvent.InviteCreate,
+      AuditLogEvent.ChannelCreate,
+      AuditLogEvent.RoleCreate,
+    ]);
+    const auditExecutors = []; // { user, weight }
     try {
       const entries = await guild.fetchAuditLogs({ limit: 25 });
-      const relevant = [
-        AuditLogEvent.InviteCreate,
-        AuditLogEvent.MemberBanAdd,
-        AuditLogEvent.MemberKick,
-        AuditLogEvent.ChannelDelete,
-        AuditLogEvent.ChannelCreate,
-        AuditLogEvent.RoleDelete,
-        AuditLogEvent.RoleCreate,
-        AuditLogEvent.WebhookCreate,
-        AuditLogEvent.ThreadDelete,
-      ];
       for (const e of entries.entries.values()) {
         if (!e.executor || e.executor.id === client.user.id) continue;
-        if (!relevant.includes(e.action)) continue;
+        const weight = DESTRUCTIVE_ACTIONS.has(e.action) ? 5 : BENIGN_ACTIONS.has(e.action) ? 2 : 0;
+        if (weight === 0) continue;
         if (now - e.createdTimestamp > 30 * 60_000) continue; // chỉ 30 phút gần nhất
-        auditExecutors.push(e.executor);
+        auditExecutors.push({ user: e.executor, weight });
       }
     } catch {
       // không đọc được audit log — bỏ qua
     }
-    for (const ex of [...auditExecutors, ...extraExecutors]) {
+    for (const { user: ex, weight } of auditExecutors) {
+      push(
+        ex.id,
+        ex.username,
+        weight,
+        weight >= 5
+          ? ["thực hiện hành vi phá hoại (audit log)"]
+          : ["hoạt động quản trị gần đây (audit log)"],
+      );
+    }
+    for (const ex of extraExecutors) {
       push(ex.id, ex.username, 5, ["thực hiện hành vi phá hoại (audit log)"]);
     }
 
@@ -138,7 +157,7 @@ module.exports = function createAntiNukeLayer({ client, store, ai }) {
               )
               .join("\n"),
             auditExecutors.length
-              ? `Người thực hiện phá hoại gần đây: ${auditExecutors.map((e) => e.username).join(", ")}`
+              ? `Người thực hiện gần đây: ${auditExecutors.map((e) => e.user.username).join(", ")}`
               : undefined,
           )
         : null;

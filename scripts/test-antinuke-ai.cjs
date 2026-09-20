@@ -369,6 +369,39 @@ Module._load = function (request, parent) {
     check("executor cũ (>30 phút) bị loại", !res.reason.includes("cu"));
   }
 
+  // ── 12b. audit executor LÀNH TÍNH (tạo invite/kênh) chỉ +2 → không đủ ngưỡng ban ──
+  {
+    bans.length = 0;
+    const now = Date.now();
+    const { AuditLogEvent } = require("../bot/test-djs-mock.cjs");
+    const auditEntries = [
+      {
+        executor: { id: "mod-lanh", username: "mod-tao-invite" },
+        action: AuditLogEvent.InviteCreate,
+        createdTimestamp: now - 60_000,
+      },
+    ];
+    const guild = makeGuild({
+      fetchAuditLogs: async () => ({ entries: { values: () => auditEntries[Symbol.iterator]() } }),
+    });
+    // Cụm gồm 1 acc hồ sơ SẠCH (0 điểm) + mod tạo invite (+2) = 2 < 4 → không ban oan.
+    const cleanCluster = [
+      {
+        id: "clean-2",
+        username: "nguoidung",
+        avatar: "unique-avatar",
+        createdAt: now - 30 * DAY,
+        joinedAt: now,
+      },
+    ];
+    const { huntRaidSource } = createRaidIntel({ client, store, ai: {} });
+    const res = await huntRaidSource(guild, {}, cleanCluster, []);
+    check(
+      "mod tạo invite gần đây (+2) KHÔNG bị ban oan làm nguồn raid",
+      res.banned === false && bans.length === 0,
+    );
+  }
+
   // ── 13. recordRaidSample: ghi mutation, nuốt lỗi ──
   {
     mutations.length = 0;

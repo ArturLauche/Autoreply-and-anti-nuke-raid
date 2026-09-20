@@ -293,9 +293,10 @@ function moduleCfgOf(config, module) {
  * Điểm nghi vấn của MỘT tài khoản trong cụm raid (pure function, test được):
  * acc mới <7 ngày (+2), avatar mặc định (+1), username dạng máy "tên + số cuối" (+1).
  * Mức CỤM (joinClusterSuspicion): điểm >= 2 = đáng ngờ (đủ acc mới là đủ tín hiệu cụm).
- * Mức CÁ NHÂN (kick từng người trong cụm hỗn hợp): điểm >= 3 — tức acc mới PHẢI kèm
- * thêm ít nhất 1 tín hiệu nữa (avatar mặc định / username máy). Chỉ riêng "acc mới"
- * chưa đủ để kick: người thật mới tạo tài khoản cũng có acc <7 ngày.
+ * Mức CÁ NHÂN (kick từng người trong cụm hỗn hợp): điểm >= 4 — tức acc mới PHẢI
+ * kèm thêm ÍT NHẤT 2 tín hiệu độc lập nữa (avatar mặc định + tên máy, hoặc các
+ * tổ hợp tương đương). Ngưỡng 3 cũ vẫn kick oan người thật mới lập acc (mới +
+ * default avatar) đi kèm sóng đông → nâng lên 4.
  */
 function memberSuspicionScore(p, now = Date.now()) {
   if (!p || !p.id) return 0;
@@ -313,6 +314,13 @@ function memberSuspicionScore(p, now = Date.now()) {
  * Cụm tăng trưởng tự nhiên (server viral, được quảng bá) có hồ sơ bình thường
  * → ratio đáng ngờ thấp → bot bỏ qua thay vì kick cả server oan.
  * Tài khoản đáng ngờ = điểm >= 2 (xem memberSuspicionScore).
+ *
+ * NÂNG CẤP PHÂN BIỆT RAID (chống "báo raid tào lao"): acc mới một mình CHƯA
+ * ĐỦ kết luận raid — cụm acc mới có avatar + tên người (bạn bè rủ nhau vào)
+ * rất hay gặp ở server thật. Trường `raidLikely` chỉ true khi có thêm ÍT
+ * NHẤT 1 tín hiệu PHỐI HỢP độc lập: avatar mặc định ồ ạt / tên dạng máy ồ ạt
+ * / avatar dùng chung / acc mới ồ ạt / vào dồn dập cùng nhịp. Không có tín
+ * hiệu phối hợp → chỉ là tăng trưởng tự nhiên lẫn vài acc mới, KHÔNG raid.
  */
 function joinClusterSuspicion(profiles, now = Date.now()) {
   const list = (profiles || []).filter((p) => p && p.id);
@@ -320,14 +328,42 @@ function joinClusterSuspicion(profiles, now = Date.now()) {
   let defaultAvatars = 0;
   let machineNames = 0;
   let suspicious = 0;
+  const avatarCounts = new Map();
+  const burstBuckets = new Map();
   for (const p of list) {
     const score = memberSuspicionScore(p, now);
     const ageDays = p.createdAt ? (now - p.createdAt) / 86_400_000 : NaN;
     if (Number.isFinite(ageDays) && ageDays < 7) freshAccounts += 1;
     if (!p.avatar) defaultAvatars += 1;
+    else avatarCounts.set(p.avatar, (avatarCounts.get(p.avatar) ?? 0) + 1);
     if (/^[A-Za-z][A-Za-z0-9_]*\d{3,}$/.test(p.username || "")) machineNames += 1;
     if (score >= 2) suspicious += 1;
+    const bucket = Math.round((p.joinedAt || now) / 3000);
+    burstBuckets.set(bucket, (burstBuckets.get(bucket) ?? 0) + 1);
   }
+  const sharedAvatarGroups = [...avatarCounts.values()].filter((c) => c >= 2).length;
+  const sharedAvatarMembers = [...avatarCounts.values()]
+    .filter((c) => c >= 2)
+    .reduce((a, b) => a + b, 0);
+  const maxBurst = burstBuckets.size > 0 ? Math.max(...burstBuckets.values()) : 0;
+  // Tín hiệu phối hợp: mỗi tín hiệu là một DẠNG bằng chứng độc lập. Chia 2 tầng:
+  //  - CỨNG (hard): tên dạng máy ồ ạt / avatar dùng chung / avatar mặc định áp
+  //    đảo (≥2/3 cụm) — người thật đi lẻ hiếm khi trùng nhau kiểu này.
+  //  - MỀM (soft): acc mới ồ ạt / vào dồn dập cùng nhịp — sóng viral thật cũng
+  //    có thể như vậy nên MỘT tín hiệu mềm đơn lẻ KHÔNG đủ kết luận raid.
+  // raidLikely = đáng ngờ ≥50% VÀ (≥1 cứng HOẶC ≥2 mềm). Quy tắc này chặn báo
+  // raid oan cho "nhóm bạn acc mới rủ nhau vào" (chỉ có mềm) mà vẫn bắt raid
+  // tool (luôn dính ít nhất 1 cứng: tên máy / avatar mặc định / avatar trùng).
+  const half = Math.ceil(list.length / 2);
+  const hardSignals = [];
+  if (machineNames >= Math.max(2, half)) hardSignals.push("tên dạng máy ồ ạt");
+  if (sharedAvatarGroups >= 1) hardSignals.push("avatar dùng chung");
+  if (defaultAvatars >= Math.max(3, Math.ceil((list.length * 2) / 3)))
+    hardSignals.push("avatar mặc định ồ ạt");
+  const softSignals = [];
+  if (freshAccounts >= Math.max(3, half)) softSignals.push("acc mới ồ ạt");
+  if (maxBurst >= Math.max(3, half)) softSignals.push("vào dồn dập cùng nhịp");
+  const strongSignals = [...hardSignals, ...softSignals];
   return {
     total: list.length,
     suspicious,
@@ -335,7 +371,42 @@ function joinClusterSuspicion(profiles, now = Date.now()) {
     freshAccounts,
     defaultAvatars,
     machineNames,
+    sharedAvatarGroups,
+    sharedAvatarMembers,
+    maxBurst,
+    strongSignals,
+    raidLikely:
+      list.length > 0 &&
+      suspicious / list.length >= 0.5 &&
+      (hardSignals.length >= 1 || softSignals.length >= 2),
   };
+}
+
+/**
+ * Phán quyết 3 mức cho một làn sóng join (pure function, test được):
+ *  - "raid"   : cụm đáng ngờ + có tín hiệu phối hợp → xử lý + báo động.
+ *  - "watch"  : có dấu hiệu nhưng chưa đủ chắc → ghi nhận + theo dõi, KHÔNG
+ *    phạt, KHÔNG báo động raid (chống báo raid tào lao).
+ *  - "calm"   : hồ sơ bình thường → chỉ ghi nhận cho dashboard, KHÔNG gửi
+ *    thông báo ra kênh log.
+ */
+function joinWaveVerdict(sus) {
+  const total = sus?.total ?? 0;
+  const suspicious = sus?.suspicious ?? 0;
+  if (total === 0) return { level: "calm", reason: "không có dữ liệu" };
+  if (sus?.raidLikely === true) {
+    return {
+      level: "raid",
+      reason: `tín hiệu phối hợp: ${(sus.strongSignals || []).join(", ")}`,
+    };
+  }
+  if (sus && (sus.ratio >= 0.3 || suspicious >= 2)) {
+    return {
+      level: "watch",
+      reason: `có dấu hiệu nhưng chưa đủ chắc (${suspicious}/${total} đáng ngờ)`,
+    };
+  }
+  return { level: "calm", reason: `hồ sơ bình thường (${suspicious}/${total} đáng ngờ)` };
 }
 
 // Các hàm thuần (messageFingerprint, isExternalAppSpam, appNameSuspicion, normalizeFuzzy)
@@ -357,6 +428,7 @@ module.exports = {
   moduleCfgOf,
   memberSuspicionScore,
   joinClusterSuspicion,
+  joinWaveVerdict,
   messageFingerprint,
   isExternalAppSpam,
   BUCKET_MAX,

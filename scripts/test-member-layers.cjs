@@ -324,25 +324,32 @@ module.exports = {
           m.args.until !== undefined,
       ),
     );
+    check(
+      "1 làn sóng = 1 sự kiện (không log trùng)",
+      calls.events.filter((e) => e.module === "massJoin").length === 1,
+    );
   }
 
   // ── 6. massJoin: làn sóng acc mới đáng ngờ → chỉ phạt acc ĐÁNG NGỜ, người thật đi kèm được bỏ qua ──
+  // CHỐNG LOG TRÙNG: 1 làn sóng chỉ xử lý + ghi nhận 1 lần (join đầu chạm ngưỡng);
+  // các join nối tiếp trong cùng đợt không bắn thêm sự kiện/phạt lặp.
   {
     clear();
     const gid = "g-raid";
     const bots = [];
     for (let i = 0; i < 6; i++) {
-      // acc mới + không avatar + tên máy móc → suspicion >= 3
+      // acc mới + không avatar + tên máy móc → suspicion 4 (>= 4: đủ 2 tín hiệu độc lập)
       bots.push(makeMember("alt" + String(100000 + i), { fresh: true, avatar: null }));
     }
     const realFriend = makeMember("guest-9", { fresh: false, avatar: "av" }); // hồ sơ bình thường lẫn trong sóng
+    // Người thật lẫn trong 5 join ĐẦU (đợt xử lý duy nhất) để kiểm gate bỏ qua.
+    const order = [...bots.slice(0, 4), realFriend, ...bots.slice(4)];
     const guild = makeGuild(gid, [...bots, realFriend]);
     configs.set(gid, baseConfig());
     client.guilds.cache.set(gid, guild);
-    for (const m of [...bots, realFriend]) await members.handleRaidJoin(m);
-    // Window 10s còn chưa hết → các join sau vẫn cộng dồn: module bắn NHIỀU LẦN (5, 6, 7).
-    // Lấy sự kiện CUỐI (đủ toàn bộ 7 join) để khẳng định guest-9 được bỏ qua.
-    const ev = calls.events.filter((e) => e.module === "massJoin").at(-1);
+    for (const m of order) await members.handleRaidJoin(m);
+    const massEvs = calls.events.filter((e) => e.module === "massJoin");
+    const ev = massEvs.at(-1);
     const punished = new Set([...calls.memberKicks, ...calls.memberBans, ...calls.memberTimeouts]);
     check(
       "cụm acc mới đáng ngờ → bị xử lý",
@@ -352,9 +359,60 @@ module.exports = {
       "người thật lẫn trong sóng được bỏ qua (không bị kick oan)",
       !punished.has("guest-9") && String(ev?.action ?? "").includes("bỏ qua"),
     );
+    check("1 làn sóng = đúng 1 sự kiện (join nối tiếp không bắn thêm)", massEvs.length === 1);
+    check("mỗi acc chỉ bị phạt 1 lần (không phạt lặp)", calls.memberKicks.length === punished.size);
     check(
       "ghi mẫu raid sample cho threat intel",
       calls.raidSamples.some((s) => s.module === "massJoin"),
+    );
+  }
+
+  // ── 6b. massJoin: acc mới nhưng CHỈ 1 tín hiệu yếu (điểm 3) → không phạt cá nhân ──
+  {
+    clear();
+    const gid = "g-weak";
+    // acc mới (<7 ngày) + default avatar + tên người → điểm 3: nghi nhưng chưa
+    // đủ 2 tín hiệu độc lập để kick. Gate cá nhân đã nâng lên >= 4.
+    const weak = [];
+    for (let i = 0; i < 5; i++) {
+      weak.push(
+        makeMember("newbie-" + i, { fresh: true, avatar: null, username: "nguoi-that-" + i }),
+      );
+    }
+    const guild = makeGuild(gid, weak);
+    configs.set(gid, baseConfig());
+    client.guilds.cache.set(gid, guild);
+    for (const m of weak) await members.handleRaidJoin(m);
+    const punished = new Set([...calls.memberKicks, ...calls.memberBans, ...calls.memberTimeouts]);
+    check("acc điểm 3 (1 tín hiệu) trong sóng → không ai bị phạt", punished.size === 0);
+  }
+
+  // ── 6c. massJoin: AI phủ quyết cụm nghi vấn → hạ cấp theo dõi, không phạt ──
+  {
+    clear();
+    const gid = "g-ai-veto";
+    const bots = [];
+    for (let i = 0; i < 5; i++) {
+      bots.push(makeMember("veto" + String(200000 + i), { fresh: true, avatar: null }));
+    }
+    const guild = makeGuild(gid, bots);
+    configs.set(gid, baseConfig());
+    client.guilds.cache.set(gid, guild);
+    const aiVeto = {
+      ...ai,
+      aiAnalyzeRaid: async () => ({
+        coordinated: false,
+        confidence: 0.9,
+        reasoning: "giống đợt mời bạn bè",
+      }),
+    };
+    const membersVeto = createMembers({ store, state, core, ai: aiVeto, raidIntel });
+    for (const m of bots) await membersVeto.handleRaidJoin(m);
+    const punished = new Set([...calls.memberKicks, ...calls.memberBans, ...calls.memberTimeouts]);
+    check("AI veto (không phối hợp, tin cậy cao) → không phạt ai", punished.size === 0);
+    check(
+      "AI veto → vẫn ghi nhận sự kiện",
+      calls.events.some((e) => e.module === "massJoin"),
     );
   }
 

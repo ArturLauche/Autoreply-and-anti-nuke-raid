@@ -233,6 +233,7 @@ async function ensureDefaultWebhook(guild, channelId) {
       name: created.name,
       webhookId: created.id,
       token: created.token,
+      channelId,
       color: null,
       contentTemplate: null,
       eventTypes: ["all"],
