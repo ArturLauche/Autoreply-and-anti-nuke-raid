@@ -10,6 +10,22 @@ _(trống — mọi việc đã xong hoặc chờ yêu cầu mới)_
 
 ---
 
+## 2026-09-20 — Audit hợp đồng + 2 skill an toàn kiến trúc
+
+- ✅ Xong: audit số suites lệch 3 nơi (49/41 → 52, CONTRACT_SUITES là nguồn
+  duy nhất); thêm skill `convex-contract-guard` + script
+  `check-convex-contract.cjs` (78 call bot ⇄ 191 exports, CI job lint) và
+  skill `schema-migration-safety` (checklist 2 client lệch pha); AGENTS.md
+  Pha 3/4 + ship.md + guardrails compaction + repo-map cập nhật đồng bộ
+- 📁 File đụng: `AGENTS.md`, `scripts/check-convex-contract.cjs`,
+  `.opencode/skills/{convex-contract-guard,schema-migration-safety}/SKILL.md`,
+  `.github/workflows/ci.yml`, `docs/repo-map.md`, `.opencode/{commands,plugins}`
+- 🧪 Kiểm chứng: format OK · lint OK · 52/52 suites · repo-map OK ·
+  contract OK + self-test script bắt đúng lỗi giả lập
+- 🧹 Dọn dẹp cuối phiên: sửa 2 SKILL.md vỡ code fence + dọn thư mục rác
+  `.tmp-contract-test/` (dùng nhầm làm TMPDIR, đã mv ra /tmp giữ nguyên dữ liệu)
+- ▶️ Tiếp theo: không có — chờ yêu cầu mới
+
 ## 2026-09-20 — Thêm 2 skill tiết kiệm token
 
 - ✅ Xong: skill `token-economy` (search-first, đọc cửa sổ) + `verification-loop`

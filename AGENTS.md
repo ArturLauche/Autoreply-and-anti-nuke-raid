@@ -46,12 +46,14 @@ Mỗi mục todo = một kết quả kiểm chứng được, không phải mộ
 - Làm đúng **một mục todo** một lúc; xong cái nào cập nhật todo cái đó (không đợi cuối)
 - Việc phát sinh giữa chừng → **thêm vào todo** rồi làm, không làm lén ngoài kế hoạch
 - **Skills tự kích hoạt theo ngữ cảnh** (đọc qua mô tả skill rồi nạp khi khớp —
-  12 skills trong `.opencode/skills/`):
+  14 skills trong `.opencode/skills/`):
   - Nhánh việc: debug bug thật → `debugging-and-error-recovery`; đụng
     input/auth/data/dependency → `security-and-hardening`; vá logic/đổi hành
     vi → `test-driven-development`; quyết định rủi ro cao ở production →
     `doubt-driven-development`; trước merge → `code-review-and-quality`;
-    audit bảo mật lớn gọi `/audit`
+    đổi tên/xoá function Convex hoặc thêm call từ bot →
+    `convex-contract-guard`; đụng `convex/schema.ts` →
+    `schema-migration-safety`; audit bảo mật lớn gọi `/audit`
   - Nền tảng phiên: đầu phiên → `repo-map` (định hướng) + `progress-journal`
     (chỗ dừng) + `decision-log` (quyết định chốt sẵn); lập kế hoạch ≥3 bước
     → `strategy-mindmap`; đọc file/chạy lệnh nhiều → `token-economy`; chạy
@@ -75,6 +77,9 @@ thôi. Khi nghi file có thể sửa dở: xem `git diff` trước khi sửa ti�
 - [ ] `bun run lint` — sạch
 - [ ] `node scripts/check-repo-map.cjs` — bản đồ khớp cấu trúc thật (chỉ khi
       thêm/xoá trang/panel/module/Convex function; CI cũng chặn bước này)
+- [ ] `node scripts/check-convex-contract.cjs` — hợp đồng bot ⇄ Convex khớp
+      (chỉ khi đổi tên/di chuyển function Convex hoặc thêm/sửa call từ bot;
+      CI cũng chặn bước này)
 - [ ] `bun run format:check` — format Prettier sạch. Lệch format → chạy `bun run format` rồi kiểm tra lại (đây là biến đổi tất-định, tự sửa được; CI đã đỏ 5 run liên tiếp vì quên bước này — 19/09/2026)
 - [ ] Đụng file trong `convex/` → chạy `bun convex dev --once` (codegen) **trước** typecheck
 - [ ] Bug thuộc engine đã có test (antinuke, altDetection, heat, joinGate, backup,
@@ -146,7 +151,11 @@ Các lệnh kiểm chứng đã được allow sẵn trong `opencode.json` — c
 - **Kiến trúc**: `bot/` (discord.js trên VPS) ⇄ Convex (DB + backend) ⇄ `src/` (dashboard web).
 - **Bảo mật**: action bảo mật cao dùng `botKey = SHA-256("protogon-bot-key::" + OWNER_SEED)`
   (`convex/botAuth.ts`). Bot tự bootstrap key và cache vào `bot/.bot-key` (đã gitignore).
-- **CI**: lint → test (coverage floor) → deploy Convex. Thay đổi làm CI đỏ coi như chưa xong.
+- **CI**: lint (kèm check repo-map + hợp đồng bot⇄Convex) → test (coverage
+  floor) → deploy Convex. Thay đổi làm CI đỏ coi như chưa xong.
+- **Hợp đồng bot ⇄ Convex**: bot gọi function bằng tên chuỗi
+  (`"bot_writes:botClaimBackup"`) — tsc không phủ; đổi tên function phải grep
+  - sửa cả 2 phía, script `check-convex-contract.cjs` chốt hạ.
 - **Vấn đề đã biết**: Groq retire `llama-3.3-70b-versatile` 08/2026 — code có self-heal
   fallback `openai/gpt-oss-120b` trong `convex/haimiya.ts`; đừng hardcode lại model cũ.
   Gateway Kiira (`KIRA_API_KEY`/`KIRA_BASE_URL`/`KIRA_MODEL`) là provider AI chính của bot.

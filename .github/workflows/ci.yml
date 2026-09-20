@@ -74,6 +74,11 @@ jobs:
       # cập nhật bản đồ) ngay tại CI, rẻ hơn để agent phiên sau đi lạc.
       - name: Repo map khớp cấu trúc thật (docs/repo-map.md)
         run: node scripts/check-repo-map.cjs
+      # Bot gọi Convex bằng tên chuỗi — tsc không phủ được. Đổi tên/di chuyển
+      # function Convex mà quên cập nhật bot/src → bot crash runtime dù CI
+      # xanh. Chặn ở lint (rẻ, chạy trước test).
+      - name: Hợp đồng bot ⇄ Convex (tên function tồn tại 2 phía)
+        run: node scripts/check-convex-contract.cjs
 
   test:
     needs: [lint, security]

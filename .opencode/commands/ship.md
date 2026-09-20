@@ -13,7 +13,9 @@ Phiên làm việc sắp kết thúc. Hoàn tất theo đúng Pha 4 + Pha 5 củ
    `bun tsc -b --noEmit` + `bun run lint` + `bun run format:check` (lệch format
    → `bun run format`). Có lỗi → sửa lại trước khi commit. Vừa đụng `convex/`
    mà chưa codegen → chạy `bun convex dev --once` trước. Vừa thêm/xoá
-   module/trang → `node scripts/check-repo-map.cjs` phải OK.
+   module/trang → `node scripts/check-repo-map.cjs` phải OK. Vừa đổi tên/
+   di chuyển function Convex hoặc thêm call bot →
+   `node scripts/check-convex-contract.cjs` phải OK.
 3. **Commit chọn lọc**: `git add` đúng file thuộc phiên này (kể cả file test
    chặn tái diễn), KHÔNG add file không liên quan hay file tạm sinh.
    - Message **tiếng Việt**, dòng đầu ≤72 ký tự, nói rõ _vì sao_
