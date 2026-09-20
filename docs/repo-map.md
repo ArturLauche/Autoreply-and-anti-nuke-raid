@@ -42,27 +42,41 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 
 ## bot/ — Discord bot (CommonJS, chạy pm2 `protogon`)
 
-| Nhóm                                                           | Vai trò                         |
-| -------------------------------------------------------------- | ------------------------------- |
-| `index.js`                                                     | Khởi động + login               |
-| `threatEngine.js`, `heat.js`, `altDetection.js`, `lockdown.js` | Nhóm antinuke/raid              |
-| `commands/`, `handlers/`                                       | Slash commands + event handlers |
-| `convex.js`                                                    | Client Convex của bot           |
-| `webhookHub.js`, `relayClient.js`                              | Relay/log sang webhook          |
-| `localSnapshot.js`, `backupUtils.js`, `backupAudit.js`         | Backup                          |
-| `actionBudget.js`, `rateGuard`, `memGuard.js`                  | Giới hạn hành động/bộ nhớ       |
+| Nhóm                                                           | Vai trò                                      |
+| -------------------------------------------------------------- | -------------------------------------------- |
+| `index.js`                                                     | Khởi động + login                            |
+| `threatEngine.js`, `heat.js`, `altDetection.js`, `lockdown.js` | Nhóm antinuke/raid                           |
+| `commands/`, `handlers/`                                       | Slash commands + event handlers              |
+| `convex.js`                                                    | Client Convex của bot                        |
+| `webhookHub.js`, `relayClient.js`                              | Relay/log sang webhook                       |
+| `localSnapshot.js`, `backupUtils.js`, `backupAudit.js`         | Backup                                       |     | `actionBudget.js`, `memGuard.js` | Giới hạn hành động/bộ nhớ |
+| `captchaStore.js`, `joinGate`                                  | Join Gate captcha chống selfbot              |
+| `externalAppGuard.js`, `flaggedMessages.js`                    | Chặn app ngoài + tin nhắn khả nghi           |
+| `moduleActions.js`, `tick.js`, `timeoutWatch.js`               | Điều phối module + chu kỳ + theo dõi timeout |
+| `caseLog.js`, `register-slash.js`, `loadenv.js`                | Log case + đăng ký slash + nạp env           |
+| `research.js`                                                  | Tra cứu/threat research hỗ trợ AI            |
 
 ## convex/ — backend
 
-| Nhóm                                                              | Vai trò                                                       |
-| ----------------------------------------------------------------- | ------------------------------------------------------------- |
-| `schema.ts`                                                       | Schema DB duy nhất                                            |
-| `auth.ts`, `sessions.ts`, `sessionAuth.ts`, `sessionHardening.ts` | Auth dashboard                                                |
-| `botAuth.ts`, `botBootstrap.ts`                                   | botKey SHA-256, bootstrap — KHÔNG backdoor                    |
-| `antinuke.ts`, `threatIntel.ts`                                   | Logic antinuke phía backend                                   |
-| `haimiya.ts`                                                      | Provider AI bot (self-heal fallback, không hardcode model cũ) |
-| `audit.ts`, `reports.ts`, `status.ts`                             | Log/sự kiện/trạng thái                                        |
-| `_generated/`                                                     | Sinh tự động — không sửa tay, `bun convex dev --once`         |
+| Nhóm                                                              | Vai trò                                               |
+| ----------------------------------------------------------------- | ----------------------------------------------------- |
+| `schema.ts`                                                       | Schema DB duy nhất                                    |
+| `auth.ts`, `sessions.ts`, `sessionAuth.ts`, `sessionHardening.ts` | Auth dashboard                                        |
+| `botAuth.ts`, `botBootstrap.ts`                                   | botKey SHA-256, bootstrap — KHÔNG backdoor            |
+| `antinuke.ts`, `threatIntel.ts`                                   | Logic antinuke phía backend                           |     | `haimiya.ts` | Provider AI bot (self-heal fallback, không hardcode model cũ) |
+| `autoreplies.ts`                                                  | CRUD rule auto reply (giới hạn 50 rule/server)        |
+| `guilds.ts`                                                       | Document server + cấu hình bot ⇄ dashboard            |
+| `modules.ts`, `presets.ts`                                        | Bật/tắt module + bộ preset an toàn                    |
+| `botFunc.ts`, `bot_tick.ts`, `bot_writes.ts`                      | Function bot gọi: tick chu kỳ, ghi dữ liệu            |
+| `botBootstrap.ts`, `botBootstrapAction.ts`                        | Bootstrap bot lần đầu (lấy botKey)                    |
+| `webhooks.ts`, `relay.ts`                                         | Webhook + relay log sự kiện                           |
+| `backup_github.ts`                                                | Backup lên GitHub (kèm `backup.ts`)                   |
+| `rateGuard.ts`                                                    | Giới hạn tần suất gọi API từ bot                      |
+| `public.ts`, `hidden.ts`                                          | API công khai landing + endpoint ẩn                   |
+| `selfDiagnose.ts`                                                 | Tự chẩn đoán bot báo về dashboard                     |
+| `sha256.ts`                                                       | Hash dùng chung (botKey, session)                     |
+| `audit.ts`, `reports.ts`, `status.ts`                             | Log/sự kiện/trạng thái                                |
+| `_generated/`                                                     | Sinh tự động — không sửa tay, `bun convex dev --once` |
 
 ## Vòng lặp làm việc
 

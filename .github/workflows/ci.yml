@@ -69,6 +69,11 @@ jobs:
         run: bun run lint
       - name: Prettier (format thống nhất)
         run: bun run format:check
+      # docs/repo-map.md là bản đồ agent đọc đầu mỗi phiên — chặn nó lệch
+      # thực tế (thêm/xoá trang, panel, module bot, Convex function mà quên
+      # cập nhật bản đồ) ngay tại CI, rẻ hơn để agent phiên sau đi lạc.
+      - name: Repo map khớp cấu trúc thật (docs/repo-map.md)
+        run: node scripts/check-repo-map.cjs
 
   test:
     needs: [lint, security]

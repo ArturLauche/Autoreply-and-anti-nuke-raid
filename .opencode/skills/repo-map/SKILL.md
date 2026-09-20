@@ -31,11 +31,28 @@ trong bản đồ ngay trong cùng commit:
 - nhóm module bot (`bot/src/`), file Convex function
 - script kiểm chứng/deploy quan trọng (`scripts/`)
 
+**Cơ chế chống quên — kiểm tra bằng 1 lệnh:**
+
+```
+node scripts/check-repo-map.cjs
+```
+
+- Script so khớp filesystem thật (trang, Convex function, module bot) với
+  bản đồ, in chính xác dòng thiếu/lỗi thời. Xanh khi in `repo-map OK`.
+- **Chạy NGAY sau khi thêm/xoá module/trang** — 1 giây, rẻ hơn để CI đỏ.
+- CI đã gắn bước này vào job `lint`: quên cập nhật bản đồ → CI đỏ → phải
+  sửa rồi mới push được. Nếu CI đỏ vì lý do này, bản vá là cập nhật bản đồ,
+  KHÔNG phải nới lỏng script.
+- Khi thêm nhóm module mới chưa chắc tên nhóm: chạy script xem nó đề nghị
+  gì, chọn cách nhóm hợp lý nhất rồi chạy lại tới khi OK.
+
 KHÔNG cập nhật vì: đổi logic bên trong, sửa style, đổi biến — bản đồ không
 theo dõi tầng đó (đó là việc của commit message + journal).
 
 Quy tắc giữ bản đồ gọn: mỗi dòng = 1 đơn vị + 1 câu mô tả ≤ 10 từ. Nếu một
-section phình quá ~15 dòng, gộp các item cùng họ thành 1 dòng nhóm.
+section phình quá ~15 dòng, gộp các item cùng họ thành 1 dòng nhóm (script
+chấp nhận dòng nhóm — module trong thư mục được phủ khi dòng nhóm có dạng
+`tên-thư-mục/`).
 
 ## Phòng lỗi
 
