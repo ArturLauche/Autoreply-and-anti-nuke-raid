@@ -22,6 +22,7 @@ import { Button } from "../ui/button";
 import type { GuildData } from "../../lib/types";
 import { getSessionToken } from "../../lib/discord";
 
+import { translate } from "../../lib/i18n";
 const TOKEN = () => getSessionToken();
 
 function ModuleNumber({
@@ -108,12 +109,12 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
   async function addWhitelist() {
     const id = whitelistInput.trim();
     if (!/^\d{15,20}$/.test(id)) {
-      return toast.error("Nhập đúng ID người dùng Discord (15-20 chữ số)");
+      return toast.error(translate("Nhập đúng ID người dùng Discord (15-20 chữ số)"));
     }
     const current = g.joinGateWhitelist || [];
     if (current.includes(id)) {
       setWhitelistInput("");
-      return toast.info("ID này đã có trong danh sách trắng");
+      return toast.info(translate("ID này đã có trong danh sách trắng"));
     }
     await patch({ joinGateWhitelist: [...current, id] }, `Đã thêm ${id} vào danh sách trắng`);
     setWhitelistInput("");
@@ -137,9 +138,13 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-display text-lg font-semibold">Join Gate — cổng vào server</h2>
+          <h2 className="font-display text-lg font-semibold">
+            {translate("Join Gate — cổng vào server")}
+          </h2>
           <p className="text-sm text-muted-foreground">
-            Quét từng thành viên mới khi tham gia và tự động chặn tài khoản nghi selfbot
+            {translate(
+              "Quét từng thành viên mới khi tham gia và tự động chặn tài khoản nghi selfbot",
+            )}{" "}
           </p>
         </div>
         <Badge
@@ -159,11 +164,13 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
               <DoorOpen className="h-5 w-5" />
             </span>
             <div>
-              <p className="font-display font-semibold">Bật Join Gate</p>
+              <p className="font-display font-semibold">{translate("Bật Join Gate")}</p>
               <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                Khi bật, mọi thành viên mới đều được kiểm tra theo các tiêu chí bên dưới trước khi ở
-                lại server. Kẻ không đạt sẽ bị <b className="text-foreground">kick hoặc ban</b> ngay
-                lập tức.
+                {translate(
+                  "Khi bật, mọi thành viên mới đều được kiểm tra theo các tiêu chí bên dưới trước khi ở lại server. Kẻ không đạt sẽ bị",
+                )}{" "}
+                <b className="text-foreground">{translate("kick hoặc ban")}</b>{" "}
+                {translate("ngay lập tức.")}{" "}
               </p>
             </div>
           </div>
@@ -178,7 +185,9 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
 
       {!g.joinGateEnabled && (
         <div className="rounded-xl border border-border bg-secondary px-4 py-3 text-sm text-foreground">
-          ⚠️ Join Gate đang tắt — mọi tài khoản đều được vào tự do (kể cả selfbot).
+          {translate(
+            "⚠️ Join Gate đang tắt — mọi tài khoản đều được vào tự do (kể cả selfbot).",
+          )}{" "}
         </div>
       )}
 
@@ -186,14 +195,16 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
       <div className="grid gap-3">
         <GateRow
           icon={CalendarClock}
-          title="Chặn tài khoản quá mới"
+          title={translate("Chặn tài khoản quá mới")}
           desc="Tài khoản tạo ít hơn số ngày dưới đây sẽ bị chặn (0 = tắt). Selfbot thường dùng tài khoản mới tạo hàng loạt."
           checked={g.joinGateMinAgeDays > 0}
           onToggle={(v) => patch({ joinGateMinAgeDays: v ? 7 : 0 })}
         />
         {g.joinGateMinAgeDays > 0 && (
           <div className="flex items-center gap-3 rounded-xl border border-border bg-secondary/50 px-4 py-3">
-            <Label className="shrink-0 text-xs text-muted-foreground">Tuổi tối thiểu (ngày)</Label>
+            <Label className="shrink-0 text-xs text-muted-foreground">
+              {translate("Tuổi tối thiểu (ngày)")}
+            </Label>
             <div className="w-28">
               <ModuleNumber
                 value={g.joinGateMinAgeDays}
@@ -203,14 +214,14 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              Khuyến nghị 7-14 ngày để hạn chế tài khoản dùng 1 lần.
+              {translate("Khuyến nghị 7-14 ngày để hạn chế tài khoản dùng 1 lần.")}{" "}
             </p>
           </div>
         )}
 
         <GateRow
           icon={Image}
-          title="Yêu cầu có avatar riêng"
+          title={translate("Yêu cầu có avatar riêng")}
           desc="Tài khoản không có ảnh đại diện riêng (đang dùng hình mặc định) sẽ bị chặn."
           checked={g.joinGateRequireAvatar}
           onToggle={(v) => patch({ joinGateRequireAvatar: v })}
@@ -218,7 +229,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
 
         <GateRow
           icon={BadgeCheck}
-          title="Yêu cầu có huy hiệu tài khoản"
+          title={translate("Yêu cầu có huy hiệu tài khoản")}
           desc="Tài khoản không có bất kỳ huy hiệu công khai nào (flag = 0) sẽ bị chặn — selfbot mới hầu như không có huy hiệu."
           checked={g.joinGateRequireFlag}
           onToggle={(v) => patch({ joinGateRequireFlag: v })}
@@ -226,29 +237,33 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
 
         <GateRow
           icon={Lock}
-          title="Chặn lượt vào khi đang bị raid"
+          title={translate("Chặn lượt vào khi đang bị raid")}
           desc="Khi server đang khóa kênh (raid), mọi thành viên mới đều bị xử lý — chặn đà tấn công thứ hai."
           checked={g.joinGateRaidKick}
           onToggle={(v) => patch({ joinGateRaidKick: v })}
         />
         {locked && (
           <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
-            🔒 Server của bạn <b>đang bị khóa kênh</b> — nếu bật tiêu chí trên, mọi thành viên mới
-            sẽ bị xử lý ngay bây giờ.
+            {translate("🔒 Server của bạn")} <b>{translate("đang bị khóa kênh")}</b>{" "}
+            {translate(
+              "— nếu bật tiêu chí trên, mọi thành viên mới sẽ bị xử lý ngay bây giờ.",
+            )}{" "}
           </div>
         )}
 
         <GateRow
           icon={ShieldQuestion}
-          title="Hình thức xử lý"
+          title={translate("Hình thức xử lý")}
           desc="Kick = thành viên có thể quay lại; Ban = chặn vĩnh viễn (mạnh hơn với selfbot)."
           checked={g.joinGatePunish === "ban"}
           onToggle={(v) => patch({ joinGatePunish: v ? "ban" : "kick" })}
         />
         {g.joinGatePunish === "ban" && (
           <p className="px-4 text-xs text-muted-foreground">
-            ⚠️ Đang ở chế độ <b className="text-danger">Ban</b> — tài khoản vi phạm bị cấm vĩnh
-            viễn. Chọn Kick nếu bạn muốn nhẹ tay hơn.
+            {translate("⚠️ Đang ở chế độ")} <b className="text-danger">Ban</b>{" "}
+            {translate(
+              "— tài khoản vi phạm bị cấm vĩnh viễn. Chọn Kick nếu bạn muốn nhẹ tay hơn.",
+            )}{" "}
           </p>
         )}
       </div>
@@ -261,16 +276,18 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
               <UserPlus className="h-5 w-5" />
             </span>
             <div>
-              <p className="font-display font-semibold">Danh sách trắng</p>
+              <p className="font-display font-semibold">{translate("Danh sách trắng")}</p>
               <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                Những ID người dùng này <b>luôn được vào</b>, bỏ qua mọi tiêu chí — dùng cho tài
-                khoản phụ / bạn bè quen biết.
+                {translate("Những ID người dùng này")} <b>{translate("luôn được vào")}</b>
+                {translate(
+                  ", bỏ qua mọi tiêu chí — dùng cho tài khoản phụ / bạn bè quen biết.",
+                )}{" "}
               </p>
             </div>
           </div>
           <div className="mt-4 flex gap-2">
             <Input
-              placeholder="Nhập ID người dùng Discord…"
+              placeholder={translate("Nhập ID người dùng Discord…")}
               value={whitelistInput}
               onChange={(e) => setWhitelistInput(e.target.value)}
               onKeyDown={(e) => {
@@ -278,12 +295,12 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
               }}
             />
             <Button onClick={addWhitelist}>
-              <Plus className="h-4 w-4" /> Thêm
+              <Plus className="h-4 w-4" /> {translate("Thêm")}{" "}
             </Button>
           </div>
           {(g.joinGateWhitelist || []).length === 0 ? (
             <p className="mt-3 text-sm text-muted-foreground">
-              Chưa có ID nào — mọi thành viên mới đều bị kiểm tra.
+              {translate("Chưa có ID nào — mọi thành viên mới đều bị kiểm tra.")}{" "}
             </p>
           ) : (
             <div className="mt-3 flex flex-wrap gap-2">
@@ -308,15 +325,19 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
       </Card>
 
       <div className="rounded-xl border border-border bg-secondary/50 p-4 text-xs text-muted-foreground">
-        <p className="mb-1 font-medium text-foreground">📌 Lưu ý quan trọng</p>
+        <p className="mb-1 font-medium text-foreground">{translate("📌 Lưu ý quan trọng")}</p>
         <p>
-          • Discord <b>không cho bot đọc</b> trạng thái email/điện thoại đã xác thực, nên Join Gate
-          dùng các tín hiệu công khai (tuổi tài khoản, avatar, huy hiệu, trạng thái raid) để nhận
-          diện selfbot.
+          • Discord <b>{translate("không cho bot đọc")}</b>{" "}
+          {translate(
+            "trạng thái email/điện thoại đã xác thực, nên Join Gate dùng các tín hiệu công khai (tuổi tài khoản, avatar, huy hiệu, trạng thái raid) để nhận diện selfbot.",
+          )}{" "}
         </p>
         <p className="mt-1">
-          • Bot cần quyền <b className="text-foreground">Kick/Ban thành viên</b> để xử lý. Muốn cho
-          một người cụ thể luôn vào, thêm ID của họ vào danh sách trắng phía trên.
+          {translate("• Bot cần quyền")}{" "}
+          <b className="text-foreground">{translate("Kick/Ban thành viên")}</b>{" "}
+          {translate(
+            "để xử lý. Muốn cho một người cụ thể luôn vào, thêm ID của họ vào danh sách trắng phía trên.",
+          )}{" "}
         </p>
       </div>
     </div>

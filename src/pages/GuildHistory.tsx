@@ -28,8 +28,11 @@ import { discordGuildIconUrl, getSessionToken } from "../lib/discord";
 import { ANTINUKE_MODULE_META, ANTINUKE_ORDER, PUNISH_LABEL } from "../lib/constants";
 import type { GuildData } from "../lib/types";
 
+import LangSwitch from "../components/LangSwitch";
+
+import { dateLocale, translate } from "../lib/i18n";
 function formatDateTime(ts: number): string {
-  return new Date(ts).toLocaleString("vi-VN", {
+  return new Date(ts).toLocaleString(dateLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -86,9 +89,11 @@ export default function GuildHistory() {
   if (guild === null) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
-        <p className="font-display text-lg font-semibold">Không thể truy cập server này</p>
+        <p className="font-display text-lg font-semibold">
+          {translate("Không thể truy cập server này")}
+        </p>
         <Link to="/dashboard" className="text-sm text-primary hover:underline">
-          ← Về danh sách server
+          {translate("← Về danh sách server")}{" "}
         </Link>
       </div>
     );
@@ -126,13 +131,16 @@ export default function GuildHistory() {
               </span>
             )}
             <div>
-              <h1 className="font-display text-xl font-bold tracking-tight">Lịch sử chống nuke</h1>
+              <h1 className="font-display text-xl font-bold tracking-tight">
+                {translate("Lịch sử chống nuke")}
+              </h1>
               <p className="text-sm text-muted-foreground">{guild.guild.name}</p>
             </div>
             <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
               <CalendarDays className="h-4 w-4" />
-              {results.length} sự kiện đã hiển thị
+              {results.length} {translate("sự kiện đã hiển thị")}
             </div>
+            <LangSwitch />
           </div>
         </div>
       </header>
@@ -143,10 +151,10 @@ export default function GuildHistory() {
             <Label className="text-xs text-muted-foreground">Module</Label>
             <Select value={filterModule} onValueChange={setFilterModule}>
               <SelectTrigger>
-                <SelectValue placeholder="Tất cả module" />
+                <SelectValue placeholder={translate("Tất cả module")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tất cả module</SelectItem>
+                <SelectItem value="all">{translate("Tất cả module")}</SelectItem>
                 {ANTINUKE_ORDER.map((m) => (
                   <SelectItem key={m} value={m}>
                     {ANTINUKE_MODULE_META[m].label}
@@ -156,20 +164,22 @@ export default function GuildHistory() {
             </Select>
           </div>
           <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">Từ ngày</Label>
+            <Label className="text-xs text-muted-foreground">{translate("Từ ngày")}</Label>
             <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
           </div>
           <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">Đến ngày</Label>
+            <Label className="text-xs text-muted-foreground">{translate("Đến ngày")}</Label>
             <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
           </div>
           <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">Tìm theo tên thủ phạm</Label>
+            <Label className="text-xs text-muted-foreground">
+              {translate("Tìm theo tên thủ phạm")}
+            </Label>
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 className="pl-8"
-                placeholder="Tên Discord…"
+                placeholder={translate("Tên Discord…")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -180,10 +190,10 @@ export default function GuildHistory() {
         {hasActiveFilter && (
           <div className="mt-3 flex items-center justify-between">
             <Badge variant="secondary" className="gap-1">
-              <Filter className="h-3 w-3" /> Đang lọc kết quả
+              <Filter className="h-3 w-3" /> {translate("Đang lọc kết quả")}{" "}
             </Badge>
             <Button variant="ghost" size="sm" onClick={clearFilters}>
-              <X className="h-3.5 w-3.5" /> Xóa bộ lọc
+              <X className="h-3.5 w-3.5" /> {translate("Xóa bộ lọc")}{" "}
             </Button>
           </div>
         )}

@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import { getSessionToken } from "../lib/discord";
 import { Loader2 } from "lucide-react";
 
+import { translate } from "../lib/i18n";
 export default function RequireAuth({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const token = getSessionToken();
@@ -15,7 +16,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          <span className="text-sm">Đang kiểm tra phiên đăng nhập…</span>
+          <span className="text-sm">{translate("Đang kiểm tra phiên đăng nhập…")}</span>
         </div>
       </div>
     );

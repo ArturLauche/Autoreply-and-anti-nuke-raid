@@ -9,6 +9,7 @@ import { Card, CardContent } from "../ui/card";
 import { getSessionToken } from "../../lib/discord";
 import type { GuildData } from "../../lib/types";
 
+import { translate } from "../../lib/i18n";
 export function hiddenUnlockKey(guildId: string): string {
   return `wio_hidden_unlocked_${guildId}`;
 }
@@ -33,22 +34,26 @@ export default function UnlockPanel({
             <ShieldX className="h-8 w-8" />
           </span>
           <div>
-            <h2 className="font-display text-xl font-bold">Tính năng ẩn 🔒</h2>
+            <h2 className="font-display text-xl font-bold">{translate("Tính năng ẩn 🔒")}</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Chỉ <b>admin sở hữu bot</b> mới được phép tương tác mật khẩu và đăng nhập vào tính
-              năng ẩn — không phải owner hay mod của một server.
+              {translate("Chỉ")} <b>{translate("admin sở hữu bot")}</b>{" "}
+              {translate(
+                "mới được phép tương tác mật khẩu và đăng nhập vào tính năng ẩn — không phải owner hay mod của một server.",
+              )}{" "}
             </p>
             {!data.guild.botOwnerSet && (
               <p className="mt-3 rounded-lg bg-secondary px-3 py-2 text-xs text-muted-foreground">
-                Chưa có chủ sở hữu nào được thiết lập. Chủ bot cần đăng nhập bằng chính tài khoản
-                Discord đã tạo bot, vào <b>Cài đặt → Mật khẩu tính năng ẩn</b> để đặt mật khẩu đầu
-                tiên — người đó sẽ trở thành chủ sở hữu bot.
+                {translate(
+                  "Chưa có chủ sở hữu nào được thiết lập. Chủ bot cần đăng nhập bằng chính tài khoản Discord đã tạo bot, vào",
+                )}{" "}
+                <b>{translate("Cài đặt → Mật khẩu tính năng ẩn")}</b>{" "}
+                {translate("để đặt mật khẩu đầu tiên — người đó sẽ trở thành chủ sở hữu bot.")}{" "}
               </p>
             )}
           </div>
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <ShieldCheck className="h-3.5 w-3.5" />
-            Quyền quản lý server không đủ để mở khóa mục này.
+            {translate("Quyền quản lý server không đủ để mở khóa mục này.")}{" "}
           </p>
         </CardContent>
       </Card>
@@ -66,10 +71,10 @@ export default function UnlockPanel({
       });
       if (ok) {
         sessionStorage.setItem(hiddenUnlockKey(data.guild.discordId), "1");
-        toast.success("Đã mở khóa tính năng ẩn 🔓");
+        toast.success(translate("Đã mở khóa tính năng ẩn 🔓"));
         onUnlocked();
       } else {
-        toast.error("Sai mật khẩu rồi, thử lại nhé senpai!");
+        toast.error(translate("Sai mật khẩu rồi, thử lại nhé senpai!"));
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Mở khóa thất bại");
@@ -85,10 +90,11 @@ export default function UnlockPanel({
           <Lock className="h-8 w-8" />
         </span>
         <div>
-          <h2 className="font-display text-xl font-bold">Tính năng ẩn 🔒</h2>
+          <h2 className="font-display text-xl font-bold">{translate("Tính năng ẩn 🔒")}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Mục này được bảo vệ bằng mật khẩu do chủ sở hữu bot đặt. Chỉ người biết mật khẩu mới
-            nhìn thấy nội dung bên trong.
+            {translate(
+              "Mục này được bảo vệ bằng mật khẩu do chủ sở hữu bot đặt. Chỉ người biết mật khẩu mới nhìn thấy nội dung bên trong.",
+            )}{" "}
           </p>
         </div>
         <div className="grid w-full gap-1.5">
@@ -99,7 +105,7 @@ export default function UnlockPanel({
             onKeyDown={(e) => {
               if (e.key === "Enter") unlock();
             }}
-            placeholder="Mật khẩu tính năng ẩn…"
+            placeholder={translate("Mật khẩu tính năng ẩn…")}
             autoFocus
             maxLength={64}
           />
@@ -108,14 +114,14 @@ export default function UnlockPanel({
               "Đang kiểm tra…"
             ) : (
               <>
-                <KeyRound className="h-4 w-4" /> Mở khóa
+                <KeyRound className="h-4 w-4" /> {translate("Mở khóa")}{" "}
               </>
             )}
           </Button>
         </div>
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <ShieldCheck className="h-3.5 w-3.5" />
-          Quên mật khẩu? Vào Cài đặt để đặt lại (chỉ chủ sở hữu bot).
+          {translate("Quên mật khẩu? Vào Cài đặt để đặt lại (chỉ chủ sở hữu bot).")}{" "}
         </p>
       </CardContent>
     </Card>

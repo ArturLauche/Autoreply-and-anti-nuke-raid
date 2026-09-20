@@ -20,6 +20,7 @@ import type { GuildData, ModuleConfig, RaidIntel } from "../../lib/types";
 import { getSessionToken } from "../../lib/discord";
 import { timeAgo } from "../../lib/utils";
 
+import { translate } from "../../lib/i18n";
 const TOKEN = () => getSessionToken();
 
 function ModuleNumber({
@@ -145,7 +146,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
   async function setLockdown(patch: { enabled?: boolean; minutes?: number }) {
     try {
       await updateLockdown({ token: TOKEN(), guildId: data.guild.discordId, ...patch });
-      toast.success("Đã lưu cài đặt khóa kênh");
+      toast.success(translate("Đã lưu cài đặt khóa kênh"));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Lưu thất bại");
     }
@@ -154,7 +155,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
   async function unlockNow() {
     try {
       await requestUnlock({ token: TOKEN(), guildId: data.guild.discordId });
-      toast.success("Đã yêu cầu mở khóa — bot thực hiện trong vài giây");
+      toast.success(translate("Đã yêu cầu mở khóa — bot thực hiện trong vài giây"));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Thất bại");
     }
@@ -163,7 +164,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
   async function setRaidHunt(patch: { raidHuntEnabled?: boolean; raidHuntBanSuspects?: boolean }) {
     try {
       await updateSettings({ token: TOKEN(), guildId: data.guild.discordId, ...patch });
-      toast.success("Đã lưu cài đặt Raid Intel — bot áp dụng trong ~3 phút");
+      toast.success(translate("Đã lưu cài đặt Raid Intel — bot áp dụng trong ~3 phút"));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Lưu thất bại");
     }
@@ -210,10 +211,11 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-display text-lg font-semibold">Chống nuke / raid</h2>
+          <h2 className="font-display text-lg font-semibold">{translate("Chống nuke / raid")}</h2>
           <p className="text-sm text-muted-foreground">
-            Bảo vệ cấu trúc server khỏi các cuộc tấn công hàng loạt (ban, kick, tạo/xóa kênh &
-            role…)
+            {translate(
+              "Bảo vệ cấu trúc server khỏi các cuộc tấn công hàng loạt (ban, kick, tạo/xóa kênh & role…)",
+            )}{" "}
           </p>
         </div>
         <Card className="border-primary/30 bg-primary/5">
@@ -234,7 +236,9 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
 
       {!data.guild.antinukeEnabled && (
         <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
-          ⚠️ Chống nuke đang tắt toàn bộ. Server của bạn không được bảo vệ khỏi raid.
+          {translate(
+            "⚠️ Chống nuke đang tắt toàn bộ. Server của bạn không được bảo vệ khỏi raid.",
+          )}{" "}
         </div>
       )}
 
@@ -247,9 +251,11 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                 <Crosshair className="h-5 w-5" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="font-display font-semibold">Preset bảo mật 1 chạm</p>
+                <p className="font-display font-semibold">{translate("Preset bảo mật 1 chạm")}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Áp cấu hình tối ưu theo quy mô server. Whitelist của bạn được giữ nguyên.
+                  {translate(
+                    "Áp cấu hình tối ưu theo quy mô server. Whitelist của bạn được giữ nguyên.",
+                  )}{" "}
                 </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-3">
                   {[
@@ -302,10 +308,13 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                   <Database className="h-5 w-5" />
                 </span>
                 <div className="min-w-0">
-                  <p className="font-display font-semibold">Threat relay liên server</p>
+                  <p className="font-display font-semibold">
+                    {translate("Threat relay liên server")}
+                  </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Chia sẻ chữ ký raid (ẩn danh) với server khác dùng bot — server của bạn được bảo
-                    vệ bởi kinh nghiệm toàn mạng.
+                    {translate(
+                      "Chia sẻ chữ ký raid (ẩn danh) với server khác dùng bot — server của bạn được bảo vệ bởi kinh nghiệm toàn mạng.",
+                    )}{" "}
                   </p>
                   {relayStatus && (
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -318,14 +327,14 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
             </div>
             <div className="mt-3 space-y-2">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm">Đóng góp signature (khi bị raid)</p>
+                <p className="text-sm">{translate("Đóng góp signature (khi bị raid)")}</p>
                 <Switch
                   checked={relayStatus?.relayShare ?? false}
                   onCheckedChange={(v) => toggleRelay("relayShare", v)}
                 />
               </div>
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm">Nhận signature từ server khác</p>
+                <p className="text-sm">{translate("Nhận signature từ server khác")}</p>
                 <Switch
                   checked={relayStatus?.relayReceive ?? false}
                   onCheckedChange={(v) => toggleRelay("relayReceive", v)}
@@ -346,10 +355,12 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                   <Lock className="h-5 w-5" />
                 </span>
                 <div className="min-w-0">
-                  <p className="font-display font-semibold">Khóa kênh khi bị raid</p>
+                  <p className="font-display font-semibold">{translate("Khóa kênh khi bị raid")}</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Tự chặn gửi tin nhắn & voice khi phát hiện raid, mở lại sau khi hết giờ hoặc
-                    bằng <code className="font-mono text-xs">/antinuke unlock</code>.
+                    {translate(
+                      "Tự chặn gửi tin nhắn & voice khi phát hiện raid, mở lại sau khi hết giờ hoặc bằng",
+                    )}{" "}
+                    <code className="font-mono text-xs">/antinuke unlock</code>.
                   </p>
                 </div>
               </div>
@@ -360,7 +371,9 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
             </div>
             <div className="mt-4 flex flex-wrap items-end gap-3">
               <div className="grid w-32 gap-1.5">
-                <Label className="text-xs text-muted-foreground">Thời gian khóa (phút)</Label>
+                <Label className="text-xs text-muted-foreground">
+                  {translate("Thời gian khóa (phút)")}
+                </Label>
                 <ModuleNumber
                   value={g.lockdownMinutes}
                   min={1}
@@ -375,16 +388,16 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                       <Lock className="h-3 w-3" /> Đang khóa — tự mở sau ~{minutesLeft} phút
                     </Badge>
                     <Button variant="secondary" size="sm" onClick={unlockNow}>
-                      <Unlock className="h-3.5 w-3.5" /> Mở khóa ngay
+                      <Unlock className="h-3.5 w-3.5" /> {translate("Mở khóa ngay")}{" "}
                     </Button>
                   </>
                 ) : g.lockdownRequested ? (
                   <Badge variant="secondary" className="px-3 py-1">
-                    Đang chờ bot mở khóa…
+                    {translate("Đang chờ bot mở khóa…")}{" "}
                   </Badge>
                 ) : (
                   <Badge variant="secondary" className="px-3 py-1">
-                    Không có khóa kênh nào đang hoạt động
+                    {translate("Không có khóa kênh nào đang hoạt động")}{" "}
                   </Badge>
                 )}
               </div>
@@ -401,11 +414,15 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                   <Crosshair className="h-5 w-5" />
                 </span>
                 <div className="min-w-0">
-                  <p className="font-display font-semibold">Raid Intel — săn nguồn cơn raid 🎯</p>
+                  <p className="font-display font-semibold">
+                    {translate("Raid Intel — săn nguồn cơn raid 🎯")}
+                  </p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Thu thập mẫu raid + AI phân tích để tìm{" "}
-                    <b className="text-foreground">kẻ chủ mưu</b> (acc trùng avatar/username, người
-                    tạo invite, audit log) rồi tự ban.
+                    <b className="text-foreground">{translate("kẻ chủ mưu")}</b>{" "}
+                    {translate(
+                      "(acc trùng avatar/username, người tạo invite, audit log) rồi tự ban.",
+                    )}{" "}
                   </p>
                 </div>
               </div>
@@ -418,9 +435,9 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
             <div className="mt-4 grid gap-2">
               <div className="flex items-center justify-between gap-3 rounded-lg bg-secondary/40 p-3">
                 <div>
-                  <p className="text-sm font-semibold">Săn lùng nguồn cơn raid</p>
+                  <p className="text-sm font-semibold">{translate("Săn lùng nguồn cơn raid")}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    Phân tích cụm tài khoản + audit log sau mỗi vụ.
+                    {translate("Phân tích cụm tài khoản + audit log sau mỗi vụ.")}{" "}
                   </p>
                 </div>
                 <Switch
@@ -430,9 +447,9 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
               </div>
               <div className="flex items-center justify-between gap-3 rounded-lg bg-secondary/40 p-3">
                 <div>
-                  <p className="text-sm font-semibold">Tự ban nghi phạm nguồn cơn</p>
+                  <p className="text-sm font-semibold">{translate("Tự ban nghi phạm nguồn cơn")}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    Tự ban tài khoản đủ điểm nghi vấn (chủ mưu, trùng avatar…).
+                    {translate("Tự ban tài khoản đủ điểm nghi vấn (chủ mưu, trùng avatar…).")}{" "}
                   </p>
                 </div>
                 <Switch
@@ -454,7 +471,7 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                         type="button"
                         disabled={page <= 1}
                         onClick={() => setRaidPage(page - 1)}
-                        aria-label="Trang trước"
+                        aria-label={translate("Trang trước")}
                         className="flex h-6 w-6 items-center justify-center rounded-md border border-border bg-card text-sm leading-none text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40 disabled:hover:bg-card"
                       >
                         ‹

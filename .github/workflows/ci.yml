@@ -79,6 +79,10 @@ jobs:
       # xanh. Chặn ở lint (rẻ, chạy trước test).
       - name: Hợp đồng bot ⇄ Convex (tên function tồn tại 2 phía)
         run: node scripts/check-convex-contract.cjs
+      # Chuỗi VI trong code là key của từ điển EN — thiếu bản dịch thì UI vẫn
+      # chạy nhưng người dùng EN đọc tiếng Việt (lỗi im lặng). Chặn ở lint.
+      - name: Đa ngôn ngữ (mọi chuỗi người dùng có bản EN)
+        run: node scripts/check-i18n.cjs
 
   test:
     needs: [lint, security]

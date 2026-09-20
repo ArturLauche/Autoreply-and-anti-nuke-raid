@@ -2,6 +2,7 @@ import * as React from "react";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 
+import { translate } from "../../lib/i18n";
 export interface MultiSelectOption {
   value: string;
   label: string;
@@ -147,7 +148,7 @@ export function MultiSelect({
                   type="button"
                   onClick={() => setQuery("")}
                   className="text-muted-foreground hover:text-foreground"
-                  aria-label="Xóa tìm kiếm"
+                  aria-label={translate("Xóa tìm kiếm")}
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>

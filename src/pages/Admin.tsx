@@ -21,6 +21,9 @@ import { getSessionToken } from "../lib/discord";
 import { latencyLabel, useBotMonitor } from "../lib/useBotMonitor";
 import { cn } from "../lib/utils";
 
+import LangSwitch from "../components/LangSwitch";
+
+import { dateLocale, translate } from "../lib/i18n";
 function AdminContent() {
   const token = getSessionToken();
   const isOwner = useQuery(api.status.isOwner, token ? { token } : "skip");
@@ -48,13 +51,14 @@ function AdminContent() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4 text-center">
         <Bug className="h-10 w-10 text-muted-foreground" />
-        <p className="font-display text-lg font-semibold">Không có quyền truy cập</p>
+        <p className="font-display text-lg font-semibold">{translate("Không có quyền truy cập")}</p>
         <p className="max-w-sm text-sm text-muted-foreground">
-          Cửa sổ Admin là khu vực riêng tư của chủ sở hữu bot — người dùng khác không nhìn thấy và
-          không vào được.
+          {translate(
+            "Cửa sổ Admin là khu vực riêng tư của chủ sở hữu bot — người dùng khác không nhìn thấy và không vào được.",
+          )}{" "}
         </p>
         <Link to="/" className="text-sm text-primary hover:underline">
-          ← Về trang chủ
+          {translate("← Về trang chủ")}{" "}
         </Link>
       </div>
     );
@@ -79,12 +83,13 @@ function AdminContent() {
                 <ShieldCheck className="h-5 w-5" />
               </span>
               <div>
-                <h1 className="font-display text-xl font-bold">Cửa sổ Admin</h1>
+                <h1 className="font-display text-xl font-bold">{translate("Cửa sổ Admin")}</h1>
                 <p className="text-xs text-muted-foreground">
-                  Chỉ chủ sở hữu bot nhìn thấy · theo dõi lỗi & dữ liệu bot
+                  {translate("Chỉ chủ sở hữu bot nhìn thấy · theo dõi lỗi & dữ liệu bot")}{" "}
                 </p>
               </div>
             </div>
+            <LangSwitch className="ml-auto" />
           </div>
         </header>
 
@@ -92,18 +97,19 @@ function AdminContent() {
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-danger/25 bg-danger/5 p-4">
               <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                <AlertTriangle className="h-3.5 w-3.5 text-danger" /> Sự cố / lỗi
+                <AlertTriangle className="h-3.5 w-3.5 text-danger" />{" "}
+                {translate("Sự cố / lỗi")}{" "}
               </p>
               <p className="mt-1.5 font-display text-lg font-bold">
                 {incidents.length}
                 <span className="ml-1 text-xs font-normal text-muted-foreground">
-                  trong phiên này
+                  {translate("trong phiên này")}{" "}
                 </span>
               </p>
             </div>
             <div className="rounded-xl border border-border bg-card p-4">
               <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                <Gauge className="h-3.5 w-3.5" /> Độ trễ hiện tại
+                <Gauge className="h-3.5 w-3.5" /> {translate("Độ trễ hiện tại")}{" "}
               </p>
               <p className="mt-1.5 font-mono text-lg font-bold">
                 {lat !== null ? `${lat} ms` : "—"}
@@ -112,11 +118,11 @@ function AdminContent() {
             </div>
             <div className="rounded-xl border border-border bg-card p-4">
               <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                <Server className="h-3.5 w-3.5" /> Bot đang phục vụ
+                <Server className="h-3.5 w-3.5" /> {translate("Bot đang phục vụ")}{" "}
               </p>
               <p className="mt-1.5 font-display text-lg font-bold">
                 {status
-                  ? `${status.guildCount} server · ${status.memberCount.toLocaleString("vi-VN")} thành viên`
+                  ? `${status.guildCount} server · ${status.memberCount.toLocaleString(dateLocale())} thành viên`
                   : "đang tải…"}
               </p>
               <p
@@ -134,11 +140,11 @@ function AdminContent() {
             <div className="rounded-xl border border-border bg-card p-4">
               <h2 className="flex items-center gap-2 font-display text-base font-bold">
                 <Activity className="h-4 w-4 text-primary" />
-                Nhật ký sự cố chi tiết
+                {translate("Nhật ký sự cố chi tiết")}{" "}
               </h2>
               {incidents.length === 0 ? (
                 <p className="mt-2 text-sm text-foreground">
-                  Không phát hiện lỗi nào — bot hoạt động bình thường ✅
+                  {translate("Không phát hiện lỗi nào — bot hoạt động bình thường ✅")}{" "}
                 </p>
               ) : (
                 <ul className="mt-2 space-y-1.5">
@@ -152,7 +158,7 @@ function AdminContent() {
                         {inc.text}{" "}
                         <span className="text-muted-foreground">
                           ·{" "}
-                          {new Date(inc.time).toLocaleTimeString("vi-VN", {
+                          {new Date(inc.time).toLocaleTimeString(dateLocale(), {
                             hour: "2-digit",
                             minute: "2-digit",
                             second: "2-digit",
@@ -164,9 +170,9 @@ function AdminContent() {
                 </ul>
               )}
               <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-                Lưu ý: bản ghi sự cố được ghi nhận trong phiên xem này (mất kết nối máy chủ, độ trễ
-                quá cao). Để theo dõi xuyên suốt, hãy giữ trang này mở hoặc kiểm tra kênh log trong
-                Discord.
+                {translate(
+                  "Lưu ý: bản ghi sự cố được ghi nhận trong phiên xem này (mất kết nối máy chủ, độ trễ quá cao). Để theo dõi xuyên suốt, hãy giữ trang này mở hoặc kiểm tra kênh log trong Discord.",
+                )}{" "}
               </p>
             </div>
 
@@ -205,7 +211,7 @@ function AdminContent() {
               />
               <div className="rounded-xl border border-border bg-card p-4">
                 <p className="flex items-center gap-1.5 font-display text-sm font-bold">
-                  <ShieldCheck className="h-4 w-4" /> Chìa khóa bảo mật API
+                  <ShieldCheck className="h-4 w-4" /> {translate("Chìa khóa bảo mật API")}{" "}
                 </p>
                 <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
                   Khi đã đặt seed, MỌI lệnh của bot yêu cầu chìa khóa khớp — kẻ ngoài không thể giả
@@ -215,15 +221,18 @@ function AdminContent() {
                   <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
                     pm2 restart protogon-bot
                   </code>
-                  . Bot chưa có BOT_KEY sẽ <b>tự cấp phát chìa khóa an toàn</b> khi khởi động (xác
-                  minh token Discord thật) — không cần thao tác gì thêm.
+                  {translate(". Bot chưa có BOT_KEY sẽ")}{" "}
+                  <b>{translate("tự cấp phát chìa khóa an toàn")}</b>{" "}
+                  {translate(
+                    "khi khởi động (xác minh token Discord thật) — không cần thao tác gì thêm.",
+                  )}{" "}
                 </p>
                 <div className="mt-3 flex gap-2">
                   <input
                     type="password"
                     value={ownerSeedInput}
                     onChange={(e) => setOwnerSeedInput(e.target.value)}
-                    placeholder="Seed bí mật (dòng bất kỳ, ví dụ: chuỗi ngẫu nhiên)"
+                    placeholder={translate("Seed bí mật (dòng bất kỳ, ví dụ: chuỗi ngẫu nhiên)")}
                     className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
                   />
                   <button
@@ -249,7 +258,7 @@ function AdminContent() {
                     }}
                     className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
                   >
-                    Bật bảo vệ
+                    {translate("Bật bảo vệ")}{" "}
                   </button>
                 </div>
                 {secretMsg && (
@@ -259,11 +268,15 @@ function AdminContent() {
                 )}
               </div>
               <div className="rounded-xl border border-border bg-secondary/30 p-4 text-xs leading-relaxed text-muted-foreground">
-                <p className="mb-1 font-semibold text-foreground">🔒 Quyền riêng tư</p>
+                <p className="mb-1 font-semibold text-foreground">
+                  {translate("🔒 Quyền riêng tư")}
+                </p>
                 <p>
                   Cửa sổ Admin chỉ hiển thị trong taskbar với{" "}
-                  <b className="text-foreground">chủ sở hữu bot</b> (khớp tài khoản Discord đã tạo
-                  bot). Người dùng khác không thấy nút này và không truy cập được trang này.
+                  <b className="text-foreground">{translate("chủ sở hữu bot")}</b>{" "}
+                  {translate(
+                    "(khớp tài khoản Discord đã tạo bot). Người dùng khác không thấy nút này và không truy cập được trang này.",
+                  )}{" "}
                 </p>
               </div>
             </div>
@@ -301,9 +314,11 @@ function SelfDiagnoseCard({
             <Bug className="h-4 w-4" />
           </span>
           <div>
-            <h3 className="font-display text-sm font-bold">Self-Diagnose — bot tự dò lỗi</h3>
+            <h3 className="font-display text-sm font-bold">
+              {translate("Self-Diagnose — bot tự dò lỗi")}
+            </h3>
             <p className="text-[11px] text-muted-foreground">
-              AI chẩn đoán lỗi runtime · đề xuất vá vào kênh log (không tự sửa)
+              {translate("AI chẩn đoán lỗi runtime · đề xuất vá vào kênh log (không tự sửa)")}{" "}
             </p>
           </div>
         </div>
@@ -319,18 +334,17 @@ function SelfDiagnoseCard({
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-        Khi bật, mỗi khi bot gặp lỗi runtime (unhandled rejection / uncaught exception), lỗi + đoạn
-        code liên quan được gửi cho AI (Mimo V2.5 qua Kira — free 30M tokens/ngày riêng cho việc
-        học) để chẩn đoán nguyên nhân và đề xuất bản vá dạng diff. KẾT QUẢ CHỈ LÀ ĐỀ XUẤT đăng vào
-        kênh log — bot không tự sửa code, không tự restart. Cùng 1 lỗi chỉ chẩn đoán 1 lần/giờ.
+        {translate(
+          "Khi bật, mỗi khi bot gặp lỗi runtime (unhandled rejection / uncaught exception), lỗi + đoạn code liên quan được gửi cho AI (Mimo V2.5 qua Kira — free 30M tokens/ngày riêng cho việc học) để chẩn đoán nguyên nhân và đề xuất bản vá dạng diff. KẾT QUẢ CHỈ LÀ ĐỀ XUẤT đăng vào kênh log — bot không tự sửa code, không tự restart. Cùng 1 lỗi chỉ chẩn đoán 1 lần/giờ.",
+        )}{" "}
       </p>
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
         <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
-          <span className="text-muted-foreground">Lượt chẩn đoán gần nhất:</span>{" "}
+          <span className="text-muted-foreground">{translate("Lượt chẩn đoán gần nhất:")}</span>{" "}
           <b>
             {diag?.lastAt
-              ? new Date(diag.lastAt).toLocaleString("vi-VN", {
+              ? new Date(diag.lastAt).toLocaleString(dateLocale(), {
                   hour: "2-digit",
                   minute: "2-digit",
                   day: "2-digit",
@@ -340,7 +354,8 @@ function SelfDiagnoseCard({
           </b>
         </div>
         <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
-          <span className="text-muted-foreground">Tổng lượt:</span> <b>{diag?.runs ?? 0}</b>
+          <span className="text-muted-foreground">{translate("Tổng lượt:")}</span>{" "}
+          <b>{diag?.runs ?? 0}</b>
         </div>
       </div>
     </div>
@@ -421,7 +436,7 @@ function ThreatIntelCard({
     }
   }
   const lastRun = threat?.lastRunAt
-    ? new Date(threat.lastRunAt).toLocaleString("vi-VN", {
+    ? new Date(threat.lastRunAt).toLocaleString(dateLocale(), {
         hour: "2-digit",
         minute: "2-digit",
         day: "2-digit",
@@ -436,9 +451,11 @@ function ThreatIntelCard({
             <GraduationCap className="h-4 w-4" />
           </span>
           <div>
-            <h3 className="font-display text-sm font-bold">Threat Intel — bot tự học</h3>
+            <h3 className="font-display text-sm font-bold">
+              {translate("Threat Intel — bot tự học")}
+            </h3>
             <p className="text-[11px] text-muted-foreground">
-              Tải nguồn mở mỗi giờ (0 token) · AI ≤ 1 lần/tuần
+              {translate("Tải nguồn mở mỗi giờ (0 token) · AI ≤ 1 lần/tuần")}{" "}
             </p>
           </div>
         </div>
@@ -456,19 +473,20 @@ function ThreatIntelCard({
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-        Khi bật, bot tải tin an ninh công khai (Reddit security, CISA KEV) mỗi giờ, học từ khóa scam
-        mới và dùng MIỄN PHÍ vĩnh viễn trong bộ lọc link độc hại. Từ khóa sai có thể bấm xóa bên
-        dưới. Chi phí: gần như 0 — không cần key thêm.
+        {translate(
+          "Khi bật, bot tải tin an ninh công khai (Reddit security, CISA KEV) mỗi giờ, học từ khóa scam mới và dùng MIỄN PHÍ vĩnh viễn trong bộ lọc link độc hại. Từ khóa sai có thể bấm xóa bên dưới. Chi phí: gần như 0 — không cần key thêm.",
+        )}{" "}
       </p>
 
       {/* Lỗi lượt học gần nhất — bot báo lại thay vì treo "Bot đang học…" vĩnh viễn */}
       {threat?.lastError && (
         <div className="mt-2 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
-          <p className="font-semibold">⚠️ Lượt học gần nhất thất bại</p>
+          <p className="font-semibold">{translate("⚠️ Lượt học gần nhất thất bại")}</p>
           <p className="mt-0.5 opacity-90">{threat.lastError}</p>
           {threat.lastErrorAt ? (
             <p className="mt-0.5 opacity-70">
-              {new Date(threat.lastErrorAt).toLocaleString("vi-VN")} — bấm "Học ngay" để thử lại
+              {new Date(threat.lastErrorAt).toLocaleString(dateLocale())} — bấm "Học ngay" để thử
+              lại
             </p>
           ) : null}
         </div>
@@ -492,24 +510,26 @@ function ThreatIntelCard({
           checked={!!threat?.notifyEnabled}
           onChange={(e) => onToggleNotify(e.target.checked)}
         />
-        Gửi thông báo học tập vào kênh log các server (kết quả lượt học thủ công + digest tuần). MẶC
-        ĐỊNH TẮT — bật khi muốn admin theo dõi bot học được gì ngay trên Discord thay vì mở web.
+        {translate(
+          "Gửi thông báo học tập vào kênh log các server (kết quả lượt học thủ công + digest tuần). MẶC ĐỊNH TẮT — bật khi muốn admin theo dõi bot học được gì ngay trên Discord thay vì mở web.",
+        )}{" "}
       </label>
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
         <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
-          <span className="text-muted-foreground">Lượt chạy gần nhất:</span>{" "}
+          <span className="text-muted-foreground">{translate("Lượt chạy gần nhất:")}</span>{" "}
           <b>{lastRun ?? "chưa có"}</b>
         </div>
         <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
-          <span className="text-muted-foreground">Tổng lượt:</span> <b>{threat?.totalRuns ?? 0}</b>
+          <span className="text-muted-foreground">{translate("Tổng lượt:")}</span>{" "}
+          <b>{threat?.totalRuns ?? 0}</b>
         </div>
         <div className="rounded-lg bg-secondary px-2.5 py-1.5">
-          <span className="text-muted-foreground">Từ khóa mới lượt trước:</span>{" "}
+          <span className="text-muted-foreground">{translate("Từ khóa mới lượt trước:")}</span>{" "}
           <b className="text-foreground">+{threat?.lastNewKeywords ?? 0}</b>
         </div>
         <div className="rounded-lg bg-secondary px-2.5 py-1.5">
-          <span className="text-muted-foreground">Cụm từ mới:</span>{" "}
+          <span className="text-muted-foreground">{translate("Cụm từ mới:")}</span>{" "}
           <b className="text-foreground">+{threat?.lastNewPhrases ?? 0}</b>
         </div>
         <div className="col-span-2 rounded-lg bg-secondary/40 px-2.5 py-1.5">
@@ -529,11 +549,11 @@ function ThreatIntelCard({
       <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold text-foreground">🖐️ Học thủ công</p>
+            <p className="text-xs font-semibold text-foreground">{translate("🖐️ Học thủ công")}</p>
             <p className="text-[11px] text-muted-foreground">
               Kích hoạt bot học NGAY từ nguồn mở + AI tổng hợp. Lần cuối:{" "}
               {threat?.manualLastAt
-                ? new Date(threat.manualLastAt).toLocaleString("vi-VN")
+                ? new Date(threat.manualLastAt).toLocaleString(dateLocale())
                 : "chưa có"}
               {threat?.manualLastBy ? ` · bởi ${threat.manualLastBy}` : ""}
             </p>
@@ -568,7 +588,7 @@ function ThreatIntelCard({
                 className="flex items-center justify-between gap-2 text-[11px]"
               >
                 <span className="text-muted-foreground">
-                  {new Date(r.createdAt).toLocaleString("vi-VN", {
+                  {new Date(r.createdAt).toLocaleString(dateLocale(), {
                     hour: "2-digit",
                     minute: "2-digit",
                     day: "2-digit",
@@ -580,7 +600,7 @@ function ThreatIntelCard({
                 <span className="font-medium">
                   {" "}
                   <b className="text-foreground">+{r.newKeywords}</b> từ khóa{""}
-                  {r.aiUsed && <span title="AI tổng hợp (Mimo V2.5)">🧠</span>} · nhớ{" "}
+                  {r.aiUsed && <span title={translate("AI tổng hợp (Mimo V2.5)")}>🧠</span>} · nhớ{" "}
                   {r.totalKeywords}
                 </span>
               </div>
@@ -596,8 +616,9 @@ function ThreatIntelCard({
         <div className="flex max-h-28 flex-wrap gap-1 overflow-y-auto">
           {threat && (threat.keywords?.length ?? 0) + (threat.scamPhrases?.length ?? 0) === 0 && (
             <span className="text-[11px] text-muted-foreground">
-              Chưa học được từ khóa nào — bật research và chờ lượt chạy đầu tiên (5 phút sau khi bot
-              online).
+              {translate(
+                "Chưa học được từ khóa nào — bật research và chờ lượt chạy đầu tiên (5 phút sau khi bot online).",
+              )}{" "}
             </span>
           )}
           {(threat?.keywords ?? []).map((k) => (
@@ -610,7 +631,7 @@ function ThreatIntelCard({
                 type="button"
                 onClick={() => onRemove(k, "keyword")}
                 className="text-muted-foreground transition-colors hover:text-danger"
-                title="Xóa từ khóa học sai"
+                title={translate("Xóa từ khóa học sai")}
               >
                 <X className="h-2.5 w-2.5" />
               </button>
@@ -626,7 +647,7 @@ function ThreatIntelCard({
                 type="button"
                 onClick={() => onRemove(p, "phrase")}
                 className="opacity-60 transition-opacity hover:opacity-100"
-                title="Xóa cụm từ học sai"
+                title={translate("Xóa cụm từ học sai")}
               >
                 <X className="h-2.5 w-2.5" />
               </button>

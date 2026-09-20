@@ -4,12 +4,15 @@ import UpdateWindow from "../components/UpdateWindow";
 import { INCIDENT_SLOW, LATENCY_SLOW, latencyLabel, useBotMonitor } from "../lib/useBotMonitor";
 import { cn } from "../lib/utils";
 
+import LangSwitch from "../components/LangSwitch";
+
+import { dateLocale, translate } from "../lib/i18n";
 /** Biểu đồ độ trễ dạng đường (SVG thuần, không cần thư viện). */
 function LatencyChart({ samples }: { samples: number[] }) {
   if (samples.length < 2) {
     return (
       <div className="flex h-40 items-center justify-center text-xs text-muted-foreground">
-        Đang thu thập dữ liệu… (cần ít nhất 2 mẫu)
+        {translate("Đang thu thập dữ liệu… (cần ít nhất 2 mẫu)")}{" "}
       </div>
     );
   }
@@ -82,12 +85,15 @@ export default function Monitor() {
                 <Activity className="h-5 w-5" />
               </span>
               <div>
-                <h1 className="font-display text-xl font-bold">Giám sát bot</h1>
+                <h1 className="font-display text-xl font-bold">{translate("Giám sát bot")}</h1>
                 <p className="text-xs text-muted-foreground">
-                  Độ trễ · tốc độ phản hồi · trạng thái server — không hiển thị tên server
+                  {translate(
+                    "Độ trễ · tốc độ phản hồi · trạng thái server — không hiển thị tên server",
+                  )}{" "}
                 </p>
               </div>
             </div>
+            <LangSwitch className="ml-auto" />
           </div>
         </header>
 
@@ -96,7 +102,7 @@ export default function Monitor() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-xl border border-border bg-card p-4">
               <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                <Wifi className="h-3.5 w-3.5" /> Trạng thái bot
+                <Wifi className="h-3.5 w-3.5" /> {translate("Trạng thái bot")}{" "}
               </p>
               <p
                 className={cn(
@@ -115,7 +121,7 @@ export default function Monitor() {
             </div>
             <div className="rounded-xl border border-border bg-card p-4">
               <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                <Gauge className="h-3.5 w-3.5" /> Độ trễ hiện tại
+                <Gauge className="h-3.5 w-3.5" /> {translate("Độ trễ hiện tại")}{" "}
               </p>
               <p className="mt-1.5 font-mono text-lg font-bold">
                 {lat !== null ? `${lat} ms` : "—"}
@@ -123,7 +129,7 @@ export default function Monitor() {
             </div>
             <div className="rounded-xl border border-border bg-card p-4">
               <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                <Server className="h-3.5 w-3.5" /> Số server đang dùng bot
+                <Server className="h-3.5 w-3.5" /> {translate("Số server đang dùng bot")}{" "}
               </p>
               <p className="mt-1.5 font-display text-lg font-bold">
                 {status ? status.guildCount : "—"}
@@ -131,10 +137,10 @@ export default function Monitor() {
             </div>
             <div className="rounded-xl border border-border bg-card p-4">
               <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                <Users className="h-3.5 w-3.5" /> Tổng thành viên
+                <Users className="h-3.5 w-3.5" /> {translate("Tổng thành viên")}{" "}
               </p>
               <p className="mt-1.5 font-display text-lg font-bold">
-                {status ? status.memberCount.toLocaleString("vi-VN") : "—"}
+                {status ? status.memberCount.toLocaleString(dateLocale()) : "—"}
               </p>
             </div>
           </div>
@@ -146,7 +152,7 @@ export default function Monitor() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="font-display text-base font-bold">
-                      Biểu đồ độ trễ (5 giây / mẫu)
+                      {translate("Biểu đồ độ trễ (5 giây / mẫu)")}{" "}
                     </h2>
                     <p className="text-xs text-muted-foreground">
                       Trung bình:{" "}
@@ -172,9 +178,9 @@ export default function Monitor() {
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   {" "}
                   Đánh giá: <b className="text-foreground">Nhanh</b> (&lt; 300ms) ·{""}
-                  <b className="text-foreground">Trung bình</b> (300–800ms) ·{""}
-                  <b className="text-danger">Chậm</b> (&gt; 800ms) ·{""}
-                  <b className="text-danger">Sự cố</b> (&gt; 1200ms)
+                  <b className="text-foreground">{translate("Trung bình")}</b> (300–800ms) ·{""}
+                  <b className="text-danger">{translate("Chậm")}</b> (&gt; 800ms) ·{""}
+                  <b className="text-danger">{translate("Sự cố")}</b> (&gt; 1200ms)
                 </p>
               </div>
 
@@ -186,7 +192,7 @@ export default function Monitor() {
                 </h2>
                 {incidents.length === 0 ? (
                   <p className="mt-2 text-sm text-foreground">
-                    Không ghi nhận sự cố trong phiên này — hệ thống ổn định ✅
+                    {translate("Không ghi nhận sự cố trong phiên này — hệ thống ổn định ✅")}{" "}
                   </p>
                 ) : (
                   <ul className="mt-2 space-y-1.5">
@@ -200,7 +206,7 @@ export default function Monitor() {
                           {inc.text}{" "}
                           <span className="text-muted-foreground">
                             ·{" "}
-                            {new Date(inc.time).toLocaleTimeString("vi-VN", {
+                            {new Date(inc.time).toLocaleTimeString(dateLocale(), {
                               hour: "2-digit",
                               minute: "2-digit",
                               second: "2-digit",
@@ -222,14 +228,16 @@ export default function Monitor() {
                 showRefresh
               />
               <div className="rounded-xl border border-border bg-secondary/30 p-4 text-xs leading-relaxed text-muted-foreground">
-                <p className="mb-1 font-semibold text-foreground">ℹ️ Ghi chú</p>
-                <p>• Không hiển thị tên server — chỉ hiện số lượng để bảo mật.</p>
+                <p className="mb-1 font-semibold text-foreground">{translate("ℹ️ Ghi chú")}</p>
+                <p>{translate("• Không hiển thị tên server — chỉ hiện số lượng để bảo mật.")}</p>
                 <p className="mt-1">
-                  • Trang Cửa sổ Admin (chỉ chủ sở hữu bot) chia sẻ khung giờ cập nhật này và theo
-                  dõi lỗi chi tiết hơn.
+                  {translate(
+                    "• Trang Cửa sổ Admin (chỉ chủ sở hữu bot) chia sẻ khung giờ cập nhật này và theo dõi lỗi chi tiết hơn.",
+                  )}{" "}
                 </p>
                 <p className="mt-1">
-                  • Giờ hiển thị theo <b className="text-foreground">giờ Việt Nam</b> (UTC+7).
+                  {translate("• Giờ hiển thị theo")}{" "}
+                  <b className="text-foreground">{translate("giờ Việt Nam")}</b> (UTC+7).
                 </p>
               </div>
             </div>

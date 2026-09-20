@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { History, User, ArrowRight } from "lucide-react";
 
+import { dateLocale, translate } from "../../lib/i18n";
 interface AuditLogPanelProps {
   token: string;
   guildId: string;
@@ -29,13 +30,13 @@ export default function AuditLogPanel({ token, guildId }: AuditLogPanelProps) {
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
           <History className="h-5 w-5" />
-          Lịch sử thay đổi
+          {translate("Lịch sử thay đổi")}{" "}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 max-h-[500px] overflow-y-auto">
         {logs.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            Chưa có thay đổi nào được ghi nhận
+            {translate("Chưa có thay đổi nào được ghi nhận")}{" "}
           </p>
         )}
         {logs.map((log) => (
@@ -55,7 +56,7 @@ export default function AuditLogPanel({ token, guildId }: AuditLogPanelProps) {
                   {log.action}
                 </Badge>
                 <span className="text-muted-foreground text-xs">
-                  {new Date(log.createdAt).toLocaleString("vi-VN")}
+                  {new Date(log.createdAt).toLocaleString(dateLocale())}
                 </span>
               </div>
               <div className="mt-1 text-muted-foreground">
@@ -88,7 +89,7 @@ export default function AuditLogPanel({ token, guildId }: AuditLogPanelProps) {
             onClick={() => setLimit((l) => l + 20)}
             className="w-full text-sm text-primary hover:underline py-2"
           >
-            Xem thêm...
+            {translate("Xem thêm...")}{" "}
           </button>
         )}
       </CardContent>

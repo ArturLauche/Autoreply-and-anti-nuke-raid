@@ -3,6 +3,7 @@ import { RefreshCw } from "lucide-react";
 import BotLogo from "./BotLogo";
 import { Button } from "./ui/button";
 
+import { translate } from "../lib/i18n";
 interface Props {
   children: ReactNode;
 }
@@ -40,12 +41,13 @@ export default class RootErrorBoundary extends Component<Props, State> {
           </span>
 
           <h1 className="mt-7 font-display text-2xl font-bold tracking-tight md:text-3xl">
-            Máy chủ đang gặp sự cố 🌸
+            {translate("Máy chủ đang gặp sự cố 🌸")}{" "}
           </h1>
 
           <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-            Protogon không kết nối được với máy chủ dữ liệu (backend Convex đang trả lỗi). Trang web
-            sẽ hoạt động lại ngay khi máy chủ khỏe — bạn có thể thử tải lại.
+            {translate(
+              "Protogon không kết nối được với máy chủ dữ liệu (backend Convex đang trả lỗi). Trang web sẽ hoạt động lại ngay khi máy chủ khỏe — bạn có thể thử tải lại.",
+            )}{" "}
           </p>
 
           {msg && (
@@ -55,7 +57,7 @@ export default class RootErrorBoundary extends Component<Props, State> {
           )}
 
           <Button size="lg" className="mt-7" onClick={() => window.location.reload()}>
-            <RefreshCw className="h-4 w-4" /> Tải lại trang
+            <RefreshCw className="h-4 w-4" /> {translate("Tải lại trang")}{" "}
           </Button>
         </div>
       </div>

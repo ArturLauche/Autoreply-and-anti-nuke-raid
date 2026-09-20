@@ -17,6 +17,7 @@ import {
 import { DashboardCta, SafeHaimiyaAvatar } from "../components/landing/shared";
 import { usePublicConfig } from "../lib/usePublicConfig";
 
+import { translate } from "../lib/i18n";
 export default function Landing() {
   const { discordInvite, facebookUrl } = usePublicConfig();
   return (
@@ -43,7 +44,7 @@ export default function Landing() {
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
                   </span>
-                  Discord Bot · Nhiệt độ · Join Gate · Tính năng ẩn
+                  {translate("Discord Bot · Nhiệt độ · Join Gate · Tính năng ẩn")}{" "}
                 </Badge>
               </motion.div>
               <motion.h1
@@ -53,7 +54,7 @@ export default function Landing() {
                 className="mt-4 text-center font-display text-4xl font-bold leading-[1.15] tracking-tight sm:text-5xl lg:mt-0 lg:text-left lg:text-4xl xl:text-[2.75rem]"
               >
                 Bot Discord
-                <span className="block text-primary">bảo vệ toàn diện</span>
+                <span className="block text-primary">{translate("bảo vệ toàn diện")}</span>
                 <span className="block">tự trả lời &amp; chống raid</span>
               </motion.h1>
               <motion.p
@@ -62,11 +63,13 @@ export default function Landing() {
                 transition={{ duration: 0.7, delay: 0.2 }}
                 className="mx-auto mt-5 max-w-lg text-center text-base text-muted-foreground sm:text-lg lg:mx-0 lg:text-left"
               >
-                Tag <span className="font-mono text-primary">@protogon</span> hoặc nhắc từ khóa —
-                bot trả lời ngay. Hệ thống <b className="text-foreground">nhiệt độ 4 giai đoạn</b>{" "}
-                kèm warn tích lũy, <b className="text-foreground">Join Gate chống selfbot</b>,{" "}
-                <b className="text-foreground">chặn link độc hại & file nguy hiểm</b> và{" "}
-                <b className="text-foreground">32 module bảo vệ</b> canh server 24/7.
+                Tag <span className="font-mono text-primary">@protogon</span>{" "}
+                {translate("hoặc nhắc từ khóa — bot trả lời ngay. Hệ thống")}{" "}
+                <b className="text-foreground">{translate("nhiệt độ 4 giai đoạn")}</b> kèm warn tích
+                lũy, <b className="text-foreground">{translate("Join Gate chống selfbot")}</b>,{" "}
+                <b className="text-foreground">{translate("chặn link độc hại & file nguy hiểm")}</b>{" "}
+                và <b className="text-foreground">{translate("32 module bảo vệ")}</b> canh server
+                24/7.
               </motion.p>
               <motion.div
                 initial={{ opacity: 0, y: 24 }}
@@ -75,14 +78,14 @@ export default function Landing() {
                 className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start"
               >
                 <DashboardCta>
-                  Mở dashboard <ArrowRight className="h-4 w-4" />
+                  {translate("Mở dashboard")} <ArrowRight className="h-4 w-4" />
                 </DashboardCta>
                 <Button
                   size="lg"
                   variant="outline"
                   onClick={() => window.dispatchEvent(new Event("haimiya-open"))}
                 >
-                  <SafeHaimiyaAvatar className="h-6 w-6" /> Hỏi Haimiya
+                  <SafeHaimiyaAvatar className="h-6 w-6" /> {translate("Hỏi Haimiya")}{" "}
                 </Button>
               </motion.div>
               <motion.div

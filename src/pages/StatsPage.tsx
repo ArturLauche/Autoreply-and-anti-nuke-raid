@@ -18,6 +18,9 @@ import { discordGuildIconUrl, getSessionToken } from "../lib/discord";
 import { timeAgo } from "../lib/utils";
 import type { MeData } from "../lib/types";
 
+import LangSwitch from "../components/LangSwitch";
+
+import { translate } from "../lib/i18n";
 /** 1 dòng bảng xếp hạng trả về từ convex/reports.ts heatLeaderboard. */
 interface HeatRow {
   userId: string;
@@ -92,22 +95,23 @@ export default function StatsPage() {
               </Link>
               <div>
                 <h1 className="font-display text-xl font-bold tracking-tight">
-                  Thống kê nhiệt độ 🔥
+                  {translate("Thống kê nhiệt độ 🔥")}{" "}
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Top 10 thành viên bị cảnh báo nhiệt độ vi phạm
+                  {translate("Top 10 thành viên bị cảnh báo nhiệt độ vi phạm")}{" "}
                 </p>
               </div>
+              <LangSwitch className="ml-auto" />
             </div>
           </div>
         </header>
 
         <main className="container py-8">
           <div className="grid gap-1.5 sm:max-w-xs">
-            <p className="text-xs text-muted-foreground">Chọn server</p>
+            <p className="text-xs text-muted-foreground">{translate("Chọn server")}</p>
             <Select value={guildId} onValueChange={setGuildId}>
               <SelectTrigger>
-                <SelectValue placeholder="Chọn server…" />
+                <SelectValue placeholder={translate("Chọn server…")} />
               </SelectTrigger>
               <SelectContent>
                 {managed.map((g) => (
@@ -126,7 +130,9 @@ export default function StatsPage() {
                   <ShieldAlert className="h-6 w-6" />
                 </span>
                 <p className="max-w-sm text-sm text-muted-foreground">
-                  Bạn chưa quản lý server nào có bot — hãy mời bot vào server trước.
+                  {translate(
+                    "Bạn chưa quản lý server nào có bot — hãy mời bot vào server trước.",
+                  )}{" "}
                 </p>
               </CardContent>
             </Card>
@@ -145,7 +151,7 @@ export default function StatsPage() {
                   <ShieldAlert className="h-6 w-6" />
                 </span>
                 <p className="max-w-sm text-sm text-muted-foreground">
-                  Không thể truy cập server này — bạn không có quyền quản lý.
+                  {translate("Không thể truy cập server này — bạn không có quyền quản lý.")}{" "}
                 </p>
               </CardContent>
             </Card>
@@ -157,7 +163,9 @@ export default function StatsPage() {
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Flame className="h-4 w-4 text-primary" />
-                    <p className="font-display font-semibold">Bảng xếp hạng nhiệt độ</p>
+                    <p className="font-display font-semibold">
+                      {translate("Bảng xếp hạng nhiệt độ")}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     {selected?.icon && (
@@ -186,7 +194,7 @@ export default function StatsPage() {
                       <Trophy className="h-6 w-6" />
                     </span>
                     <p className="max-w-sm text-sm text-muted-foreground">
-                      Không ai đang nóng đầu cả — server đang rất bình yên.
+                      {translate("Không ai đang nóng đầu cả — server đang rất bình yên.")}{" "}
                     </p>
                   </div>
                 ) : (

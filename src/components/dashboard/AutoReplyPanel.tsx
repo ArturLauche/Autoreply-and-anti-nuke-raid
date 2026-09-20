@@ -24,6 +24,7 @@ import { CHANNEL_TYPE_LABEL } from "../../lib/constants";
 import type { AutoReply, GuildData } from "../../lib/types";
 import { getSessionToken } from "../../lib/discord";
 
+import { translate } from "../../lib/i18n";
 const TOKEN = () => getSessionToken();
 
 interface FormState {
@@ -81,10 +82,10 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
   }
 
   async function handleSave() {
-    if (!form.name.trim()) return toast.error("Nhập tên rule");
-    if (!form.response.trim()) return toast.error("Nhập nội dung trả lời");
+    if (!form.name.trim()) return toast.error(translate("Nhập tên rule"));
+    if (!form.response.trim()) return toast.error(translate("Nhập nội dung trả lời"));
     if (form.triggerType === "keyword" && !form.keywords.trim()) {
-      return toast.error("Nhập ít nhất một từ khóa");
+      return toast.error(translate("Nhập ít nhất một từ khóa"));
     }
     setSaving(true);
     try {
@@ -103,7 +104,7 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
           channels: form.channels,
           cooldownSeconds: Number(form.cooldownSeconds) || 0,
         });
-        toast.success(`Đã cập nhật rule "${form.name}"`);
+        toast.success(translate('Đã cập nhật rule "{p0}"', { p0: form.name }));
       } else {
         await addRule({
           token: TOKEN(),
@@ -115,7 +116,7 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
           channels: form.channels,
           cooldownSeconds: Number(form.cooldownSeconds) || 0,
         });
-        toast.success(`Đã tạo rule "${form.name}"`);
+        toast.success(translate('Đã tạo rule "{p0}"', { p0: form.name }));
       }
       setDialogOpen(false);
     } catch (e) {
@@ -128,7 +129,9 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
   async function toggleRule(rule: AutoReply, enabled: boolean) {
     try {
       await updateRule({ token: TOKEN(), id: rule._id, enabled });
-      toast.success(`Rule "${rule.name}" ${enabled ? "đã bật" : "đã tắt"}`);
+      toast.success(
+        translate('Rule "{p0}" {p1}', { p0: rule.name, p1: enabled ? "đã bật" : "đã tắt" }),
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Thất bại");
     }
@@ -138,7 +141,7 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
     if (!confirm(`Xóa rule "${rule.name}"?`)) return;
     try {
       await removeRule({ token: TOKEN(), id: rule._id });
-      toast.success(`Đã xóa "${rule.name}"`);
+      toast.success(translate('Đã xóa "{p0}"', { p0: rule.name }));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Xóa thất bại");
     }
@@ -150,11 +153,11 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
         <div>
           <h2 className="font-display text-lg font-semibold">Auto Reply</h2>
           <p className="text-sm text-muted-foreground">
-            Bot tự trả lời thành viên khi nhắc từ khóa hoặc tag @bot
+            {translate("Bot tự trả lời thành viên khi nhắc từ khóa hoặc tag @bot")}{" "}
           </p>
         </div>
         <Button onClick={openCreate}>
-          <Plus className="h-4 w-4" /> Thêm rule
+          <Plus className="h-4 w-4" /> {translate("Thêm rule")}{" "}
         </Button>
       </div>
 
@@ -165,8 +168,9 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
               <AtSign className="h-6 w-6" />
             </span>
             <p className="max-w-sm text-sm text-muted-foreground">
-              Chưa có rule nào. Tạo rule đầu tiên để bot trả lời khi ai đó nhắc từ khóa hoặc tag
-              bot.
+              {translate(
+                "Chưa có rule nào. Tạo rule đầu tiên để bot trả lời khi ai đó nhắc từ khóa hoặc tag bot.",
+              )}{" "}
             </p>
           </CardContent>
         </Card>
@@ -189,7 +193,7 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
                           </>
                         ) : (
                           <>
-                            <KeyRound className="h-3 w-3" /> từ khóa
+                            <KeyRound className="h-3 w-3" /> {translate("từ khóa")}{" "}
                           </>
                         )}
                       </Badge>
@@ -249,13 +253,13 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
               {editing ? `Chỉnh sửa "${editing.name}"` : "Thêm rule auto reply"}
             </DialogTitle>
             <DialogDescription>
-              Bot sẽ trả lời thành viên khi điều kiện kích hoạt được thỏa mãn.
+              {translate("Bot sẽ trả lời thành viên khi điều kiện kích hoạt được thỏa mãn.")}{" "}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="rule-name">Tên rule</Label>
+              <Label htmlFor="rule-name">{translate("Tên rule")}</Label>
               <Input
                 id="rule-name"
                 placeholder="vi-du: chao-hoi"
@@ -265,16 +269,16 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
             </div>
 
             <div className="grid gap-2">
-              <Label>Loại kích hoạt</Label>
+              <Label>{translate("Loại kích hoạt")}</Label>
               <Select
                 value={form.triggerType}
                 onValueChange={(v) => setForm({ ...form, triggerType: v as "keyword" | "mention" })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Chọn loại" />
+                  <SelectValue placeholder={translate("Chọn loại")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="keyword">Từ khóa trong tin nhắn</SelectItem>
+                  <SelectItem value="keyword">{translate("Từ khóa trong tin nhắn")}</SelectItem>
                   <SelectItem value="mention">Tag bot (@protogon)</SelectItem>
                 </SelectContent>
               </Select>
@@ -287,10 +291,12 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
 
             {form.triggerType === "keyword" && (
               <div className="grid gap-2">
-                <Label htmlFor="rule-keywords">Từ khóa (phân cách bằng dấu phẩy)</Label>
+                <Label htmlFor="rule-keywords">
+                  {translate("Từ khóa (phân cách bằng dấu phẩy)")}
+                </Label>
                 <Input
                   id="rule-keywords"
-                  placeholder="hello, xin chào, chào"
+                  placeholder={translate("hello, xin chào, chào")}
                   value={form.keywords}
                   onChange={(e) => setForm({ ...form, keywords: e.target.value })}
                 />
@@ -298,16 +304,17 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
             )}
 
             <div className="grid gap-2">
-              <Label htmlFor="rule-response">Nội dung trả lời</Label>
+              <Label htmlFor="rule-response">{translate("Nội dung trả lời")}</Label>
               <Textarea
                 id="rule-response"
-                placeholder="Chào {user}! Cần tớ giúp gì không?"
+                placeholder={translate("Chào {user}! Cần tớ giúp gì không?")}
                 value={form.response}
                 onChange={(e) => setForm({ ...form, response: e.target.value })}
               />
               <p className="text-xs text-muted-foreground">
                 Placeholder: <code className="font-mono">{"{user}"}</code> tag người nhắn,{" "}
-                <code className="font-mono">{"{username}"}</code> lấy tên thành viên.
+                <code className="font-mono">{"{username}"}</code>{" "}
+                {translate("lấy tên thành viên.")}{" "}
               </p>
             </div>
 
@@ -317,7 +324,7 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
                 options={channelOptions}
                 value={form.channels}
                 onChange={(v) => setForm({ ...form, channels: v })}
-                placeholder="Tất cả kênh"
+                placeholder={translate("Tất cả kênh")}
                 emptyLabel="Chưa có kênh nào được đồng bộ"
                 searchPlaceholder="Gõ tên kênh để tìm nhanh…"
               />
@@ -338,7 +345,7 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
 
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDialogOpen(false)}>
-              Hủy
+              {translate("Hủy")}{" "}
             </Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? "Đang lưu…" : editing ? "Lưu thay đổi" : "Tạo rule"}

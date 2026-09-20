@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import type { GuildData } from "../../lib/types";
 import { getSessionToken } from "../../lib/discord";
 
+import { dateLocale, translate } from "../../lib/i18n";
 const TOKEN = () => getSessionToken();
 
 /* ======================== Types ======================== */
@@ -92,7 +93,7 @@ function EmbedPreview({ embed }: { embed: EmbedData }) {
   if (!hasAnyContent) {
     return (
       <div className="rounded-lg border border-[#3f4147] bg-[#2b2d31] p-4 text-center text-xs text-[#b5bac1]">
-        Chưa có nội dung embed — hãy soạn bên trái.
+        {translate("Chưa có nội dung embed — hãy soạn bên trái.")}{" "}
       </div>
     );
   }
@@ -195,7 +196,7 @@ function EmbedPreview({ embed }: { embed: EmbedData }) {
             <span className="text-[11px] text-[#b5bac1]">{embed.footerText}</span>
             {embed.timestamp && (
               <span className="text-[11px] text-[#b5bac1]">
-                • {new Date().toLocaleString("vi-VV")}
+                • {new Date().toLocaleString(dateLocale())}
               </span>
             )}
           </div>
@@ -233,7 +234,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
   /* --- Send --- */
   async function handleSend() {
     if (!webhookUrl.trim()) {
-      toast.error("Nhập Discord Webhook URL");
+      toast.error(translate("Nhập Discord Webhook URL"));
       return;
     }
     if (!isValidWebhookUrl(webhookUrl)) {
@@ -289,7 +290,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
       });
 
       setResult({ ok: true, msg: "Đã gửi thành công! Kiểm tra kênh Discord." });
-      toast.success("Gửi thành công!");
+      toast.success(translate("Gửi thành công!"));
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       setResult({ ok: false, msg });
@@ -311,13 +312,13 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
             <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
               Webhook mặc định của bot{" "}
               <Badge variant="secondary" className="text-[10px]">
-                MẶC ĐỊNH — tự động
+                {translate("MẶC ĐỊNH — tự động")}{" "}
               </Badge>
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               {defaultWh ? (
                 <>
-                  Tên <b className="text-foreground">{defaultWh.name}</b> · kênh{" "}
+                  {translate("Tên")} <b className="text-foreground">{defaultWh.name}</b> · kênh{" "}
                   <b className="text-foreground">
                     #{" "}
                     {data.channels?.find((c) => c.channelId === defaultWh.channelId)?.name ??
@@ -327,8 +328,11 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
                 </>
               ) : (
                 <>
-                  Chưa có — bot sẽ <b className="text-foreground">tự tạo trong ~1 phút</b> sau khi
-                  bạn <b className="text-foreground">set Kênh log</b> trong Cài đặt.
+                  {translate("Chưa có — bot sẽ")}{" "}
+                  <b className="text-foreground">{translate("tự tạo trong ~1 phút")}</b>{" "}
+                  {translate("sau khi bạn")}{" "}
+                  <b className="text-foreground">{translate("set Kênh log")}</b>{" "}
+                  {translate("trong Cài đặt.")}{" "}
                 </>
               )}
             </p>
@@ -362,8 +366,9 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
             Discord Webhook Sender
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            Dán webhook URL từ Discord (Kênh → Tích hợp → Webhook → Tạo webhook), soạn nội dung &
-            embed, bấm gửi.
+            {translate(
+              "Dán webhook URL từ Discord (Kênh → Tích hợp → Webhook → Tạo webhook), soạn nội dung & embed, bấm gửi.",
+            )}{" "}
           </p>
         </div>
 
@@ -382,7 +387,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="text-[11px] font-medium text-muted-foreground">
-                Username ghi đè (tùy chọn)
+                {translate("Username ghi đè (tùy chọn)")}{" "}
               </label>
               <input
                 value={username}
@@ -393,7 +398,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
             </div>
             <div>
               <label className="text-[11px] font-medium text-muted-foreground">
-                Avatar URL ghi đè (tùy chọn)
+                {translate("Avatar URL ghi đè (tùy chọn)")}{" "}
               </label>
               <input
                 value={avatarUrl}
@@ -405,12 +410,12 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
           </div>
           <div>
             <label className="text-[11px] font-medium text-muted-foreground">
-              Nội dung tin nhắn (tùy chọn — gửi cùng embed)
+              {translate("Nội dung tin nhắn (tùy chọn — gửi cùng embed)")}{" "}
             </label>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="Nội dung tin nhắn Discord..."
+              placeholder={translate("Nội dung tin nhắn Discord...")}
               rows={2}
               className="mt-1 w-full rounded-lg border border-border bg-background/70 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none resize-none"
             />
@@ -422,7 +427,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
           {/* --- Builder --- */}
           <div className="space-y-3 rounded-xl border border-border bg-card p-4">
             <h4 className="flex items-center gap-1.5 text-sm font-semibold">
-              <Palette className="h-3.5 w-3.5" /> Soạn Embed
+              <Palette className="h-3.5 w-3.5" /> {translate("Soạn Embed")}{" "}
             </h4>
 
             {/* Author */}
@@ -433,7 +438,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
               <input
                 value={embed.authorName}
                 onChange={(e) => updateEmbed({ authorName: e.target.value })}
-                placeholder="Tên tác giả"
+                placeholder={translate("Tên tác giả")}
                 className="w-full rounded border border-border bg-background/70 px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
               />
               <div className="grid gap-2 sm:grid-cols-2">
@@ -446,7 +451,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
                 <input
                   value={embed.authorUrl}
                   onChange={(e) => updateEmbed({ authorUrl: e.target.value })}
-                  placeholder="URL khi nhấn tên"
+                  placeholder={translate("URL khi nhấn tên")}
                   className="w-full rounded border border-border bg-background/70 px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
                 />
               </div>
@@ -456,13 +461,13 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
             <input
               value={embed.title}
               onChange={(e) => updateEmbed({ title: e.target.value })}
-              placeholder="Tiêu đề embed"
+              placeholder={translate("Tiêu đề embed")}
               className="w-full rounded-lg border border-border bg-background/70 px-3 py-2 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
             />
             <textarea
               value={embed.description}
               onChange={(e) => updateEmbed({ description: e.target.value })}
-              placeholder="Mô tả / nội dung chính..."
+              placeholder={translate("Mô tả / nội dung chính...")}
               rows={4}
               className="w-full rounded-lg border border-border bg-background/70 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none resize-none"
             />
@@ -471,7 +476,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
             <div className="flex items-center gap-2">
               <label className="text-[11px] font-medium text-muted-foreground shrink-0">
                 <Palette className="mr-1 inline h-3 w-3" />
-                Màu
+                {translate("Màu")}{" "}
               </label>
               <input
                 type="color"
@@ -503,7 +508,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
                     })
                   }
                 >
-                  <Plus className="h-3 w-3" /> Thêm
+                  <Plus className="h-3 w-3" /> {translate("Thêm")}{" "}
                 </Button>
               </div>
               {embed.fields.map((f, i) => (
@@ -531,7 +536,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
                       next[i] = { ...next[i], name: e.target.value };
                       updateEmbed({ fields: next });
                     }}
-                    placeholder="Tên field"
+                    placeholder={translate("Tên field")}
                     className="w-full rounded border border-border bg-background/70 px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
                   />
                   <input
@@ -541,7 +546,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
                       next[i] = { ...next[i], value: e.target.value };
                       updateEmbed({ fields: next });
                     }}
-                    placeholder="Giá trị"
+                    placeholder={translate("Giá trị")}
                     className="w-full rounded border border-border bg-background/70 px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
                   />
                   <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -620,14 +625,14 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
                 className="accent-primary"
               />
               <Clock className="h-3 w-3" />
-              Hiển thị timestamp hiện tại
+              {translate("Hiển thị timestamp hiện tại")}{" "}
             </label>
           </div>
 
           {/* --- Preview --- */}
           <div className="space-y-3 rounded-xl border border-border bg-card p-4">
             <h4 className="flex items-center gap-1.5 text-sm font-semibold">
-              <Type className="h-3.5 w-3.5" /> Xem trước
+              <Type className="h-3.5 w-3.5" /> {translate("Xem trước")}{" "}
             </h4>
             {/* Discord-like message container */}
             <div className="rounded-lg bg-[#313338] p-4 space-y-1">
@@ -640,7 +645,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
                     </span>
                     <span className="text-[11px] text-[#b5bac1]">
                       Hôm nay lúc{" "}
-                      {new Date().toLocaleTimeString("vi-VN", {
+                      {new Date().toLocaleTimeString(dateLocale(), {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
@@ -678,23 +683,26 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
 
         {/* Tips */}
         <div className="rounded-xl border border-border/50 bg-secondary/30 p-4 text-xs leading-relaxed text-muted-foreground">
-          <p className="mb-1 font-semibold text-foreground">💡 Hướng dẫn nhanh:</p>
+          <p className="mb-1 font-semibold text-foreground">{translate("💡 Hướng dẫn nhanh:")}</p>
           <p>
-            • Vào Discord → Kênh cần gửi → <b className="text-foreground">Tích hợp</b> →{" "}
+            {translate("• Vào Discord → Kênh cần gửi →")}{" "}
+            <b className="text-foreground">{translate("Tích hợp")}</b> →{" "}
             <b className="text-foreground">Webhook</b> →{" "}
-            <b className="text-foreground">Tạo webhook</b> → Copy URL.
+            <b className="text-foreground">{translate("Tạo webhook")}</b> → Copy URL.
           </p>
           <p className="mt-1">
             • Dán URL vào ô trên, soạn embed với tiêu đề, mô tả, màu sắc, fields... rồi bấm{" "}
-            <b className="text-foreground">Gửi embed</b>.
+            <b className="text-foreground">{translate("Gửi embed")}</b>.
           </p>
           <p className="mt-1">
-            • Webhook mặc định (Protogon Log) ở trên chỉ dùng để nhận log hình phạt & anti nuke từ
-            bot — không liên quan đến embed sender.
+            {translate(
+              "• Webhook mặc định (Protogon Log) ở trên chỉ dùng để nhận log hình phạt & anti nuke từ bot — không liên quan đến embed sender.",
+            )}{" "}
           </p>
           <p className="mt-1">
-            • Hỗ trợ: author (tên + avatar + link), title, description, color hex, fields (tên + giá
-            trị + inline), image, thumbnail, footer + icon, timestamp.
+            {translate(
+              "• Hỗ trợ: author (tên + avatar + link), title, description, color hex, fields (tên + giá trị + inline), image, thumbnail, footer + icon, timestamp.",
+            )}{" "}
           </p>
         </div>
       </div>

@@ -8,6 +8,7 @@ import { HEAT_DEFAULTS, HEAT_TIER_LABEL } from "../../lib/constants";
 import type { GuildData, HeatState } from "../../lib/types";
 import { getSessionToken } from "../../lib/discord";
 
+import { translate } from "../../lib/i18n";
 const TOKEN = () => getSessionToken();
 
 /** Nhiệt độ hiệu dụng sau khi trừ decay theo thời gian. */
@@ -56,7 +57,7 @@ export function SafetyBar({ data }: { data: GuildData }) {
   async function resetAll() {
     try {
       await resetHeat({ token: TOKEN(), guildId: data.guild.discordId });
-      toast.success("Đã xóa toàn bộ nhiệt độ vi phạm");
+      toast.success(translate("Đã xóa toàn bộ nhiệt độ vi phạm"));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Xóa thất bại");
     }
@@ -67,11 +68,12 @@ export function SafetyBar({ data }: { data: GuildData }) {
       <div className="flex items-end justify-between gap-3">
         <div>
           <p className="font-display text-3xl font-bold tabular-nums">{safety}%</p>
-          <p className="text-xs text-muted-foreground">mức an toàn của server</p>
+          <p className="text-xs text-muted-foreground">{translate("mức an toàn của server")}</p>
         </div>
         <div className="text-right text-xs text-muted-foreground">
           <p>
-            Nhiệt cao nhất: <span className={`font-semibold ${barText}`}>{maxHeat}/100</span>
+            {translate("Nhiệt cao nhất:")}{" "}
+            <span className={`font-semibold ${barText}`}>{maxHeat}/100</span>
           </p>
           <p>Nhiệt giảm {data.guild.heatDecayPerMin ?? HEAT_DEFAULTS.decayPerMin} điểm/phút</p>
         </div>
@@ -97,7 +99,7 @@ export function SafetyBar({ data }: { data: GuildData }) {
           disabled={states.length === 0}
           className="gap-1.5 text-muted-foreground"
         >
-          <RotateCcw className="h-3.5 w-3.5" /> Xóa toàn bộ nhiệt
+          <RotateCcw className="h-3.5 w-3.5" /> {translate("Xóa toàn bộ nhiệt")}{" "}
         </Button>
       </div>
     </div>
@@ -112,7 +114,7 @@ export function TopOffenders({ data, limit = 5 }: { data: GuildData; limit?: num
     return (
       <div className="flex items-center gap-3 rounded-lg bg-secondary/40 px-3 py-3 text-sm text-muted-foreground">
         <Flame className="h-4 w-4" />
-        Chưa có ai vi phạm — server rất an toàn 🎉
+        {translate("Chưa có ai vi phạm — server rất an toàn 🎉")}{" "}
       </div>
     );
   }
@@ -121,7 +123,7 @@ export function TopOffenders({ data, limit = 5 }: { data: GuildData; limit?: num
   async function resetUser(userId: string, username: string) {
     try {
       await resetHeat({ token: TOKEN(), guildId: data.guild.discordId, userId });
-      toast.success(`Đã xóa nhiệt của ${username || userId}`);
+      toast.success(translate("Đã xóa nhiệt của {p0}", { p0: username || userId }));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Xóa thất bại");
     }
@@ -186,7 +188,7 @@ export function HeatTable({ data, limit = 20 }: { data: GuildData; limit?: numbe
     return (
       <div className="flex items-center gap-3 rounded-lg bg-secondary/40 px-3 py-3 text-sm text-muted-foreground">
         <Flame className="h-4 w-4" />
-        Chưa có ai vi phạm — chưa có nhiệt độ hay warn nào để hiển thị 🎉
+        {translate("Chưa có ai vi phạm — chưa có nhiệt độ hay warn nào để hiển thị 🎉")}{" "}
       </div>
     );
   }
@@ -194,7 +196,7 @@ export function HeatTable({ data, limit = 20 }: { data: GuildData; limit?: numbe
   async function resetUser(userId: string, username: string) {
     try {
       await resetHeat({ token: TOKEN(), guildId: g.discordId, userId });
-      toast.success(`Đã xóa nhiệt của ${username || userId}`);
+      toast.success(translate("Đã xóa nhiệt của {p0}", { p0: username || userId }));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Xóa thất bại");
     }
@@ -203,8 +205,8 @@ export function HeatTable({ data, limit = 20 }: { data: GuildData; limit?: numbe
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
       <div className="grid grid-cols-[1fr_auto] items-center gap-2 border-b border-border px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        <span>Thành viên</span>
-        <span className="text-right">Nhiệt · Warn</span>
+        <span>{translate("Thành viên")}</span>
+        <span className="text-right">{translate("Nhiệt · Warn")}</span>
       </div>
       <ul className="divide-y divide-border/60">
         {states.map((h) => {

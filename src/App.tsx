@@ -6,6 +6,7 @@ import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
 import RequireAuth from "./components/RequireAuth";
 
+import { translate, useT } from "./lib/i18n";
 // Route-level code splitting: khách vào landing chỉ tải Landing + vendors.
 // Các trang dashboard/admin nặng (nhiều panel) chỉ tải khi thật sự mở —
 // giảm đáng kể JS parse/execute lần đầu.
@@ -20,7 +21,11 @@ const StatsPage = lazy(() => import("./pages/StatsPage"));
 
 const BASE_TITLE = "Protogon — Bot Discord tự trả lời & chống nuke/raid";
 
-/** Title riêng cho từng route — tránh toàn bộ trang dùng chung 1 title. */
+/**
+ * Title riêng cho từng route — tránh toàn bộ trang dùng chung 1 title.
+ * Chuỗi ở đây là KEY tiếng Việt: dịch lúc render (xem TitleSync) để title
+ * đổi theo ngôn ngữ người dùng chọn.
+ */
 const ROUTE_TITLES: Array<[pattern: string, title: string]> = [
   ["/auth", "Đăng nhập — Protogon"],
   ["/dashboard", "Dashboard — Protogon"],
@@ -29,12 +34,13 @@ const ROUTE_TITLES: Array<[pattern: string, title: string]> = [
   ["/admin", "Quản trị — Protogon"],
 ];
 
-function TitleSync() {
+function TitleSync({ lang }: { lang: string }) {
   const { pathname } = useLocation();
   useEffect(() => {
     const match = ROUTE_TITLES.find(([p]) => pathname.startsWith(p));
-    document.title = match ? match[1] : BASE_TITLE;
-  }, [pathname]);
+    document.title = translate(match ? match[1] : BASE_TITLE);
+    // lang nằm trong deps: đổi ngôn ngữ phải ghi lại title ngay.
+  }, [pathname, lang]);
   return null;
 }
 
@@ -52,16 +58,20 @@ function RouteFallback() {
       </div>
       <div className="flex flex-1 flex-col items-center justify-center gap-4">
         <img src="/favicon.svg" alt="" className="h-10 w-10 animate-pulse-fade" />
-        <p className="text-xs tracking-wide text-muted-foreground">Đang tải…</p>
+        <p className="text-xs tracking-wide text-muted-foreground">{translate("Đang tải…")}</p>
       </div>
     </div>
   );
 }
 
 export default function App() {
+  // App là consumer của LangContext: khi người dùng đổi ngôn ngữ, App re-render
+  // và tạo lại element cho toàn bộ Routes → mọi component con vẽ lại bằng
+  // translate() ở ngôn ngữ mới (translate đọc trạng thái module lúc render).
+  const { lang } = useT();
   return (
     <>
-      <TitleSync />
+      <TitleSync lang={lang} />
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<Landing />} />

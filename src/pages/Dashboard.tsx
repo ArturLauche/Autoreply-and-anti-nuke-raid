@@ -28,6 +28,9 @@ import { usePublicConfig } from "../lib/usePublicConfig";
 import type { MeData } from "../lib/types";
 import { toast } from "sonner";
 
+import LangSwitch from "../components/LangSwitch";
+
+import { dateLocale, translate } from "../lib/i18n";
 export default function Dashboard() {
   const navigate = useNavigate();
   const token = getSessionToken();
@@ -89,9 +92,11 @@ export default function Dashboard() {
     const silent = params.get("silent");
     if (silent) {
       if (silent === "ok") {
-        toast.success("Đã làm mới danh sách server");
+        toast.success(translate("Đã làm mới danh sách server"));
       } else {
-        toast.error("Không thể làm mới tự động — hãy thử nút Tải lại hoặc Đăng nhập lại.");
+        toast.error(
+          translate("Không thể làm mới tự động — hãy thử nút Tải lại hoặc Đăng nhập lại."),
+        );
       }
       window.history.replaceState({}, "", window.location.pathname);
     }
@@ -139,6 +144,7 @@ export default function Dashboard() {
               </span>
             </button>
             <div className="flex items-center gap-3">
+              <LangSwitch />
               {avatar ? (
                 <img
                   src={avatar}
@@ -153,7 +159,12 @@ export default function Dashboard() {
               <span className="hidden text-sm text-muted-foreground sm:block">
                 {me.user.globalName ?? me.user.username}
               </span>
-              <Button variant="ghost" size="icon-sm" onClick={handleLogout} title="Đăng xuất">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={handleLogout}
+                title={translate("Đăng xuất")}
+              >
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
@@ -162,10 +173,13 @@ export default function Dashboard() {
 
         <main className="container py-10">
           <div className="mb-8">
-            <h1 className="font-display text-3xl font-bold tracking-tight">Bảng điều khiển</h1>
+            <h1 className="font-display text-3xl font-bold tracking-tight">
+              {translate("Bảng điều khiển")}
+            </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Chọn server để cấu hình auto reply, nhiệt độ, Join Gate, chống nuke và các module bảo
-              vệ.
+              {translate(
+                "Chọn server để cấu hình auto reply, nhiệt độ, Join Gate, chống nuke và các module bảo vệ.",
+              )}{" "}
             </p>
           </div>
 
@@ -177,7 +191,7 @@ export default function Dashboard() {
                 </span>
                 <div>
                   <p className="text-2xl font-bold font-display">{managed.length}</p>
-                  <p className="text-xs text-muted-foreground">Server quản lý</p>
+                  <p className="text-xs text-muted-foreground">{translate("Server quản lý")}</p>
                 </div>
               </CardContent>
             </Card>
@@ -190,7 +204,9 @@ export default function Dashboard() {
                   <p className="text-2xl font-bold font-display">
                     {onlineCount}/{managed.length}
                   </p>
-                  <p className="text-xs text-muted-foreground">Bot đang trực tuyến</p>
+                  <p className="text-xs text-muted-foreground">
+                    {translate("Bot đang trực tuyến")}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -201,9 +217,9 @@ export default function Dashboard() {
                 </span>
                 <div>
                   <p className="text-2xl font-bold font-display">
-                    {totalMembers.toLocaleString("vi-VN")}
+                    {totalMembers.toLocaleString(dateLocale())}
                   </p>
-                  <p className="text-xs text-muted-foreground">Tổng thành viên</p>
+                  <p className="text-xs text-muted-foreground">{translate("Tổng thành viên")}</p>
                 </div>
               </CardContent>
             </Card>
@@ -216,15 +232,18 @@ export default function Dashboard() {
                   <Plus className="h-7 w-7" />
                 </span>
                 <div>
-                  <h2 className="font-display text-xl font-semibold">Chưa có server nào</h2>
+                  <h2 className="font-display text-xl font-semibold">
+                    {translate("Chưa có server nào")}
+                  </h2>
                   <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
                     Mời Protogon vào server của bạn rồi quay lại đây. Cần quyền{" "}
-                    <b className="text-foreground">Quản lý server</b> để chỉnh cấu hình.
+                    <b className="text-foreground">{translate("Quản lý server")}</b>{" "}
+                    {translate("để chỉnh cấu hình.")}{" "}
                   </p>
                 </div>
                 {clientId && (
                   <a href={buildBotInviteUrl(clientId)} target="_blank" rel="noreferrer">
-                    <Button size="lg">Mời bot vào server</Button>
+                    <Button size="lg">{translate("Mời bot vào server")}</Button>
                   </a>
                 )}
               </CardContent>
@@ -232,22 +251,24 @@ export default function Dashboard() {
           ) : (
             <>
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="font-display text-lg font-semibold">Server của bạn</h2>
+                <h2 className="font-display text-lg font-semibold">
+                  {translate("Server của bạn")}
+                </h2>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleRefresh}
                     disabled={refreshing}
-                    title="Tải lại danh sách server (server mới mời bot sẽ hiện ra)"
+                    title={translate("Tải lại danh sách server (server mới mời bot sẽ hiện ra)")}
                   >
                     <RefreshCw className={refreshing ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
-                    Tải lại
+                    {translate("Tải lại")}{" "}
                   </Button>
                   {clientId && (
                     <a href={buildBotInviteUrl(clientId)} target="_blank" rel="noreferrer">
                       <Button variant="secondary" size="sm">
-                        <Plus className="h-4 w-4" /> Thêm server
+                        <Plus className="h-4 w-4" /> {translate("Thêm server")}{" "}
                       </Button>
                     </a>
                   )}
@@ -275,7 +296,7 @@ export default function Dashboard() {
                           <div className="min-w-0 flex-1">
                             <p className="truncate font-display font-semibold">{guild.name}</p>
                             <p className="text-xs text-muted-foreground">
-                              {guild.memberCount?.toLocaleString("vi-VN") ?? "?"} thành viên ·
+                              {guild.memberCount?.toLocaleString(dateLocale()) ?? "?"} thành viên ·
                               prefix <code className="font-mono text-primary">{guild.prefix}</code>
                             </p>
                           </div>
@@ -289,7 +310,7 @@ export default function Dashboard() {
                               Bot {online ? "online" : "offline"}
                             </Badge>
                           ) : (
-                            <Badge variant="danger">Chưa thêm bot</Badge>
+                            <Badge variant="danger">{translate("Chưa thêm bot")}</Badge>
                           )}
                           <Badge variant={guild.antinukeEnabled ? "default" : "secondary"}>
                             <ShieldAlert className="h-3 w-3" />

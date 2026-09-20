@@ -11,6 +11,7 @@ import { Textarea } from "../ui/textarea";
 import { getSessionToken } from "../../lib/discord";
 import type { GuildData } from "../../lib/types";
 
+import { dateLocale, translate } from "../../lib/i18n";
 export default function DmPanel({ data }: { data: GuildData }) {
   const requestDm = useMutation(api.hidden.requestDm);
   const [userId, setUserId] = useState("");
@@ -19,7 +20,7 @@ export default function DmPanel({ data }: { data: GuildData }) {
 
   async function handleSend() {
     if (!/^\d{15,20}$/.test(userId.trim())) {
-      return toast.error("ID người dùng không hợp lệ (15–20 chữ số)");
+      return toast.error(translate("ID người dùng không hợp lệ (15–20 chữ số)"));
     }
     setSending(true);
     try {
@@ -29,7 +30,7 @@ export default function DmPanel({ data }: { data: GuildData }) {
         userId: userId.trim(),
         message,
       });
-      toast.success("Đã gửi yêu cầu — bot sẽ gửi DM trong vòng ~1 phút 💌");
+      toast.success(translate("Đã gửi yêu cầu — bot sẽ gửi DM trong vòng ~1 phút 💌"));
       setUserId("");
       setMessage("");
     } catch (e) {
@@ -43,15 +44,16 @@ export default function DmPanel({ data }: { data: GuildData }) {
     <Card>
       <CardContent className="p-5">
         <h3 className="flex items-center gap-2 font-display font-semibold">
-          <Mail className="h-4 w-4 text-primary" /> Gửi tin nhắn DM trực tiếp
+          <Mail className="h-4 w-4 text-primary" /> {translate("Gửi tin nhắn DM trực tiếp")}{" "}
         </h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Nhập ID người dùng Discord và nội dung — bot sẽ nhắn riêng cho họ. (Bật chế độ developer
-          trong Discord, bấm chuột phải vào người dùng → Copy User ID)
+          {translate(
+            "Nhập ID người dùng Discord và nội dung — bot sẽ nhắn riêng cho họ. (Bật chế độ developer trong Discord, bấm chuột phải vào người dùng → Copy User ID)",
+          )}{" "}
         </p>
         <div className="mt-4 grid gap-3">
           <div className="grid gap-1.5">
-            <Label>ID người dùng</Label>
+            <Label>{translate("ID người dùng")}</Label>
             <Input
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
@@ -60,11 +62,13 @@ export default function DmPanel({ data }: { data: GuildData }) {
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>Nội dung tin nhắn</Label>
+            <Label>{translate("Nội dung tin nhắn")}</Label>
             <Textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="VD: Chào bạn, bạn đã thắng giải thưởng của server chúng mình 🎁"
+              placeholder={translate(
+                "VD: Chào bạn, bạn đã thắng giải thưởng của server chúng mình 🎁",
+              )}
               maxLength={2000}
               rows={3}
             />
@@ -74,19 +78,19 @@ export default function DmPanel({ data }: { data: GuildData }) {
               "Đang gửi…"
             ) : (
               <>
-                <Send className="h-4 w-4" /> Gửi DM
+                <Send className="h-4 w-4" /> {translate("Gửi DM")}{" "}
               </>
             )}
           </Button>
           {/* Lỗi DM gần nhất — bot báo lại thay vì im lặng */}
           {data.guild.dmError && (
             <div className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
-              <p className="font-semibold">⚠️ DM gần nhất thất bại</p>
+              <p className="font-semibold">{translate("⚠️ DM gần nhất thất bại")}</p>
               <p className="mt-0.5 opacity-90">{data.guild.dmError}</p>
               {data.guild.dmErrorAt ? (
                 <p className="mt-0.5 opacity-70">
-                  {new Date(data.guild.dmErrorAt).toLocaleString("vi-VN")} — thường do người nhận
-                  tắt DM hoặc không dùng chung server với bot
+                  {new Date(data.guild.dmErrorAt).toLocaleString(dateLocale())} — thường do người
+                  nhận tắt DM hoặc không dùng chung server với bot
                 </p>
               ) : null}
             </div>

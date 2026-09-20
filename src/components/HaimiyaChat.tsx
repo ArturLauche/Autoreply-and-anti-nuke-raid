@@ -8,6 +8,7 @@ import { useBranding } from "../lib/useBranding";
 import { cn } from "../lib/utils";
 import { sha256Hex } from "../../convex/sha256";
 
+import { currentLanguage, translate } from "../lib/i18n";
 interface ChatMessage {
   /** Định danh ổn định cho React key — KHÔNG dùng index (danh sách có append
    *  và cuộn; index key làm reconcile sai khi mảng thay đổi). */
@@ -33,7 +34,7 @@ async function fileToDataUrls(file: File): Promise<string[]> {
       const img = await new Promise<HTMLImageElement>((resolve, reject) => {
         const el = new Image();
         el.onload = () => resolve(el);
-        el.onerror = () => reject(new Error("Ảnh không đọc được"));
+        el.onerror = () => reject(new Error(translate("Ảnh không đọc được")));
         el.src = url;
       });
       const scale = Math.min(1, 1024 / Math.max(img.naturalWidth, img.naturalHeight));
@@ -57,7 +58,7 @@ async function fileToDataUrls(file: File): Promise<string[]> {
         el.muted = true;
         el.preload = "auto";
         el.onloadeddata = () => resolve(el);
-        el.onerror = () => reject(new Error("Video không đọc được"));
+        el.onerror = () => reject(new Error(translate("Video không đọc được")));
         el.src = url;
       });
       const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 1;
@@ -84,13 +85,13 @@ async function fileToDataUrls(file: File): Promise<string[]> {
         if (shot) frames.push(shot);
         if (frames.length >= MAX_IMAGES) break;
       }
-      if (frames.length === 0) throw new Error("Không trích được khung hình từ video");
+      if (frames.length === 0) throw new Error(translate("Không trích được khung hình từ video"));
       return frames;
     } finally {
       URL.revokeObjectURL(url);
     }
   }
-  throw new Error("Chỉ hỗ trợ ảnh (jpg/png/webp) hoặc video (mp4/webm)");
+  throw new Error(translate("Chỉ hỗ trợ ảnh (jpg/png/webp) hoặc video (mp4/webm)"));
 }
 
 /**
@@ -283,7 +284,14 @@ export default function HaimiyaChat({
       } catch {
         token = undefined;
       }
-      const res = await askAI({ messages: history, images, funcKey, token });
+      // lang: để Haimiya trả lời đúng ngôn ngữ người dùng chọn trên web.
+      const res = await askAI({
+        messages: history,
+        images,
+        funcKey,
+        token,
+        lang: currentLanguage(),
+      });
       if (res && !res.offline && res.reply) return res.reply;
       // AI chưa cấu hình / dịch vụ lỗi / chưa đăng nhập → marker + lý do thật
       // từ server (action trả offline thay vì throw — Convex prod mask message
@@ -295,7 +303,7 @@ export default function HaimiyaChat({
       }
     } catch {
       // Lỗi transport thật (mạng / Server Error) → offline chung.
-      return "[offline] Máy chủ AI đang lỗi tạm thời";
+      return `[offline] ${translate("Máy chủ AI đang lỗi tạm thời")}`;
     }
     return null;
   }
@@ -313,7 +321,7 @@ export default function HaimiyaChat({
       {
         id: nextMsgId(),
         role: "user",
-        text: q || "(xem ảnh)",
+        text: q || translate("(xem ảnh)"),
         thumbs: imgs.length ? imgs : undefined,
       },
     ]);
@@ -350,20 +358,25 @@ export default function HaimiyaChat({
             {
               id: nextMsgId(),
               role: "haimiya",
-              text: "🔐 " + aiReply.replace("[đăng-nhập] ", ""),
+              text: "🔐 " + translate(aiReply.replace("[đăng-nhập] ", "")),
             },
           ]);
         } else if (aiReply?.startsWith("[offline]")) {
           // Thông báo minh bạch với lý do thật từ server + vẫn trả lời bằng
           // kiến thức cục bộ bên dưới (người dùng hiểu chính xác vì sao offline).
-          const serverReason = aiReply.replace("[offline]", "").trim();
+          const serverReason = translate(aiReply.replace("[offline]", "").trim());
           const ans = askHaimiya(q);
           setMessages((m) => [
             ...m,
             {
               id: nextMsgId(),
               role: "haimiya",
-              text: `⚠️ AI trên máy chủ chưa phản hồi${serverReason ? ` — ${serverReason}` : ""}. Tạm trả lời bằng kiến thức cục bộ.`,
+              text: serverReason
+                ? translate(
+                    "⚠️ AI trên máy chủ chưa phản hồi — {reason}. Tạm trả lời bằng kiến thức cục bộ.",
+                    { reason: serverReason },
+                  )
+                : translate("⚠️ AI trên máy chủ chưa phản hồi. Tạm trả lời bằng kiến thức cục bộ."),
             },
             { id: nextMsgId(), role: "haimiya", text: ans.text, suggestions: ans.suggestions },
           ]);
@@ -390,7 +403,7 @@ export default function HaimiyaChat({
          Khi một dropdown (radix portal) mở, nút tự hạ xuống dưới dropdown. */}
       <button
         onClick={() => setOpen(true)}
-        aria-label="Trò chuyện với Haimiya"
+        aria-label={translate("Trò chuyện với Haimiya")}
         className={cn(
           "group fixed bottom-5 right-5 z-30 flex items-center gap-2 rounded-full",
           "border border-border bg-primary p-0.5 pr-1",
@@ -439,12 +452,12 @@ export default function HaimiyaChat({
                 Haimiya
               </p>
               <p className="text-[11px] font-medium text-[#5c1533]">
-                Trợ lý ảo của Protogon — giải đáp về bot, nhiệt độ, tính năng ẩn
+                {translate("Trợ lý ảo của Protogon — giải đáp về bot, nhiệt độ, tính năng ẩn")}{" "}
               </p>
             </div>
             <button
               onClick={() => setOpen(false)}
-              aria-label="Đóng"
+              aria-label={translate("Đóng")}
               className="rounded-lg p-1.5 text-[#5c1533] transition-colors hover:bg-white/20"
             >
               <X className="h-4 w-4" />
@@ -483,7 +496,7 @@ export default function HaimiyaChat({
                       ))}
                     </div>
                   )}
-                  {m.text}
+                  {translate(m.text)}
                   {m.suggestions && i === messages.length - 1 && !typing && (
                     <div className="mt-2.5 flex flex-wrap gap-1.5">
                       {m.suggestions.map((s) => (
@@ -492,7 +505,7 @@ export default function HaimiyaChat({
                           onClick={() => send(s)}
                           className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-primary/20"
                         >
-                          {s}
+                          {translate(s)}
                         </button>
                       ))}
                     </div>
@@ -530,7 +543,7 @@ export default function HaimiyaChat({
                     {
                       id: nextMsgId(),
                       role: "haimiya",
-                      text: `⚠️ ${err?.message ?? "Không đọc được file"}`,
+                      text: `⚠️ ${err?.message ?? translate("Không đọc được file")}`,
                     },
                   ]),
                 );
@@ -547,7 +560,7 @@ export default function HaimiyaChat({
                     />
                     <button
                       onClick={() => setPending((arr) => arr.filter((_, j) => j !== i))}
-                      aria-label="Bỏ ảnh"
+                      aria-label={translate("Bỏ ảnh")}
                       className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-foreground/80 text-[10px] text-background"
                     >
                       <X className="h-2.5 w-2.5" />
@@ -578,7 +591,7 @@ export default function HaimiyaChat({
                       {
                         id: nextMsgId(),
                         role: "haimiya",
-                        text: `⚠️ ${(errors[0] as PromiseRejectedResult).reason?.message ?? "Không đọc được file"}`,
+                        text: `⚠️ ${(errors[0] as PromiseRejectedResult).reason?.message ?? translate("Không đọc được file")}`,
                       },
                     ]);
                 });
@@ -588,8 +601,10 @@ export default function HaimiyaChat({
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={typing || pending.length >= 3}
-                aria-label="Gửi ảnh hoặc video"
-                title="Gửi ảnh (jpg/png/webp) hoặc video ≤50MB — Haimiya sẽ xem giúp bạn"
+                aria-label={translate("Gửi ảnh hoặc video")}
+                title={translate(
+                  "Gửi ảnh (jpg/png/webp) hoặc video ≤50MB — Haimiya sẽ xem giúp bạn",
+                )}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-40"
               >
                 <ImagePlus className="h-4 w-4" />
@@ -611,13 +626,15 @@ export default function HaimiyaChat({
                       .catch(() => {});
                   }
                 }}
-                placeholder={pending.length ? "Mô tả về ảnh…" : "Hỏi tôi điều gì đó…"}
+                placeholder={
+                  pending.length ? translate("Mô tả về ảnh…") : translate("Hỏi tôi điều gì đó…")
+                }
                 className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
               />
               <button
                 onClick={() => send(input)}
                 disabled={typing || (!input.trim() && pending.length === 0)}
-                aria-label="Gửi"
+                aria-label={translate("Gửi")}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity disabled:opacity-40"
               >
                 <Send className="h-4 w-4" />
@@ -626,8 +643,12 @@ export default function HaimiyaChat({
             <p className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
               <Sparkles className="h-3 w-3 text-primary" />
               {position === "dashboard"
-                ? "Haimiya sẵn sàng giải đáp — hỏi về Protogon hay bất cứ điều gì ngoài lề."
-                : "Haimiya trò chuyện thoải mái — hỏi về Protogon hoặc bất cứ điều gì bạn muốn."}
+                ? translate(
+                    "Haimiya sẵn sàng giải đáp — hỏi về Protogon hay bất cứ điều gì ngoài lề.",
+                  )
+                : translate(
+                    "Haimiya trò chuyện thoải mái — hỏi về Protogon hoặc bất cứ điều gì bạn muốn.",
+                  )}
             </p>
           </div>
         </div>

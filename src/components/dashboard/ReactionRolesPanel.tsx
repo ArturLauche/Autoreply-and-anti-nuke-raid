@@ -22,6 +22,7 @@ import { getSessionToken } from "../../lib/discord";
 import { cn } from "../../lib/utils";
 import type { GuildData, ReactionRolePanel } from "../../lib/types";
 
+import { translate } from "../../lib/i18n";
 interface EntryRow {
   emoji: string;
   roleId: string;
@@ -165,11 +166,12 @@ function EmojiPicker({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Smile className="h-4 w-4 text-primary" /> Chọn emoji
+            <Smile className="h-4 w-4 text-primary" /> {translate("Chọn emoji")}{" "}
           </DialogTitle>
           <DialogDescription>
             Chọn từ gợi ý bên dưới hoặc dán emoji tùy chỉnh: emoji unicode, custom emoji{" "}
-            <code className="rounded bg-secondary px-1">&lt;:name:id&gt;</code> hoặc ID emoji.
+            <code className="rounded bg-secondary px-1">&lt;:name:id&gt;</code>{" "}
+            {translate("hoặc ID emoji.")}{" "}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
@@ -178,7 +180,7 @@ function EmojiPicker({
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Tìm emoji hoặc chủ đề…"
+              placeholder={translate("Tìm emoji hoặc chủ đề…")}
               className="pl-8"
             />
           </div>
@@ -186,7 +188,7 @@ function EmojiPicker({
             <div className="max-h-56 overflow-y-auto rounded-lg border border-border p-2">
               {filtered.length === 0 ? (
                 <p className="px-2 py-4 text-center text-sm text-muted-foreground">
-                  Không tìm thấy emoji phù hợp.
+                  {translate("Không tìm thấy emoji phù hợp.")}{" "}
                 </p>
               ) : (
                 <div className="grid grid-cols-8 gap-1">
@@ -226,7 +228,7 @@ function EmojiPicker({
             </div>
           )}
           <div className="grid gap-1.5">
-            <Label>Emoji tùy chỉnh</Label>
+            <Label>{translate("Emoji tùy chỉnh")}</Label>
             <div className="flex items-center gap-2">
               <Input
                 value={custom}
@@ -241,17 +243,17 @@ function EmojiPicker({
                 size="sm"
                 onClick={() => custom.trim() && pick(custom.trim())}
               >
-                Dùng
+                {translate("Dùng")}{" "}
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Đang chọn: <span className="font-mono">{value || "chưa có"}</span>
+              {translate("Đang chọn:")} <span className="font-mono">{value || "chưa có"}</span>
             </p>
           </div>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
-            <X className="h-4 w-4" /> Hủy
+            <X className="h-4 w-4" /> {translate("Hủy")}{" "}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -313,7 +315,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
 
   async function handleSave() {
     if (rows.some((r) => !r.emoji || !r.roleId)) {
-      return toast.error("Mỗi dòng cần có emoji và chọn role");
+      return toast.error(translate("Mỗi dòng cần có emoji và chọn role"));
     }
     setSaving(true);
     try {
@@ -327,7 +329,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
           thumbnailUrl: thumbnailUrl.trim() || null,
           entries: rows,
         });
-        toast.success("Đã cập nhật bảng — bot gửi bảng mới trong ~1 phút");
+        toast.success(translate("Đã cập nhật bảng — bot gửi bảng mới trong ~1 phút"));
       } else {
         await createPanel({
           token,
@@ -338,7 +340,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
           thumbnailUrl: thumbnailUrl.trim() || undefined,
           entries: rows,
         });
-        toast.success("Đã tạo bảng — bot sẽ gửi tin nhắn trong vòng ~1 phút");
+        toast.success(translate("Đã tạo bảng — bot sẽ gửi tin nhắn trong vòng ~1 phút"));
       }
       setOpen(false);
       setEditingPanel(null);
@@ -363,18 +365,19 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
               <MessageSquareQuote className="h-4 w-4 text-primary" /> Reaction Role
             </h3>
             <p className="text-sm text-muted-foreground">
-              Thành viên bấm emoji dưới tin nhắn để tự nhận / gỡ role. Chỉnh được tên, mô tả,
-              thumbnail và cặp emoji → role.
+              {translate(
+                "Thành viên bấm emoji dưới tin nhắn để tự nhận / gỡ role. Chỉnh được tên, mô tả, thumbnail và cặp emoji → role.",
+              )}{" "}
             </p>
           </div>
           <Button onClick={openCreate}>
-            <Plus className="h-4 w-4" /> Tạo bảng mới
+            <Plus className="h-4 w-4" /> {translate("Tạo bảng mới")}{" "}
           </Button>
         </div>
 
         {data.panels.length === 0 ? (
           <p className="mt-4 rounded-lg bg-secondary/40 px-3 py-3 text-sm text-muted-foreground">
-            Chưa có bảng reaction role nào. Bấm "Tạo bảng mới" để bắt đầu 🌸
+            {translate('Chưa có bảng reaction role nào. Bấm "Tạo bảng mới" để bắt đầu 🌸')}{" "}
           </p>
         ) : (
           <ul className="mt-4 space-y-2">
@@ -389,15 +392,15 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
                     {!p.messageId ? (
                       p.postError ? (
                         <Badge className="border-danger/40 bg-danger/10 text-danger">
-                          ⚠️ lỗi gửi
+                          {translate("⚠️ lỗi gửi")}{" "}
                         </Badge>
                       ) : (
-                        <Badge variant="secondary">⏳ chờ bot gửi</Badge>
+                        <Badge variant="secondary">{translate("⏳ chờ bot gửi")}</Badge>
                       )
                     ) : p.enabled ? (
-                      <Badge variant="success">đang chạy</Badge>
+                      <Badge variant="success">{translate("đang chạy")}</Badge>
                     ) : (
-                      <Badge variant="secondary">đã tắt</Badge>
+                      <Badge variant="secondary">{translate("đã tắt")}</Badge>
                     )}
                   </p>
                   {p.postError && (
@@ -420,7 +423,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    title="Sửa bảng"
+                    title={translate("Sửa bảng")}
                     onClick={() => openEdit(p)}
                   >
                     <Pencil className="h-4 w-4" />
@@ -443,12 +446,12 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    title="Xóa bảng"
+                    title={translate("Xóa bảng")}
                     onClick={async () => {
                       if (!confirm(`Xóa bảng "${p.label}"?`)) return;
                       try {
                         await deletePanel({ token, guildId, panelId: p._id });
-                        toast.success("Đã xóa bảng (tin nhắn cũ trong Discord vẫn còn)");
+                        toast.success(translate("Đã xóa bảng (tin nhắn cũ trong Discord vẫn còn)"));
                       } catch (e) {
                         toast.error(e instanceof Error ? e.message : "Xóa thất bại");
                       }
@@ -476,19 +479,19 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
             </DialogHeader>
             <div className="grid gap-3">
               <div className="grid gap-1.5">
-                <Label>Tên bảng</Label>
+                <Label>{translate("Tên bảng")}</Label>
                 <Input
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
-                  placeholder="VD: Chọn game của bạn 🎮"
+                  placeholder={translate("VD: Chọn game của bạn 🎮")}
                   maxLength={100}
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>Kênh gửi tin nhắn</Label>
+                <Label>{translate("Kênh gửi tin nhắn")}</Label>
                 <Select value={channelId} onValueChange={setChannelId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Chọn kênh…" />
+                    <SelectValue placeholder={translate("Chọn kênh…")} />
                   </SelectTrigger>
                   <SelectContent>
                     {textChannels.map((c) => (
@@ -500,16 +503,16 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
                 </Select>
               </div>
               <div className="grid gap-1.5">
-                <Label>Nội dung / mô tả</Label>
+                <Label>{translate("Nội dung / mô tả")}</Label>
                 <Textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="VD: Bấm emoji bên dưới để nhận role tương ứng 🌸"
+                  placeholder={translate("VD: Bấm emoji bên dưới để nhận role tương ứng 🌸")}
                   maxLength={2000}
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>Thumbnail (ảnh nhỏ, tùy chọn)</Label>
+                <Label>{translate("Thumbnail (ảnh nhỏ, tùy chọn)")}</Label>
                 <Input
                   value={thumbnailUrl}
                   onChange={(e) => setThumbnailUrl(e.target.value)}
@@ -538,7 +541,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
                           "h-10 w-12 shrink-0 text-xl",
                           !row.emoji && "text-muted-foreground",
                         )}
-                        title="Chọn emoji"
+                        title={translate("Chọn emoji")}
                         onClick={() => setPickerFor(i)}
                       >
                         {row.emoji || "＋"}
@@ -550,7 +553,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Chọn role…" />
+                          <SelectValue placeholder={translate("Chọn role…")} />
                         </SelectTrigger>
                         <SelectContent>
                           {roleOptions.map((r) => (
@@ -577,7 +580,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
                   className="mt-2"
                   onClick={() => setRows((rs) => [...rs, { emoji: "⭐", roleId: "" }])}
                 >
-                  <Plus className="h-4 w-4" /> Thêm cặp emoji/role
+                  <Plus className="h-4 w-4" /> {translate("Thêm cặp emoji/role")}{" "}
                 </Button>
               </div>
             </div>

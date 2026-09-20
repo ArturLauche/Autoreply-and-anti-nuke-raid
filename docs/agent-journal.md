@@ -10,6 +10,40 @@ _(trống — mọi việc đã xong hoặc chờ yêu cầu mới)_
 
 ---
 
+## 2026-09-20 — Đa ngôn ngữ VI/EN toàn web + Haimiya chat
+
+- ✅ Xong: lõi i18n kiểu gettext (`src/lib/i18n.tsx` — LangProvider/useT,
+  `translate()` toàn cục, `dateLocale()`; key = nguyên chuỗi tiếng Việt, thiếu
+  bản EN thì rơi về VI nên không bao giờ vỡ UI) + từ điển `i18n.en.ts`
+  (831 key); bọc `translate()` cho 769 literal trên src/ bằng codemod;
+  công tắc VI/EN (`components/LangSwitch.tsx`) gắn vào nav landing, taskbar,
+  header dashboard/GuildPage/Monitor/Admin/Stats/GuildHistory/auth
+- ✅ Xong: phần giới thiệu Haimiya + toàn bộ 46 chuỗi kiến thức cục bộ có
+  bản EN; chat dịch lúc render nên đổi ngôn ngữ là cập nhật ngay; action
+  `haimiya.ask` nhận thêm arg optional `lang` để AI trả lời đúng ngôn ngữ
+  (system prompt dùng placeholder `{LANG}`)
+- 🐛 Bug tìm thấy khi rà: nhãn sidebar `NAV_ITEMS` là hằng số cấp module nên
+  eval 1 lần lúc import — bọc translate() vẫn không dịch (đã sửa thành dịch
+  lúc render) · 20 chỗ hardcode locale ngày/giờ `"vi-VN"` khiến người dùng EN
+  vẫn thấy định dạng Việt · `WebhookPanel` dùng locale rác `"vi-VV"`
+- 📁 File đụng: `src/lib/{i18n.tsx,i18n.en.ts,i18n.en.new.ts}`, ~45 file
+  src/, `src/components/LangSwitch.tsx`, `convex/haimiya.ts`,
+  `scripts/{check-i18n.cjs,test-i18n.cjs}`, CI + guardrails (52→53 suites) +
+  AGENTS.md + `docs/repo-map.md`
+- ⚠️ Chưa xong (đo được, không giấu): còn **144 dòng chữ Việt trong JSX**
+  chưa bọc `translate()` — đều là câu bị nội suy nhiều mảnh (`{n}/{m} module
+chống nuke bật`, `Đang khóa — tự mở sau ~{n} phút`…) trong 20 panel
+  dashboard. Vá theo lối bọc từng mảnh sẽ ra tiếng Anh vụn (thứ tự từ lệch)
+  nên cố ý KHÔNG làm: cách đúng là gộp mỗi câu thành 1 key có placeholder
+  `{p0}` rồi dịch trọn câu. `node scripts/check-i18n.cjs` in ra danh sách này
+  (mục ℹ️) để phiên sau đo tiến độ — bản dịch thiếu vẫn an toàn (rơi về VI,
+  không vỡ UI).
+- 🧪 Kiểm chứng: check-i18n OK (0 thiếu) · repo-map OK · contract OK ·
+  format · lint · tsc · convex codegen · 53/53 suites · preview ready
+  (HTTP 200, LangSwitch transform OK)
+- ▶️ Tiếp theo: gộp 144 câu nội suy trong panel thành key có placeholder rồi
+  dịch — mỗi panel một lượt, giữ check-i18n xanh sau từng lượt
+
 ## 2026-09-20 — Audit hợp đồng + 2 skill an toàn kiến trúc
 
 - ✅ Xong: audit số suites lệch 3 nơi (49/41 → 52, CONTRACT_SUITES là nguồn

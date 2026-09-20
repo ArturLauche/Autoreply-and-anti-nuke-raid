@@ -3,6 +3,7 @@ import { Button } from "../ui/button";
 import { SafeHaimiyaAvatar } from "./shared";
 import { useBotStatus } from "../../lib/useBotStatus";
 
+import { translate } from "../../lib/i18n";
 /** Khối chủ bot ở footer — tự chặn lỗi riêng, mặc định về tên gốc khi backend down. */
 function FooterOwner() {
   const botStatus = useBotStatus();
@@ -23,8 +24,8 @@ function FooterOwner() {
         </span>
       )}
       <span>
-        Chủ bot: <b className="text-foreground">{ownerName}</b>
-        <span className="ml-1.5 hidden sm:inline">· cập nhật 24/7</span>
+        {translate("Chủ bot:")} <b className="text-foreground">{ownerName}</b>
+        <span className="ml-1.5 hidden sm:inline">{translate("· cập nhật 24/7")}</span>
       </span>
     </div>
   );
@@ -49,7 +50,7 @@ export default function Footer({
             <div>
               <p className="font-display font-semibold">Protogon Bot</p>
               <p className="text-xs text-muted-foreground">
-                Bot Discord bảo vệ server · trợ lý Haimiya
+                {translate("Bot Discord bảo vệ server · trợ lý Haimiya")}{" "}
               </p>
             </div>
           </div>

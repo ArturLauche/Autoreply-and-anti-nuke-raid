@@ -3,6 +3,7 @@ import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 
+import { translate } from "../lib/i18n";
 interface Props {
   children: ReactNode;
   /** Reset boundary state when this key changes (e.g. khi đổi section). */
@@ -51,17 +52,22 @@ export default class PanelErrorBoundary extends Component<Props, State> {
               <AlertTriangle className="h-5 w-5" />
             </span>
             <div>
-              <p className="font-display font-semibold">Không tải được nội dung mục này</p>
+              <p className="font-display font-semibold">
+                {translate("Không tải được nội dung mục này")}
+              </p>
               <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                Có lỗi xảy ra khi kết nối với backend. Trang khác vẫn hoạt động bình thường — bạn có
-                thể chuyển sang mục khác ở sidebar.
+                {translate(
+                  "Có lỗi xảy ra khi kết nối với backend. Trang khác vẫn hoạt động bình thường — bạn có thể chuyển sang mục khác ở sidebar.",
+                )}{" "}
               </p>
               {isMissingFunction && (
                 <p className="mt-2 rounded-lg bg-secondary px-3 py-2 text-xs text-muted-foreground">
-                  💡 Với mục <b>Backup server / Moderation</b>: backend Convex production đang chạy
-                  bản cũ, chưa có các hàm mới. Chủ dự án cần chạy{" "}
-                  <code className="font-mono">npx convex deploy</code> tại thư mục gốc dự án để cập
-                  nhật backend (xem hướng dẫn trong README).
+                  {translate("💡 Với mục")} <b>Backup server / Moderation</b>: backend Convex
+                  production đang chạy bản cũ, chưa có các hàm mới. Chủ dự án cần chạy{" "}
+                  <code className="font-mono">npx convex deploy</code>{" "}
+                  {translate(
+                    "tại thư mục gốc dự án để cập nhật backend (xem hướng dẫn trong README).",
+                  )}{" "}
                 </p>
               )}
               <p className="mt-2 max-w-xl break-words font-mono text-[11px] text-muted-foreground/70">
@@ -70,7 +76,7 @@ export default class PanelErrorBoundary extends Component<Props, State> {
             </div>
           </div>
           <Button size="sm" onClick={() => window.location.reload()}>
-            <RefreshCw className="h-4 w-4" /> Tải lại trang
+            <RefreshCw className="h-4 w-4" /> {translate("Tải lại trang")}{" "}
           </Button>
         </CardContent>
       </Card>

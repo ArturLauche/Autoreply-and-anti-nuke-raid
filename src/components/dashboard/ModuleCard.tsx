@@ -45,6 +45,7 @@ import {
 } from "../../lib/constants";
 import type { GuildData, ModuleConfig, ModuleAction } from "../../lib/types";
 
+import { translate } from "../../lib/i18n";
 const MODULE_ICONS: Record<string, typeof Gavel> = {
   massBan: Gavel,
   massKick: UserX,
@@ -207,7 +208,7 @@ export default function ModuleCard({
             {meta.label}
             {!config.enabled && (
               <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px]">
-                tắt
+                {translate("tắt")}{" "}
               </Badge>
             )}
           </p>
@@ -225,7 +226,7 @@ export default function ModuleCard({
             ))}
             {!hasMemberPunish && (
               <Badge variant="secondary" className="px-2 py-0.5 text-[10px]">
-                chỉ dọn tin
+                {translate("chỉ dọn tin")}{" "}
               </Badge>
             )}
           </div>
@@ -266,7 +267,9 @@ export default function ModuleCard({
               />
             </div>
             <div className="grid gap-1">
-              <Label className="text-[11px] text-muted-foreground">Cửa sổ (giây)</Label>
+              <Label className="text-[11px] text-muted-foreground">
+                {translate("Cửa sổ (giây)")}
+              </Label>
               <ModuleNumber
                 value={config.windowSeconds}
                 min={1}
@@ -277,7 +280,9 @@ export default function ModuleCard({
             </div>
             {showHeat && (
               <div className="grid gap-1">
-                <Label className="text-[11px] text-muted-foreground">🔥 Nhiệt/vi phạm</Label>
+                <Label className="text-[11px] text-muted-foreground">
+                  {translate("🔥 Nhiệt/vi phạm")}
+                </Label>
                 <ModuleNumber
                   value={config.heat}
                   min={1}
@@ -289,7 +294,9 @@ export default function ModuleCard({
             )}
             {hasTimeout && (
               <div className="grid gap-1">
-                <Label className="text-[11px] text-muted-foreground">Tạm khóa (giây)</Label>
+                <Label className="text-[11px] text-muted-foreground">
+                  {translate("Tạm khóa (giây)")}
+                </Label>
                 <ModuleNumber
                   value={config.timeoutSeconds ?? 300}
                   min={1}
@@ -304,7 +311,8 @@ export default function ModuleCard({
           {/* Hình phạt thành viên — chọn 1 */}
           <div className="grid gap-1">
             <Label className="text-[11px] text-muted-foreground">
-              Hình phạt thành viên <span className="text-primary/80">· chọn 1</span>
+              {translate("Hình phạt thành viên")}{" "}
+              <span className="text-primary/80">{translate("· chọn 1")}</span>
             </Label>
             <div className="flex flex-wrap gap-1.5">
               {MEMBER_PUNISH_OPTIONS.map((opt) => {
@@ -340,7 +348,8 @@ export default function ModuleCard({
           {/* Dọn tin nhắn — chọn nhiều */}
           <div className="grid gap-1">
             <Label className="text-[11px] text-muted-foreground">
-              Dọn tin nhắn <span className="text-primary/80">· chọn nhiều, kết hợp được</span>
+              {translate("Dọn tin nhắn")}{" "}
+              <span className="text-primary/80">{translate("· chọn nhiều, kết hợp được")}</span>
             </Label>
             <div className="flex flex-wrap gap-1.5">
               {MESSAGE_CLEAN_OPTIONS.map((opt) => {
@@ -388,24 +397,26 @@ export default function ModuleCard({
           </div>
 
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            💡 <b className="text-foreground">Xóa tin phát hiện</b> = xóa ngay tin vi phạm ·{" "}
-            <b className="text-foreground">Purge</b> = xóa hàng loạt tin liên quan vụ vi phạm.
+            💡 <b className="text-foreground">{translate("Xóa tin phát hiện")}</b> = xóa ngay tin vi
+            phạm · <b className="text-foreground">Purge</b> = xóa hàng loạt tin liên quan vụ vi
+            phạm.
             {showHeat ? (
-              <> Nhiệt tự giảm theo phút — đủ ngưỡng sẽ tự tăng cấp hình phạt.</>
+              <> {translate("Nhiệt tự giảm theo phút — đủ ngưỡng sẽ tự tăng cấp hình phạt.")}</>
             ) : (
-              <> ⚡ Phạt trực tiếp theo hành động đã chọn — không cộng nhiệt.</>
+              <> {translate("⚡ Phạt trực tiếp theo hành động đã chọn — không cộng nhiệt.")}</>
             )}
           </p>
 
           <div className="grid gap-1">
             <Label className="text-[11px] text-muted-foreground">
-              Role miễn trừ <span className="text-muted-foreground/70">(chỉ server này)</span>
+              {translate("Role miễn trừ")}{" "}
+              <span className="text-muted-foreground/70">{translate("(chỉ server này)")}</span>
             </Label>
             <MultiSelect
               options={roleOptions}
               value={config.whitelistRoles}
               onChange={(v) => patchModule(module, { whitelistRoles: v })}
-              placeholder="Không có — tất cả role đều bị kiểm tra"
+              placeholder={translate("Không có — tất cả role đều bị kiểm tra")}
               emptyLabel="Chưa có role được đồng bộ"
               searchPlaceholder="Gõ tên role để tìm nhanh…"
             />

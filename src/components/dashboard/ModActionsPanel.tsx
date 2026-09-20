@@ -3,6 +3,7 @@ import { Badge } from "../ui/badge";
 import { Card, CardContent } from "../ui/card";
 import type { GuildData } from "../../lib/types";
 
+import { dateLocale, translate } from "../../lib/i18n";
 const ACTION_STYLE: Record<string, string> = {
   "⏱️ Timeout": "bg-foreground/10 text-foreground border border-foreground/20",
   "👢 Kick": "bg-foreground/20 text-foreground border border-foreground/30",
@@ -37,13 +38,14 @@ export default function ModActionsPanel({ data }: { data: GuildData }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="flex items-center gap-2 font-display font-semibold">
-              <Gavel className="h-4 w-4 text-primary" /> Bảng hình phạt
+              <Gavel className="h-4 w-4 text-primary" /> {translate("Bảng hình phạt")}{" "}
             </h3>
             <p className="text-sm text-muted-foreground">
-              Timeout · kick · ban · warn · purge — ghi kèm <b>case N</b> (kiểu Carl-bot), lý do,
-              người thực hiện và phân biệt rõ nguồn:{" "}
-              <b className="text-foreground">🛠️ lệnh thủ công của mod</b> vs{""}
-              <b className="text-foreground">⚡ bot tự động</b> (auto-mod / anti nuke).
+              {translate("Timeout · kick · ban · warn · purge — ghi kèm")} <b>case N</b> (kiểu
+              Carl-bot), lý do, người thực hiện và phân biệt rõ nguồn:{" "}
+              <b className="text-foreground">{translate("🛠️ lệnh thủ công của mod")}</b> vs{""}
+              <b className="text-foreground">{translate("⚡ bot tự động")}</b> (auto-mod / anti
+              nuke).
             </p>
           </div>
           <Badge variant="secondary">{actions.length} hành động gần nhất</Badge>
@@ -52,26 +54,26 @@ export default function ModActionsPanel({ data }: { data: GuildData }) {
         {actions.length === 0 ? (
           <div className="mt-4 flex items-center gap-3 rounded-lg bg-secondary/40 px-3 py-3 text-sm text-muted-foreground">
             <ShieldCheck className="h-4 w-4" />
-            Chưa có hình phạt nào — mọi thứ đang yên bình 🎉
+            {translate("Chưa có hình phạt nào — mọi thứ đang yên bình 🎉")}{" "}
           </div>
         ) : (
           <div className="mt-4 -mx-1 overflow-x-auto px-1 [scrollbar-width:thin]">
             <table className="w-full min-w-[720px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
-                  <th className="py-2 pr-3 font-medium">Thời gian</th>
-                  <th className="py-2 pr-3 font-medium">Hình phạt</th>
-                  <th className="py-2 pr-3 font-medium">Nguồn</th>
-                  <th className="py-2 pr-3 font-medium">Thành viên</th>
-                  <th className="py-2 pr-3 font-medium">Người thực hiện</th>
-                  <th className="py-2 pr-3 font-medium">Lý do</th>
+                  <th className="py-2 pr-3 font-medium">{translate("Thời gian")}</th>
+                  <th className="py-2 pr-3 font-medium">{translate("Hình phạt")}</th>
+                  <th className="py-2 pr-3 font-medium">{translate("Nguồn")}</th>
+                  <th className="py-2 pr-3 font-medium">{translate("Thành viên")}</th>
+                  <th className="py-2 pr-3 font-medium">{translate("Người thực hiện")}</th>
+                  <th className="py-2 pr-3 font-medium">{translate("Lý do")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
                 {actions.map((a) => (
                   <tr key={a._id} className="align-top">
                     <td className="py-2.5 pr-3 whitespace-nowrap text-xs text-muted-foreground">
-                      {new Date(a.createdAt).toLocaleString("vi-VN", {
+                      {new Date(a.createdAt).toLocaleString(dateLocale(), {
                         day: "2-digit",
                         month: "2-digit",
                         hour: "2-digit",

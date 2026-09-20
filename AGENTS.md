@@ -72,7 +72,7 @@ thôi. Khi nghi file có thể sửa dở: xem `git diff` trước khi sửa ti�
 
 Đơn vị công việc chỉ coi là XONG khi tất cả điều này thoả:
 
-- [ ] `bun run test` — toàn bộ suites xanh (hiện tại **52 suites** — số liệu 20/09/2026; nếu runner báo ít hơn nhiều → có suite bị bỏ sót, điều tra trước khi kết luận xanh). Số liệu này phải khớp với `CONTRACT_SUITES` trong `.opencode/plugins/guardrails.js` — đổi suite mới phải sửa CẢ HAI chỗ trong cùng commit
+- [ ] `bun run test` — toàn bộ suites xanh (hiện tại **53 suites** — số liệu 20/09/2026; nếu runner báo ít hơn nhiều → có suite bị bỏ sót, điều tra trước khi kết luận xanh). Số liệu này phải khớp với `CONTRACT_SUITES` trong `.opencode/plugins/guardrails.js` — đổi suite mới phải sửa CẢ HAI chỗ trong cùng commit
 - [ ] `bun tsc -b --noEmit` — typecheck sạch
 - [ ] `bun run lint` — sạch
 - [ ] `node scripts/check-repo-map.cjs` — bản đồ khớp cấu trúc thật (chỉ khi
@@ -80,6 +80,10 @@ thôi. Khi nghi file có thể sửa dở: xem `git diff` trước khi sửa ti�
 - [ ] `node scripts/check-convex-contract.cjs` — hợp đồng bot ⇄ Convex khớp
       (chỉ khi đổi tên/di chuyển function Convex hoặc thêm/sửa call từ bot;
       CI cũng chặn bước này)
+- [ ] `node scripts/check-i18n.cjs` — mọi chuỗi người dùng đều có bản EN
+      (chỉ khi thêm/sửa chuỗi UI hoặc từ điển `src/lib/i18n.en.ts`; CI cũng
+      chặn bước này). Chuỗi UI viết thẳng bằng tiếng Việt rồi bọc
+      `translate("…")` — key chính là chuỗi VI đó
 - [ ] `bun run format:check` — format Prettier sạch. Lệch format → chạy `bun run format` rồi kiểm tra lại (đây là biến đổi tất-định, tự sửa được; CI đã đỏ 5 run liên tiếp vì quên bước này — 19/09/2026)
 - [ ] Đụng file trong `convex/` → chạy `bun convex dev --once` (codegen) **trước** typecheck
 - [ ] Bug thuộc engine đã có test (antinuke, altDetection, heat, joinGate, backup,

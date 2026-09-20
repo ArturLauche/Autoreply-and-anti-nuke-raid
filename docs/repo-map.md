@@ -37,6 +37,9 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 | `components/ui/`             | shadcn/ui nền tảng (button border-first, card mono)                                                            |
 | `components/Taskbar.tsx`     | Pill dọc trái + panel điều hướng nhanh (Escape/click-outside)                                                  |
 | `components/HaimiyaChat.tsx` | Chat nhân vật Haimiya (giữ màu brand illustration)                                                             |
+| `components/LangSwitch.tsx`  | Công tắc ngôn ngữ VI/EN — nhúng vào chrome mọi trang (nav, taskbar, header dashboard, trang auth)              |
+| `lib/i18n.tsx`               | Lõi đa ngôn ngữ gettext: LangProvider/useT, `translate()` toàn cục, `dateLocale()`                             |
+| `lib/i18n.en.ts`             | Từ điển EN (key = nguyên chuỗi tiếng Việt); thiếu key thì rơi về VI                                            |
 | `lib/useBotMonitor.ts`       | Hook trạng thái bot realtime                                                                                   |
 | `lib/constants.ts`           | SERVER_THEMES (đã mono xám), hằng số                                                                           |
 
@@ -80,11 +83,18 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 
 ## Vòng lặp làm việc
 
-- Kiểm chứng: `bun run test` (52 suites) · `bun tsc -b --noEmit` ·
+- Kiểm chứng: `bun run test` (53 suites) · `bun tsc -b --noEmit` ·
   `bun run lint` · `bun run format:check` — chi tiết gộp 1 lệnh xem skill
   `verification-loop`.
 - Kiểm tra cấu trúc: `scripts/check-repo-map.cjs` (bản đồ khớp thật) +
   `scripts/check-convex-contract.cjs` (tên function bot gọi tồn tại phía
-  Convex) — CI chạy cả 2 trong job lint.
+  Convex) +
+  `scripts/check-i18n.cjs` (mọi chuỗi người dùng có bản EN) — CI chạy cả 3
+  trong job lint.
+- Đa ngôn ngữ: UI viết chuỗi tiếng Việt thẳng trong JSX rồi bọc
+  `translate("…")` (key = chuỗi VI). Thêm chuỗi mới → chạy
+  `node scripts/check-i18n.cjs` để biết key nào còn thiếu bản EN; hằng số
+  cấp module (mảng nhãn sidebar…) phải dịch lúc render, không dịch lúc
+  import.
 - Hạ tầng VPS 3 vùng quyền 🟢🟡🔴: `docs/opencode-vps-guide.md` +
   `AGENTS.md` mục 3.

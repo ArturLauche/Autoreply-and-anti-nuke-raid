@@ -34,6 +34,9 @@ import { timeAgo } from "../lib/utils";
 import type { GuildData } from "../lib/types";
 import OverviewPanel from "../components/dashboard/OverviewPanel";
 
+import LangSwitch from "../components/LangSwitch";
+
+import { dateLocale, translate } from "../lib/i18n";
 // Code-split theo panel: mở tab nào mới tải JS của tab đó. Chỉ OverviewPanel
 // (panel mặc định) được nạp eager để tab đầu hiển thị tức thì.
 const AntiNukePanel = lazy(() => import("../components/dashboard/AntiNukePanel"));
@@ -87,7 +90,7 @@ const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof LayoutDashboard 
 function PanelFallback() {
   return (
     <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-      <Loader2 className="h-4 w-4 animate-spin" /> Đang tải…
+      <Loader2 className="h-4 w-4 animate-spin" /> {translate("Đang tải…")}{" "}
     </div>
   );
 }
@@ -113,12 +116,14 @@ export default function GuildPage() {
   if (data === null) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
-        <p className="font-display text-lg font-semibold">Không thể truy cập server này</p>
+        <p className="font-display text-lg font-semibold">
+          {translate("Không thể truy cập server này")}
+        </p>
         <p className="text-sm text-muted-foreground">
-          Bạn không có quyền quản lý, hoặc bot chưa đồng bộ server này.
+          {translate("Bạn không có quyền quản lý, hoặc bot chưa đồng bộ server này.")}{" "}
         </p>
         <Link to="/dashboard" className="text-sm text-primary hover:underline">
-          ← Về danh sách server
+          {translate("← Về danh sách server")}{" "}
         </Link>
       </div>
     );
@@ -177,7 +182,7 @@ export default function GuildPage() {
                       {data.guild.prefix} prefix
                     </Badge>
                     <Badge variant="secondary">
-                      {data.guild.memberCount?.toLocaleString("vi-VN") ?? "?"} thành viên
+                      {data.guild.memberCount?.toLocaleString(dateLocale()) ?? "?"} thành viên
                     </Badge>
                     <Badge variant={data.guild.antinukeEnabled ? "default" : "secondary"}>
                       <ShieldAlert className="h-3 w-3" />
@@ -192,13 +197,16 @@ export default function GuildPage() {
                   </div>
                 </div>
               </div>
-              {clientId && (
-                <a href={buildBotInviteUrl(clientId)} target="_blank" rel="noreferrer">
-                  <Badge variant="secondary" className="cursor-pointer px-3 py-1.5">
-                    <Bot className="h-3.5 w-3.5" /> Mời thêm
-                  </Badge>
-                </a>
-              )}
+              <div className="flex items-center gap-2">
+                <LangSwitch />
+                {clientId && (
+                  <a href={buildBotInviteUrl(clientId)} target="_blank" rel="noreferrer">
+                    <Badge variant="secondary" className="cursor-pointer px-3 py-1.5">
+                      <Bot className="h-3.5 w-3.5" /> {translate("Mời thêm")}{" "}
+                    </Badge>
+                  </a>
+                )}
+              </div>
             </div>
           </div>
         </header>
@@ -211,7 +219,7 @@ export default function GuildPage() {
                 còn mục bên phải; cuộn bằng tay quét tự nhiên trên điện thoại. */}
               <nav
                 className="-mx-4 flex gap-1 overflow-x-auto rounded-xl border border-border bg-card/50 p-1.5 px-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:mx-0 lg:flex-col lg:overflow-visible lg:px-1.5"
-                aria-label="Điều hướng bảng điều khiển"
+                aria-label={translate("Điều hướng bảng điều khiển")}
               >
                 {NAV_ITEMS.map((item) => {
                   const Icon = item.icon;
@@ -236,20 +244,20 @@ export default function GuildPage() {
                       )}
                     >
                       <Icon className="h-4 w-4 shrink-0" />
-                      {item.label}
+                      {translate(item.label)}
                     </button>
                   );
                 })}
               </nav>
               <div className="mt-4 hidden rounded-xl border border-border bg-secondary/50 p-4 text-xs text-muted-foreground lg:block">
-                <p className="mb-2 font-medium text-foreground">Haimiya gợi ý</p>
+                <p className="mb-2 font-medium text-foreground">{translate("Haimiya gợi ý")}</p>
                 <p>• Auto-mod = spam tin, mention, từ xấu, ảnh/file, link mời + link độc hại.</p>
                 <p className="mt-1">
                   • Moderation = thông báo sau khi bot phạt (ban · timeout · warn · kick) — chọn mức
                   chi tiết riêng cho từng hành động.
                 </p>
                 <p className="mt-1">• Join Gate = chặn selfbot khi vào server.</p>
-                <p className="mt-1">• Nuke/raid phạt trực tiếp, không cộng nhiệt.</p>
+                <p className="mt-1">{translate("• Nuke/raid phạt trực tiếp, không cộng nhiệt.")}</p>
                 <p className="mt-1">
                   • ⭐ Whitelist = chọn người dùng/role miễn trừ moderation, anti-raid và nuke.
                 </p>
@@ -258,17 +266,22 @@ export default function GuildPage() {
                   bị nuke phá sập.
                 </p>
                 <p className="mt-1">
-                  • 🛠️ Lệnh mod: /mod timeout · kick · ban · purge + !timeout !kick !ban !purge —
-                  mọi hình phạt hiện trong mục Hình phạt.
+                  {translate(
+                    "• 🛠️ Lệnh mod: /mod timeout · kick · ban · purge + !timeout !kick !ban !purge — mọi hình phạt hiện trong mục Hình phạt.",
+                  )}{" "}
                 </p>
                 <p className="mt-1">
-                  • 🔒 Tính năng ẩn — khu vực riêng tư, chỉ chủ sở hữu bot mở khóa bằng mật khẩu.
+                  {translate(
+                    "• 🔒 Tính năng ẩn — khu vực riêng tư, chỉ chủ sở hữu bot mở khóa bằng mật khẩu.",
+                  )}{" "}
                 </p>
-                <p className="mt-1">• Mỗi server có độ tương phản riêng trong Cài đặt.</p>
+                <p className="mt-1">
+                  {translate("• Mỗi server có độ tương phản riêng trong Cài đặt.")}
+                </p>
                 <p className="mt-1">
                   • 🔗 Webhook & Log = bot tự tạo webhook tên/avatar/màu tùy chỉnh để nhận log.
                 </p>
-                <p className="mt-1">• Thay đổi áp dụng trong ~3 phút.</p>
+                <p className="mt-1">{translate("• Thay đổi áp dụng trong ~3 phút.")}</p>
               </div>
             </aside>
 
@@ -306,7 +319,7 @@ export default function GuildPage() {
                               }}
                               className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                             >
-                              <Lock className="h-3.5 w-3.5" /> Khóa lại
+                              <Lock className="h-3.5 w-3.5" /> {translate("Khóa lại")}{" "}
                             </button>
                           </div>
                         )}
@@ -323,7 +336,7 @@ export default function GuildPage() {
                   rel="noreferrer"
                   className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-primary"
                 >
-                  <ExternalLink className="h-3.5 w-3.5" /> Mở Discord server
+                  <ExternalLink className="h-3.5 w-3.5" /> {translate("Mở Discord server")}{" "}
                 </a>
               </div>
             </div>

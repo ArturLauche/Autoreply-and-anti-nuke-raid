@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Bot, Flame, Timer, UserCheck } from "lucide-react";
 import { Badge } from "../ui/badge";
 
+import { translate } from "../../lib/i18n";
 /** Thanh nhiệt mini mô phỏng trong mockup chat. */
 function HeatBar({ value, color }: { value: number; color: string }) {
   return (
@@ -40,10 +41,13 @@ export default function HeroChatCard() {
             <div className="max-w-[80%]">
               <p className="mb-1 text-xs font-semibold text-white">
                 huy_nguyen{" "}
-                <span className="ml-1 font-normal text-white/40">Hôm nay chơi gì @protogon?</span>
+                <span className="ml-1 font-normal text-white/40">
+                  {translate("Hôm nay chơi gì @protogon?")}
+                </span>
               </p>
               <div className="rounded-lg rounded-bl-none bg-white/10 px-3 py-2 text-sm text-white/90">
-                Hôm nay chơi gì? <span className="font-semibold text-white">@protogon</span>
+                {translate("Hôm nay chơi gì?")}{" "}
+                <span className="font-semibold text-white">@protogon</span>
               </div>
             </div>
           </div>
@@ -56,8 +60,8 @@ export default function HeroChatCard() {
                 Protogon <span className="ml-1 font-normal text-white/40">BOT</span>
               </p>
               <div className="rounded-lg rounded-bl-none border border-white/30 bg-white/10 px-3 py-2 text-sm text-white/90">
-                Chào <span className="font-semibold text-white">Huy</span>! Hôm nay thử một trận
-                Valorant 5v5 nhé 🎮
+                {translate("Chào")} <span className="font-semibold text-white">Huy</span>
+                {translate("! Hôm nay thử một trận Valorant 5v5 nhé 🎮")}{" "}
               </div>
               <div className="mt-1.5 flex items-center gap-1.5 text-xs text-white/40">
                 <Timer className="h-3 w-3" /> rule “game-night” · cooldown 30s
@@ -68,14 +72,15 @@ export default function HeroChatCard() {
           {/* Cảnh báo nhiệt */}
           <div className="rounded-lg border border-white/25 bg-white/5 px-3 py-2.5">
             <div className="flex items-center gap-2 text-xs font-semibold text-white">
-              <Flame className="h-4 w-4" /> NHIỆT ĐỘ VI PHẠM — THÀNH VIÊN “dang_spam”
+              <Flame className="h-4 w-4" />{" "}
+              {translate("NHIỆT ĐỘ VI PHẠM — THÀNH VIÊN “dang_spam”")}{" "}
             </div>
             <div className="mt-2 flex items-center gap-2">
               <div className="flex-1">
                 <HeatBar value={55} color="bg-white" />
                 <div className="mt-1 flex justify-between text-[10px] text-white/40">
                   <span>warn 25</span>
-                  <span>tạm khóa 40</span>
+                  <span>{translate("tạm khóa 40")}</span>
                   <span>kick 70</span>
                   <span>ban 90</span>
                 </div>
@@ -85,19 +90,20 @@ export default function HeroChatCard() {
               </span>
             </div>
             <p className="mt-1.5 text-[11px] text-white/60">
-              Tái phạm trong 30 phút → nhiệt <b className="text-white">×2</b> · đã gửi DM cảnh báo
-              ⚠️
+              {translate("Tái phạm trong 30 phút → nhiệt")} <b className="text-white">×2</b>{" "}
+              {translate("· đã gửi DM cảnh báo ⚠️")}{" "}
             </p>
           </div>
 
           {/* Join gate */}
           <div className="rounded-lg border border-white/20 bg-white/5 px-3 py-2.5">
             <div className="flex items-center gap-2 text-xs font-semibold text-white/80">
-              <UserCheck className="h-4 w-4" /> JOIN GATE — TỰ ĐỘNG CHẶN SELFBOT
+              <UserCheck className="h-4 w-4" /> {translate("JOIN GATE — TỰ ĐỘNG CHẶN SELFBOT")}{" "}
             </div>
             <p className="mt-1 text-[11px] text-white/60">
               🚪 <span className="font-mono text-white/80">selfbot_9123</span> bị chặn: tài khoản{" "}
-              <b className="text-white">mới 2 ngày</b>, không avatar, không huy hiệu → đã kick.
+              <b className="text-white">{translate("mới 2 ngày")}</b>
+              {translate(", không avatar, không huy hiệu → đã kick.")}{" "}
             </p>
           </div>
         </div>
@@ -111,7 +117,7 @@ export default function HeroChatCard() {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-60" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
           </span>
-          Bot đang trực tuyến
+          {translate("Bot đang trực tuyến")}{" "}
         </Badge>
       </div>
     </motion.div>

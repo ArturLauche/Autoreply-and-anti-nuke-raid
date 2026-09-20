@@ -17,6 +17,7 @@ import {
   storeDiscordAccess,
 } from "../lib/discord";
 
+import { translate } from "../lib/i18n";
 /**
  * Chuyển lỗi đăng nhập thành thông điệp người dùng hiểu được.
  * Đặc biệt: 15/09/2026 Discord gặp sự cố "Session Unavailability" (500) —
@@ -158,21 +159,23 @@ export default function DiscordCallback() {
         {error ? (
           <div className="rounded-2xl border border-danger/30 bg-danger/10 p-6">
             <AlertTriangle className="mx-auto h-8 w-8 text-danger" />
-            <h1 className="mt-3 font-display text-lg font-semibold">Đăng nhập thất bại</h1>
+            <h1 className="mt-3 font-display text-lg font-semibold">
+              {translate("Đăng nhập thất bại")}
+            </h1>
             <p className="mt-2 text-sm text-muted-foreground">{error}</p>
             <div className="mt-5 flex justify-center gap-3">
               <Link to="/auth">
-                <Button variant="secondary">Thử lại</Button>
+                <Button variant="secondary">{translate("Thử lại")}</Button>
               </Link>
               <Link to="/">
-                <Button variant="ghost">Về trang chủ</Button>
+                <Button variant="ghost">{translate("Về trang chủ")}</Button>
               </Link>
             </div>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3 text-muted-foreground">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm">Đang xác thực với Discord…</p>
+            <p className="text-sm">{translate("Đang xác thực với Discord…")}</p>
           </div>
         )}
       </div>

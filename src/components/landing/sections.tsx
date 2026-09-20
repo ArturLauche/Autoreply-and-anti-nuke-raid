@@ -25,6 +25,7 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { DashboardCta, SafeHaimiyaAvatar, fadeUp, stagger } from "./shared";
 
+import { translate } from "../../lib/i18n";
 /** Thanh nhiệt mini mô phỏng trong mockup chat. */
 function HeatBar({ value, color }: { value: number; color: string }) {
   return (
@@ -97,7 +98,7 @@ export function Features() {
         >
           <motion.div variants={fadeUp}>
             <Badge className="mb-4">
-              <Sparkles className="h-3.5 w-3.5" /> Mọi thứ trong một bot
+              <Sparkles className="h-3.5 w-3.5" /> {translate("Mọi thứ trong một bot")}{" "}
             </Badge>
           </motion.div>
           <motion.h2
@@ -107,9 +108,9 @@ export function Features() {
             Bảo vệ toàn diện &amp; giao tiếp cho server của bạn
           </motion.h2>
           <motion.p variants={fadeUp} className="mt-4 text-muted-foreground">
-            Từ tự trả lời thông minh đến 32 module bảo vệ (24 chống nuke + 8 auto-mod) — Protogon
-            canh server 24/7 và cấu hình mọi thứ qua dashboard trực quan, có trợ lý Haimiya sẵn sàng
-            giải đáp.
+            {translate(
+              "Từ tự trả lời thông minh đến 32 module bảo vệ (24 chống nuke + 8 auto-mod) — Protogon canh server 24/7 và cấu hình mọi thứ qua dashboard trực quan, có trợ lý Haimiya sẵn sàng giải đáp.",
+            )}{" "}
           </motion.p>
         </motion.div>
 
@@ -189,18 +190,20 @@ export function HiddenFeatures() {
         >
           <motion.div variants={fadeUp}>
             <Badge className="mb-4 border-primary/40 bg-primary/10 text-primary">
-              <Lock className="h-3.5 w-3.5" /> Khu vực riêng tư — chỉ chủ sở hữu bot
+              <Lock className="h-3.5 w-3.5" />{" "}
+              {translate("Khu vực riêng tư — chỉ chủ sở hữu bot")}{" "}
             </Badge>
           </motion.div>
           <motion.h2
             variants={fadeUp}
             className="font-display text-3xl font-bold tracking-tight md:text-4xl"
           >
-            Một số khả năng đặc biệt…
+            {translate("Một số khả năng đặc biệt…")}{" "}
           </motion.h2>
           <motion.p variants={fadeUp} className="mx-auto mt-3 max-w-xl text-muted-foreground">
-            Ngoài những gì bạn thấy, Protogon còn giữ riêng một khu vực quyền lực chỉ chủ sở hữu bot
-            mở khóa được bằng mật khẩu bí mật — ngay trong dashboard, không cần cài thêm gì.
+            {translate(
+              "Ngoài những gì bạn thấy, Protogon còn giữ riêng một khu vực quyền lực chỉ chủ sở hữu bot mở khóa được bằng mật khẩu bí mật — ngay trong dashboard, không cần cài thêm gì.",
+            )}{" "}
           </motion.p>
           <motion.div
             variants={fadeUp}
@@ -260,7 +263,7 @@ function HeatLadder() {
   return (
     <div className="rounded-xl border border-border bg-secondary/30 p-4">
       <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-foreground">
-        <Flame className="h-4 w-4" /> Thang nhiệt tự leo thang hình phạt
+        <Flame className="h-4 w-4" /> {translate("Thang nhiệt tự leo thang hình phạt")}{" "}
       </div>
       <div className="grid gap-2 sm:grid-cols-4">
         {tiers.map((t, i) => (
@@ -283,8 +286,10 @@ function HeatLadder() {
         ))}
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        Vừa bị phạt mà tái phạm → nhiệt nhân <b className="text-foreground">×2</b> trong 30 phút.
-        Warn tích lũy chạy song song: đủ 3 lần warn → tự tăng cấp.
+        {translate("Vừa bị phạt mà tái phạm → nhiệt nhân")} <b className="text-foreground">×2</b>{" "}
+        {translate(
+          "trong 30 phút. Warn tích lũy chạy song song: đủ 3 lần warn → tự tăng cấp.",
+        )}{" "}
       </p>
     </div>
   );
@@ -326,18 +331,19 @@ export function AntiNuke() {
             transition={{ duration: 0.6 }}
           >
             <Badge variant="danger" className="mb-4">
-              <ShieldAlert className="h-3.5 w-3.5" /> Phòng thủ 32 module
+              <ShieldAlert className="h-3.5 w-3.5" /> {translate("Phòng thủ 32 module")}{" "}
             </Badge>
             <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
-              Chặn đứng kẻ phá hoại <br />
-              trước khi server sụp đổ
+              {translate("Chặn đứng kẻ phá hoại")} <br />
+              {translate("trước khi server sụp đổ")}{" "}
             </h2>
             <p className="mt-4 max-w-lg text-muted-foreground">
-              Hai lớp phòng thủ: <b className="text-foreground">Anti Nuke</b> (24 module) canh cấu
-              trúc server (ban/kick hàng loạt, phá kênh, phá role…) và{" "}
-              <b className="text-foreground">Moderation</b> (8 module) lọc nội dung độc hại mỗi
-              ngày. Vượt ngưỡng → xác định thủ phạm qua audit log, phạt theo cài đặt và cảnh báo
-              real-time tới kênh log.
+              {translate("Hai lớp phòng thủ:")} <b className="text-foreground">Anti Nuke</b> (24
+              module) canh cấu trúc server (ban/kick hàng loạt, phá kênh, phá role…) và{" "}
+              <b className="text-foreground">Moderation</b>{" "}
+              {translate(
+                "(8 module) lọc nội dung độc hại mỗi ngày. Vượt ngưỡng → xác định thủ phạm qua audit log, phạt theo cài đặt và cảnh báo real-time tới kênh log.",
+              )}{" "}
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
               {[
@@ -369,12 +375,13 @@ export function AntiNuke() {
           >
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2 font-display font-semibold">
-                <ShieldCheck className="h-5 w-5 text-primary" /> Module đang bảo vệ
+                <ShieldCheck className="h-5 w-5 text-primary" />{" "}
+                {translate("Module đang bảo vệ")}{" "}
               </div>
-              <Badge variant="success">32/32 bật</Badge>
+              <Badge variant="success">{translate("32/32 bật")}</Badge>
             </div>
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              🛡️ Anti Nuke / Raid — phạt trực tiếp
+              {translate("🛡️ Anti Nuke / Raid — phạt trực tiếp")}{" "}
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               {nukeModules.map((m) => (
@@ -390,7 +397,7 @@ export function AntiNuke() {
               ))}
             </div>
             <p className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              🧹 Moderation nội dung — cộng nhiệt + warn
+              {translate("🧹 Moderation nội dung — cộng nhiệt + warn")}{" "}
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               {modModules.map((m) => (
@@ -406,12 +413,16 @@ export function AntiNuke() {
               ))}
             </div>
             <p className="mb-3 mt-3 text-center text-[11px] text-muted-foreground">
-              …và 12 module chống nuke khác — xem đầy đủ trong dashboard.
+              {translate("…và 12 module chống nuke khác — xem đầy đủ trong dashboard.")}{" "}
             </p>
             <div className="mt-0 rounded-lg border border-white/20 bg-white/5 p-3 text-xs text-white/70">
-              <span className="font-semibold text-white">🔒 Khóa kênh khi raid:</span> vượt ngưỡng
-              bất kỳ module nào → bot chặn thành viên gửi tin trong toàn server, tự mở lại sau vài
-              phút hoặc khi mod dùng <code className="font-mono">/antinuke unlock</code>.
+              <span className="font-semibold text-white">
+                {translate("🔒 Khóa kênh khi raid:")}
+              </span>{" "}
+              {translate(
+                "vượt ngưỡng bất kỳ module nào → bot chặn thành viên gửi tin trong toàn server, tự mở lại sau vài phút hoặc khi mod dùng",
+              )}{" "}
+              <code className="font-mono">/antinuke unlock</code>.
             </div>
           </motion.div>
         </div>
@@ -451,16 +462,15 @@ export function HaimiyaSection() {
             className="order-1 lg:order-2"
           >
             <Badge className="mb-4">
-              <Heart className="h-3.5 w-3.5" /> Gặp gỡ trợ lý ảo
+              <Heart className="h-3.5 w-3.5" /> {translate("Gặp gỡ trợ lý ảo")}{" "}
             </Badge>
             <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
-              Haimiya — trợ lý ảo đáng tin cậy
+              {translate("Haimiya — trợ lý ảo đáng tin cậy")}{" "}
             </h2>
             <p className="mt-4 max-w-lg text-muted-foreground">
-              Lấy cảm hứng từ nhân vật "đáng sợ mà đáng yêu" — Haimiya là trợ lý ảo của Protogon,
-              luôn túc trực trên website và dashboard. Tôi giải đáp mọi thắc mắc về bot bằng tiếng
-              Việt: hệ thống nhiệt độ, warn tích lũy, Join Gate, chống nuke/raid, auto reply, cách
-              host bot…
+              {translate(
+                'Lấy cảm hứng từ nhân vật "đáng sợ mà đáng yêu" — Haimiya là trợ lý ảo của Protogon, luôn túc trực trên website và dashboard. Tôi giải đáp mọi thắc mắc về bot bằng tiếng Việt: hệ thống nhiệt độ, warn tích lũy, Join Gate, chống nuke/raid, auto reply, cách host bot…',
+              )}{" "}
             </p>
             <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
               {[
@@ -478,10 +488,10 @@ export function HaimiyaSection() {
             </ul>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button size="lg" onClick={() => window.dispatchEvent(new Event("haimiya-open"))}>
-                <MessageCircle className="h-4 w-4" /> Hỏi thử Haimiya ngay
+                <MessageCircle className="h-4 w-4" /> {translate("Hỏi thử Haimiya ngay")}{" "}
               </Button>
               <DashboardCta variant="outline">
-                Vào dashboard <ArrowRight className="h-4 w-4" />
+                {translate("Vào dashboard")} <ArrowRight className="h-4 w-4" />
               </DashboardCta>
             </div>
           </motion.div>
@@ -524,14 +534,14 @@ export function HowItWorks() {
         >
           <motion.div variants={fadeUp}>
             <Badge className="mb-4">
-              <Zap className="h-3.5 w-3.5" /> Bắt đầu nhanh
+              <Zap className="h-3.5 w-3.5" /> {translate("Bắt đầu nhanh")}{" "}
             </Badge>
           </motion.div>
           <motion.h2
             variants={fadeUp}
             className="font-display text-3xl font-bold tracking-tight md:text-4xl"
           >
-            Hoạt động trong 3 bước
+            {translate("Hoạt động trong 3 bước")}{" "}
           </motion.h2>
         </motion.div>
         <div className="mt-14 grid gap-4 md:grid-cols-3">
@@ -572,23 +582,24 @@ export function CtaBanner() {
           <div className="relative">
             <SafeHaimiyaAvatar className="mx-auto h-28 w-28" />
             <h2 className="mt-4 font-display text-3xl font-bold tracking-tight md:text-5xl">
-              Sẵn sàng để Haimiya <br className="hidden md:block" /> hỗ trợ bạn quản lý server?
+              {translate("Sẵn sàng để Haimiya")} <br className="hidden md:block" />{" "}
+              {translate("hỗ trợ bạn quản lý server?")}{" "}
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-              Đăng nhập bằng Discord, mời Protogon vào server — bật nhiệt độ, Join Gate, lọc nội
-              dung và 32 module chống nuke ngay trên dashboard, có trợ lý ảo Haimiya đồng hành. Miễn
-              phí cho mọi server.
+              {translate(
+                "Đăng nhập bằng Discord, mời Protogon vào server — bật nhiệt độ, Join Gate, lọc nội dung và 32 module chống nuke ngay trên dashboard, có trợ lý ảo Haimiya đồng hành. Miễn phí cho mọi server.",
+              )}{" "}
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <DashboardCta>
-                Bắt đầu ngay <ArrowRight className="h-4 w-4" />
+                {translate("Bắt đầu ngay")} <ArrowRight className="h-4 w-4" />
               </DashboardCta>
               <Button
                 size="lg"
                 variant="outline"
                 onClick={() => window.dispatchEvent(new Event("haimiya-open"))}
               >
-                <MessageCircle className="h-4 w-4" /> Trò chuyện với Haimiya
+                <MessageCircle className="h-4 w-4" /> {translate("Trò chuyện với Haimiya")}{" "}
               </Button>
             </div>
           </div>

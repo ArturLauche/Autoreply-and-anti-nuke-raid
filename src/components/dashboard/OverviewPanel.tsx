@@ -23,6 +23,7 @@ import { ANTINUKE_MODULE_META } from "../../lib/constants";
 import { SafetyBar, TopOffenders } from "./HeatBar";
 import type { AntiNukeEvent, GuildData } from "../../lib/types";
 
+import { dateLocale, translate } from "../../lib/i18n";
 function RecentEvents({ data }: { data: GuildData }) {
   const token = localStorage.getItem("wio_session_token") ?? "";
   const recent = useQuery(api.reports.recentForGuild, {
@@ -36,7 +37,8 @@ function RecentEvents({ data }: { data: GuildData }) {
       <CardContent className="p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 font-display font-semibold">
-            <ShieldAlert className="h-4 w-4 text-primary" /> Hoạt động chống nuke gần đây
+            <ShieldAlert className="h-4 w-4 text-primary" />{" "}
+            {translate("Hoạt động chống nuke gần đây")}{" "}
           </h3>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary">
@@ -45,7 +47,7 @@ function RecentEvents({ data }: { data: GuildData }) {
             </Badge>
             <Link to={`/dashboard/${data.guild.discordId}/history`}>
               <Button variant="outline" size="sm">
-                <History className="h-3.5 w-3.5" /> Xem lịch sử
+                <History className="h-3.5 w-3.5" /> {translate("Xem lịch sử")}{" "}
               </Button>
             </Link>
           </div>
@@ -58,7 +60,9 @@ function RecentEvents({ data }: { data: GuildData }) {
           </div>
         ) : !recent || recent.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">
-            Chưa có sự kiện nào — bot chưa xử lý vi phạm chống nuke nào tại server này.
+            {translate(
+              "Chưa có sự kiện nào — bot chưa xử lý vi phạm chống nuke nào tại server này.",
+            )}{" "}
           </p>
         ) : (
           <ul className="mt-4 divide-y divide-border">
@@ -118,7 +122,7 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
     {
       icon: Users,
       label: "Thành viên",
-      value: data.guild.memberCount?.toLocaleString("vi-VN") ?? "?",
+      value: data.guild.memberCount?.toLocaleString(dateLocale()) ?? "?",
       sub: "đồng bộ qua bot",
       tone: "bg-foreground/60 text-primary-foreground",
     },
@@ -157,18 +161,18 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary text-foreground">
                 <Flame className="h-4 w-4" />
               </span>
-              Mức an toàn của server
+              {translate("Mức an toàn của server")}{" "}
             </h3>
             <p className="text-sm text-muted-foreground">
-              Dựa trên tổng nhiệt độ & warn tích lũy của các thành viên. Vi phạm càng nhiều, nhiệt
-              càng cao và mức an toàn càng giảm — khi chạm ngưỡng, hình phạt tự tăng cấp (cảnh báo →
-              tạm khóa → kick → ban) và tái phạm sẽ bị nhân đôi nhiệt.
+              {translate(
+                "Dựa trên tổng nhiệt độ & warn tích lũy của các thành viên. Vi phạm càng nhiều, nhiệt càng cao và mức an toàn càng giảm — khi chạm ngưỡng, hình phạt tự tăng cấp (cảnh báo → tạm khóa → kick → ban) và tái phạm sẽ bị nhân đôi nhiệt.",
+              )}{" "}
             </p>
             <SafetyBar data={data} />
           </div>
           <div>
             <h4 className="mb-3 text-sm font-medium text-muted-foreground">
-              🔥 Thành viên có nhiệt độ cao nhất
+              {translate("🔥 Thành viên có nhiệt độ cao nhất")}{" "}
             </h4>
             <TopOffenders data={data} limit={6} />
           </div>
@@ -192,7 +196,7 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
             </span>
             <div>
               <p className="font-display font-semibold">
-                Trạng thái bot
+                {translate("Trạng thái bot")}{" "}
                 <Badge variant={data.guild.botInGuild ? "success" : "danger"} className="ml-2">
                   {data.guild.botInGuild ? "Trực tuyến" : "Không hoạt động"}
                 </Badge>
@@ -207,7 +211,7 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
             {clientId && (
               <a href={buildBotInviteUrl(clientId)} target="_blank" rel="noreferrer">
                 <Button variant="secondary" size="sm">
-                  <ExternalLink className="h-4 w-4" /> Mời bot
+                  <ExternalLink className="h-4 w-4" /> {translate("Mời bot")}{" "}
                 </Button>
               </a>
             )}
@@ -217,7 +221,7 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
               rel="noreferrer"
             >
               <Button variant="secondary" size="sm">
-                <ArrowLeft className="h-4 w-4 rotate-180" /> Mở Discord
+                <ArrowLeft className="h-4 w-4 rotate-180" /> {translate("Mở Discord")}{" "}
               </Button>
             </a>
           </div>
@@ -228,35 +232,42 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
 
       <Card>
         <CardContent className="p-5">
-          <h3 className="font-display font-semibold">Ghi chú nhanh</h3>
+          <h3 className="font-display font-semibold">{translate("Ghi chú nhanh")}</h3>
           <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
             <li className="flex gap-2">
               <span className="text-primary">•</span>
-              Rule auto reply dùng placeholder <code className="font-mono text-xs">
-                {"{user}"}
-              </code>{" "}
-              để tag người nhắn, <code className="font-mono text-xs">{"{username}"}</code> để lấy
-              tên họ.
+              {translate("Rule auto reply dùng placeholder")}{" "}
+              <code className="font-mono text-xs">{"{user}"}</code> để tag người nhắn,{" "}
+              <code className="font-mono text-xs">{"{username}"}</code>{" "}
+              {translate("để lấy tên họ.")}{" "}
             </li>
             <li className="flex gap-2">
               <span className="text-primary">•</span>
-              Bảng nhiệt & warn bên Moderation có nút xóa nhiệt từng người hoặc toàn bộ.
+              {translate(
+                "Bảng nhiệt & warn bên Moderation có nút xóa nhiệt từng người hoặc toàn bộ.",
+              )}{" "}
             </li>
             <li className="flex gap-2">
               <span className="text-primary">•</span>
-              Join Gate (sidebar) chặn selfbot: tài khoản quá mới, thiếu avatar/huy hiệu.
+              {translate(
+                "Join Gate (sidebar) chặn selfbot: tài khoản quá mới, thiếu avatar/huy hiệu.",
+              )}{" "}
             </li>
             <li className="flex gap-2">
               <span className="text-primary">•</span>
-              Module "Chống link độc hại & file nguy hiểm" quét domain scam + file đuôi .exe/.scr…
+              {translate(
+                'Module "Chống link độc hại & file nguy hiểm" quét domain scam + file đuôi .exe/.scr…',
+              )}{" "}
             </li>
             <li className="flex gap-2">
               <span className="text-primary">•</span>
-              Thay đổi cấu hình được bot đồng bộ tự động trong vòng ~3 phút.
+              {translate("Thay đổi cấu hình được bot đồng bộ tự động trong vòng ~3 phút.")}{" "}
             </li>
             <li className="flex gap-2">
               <span className="text-primary">•</span>
-              Mod/Admin trong danh sách Cài đặt sẽ được miễn trừ khỏi chống nuke.
+              {translate(
+                "Mod/Admin trong danh sách Cài đặt sẽ được miễn trừ khỏi chống nuke.",
+              )}{" "}
             </li>
           </ul>
         </CardContent>

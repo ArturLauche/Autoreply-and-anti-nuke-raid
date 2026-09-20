@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { BarChart3, Shield, Flame, Users, TrendingUp } from "lucide-react";
 
+import { dateLocale, translate } from "../../lib/i18n";
 interface AnalyticsPanelProps {
   token: string;
   guildId: string;
@@ -67,28 +68,28 @@ export default function AnalyticsPanel({ token, guildId }: AnalyticsPanelProps) 
           <CardContent className="p-4 text-center">
             <Users className="h-5 w-5 text-primary mx-auto mb-1" />
             <div className="text-2xl font-bold">{analytics.memberCount.toLocaleString()}</div>
-            <div className="text-xs text-muted-foreground">Thành viên</div>
+            <div className="text-xs text-muted-foreground">{translate("Thành viên")}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Shield className="h-5 w-5 text-foreground mx-auto mb-1" />
             <div className="text-2xl font-bold">{analytics.antinukeEvents7d}</div>
-            <div className="text-xs text-muted-foreground">Anti-nuke (7 ngày)</div>
+            <div className="text-xs text-muted-foreground">{translate("Anti-nuke (7 ngày)")}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <TrendingUp className="h-5 w-5 text-foreground mx-auto mb-1" />
             <div className="text-2xl font-bold">{analytics.modActions7d}</div>
-            <div className="text-xs text-muted-foreground">Mod actions (7 ngày)</div>
+            <div className="text-xs text-muted-foreground">{translate("Mod actions (7 ngày)")}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Flame className="h-5 w-5 text-foreground mx-auto mb-1" />
             <div className="text-2xl font-bold">{analytics.topHeat.length}</div>
-            <div className="text-xs text-muted-foreground">Đang có nhiệt</div>
+            <div className="text-xs text-muted-foreground">{translate("Đang có nhiệt")}</div>
           </CardContent>
         </Card>
       </div>
@@ -99,7 +100,7 @@ export default function AnalyticsPanel({ token, guildId }: AnalyticsPanelProps) 
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <BarChart3 className="h-5 w-5" />
-              Sự kiện theo module (7 ngày)
+              {translate("Sự kiện theo module (7 ngày)")}{" "}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -127,7 +128,7 @@ export default function AnalyticsPanel({ token, guildId }: AnalyticsPanelProps) 
       {Object.keys(analytics.modByType).length > 0 && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Moderation (7 ngày)</CardTitle>
+            <CardTitle className="text-lg">{translate("Moderation (7 ngày)")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
@@ -150,7 +151,7 @@ export default function AnalyticsPanel({ token, guildId }: AnalyticsPanelProps) 
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Flame className="h-5 w-5 text-foreground" />
-              Top nhiệt độ
+              {translate("Top nhiệt độ")}{" "}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -192,20 +193,20 @@ export default function AnalyticsPanel({ token, guildId }: AnalyticsPanelProps) 
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Tổng backup:</span>
+              <span className="text-muted-foreground">{translate("Tổng backup:")}</span>
               <span className="font-medium">{backupAnalytics.total}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Tự động:</span>
+              <span className="text-muted-foreground">{translate("Tự động:")}</span>
               <span className="font-medium">
                 {backupAnalytics.autoDays > 0 ? `Mỗi ${backupAnalytics.autoDays} ngày` : "Tắt"}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Lần cuối:</span>
+              <span className="text-muted-foreground">{translate("Lần cuối:")}</span>
               <span className="font-medium">
                 {backupAnalytics.lastBackupAt
-                  ? new Date(backupAnalytics.lastBackupAt).toLocaleString("vi-VN")
+                  ? new Date(backupAnalytics.lastBackupAt).toLocaleString(dateLocale())
                   : "Chưa backup"}
               </span>
             </div>

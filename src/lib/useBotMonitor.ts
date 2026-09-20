@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBotStatus, type BotStatus } from "./useBotStatus";
+import { dateLocale } from "./i18n";
 
 /** Điểm cuối Convex dùng để đo độ trễ thực (khớp URL backend chọn trong main.tsx). */
 const configuredUrl = import.meta.env.VITE_CONVEX_URL ?? "";
@@ -29,7 +30,7 @@ export function latencyLabel(ms: number): { label: string; cls: string } {
 
 /** Định dạng mốc thời gian theo giờ Việt Nam (UTC+7). */
 export function fmtVietnam(ts: number): string {
-  return new Date(ts).toLocaleString("vi-VN", {
+  return new Date(ts).toLocaleString(dateLocale(), {
     timeZone: "Asia/Ho_Chi_Minh",
     day: "2-digit",
     month: "2-digit",

@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { getSessionToken } from "../../lib/discord";
 import type { Giveaway, GuildData } from "../../lib/types";
 
+import { dateLocale, translate } from "../../lib/i18n";
 const DURATION_PRESETS = [
   { label: "5 phút", minutes: 5 },
   { label: "30 phút", minutes: 30 },
@@ -88,7 +89,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
         imageUrl: imageUrl.trim() || undefined,
         endMessage: endMessage.trim() || undefined,
       });
-      toast.success("Đã tạo giveaway — bot sẽ gửi trong vòng ~1 phút 🎉");
+      toast.success(translate("Đã tạo giveaway — bot sẽ gửi trong vòng ~1 phút 🎉"));
       setOpen(false);
       setTitle("");
       setPrize("");
@@ -114,12 +115,13 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
               <Gift className="h-4 w-4 text-primary" /> Giveaway 🎉
             </h3>
             <p className="text-sm text-muted-foreground">
-              Chọn mẫu tin nhắn, chèn ảnh, tùy lời dẫn, cấp role thưởng tự động — bot chọn người
-              thắng và thông báo.
+              {translate(
+                "Chọn mẫu tin nhắn, chèn ảnh, tùy lời dẫn, cấp role thưởng tự động — bot chọn người thắng và thông báo.",
+              )}{" "}
             </p>
           </div>
           <Button onClick={() => setOpen(true)} disabled={active.length >= 5}>
-            <Plus className="h-4 w-4" /> Tạo giveaway
+            <Plus className="h-4 w-4" /> {translate("Tạo giveaway")}{" "}
           </Button>
         </div>
 
@@ -136,13 +138,13 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                     {!g.messageId ? (
                       g.postError ? (
                         <Badge className="border-danger/40 bg-danger/10 text-danger">
-                          ⚠️ lỗi gửi
+                          {translate("⚠️ lỗi gửi")}{" "}
                         </Badge>
                       ) : (
-                        <Badge variant="secondary">⏳ chờ bot gửi</Badge>
+                        <Badge variant="secondary">{translate("⏳ chờ bot gửi")}</Badge>
                       )
                     ) : (
-                      <Badge variant="success">đang chạy</Badge>
+                      <Badge variant="success">{translate("đang chạy")}</Badge>
                     )}
                   </p>
                   {g.postError && (
@@ -155,7 +157,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                     kết thúc{" "}
                     {g.endsAt <= Date.now()
                       ? "bất cứ lúc nào"
-                      : new Date(g.endsAt).toLocaleString("vi-VN")}
+                      : new Date(g.endsAt).toLocaleString(dateLocale())}
                     {" · "}
                     <Users className="mr-1 inline h-3 w-3" />
                     {g.entriesCount} người tham gia · {g.winnerCount} người thắng
@@ -171,13 +173,13 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                     if (!confirm(`Hủy giveaway "${g.title}"?`)) return;
                     try {
                       await cancelGiveaway({ token, guildId, giveawayId: g._id });
-                      toast.success("Đã hủy giveaway");
+                      toast.success(translate("Đã hủy giveaway"));
                     } catch (e) {
                       toast.error(e instanceof Error ? e.message : "Hủy thất bại");
                     }
                   }}
                 >
-                  <Trash2 className="h-4 w-4" /> Hủy
+                  <Trash2 className="h-4 w-4" /> {translate("Hủy")}{" "}
                 </Button>
               </li>
             ))}
@@ -216,44 +218,47 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
 
         {data.giveaways.length === 0 && (
           <p className="mt-4 rounded-lg bg-secondary/40 px-3 py-3 text-sm text-muted-foreground">
-            Chưa có giveaway nào. Tạo giveaway đầu tiên để chúc mừng thành viên 🎀
+            {translate(
+              "Chưa có giveaway nào. Tạo giveaway đầu tiên để chúc mừng thành viên 🎀",
+            )}{" "}
           </p>
         )}
 
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Tạo giveaway mới</DialogTitle>
+              <DialogTitle>{translate("Tạo giveaway mới")}</DialogTitle>
               <DialogDescription>
-                Bot gửi embed giveaway + phản ứng 🎉 theo mẫu bạn chọn (kèm ảnh nếu muốn). Hết giờ,
-                bot tự chọn người thắng, cấp role thưởng (nếu chọn) và thông báo.
+                {translate(
+                  "Bot gửi embed giveaway + phản ứng 🎉 theo mẫu bạn chọn (kèm ảnh nếu muốn). Hết giờ, bot tự chọn người thắng, cấp role thưởng (nếu chọn) và thông báo.",
+                )}{" "}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-3">
               <div className="grid gap-1.5">
-                <Label>Tên giveaway</Label>
+                <Label>{translate("Tên giveaway")}</Label>
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="VD: Nitro 1 tháng"
+                  placeholder={translate("VD: Nitro 1 tháng")}
                   maxLength={100}
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>Giải thưởng (hiển thị trong embed)</Label>
+                <Label>{translate("Giải thưởng (hiển thị trong embed)")}</Label>
                 <Textarea
                   value={prize}
                   onChange={(e) => setPrize(e.target.value)}
-                  placeholder="VD: 1 tháng Nitro Boost 🚀"
+                  placeholder={translate("VD: 1 tháng Nitro Boost 🚀")}
                   maxLength={2000}
                   rows={2}
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>Kênh gửi giveaway</Label>
+                <Label>{translate("Kênh gửi giveaway")}</Label>
                 <Select value={channelId} onValueChange={setChannelId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Chọn kênh…" />
+                    <SelectValue placeholder={translate("Chọn kênh…")} />
                   </SelectTrigger>
                   <SelectContent>
                     {textChannels.map((c) => (
@@ -266,7 +271,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-1.5">
-                  <Label>Số người thắng</Label>
+                  <Label>{translate("Số người thắng")}</Label>
                   <Input
                     type="number"
                     min={1}
@@ -278,7 +283,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>Thời lượng</Label>
+                  <Label>{translate("Thời lượng")}</Label>
                   <Select
                     value={String(durationMinutes)}
                     onValueChange={(v) => setDurationMinutes(Number(v))}
@@ -297,13 +302,13 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                 </div>
               </div>
               <div className="grid gap-1.5">
-                <Label>Yêu cầu role để tham gia (tùy chọn)</Label>
+                <Label>{translate("Yêu cầu role để tham gia (tùy chọn)")}</Label>
                 <Select value={requiredRoleId} onValueChange={setRequiredRoleId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Mọi thành viên" />
+                    <SelectValue placeholder={translate("Mọi thành viên")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">— Mọi thành viên —</SelectItem>
+                    <SelectItem value="none">{translate("— Mọi thành viên —")}</SelectItem>
                     {roleOptions.map((r) => (
                       <SelectItem key={r.roleId} value={r.roleId}>
                         {r.name}
@@ -313,13 +318,13 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                 </Select>
               </div>
               <div className="grid gap-1.5">
-                <Label>🎖️ Role tự cấp cho người thắng (tùy chọn)</Label>
+                <Label>{translate("🎖️ Role tự cấp cho người thắng (tùy chọn)")}</Label>
                 <Select value={prizeRoleId} onValueChange={setPrizeRoleId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Không cấp role" />
+                    <SelectValue placeholder={translate("Không cấp role")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">— Không cấp role —</SelectItem>
+                    <SelectItem value="none">{translate("— Không cấp role —")}</SelectItem>
                     {roleOptions.map((r) => (
                       <SelectItem key={r.roleId} value={r.roleId}>
                         {r.name}
@@ -329,7 +334,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                 </Select>
               </div>
               <div className="grid gap-1.5">
-                <Label>Mẫu tin nhắn giveaway</Label>
+                <Label>{translate("Mẫu tin nhắn giveaway")}</Label>
                 <Select value={template} onValueChange={setTemplate}>
                   <SelectTrigger>
                     <SelectValue />
@@ -348,34 +353,36 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                 <Textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder="VD: Chào mừng đến với server! Tham gia ngay để có cơ hội nhận…"
+                  placeholder={translate(
+                    "VD: Chào mừng đến với server! Tham gia ngay để có cơ hội nhận…",
+                  )}
                   maxLength={2000}
                   rows={2}
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>Ảnh nền embed (tùy chọn)</Label>
+                <Label>{translate("Ảnh nền embed (tùy chọn)")}</Label>
                 <Input
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://… (đường dẫn ảnh)"
+                  placeholder={translate("https://… (đường dẫn ảnh)")}
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>Lời chúc mừng riêng khi gửi DM người thắng (tùy chọn)</Label>
+                <Label>{translate("Lời chúc mừng riêng khi gửi DM người thắng (tùy chọn)")}</Label>
                 <Textarea
                   value={endMessage}
                   onChange={(e) => setEndMessage(e.target.value)}
-                  placeholder="VD: Xin chúc mừng! Bạn là người may mắn nhất…"
+                  placeholder={translate("VD: Xin chúc mừng! Bạn là người may mắn nhất…")}
                   maxLength={1000}
                   rows={2}
                 />
               </div>
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-secondary/30 px-3 py-2.5">
                 <div className="text-sm">
-                  <p className="font-medium">💌 DM người thắng</p>
+                  <p className="font-medium">{translate("💌 DM người thắng")}</p>
                   <p className="text-xs text-muted-foreground">
-                    Bot gửi tin nhắn riêng kèm giải thưởng cho từng người thắng
+                    {translate("Bot gửi tin nhắn riêng kèm giải thưởng cho từng người thắng")}{" "}
                   </p>
                 </div>
                 <Switch checked={dmWinners} onCheckedChange={setDmWinners} />

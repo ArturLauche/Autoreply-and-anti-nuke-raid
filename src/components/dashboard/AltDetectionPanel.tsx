@@ -19,6 +19,7 @@ import { Switch } from "../ui/switch";
 import type { GuildData } from "../../lib/types";
 import { getSessionToken } from "../../lib/discord";
 
+import { translate } from "../../lib/i18n";
 const TOKEN = () => getSessionToken();
 
 const PUNISH_OPTIONS = [
@@ -277,11 +278,9 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
               })}
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              ⚠️ Discord không cung cấp địa chỉ IP của thành viên cho bot, nên việc phát hiện
-              VPN/Proxy trực tiếp là không khả thi với dữ liệu hiện tại. Hệ thống tập trung vào phát
-              hiện alt account bằng bằng chứng hành vi (tuổi tài khoản, tên/avatar trùng, lịch sử bị
-              phạt, join cluster) — đây là cách chặn account lạm dụng VPN hiệu quả nhất mà Discord
-              cho phép.
+              {translate(
+                "⚠️ Discord không cung cấp địa chỉ IP của thành viên cho bot, nên việc phát hiện VPN/Proxy trực tiếp là không khả thi với dữ liệu hiện tại. Hệ thống tập trung vào phát hiện alt account bằng bằng chứng hành vi (tuổi tài khoản, tên/avatar trùng, lịch sử bị phạt, join cluster) — đây là cách chặn account lạm dụng VPN hiệu quả nhất mà Discord cho phép.",
+              )}{" "}
             </p>
           </div>
 
@@ -292,11 +291,14 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
                 <ShieldCheck className="h-4 w-4" />
               </span>
               <div>
-                <p className="text-sm font-semibold">Chế độ an toàn (chống chặn nhầm)</p>
+                <p className="text-sm font-semibold">
+                  {translate("Chế độ an toàn (chống chặn nhầm)")}
+                </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Chỉ phạt khi có <b>đủ bằng chứng độc lập</b>: 2+ tín hiệu mạnh → phạt đúng cấu
-                  hình; 1 tín hiệu → hạ cấp nhẹ hơn (ban → kick, kick → timeout); 0 tín hiệu → chỉ
-                  theo dõi. Tắt để phạt theo điểm rủi ro như cũ (dễ chặn nhầm hơn).
+                  {translate("Chỉ phạt khi có")} <b>{translate("đủ bằng chứng độc lập")}</b>: 2+ tín
+                  hiệu mạnh → phạt đúng cấu hình; 1 tín hiệu → hạ cấp nhẹ hơn (ban → kick, kick →
+                  timeout); 0 tín hiệu → chỉ theo dõi. Tắt để phạt theo điểm rủi ro như cũ (dễ chặn
+                  nhầm hơn).
                 </p>
               </div>
             </div>

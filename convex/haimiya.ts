@@ -20,7 +20,7 @@ QUY TẮC XƯNG HÔ (bắt buộc):
 - Tự xưng là "tôi" hoặc "mình".
 - Gọi người dùng là "bạn".
 - Giọng điệu chuẩn chỉnh, nghiêm túc, lịch sự, rõ ràng, thân thiện. Không dùng kiểu "em", "senpai", "người yêu dấu" hay ngôn ngữ dễ thương quá mức.
-- Trả lời bằng tiếng Việt, ngắn gọn, đúng trọng tâm, có thể dùng bullet để liệt kê.
+- Trả lời bằng {LANG}, ngắn gọn, đúng trọng tâm, có thể dùng bullet để liệt kê.
 
 PHẠM VI TRẢ LỜI — MỞ, KHÔNG GIỚI HẠN:
 - Bạn KHÔNG bị giới hạn chỉ nói về Protogon. Bạn có thể trò chuyện thoải mái về mọi chủ đề ngoài lề: kiến thức chung, học tập, giải trí, anime/manga, âm nhạc, đời sống, tâm sự, tư vấn, kể chuyện...
@@ -235,8 +235,14 @@ export const ask = action({
     token: v.optional(v.string()),
     /** Chìa khóa chức năng (botFunc) — chống lạm dụng lượt gọi AI free tier khi đã cấu hình FUNC_SEED. */
     funcKey: v.optional(v.string()),
+    /**
+     * Ngôn ngữ trả lời do dashboard gửi lên ("vi" mặc định — sản phẩm gốc).
+     * Chỉ đổi chỉ dẫn ngôn ngữ trong system prompt, KHÔNG dịch prompt: phần
+     * kiến thức về Protogon giữ nguyên tiếng Việt để không lệch ngữ cảnh.
+     */
+    lang: v.optional(v.union(v.literal("vi"), v.literal("en"))),
   },
-  handler: async (ctx, { messages, images, token, funcKey }) => {
+  handler: async (ctx, { messages, images, token, funcKey, lang }) => {
     requireFuncKey(funcKey, process.env.FUNC_SEED);
     // Khi chưa cấu hình FUNC_SEED: vẫn yêu cầu ĐĂNG NHẬP — kẻ ngoài không thể
     // đốt lượt gọi AI free tier của deployment (trước đây action mở hoàn toàn).
@@ -328,10 +334,18 @@ export const ask = action({
       };
     });
 
+    // Ngôn ngữ đầu ra: mặc định tiếng Việt (bot/dashboard VI), "en" khi người
+    // dùng chọn tiếng Anh trên web.
+    const systemPrompt = SYSTEM_PROMPT.replace(
+      "{LANG}",
+      lang === "en"
+        ? "tiếng Anh (English) — mọi câu, tiêu đề và bullet đều bằng tiếng Anh"
+        : "tiếng Việt",
+    );
     const systemWithVision =
       validImages.length > 0
-        ? `${SYSTEM_PROMPT}\n\nNGƯỜI DÙNG VỪA GỬI ${validImages.length} ẢNH. Hãy xem kỹ nội dung ảnh và trả lời theo câu hỏi kèm theo. Nếu ảnh chứa thông tin nhạy cảm (mật khẩu, token, thông tin cá nhân), hãy nhắc người dùng che thông tin đó.`
-        : SYSTEM_PROMPT;
+        ? `${systemPrompt}\n\nNGƯỜI DÙNG VỪA GỬI ${validImages.length} ẢNH. Hãy xem kỹ nội dung ảnh và trả lời theo câu hỏi kèm theo. Nếu ảnh chứa thông tin nhạy cảm (mật khẩu, token, thông tin cá nhân), hãy nhắc người dùng che thông tin đó.`
+        : systemPrompt;
 
     const r = await chatCompletion(p, [{ role: "system", content: systemWithVision }, ...history], {
       maxTokens: 700,

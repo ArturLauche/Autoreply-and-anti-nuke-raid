@@ -22,7 +22,9 @@ import { usePublicConfig } from "../lib/usePublicConfig";
 import { useBotStatus } from "../lib/useBotStatus";
 import { getSessionToken } from "../lib/discord";
 import { cn } from "../lib/utils";
+import LangSwitch from "./LangSwitch";
 
+import { translate } from "../lib/i18n";
 type ThemeMode = "light" | "dark";
 
 /**
@@ -83,7 +85,7 @@ export default function Taskbar() {
           nằm sát mép, không che nội dung lắm), chỉ mobile. */}
       {open && (
         <button
-          aria-label="Đóng taskbar"
+          aria-label={translate("Đóng taskbar")}
           onClick={closePanel}
           className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px] md:hidden"
         />
@@ -93,7 +95,7 @@ export default function Taskbar() {
       <button
         ref={triggerRef}
         onClick={() => setOpen(true)}
-        aria-label="Mở bảng điều khiển nhanh"
+        aria-label={translate("Mở bảng điều khiển nhanh")}
         aria-expanded={open}
         className={cn(
           "group fixed z-50 flex flex-col items-center gap-2.5 rounded-r-xl border border-border bg-card py-3 transition-all duration-200",
@@ -125,7 +127,7 @@ export default function Taskbar() {
         <aside
           ref={panelRef}
           role="dialog"
-          aria-label="Bảng điều khiển nhanh"
+          aria-label={translate("Bảng điều khiển nhanh")}
           className={cn(
             "fixed left-0 top-0 bottom-0 z-50 flex w-[min(88vw,19rem)] flex-col overflow-hidden border-r border-border bg-card shadow-xl",
             "motion-safe:animate-in motion-safe:slide-in-from-left motion-safe:fade-in motion-safe:duration-200",
@@ -140,11 +142,13 @@ export default function Taskbar() {
               <p className="font-display text-sm font-bold leading-tight text-foreground">
                 Protogon
               </p>
-              <p className="text-[11px] text-muted-foreground">Bảng điều khiển nhanh</p>
+              <p className="text-[11px] text-muted-foreground">
+                {translate("Bảng điều khiển nhanh")}
+              </p>
             </div>
             <button
               onClick={closePanel}
-              aria-label="Đóng"
+              aria-label={translate("Đóng")}
               className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
               <X className="h-4 w-4" />
@@ -155,7 +159,7 @@ export default function Taskbar() {
             {/* Giao diện sáng/tối — segmented control thay toggle tròn */}
             <div>
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Giao diện
+                {translate("Giao diện")}{" "}
               </p>
               <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-secondary/50 p-1">
                 {(
@@ -175,10 +179,18 @@ export default function Taskbar() {
                         : "text-muted-foreground hover:text-foreground",
                     )}
                   >
-                    <Icon className="h-3.5 w-3.5" /> {label}
+                    <Icon className="h-3.5 w-3.5" /> {translate(label)}
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Ngôn ngữ — đổi ngay, không cần tải lại trang */}
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                {translate("Ngôn ngữ")}
+              </p>
+              <LangSwitch showIcon />
             </div>
 
             {/* Trạng thái bot */}
@@ -189,7 +201,7 @@ export default function Taskbar() {
                 ) : (
                   <WifiOff className="h-4 w-4 text-danger" />
                 )}
-                Bot {online ? "đang chạy" : "mất kết nối"}
+                Bot {online ? translate("đang chạy") : translate("mất kết nối")}
               </span>
               <span className="font-mono text-[11px] text-muted-foreground">
                 {status ? `${status.guildCount} server` : "…"}
@@ -199,29 +211,29 @@ export default function Taskbar() {
             {/* Điều hướng */}
             <div>
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Điều hướng
+                {translate("Điều hướng")}{" "}
               </p>
               <div className="space-y-1">
                 <TaskbarLink
                   to="/monitor"
                   icon={Activity}
-                  label="Giám sát bot"
+                  label={translate("Giám sát bot")}
                   active={onMonitorPage}
                   onClick={closePanel}
                 />
                 <TaskbarLink
                   to="/dashboard"
                   icon={LayoutDashboard}
-                  label="Bảng điều khiển"
+                  label={translate("Bảng điều khiển")}
                   onClick={closePanel}
                 />
                 {isOwner === true && (
                   <TaskbarLink
                     to="/admin"
                     icon={Lock}
-                    label="Cửa sổ Admin"
+                    label={translate("Cửa sổ Admin")}
                     active={onAdminPage}
-                    badge="ẨN"
+                    badge={translate("ẨN")}
                     onClick={closePanel}
                   />
                 )}
@@ -244,7 +256,7 @@ export default function Taskbar() {
               )}
               <div className="min-w-0">
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Chủ sở hữu
+                  {translate("Chủ sở hữu")}{" "}
                 </p>
                 <p className="truncate text-sm font-semibold">{ownerName}</p>
               </div>
@@ -260,7 +272,7 @@ export default function Taskbar() {
           {/* Chân panel */}
           <div className="flex items-center gap-2 border-t border-border px-4 py-2.5 text-[10px] text-muted-foreground">
             <ShieldCheck className="h-3.5 w-3.5" />
-            Miễn phí · cập nhật tự động từ Discord
+            {translate("Miễn phí · cập nhật tự động từ Discord")}{" "}
           </div>
         </aside>
       )}

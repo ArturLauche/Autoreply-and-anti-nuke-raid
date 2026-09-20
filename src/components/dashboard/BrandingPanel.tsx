@@ -13,6 +13,7 @@ import { useBranding } from "../../lib/useBranding";
 import { HaimiyaAvatar } from "../HaimiyaChat";
 import type { GuildData } from "../../lib/types";
 
+import { translate } from "../../lib/i18n";
 type Slot = "bot" | "haimiya";
 
 const SLOT_META: Record<Slot, { title: string; desc: string }> = {
@@ -46,7 +47,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
       <Card>
         <CardContent className="flex items-center gap-3 p-5 text-sm text-muted-foreground">
           <Palette className="h-5 w-5 shrink-0 text-primary" />
-          Tùy chỉnh giao diện chỉ dành cho <b>admin sở hữu bot</b>.
+          {translate("Tùy chỉnh giao diện chỉ dành cho")} <b>{translate("admin sở hữu bot")}</b>.
         </CardContent>
       </Card>
     );
@@ -62,7 +63,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
     e.target.value = "";
     if (!file) return;
     if (file.size > 2_000_000) {
-      toast.error("Ảnh tối đa 2MB — vui lòng chọn ảnh nhỏ hơn");
+      toast.error(translate("Ảnh tối đa 2MB — vui lòng chọn ảnh nhỏ hơn"));
       return;
     }
     const slot = pendingSlot;
@@ -109,7 +110,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
   async function saveUrl(slot: Slot) {
     const value = urls[slot].trim();
     if (!/^https?:\/\//i.test(value)) {
-      toast.error("Dán đường dẫn ảnh hợp lệ (bắt đầu bằng http:// hoặc https://)");
+      toast.error(translate("Dán đường dẫn ảnh hợp lệ (bắt đầu bằng http:// hoặc https://)"));
       return;
     }
     setSavingUrl(slot);
@@ -119,7 +120,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
         guildId,
         ...(slot === "bot" ? { botAvatarUrl: value } : { haimiyaAvatarUrl: value }),
       });
-      toast.success("Đã lưu ảnh mới — áp dụng toàn web");
+      toast.success(translate("Đã lưu ảnh mới — áp dụng toàn web"));
       setUrls((u) => ({ ...u, [slot]: "" }));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Lưu thất bại");
@@ -135,7 +136,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
         guildId,
         ...(slot === "bot" ? { botAvatarUrl: null } : { haimiyaAvatarUrl: null }),
       });
-      toast.success("Đã xóa ảnh tùy chỉnh — trở về mặc định");
+      toast.success(translate("Đã xóa ảnh tùy chỉnh — trở về mặc định"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Xóa thất bại");
     }
@@ -152,10 +153,13 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="flex items-center gap-2 font-display font-semibold">
-              <Palette className="h-4 w-4 text-primary" /> Tùy chỉnh giao diện bot
+              <Palette className="h-4 w-4 text-primary" />{" "}
+              {translate("Tùy chỉnh giao diện bot")}{" "}
             </h3>
             <p className="text-sm text-muted-foreground">
-              Đổi avatar bot & trợ lý AI ngay từ web — chỉ admin sở hữu bot được phép.
+              {translate(
+                "Đổi avatar bot & trợ lý AI ngay từ web — chỉ admin sở hữu bot được phép.",
+              )}{" "}
             </p>
           </div>
         </div>
@@ -192,7 +196,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
                     </Button>
                     {current[slot] && (
                       <Button size="sm" variant="outline" onClick={() => removeAvatar(slot)}>
-                        <Trash2 className="h-3.5 w-3.5" /> Xóa ảnh
+                        <Trash2 className="h-3.5 w-3.5" /> {translate("Xóa ảnh")}{" "}
                       </Button>
                     )}
                   </div>
@@ -201,7 +205,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
               <div className="mt-3 grid grid-cols-[1fr_auto] items-end gap-2">
                 <div className="grid gap-1">
                   <Label className="text-[11px] text-muted-foreground">
-                    Hoặc dán đường dẫn ảnh
+                    {translate("Hoặc dán đường dẫn ảnh")}{" "}
                   </Label>
                   <Input
                     value={urls[slot]}
@@ -222,8 +226,9 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
         </div>
         <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
           <ImagePlus className="h-3.5 w-3.5 text-primary" />
-          Ảnh tải lên được lưu trong bộ nhớ đám mây của bot — áp dụng ngay toàn web (trang chủ, đăng
-          nhập, dashboard, chat AI).
+          {translate(
+            "Ảnh tải lên được lưu trong bộ nhớ đám mây của bot — áp dụng ngay toàn web (trang chủ, đăng nhập, dashboard, chat AI).",
+          )}{" "}
         </p>
         <input
           ref={fileRef}

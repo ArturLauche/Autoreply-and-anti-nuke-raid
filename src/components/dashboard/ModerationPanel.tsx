@@ -18,6 +18,7 @@ import type { GuildData, PunishNoticeLevel } from "../../lib/types";
 import { getSessionToken } from "../../lib/discord";
 import { cn } from "../../lib/utils";
 
+import { translate } from "../../lib/i18n";
 const TOKEN = () => getSessionToken();
 
 const LEVEL_BADGE: Record<string, string> = {
@@ -60,7 +61,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
     setSaving(true);
     try {
       await updateSettings({ token: TOKEN(), guildId: data.guild.discordId, ...patch });
-      toast.success("Đã lưu — bot áp dụng trong vòng ~3 phút");
+      toast.success(translate("Đã lưu — bot áp dụng trong vòng ~3 phút"));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Lưu thất bại");
     } finally {
@@ -73,12 +74,15 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
-            <Megaphone className="h-5 w-5 text-primary" /> Moderation — thông báo sau khi phạt
+            <Megaphone className="h-5 w-5 text-primary" />{" "}
+            {translate("Moderation — thông báo sau khi phạt")}{" "}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Tùy chỉnh <b className="text-foreground">embed moderation kiểu Carl-bot</b> bot gửi sau
-            khi đã trừng phạt thành viên vi phạm — đồng bộ cả kênh lẫn mức chi tiết, theo từng hành
-            động ban · timeout · warn · kick (cả tự động lẫn lệnh thủ công).
+            {translate("Tùy chỉnh")}{" "}
+            <b className="text-foreground">{translate("embed moderation kiểu Carl-bot")}</b>{" "}
+            {translate(
+              "bot gửi sau khi đã trừng phạt thành viên vi phạm — đồng bộ cả kênh lẫn mức chi tiết, theo từng hành động ban · timeout · warn · kick (cả tự động lẫn lệnh thủ công).",
+            )}{" "}
           </p>
         </div>
         <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
@@ -92,14 +96,16 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
         <CardContent className="grid gap-4 p-5 sm:grid-cols-[1fr_auto]">
           <div className="grid gap-1.5">
             <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Hash className="h-3.5 w-3.5" /> Kênh gửi thông báo hình phạt
+              <Hash className="h-3.5 w-3.5" /> {translate("Kênh gửi thông báo hình phạt")}{" "}
             </Label>
             <Select value={channelId} onValueChange={(v) => setChannelId(v)}>
               <SelectTrigger>
-                <SelectValue placeholder="Chọn kênh" />
+                <SelectValue placeholder={translate("Chọn kênh")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">— Tự động dùng kênh log mod / log chung —</SelectItem>
+                <SelectItem value="none">
+                  {translate("— Tự động dùng kênh log mod / log chung —")}
+                </SelectItem>
                 {textChannels.map((c) => (
                   <SelectItem key={c.channelId} value={c.channelId}>
                     #{c.name}
@@ -108,8 +114,9 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
               </SelectContent>
             </Select>
             <p className="text-[11px] text-muted-foreground">
-              Nếu chọn “tự động”, bot ưu tiên kênh log hành động mod, rồi tới kênh log chung (Cài
-              đặt → Kênh log). Chưa có kênh log nào → không gửi được thông báo.
+              {translate(
+                "Nếu chọn “tự động”, bot ưu tiên kênh log hành động mod, rồi tới kênh log chung (Cài đặt → Kênh log). Chưa có kênh log nào → không gửi được thông báo.",
+              )}{" "}
             </p>
           </div>
           <div className="flex items-end">
@@ -195,12 +202,18 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
       </div>
 
       <p className="text-xs leading-relaxed text-muted-foreground">
-        💡 Đây chính là embed <b className="text-foreground">duy nhất</b> bot gửi sau khi phạt — kể
-        cả <b className="text-foreground">tự động</b> (chống nuke / auto-mod — Responsible moderator
-        hiển thị là “Bot tự động”) lẫn <b className="text-foreground">thủ công</b> từ lệnh{" "}
-        <code className="font-mono">/mod</code> (hiển thị tên người thực hiện). Lý do để trống → ghi
-        “không có lý do”. Chọn <b>Không gửi tin nhắn</b> → bot không gửi embed nhưng dashboard vẫn
-        ghi nhận case. Embed xóa tin / purge luôn đầy đủ.
+        {translate("💡 Đây chính là embed")}{" "}
+        <b className="text-foreground">{translate("duy nhất")}</b>{" "}
+        {translate("bot gửi sau khi phạt — kể cả")}{" "}
+        <b className="text-foreground">{translate("tự động")}</b>{" "}
+        {translate("(chống nuke / auto-mod — Responsible moderator hiển thị là “Bot tự động”) lẫn")}{" "}
+        <b className="text-foreground">{translate("thủ công")}</b> từ lệnh{" "}
+        <code className="font-mono">/mod</code>{" "}
+        {translate("(hiển thị tên người thực hiện). Lý do để trống → ghi “không có lý do”. Chọn")}{" "}
+        <b>{translate("Không gửi tin nhắn")}</b>{" "}
+        {translate(
+          "→ bot không gửi embed nhưng dashboard vẫn ghi nhận case. Embed xóa tin / purge luôn đầy đủ.",
+        )}{" "}
       </p>
     </div>
   );
