@@ -95,6 +95,56 @@ function verdictCacheSet(key, value) {
 }
 
 /**
+ * ENSEMBLE HEURISTIC (vòng 5a) — chấm điểm tín hiệu từ evidence[] mà ENGINE đã
+ * tính bằng code (0 token AI). AI nói raid nhưng confidence thấp trong khi engine
+ * thấy ≥2 tín hiệu mạnh → floor confidence (không cho model tự tin thấp oan);
+ * ngược lại AI nói benign nhưng engine thấy tín hiệu mạnh → hạ tự tin benign.
+ * KHÔNG BAO GIỜ lật classification — đó là quyền của model + tầng gọi.
+ */
+function heuristicSignalScore(evidence) {
+  const text = (evidence || []).filter(Boolean).join(" ");
+  if (!text) return 0;
+  let s = 0;
+  if (/GIỐNG HỆT/.test(text)) s += 0.3; // nhiều mẫu tin nội dung giống hệt
+  if (/trùng lặp cao/.test(text)) s += 0.2;
+  if (/link rút gọn/.test(text)) s += 0.25; // bit.ly/t.me… mẫu scam phổ biến
+  if (/@everyone|@here/.test(text)) s += 0.2;
+  if (/giả blank|ký tự ẩn/.test(text)) s += 0.2;
+  if (/cực dài/.test(text)) s += 0.15;
+  if (/Làn sóng thành viên mới/.test(text)) s += 0.2;
+  return Math.min(1, s);
+}
+
+/**
+ * PROVIDER HEALTH (vòng 5b) — provider fail liên tiếp 3 lần → vào cooldown 60s,
+ * bị đẩy XUỐNG CUỐI chuỗi fallback (soft penalty — vẫn được thử nếu mọi provider
+ * khác cũng lỗi). Success 1 lần → xoá sạch fail count. Giúp không lãng phí
+ * deadline quý giá của lượt phân tích raid vào provider đang sập.
+ */
+const PROVIDER_FAIL_THRESHOLD = 3;
+const PROVIDER_COOLDOWN_MS = 60_000;
+const providerHealth = new Map(); // label -> { fails, until }
+function providerInCooldown(p) {
+  const h = providerHealth.get(p.label);
+  return Boolean(h?.until && Date.now() < h.until);
+}
+function noteProviderSuccess(p) {
+  if (providerHealth.has(p.label)) providerHealth.delete(p.label);
+}
+function noteProviderFailure(p) {
+  const h = providerHealth.get(p.label) || { fails: 0, until: 0 };
+  h.fails += 1;
+  if (h.fails >= PROVIDER_FAIL_THRESHOLD) {
+    h.until = Date.now() + PROVIDER_COOLDOWN_MS;
+    h.fails = 0;
+    console.warn(
+      `[ai] provider ${p.label} fail ${PROVIDER_FAIL_THRESHOLD} lần liên tiếp → cooldown ${PROVIDER_COOLDOWN_MS / 1000}s`,
+    );
+  }
+  providerHealth.set(p.label, h);
+}
+
+/**
  * Danh sách provider theo thứ tự ưu tiên. Được tính 1 lần khi module load —
  * key không đổi trong lúc chạy. Provider vẫn trả model theo env override nếu có.
  */
@@ -201,8 +251,14 @@ function aiAvailable() {
  * gần như toàn bộ thời gian. Trả về chuỗi nội dung hoặc null. Không throw.
  */
 async function chat(messages, { maxTokens = 250, temperature = 0.2, timeoutMs = TIMEOUT_MS } = {}) {
-  const chain = providerChain();
-  if (chain.length === 0) return null;
+  const fullChain = providerChain();
+  if (fullChain.length === 0) return null;
+  // PROVIDER HEALTH: provider đang cooldown bị đẩy xuống cuối (soft — vẫn thử
+  // khi mọi provider khỏe khác đều fail, không bao giờ từ chối gọi vì health).
+  const chain = [
+    ...fullChain.filter((p) => !providerInCooldown(p)),
+    ...fullChain.filter((p) => providerInCooldown(p)),
+  ];
 
   // RATE GUARD — chống hạn mức cháy đột ngột: raid lớn tạo hàng chục sự kiện
   // trong vài giây, mỗi sự kiện hết ngưỡng đều gọi AI; nếu không chặn thì cả
@@ -267,11 +323,16 @@ async function chatOne(p, messages, { maxTokens, temperature, timeoutMs }) {
         // Model chết (400/404) mà còn model dự phòng chưa thử → thử tiếp vòng sau.
         // Lỗi khác (401/429/5xx/mạng) → bỏ provider này ngay, sang provider kế.
         if ((res.status === 400 || res.status === 404) && model !== FALLBACK_MODEL) continue;
+        noteProviderFailure(p);
         return null;
       }
       const data = await res.json();
-      return data?.choices?.[0]?.message?.content?.trim() ?? null;
+      const content = data?.choices?.[0]?.message?.content?.trim() ?? null;
+      if (content) noteProviderSuccess(p);
+      else noteProviderFailure(p);
+      return content;
     } catch {
+      noteProviderFailure(p);
       return null;
     } finally {
       clearTimeout(timer);
@@ -454,16 +515,30 @@ ${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).join("\n") : "(không
   // (regression từng bị test-chat-flow bắt: nhánh không-khớp làm mất reason).
   const learnedHit = learnedMatchInSamples(samples, knownThreats);
   const baseReason = String(parsed.reason || "").slice(0, 300);
+  // ENSEMBLE (vòng 5a): điểm tín hiệu engine từ evidence[] (0 token) — dùng làm
+  // floor/trần cho confidence: model không tự tin thấp khi engine thấy raid rõ,
+  // không tự tin cao khi khẳng định benign trong khi engine thấy tín hiệu mạnh.
+  const engineSignal = heuristicSignalScore(evidence);
+  let conf = Math.max(
+    0.05,
+    Math.min(0.99, calibrateConfidence(parsed.confidence, learnedHit) + (fb.bias || 0)),
+  );
+  if (parsed.classification === "raid" && engineSignal >= 0.4)
+    conf = Math.max(conf, Math.min(0.95, 0.5 + engineSignal * 0.5));
+  else if (parsed.classification === "benign" && engineSignal >= 0.4) conf = Math.min(conf, 0.6);
+  // TỰ KIỂM NHẤT QUÁN (vòng 5c): suggestPunish phải tương thích classification —
+  // model trả "benign" kèm "ban" là mâu thuẫn → bỏ đề xuất (tầng gọi tự chọn).
+  const punishOk = ["warn", "timeout", "kick", "ban", null].includes(parsed.suggestPunish);
   const result = {
     classification: parsed.classification,
-    confidence: Math.max(
-      0.05,
-      Math.min(0.99, calibrateConfidence(parsed.confidence, learnedHit) + (fb.bias || 0)),
-    ),
+    confidence: conf,
     reason: learnedHit ? `${baseReason.slice(0, 240)} · khớp mẫu đã học`.trim() : baseReason,
-    suggestPunish: ["warn", "timeout", "kick", "ban", null].includes(parsed.suggestPunish)
-      ? parsed.suggestPunish
-      : undefined,
+    suggestPunish:
+      parsed.classification === "benign" && parsed.suggestPunish
+        ? null
+        : punishOk
+          ? parsed.suggestPunish
+          : undefined,
     offline: false,
   };
   verdictCacheSet(cacheKey, result);

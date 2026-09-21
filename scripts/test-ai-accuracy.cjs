@@ -466,7 +466,137 @@ function check(name, fn) {
     assert.strictEqual(b.confidence, 0.85, "cache giữ giá trị đã calib 0.85, không cộng tiếp");
   });
 
-  console.log("── 6. Offline path (không key AI) ──");
+  console.log("── 6. Vòng 5: ensemble engine↔AI, provider health, nhất quán output ──");
+
+  await check(
+    "Ensemble: AI nói raid conf thấp + engine thấy ≥2 tín hiệu → floor confidence",
+    async () => {
+      ai._clearVerdictCacheForTest();
+      calls.length = 0;
+      replyContent = '{"classification":"raid","confidence":0.45,"reason":"mờ"}';
+      const res = await ai.classifyViolation({
+        module: "spam",
+        count: 8,
+        windowSeconds: 10,
+        threshold: 5,
+        sampleMessages: ["@everyone free nitro bit.ly/xyz"],
+        evidence: [
+          "Nội dung 6 mẫu tin GIỐNG HỆT nhau (engine so khớp chuỗi)",
+          "6 mẫu chứa link rút gọn (mẫu scam phổ biến)",
+          "6 mẫu tag @everyone/@here",
+        ],
+      });
+      assert.strictEqual(res.classification, "raid");
+      // engineSignal = 0.3 (giống hệt) + 0.25 (rút gọn) + 0.2 (@everyone) = 0.75
+      // floor = 0.5 + 0.75*0.5 = 0.875 — model chấm 0.45 phải được nâng lên.
+      assert.strictEqual(res.confidence, 0.875);
+    },
+  );
+
+  await check("Ensemble: AI nói benign + engine thấy tín hiệu mạnh → trần 0.6", async () => {
+    ai._clearVerdictCacheForTest();
+    calls.length = 0;
+    replyContent = '{"classification":"benign","confidence":0.85,"reason":"chào mừng"}';
+    const res = await ai.classifyViolation({
+      module: "spam",
+      count: 5,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: ["bit.ly/free-xyz"],
+      evidence: [
+        "5 mẫu chứa link rút gọn (mẫu scam phổ biến)",
+        "Làn sóng thành viên mới: 6 người vào gần đây (engine đếm)",
+      ],
+    });
+    assert.strictEqual(res.classification, "benign");
+    assert.strictEqual(
+      res.confidence,
+      0.6,
+      "benign không được tự tin hơn 0.6 khi engine thấy tín hiệu",
+    );
+  });
+
+  await check("Ensemble: không evidence → confidence giữ nguyên (không can thiệp)", async () => {
+    ai._clearVerdictCacheForTest();
+    calls.length = 0;
+    replyContent = '{"classification":"raid","confidence":0.7,"reason":"x"}';
+    const res = await ai.classifyViolation({
+      module: "spam",
+      count: 5,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: [`no evidence ${Math.random()}`],
+    });
+    assert.strictEqual(res.confidence, 0.7);
+  });
+
+  await check('Nhất quán: benign kèm suggestPunish "ban" → bỏ đề xuất (mâu thuẫn)', async () => {
+    ai._clearVerdictCacheForTest();
+    calls.length = 0;
+    replyContent =
+      '{"classification":"benign","confidence":0.8,"reason":"ok","suggestPunish":"ban"}';
+    const res = await ai.classifyViolation({
+      module: "spam",
+      count: 3,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: [`consistency ${Math.random()}`],
+    });
+    assert.strictEqual(res.suggestPunish, null);
+  });
+
+  await check("Nhất quán: raid kèm suggestPunish hợp lệ → giữ nguyên", async () => {
+    ai._clearVerdictCacheForTest();
+    calls.length = 0;
+    replyContent =
+      '{"classification":"raid","confidence":0.9,"reason":"x","suggestPunish":"timeout"}';
+    const res = await ai.classifyViolation({
+      module: "spam",
+      count: 8,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: [`valid punish ${Math.random()}`],
+    });
+    assert.strictEqual(res.suggestPunish, "timeout");
+  });
+
+  await check(
+    "Provider health: fail liên tiếp → provider cooldown bị đẩy xuống cuối chuỗi",
+    async () => {
+      ai._clearVerdictCacheForTest();
+      calls.length = 0;
+      // Chuỗi chỉ có 1 provider (fake-groq) → fail 3 lần liên tiếp đủ vào cooldown.
+      const realReply = replyContent;
+      let mode = "fail";
+      globalThis.fetch = async (url, init) => {
+        const body = JSON.parse(init.body);
+        calls.push({ host: new URL(url).host, model: body.model });
+        if (mode === "fail") return { ok: false, status: 500, json: async () => ({}) };
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ choices: [{ message: { content: realReply } }] }),
+        };
+      };
+      const args = { module: "spam", count: 5, windowSeconds: 10, threshold: 5 };
+      // 3 lượt fail (mỗi lượt thử model chính + fallback model = 2 fetch/lượt).
+      for (let i = 0; i < 3; i++) {
+        await ai.classifyViolation({ ...args, sampleMessages: [`health fail ${i}`] });
+      }
+      // Lượt 4: provider trong cooldown vẫn được THỬ (soft penalty) và thành công.
+      mode = "ok";
+      replyContent = '{"classification":"raid","confidence":0.9,"reason":"x"}';
+      const res = await ai.classifyViolation({
+        ...args,
+        sampleMessages: ["health ok sau cooldown"],
+      });
+      assert.strictEqual(res.offline, false, "cooldown là soft penalty — provider vẫn được thử");
+      assert.strictEqual(res.classification, "raid");
+      globalThis.fetch = realFetch; // khôi phục mock gốc của suite
+    },
+  );
+
+  console.log("── 7. Offline path (không key AI) ──");
 
   await check("Không cấu hình AI → fallback ổn định, không throw", async () => {
     // providerChain đọc env lúc module load — kiểm qua module riêng với env rỗng.
