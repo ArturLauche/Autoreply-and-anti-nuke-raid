@@ -193,6 +193,22 @@ async function handleHealth(client, message, _args, config) {
         inline: false,
       },
     );
+    if (stats.verdictsLastHour) {
+      const v = stats.verdictsLastHour;
+      embed.addFields({
+        name: "Verdict 1 giờ qua",
+        value: `Raid: **${v.raid ?? 0}** · Cá nhân: **${v.individual ?? 0}** · Benign: **${v.benign ?? 0}** · Lỗi/offline: **${v.offline ?? 0}** · Từ cache: **${v.cache ?? 0}**`,
+        inline: false,
+      });
+    }
+    if (stats.misfire) {
+      const m = stats.misfire;
+      embed.addFields({
+        name: "Phạt nhầm đã xác nhận",
+        value: `Phạt nhầm 7 ngày (mod gỡ): **${m.misfires7d}**${m.misfires7d >= 5 ? " ⚠️ AI đang tự siết độ tin cậy" : ""}`,
+        inline: false,
+      });
+    }
   }
   return message.reply({ embeds: [embed] });
 }

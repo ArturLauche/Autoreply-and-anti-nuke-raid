@@ -13,6 +13,9 @@
  * strike; đủ warnStrikeLimit lần trong cửa sổ → tự tăng cấp thành warnStrikePunish.
  */
 const timeoutWatch = require("./timeoutWatch");
+// MISFIRE FEEDBACK (vòng 11): phạt tự động thành công → ghi chú chờ mod xét —
+// mod gỡ phạt sau đó = phạt nhầm đã xác nhận → AI tự soi khi phân tích lần sau.
+const misfire = require("./misfire");
 const actionBudget = require("./actionBudget");
 
 const TIER_STRENGTH = { warn: 1, timeout: 2, kick: 3, ban: 4 };
@@ -154,6 +157,11 @@ async function punishMember(guild, member, punishType, reason, timeoutSeconds = 
     }
     // Lưu ý: thông báo cho người dùng sẽ do embed case (sendCaseLog) ở nơi gọi
     // (filters.js / antinuke.js) gửi — đồng bộ với phần Moderation trên web.
+  }
+  // MISFIRE FEEDBACK (vòng 11): chỉ ghi khi phạt áp dụng THÀNH CÔNG (result bắt
+  // đầu bằng "đã") — lỗi quyền/budget thì không có phạt nào để mod gỡ.
+  if (typeof result === "string" && result.startsWith("đã")) {
+    misfire.notePunished(guild.id, member.id, punishType);
   }
   return { action: result, caseNumber };
 }

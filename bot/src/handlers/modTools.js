@@ -2,6 +2,9 @@ const { PermissionFlagsBits } = require("discord.js");
 const { canManageWithConfig } = require("../util");
 const { sendCaseLog, CASE_LABEL } = require("../caseLog");
 const timeoutWatch = require("../timeoutWatch");
+// MISFIRE FEEDBACK (vòng 11): mod gỡ phạt tự động của bot = phạt nhầm đã xác
+// nhận — nạp vào feedback loop của AI (đợt 11).
+const misfire = require("../misfire");
 const { heatSettings } = require("../heat");
 
 /** Phân tích chuỗi thời lượng: "10m", "2h", "1d", "30" (mặc định = phút). */
@@ -155,6 +158,8 @@ async function untimeoutMember({ guild, member, executor, reason, guildConfig, s
   await member.timeout(null, reason || undefined);
   // Gỡ chủ động → bỏ theo dõi để không log nhầm "timeout hết hạn" sau này.
   timeoutWatch.forget(guild.id, member.id);
+  // Mod gỡ timeout tự động của bot → nếu đúng là bot phạt thì đếm misfire AI.
+  misfire.noteRepealed(guild.id, member.id);
   await logModAction(
     guild,
     guildConfig,
@@ -176,6 +181,8 @@ async function unbanMember({ guild, userId, executor, reason, guildConfig, store
     throw new Error(`**<@${userId}>** hiện không bị ban trong server này.`);
   }
   await guild.members.unban(userId, reason || undefined);
+  // Mod gỡ ban tự động của bot → nếu đúng là bot phạt thì đếm misfire AI.
+  misfire.noteRepealed(guild.id, userId);
   // Dùng username thật từ bản ghi ban (ban.user) thay vì hiển thị ID làm tên.
   await logModAction(
     guild,

@@ -842,7 +842,69 @@ function check(name, fn) {
     assert.ok(!res.reason.includes("engine"), "không can thiệp thì không ghi chú");
   });
 
-  console.log("── 9. Offline path (không key AI) ──");
+  console.log("── 9. Misfire feedback (vòng 11) ──");
+
+  await check("Misfire: mod gỡ phạt → misfireCount7d tăng, /health thấy số", async () => {
+    ai._clearVerdictCacheForTest();
+    const misfire = require("../bot/src/misfire");
+    misfire._misfireForTest();
+    // Bot phạt tự động 2 user (ban + timeout) thành công.
+    misfire.notePunished("g1", "u1", "ban");
+    misfire.notePunished("g1", "u2", "timeout");
+    // warn không được ghi (không có "gỡ" đối xứng).
+    misfire.notePunished("g1", "u3", "warn");
+    let st = misfire.misfireStats();
+    assert.strictEqual(st.pending, 2, "warn không vào pending");
+    assert.strictEqual(st.misfires7d, 0);
+    // Mod gỡ phạt cho u1 → misfire đã xác nhận; u3 (không có record) → false.
+    assert.strictEqual(misfire.noteRepealed("g1", "u1"), true);
+    assert.strictEqual(misfire.noteRepealed("g1", "u3"), false);
+    // Gỡ lần 2 cùng user → không đếm 2 lần (đã xoá khỏi pending).
+    assert.strictEqual(misfire.noteRepealed("g1", "u1"), false);
+    st = misfire.misfireStats();
+    assert.strictEqual(st.misfires7d, 1);
+    assert.strictEqual(st.pending, 1);
+  });
+
+  await check("Misfire ≥5/7 ngày → bias −0.05 + prompt có dòng PHẠT NHẦM GẦN ĐÂY", async () => {
+    ai._clearVerdictCacheForTest();
+    calls.length = 0;
+    const misfire = require("../bot/src/misfire");
+    misfire._misfireForTest();
+    // Lần 1: 0 misfire → không bias.
+    replyContent = '{"classification":"raid","confidence":0.9,"reason":"ok"}';
+    const r1 = await ai.classifyViolation({
+      module: "spam",
+      count: 6,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: [`khong misfire ${Math.random()}`],
+    });
+    assert.strictEqual(r1.confidence, 0.9);
+    assert.ok(!calls[0].system.includes("PHẠT NHẦM GẦN ĐÂY"), "0 misfire → không nhắc prompt");
+    // Nạp 5 misfire → vượt ngưỡng.
+    for (let i = 0; i < 5; i++) misfire.notePunished("g2", `u${i}`, "ban");
+    for (let i = 0; i < 5; i++) misfire.noteRepealed("g2", `u${i}`);
+    replyContent = '{"classification":"raid","confidence":0.9,"reason":"ok"}';
+    const r2 = await ai.classifyViolation({
+      module: "spam",
+      count: 6,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: [`co misfire ${Math.random()}`],
+    });
+    assert.ok(
+      calls[calls.length - 1].system.includes("PHẠT NHẦM GẦN ĐÂY"),
+      "prompt phải nhắc misfire",
+    );
+    assert.strictEqual(r2.confidence, 0.85, "0.9 + bias −0.05 = 0.85");
+    // aiStats ăn xin misfireStats cho /health.
+    assert.deepStrictEqual(ai.aiStats().misfire, { misfires7d: 5, pending: 0 });
+    // Dọn: không để state rò sang test khác.
+    misfire._misfireForTest();
+  });
+
+  console.log("── 10. Offline path (không key AI) ──");
 
   await check("Không cấu hình AI → fallback ổn định, không throw", async () => {
     // providerChain đọc env lúc module load — kiểm qua module riêng với env rỗng.

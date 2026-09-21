@@ -45,19 +45,20 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 
 ## bot/ — Discord bot (CommonJS, chạy pm2 `protogon`)
 
-| Nhóm                                                           | Vai trò                                      |
-| -------------------------------------------------------------- | -------------------------------------------- |
-| `index.js`                                                     | Khởi động + login                            |
-| `threatEngine.js`, `heat.js`, `altDetection.js`, `lockdown.js` | Nhóm antinuke/raid                           |
-| `commands/`, `handlers/`                                       | Slash commands + event handlers              |
-| `convex.js`                                                    | Client Convex của bot                        |
-| `webhookHub.js`, `relayClient.js`                              | Relay/log sang webhook                       |
-| `localSnapshot.js`, `backupUtils.js`, `backupAudit.js`         | Backup                                       |     | `actionBudget.js`, `memGuard.js` | Giới hạn hành động/bộ nhớ |
-| `captchaStore.js`, `joinGate`                                  | Join Gate captcha chống selfbot              |
-| `externalAppGuard.js`, `flaggedMessages.js`                    | Chặn app ngoài + tin nhắn khả nghi           |
-| `moduleActions.js`, `tick.js`, `timeoutWatch.js`               | Điều phối module + chu kỳ + theo dõi timeout |
-| `caseLog.js`, `register-slash.js`, `loadenv.js`                | Log case + đăng ký slash + nạp env           |
-| `research.js`                                                  | Tra cứu/threat research hỗ trợ AI            |
+| Nhóm                                                           | Vai trò                                                             |
+| -------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `index.js`                                                     | Khởi động + login                                                   |
+| `threatEngine.js`, `heat.js`, `altDetection.js`, `lockdown.js` | Nhóm antinuke/raid                                                  |
+| `commands/`, `handlers/`                                       | Slash commands + event handlers                                     |
+| `convex.js`                                                    | Client Convex của bot                                               |
+| `webhookHub.js`, `relayClient.js`                              | Relay/log sang webhook                                              |
+| `localSnapshot.js`, `backupUtils.js`, `backupAudit.js`         | Backup                                                              |
+| `actionBudget.js`, `memGuard.js`                               | Giới hạn hành động/bộ nhớ                                           |
+| `captchaStore.js`, `joinGate`                                  | Join Gate captcha chống selfbot                                     |
+| `externalAppGuard.js`, `flaggedMessages.js`                    | Chặn app ngoài + tin nhắn khả nghi                                  |
+| `moduleActions.js`, `tick.js`, `timeoutWatch.js`, `misfire.js` | Điều phối module + chu kỳ + theo dõi timeout + misfire AI (vòng 11) |
+| `caseLog.js`, `register-slash.js`, `loadenv.js`                | Log case + đăng ký slash + nạp env                                  |
+| `research.js`                                                  | Tra cứu/threat research hỗ trợ AI                                   |
 
 ## convex/ — backend
 

@@ -370,6 +370,11 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
             inline: false,
           });
         }
+        if (stats.misfire) {
+          const m = stats.misfire;
+          const misfireLine = `Phạt nhầm 7 ngày (mod gỡ): **${m.misfires7d}**${m.misfires7d >= 5 ? " ⚠️ AI đang tự siết độ tin cậy" : ""}`;
+          embed.addFields({ name: "Phạt nhầm đã xác nhận", value: misfireLine, inline: false });
+        }
       }
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
