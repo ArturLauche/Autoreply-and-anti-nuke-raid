@@ -84,7 +84,12 @@ async function requireHiddenManage(ctx: QueryCtx | MutationCtx, token: string, g
  * Bot tự lọc guild mình đang ở.
  */
 export async function buildHiddenJobs(ctx: QueryCtx) {
-  const guilds = await ctx.db.query("guilds").collect();
+  // TỐI ƯU (audit Convex): chỉ duyệt guild ĐANG có bot (index by_botInGuild)
+  // thay vì collect() toàn bảng — guild đã rời không bao giờ có việc chờ mới.
+  const guilds = await ctx.db
+    .query("guilds")
+    .withIndex("by_botInGuild", (q) => q.eq("botInGuild", true))
+    .collect();
   const panels = await ctx.db.query("reactionRolePanels").collect();
   const giveaways = await ctx.db.query("giveaways").collect();
   // Gộp luôn việc webhook (tạo/sửa/xóa/test) vào batch này để bot chỉ cần

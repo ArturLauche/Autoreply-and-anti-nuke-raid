@@ -19,7 +19,12 @@ export const getPendingJobs = query({
     await requireBotKeyStrict(ctx, botKey);
     const hidden = await buildHiddenJobs(ctx);
 
-    const guilds = await ctx.db.query("guilds").collect();
+    // TỐI ƯU (audit Convex): bỏ collect() toàn bảng thứ 2 trong cùng 1 lượt tick
+    // (buildHiddenJobs đã đọc guild đang hoạt động) — dùng index by_botInGuild.
+    const guilds = await ctx.db
+      .query("guilds")
+      .withIndex("by_botInGuild", (q) => q.eq("botInGuild", true))
+      .collect();
     const verifyPanels = guilds
       .filter((g) => g.verifySendPanel === true && g.verifyEnabled && g.verifyChannelId)
       .map((g) => ({

@@ -406,7 +406,12 @@ export const botGetDueAuto = query({
   handler: async (ctx, { botKey }) => {
     await requireBotKeyStrict(ctx, botKey);
     const now = Date.now();
-    const all = await ctx.db.query("guilds").collect();
+    // TỐI ƯU (audit Convex): chỉ guild đang có bot (index by_botInGuild) —
+    // bot rời server thì auto-backup không chạy nữa, không cần lọc lại.
+    const all = await ctx.db
+      .query("guilds")
+      .withIndex("by_botInGuild", (q) => q.eq("botInGuild", true))
+      .collect();
     const due: { guildId: string; days: number }[] = [];
     for (const g of all) {
       const days = g.backupAutoDays ?? 0;

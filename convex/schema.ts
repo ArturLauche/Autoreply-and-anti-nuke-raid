@@ -193,7 +193,9 @@ export default defineSchema({
     altSafeMode: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_discordId", ["discordId"]),
+  })
+    .index("by_discordId", ["discordId"])
+    .index("by_botInGuild", ["botInGuild"]),
 
   reactionRolePanels: defineTable({
     guildId: v.string(),

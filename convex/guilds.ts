@@ -41,10 +41,14 @@ export const listMine = query({
   handler: async (ctx, { token }) => {
     const user = await getUserByToken(ctx, token);
     if (!user) return null;
-    const all = await ctx.db.query("guilds").collect();
+    // TỐI ƯU (audit Convex): index by_botInGuild — hot-path mở dashboard.
+    const all = await ctx.db
+      .query("guilds")
+      .withIndex("by_botInGuild", (q) => q.eq("botInGuild", true))
+      .collect();
     // Chỉ hiện server bot đang đứng trong (server đã xóa/kick bot sẽ tự biến mất).
     return all
-      .filter((g) => g.botInGuild && guildAccessibleBy(user, g))
+      .filter((g) => guildAccessibleBy(user, g))
       .map((g) => ({
         discordId: g.discordId,
         name: g.name,
@@ -821,8 +825,11 @@ export const botListGuildIds = query({
   args: { botKey: v.optional(v.string()) },
   handler: async (ctx, { botKey }) => {
     await requireBotKeyStrict(ctx, botKey);
-    const all = await ctx.db.query("guilds").collect();
-    return all.filter((g) => g.botInGuild).map((g) => ({ discordId: g.discordId, name: g.name }));
+    const all = await ctx.db
+      .query("guilds")
+      .withIndex("by_botInGuild", (q) => q.eq("botInGuild", true))
+      .collect();
+    return all.map((g) => ({ discordId: g.discordId, name: g.name }));
   },
 });
 
@@ -995,10 +1002,17 @@ export const botSyncGuilds = mutation({
     }
     // Guilds the bot left are no longer synced — CHỈ khi danh sách được xác nhận đầy
     // đủ (trustedFullList === true) và guild vắng mặt quá 10 phút.
-    if (trustedFullList === true) {
-      const all = await ctx.db.query("guilds").collect();
-      for (const guild of all) {
-        if (!guild.botInGuild) continue;
+    // TỐI ƯU (audit Convex): sweep chỉ chạy mỗi 10 phút (refreshHeartbeat đã là
+    // chu kỳ 5 sync ≈ 10 phút — đi nhờ cùng cờ) thay vì mỗi phút; các guild rời
+    // đã có sự kiện guildDelete xử lý real-time (botGuildGone) nên sweep này chỉ
+    // là lưới an toàn cho trường hợp event sót. Index by_botInGuild thay collect()
+    // toàn bảng (trước đây đọc ~90 fields × mọi guild mỗi phút).
+    if (trustedFullList === true && refreshHeartbeat === true) {
+      const inGuild = await ctx.db
+        .query("guilds")
+        .withIndex("by_botInGuild", (q) => q.eq("botInGuild", true))
+        .collect();
+      for (const guild of inGuild) {
         if (present.has(guild.discordId)) continue;
         if (now - (guild.lastHeartbeat ?? 0) < 10 * 60_000) continue;
         await ctx.db.patch(guild._id, { botInGuild: false, updatedAt: now });
