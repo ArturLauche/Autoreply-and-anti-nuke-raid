@@ -1095,4 +1095,27 @@ export const DE: Record<string, string> = {
   "🛡️ Anti Nuke / Raid — phạt trực tiếp": "🛡️ Anti-Nuke/Raid — direkte Strafe",
   "🛡️ Khi bị nuke/raid phá sập": "🛡️ Wenn ein Nuke/Raid alles zerlegt",
   "🧹 Moderation nội dung — cộng nhiệt + warn": "🧹 Inhalts-Moderation — Heat + Verwarnungen",
+
+  /* ==== i18n-ai-health ==== Đợt 12: panel Sức khỏe AI trong cửa sổ Admin
+     (chỉ owner). Chuỗi trạng thái + nhãn số liệu — bản dịch Đức. */
+  "Sức khỏe AI": "KI-Zustand",
+  "Bot tổng hợp mỗi phút · chỉ chủ bot nhìn thấy":
+    "Bot meldet jede Minute · nur für den Bot-Besitzer sichtbar",
+  "Hoạt động": "Betriebsbereit",
+  "Không khả dụng": "Nicht verfügbar",
+  "Bot đang offline hoặc mất kết nối Convex — số liệu AI tạm dừng cập nhật.":
+    "Bot ist offline oder vom Convex getrennt — KI-Metriken pausiert.",
+  "Provider:": "Anbieter:",
+  nghỉ: "Pause",
+  "Gọi AI/phút:": "KI-Aufrufe/Min:",
+  "Verdict 1 giờ:": "Urteile 1 Std:",
+  "từ cache": "aus Cache",
+  "Phạt nhầm 7 ngày:": "Fehlstrafen 7 Tage:",
+  raid: "Raid",
+  "cá biệt": "einzeln",
+  "lành tính": "harmlos",
+  offline: "offline",
+  "Đang nghỉ tạm:": "Derzeit in Abkülhung:",
+  "≥5 phạt nhầm đã xác nhận — AI đang tự siết độ tin cậy (bias giảm nhẹ + nhắc thận trọng trong prompt).":
+    "≥5 bestätigte Fehlstrafen — die KI verschärft selbst ihr Vertrauen (leichte Bias-Kürzung + Vorsichtshinweis im Prompt).",
 };

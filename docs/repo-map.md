@@ -62,25 +62,25 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 
 ## convex/ — backend
 
-| Nhóm                                                              | Vai trò                                               |
-| ----------------------------------------------------------------- | ----------------------------------------------------- |
-| `schema.ts`                                                       | Schema DB duy nhất                                    |
-| `auth.ts`, `sessions.ts`, `sessionAuth.ts`, `sessionHardening.ts` | Auth dashboard                                        |
-| `botAuth.ts`, `botBootstrap.ts`                                   | botKey SHA-256, bootstrap — KHÔNG backdoor            |
-| `antinuke.ts`, `threatIntel.ts`                                   | Logic antinuke phía backend                           |     | `haimiya.ts` | Provider AI bot (self-heal fallback, không hardcode model cũ) |
-| `autoreplies.ts`                                                  | CRUD rule auto reply (giới hạn 50 rule/server)        |
-| `guilds.ts`                                                       | Document server + cấu hình bot ⇄ dashboard            |
-| `modules.ts`, `presets.ts`                                        | Bật/tắt module + bộ preset an toàn                    |
-| `botFunc.ts`, `bot_tick.ts`, `bot_writes.ts`                      | Function bot gọi: tick chu kỳ, ghi dữ liệu            |
-| `botBootstrap.ts`, `botBootstrapAction.ts`                        | Bootstrap bot lần đầu (lấy botKey)                    |
-| `webhooks.ts`, `relay.ts`                                         | Webhook + relay log sự kiện                           |
-| `backup_github.ts`                                                | Backup lên GitHub (kèm `backup.ts`)                   |
-| `rateGuard.ts`                                                    | Giới hạn tần suất gọi API từ bot                      |
-| `public.ts`, `hidden.ts`                                          | API công khai landing + endpoint ẩn                   |
-| `selfDiagnose.ts`                                                 | Tự chẩn đoán bot báo về dashboard                     |
-| `sha256.ts`                                                       | Hash dùng chung (botKey, session)                     |
-| `audit.ts`, `reports.ts`, `status.ts`                             | Log/sự kiện/trạng thái                                |
-| `_generated/`                                                     | Sinh tự động — không sửa tay, `bun convex dev --once` |
+| Nhóm                                                              | Vai trò                                                                               |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `schema.ts`                                                       | Schema DB duy nhất                                                                    |
+| `auth.ts`, `sessions.ts`, `sessionAuth.ts`, `sessionHardening.ts` | Auth dashboard                                                                        |
+| `botAuth.ts`, `botBootstrap.ts`                                   | botKey SHA-256, bootstrap — KHÔNG backdoor                                            |
+| `antinuke.ts`, `threatIntel.ts`                                   | Logic antinuke phía backend                                                           |     | `haimiya.ts` | Provider AI bot (self-heal fallback, không hardcode model cũ) |
+| `autoreplies.ts`                                                  | CRUD rule auto reply (giới hạn 50 rule/server)                                        |
+| `guilds.ts`                                                       | Document server + cấu hình bot ⇄ dashboard; botSyncGuilds gộp heartbeat + sức khỏe AI |
+| `modules.ts`, `presets.ts`                                        | Bật/tắt module + bộ preset an toàn                                                    |
+| `botFunc.ts`, `bot_tick.ts`, `bot_writes.ts`                      | Function bot gọi: tick chu kỳ, ghi dữ liệu                                            |
+| `botBootstrap.ts`, `botBootstrapAction.ts`                        | Bootstrap bot lần đầu (lấy botKey)                                                    |
+| `webhooks.ts`, `relay.ts`                                         | Webhook + relay log sự kiện                                                           |
+| `backup_github.ts`                                                | Backup lên GitHub (kèm `backup.ts`)                                                   |
+| `rateGuard.ts`                                                    | Giới hạn tần suất gọi API từ bot                                                      |
+| `public.ts`, `hidden.ts`                                          | API công khai landing + endpoint ẩn                                                   |
+| `selfDiagnose.ts`                                                 | Tự chẩn đoán bot báo về dashboard                                                     |
+| `sha256.ts`                                                       | Hash dùng chung (botKey, session)                                                     |
+| `audit.ts`, `reports.ts`, `status.ts`                             | Log/sự kiện/trạng thái; getAiHealth chỉ owner đọc                                     |
+| `_generated/`                                                     | Sinh tự động — không sửa tay, `bun convex dev --once`                                 |
 
 ## Vòng lặp làm việc
 

@@ -128,6 +128,14 @@ async function syncAll(client, store) {
   // lastHeartbeat per-guild refresh theo chu kỳ dài (mỗi 5 sync ≈ 10 phút) thay
   // vì ghi lại toàn row mỗi phút (guild row ~90 fields → nguồn I/O lớn nhất).
   const refreshHeartbeat = runCounter % 5 === 0;
+  // Sức khỏe AI (đợt 12): gộp aiStats() vào mutation sync 60s sẵn có — 0
+  // function call thêm. Dashboard Admin (chỉ owner) đọc qua status:getAiHealth.
+  let aiHealth;
+  try {
+    aiHealth = require("../ai").aiStats();
+  } catch {
+    aiHealth = undefined; // không bao giờ để lỗi AI làm hỏng sync guild
+  }
   await store.client.mutation("guilds:botSyncGuilds", {
     guilds,
     trustedFullList,
@@ -138,6 +146,7 @@ async function syncAll(client, store) {
       version: "v60",
       ownerName,
       ownerAvatarUrl,
+      aiHealth,
     },
   });
   lastSyncOkAt = Date.now();

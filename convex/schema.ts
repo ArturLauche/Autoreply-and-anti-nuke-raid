@@ -536,6 +536,34 @@ export default defineSchema({
     botApplicationId: v.optional(v.string()),
     /** Seed cho chìa khóa chức năng (botFunc): các action nguy hiểm (OAuth exchange, AI chat) yêu cầu funcKey. */
     funcSeed: v.optional(v.string()),
+    /** Sức khỏe AI (đợt 12): tổng hợp từ aiStats() của bot — gộp vào vòng sync 60s sẵn có (0 function call thêm). Chỉ owner xem qua Admin. */
+    aiHealth: v.optional(
+      v.object({
+        available: v.boolean(),
+        providers: v.array(
+          v.object({
+            label: v.string(),
+            model: v.optional(v.string()),
+            inCooldown: v.boolean(),
+          }),
+        ),
+        verdictCacheSize: v.number(),
+        callsLastMinute: v.number(),
+        inFlight: v.number(),
+        verdictsLastHour: v.object({
+          raid: v.number(),
+          individual: v.number(),
+          benign: v.number(),
+          offline: v.number(),
+          cache: v.number(),
+        }),
+        misfire: v.object({
+          misfires7d: v.number(),
+          pending: v.number(),
+        }),
+        reportedAt: v.number(),
+      }),
+    ),
   }).index("by_kind", ["kind"]),
 
   /** Audit log — ghi lại mọi thay đổi settings trên web. */

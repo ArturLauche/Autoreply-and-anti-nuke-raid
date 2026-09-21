@@ -855,6 +855,33 @@ export const botSyncGuilds = mutation({
         version: v.string(),
         ownerName: v.optional(v.string()),
         ownerAvatarUrl: v.optional(v.string()),
+        /** Sức khỏe AI (đợt 12) — đi nhờ vòng sync 60s, không tốn function call thêm. */
+        aiHealth: v.optional(
+          v.object({
+            available: v.boolean(),
+            providers: v.array(
+              v.object({
+                label: v.string(),
+                model: v.optional(v.string()),
+                inCooldown: v.boolean(),
+              }),
+            ),
+            verdictCacheSize: v.number(),
+            callsLastMinute: v.number(),
+            inFlight: v.number(),
+            verdictsLastHour: v.object({
+              raid: v.number(),
+              individual: v.number(),
+              benign: v.number(),
+              offline: v.number(),
+              cache: v.number(),
+            }),
+            misfire: v.object({
+              misfires7d: v.number(),
+              pending: v.number(),
+            }),
+          }),
+        ),
       }),
     ),
     /**
@@ -995,6 +1022,11 @@ export const botSyncGuilds = mutation({
         statusPatch.ownerName = globalStatus.ownerName.slice(0, 120);
       if (globalStatus.ownerAvatarUrl !== undefined)
         statusPatch.ownerAvatarUrl = globalStatus.ownerAvatarUrl.slice(0, 2000);
+      // Sức khỏe AI (đợt 12): tổng hợp aiStats() — chỉ owner đọc được qua
+      // status:getAiHealth (guard isOwner). reportedAt ghi phía server để bot
+      // không thể giả mạo thời điểm (dù bot đáng tin theo botKey).
+      if (globalStatus.aiHealth !== undefined)
+        statusPatch.aiHealth = { ...globalStatus.aiHealth, reportedAt: now };
       if (status) {
         await ctx.db.patch(status._id, statusPatch);
       } else {

@@ -5,6 +5,7 @@ import {
   Activity,
   AlertTriangle,
   ArrowLeft,
+  BrainCircuit,
   Bug,
   Gauge,
   GraduationCap,
@@ -197,6 +198,7 @@ function AdminContent() {
                 diag={diag}
                 onToggle={(enabled) => setDiag({ token, enabled }).catch(() => {})}
               />
+              <AiHealthCard />
               <ThreatIntelCard
                 threat={threat}
                 history={researchHistory}
@@ -315,6 +317,128 @@ export default function Admin() {
  * Self-Diagnose — bot tự chẩn đoán lỗi runtime qua AI (Kira/Mimo V2.5) và đăng
  * ĐỀ XUẤT vá (không tự áp, không tự restart) vào kênh log Discord. Bật/tắt tại đây.
  */
+/**
+ * AI Health — sức khỏe hệ AI của bot (đợt 12): provider, verdict 1 giờ, phạt
+ * nhầm 7 ngày. Dữ liệu bot đẩy lên Convex mỗi 60s (đi nhờ vòng sync sẵn có).
+ * Query status:getAiHealth tự guard owner — trả null cho người dùng thường,
+ * nên card chỉ hiện khi đúng chủ bot mở cửa sổ Admin.
+ */
+function AiHealthCard() {
+  const token = getSessionToken();
+  const ai = useQuery(api.status.getAiHealth, token ? { token } : "skip");
+
+  if (ai === undefined || ai === null) return null;
+
+  const v = ai.verdictsLastHour;
+  const decided = v.raid + v.individual + v.benign;
+  const cooldowns = ai.providers.filter((p) => p.inCooldown);
+  const mf = ai.misfire?.misfires7d ?? 0;
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
+            <BrainCircuit className="h-4 w-4" />
+          </span>
+          <div>
+            <h3 className="font-display text-sm font-bold">{translate("Sức khỏe AI")}</h3>
+            <p className="text-[11px] text-muted-foreground">
+              {translate("Bot tổng hợp mỗi phút · chỉ chủ bot nhìn thấy")}{" "}
+            </p>
+          </div>
+        </div>
+        <span
+          className={cn(
+            "rounded-full px-2.5 py-1 text-[11px] font-bold",
+            ai.stale
+              ? "bg-danger/15 text-danger"
+              : ai.available
+                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                : "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+          )}
+        >
+          {ai.stale
+            ? translate("mất kết nối")
+            : ai.available
+              ? translate("Hoạt động")
+              : translate("Không khả dụng")}
+        </span>
+      </div>
+
+      {ai.stale ? (
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          {translate(
+            "Bot đang offline hoặc mất kết nối Convex — số liệu AI tạm dừng cập nhật.",
+          )}{" "}
+        </p>
+      ) : (
+        <>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+            <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
+              <span className="text-muted-foreground">{translate("Provider:")}</span>{" "}
+              <b>{ai.providers.length}</b>
+              {cooldowns.length > 0 && (
+                <span className="ml-1 text-danger">
+                  ({cooldowns.length} {translate("nghỉ")})
+                </span>
+              )}
+            </div>
+            <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
+              <span className="text-muted-foreground">{translate("Gọi AI/phút:")}</span>{" "}
+              <b>{ai.callsLastMinute}</b>
+            </div>
+            <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
+              <span className="text-muted-foreground">{translate("Verdict 1 giờ:")}</span>{" "}
+              <b>{decided}</b>
+              {v.cache > 0 && (
+                <span className="text-muted-foreground">
+                  {" "}
+                  +{v.cache} {translate("từ cache")}
+                </span>
+              )}
+            </div>
+            <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
+              <span className="text-muted-foreground">{translate("Phạt nhầm 7 ngày:")}</span>{" "}
+              <b className={mf >= 5 ? "text-danger" : undefined}>{mf}</b>
+            </div>
+          </div>
+          {decided > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+              <span className="rounded-full bg-danger/10 px-2 py-0.5 text-danger">
+                {translate("raid")}: {v.raid}
+              </span>
+              <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-amber-600 dark:text-amber-400">
+                {translate("cá biệt")}: {v.individual}
+              </span>
+              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-600 dark:text-emerald-400">
+                {translate("lành tính")}: {v.benign}
+              </span>
+              {v.offline > 0 && (
+                <span className="rounded-full bg-secondary px-2 py-0.5 text-muted-foreground">
+                  {translate("offline")}: {v.offline}
+                </span>
+              )}
+            </div>
+          )}
+          {cooldowns.length > 0 && (
+            <p className="mt-2 text-[11px] text-danger">
+              {translate("Đang nghỉ tạm:")} {cooldowns.map((p) => p.label).join(", ")}
+            </p>
+          )}
+          {mf >= 5 && (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              {translate(
+                "≥5 phạt nhầm đã xác nhận — AI đang tự siết độ tin cậy (bias giảm nhẹ + nhắc thận trọng trong prompt).",
+              )}{" "}
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function SelfDiagnoseCard({
   diag,
   onToggle,

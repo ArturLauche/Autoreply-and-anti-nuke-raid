@@ -1087,4 +1087,27 @@ export const EN: Record<string, string> = {
   "🛡️ Anti Nuke / Raid — phạt trực tiếp": "🛡️ Anti Nuke / Raid — direct punishment",
   "🛡️ Khi bị nuke/raid phá sập": "🛡️ When a nuke/raid takes it down",
   "🧹 Moderation nội dung — cộng nhiệt + warn": "🧹 Content moderation — heat + warns",
+
+  /* ==== i18n-ai-health ==== Đợt 12: panel Sức khỏe AI trong cửa sổ Admin
+     (chỉ owner). Chuỗi trạng thái + nhãn số liệu. */
+  "Sức khỏe AI": "AI health",
+  "Bot tổng hợp mỗi phút · chỉ chủ bot nhìn thấy":
+    "Bot reports every minute · visible to the bot owner only",
+  "Hoạt động": "Operational",
+  "Không khả dụng": "Unavailable",
+  "Bot đang offline hoặc mất kết nối Convex — số liệu AI tạm dừng cập nhật.":
+    "Bot is offline or disconnected from Convex — AI metrics paused.",
+  "Provider:": "Providers:",
+  nghỉ: "resting",
+  "Gọi AI/phút:": "AI calls/min:",
+  "Verdict 1 giờ:": "Verdicts 1h:",
+  "từ cache": "from cache",
+  "Phạt nhầm 7 ngày:": "Wrongful punishments 7d:",
+  raid: "raid",
+  "cá biệt": "individual",
+  "lành tính": "benign",
+  offline: "offline",
+  "Đang nghỉ tạm:": "Currently cooling down:",
+  "≥5 phạt nhầm đã xác nhận — AI đang tự siết độ tin cậy (bias giảm nhẹ + nhắc thận trọng trong prompt).":
+    "≥5 confirmed wrongful punishments — the AI is self-tightening its confidence (slight bias cut + caution reminder in the prompt).",
 };

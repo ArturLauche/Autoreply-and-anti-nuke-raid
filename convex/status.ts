@@ -62,6 +62,29 @@ export const heartbeat = mutation({
   },
 });
 
+/**
+ * Sức khỏe AI (đợt 12) — tổng hợp aiStats() bot đẩy lên qua botSyncGuilds.
+ * CHỈ owner bot đọc được: cửa sổ Admin là khu vực riêng tư, người dùng thường
+ * không được thấy provider/model/đếm verdict (tránh lộ hạ tầng AI cho kẻ xấu).
+ */
+export const getAiHealth = query({
+  args: { token: v.string() },
+  handler: async (ctx, { token }) => {
+    const user = await getUserByToken(ctx, token);
+    if (!user) return null;
+    const status = await ctx.db
+      .query("botStatus")
+      .withIndex("by_kind", (q) => q.eq("kind", "status"))
+      .first();
+    if (!status?.ownerDiscordId || status.ownerDiscordId !== user.discordId) return null;
+    const ai = status.aiHealth;
+    if (!ai) return null;
+    // Bot ngừng sync quá 3 phút → số liệu cũ coi như mất kết nối (không hiển thị).
+    if (Date.now() - status.lastHeartbeat > 180_000) return { stale: true, ...ai };
+    return { stale: false, ...ai };
+  },
+});
+
 export const botStatus = query({
   // botKey: script chẩn đoán chèn chìa khóa vào mọi call — bỏ qua an toàn ở đây
   // (đây là query công khai, không nhạy cảm).

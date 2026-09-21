@@ -118,5 +118,43 @@ check(
   check("1 lượt sai không hủy mã (người gõ nhầm vẫn xác minh được)", still.ok === true);
 }
 
+// ─── 5. Sức khỏe AI đẩy lên Convex + guard owner (đợt 12) ────────────────────
+// Bot gộp aiStats() vào botSyncGuilds (0 function call thêm); Convex lưu vào
+// botStatus.aiHealth; query getAiHealth CHỈ owner đọc được — người dùng thường
+// gọi phải nhận null. Lỡ ai bỏ guard → hạ tầng AI (provider/model) lộ công khai.
+const guildSyncSrc = read("bot/src/handlers/guildSync.js");
+check(
+  "guildSync nạp aiStats() vào globalStatus (dashboard Admin thấy sức khỏe AI)",
+  /require\("\.\.\/ai"\)\.aiStats\(\)/.test(guildSyncSrc) && /aiHealth,/.test(guildSyncSrc),
+  "bot sync 60s phải mang theo aiStats — nếu bỏ, panel AI trắng vĩnh viễn",
+);
+const guildsSrc = read("convex/guilds.ts");
+const syncHandler =
+  guildsSrc.match(/export const botSyncGuilds = mutation\(\{[\s\S]*?\n\}\);/)?.[0] ?? "";
+check(
+  "botSyncGuilds nhận aiHealth + patch vào botStatus (kèm reportedAt server-side)",
+  syncHandler.includes("aiHealth") && syncHandler.includes("reportedAt: now"),
+  "validator thiếu field → bot gửi bị từ chối im lặng; thiếu reportedAt → không biết dữ liệu cũ",
+);
+const statusSrc = read("convex/status.ts");
+const aiHealthQuery =
+  statusSrc.match(/export const getAiHealth = query\(\{[\s\S]*?\n\}\);/)?.[0] ?? "";
+check(
+  "getAiHealth guard owner TRƯỚC khi đọc aiHealth (người thường phải nhận null)",
+  aiHealthQuery.includes("getUserByToken") &&
+    aiHealthQuery.includes("ownerDiscordId") &&
+    /ownerDiscordId !== user\.discordId/.test(aiHealthQuery),
+  "thiếu guard owner → provider/model AI lộ công khai qua API Convex",
+);
+const adminSrc = read("src/pages/Admin.tsx");
+check(
+  "Admin đọc getAiHealth qua token phiên (getSessionToken, không chạm storage thô)",
+  adminSrc.includes("api.status.getAiHealth") &&
+    !/getAiHealth, \{ token: [^}]/.test(
+      adminSrc.replace(/getAiHealth, token \? \{ token \} : "skip"/g, ""),
+    ),
+  "panel AI phải nằm trong cửa sổ Admin (chỉ owner nhìn thấy)",
+);
+
 console.log(`\nKết quả bot contracts: ${pass} PASS, ${fail} FAIL`);
 process.exit(fail === 0 ? 0 : 1);
