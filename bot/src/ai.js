@@ -520,6 +520,8 @@ ${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).join("\n") : "(không
   );
   const parsed = extractJson(raw);
   if (!parsed || !["raid", "individual", "benign"].includes(parsed.classification)) {
+    noteVerdict("offline");
+    console.warn(`[ai:verdict] ${module}: KHÔNG HỢP LỆ — fallback individual/conf 0.5`);
     return {
       classification: "individual",
       confidence: 0.5,
@@ -567,6 +569,12 @@ ${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).join("\n") : "(không
     offline: false,
   };
   verdictCacheSet(cacheKey, result);
+  // DECISION LOG (đợt 9): một dòng/verdict — đủ để dò verdict sai trong log
+  // production (module + classification + conf + nguồn can thiệp).
+  noteVerdict(parsed.classification);
+  console.log(
+    `[ai:verdict] ${module}: ${parsed.classification} conf=${conf}${learnedHit ? " khớp-mẫu" : ""}${engineNote} (model=${parsed.confidence}, engine=${engineSignal.toFixed(2)}${fb.bias ? `, bias=${fb.bias}` : ""})`,
+  );
   return result;
 }
 
@@ -683,6 +691,10 @@ ${recentActions || "(không có)"}`;
     conf = Math.min(conf, 0.6);
     raidEngineNote = " · engine thấy tín hiệu nghi vấn";
   }
+  noteVerdict(parsed.coordinated ? "raid" : "individual");
+  console.log(
+    `[ai:verdict] ${module}: coordinated=${parsed.coordinated} conf=${conf}${raidEngineNote} (model=${parsed.confidence}, engine=${engineSignal.toFixed(2)})`,
+  );
   return {
     coordinated: parsed.coordinated,
     confidence: conf,
@@ -774,6 +786,10 @@ ${appProfile ? sanitizeForPrompt(String(appProfile).slice(0, 1500)) : "(không c
   else if (parsed.isRaid === false && (engineSignal >= 0.4 || appLearnedHit))
     conf = Math.min(conf, 0.6);
   const baseAppReason = String(parsed.reason || "").slice(0, 300);
+  noteVerdict(parsed.isRaid === true ? "raid" : parsed.isRaid === false ? "benign" : "individual");
+  console.log(
+    `[ai:verdict] externalApp: isRaid=${parsed.isRaid} conf=${conf}${appLearnedHit ? " khớp-mẫu" : ""} (model=${parsed.confidence}, engine=${engineSignal.toFixed(2)})`,
+  );
   return {
     isRaid: parsed.isRaid,
     confidence: conf,
@@ -786,9 +802,26 @@ ${appProfile ? sanitizeForPrompt(String(appProfile).slice(0, 1500)) : "(không c
 }
 
 /**
- * HEALTH STATS (đợt 6) — bức tranh sức khỏe AI tại thời điểm hiện tại, 0 token,
- * 0 I/O: dùng cho selfDiagnose/self-health khi bot tự soi. Không lộ key.
+ * HEALTH STATS (đợt 6+9) — bức tranh sức khỏe AI tại thời điểm hiện tại, 0
+ * token, 0 I/O: dùng cho selfDiagnose/self-health khi bot tự soi. Không lộ key.
+ * Đợt 9 thêm counters verdict theo giờ — /health thấy xu hướng (nghi ngờ khi
+ * verdict lệch hẳn về 1 phía mà server không hề bị raid).
  */
+const VERDICT_WINDOW_MS = 60 * 60_000;
+const verdictCounters = [];
+function noteVerdict(kind) {
+  verdictCounters.push({ kind, at: Date.now() });
+  while (verdictCounters.length > 0 && Date.now() - verdictCounters[0].at > VERDICT_WINDOW_MS)
+    verdictCounters.shift();
+}
+function verdictCountsLastHour() {
+  while (verdictCounters.length > 0 && Date.now() - verdictCounters[0].at > VERDICT_WINDOW_MS)
+    verdictCounters.shift();
+  const c = { raid: 0, individual: 0, benign: 0, offline: 0, cache: 0 };
+  for (const v of verdictCounters) c[v.kind] = (c[v.kind] || 0) + 1;
+  return c;
+}
+
 function aiStats() {
   const chain = providerChain();
   const now = Date.now();
@@ -802,6 +835,7 @@ function aiStats() {
     verdictCacheSize: verdictCache.size,
     callsLastMinute: aiCallTimestamps.filter((t) => now - t < 60_000).length,
     inFlight: aiInFlight,
+    verdictsLastHour: verdictCountsLastHour(),
   };
 }
 
@@ -821,6 +855,7 @@ module.exports = {
     aiCallTimestamps = [];
     aiInFlight = 0;
     providerHealth.clear();
+    verdictCounters.length = 0;
   },
 };
 

@@ -362,6 +362,14 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
             inline: false,
           },
         );
+        if (stats.verdictsLastHour) {
+          const v = stats.verdictsLastHour;
+          embed.addFields({
+            name: "Verdict 1 giờ qua",
+            value: `Raid: **${v.raid ?? 0}** · Cá nhân: **${v.individual ?? 0}** · Benign: **${v.benign ?? 0}** · Lỗi/offline: **${v.offline ?? 0}** · Từ cache: **${v.cache ?? 0}**`,
+            inline: false,
+          });
+        }
       }
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }

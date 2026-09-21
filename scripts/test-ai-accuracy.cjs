@@ -686,15 +686,46 @@ function check(name, fn) {
     },
   );
 
-  await check("aiStats(): trả providers + cache + rate không lộ key", async () => {
+  await check(
+    "aiStats(): trả providers + cache + rate + verdictsLastHour không lộ key",
+    async () => {
+      ai._clearVerdictCacheForTest();
+      calls.length = 0;
+      replyContent = '{"classification":"raid","confidence":0.9,"reason":"x"}';
+      await ai.classifyViolation({
+        module: "spam",
+        count: 5,
+        windowSeconds: 10,
+        threshold: 5,
+        sampleMessages: [`stats raid ${Math.random()}`],
+      });
+      const stats = ai.aiStats();
+      assert.strictEqual(stats.available, true);
+      assert.ok(Array.isArray(stats.providers) && stats.providers.length > 0);
+      assert.strictEqual(typeof stats.verdictCacheSize, "number");
+      assert.strictEqual(typeof stats.callsLastMinute, "number");
+      // Đếm verdict 1 giờ: lượt vừa rồi phải được ghi nhận là raid.
+      assert.ok(stats.verdictsLastHour, "phải có verdictsLastHour");
+      assert.ok((stats.verdictsLastHour.raid ?? 0) >= 1, "verdict raid vừa rồi phải được đếm");
+      const json = JSON.stringify(stats);
+      assert.ok(!json.includes("fake-groq"), "không được lộ key provider");
+    },
+  );
+
+  await check("Verdict không hợp lệ → đếm vào offline + log cảnh báo", async () => {
     ai._clearVerdictCacheForTest();
-    const stats = ai.aiStats();
-    assert.strictEqual(stats.available, true);
-    assert.ok(Array.isArray(stats.providers) && stats.providers.length > 0);
-    assert.strictEqual(typeof stats.verdictCacheSize, "number");
-    assert.strictEqual(typeof stats.callsLastMinute, "number");
-    const json = JSON.stringify(stats);
-    assert.ok(!json.includes("fake-groq"), "không được lộ key provider");
+    calls.length = 0;
+    replyContent = "không phải json";
+    const res = await ai.classifyViolation({
+      module: "spam",
+      count: 5,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: [`invalid ${Math.random()}`],
+    });
+    assert.strictEqual(res.offline, true);
+    const v = ai.aiStats().verdictsLastHour;
+    assert.ok((v.offline ?? 0) >= 1, "verdict lỗi phải được đếm vào offshift/offline");
   });
 
   console.log("── 8. Đợt 7: knownThreats cho app raid + reason minh bạch ensemble ──");
