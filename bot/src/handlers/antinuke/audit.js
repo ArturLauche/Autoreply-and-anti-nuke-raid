@@ -9,6 +9,7 @@ const { sendCaseLog } = require("../../caseLog");
 const { isLocked, markLocked, unlockGuild } = require("../../lockdown");
 const { actionsOf, cleanupMessages } = require("../../moduleActions");
 const { emergencyRaidAlert } = require("../incidentReport");
+const { alertOwner } = require("./ownerAlert");
 const {
   MODULE_LABELS,
   isKnownLoggingBot,
@@ -134,6 +135,30 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
 
     const executor = await auditExecutor(guild, eventType, targetId);
     if (executor && (executor.id === client.user.id || isExempt(executor, moduleCfg, config))) {
+      // Privileged alert: owner/whitelist/admin vượt ngưỡng → bot cố ý KHÔNG
+      // phạt nhóm này, nhưng hành vi nuke vẫn phải báo owner biết (kẻ có quyền
+      // quản lý phá server là tình huống sống còn — owner là người duy nhất
+      // gỡ được quyền/whitelist). record() chỉ để theo dõi ngưỡng, không phạt.
+      if (executor.id !== client.user.id) {
+        const privilegedCount = record(guild.id, module, moduleCfg);
+        const em = await guild.members.fetch(executor.id).catch(() => null);
+        const privileged =
+          executor.id === guild.ownerId ||
+          (config?.whitelistUsers || []).includes(executor.id) ||
+          (em &&
+            (em.permissions?.has?.(PermissionFlagsBits.Administrator) ||
+              (config?.adminRoles || []).some((id) => em.roles?.cache.has(id))));
+        if (privileged && privilegedCount >= moduleCfg.threshold) {
+          void alertOwner(client, store, {
+            guild,
+            module,
+            summary: MODULE_LABELS[module] + " — " + privilegedCount + " lượt (nhóm miễn trừ)",
+            executorId: executor.id,
+            executorName: executor.username,
+            privileged: true,
+          });
+        }
+      }
       return; // whitelisted / self — fully ignore
     }
     // Owner + whitelist toàn cục: miễn NGAY CẢ KHI executor là User thô (không có
@@ -423,9 +448,19 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
 
     // BÁO CÁO KHẨN cho các module nuke cấu trúc (ban/kick/xóa kênh hàng loạt…).
     if (IMMEDIATE_BOT_NUKE.has(module) || module === "massJoin") {
+      const alertSummary =
+        MODULE_LABELS[module] + " — " + count + " lượt trong " + moduleCfg.windowSeconds + "s";
+      // DM owner: kênh log kẻ nuke có quyền xoá được — DM thì không. Vụ nuke
+      // lớn phải đánh thức chủ server kể cả khi kẻ phá đã dọn log.
+      void alertOwner(client, store, {
+        guild,
+        module,
+        summary: alertSummary,
+        executorId: executor.id,
+        executorName: executor.username,
+      });
       emergencyRaidAlert(client, store, guild, {
-        summary:
-          MODULE_LABELS[module] + " — " + count + " lượt trong " + moduleCfg.windowSeconds + "s",
+        summary: alertSummary,
         reason: "[Protogon AntiNuke] " + MODULE_LABELS[module],
         lockdownActive: isLocked(guild.id),
       }).catch(() => {});

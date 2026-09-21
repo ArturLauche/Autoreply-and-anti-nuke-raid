@@ -68,6 +68,9 @@ const heat = new HeatTracker(client, store);
 registerSweeper("heat-states", () => heat.sweepCold());
 registerSweeper("alt-guilds", () => sweepStaleGuilds(new Set(client.guilds.cache.keys())));
 registerSweeper("config-cache", () => store.pruneCache(new Set(client.guilds.cache.keys())));
+registerSweeper("owner-alert", () =>
+  require("./handlers/antinuke/ownerAlert").pruneCache(new Set(client.guilds.cache.keys())),
+);
 registerSweeper("voice-presence", () => {
   let removed = 0;
   const live = new Set(client.guilds.cache.keys());

@@ -1110,4 +1110,8 @@ export const EN: Record<string, string> = {
   "Đang nghỉ tạm:": "Currently cooling down:",
   "≥5 phạt nhầm đã xác nhận — AI đang tự siết độ tin cậy (bias giảm nhẹ + nhắc thận trọng trong prompt).":
     "≥5 confirmed wrongful punishments — the AI is self-tightening its confidence (slight bias cut + caution reminder in the prompt).",
+  "Khi bot xác nhận raid/nuke: DM khẩn cho chủ server (kẻ nuke không xoá được) + AI quét chat gửi báo cáo vào kênh log, kèm lệnh":
+    "When a raid/nuke is confirmed: urgent DM to the server owner (raiders can't delete it) + AI chat scan report to the log channel, with the",
+  ". Người có quyền phá server cũng được báo ngay":
+    ". Privileged members attacking the server are reported too",
 };

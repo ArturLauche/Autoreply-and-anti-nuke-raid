@@ -1118,4 +1118,8 @@ export const DE: Record<string, string> = {
   "Đang nghỉ tạm:": "Derzeit in Abkülhung:",
   "≥5 phạt nhầm đã xác nhận — AI đang tự siết độ tin cậy (bias giảm nhẹ + nhắc thận trọng trong prompt).":
     "≥5 bestätigte Fehlstrafen — die KI verschärft selbst ihr Vertrauen (leichte Bias-Kürzung + Vorsichtshinweis im Prompt).",
+  "Khi bot xác nhận raid/nuke: DM khẩn cho chủ server (kẻ nuke không xoá được) + AI quét chat gửi báo cáo vào kênh log, kèm lệnh":
+    "Bei bestätigtem Raid/Nuke: dringende DM an den Server-Besitzer (von Angreifern nicht löschbar) + KI-Chat-Scan-Bericht in den Log-Kanal, mit dem",
+  ". Người có quyền phá server cũng được báo ngay":
+    ". Auch privilegierte Mitglieder, die den Server angreifen, werden gemeldet",
 };

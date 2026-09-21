@@ -11,6 +11,7 @@ const { sendCaseLog, CASE_LABEL } = require("../../caseLog");
 const { isLocked } = require("../../lockdown");
 const { cleanupMessages } = require("../../moduleActions");
 const { emergencyRaidAlert } = require("../incidentReport");
+const { alertOwner } = require("./ownerAlert");
 // Threat intel đã học (đợt 7): mẫu scam mạng bot tự ghi nhận — nạp cho AI xác
 // định app raid đối chiếu mẫu đã xác nhận thay vì chỉ đoán trên tín hiệu lẻ.
 const { getLearnedThreats } = require("../filters");
@@ -336,7 +337,15 @@ module.exports = function createAntiNukeLayer({ client, store, state, core, ai, 
     await sendLog(guild, config, embed, "raid");
 
     // BÁO CÁO KHẨN: AI quét chat + tổng hợp tình hình → cảnh báo mọi người
-    // (tối đa 1 lần / 5 phút / server, fire-and-forget).
+    // (tối đa 1 lần / 5 phút / server, fire-and-forget). DM owner kèm theo —
+    // app raid giả MEE6/Nitro là kỹ thuật tinh vi nhất, chủ server cần biết ngay.
+    void alertOwner(client, store, {
+      guild,
+      module: "externalAppRaid",
+      summary: `External app raid — ${count} app trong ${moduleCfg.windowSeconds}s`,
+      executorId: executor?.id,
+      executorName: executor?.username,
+    });
     emergencyRaidAlert(client, store, guild, {
       summary: `External app raid — ${count} app trong ${moduleCfg.windowSeconds}s`,
       reason: reason,

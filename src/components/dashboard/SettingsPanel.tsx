@@ -255,10 +255,10 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                   </p>
                   <p className="text-[11px] text-muted-foreground">
                     {translate(
-                      "Khi bot xác nhận raid/nuke: AI quét chat rồi gửi tin CẢNH BÁO KHẨN (kèm báo cáo tình hình, lệnh",
+                      "Khi bot xác nhận raid/nuke: DM khẩn cho chủ server (kẻ nuke không xoá được) + AI quét chat gửi báo cáo vào kênh log, kèm lệnh",
                     )}{" "}
                     <code className="font-mono">/report</code>
-                    {translate(") vào kênh log chung")}{" "}
+                    {translate(". Người có quyền phá server cũng được báo ngay")}{" "}
                   </p>
                 </div>
                 <Switch
