@@ -45,7 +45,7 @@ export default function Landing() {
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
                   </span>
-                  {translate("Discord Bot · Nhiệt độ · Join Gate · Tính năng ẩn")}{" "}
+                  {translate("Discord Bot · Nhiệt độ · Join Gate · Welcome · AI")}{" "}
                 </Badge>
               </motion.div>
               <motion.h1

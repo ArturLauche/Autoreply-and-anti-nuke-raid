@@ -14,6 +14,7 @@ import {
   MessageCircle,
   Megaphone,
   MessageSquareReply,
+  PartyPopper,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
@@ -84,6 +85,11 @@ export function Features() {
       icon: Megaphone,
       title: "Báo cáo khẩn & report",
       desc: "/report và !report cho mod: khi có raid/nuke hoặc bot phạt nhầm, AI Mimu v2.5 dò hàng trăm tin nhắn gần nhất để hiểu tình huống và đưa ra báo cáo rõ ràng cho cả server.",
+    },
+    {
+      icon: PartyPopper,
+      title: "Welcome & Goodbye",
+      desc: "Chào thành viên mới, tạm biệt thành viên rời server — kênh riêng, nội dung tùy chỉnh với placeholder ({user}, {server}, {count}…), gửi dạng embed hoặc tin nhắn thường.",
     },
   ];
   return (

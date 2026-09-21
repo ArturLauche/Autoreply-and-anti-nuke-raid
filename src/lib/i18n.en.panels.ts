@@ -306,4 +306,8 @@ export const EN_PANELS: Record<string, string> = {
   "Chào mừng {user} đã đến {server}! Bạn là thành viên thứ {count} 🎉":
     "Welcome {user} to {server}! You are member #{count} 🎉",
   "{user} đã rời {server}. Hẹn gặp lại!": "{user} left {server}. See you again!",
+  "Discord Bot · Nhiệt độ · Join Gate · Welcome · AI":
+    "Discord bot · Heat · Join Gate · Welcome · AI",
+  "Chào thành viên mới, tạm biệt thành viên rời server — kênh riêng, nội dung tùy chỉnh với placeholder ({user}, {server}, {count}…), gửi dạng embed hoặc tin nhắn thường.":
+    "Greet new members and farewell to leaving ones — separate channels, custom text with placeholders ({user}, {server}, {count}…), sent as an embed or a plain message.",
 };
