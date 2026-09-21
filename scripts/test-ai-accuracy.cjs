@@ -728,6 +728,51 @@ function check(name, fn) {
     assert.ok((v.offline ?? 0) >= 1, "verdict lỗi phải được đếm vào offshift/offline");
   });
 
+  await check("Cache hit được đếm vào verdictsLastHour.cache (số liệu trọn)", async () => {
+    ai._clearVerdictCacheForTest();
+    calls.length = 0;
+    replyContent = '{"classification":"raid","confidence":0.9,"reason":"x"}';
+    const args = {
+      module: "spam",
+      count: 5,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: ["cache count probe"],
+    };
+    await ai.classifyViolation(args); // lần 1 — thật
+    const before = ai.aiStats().verdictsLastHour.cache ?? 0;
+    await ai.classifyViolation(args); // lần 2 — từ cache
+    const after = ai.aiStats().verdictsLastHour.cache ?? 0;
+    assert.strictEqual(after, before + 1, "cache hit phải tăng counter cache");
+  });
+
+  await check("Skew warn: dưới ngưỡng 10 verdict → KHÔNG warn (không kết luận vội)", async () => {
+    ai._clearVerdictCacheForTest();
+    calls.length = 0;
+    replyContent = '{"classification":"raid","confidence":0.9,"reason":"x"}';
+    // 5 verdict raid — dưới ngưỡng, không được warn (xem stderr không có skew).
+    const origWarn = console.warn;
+    const warns = [];
+    console.warn = (...a) => warns.push(a.join(" "));
+    try {
+      for (let i = 0; i < 5; i++) {
+        await ai.classifyViolation({
+          module: "spam",
+          count: 8,
+          windowSeconds: 10,
+          threshold: 5,
+          sampleMessages: [`skew quiet ${i}`],
+        });
+      }
+    } finally {
+      console.warn = origWarn;
+    }
+    assert.ok(
+      !warns.some((w) => w.includes("[ai:skew]")),
+      "dưới 10 mẫu không được cảnh báo thiên lệch",
+    );
+  });
+
   console.log("── 8. Đợt 7: knownThreats cho app raid + reason minh bạch ensemble ──");
 
   await check(

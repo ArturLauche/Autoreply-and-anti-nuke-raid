@@ -472,7 +472,12 @@ async function classifyViolation({
     `${count}|${windowSeconds}|${threshold}|${(evidence || []).join("\u0001")}|${JSON.stringify(knownThreats)}|${recentSamples?.map((s) => s.classification).join("") ?? ""}`,
   );
   const cached = verdictCacheGet(cacheKey);
-  if (cached) return { ...cached, fromCache: true };
+  if (cached) {
+    // Đếm cả cache hit (đợt 10) — nếu không, verdictsLastHour thiếu phần vụ
+    // xử lý từ cache và lượt cache tiết kiệm được không được ghi nhận.
+    noteVerdict("cache");
+    return { ...cached, fromCache: true };
+  }
   // FEEDBACK LOOP: bias từ verdict quá khứ (thiên lệch raid/benign) + cảnh báo
   // trong prompt để model tự điều chỉnh.
   const fb = feedbackBias(recentSamples);
@@ -572,6 +577,7 @@ ${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).join("\n") : "(không
   // DECISION LOG (đợt 9): một dòng/verdict — đủ để dò verdict sai trong log
   // production (module + classification + conf + nguồn can thiệp).
   noteVerdict(parsed.classification);
+  maybeWarnSkew();
   console.log(
     `[ai:verdict] ${module}: ${parsed.classification} conf=${conf}${learnedHit ? " khớp-mẫu" : ""}${engineNote} (model=${parsed.confidence}, engine=${engineSignal.toFixed(2)}${fb.bias ? `, bias=${fb.bias}` : ""})`,
   );
@@ -820,6 +826,34 @@ function verdictCountsLastHour() {
   const c = { raid: 0, individual: 0, benign: 0, offline: 0, cache: 0 };
   for (const v of verdictCounters) c[v.kind] = (c[v.kind] || 0) + 1;
   return c;
+}
+
+/**
+ * CẢNH BÁO CHỦ ĐỘNG (đợt 10) — model lệch nặng liên tục thì WARN ngay trong
+ * log (operator thấy không cần gõ /health), nhưng chỉ MỘT lần/giờ để không
+ * spam log. Ngưỡng: ≥10 verdict thật (không tính cache) và ≥90% cùng 1 phía —
+ * khó xảy ra tự nhiên, gần như chắc chắn model thiên lệch hoặc server đang
+ * bị dồn dập bất thường.
+ */
+let lastSkewWarnAt = 0;
+function maybeWarnSkew() {
+  const now = Date.now();
+  if (now - lastSkewWarnAt < VERDICT_WINDOW_MS) return;
+  const c = verdictCountsLastHour();
+  const decided = c.raid + c.individual + c.benign;
+  if (decided < 10) return; // quá ít mẫu — không kết luận
+  const raidRate = c.raid / decided;
+  if (raidRate >= 0.9) {
+    lastSkewWarnAt = now;
+    console.warn(
+      `[ai:skew] ${c.raid}/${decided} verdict 1 giờ qua là RAID (${Math.round(raidRate * 100)}%) — kiểm tra /health: model có thể thiên lệch raid hoặc server đang bị dồn dập bất thường`,
+    );
+  } else if (raidRate <= 0.1 && c.raid === 0 && decided >= 15) {
+    lastSkewWarnAt = now;
+    console.warn(
+      `[ai:skew] 0/${decided} verdict 1 giờ qua là RAID — model có thể đang bỏ sót raid (thiên lệch benign). Kiểm tra /health + lịch sử phạt`,
+    );
+  }
 }
 
 function aiStats() {
