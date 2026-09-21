@@ -10,28 +10,41 @@ import {
 import { EN } from "./i18n.en";
 import { EN_PANELS } from "./i18n.en.panels";
 import { EN_LABELS } from "./i18n.en.labels";
+import { DE } from "./i18n.de";
+import { DE_PANELS } from "./i18n.de.panels";
+import { DE_LABELS } from "./i18n.de.labels";
 
 /**
  * Đa ngôn ngữ kiểu gettext: chuỗi tiếng Việt trong code là KEY —
- * `t("Đăng nhập")` trả bản EN nếu có, không có thì rơi về nguyên chuỗi VI.
- * Lợi ích: thêm chuỗi mới không bao giờ quên update dict làm vỡ UI; dict EN
- * chỉ là lớp phủ. Script scripts/check-i18n.cjs chặn chuỗi t("…") chưa có
- * bản dịch EN để không lọt tiếng Việt sang người dùng EN.
+ * `t("Đăng nhập")` trả bản dịch của ngôn ngữ đang chọn; không có bản dịch
+ * thì rơi về EN, vẫn thiếu nữa mới rơi về nguyên chuỗi VI (không vỡ UI).
+ * Script scripts/check-i18n.cjs chặn mọi key có bản EN mà thiếu bản DE.
  */
-export type Lang = "vi" | "en";
+export type Lang = "vi" | "en" | "de";
 
 /** Từ điển EN: đợt 1 (i18n.en.ts) + panel (i18n.en.panels.ts) + nhãn dữ liệu (i18n.en.labels.ts). */
-const DICT: Record<string, string> = { ...EN, ...EN_PANELS, ...EN_LABELS };
+const DICTS: Record<Exclude<Lang, "vi">, Record<string, string>> = {
+  en: { ...EN, ...EN_PANELS, ...EN_LABELS },
+  de: { ...DE, ...DE_PANELS, ...DE_LABELS },
+};
+
+/** Bản dịch của ngôn ngữ `l` (vi = chính key VI). Dùng bởi check/test. */
+export function dictForLang(l: Exclude<Lang, "vi">): Record<string, string> {
+  return DICTS[l];
+}
 
 const LANG_KEY = "protogon-lang";
+const LANGS: Lang[] = ["vi", "en", "de"];
 
 function readInitialLang(): Lang {
   try {
     const saved = localStorage.getItem(LANG_KEY);
-    if (saved === "en" || saved === "vi") return saved;
+    if (saved && (LANGS as string[]).includes(saved)) return saved as Lang;
     // Không có lựa chọn lưu: theo ngôn ngữ trình duyệt, mặc định VI (sản phẩm gốc).
     const nav = navigator.language?.toLowerCase() ?? "";
-    return nav.startsWith("vi") || nav === "" ? "vi" : "en";
+    if (nav === "") return "vi";
+    if (nav.startsWith("de")) return "de";
+    return nav.startsWith("vi") ? "vi" : "en";
   } catch {
     return "vi";
   }
@@ -51,7 +64,7 @@ function formatVars(s: string, vars?: Record<string, string | number>): string {
 /** Dịch một chuỗi VI sang ngôn ngữ hiện tại (ngoài React — ưu tiên dùng useT). */
 export function translate(s: string, vars?: Record<string, string | number>): string {
   if (currentLang === "vi") return formatVars(s, vars);
-  return formatVars(DICT[s] ?? s, vars);
+  return formatVars(DICTS[currentLang][s] ?? s, vars);
 }
 
 /** Ngôn ngữ hiện tại — dùng khi cần gửi lựa chọn lên backend (ví dụ AI). */
@@ -61,7 +74,7 @@ export function currentLanguage(): Lang {
 
 /** Locale cho toLocaleString/toLocaleTimeString theo ngôn ngữ hiện tại. */
 export function dateLocale(): string {
-  return currentLang === "vi" ? "vi-VN" : "en-US";
+  return currentLang === "vi" ? "vi-VN" : currentLang === "de" ? "de-DE" : "en-US";
 }
 
 interface LangContextValue {
@@ -99,8 +112,10 @@ export function LangProvider({ children }: { children: ReactNode }) {
   }, [lang]);
 
   const t = useCallback(
-    (s: string, vars?: Record<string, string | number>) =>
-      lang === "vi" ? formatVars(s, vars) : formatVars(DICT[s] ?? s, vars),
+    (s: string, vars?: Record<string, string | number>) => {
+      if (lang === "vi") return formatVars(s, vars);
+      return formatVars(DICTS[lang][s] ?? s, vars);
+    },
     [lang],
   );
   const value = useMemo(() => ({ lang, setLang, t, dateLocale }), [lang, setLang, t]);

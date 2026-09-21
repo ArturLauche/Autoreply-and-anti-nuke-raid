@@ -5,10 +5,11 @@ import { cn } from "../lib/utils";
 const OPTIONS = [
   ["vi", "VI"],
   ["en", "EN"],
+  ["de", "DE"],
 ] as const;
 
 /**
- * Công tắc ngôn ngữ VI ⇄ EN — nhúng vào chrome của mọi trang (nav landing,
+ * Công tắc ngôn ngữ VI ⇄ EN ⇄ DE — nhúng vào chrome của mọi trang (nav landing,
  * taskbar, header dashboard). Lựa chọn được lưu ở localStorage và đổi ngay,
  * không cần tải lại trang.
  *
@@ -42,7 +43,7 @@ export default function LangSwitch({
           type="button"
           onClick={() => setLang(code)}
           aria-pressed={lang === code}
-          title={code === "vi" ? t("Tiếng Việt") : t("English")}
+          title={code === "vi" ? t("Tiếng Việt") : code === "de" ? t("Tiếng Đức") : t("English")}
           className={cn(
             "rounded-md px-2 py-1 text-[11px] font-bold tracking-wide transition-colors",
             lang === code

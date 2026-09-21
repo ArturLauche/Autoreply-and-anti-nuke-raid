@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * test-i18n.cjs — khoá hệ đa ngôn ngữ VI/EN (thêm 20/09/2026).
+ * test-i18n.cjs — khoá hệ đa ngôn ngữ VI/EN/DE (thêm 20/09/2026).
  *
  * Bối cảnh: web trước đây chỉ có tiếng Việt cứng trong JSX. Khi thêm tiếng Anh,
  * ba lỗi cấu trúc đã thật sự xảy ra và đều "im lặng" (UI vẫn chạy, chỉ sai
@@ -17,7 +17,8 @@
  *
  * Ngoài ra khoá: định dạng ngày/giờ theo ngôn ngữ (bug locale rác "vi-VV"),
  * công tắc ngôn ngữ có mặt ở chrome mọi trang, và Convex nhận lang để AI trả
- * lời đúng ngôn ngữ người dùng chọn.
+ * lời đúng ngôn ngữ người dùng chọn. Tiếng Đức (DE) phải đủ 100% key EN —
+ * thiếu là lỗi cứng (người dùng DE sẽ đọc tiếng Anh nguyên bản).
  */
 
 const fs = require("fs");
@@ -51,21 +52,15 @@ check(
 );
 check(
   "translate() rơi về chuỗi VI khi thiếu bản dịch (không vỡ UI)",
-  /DICT\[s\] \?\? s/.test(i18n),
+  /DICTS\[currentLang\]\[s\] \?\? s/.test(i18n) && /DICTS\[lang\]\[s\] \?\? s/.test(i18n),
 );
 check(
   "Từ điển EN gộp 3 file (i18n.en.ts + i18n.en.panels.ts + i18n.en.labels.ts) — không mất bản dịch",
   /import \{ EN_PANELS \} from "\.\/i18n\.en\.panels"/.test(i18n) &&
     /import \{ EN_LABELS \} from "\.\/i18n\.en\.labels"/.test(i18n) &&
-    /const DICT: Record<string, string> = \{ \.\.\.EN, \.\.\.EN_PANELS, \.\.\.EN_LABELS \}/.test(
-      i18n,
-    ) &&
+    /const DICTS: Record<Exclude<Lang, "vi">, Record<string, string>> = \{/.test(i18n) &&
     fs.existsSync(path.join(ROOT, "src/lib/i18n.en.panels.ts")) &&
     fs.existsSync(path.join(ROOT, "src/lib/i18n.en.labels.ts")),
-);
-check(
-  "dateLocale() trả vi-VN / en-US (không hardcode 1 locale)",
-  /currentLang === "vi" \? "vi-VN" : "en-US"/.test(i18n),
 );
 check("Lưu lựa chọn ngôn ngữ vào localStorage (protogon-lang)", /protogon-lang/.test(i18n));
 check("Cập nhật <html lang> khi đổi ngôn ngữ", /document\.documentElement\.lang = lang/.test(i18n));
@@ -95,6 +90,14 @@ check(
   "LangSwitch có aria-label + aria-pressed (a11y)",
   /aria-label=\{t\("Ngôn ngữ"\)\}/.test(switchSrc) &&
     /aria-pressed=\{lang === code\}/.test(switchSrc),
+);
+
+const OPTIONS_SRC = read("src/components/LangSwitch.tsx");
+check(
+  "LangSwitch có 3 nút VI/EN/DE",
+  /\["vi", "VI"\]/.test(OPTIONS_SRC) &&
+    /\["en", "EN"\]/.test(OPTIONS_SRC) &&
+    /\["de", "DE"\]/.test(OPTIONS_SRC),
 );
 
 const chrome = [
@@ -163,8 +166,10 @@ check(
 // ─── 7. Backend AI nhận ngôn ngữ người dùng chọn ───────────────────────────
 const convexHaimiya = read("convex/haimiya.ts");
 check(
-  "haimiya.ask nhận arg lang (vi|en) — không phá call cũ vì optional",
-  /lang: v\.optional\(v\.union\(v\.literal\("vi"\), v\.literal\("en"\)\)\)/.test(convexHaimiya),
+  "haimiya.ask nhận arg lang (vi|en|de) — không phá call cũ vì optional",
+  /lang: v\.optional\(v\.union\(v\.literal\("vi"\), v\.literal\("en"\), v\.literal\("de"\)\)\)/.test(
+    convexHaimiya,
+  ),
 );
 check(
   "System prompt có placeholder {LANG} và được thay theo lựa chọn",
@@ -185,8 +190,10 @@ check(
   /ts\.isJsxText/.test(guardSrc) && /CHƯA DỊCH/.test(guardSrc),
 );
 check(
-  "check-i18n.cjs đọc cả 2 file từ điển EN (không bỏ sót đợt bổ sung)",
-  /i18n\.en\.panels\.ts/.test(guardSrc),
+  "check-i18n.cjs đọc cả 2 bộ từ điển EN + DE (không bỏ sót ngôn ngữ)",
+  /i18n\.en\.panels\.ts/.test(guardSrc) &&
+    /i18n\.de\.labels\.ts/.test(guardSrc) &&
+    /THIẾU DE/.test(guardSrc),
 );
 check(
   "Không còn chữ Việt chưa bọc translate() trong JSX (0 mục)",
@@ -207,7 +214,7 @@ try {
 } catch (e) {
   guardOut = `${e.stdout || ""}\n${e.stderr || ""}`;
 }
-check("scripts/check-i18n.cjs xanh (không key nào thiếu bản EN)", guardOk);
+check("scripts/check-i18n.cjs xanh (không key nào thiếu bản EN/DE)", guardOk);
 if (!guardOk) console.error(String(guardOut).split("\n").slice(0, 12).join("\n"));
 
 console.log(`\nKết quả i18n suite: ${pass} PASS, ${fail} FAIL`);

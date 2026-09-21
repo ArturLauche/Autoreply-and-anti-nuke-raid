@@ -240,7 +240,7 @@ export const ask = action({
      * Chỉ đổi chỉ dẫn ngôn ngữ trong system prompt, KHÔNG dịch prompt: phần
      * kiến thức về Protogon giữ nguyên tiếng Việt để không lệch ngữ cảnh.
      */
-    lang: v.optional(v.union(v.literal("vi"), v.literal("en"))),
+    lang: v.optional(v.union(v.literal("vi"), v.literal("en"), v.literal("de"))),
   },
   handler: async (ctx, { messages, images, token, funcKey, lang }) => {
     requireFuncKey(funcKey, process.env.FUNC_SEED);
@@ -334,13 +334,15 @@ export const ask = action({
       };
     });
 
-    // Ngôn ngữ đầu ra: mặc định tiếng Việt (bot/dashboard VI), "en" khi người
-    // dùng chọn tiếng Anh trên web.
+    // Ngôn ngữ đầu ra: mặc định tiếng Việt (bot/dashboard VI), "en"/"de" khi
+    // người dùng chọn tiếng Anh/tiếng Đức trên web.
     const systemPrompt = SYSTEM_PROMPT.replace(
       "{LANG}",
       lang === "en"
         ? "tiếng Anh (English) — mọi câu, tiêu đề và bullet đều bằng tiếng Anh"
-        : "tiếng Việt",
+        : lang === "de"
+          ? "tiếng Đức (Deutsch) — mọi câu, tiêu đề và bullet đều bằng tiếng Đức"
+          : "tiếng Việt",
     );
     const systemWithVision =
       validImages.length > 0

@@ -514,7 +514,12 @@ export const EN_LABELS: Record<string, string> = {
   "📥 Vào server": "📥 Join server",
   "🛠️ Lệnh mod": "🛠️ Mod commands",
   "🛡️ Chống nuke": "🛡️ Anti-nuke",
+  "Tiếng Đức": "German",
   "Đã bật nhóm ({p0} module)": "Enabled group ({p0} modules)",
   "Đã tắt nhóm ({p0} module)": "Disabled group ({p0} modules)",
   'Xóa rule "{p0}"?': 'Delete rule "{p0}"?',
+  "{p}s trước": "{p}s ago",
+  "{p}p trước": "{p}m ago",
+  "{p} giờ trước": "{p}h ago",
+  "{p} ngày trước": "{p}d ago",
 };

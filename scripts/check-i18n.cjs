@@ -61,10 +61,25 @@ for (const name of ["i18n.en.ts", "i18n.en.panels.ts", "i18n.en.labels.ts"]) {
   }
 }
 
+// ── Key có trong từ điển DE — thiếu so với EN là lỗi CỨNG (người dùng DE sẽ
+//    thấy tiếng Anh nguyên bản, đúng kiểu "lọt âm thầm" mà lá chắn phải chặn) ─
+const deKeys = new Set();
+for (const name of ["i18n.de.ts", "i18n.de.panels.ts", "i18n.de.labels.ts"]) {
+  const p = path.join(SRC, "lib", name);
+  if (!fs.existsSync(p)) continue;
+  const deSrc = fs.readFileSync(p, "utf8");
+  for (const m of deSrc.matchAll(
+    /^\s{2}(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|([^\s:]+))\s*:/gm,
+  )) {
+    deKeys.add(m[1] !== undefined ? unescapeJs(m[1]) : m[2] !== undefined ? m[2] : m[3]);
+  }
+}
+for (const k of enKeys) if (!deKeys.has(k)) problems.push(`THIẾU DE: ${k.slice(0, 80)}`);
+
 const problems = [];
 
 // ── 1. Mọi translate("…") phải có bản EN ───────────────────────────────────
-const codeFiles = walk(SRC).filter((p) => !/lib[\\/]i18n(\.en)?\.tsx?$/.test(p));
+const codeFiles = walk(SRC).filter((p) => !/lib[\\/]i18n(\.en|\.de)?\.tsx?$/.test(p));
 const wrappedKeys = new Set();
 for (const file of codeFiles) {
   const src = fs.readFileSync(file, "utf8");
@@ -351,7 +366,9 @@ const deadKeys = [...enKeys].filter((k) => {
 });
 
 // ── Báo cáo ───────────────────────────────────────────────────────────────
-console.log(`i18n: ${wrappedKeys.size} key translate() ⇄ ${enKeys.size} bản EN`);
+console.log(
+  `i18n: ${wrappedKeys.size} key translate() ⇄ ${enKeys.size} bản EN · ${deKeys.size} bản DE`,
+);
 if (rawText.length) {
   console.log(
     `\nℹ️  Còn ${rawText.length} dòng chữ Việt trong JSX chưa bọc translate() ` +
