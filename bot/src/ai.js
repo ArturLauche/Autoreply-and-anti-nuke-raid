@@ -63,6 +63,38 @@ let aiCallTimestamps = [];
 let aiInFlight = 0;
 
 /**
+ * VERDICT CACHE — cùng 1 vụ việc (module + mẫu tin giống nhau) trong 90s không
+ * gọi AI lặp: raid spam tạo hàng chục sự kiện, mỗi sự kiện vượt ngưỡng đều dựng
+ * prompt GẦN NHƯ TỰT NGƯỜI (cùng mẫu, cùng số liệu) → trả kết quả đã có, tiết
+ * kiệm hạn mức + giảm độ trễ cho vụ kế tiếp. Key = hash module + samples join.
+ */
+const VERDICT_TTL_MS = 90_000;
+const verdictCache = new Map();
+function verdictCacheKey(module, samples) {
+  const joined = (samples || []).map((s) => String(s).slice(0, 120)).join("\u0001");
+  let h = 5381;
+  for (let i = 0; i < joined.length; i++) h = ((h << 5) + h + joined.charCodeAt(i)) | 0;
+  return `${module}:${h}`;
+}
+function verdictCacheGet(key) {
+  const hit = verdictCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > VERDICT_TTL_MS) {
+    verdictCache.delete(key);
+    return null;
+  }
+  return hit.value;
+}
+function verdictCacheSet(key, value) {
+  // Trim cũ nhất khi cache phình (chặn memory leak trên server đông).
+  if (verdictCache.size > 200) {
+    const oldest = verdictCache.keys().next().value;
+    verdictCache.delete(oldest);
+  }
+  verdictCache.set(key, { at: Date.now(), value });
+}
+
+/**
  * Danh sách provider theo thứ tự ưu tiên. Được tính 1 lần khi module load —
  * key không đổi trong lúc chạy. Provider vẫn trả model theo env override nếu có.
  */
@@ -358,6 +390,11 @@ async function classifyViolation({
   const samples = (sampleMessages || [])
     .slice(0, 6)
     .map((s) => sanitizeForPrompt(String(s).slice(0, 200)));
+  // VERDICT CACHE: cùng module + cùng mẫu tin trong 90s → trả kết quả đã có,
+  // không tốn lượt gọi (kiểm sau khi aiAvailable để offline vẫn trả đúng).
+  const cacheKey = verdictCacheKey(module, samples);
+  const cached = verdictCacheGet(cacheKey);
+  if (cached) return { ...cached, fromCache: true };
   const learned = [];
   for (const k of (knownThreats?.keywords || []).slice(0, 12)) {
     if (k) learned.push(`từ khóa: ${String(k).slice(0, 40)}`);
@@ -412,7 +449,7 @@ ${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).join("\n") : "(không
   // (regression từng bị test-chat-flow bắt: nhánh không-khớp làm mất reason).
   const learnedHit = learnedMatchInSamples(samples, knownThreats);
   const baseReason = String(parsed.reason || "").slice(0, 300);
-  return {
+  const result = {
     classification: parsed.classification,
     confidence: calibrateConfidence(parsed.confidence, learnedHit),
     reason: learnedHit ? `${baseReason.slice(0, 240)} · khớp mẫu đã học`.trim() : baseReason,
@@ -421,6 +458,8 @@ ${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).join("\n") : "(không
       : undefined,
     offline: false,
   };
+  verdictCacheSet(cacheKey, result);
+  return result;
 }
 
 /** So khớp mẫu tin (đã sanitize) với threat intel đã học — ENGINE tự so, 0 token.
@@ -570,6 +609,13 @@ module.exports = {
   chatForResearch,
   researchChat,
   researchAvailable,
+  extractJson,
+  /** Test hook: xoá verdict cache + rate guard giữa các case (convention _…ForTest). */
+  _clearVerdictCacheForTest: () => {
+    verdictCache.clear();
+    aiCallTimestamps = [];
+    aiInFlight = 0;
+  },
 };
 
 /**

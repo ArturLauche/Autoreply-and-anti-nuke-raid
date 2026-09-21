@@ -169,6 +169,7 @@ function check(name, fn) {
 
   await check("Không có evidence → prompt KHÔNG nhắc mục BẰNG CHỨNG", async () => {
     calls.length = 0;
+    ai._clearVerdictCacheForTest();
     replyContent = '{"classification":"individual","confidence":0.8,"reason":"none"}';
     await ai.classifyViolation({
       module: "spam",
@@ -240,6 +241,7 @@ function check(name, fn) {
 
   await check("Khớp mẫu scam đã học → confidence được +0.15 (calib engine)", async () => {
     calls.length = 0;
+    ai._clearVerdictCacheForTest();
     replyContent = '{"classification":"raid","confidence":0.7,"reason":"model không chắc"}';
     const res = await ai.classifyViolation({
       module: "spam",
@@ -255,6 +257,7 @@ function check(name, fn) {
 
   await check("Không khớp mẫu → confidence giữ nguyên (không trừ)", async () => {
     calls.length = 0;
+    ai._clearVerdictCacheForTest();
     replyContent = '{"classification":"individual","confidence":0.6,"reason":"x"}';
     const res = await ai.classifyViolation({
       module: "spam",
@@ -269,6 +272,7 @@ function check(name, fn) {
 
   await check("Calib clamp 0.99 — không bao giờ tự tin tuyệt đối", async () => {
     calls.length = 0;
+    ai._clearVerdictCacheForTest();
     replyContent = '{"classification":"raid","confidence":0.99,"reason":"x"}';
     const res = await ai.classifyViolation({
       module: "spam",
@@ -283,6 +287,7 @@ function check(name, fn) {
 
   await check("Prompt injection trong mẫu tin bị đánh dấu [DỮ LIỆU]", async () => {
     calls.length = 0;
+    ai._clearVerdictCacheForTest();
     replyContent = '{"classification":"benign","confidence":0.5,"reason":"x"}';
     await ai.classifyViolation({
       module: "spam",
@@ -301,6 +306,7 @@ function check(name, fn) {
 
   await check("Ký tự zero-width/điều khiển bị xoá khỏi mẫu tin", async () => {
     calls.length = 0;
+    ai._clearVerdictCacheForTest();
     replyContent = '{"classification":"individual","confidence":0.7,"reason":"x"}';
     await ai.classifyViolation({
       module: "spam",
@@ -315,11 +321,18 @@ function check(name, fn) {
 
   await check("Rate guard 30 lượt/phút → trả null ngay, không gọi fetch", async () => {
     calls.length = 0;
+    ai._clearVerdictCacheForTest();
     replyContent = '{"classification":"raid","confidence":0.9,"reason":"x"}';
-    // Bơm 30 timestamp trong 60s qua biến module — dùng tay cày qua test hook:
-    // không có hook công khai, nên gọiclassifyViolation 30 lần liên tiếp.
+    // Bơm 30 lượt gọi THẬT trong 60s: mỗi lượt dùng sample khác nhau để né
+    // verdict cache (cache chỉ chặn vụ lặp, rate guard đếm lượt gọi thật).
     for (let i = 0; i < 30; i++) {
-      await ai.classifyViolation({ module: "spam", count: 5, windowSeconds: 10, threshold: 5 });
+      await ai.classifyViolation({
+        module: "spam",
+        count: 5,
+        windowSeconds: 10,
+        threshold: 5,
+        sampleMessages: [`lan goi thu ${i} - noi dung rieng`],
+      });
     }
     const before = calls.length;
     const res = await ai.classifyViolation({
@@ -327,12 +340,79 @@ function check(name, fn) {
       count: 5,
       windowSeconds: 10,
       threshold: 5,
+      sampleMessages: ["lan goi thu 31 - vuoi rate limit"],
     });
     assert.strictEqual(res.offline, true, "lượt thứ 31 bị rate guard chặn → offline fallback");
     assert.strictEqual(calls.length, before, "không được gọi thêm fetch nào");
   });
 
-  console.log("── 5. Offline path (không key AI) ──");
+  console.log("── 5. Verdict cache (tránh gọi lặp cùng vụ) ──");
+
+  await check("Cùng module + cùng mẫu tin trong 90s → trả cache, không fetch", async () => {
+    ai._clearVerdictCacheForTest();
+    calls.length = 0;
+    replyContent = '{"classification":"raid","confidence":0.9,"reason":"cached"}';
+    const r1 = await ai.classifyViolation({
+      module: "spam",
+      count: 8,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: ["JOIN MY SERVER discord.gg/x"],
+    });
+    assert.strictEqual(r1.fromCache, undefined, "lượt đầu phải gọi thật");
+    const fetchAfterFirst = calls.length;
+    const r2 = await ai.classifyViolation({
+      module: "spam",
+      count: 8,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: ["JOIN MY SERVER discord.gg/x"],
+    });
+    assert.strictEqual(r2.fromCache, true);
+    assert.strictEqual(r2.classification, "raid");
+    assert.strictEqual(calls.length, fetchAfterFirst, "lượt 2 không được gọi fetch");
+  });
+
+  await check("Mẫu tin khác nhau → KHÔNG dùng cache của vụ khác", async () => {
+    calls.length = 0;
+    ai._clearVerdictCacheForTest();
+    replyContent = '{"classification":"individual","confidence":0.7,"reason":"fresh"}';
+    const r = await ai.classifyViolation({
+      module: "spam",
+      count: 8,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: ["noi dung hoan toan khac"],
+    });
+    assert.strictEqual(r.fromCache, undefined);
+    assert.strictEqual(r.classification, "individual");
+  });
+
+  await check("Cache trả kết quả ĐÃ CALIB (không calib lại lần 2)", async () => {
+    ai._clearVerdictCacheForTest();
+    calls.length = 0;
+    replyContent = '{"classification":"raid","confidence":0.7,"reason":"x"}';
+    const a = await ai.classifyViolation({
+      module: "spam",
+      count: 8,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: ["free nitro win"],
+      knownThreats: { keywords: ["nitro"], phrases: [] },
+    });
+    assert.strictEqual(a.confidence, 0.85);
+    const b = await ai.classifyViolation({
+      module: "spam",
+      count: 8,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: ["free nitro win"],
+      knownThreats: { keywords: ["nitro"], phrases: [] },
+    });
+    assert.strictEqual(b.confidence, 0.85, "cache giữ giá trị đã calib 0.85, không cộng tiếp");
+  });
+
+  console.log("── 6. Offline path (không key AI) ──");
 
   await check("Không cấu hình AI → fallback ổn định, không throw", async () => {
     // providerChain đọc env lúc module load — kiểm qua module riêng với env rỗng.

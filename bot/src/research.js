@@ -305,9 +305,12 @@ Chỉ trả JSON thuần (không markdown): {"keywords": ["từ khóa scam mới
       { maxTokens: 1500, temperature: 0.2 },
     );
     if (!raw) return null;
-    const m = raw.match(/\{[\s\S]*\}/);
-    if (!m) return null;
-    const parsed = JSON.parse(m[0]);
+    // PARSE CỨNG HOÁ: dùng extractJson của ai.js (gỡ code fence, sửa phẩy thừa,
+    // lấy khối {} ngoại vi) — model trả kèm markdown/lời bình vẫn parse được.
+    // Trước đây regex tham lam + JSON.parse trực tiếp → fence/phẩy thừa làm mất
+    // nguyên lượt tổng hợp (bug cùng loại đã vá trong bot/src/ai.js).
+    const parsed = aiClient.extractJson(raw);
+    if (!parsed) return null;
     return {
       keywords: (parsed.keywords ?? []).slice(0, 15).map((s) => String(s).slice(0, 60)),
       phrases: (parsed.phrases ?? []).slice(0, 8).map((s) => String(s).slice(0, 80)),
@@ -653,9 +656,8 @@ async function aiReviewKeywords(keywords) {
       ],
       { maxTokens: 500, temperature: 0.1 },
     );
-    const m = raw?.match(/\{[\s\S]*\}/);
-    if (!m) return [];
-    const parsed = JSON.parse(m[0]);
+    const parsed = aiClient.extractJson(raw);
+    if (!parsed) return [];
     const list = Array.isArray(parsed?.suspects) ? parsed.suspects : [];
     return list
       .filter((s) => s && typeof s.keyword === "string")
