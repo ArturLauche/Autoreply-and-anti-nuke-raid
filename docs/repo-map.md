@@ -30,18 +30,18 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 | `pages/DiscordCallback.tsx` | Bắt callback OAuth                                |
 | `pages/NotFound.tsx`        | 404                                               |
 
-| Component nhóm               | Vai trò                                                                                           |
-| ---------------------------- | ------------------------------------------------------------------------------------------------- |
-| `components/dashboard/`      | Các panel cấu hình: Overview, Webhook, Verify, JoinGate, Settings (theme xám), Branding…          |
-| `components/landing/`        | Nav, Footer, sections trang chủ                                                                   |
-| `components/ui/`             | shadcn/ui nền tảng (button border-first, card mono)                                               |
-| `components/Taskbar.tsx`     | Pill dọc trái + panel điều hướng nhanh (Escape/click-outside)                                     |
-| `components/HaimiyaChat.tsx` | Chat nhân vật Haimiya (giữ màu brand illustration)                                                |
-| `components/LangSwitch.tsx`  | Công tắc ngôn ngữ VI/EN — nhúng vào chrome mọi trang (nav, taskbar, header dashboard, trang auth) |
-| `lib/i18n.tsx`               | Lõi đa ngôn ngữ gettext: LangProvider/useT, `translate()` toàn cục, `dateLocale()`                |
-| `lib/i18n.en.ts`             | Từ điển EN (key = nguyên chuỗi tiếng Việt); thiếu key thì rơi về VI                               |
-| `lib/useBotMonitor.ts`       | Hook trạng thái bot realtime                                                                      |
-| `lib/constants.ts`           | SERVER_THEMES (đã mono xám), hằng số                                                              |
+| Component nhóm               | Vai trò                                                                                              |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `components/dashboard/`      | Các panel cấu hình: Overview, Webhook, Verify, JoinGate, Settings (theme xám), Branding…             |
+| `components/landing/`        | Nav, Footer, sections trang chủ                                                                      |
+| `components/ui/`             | shadcn/ui nền tảng (button border-first, card mono)                                                  |
+| `components/Taskbar.tsx`     | Pill dọc trái + panel điều hướng nhanh (Escape/click-outside)                                        |
+| `components/HaimiyaChat.tsx` | Chat nhân vật Haimiya (giữ màu brand illustration)                                                   |
+| `components/LangSwitch.tsx`  | Công tắc ngôn ngữ VI/EN/DE — nhúng vào chrome mọi trang (nav, taskbar, header dashboard, trang auth) |
+| `lib/i18n.tsx`               | Lõi đa ngôn ngữ gettext: LangProvider/useT, `translate()` toàn cục, `dateLocale()`                   |
+| `lib/i18n.en.ts`             | Từ điển EN (key = nguyên chuỗi tiếng Việt); thiếu key thì rơi về VI                                  |
+| `lib/useBotMonitor.ts`       | Hook trạng thái bot realtime                                                                         |
+| `lib/constants.ts`           | SERVER_THEMES (đã mono xám), hằng số                                                                 |
 
 ## bot/ — Discord bot (CommonJS, chạy pm2 `protogon`)
 
@@ -83,7 +83,7 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 
 ## Vòng lặp làm việc
 
-- Kiểm chứng: `bun run test` (55 suites) · `bun tsc -b --noEmit` ·
+- Kiểm chứng: `bun run test` (56 suites) · `bun tsc -b --noEmit` ·
   `bun run lint` · `bun run format:check` — chi tiết gộp 1 lệnh xem skill
   `verification-loop`.
 - Kiểm tra cấu trúc: `scripts/check-repo-map.cjs` (bản đồ khớp thật) +

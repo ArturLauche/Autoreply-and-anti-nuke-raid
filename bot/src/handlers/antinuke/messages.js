@@ -145,6 +145,7 @@ module.exports = function createAntiNukeLayer({
         samples,
         {
           knownThreats: learnedThreatContext(),
+          store,
           evidence: messageEvidence(samples, {
             recentJoins: state.state.joiners.get(message.guild.id)?.length,
             memberCount: message.guild.memberCount ?? undefined,
@@ -310,6 +311,7 @@ module.exports = function createAntiNukeLayer({
       samples,
       {
         knownThreats: learnedThreatContext(),
+        store,
         evidence: messageEvidence(samples, {
           recentJoins: state.state.joiners.get(message.guild.id)?.length,
           memberCount: message.guild.memberCount ?? undefined,

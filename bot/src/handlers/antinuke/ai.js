@@ -7,6 +7,25 @@ const aiClient = require("../../ai");
 module.exports = function createAntiNukeLayer({ state }) {
   const { joiners } = state.state;
 
+  // FEEDBACK LOOP (vòng 4): verdict quá khứ từ raidSamples (Convex) — cache 5
+  // phút để không query mỗi vụ; lỗi/lazy-require vòng → trả rỗng, AI chạy thiếu
+  // bias như cũ.
+  let recentSamplesCache = { at: 0, rows: [] };
+  async function recentAiSamples(store) {
+    if (!store?.client?.query) return [];
+    if (Date.now() - recentSamplesCache.at < 5 * 60_000) return recentSamplesCache.rows;
+    try {
+      const rows = await store.client.query("antinuke:recentRaidSamples", { limit: 40 });
+      const mapped = (rows || [])
+        .filter((r) => r && typeof r.aiClassification === "string")
+        .map((r) => ({ classification: r.aiClassification, punish: r.punish ?? null }));
+      recentSamplesCache = { at: Date.now(), rows: mapped };
+      return mapped;
+    } catch {
+      return recentSamplesCache.rows;
+    }
+  }
+
   /** Gọi AI phân loại sự kiện raid vs cá nhân. Trả về null khi AI không có.
    *  Chạy TRỰC TIẾP từ process bot (bot/src/ai.js) — không tốn Convex actions.
    *  opts.knownThreats (tùy chọn): { keywords, phrases } — mẫu scam mạng đã xác
@@ -16,6 +35,7 @@ module.exports = function createAntiNukeLayer({ state }) {
     try {
       if (!aiClient.aiAvailable()) return null;
       const recentJoins = joiners.get(guild.id)?.length ?? 0;
+      const recentSamples = await recentAiSamples(opts?.store);
       const res = await Promise.race([
         aiClient.classifyViolation({
           module,
@@ -27,6 +47,7 @@ module.exports = function createAntiNukeLayer({ state }) {
           memberCount: guild.memberCount ?? undefined,
           knownThreats: opts?.knownThreats ?? undefined,
           evidence: opts?.evidence ?? undefined,
+          recentSamples,
         }),
         new Promise((r) => setTimeout(() => r(null), 6000)),
       ]);

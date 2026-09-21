@@ -102,11 +102,10 @@ function codeContextOf(reason) {
 
 /** Trích JSON object đầu tiên từ trả lời AI. */
 function parseAiJson(raw) {
-  if (!raw) return null;
-  const m = String(raw).match(/\{[\s\S]*\}/);
-  if (!m) return null;
+  // PARSE CỨNG HOÁ: dùng extractJson của ai.js — model trả code fence/phẩy
+  // thừa vẫn đọc được (bug cùng loại đã vá ở ai.js + research.js).
   try {
-    return JSON.parse(m[0]);
+    return require("../ai").extractJson(raw);
   } catch {
     return null;
   }

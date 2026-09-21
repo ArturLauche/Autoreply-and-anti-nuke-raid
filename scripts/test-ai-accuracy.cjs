@@ -388,6 +388,60 @@ function check(name, fn) {
     assert.strictEqual(r.classification, "individual");
   });
 
+  console.log("── 6. Feedback loop (tự soi verdict quá khứ) ──");
+
+  await check("Thiên lệch raid (>85%) → bias -0.08 + cảnh báo trong prompt", async () => {
+    ai._clearVerdictCacheForTest();
+    calls.length = 0;
+    replyContent = '{"classification":"raid","confidence":0.7,"reason":"x"}';
+    const rows = Array.from({ length: 10 }, () => ({ classification: "raid", punish: "ban" }));
+    const res = await ai.classifyViolation({
+      module: "spam",
+      count: 8,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: [`feedback bias test ${Math.random()}`],
+      recentSamples: rows,
+    });
+    assert.ok(calls[0].system.includes("TỰ SOI"), "prompt phải chứa phần tự soi");
+    assert.strictEqual(res.confidence, 0.7 + 0 - 0.08 + 0, "0.7 - 0.08 bias");
+  });
+
+  await check("Thiếu 5 mẫu → KHÔNG bias (không đảo hướng vì vài mẫu)", async () => {
+    ai._clearVerdictCacheForTest();
+    calls.length = 0;
+    replyContent = '{"classification":"raid","confidence":0.7,"reason":"x"}';
+    const res = await ai.classifyViolation({
+      module: "spam",
+      count: 8,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: [`few samples ${Math.random()}`],
+      recentSamples: [
+        { classification: "raid" },
+        { classification: "raid" },
+        { classification: "raid" },
+        { classification: "raid" },
+      ],
+    });
+    assert.ok(!calls[0].system.includes("TỰ SOI"), "ít mẫu thì không nhắc");
+    assert.strictEqual(res.confidence, 0.7);
+  });
+
+  await check("Không có recentSamples → hành vi như cũ (0 bias)", async () => {
+    ai._clearVerdictCacheForTest();
+    calls.length = 0;
+    replyContent = '{"classification":"raid","confidence":0.75,"reason":"x"}';
+    const res = await ai.classifyViolation({
+      module: "spam",
+      count: 8,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: [`no feedback ${Math.random()}`],
+    });
+    assert.strictEqual(res.confidence, 0.75);
+  });
+
   await check("Cache trả kết quả ĐÃ CALIB (không calib lại lần 2)", async () => {
     ai._clearVerdictCacheForTest();
     calls.length = 0;
