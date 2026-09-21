@@ -250,6 +250,17 @@ module.exports = function createAntiNukeLayer({ store, state, core, ai, raidInte
             return `${i + 1}. ${p.username || "?"} (acc ${age} ngày, avatar ${p.avatar ? "có" : "không"})`;
           })
           .join("\n");
+        // Bằng chứng engine: tuổi acc + avatar + username dạng máy tính từ profiles.
+        const ages = profiles
+          .map((p) => (p.createdAt ? Math.round((now - p.createdAt) / 86_400_000) : null))
+          .filter((a) => a != null);
+        const freshAccs = ages.filter((a) => a < 7).length;
+        const noAvatarN = profiles.filter((p) => !p.avatar).length;
+        const machineNamed = profiles.filter(
+          (p) =>
+            /^(user|member|raid|bot|nak|acc)/i.test(p.username || "") &&
+            /\d{2,}$/.test(p.username || ""),
+        ).length;
         const aiRes = await aiAnalyzeRaid(
           guild,
           "massJoin",
@@ -258,6 +269,16 @@ module.exports = function createAntiNukeLayer({ store, state, core, ai, raidInte
           moduleCfg.threshold,
           lines,
           undefined,
+          {
+            evidence: [
+              ages.length ? `Tuổi acc: ${freshAccs}/${ages.length} dưới 7 ngày` : null,
+              noAvatarN > 0 ? `Avatar mặc định: ${noAvatarN}/${profiles.length} tài khoản` : null,
+              machineNamed > 0
+                ? `Username dạng máy (tiền tố + đuôi số): ${machineNamed}/${profiles.length}`
+                : null,
+              `${fresh.length} tài khoản vào trong ${moduleCfg.windowSeconds}s (ngưỡng ${moduleCfg.threshold})`,
+            ],
+          },
         );
         if (aiRes && aiRes.offline !== true && typeof aiRes.coordinated === "boolean") {
           const aiWhy = aiRes.reasoning || aiRes.reason || "";

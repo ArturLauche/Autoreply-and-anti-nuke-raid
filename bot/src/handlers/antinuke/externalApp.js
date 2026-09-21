@@ -142,6 +142,20 @@ module.exports = function createAntiNukeLayer({ client, store, state, core, ai, 
       moduleCfg.threshold,
       profile,
       recentJoins,
+      {
+        evidence: [
+          appSus.score > 0
+            ? `Tên app đáng ngờ (điểm ${appSus.score}): ${appSus.parts.join(", ") || "không rõ lý do"}`
+            : null,
+          executorFresh ? "Acc kết nối app mới tạo (< 7 ngày)" : null,
+          joins5m >= 5
+            ? `Làn sóng thành viên mới: ${joins5m} người vào trong 5 phút gần nhất`
+            : null,
+          count >= moduleCfg.threshold
+            ? `${count} kết nối app trong ${moduleCfg.windowSeconds}s (vượt ngưỡng ${moduleCfg.threshold})`
+            : `Chỉ ${count} kết nối (dưới ngưỡng — xử lý vì nghi vấn điểm ${suspectScore})`,
+        ],
+      },
     );
     // AI khẳng định raid (tin cậy >= 0.6) → ban + khóa. AI kết luận KHÔNG raid
     // (tin cậy >= 0.5) → CHỈ GHI NHẬN, không phạt ai — trước đây ý kiến AI bị bỏ
@@ -458,6 +472,18 @@ module.exports = function createAntiNukeLayer({ client, store, state, core, ai, 
       moduleCfg.threshold,
       profile,
       joiners.get(message.guild.id)?.length ?? 0,
+      {
+        evidence: [
+          sameFingerprint ? `${sameFingerprint} tin giống hệt nhau (engine so fingerprint)` : null,
+          similar >= 2 ? `${similar} tin gần giống (fingerprint mờ)` : null,
+          hasEveryone ? "Có @everyone/@here" : null,
+          hasInvite ? "Có link mời Discord" : null,
+          hasShortlink ? "Có link rút gọn (mẫu scam phổ biến)" : null,
+          scamHits >= 2 ? `${scamHits} từ khóa scam trong nội dung` : null,
+          urlCount >= 3 ? `${urlCount} URL khác nhau (tràn link)` : null,
+          hasButtons ? "Tin có nút bấm/menu (mồi tương tác)" : null,
+        ],
+      },
     );
     // AI khẳng định raid (confidence >= 0.6) HOẶC AI offline mà tín hiệu nội dung quá rõ → raid.
     const aiOffline = !ai || ai.offline === true;
@@ -730,6 +756,13 @@ module.exports = function createAntiNukeLayer({ client, store, state, core, ai, 
       moduleCfg.threshold,
       clickProfile,
       joiners.get(interaction.guild.id)?.length ?? 0,
+      {
+        evidence: [
+          `${totalClicks} lượt bấm trong ${moduleCfg.windowSeconds}s`,
+          `${new Set(fresh.map((c) => c.userId)).size} người dùng khác nhau bấm cùng tin`,
+          sameUserClicks >= 4 ? `1 người bấm lặp ${sameUserClicks} lần (spam bấm)` : null,
+        ],
+      },
     );
     const clickAiRaid = clickAi?.isRaid === true && (clickAi?.confidence ?? 0) >= 0.6;
     const clickAiNotRaid =

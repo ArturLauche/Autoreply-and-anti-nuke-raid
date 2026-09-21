@@ -137,6 +137,31 @@ module.exports = function createAntiNukeLayer({ client, store, ai }) {
       return { reason: "chưa đủ tín hiệu", banned: false, confidence: 0 };
     }
 
+    // BẰNG CHỨNG engine từ cụm tài khoản — số liệu deterministic cho AI đối chiếu
+    // (tuổi acc, avatar, username dạng máy) thay vì tự đọc mô tả rồi phán đoán lại.
+    const agesDays = cluster
+      .map((m) => (m.createdAt ? Math.round((now - m.createdAt) / 86_400_000) : null))
+      .filter((a) => a != null);
+    const evidence = [];
+    if (agesDays.length > 0) {
+      const fresh = agesDays.filter((a) => a < 7).length;
+      evidence.push(
+        `Tuổi acc: ${fresh}/${agesDays.length} dưới 7 ngày (trung bình ${Math.round(agesDays.reduce((a, b) => a + b, 0) / agesDays.length)} ngày)`,
+      );
+    }
+    const noAvatar = cluster.filter((m) => !m.avatar).length;
+    if (cluster.length > 0 && noAvatar > 0)
+      evidence.push(`Avatar mặc định: ${noAvatar}/${cluster.length} tài khoản`);
+    const botLike = cluster.filter(
+      (m) =>
+        /^(user|member|raid|bot|nak|acc)/i.test(m.username || "") &&
+        /\d{2,}$/.test(m.username || ""),
+    ).length;
+    if (botLike > 0)
+      evidence.push(
+        `Username dạng máy (tiền tố + đuôi số): ${botLike}/${cluster.length} tài khoản`,
+      );
+
     // AI phân tích (best-effort): xác nhận phối hợp → tăng điểm nghi phạm hàng đầu.
     // Tầng AI là TÙY CHỌN: destructure phòng thủ để raidIntel không sập khi ai
     // thiếu/không có aiAnalyzeRaid (trước đây gọi thẳng → TypeError).
@@ -159,6 +184,7 @@ module.exports = function createAntiNukeLayer({ client, store, ai }) {
             auditExecutors.length
               ? `Người thực hiện gần đây: ${auditExecutors.map((e) => e.user.username).join(", ")}`
               : undefined,
+            { evidence },
           )
         : null;
     if (ai?.coordinated) {

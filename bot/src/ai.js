@@ -50,6 +50,14 @@ const KIRA_DEFAULT_MODEL = "mimo-v2.5";
 const TIMEOUT_MS = 12_000;
 /** Thời gian trừ đi mỗi lần chuyển provider (provider sau có ít thời gian hơn). */
 const FALLBACK_BUDGET_MS = 2_000;
+/**
+ * Deadline cho 3 hàm phân tích chống raid. Tầng gọi (antinuke/ai.js) race với
+ * setTimeout 6s — trước đây deadline chain 12s > 6s nên timeout thật bị cắt
+ * ở 6s nhưng provider đầu vẫn có thể chiếm trọn 6s rồi fallback không bao giờ
+ * kịp chạy → sát suất mất kết quả. Đồng bộ 6.5s (hơi trên race) để provider
+ * đầu fail nhanh thì fallback vẫn có dư địa trong cùng lượt gọi.
+ */
+const CLASSIFY_TIMEOUT_MS = 6_500;
 
 /**
  * Danh sách provider theo thứ tự ưu tiên. Được tính 1 lần khi module load —
@@ -213,16 +221,53 @@ async function chatOne(p, messages, { maxTokens, temperature, timeoutMs }) {
   return null;
 }
 
-/** Trích JSON object đầu tiên trong chuỗi trả lời của model. */
+/** Trích JSON object đầu tiên trong chuỗi trả lời của model.
+ * CỨNG HOÁ: model hay trả JSON bọc ```json ... ``` (dù prompt cấm) hoặc để dấu
+ * phẩy thừa trước `}` / `]` — cả hai từng khiến parse vỡ → "AI trả về không
+ * hợp lệ" → rơi về fallback individual/conf 0.5 dù model đã phân tích đúng.
+ * Lần lượt: parse thẳng → gỡ code fence → sửa phẩy thừa → chọn khối {...}
+ * ngoại vi đầu tiên (raw chứa nhiều khối, ví dụ JSON + giải thích).
+ */
 function extractJson(raw) {
   if (!raw) return null;
-  const m = raw.match(/\{[\s\S]*\}/);
-  if (!m) return null;
-  try {
-    return JSON.parse(m[0]);
-  } catch {
-    return null;
+  const candidates = [];
+  const trimmed = String(raw).trim();
+  candidates.push(trimmed);
+  // 1. Gỡ code fence ```json ... ``` / ``` ... ```
+  const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) candidates.push(fence[1].trim());
+  // 2. Khối {...} ngoại vi đầu tiên (thay vì regex tham lam bắt cả lời bình)
+  const first = trimmed.indexOf("{");
+  const last = trimmed.lastIndexOf("}");
+  if (first !== -1 && last > first) candidates.push(trimmed.slice(first, last + 1));
+  for (let c of candidates) {
+    // 3. Dấu phẩy thừa trước } hoặc ] — lỗi parse phổ biến nhất của model nhỏ
+    const fixed = c.replace(/,\s*([}\]])/g, "$1");
+    for (const attempt of new Set([fixed, c])) {
+      try {
+        const parsed = JSON.parse(attempt);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+      } catch {
+        // thử phương án kế
+      }
+    }
   }
+  return null;
+}
+
+/** Ghép bằng chứng deterministic (tín hiệu engine) thành phần prompt.
+ * Nhận mảng chuỗi đã chuẩn hoá; trả về rỗng khi không có gì — prompt khi đó
+ * không nhắc tới mục "BẰNG CHỨNG" để model không trông đợi dữ liệu không tồn tại.
+ */
+function evidenceBlock(evidence) {
+  const list = (evidence || [])
+    .filter(Boolean)
+    .map((e) => String(e).slice(0, 220))
+    .slice(0, 8);
+  if (list.length === 0) return "";
+  return `BẰNG CHỨNG ENGINE (tính bằng code deterministic — TIN CẬY CAO, ưu tiên đối chiếu):
+${list.map((e, i) => `${i + 1}. ${e}`).join("\n")}
+`;
 }
 
 /**
@@ -231,6 +276,9 @@ function extractJson(raw) {
  * knownThreats (tùy chọn): { keywords: [], phrases: [] } — mẫu scam mạng đã
  * được xác nhận, bot tự học từ các vụ raid thật (raidSamples → threat intel).
  * Truyền vào để AI đối chiếu, thay vì đoán chay.
+ * evidence (tùy chọn): mảng tín hiệu engine đã tính bằng code — trùng lặp nội
+ * dung, link rút gọn/@everyone trong mẫu, tuổi acc trung bình… Model suy luận
+ * trên dữ liệu thật thay vì đoán chay → chính xác + nhất quán hơn.
  */
 async function classifyViolation({
   module,
@@ -241,6 +289,7 @@ async function classifyViolation({
   recentJoins,
   memberCount,
   knownThreats = null,
+  evidence = [],
 }) {
   if (!aiAvailable())
     return {
@@ -258,18 +307,22 @@ async function classifyViolation({
     if (p) learned.push(`cụm: "${String(p).slice(0, 60)}"`);
   }
   const system = `Bạn là chuyên gia an ninh Discord. Phân loại một sự kiện vi phạm vừa xảy ra.
+QUY TRÌNH suy luận (làm theo thứ tự, KHÔNG nhảy cóc tới kết luận):
+1. Đọc BẰNG CHỨNG ENGINE (nếu có) — đây là tín hiệu tính bằng code, không phải phán đoán: đối chiếu từng mục với 3 lớp phân loại dưới đây.
+2. Xét 3 lớp: raid cần ≥2 tín hiệu độc lập; individual chỉ 1 người; benign là dương tính giả — phải loại trừ benign TRƯỚC khi tính điểm raid (checklist benign bên dưới).
+3. Chấm độ tin cậy đúng thang: ≥0.8 khi ≥2 tín hiệu độc lập; 0.5-0.7 khi 1 tín hiệu; <0.5 khi phải đoán.
 QUY TẮC PHÂN LOẠI (đọc kỹ trước khi kết luận):
 - "raid": tấn công CÓ TỔ CHỨC — cần ÍT NHẤT 2 tín hiệu độc lập: (a) nhiều tài khoản cùng lúc (đặc biệt acc mới/default avatar/tên dạng máy), (b) nội dung lặp lại giống hệt hoặc gần giống, (c) tin cực dài/giả blank gây nhiễu, (d) @everyone/@here + link lạ, (e) kết hợp làn sóng thành viên mới vào.
 - "individual": CHỈ 1 người vi phạm (spam nhanh vài tin, nói tục, caps) — không có tín hiệu (a)-(e) đi kèm.
 - "benign": DƯƠNG TÍNH GIẢ — kiểm tra checklist này TRƯỚC khi phạt: chat giveaway/event bình thường của server; bạn bè rủ nhau spam sticker/emoji; bot hợp pháp (nhạc, log, leveling) nhắn tin hệ thống; người dùng trích dẫn/lặp tin để thảo luận. Không có link lạ + không có làn sóng acc mới = benign.
-ĐỘ TIN CẬY: ≥0.8 chỉ khi có ≥2 tín hiệu độc lập; 0.5-0.7 khi chỉ 1 tín hiệu; <0.5 khi phải đoán.
 VÍ DỤ:
 - 8 tin "@everyone FREE NITRO discord-gift.ru" giống hệt từ 3 acc mới → {"classification":"raid","confidence":0.9}
 - 1 người gửi 7 tin "haha" liên tiếp, acc 2 năm → {"classification":"individual","confidence":0.85}
 - 5 người cùng spam sticker chào mừng tân binh → {"classification":"benign","confidence":0.8}
-Chỉ trả lời JSON thuần (không markdown, đúng key): {"classification": "raid|individual|benign", "confidence": 0-1, "reason": "ngắn gọn tiếng Việt", "suggestPunish": "warn|timeout|kick|ban|null"}`;
+Chỉ trả lời JSON thuần (không markdown, không code fence, đúng key): {"classification": "raid|individual|benign", "confidence": 0-1, "reason": "ngắn gọn tiếng Việt", "suggestPunish": "warn|timeout|kick|ban|null"}`;
   const user = `Sự kiện: module "${module}" — ${count} lần trong ${windowSeconds}s (ngưỡng ${threshold}).
-Thành viên mới gần đây: ${recentJoins ?? 0}. Thành viên server: ${memberCount ?? "?"}.${
+Thành viên mới gần đây: ${recentJoins ?? 0}. Thành viên server: ${memberCount ?? "?"}.
+${evidenceBlock(evidence)}${
     learned.length
       ? `\nMẫu scam mạng ĐÃ XÁC NHẬN (bot tự học từ các vụ raid thật — khớp mẫu này là tín hiệu raid mạnh):\n- ${learned.join("\n- ")}`
       : ""
@@ -281,7 +334,7 @@ ${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).join("\n") : "(không
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    { maxTokens: 280 },
+    { maxTokens: 280, timeoutMs: CLASSIFY_TIMEOUT_MS },
   );
   const parsed = extractJson(raw);
   if (!parsed || !["raid", "individual", "benign"].includes(parsed.classification)) {
@@ -306,6 +359,8 @@ ${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).join("\n") : "(không
 /**
  * Phân tích vụ raid: có phối hợp không + nghi phạm nguồn cơn.
  * Trả { coordinated, confidence, reasoning, sourceHint, offline }.
+ * evidence: bằng chứng engine (tuổi acc, nhịp vào, điểm nghi phạm…) — model
+ * đối chiếu dữ liệu thật thay vì đoán chay từ mô tả trừu tượng.
  */
 async function analyzeRaid({
   module,
@@ -314,6 +369,7 @@ async function analyzeRaid({
   threshold,
   clusterProfile,
   recentActions,
+  evidence = [],
 }) {
   if (!aiAvailable())
     return {
@@ -336,7 +392,7 @@ VÍ DỤ:
 - Chỉ 2 acc mới, không thêm tín hiệu → {"coordinated":null,"confidence":0.3}
 - Chỉ trả lời JSON thuần (không markdown): {"coordinated": true|false|null, "confidence": 0-1, "reasoning": "ngắn gọn tiếng Việt, nêu rõ bằng chứng (a)-(f)", "sourceHint": "username hoặc null"}`;
   const user = `Vụ: module "${module}" — ${count} lần trong ${windowSeconds}s (ngưỡng ${threshold}).
-Hồ sơ cụm tài khoản:
+${evidenceBlock(evidence)}Hồ sơ cụm tài khoản:
 ${clusterProfile || "(không có)"}
 Chuỗi hành vi gần đây:
 ${recentActions || "(không có)"}`;
@@ -345,7 +401,7 @@ ${recentActions || "(không có)"}`;
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    { maxTokens: 250 },
+    { maxTokens: 250, timeoutMs: CLASSIFY_TIMEOUT_MS },
   );
   const parsed = extractJson(raw);
   if (!parsed || typeof parsed.coordinated !== "boolean") {
@@ -369,6 +425,7 @@ ${recentActions || "(không có)"}`;
 /**
  * Xác định chuỗi kết nối external app có phải raid không.
  * Trả { isRaid, confidence, reason, offline }.
+ * evidence: bằng chứng engine (tuổi acc, tên app giả mạo, nhịp kết nối…).
  */
 async function analyzeExternalApp({
   count,
@@ -377,6 +434,7 @@ async function analyzeExternalApp({
   appProfile,
   recentJoins,
   memberCount,
+  evidence = [],
 }) {
   if (!aiAvailable())
     return { isRaid: null, confidence: 0, reason: "AI chưa cấu hình", offline: true };
@@ -402,14 +460,14 @@ VÍ DỤ:
 - 1 mod kết nối app nhạc quen thuộc, không spam → {"isRaid":false,"confidence":0.85}
 Chỉ trả lời JSON thuần (không markdown): {"isRaid": true|false|null, "confidence": 0-1, "reason": "ngắn gọn tiếng Việt"}`;
   const user = `Vụ: ${count} kết nối app ngoài trong ${windowSeconds}s (ngưỡng ${threshold}). Thành viên server: ${memberCount ?? "?"}. Thành viên mới gần đây: ${recentJoins ?? 0}.
-Hồ sơ kết nối / tin nhắn app:
+${evidenceBlock(evidence)}Hồ sơ kết nối / tin nhắn app:
 ${appProfile || "(không có)"}`;
   const raw = await chat(
     [
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    { maxTokens: 250 },
+    { maxTokens: 250, timeoutMs: CLASSIFY_TIMEOUT_MS },
   );
   const parsed = extractJson(raw);
   if (!parsed || (typeof parsed.isRaid !== "boolean" && parsed.isRaid !== null)) {

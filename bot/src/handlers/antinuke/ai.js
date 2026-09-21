@@ -26,6 +26,7 @@ module.exports = function createAntiNukeLayer({ state }) {
           recentJoins,
           memberCount: guild.memberCount ?? undefined,
           knownThreats: opts?.knownThreats ?? undefined,
+          evidence: opts?.evidence ?? undefined,
         }),
         new Promise((r) => setTimeout(() => r(null), 6000)),
       ]);
@@ -48,6 +49,7 @@ module.exports = function createAntiNukeLayer({ state }) {
     threshold,
     clusterProfile,
     recentActions,
+    opts = {},
   ) {
     try {
       if (!aiClient.aiAvailable()) return null;
@@ -59,6 +61,7 @@ module.exports = function createAntiNukeLayer({ state }) {
           threshold,
           clusterProfile: clusterProfile ? String(clusterProfile).slice(0, 1500) : undefined,
           recentActions: recentActions ? String(recentActions).slice(0, 1500) : undefined,
+          evidence: opts?.evidence ?? undefined,
         }),
         new Promise((r) => setTimeout(() => r(null), 6000)),
       ]);
@@ -80,6 +83,7 @@ module.exports = function createAntiNukeLayer({ state }) {
     threshold,
     appProfile,
     recentJoins,
+    opts = {},
   ) {
     try {
       if (!aiClient.aiAvailable()) return null;
@@ -91,6 +95,7 @@ module.exports = function createAntiNukeLayer({ state }) {
           appProfile: appProfile ? String(appProfile).slice(0, 1500) : undefined,
           recentJoins: recentJoins ?? undefined,
           memberCount: guild.memberCount ?? undefined,
+          evidence: opts?.evidence ?? undefined,
         }),
         new Promise((r) => setTimeout(() => r(null), 6000)),
       ]);

@@ -46,6 +46,40 @@ module.exports = function createAntiNukeLayer({
   }
 
   /**
+   * Dựng BẰNG CHỨNG deterministic từ mẫu tin nhắn + dữ liệu engine — đưa vào
+   * prompt để AI đối chiếu dữ liệu thật thay vì đoán chay ("huấn luyện" bằng
+   * tín hiệu engine đã tính sẵn, 0 token thêm). Tất cả mục đều là số/boolean
+   * đo được, không phải phán đoán chủ quan.
+   */
+  function messageEvidence(samples, { recentJoins, memberCount } = {}) {
+    const ev = [];
+    const list = (samples || []).filter(Boolean).map((s) => String(s));
+    if (list.length > 0) {
+      const uniq = new Set(list.map((s) => s.trim())).size;
+      if (list.length >= 3 && uniq === 1)
+        ev.push(`Nội dung ${list.length} mẫu tin GIỐNG HỆT nhau (engine so khớp chuỗi)`);
+      else if (uniq < list.length)
+        ev.push(`Nội dung trùng lặp cao: ${uniq}/${list.length} mẫu khác nhau`);
+      const linky = list.filter((s) => /https?:\/\/|discord\.gg\//i.test(s)).length;
+      if (linky > 0) ev.push(`${linky}/${list.length} mẫu chứa link (discord.gg hoặc http)`);
+      const shorteners = list.filter((s) =>
+        /bit\.ly|t\.me|tinyurl|rb\.gy|cutt\.ly|is\.gd/i.test(s),
+      ).length;
+      if (shorteners > 0) ev.push(`${shorteners} mẫu chứa link rút gọn (mẫu scam phổ biến)`);
+      const everyone = list.filter((s) => /@everyone|@here/i.test(s)).length;
+      if (everyone > 0) ev.push(`${everyone} mẫu tag @everyone/@here`);
+      const blank = list.filter((s) => s.replace(ZERO_WIDTH_RE, "").trim() === "").length;
+      if (blank > 0) ev.push(`${blank} mẫu là tin giả blank / ký tự ẩn`);
+      const long = list.filter((s) => s.length > LONG_MSG_LEN).length;
+      if (long > 0) ev.push(`${long} mẫu là tin cực dài (> ${LONG_MSG_LEN} ký tự)`);
+    }
+    if (recentJoins != null && recentJoins > 0)
+      ev.push(`Làn sóng thành viên mới: ${recentJoins} người vào gần đây (engine đếm)`);
+    if (memberCount != null) ev.push(`Quy mô server: ${memberCount} thành viên`);
+    return ev;
+  }
+
+  /**
    * Phát hiện các mẫu tin nhắn gây nhiễu: tin dài cực dài / lặp nội dung và
    * tin "giả blank" (chỉ khoảng trắng + ký tự ẩn). Dùng AI để phân biệt raid
    * (leo thang phạt trực tiếp + lockdown) với vi phạm cá nhân (nhiệt bình thường).
@@ -109,7 +143,13 @@ module.exports = function createAntiNukeLayer({
         cfg.windowSeconds,
         cfg.threshold,
         samples,
-        { knownThreats: learnedThreatContext() },
+        {
+          knownThreats: learnedThreatContext(),
+          evidence: messageEvidence(samples, {
+            recentJoins: state.state.joiners.get(message.guild.id)?.length,
+            memberCount: message.guild.memberCount ?? undefined,
+          }),
+        },
       );
       // Chỉ coi là raid/nuke khi AI phân loại là "raid" VÀ độ tin cậy đủ cao
       // (>= 0.6) — tránh nhận diện nhầm gây ban nhầm + khóa kênh oan.
@@ -268,7 +308,13 @@ module.exports = function createAntiNukeLayer({
       moduleCfg.windowSeconds,
       moduleCfg.threshold,
       samples,
-      { knownThreats: learnedThreatContext() },
+      {
+        knownThreats: learnedThreatContext(),
+        evidence: messageEvidence(samples, {
+          recentJoins: state.state.joiners.get(message.guild.id)?.length,
+          memberCount: message.guild.memberCount ?? undefined,
+        }),
+      },
     );
     // Chỉ leo thang thành raid (ban + lockdown) khi AI tự tin >= 0.6.
     const isRaid = ai?.classification === "raid" && (ai?.confidence ?? 0) >= 0.6;
