@@ -70,10 +70,16 @@ let aiInFlight = 0;
  */
 const VERDICT_TTL_MS = 90_000;
 const verdictCache = new Map();
-function verdictCacheKey(module, samples) {
+function verdictCacheKey(module, samples, extra = "") {
+  // BUG FIX (đợt 6): trước đây key chỉ hash module + samples — nhưng kết quả
+  // còn phụ thuộc evidence + count/window/threshold (ensemble vòng 5, feedback
+  // loop). Hai sự kiện cùng mẫu tin nhưng evidence khác nhau từng nhận NHẦM
+  // kết quả cache → ensemble chạy trên dữ liệu cũ. Key giờ bao trọn đầu vào.
   const joined = (samples || []).map((s) => String(s).slice(0, 120)).join("\u0001");
   let h = 5381;
-  for (let i = 0; i < joined.length; i++) h = ((h << 5) + h + joined.charCodeAt(i)) | 0;
+  for (const part of [joined, String(extra)]) {
+    for (let i = 0; i < part.length; i++) h = ((h << 5) + h + part.charCodeAt(i)) | 0;
+  }
   return `${module}:${h}`;
 }
 function verdictCacheGet(key) {
@@ -105,13 +111,19 @@ function heuristicSignalScore(evidence) {
   const text = (evidence || []).filter(Boolean).join(" ");
   if (!text) return 0;
   let s = 0;
+  // Tín hiệu tin nhắn (classifyViolation, externalApp content):
   if (/GIỐNG HỆT/.test(text)) s += 0.3; // nhiều mẫu tin nội dung giống hệt
   if (/trùng lặp cao/.test(text)) s += 0.2;
   if (/link rút gọn/.test(text)) s += 0.25; // bit.ly/t.me… mẫu scam phổ biến
   if (/@everyone|@here/.test(text)) s += 0.2;
   if (/giả blank|ký tự ẩn/.test(text)) s += 0.2;
   if (/cực dài/.test(text)) s += 0.15;
+  // Tín hiệu join/raid (analyzeRaid, externalApp — hồ sơ tài khoản):
   if (/Làn sóng thành viên mới/.test(text)) s += 0.2;
+  if (/Username dạng máy/.test(text)) s += 0.2;
+  if (/Avatar mặc định/.test(text)) s += 0.2;
+  if (/dưới 7 ngày/.test(text)) s += 0.25; // acc mới hàng loạt — tín hiệu mạnh
+  if (/Tên app đáng ngờ/.test(text)) s += 0.2;
   return Math.min(1, s);
 }
 
@@ -454,7 +466,11 @@ async function classifyViolation({
     .map((s) => sanitizeForPrompt(String(s).slice(0, 200)));
   // VERDICT CACHE: cùng module + cùng mẫu tin trong 90s → trả kết quả đã có,
   // không tốn lượt gọi (kiểm sau khi aiAvailable để offline vẫn trả đúng).
-  const cacheKey = verdictCacheKey(module, samples);
+  const cacheKey = verdictCacheKey(
+    module,
+    samples,
+    `${count}|${windowSeconds}|${threshold}|${(evidence || []).join("\u0001")}|${JSON.stringify(knownThreats)}|${recentSamples?.map((s) => s.classification).join("") ?? ""}`,
+  );
   const cached = verdictCacheGet(cacheKey);
   if (cached) return { ...cached, fromCache: true };
   // FEEDBACK LOOP: bias từ verdict quá khứ (thiên lệch raid/benign) + cảnh báo
@@ -646,9 +662,17 @@ ${recentActions || "(không có)"}`;
       offline: true,
     };
   }
+  // ENSEMBLE (đợt 6): evidence join/raid (tuổi acc, avatar, username máy) là dữ
+  // liệu engine — coordinated=false với tín hiệu mạnh không được tự tin quá 0.6,
+  // coordinated=true được floor khi engine thấy đủ tín hiệu.
+  const engineSignal = heuristicSignalScore(evidence);
+  let conf = Math.max(0, Math.min(1, Number(parsed.confidence) || 0.5));
+  if (parsed.coordinated === true && engineSignal >= 0.4)
+    conf = Math.max(conf, Math.min(0.95, 0.5 + engineSignal * 0.5));
+  else if (parsed.coordinated === false && engineSignal >= 0.4) conf = Math.min(conf, 0.6);
   return {
     coordinated: parsed.coordinated,
-    confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0.5)),
+    confidence: conf,
     reasoning: String(parsed.reasoning || "").slice(0, 400),
     sourceHint: parsed.sourceHint ? String(parsed.sourceHint).slice(0, 80) : null,
     offline: false,
@@ -706,11 +730,38 @@ ${appProfile ? sanitizeForPrompt(String(appProfile).slice(0, 1500)) : "(không c
   if (!parsed || (typeof parsed.isRaid !== "boolean" && parsed.isRaid !== null)) {
     return { isRaid: null, confidence: 0, reason: "AI trả về không hợp lệ", offline: true };
   }
+  // ENSEMBLE (đợt 6): evidence app raid (tên giả mạo, link rút gọn, @everyone,
+  // làn sóng acc mới) — cùng luật floor/trần như classifyViolation.
+  const engineSignal = heuristicSignalScore(evidence);
+  let conf = Math.max(0, Math.min(1, Number(parsed.confidence) || 0.5));
+  if (parsed.isRaid === true && engineSignal >= 0.4)
+    conf = Math.max(conf, Math.min(0.95, 0.5 + engineSignal * 0.5));
+  else if (parsed.isRaid === false && engineSignal >= 0.4) conf = Math.min(conf, 0.6);
   return {
     isRaid: parsed.isRaid,
-    confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0.5)),
+    confidence: conf,
     reason: String(parsed.reason || "").slice(0, 300),
     offline: false,
+  };
+}
+
+/**
+ * HEALTH STATS (đợt 6) — bức tranh sức khỏe AI tại thời điểm hiện tại, 0 token,
+ * 0 I/O: dùng cho selfDiagnose/self-health khi bot tự soi. Không lộ key.
+ */
+function aiStats() {
+  const chain = providerChain();
+  const now = Date.now();
+  return {
+    available: chain.length > 0,
+    providers: chain.map((p) => ({
+      label: p.label,
+      model: p.model,
+      inCooldown: providerInCooldown(p),
+    })),
+    verdictCacheSize: verdictCache.size,
+    callsLastMinute: aiCallTimestamps.filter((t) => now - t < 60_000).length,
+    inFlight: aiInFlight,
   };
 }
 
@@ -723,11 +774,13 @@ module.exports = {
   researchChat,
   researchAvailable,
   extractJson,
+  aiStats,
   /** Test hook: xoá verdict cache + rate guard giữa các case (convention _…ForTest). */
   _clearVerdictCacheForTest: () => {
     verdictCache.clear();
     aiCallTimestamps = [];
     aiInFlight = 0;
+    providerHealth.clear();
   },
 };
 

@@ -42,12 +42,16 @@ Object.defineProperty(process.env, "GROQ_API_KEY", {
   writable: true,
   enumerable: true,
 });
+// Nâng trần rate guard cho SUITE này: các section chạy hàng chục lượt gọi mock
+// liên tiếp trong 60s — trần mặc định 30/phút là HÀNH VI ĐANG TEST (test riêng
+// ở section rate guard đặt env tạm 30), không phải điều kiện nền.
+process.env.AI_MAX_PER_MINUTE = "1000";
 
 // ── Mock fetch: ghi lại mọi body gửi lên để kiểm tra prompt + timeout ──
 const calls = [];
 let replyContent = "{}";
-const realFetch = globalThis.fetch;
-globalThis.fetch = async (url, init) => {
+const realFetch = globalThis.fetch; // fetch THẬT — chỉ dùng ở cuối suite
+const suiteMock = async (url, init) => {
   const body = JSON.parse(init.body);
   calls.push({
     host: new URL(url).host,
@@ -62,6 +66,7 @@ globalThis.fetch = async (url, init) => {
     json: async () => ({ choices: [{ message: { content: replyContent } }] }),
   };
 };
+globalThis.fetch = suiteMock;
 
 const ai = require("../bot/src/ai.js");
 
@@ -319,32 +324,37 @@ function check(name, fn) {
     assert.ok(!calls[0].user.includes("\u200b"));
   });
 
-  await check("Rate guard 30 lượt/phút → trả null ngay, không gọi fetch", async () => {
-    calls.length = 0;
-    ai._clearVerdictCacheForTest();
-    replyContent = '{"classification":"raid","confidence":0.9,"reason":"x"}';
-    // Bơm 30 lượt gọi THẬT trong 60s: mỗi lượt dùng sample khác nhau để né
-    // verdict cache (cache chỉ chặn vụ lặp, rate guard đếm lượt gọi thật).
-    for (let i = 0; i < 30; i++) {
-      await ai.classifyViolation({
+  await check(
+    "Rate guard (đặt trần 3) → lượt quá trần trả null ngay, không gọi fetch",
+    async () => {
+      calls.length = 0;
+      ai._clearVerdictCacheForTest();
+      process.env.AI_MAX_PER_MINUTE = "3"; // đặt trần thấp riêng cho test này
+      replyContent = '{"classification":"raid","confidence":0.9,"reason":"x"}';
+      // Bơm 3 lượt gọi THẬT trong 60s: mỗi lượt dùng sample khác nhau để né
+      // verdict cache (cache chỉ chặn vụ lặp, rate guard đếm lượt gọi thật).
+      for (let i = 0; i < 3; i++) {
+        await ai.classifyViolation({
+          module: "spam",
+          count: 5,
+          windowSeconds: 10,
+          threshold: 5,
+          sampleMessages: [`lan goi thu ${i} - noi dung rieng`],
+        });
+      }
+      const before = calls.length;
+      const res = await ai.classifyViolation({
         module: "spam",
         count: 5,
         windowSeconds: 10,
         threshold: 5,
-        sampleMessages: [`lan goi thu ${i} - noi dung rieng`],
+        sampleMessages: ["lan goi thu 4 - vuoi rate limit"],
       });
-    }
-    const before = calls.length;
-    const res = await ai.classifyViolation({
-      module: "spam",
-      count: 5,
-      windowSeconds: 10,
-      threshold: 5,
-      sampleMessages: ["lan goi thu 31 - vuoi rate limit"],
-    });
-    assert.strictEqual(res.offline, true, "lượt thứ 31 bị rate guard chặn → offline fallback");
-    assert.strictEqual(calls.length, before, "không được gọi thêm fetch nào");
-  });
+      assert.strictEqual(res.offline, true, "lượt thứ 4 bị rate guard chặn → offline fallback");
+      assert.strictEqual(calls.length, before, "không được gọi thêm fetch nào");
+      process.env.AI_MAX_PER_MINUTE = "1000"; // khôi phục trần nền của suite
+    },
+  );
 
   console.log("── 5. Verdict cache (tránh gọi lặp cùng vụ) ──");
 
@@ -592,11 +602,102 @@ function check(name, fn) {
       });
       assert.strictEqual(res.offline, false, "cooldown là soft penalty — provider vẫn được thử");
       assert.strictEqual(res.classification, "raid");
-      globalThis.fetch = realFetch; // khôi phục mock gốc của suite
+      globalThis.fetch = suiteMock; // khôi phục mock của suite (fetch thật chỉ ở cuối)
     },
   );
 
-  console.log("── 7. Offline path (không key AI) ──");
+  console.log("── 7. Đợt 6: cache key trọn đầu vào + ensemble raid/app + aiStats ──");
+
+  await check("Cache key: cùng mẫu nhưng KHÁC count/evidence → KHÔNG nhận nhầm cache", async () => {
+    ai._clearVerdictCacheForTest();
+    calls.length = 0;
+    replyContent = '{"classification":"raid","confidence":0.6,"reason":"x"}';
+    const a = await ai.classifyViolation({
+      module: "spam",
+      count: 3,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: ["cùng mẫu tin"],
+    });
+    // Cùng mẫu tin nhưng count khác + evidence mạnh → nếu key cũ (chỉ module+samples)
+    // sẽ trả cache của a (conf 0.6) thay vì gọi lại và ensemble nâng lên.
+    const b = await ai.classifyViolation({
+      module: "spam",
+      count: 9,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: ["cùng mẫu tin"],
+      evidence: [
+        "Nội dung 6 mẫu tin GIỐNG HỆT nhau (engine so khớp chuỗi)",
+        "6 mẫu chứa link rút gọn (mẫu scam phổ biến)",
+        "6 mẫu tag @everyone/@here",
+      ],
+    });
+    assert.notStrictEqual(
+      b.confidence,
+      a.confidence,
+      "sự kiện khác đầu vào phải được phân tích riêng",
+    );
+    assert.strictEqual(b.confidence, 0.875, "ensemble phải áp dụng trên lượt gọi mới");
+  });
+
+  await check("Ensemble analyzeRaid: coordinated=false + tín hiệu mạnh → trần 0.6", async () => {
+    ai._clearVerdictCacheForTest();
+    calls.length = 0;
+    replyContent = '{"coordinated":false,"confidence":0.9,"reasoning":"bạn bè"}';
+    const res = await ai.analyzeRaid({
+      module: "massJoin",
+      count: 6,
+      windowSeconds: 10,
+      threshold: 5,
+      clusterProfile: "6 tài khoản",
+      recentActions: "không có",
+      evidence: [
+        "Username dạng máy (tiền tố + đuôi số): 5/6 tài khoản",
+        "Avatar mặc định: 5/6 tài khoản",
+        "Làn sóng thành viên mới: 8 người vào gần đây (engine đếm)",
+      ],
+    });
+    assert.strictEqual(res.coordinated, false);
+    assert.strictEqual(res.confidence, 0.6, "phủ quyết raid của engine mạnh không được tự tin 0.9");
+  });
+
+  await check(
+    "Ensemble analyzeExternalApp: isRaid=true + tín hiệu mạnh → floor confidence",
+    async () => {
+      ai._clearVerdictCacheForTest();
+      calls.length = 0;
+      replyContent = '{"isRaid":true,"confidence":0.5,"reason":"mờ"}';
+      const res = await ai.analyzeExternalApp({
+        count: 5,
+        windowSeconds: 10,
+        threshold: 5,
+        appProfile: "app gửi tin",
+        evidence: [
+          "6 mẫu chứa link rút gọn (mẫu scam phổ biến)",
+          "6 mẫu tag @everyone/@here",
+          "Làn sóng thành viên mới: 7 người vào gần đây (engine đếm)",
+        ],
+      });
+      assert.strictEqual(res.isRaid, true);
+      // engineSignal = 0.25 (rút gọn) + 0.2 (@everyone) + 0.2 (làn sóng) = 0.65
+      // floor = 0.5 + 0.65*0.5 = 0.825 — model chấm 0.5 phải được nâng lên.
+      assert.strictEqual(res.confidence, 0.825);
+    },
+  );
+
+  await check("aiStats(): trả providers + cache + rate không lộ key", async () => {
+    ai._clearVerdictCacheForTest();
+    const stats = ai.aiStats();
+    assert.strictEqual(stats.available, true);
+    assert.ok(Array.isArray(stats.providers) && stats.providers.length > 0);
+    assert.strictEqual(typeof stats.verdictCacheSize, "number");
+    assert.strictEqual(typeof stats.callsLastMinute, "number");
+    const json = JSON.stringify(stats);
+    assert.ok(!json.includes("fake-groq"), "không được lộ key provider");
+  });
+
+  console.log("── 8. Offline path (không key AI) ──");
 
   await check("Không cấu hình AI → fallback ổn định, không throw", async () => {
     // providerChain đọc env lúc module load — kiểm qua module riêng với env rỗng.
