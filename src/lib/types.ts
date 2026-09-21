@@ -126,6 +126,14 @@ export interface GuildData {
     lastReportAt: number | null;
     emergencyAlertEnabled: boolean;
     logPingEveryone: boolean;
+    welcomeEnabled: boolean;
+    welcomeChannelId: string | null;
+    welcomeMessage: string | null;
+    welcomeUseEmbed: boolean;
+    goodbyeEnabled: boolean;
+    goodbyeChannelId: string | null;
+    goodbyeMessage: string | null;
+    goodbyeUseEmbed: boolean;
     badWords: string[];
     heatEnabled: boolean;
     heatDecayPerMin: number;

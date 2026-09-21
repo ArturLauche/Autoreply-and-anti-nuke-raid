@@ -347,6 +347,15 @@ export const getBotConfig = query({
       dailyReportEnabled: guild.dailyReportEnabled ?? true,
       emergencyAlertEnabled: guild.emergencyAlertEnabled ?? true,
       logPingEveryone: guild.logPingEveryone ?? true,
+      // Welcome/Goodbye — bot gửi chào/tạm biệt theo config dashboard.
+      welcomeEnabled: guild.welcomeEnabled ?? false,
+      welcomeChannelId: guild.welcomeChannelId ?? null,
+      welcomeMessage: guild.welcomeMessage ?? null,
+      welcomeUseEmbed: guild.welcomeUseEmbed ?? true,
+      goodbyeEnabled: guild.goodbyeEnabled ?? false,
+      goodbyeChannelId: guild.goodbyeChannelId ?? null,
+      goodbyeMessage: guild.goodbyeMessage ?? null,
+      goodbyeUseEmbed: guild.goodbyeUseEmbed ?? true,
       restoreRolesEnabled: guild.restoreRolesEnabled ?? true,
       restoreChannelsEnabled: guild.restoreChannelsEnabled ?? true,
       restoreMessagesEnabled: guild.restoreMessagesEnabled ?? true,
@@ -452,6 +461,15 @@ export const updateSettings = mutation({
     dailyReportEnabled: v.optional(v.boolean()),
     emergencyAlertEnabled: v.optional(v.boolean()),
     logPingEveryone: v.optional(v.boolean()),
+    // Welcome/Goodbye — dashboard cấu hình chào thành viên mới / tạm biệt.
+    welcomeEnabled: v.optional(v.boolean()),
+    welcomeChannelId: v.optional(v.union(v.string(), v.null())),
+    welcomeMessage: v.optional(v.union(v.string(), v.null())),
+    welcomeUseEmbed: v.optional(v.boolean()),
+    goodbyeEnabled: v.optional(v.boolean()),
+    goodbyeChannelId: v.optional(v.union(v.string(), v.null())),
+    goodbyeMessage: v.optional(v.union(v.string(), v.null())),
+    goodbyeUseEmbed: v.optional(v.boolean()),
     badWords: v.optional(v.array(v.string())),
     heatEnabled: v.optional(v.boolean()),
     heatDecayPerMin: v.optional(v.number()),
@@ -505,6 +523,19 @@ export const updateSettings = mutation({
     if (args.emergencyAlertEnabled !== undefined)
       patch.emergencyAlertEnabled = args.emergencyAlertEnabled;
     if (args.logPingEveryone !== undefined) patch.logPingEveryone = args.logPingEveryone;
+    // Welcome/Goodbye: message cắt 1000 ký tự + nullable cho phép xoá nội dung.
+    if (args.welcomeEnabled !== undefined) patch.welcomeEnabled = args.welcomeEnabled;
+    if (args.welcomeChannelId !== undefined)
+      patch.welcomeChannelId = args.welcomeChannelId ?? undefined;
+    if (args.welcomeMessage !== undefined)
+      patch.welcomeMessage = args.welcomeMessage ? args.welcomeMessage.slice(0, 1000) : undefined;
+    if (args.welcomeUseEmbed !== undefined) patch.welcomeUseEmbed = args.welcomeUseEmbed;
+    if (args.goodbyeEnabled !== undefined) patch.goodbyeEnabled = args.goodbyeEnabled;
+    if (args.goodbyeChannelId !== undefined)
+      patch.goodbyeChannelId = args.goodbyeChannelId ?? undefined;
+    if (args.goodbyeMessage !== undefined)
+      patch.goodbyeMessage = args.goodbyeMessage ? args.goodbyeMessage.slice(0, 1000) : undefined;
+    if (args.goodbyeUseEmbed !== undefined) patch.goodbyeUseEmbed = args.goodbyeUseEmbed;
     if (args.raidHuntEnabled !== undefined) patch.raidHuntEnabled = args.raidHuntEnabled;
     if (args.raidHuntBanSuspects !== undefined)
       patch.raidHuntBanSuspects = args.raidHuntBanSuspects;

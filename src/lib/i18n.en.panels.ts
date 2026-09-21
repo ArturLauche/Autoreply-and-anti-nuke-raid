@@ -282,4 +282,28 @@ export const EN_PANELS: Record<string, string> = {
   '— hãy sửa lỗi rồi bấm "Gửi panel xác minh vào kênh" lại':
     '— fix the error, then press "Post the verification panel into the channel" again',
   "—": "—",
+  "Bật rồi phải chọn kênh gửi — hoặc tắt tính năng":
+    "Enabled but no channel selected — pick one or turn the feature off",
+  "Chào thành viên mới": "Greet new members",
+  "Tạm biệt thành viên rời server": "Farewell to leaving members",
+  "Gửi tin chào vào kênh bạn chọn khi có thành viên tham gia":
+    "Sends a greeting to the channel you choose when a member joins",
+  "Gửi tin tạm biệt khi có thành viên rời server":
+    "Sends a farewell when a member leaves the server",
+  "Kênh gửi": "Send channel",
+  "Nội dung": "Message body",
+  "Xem trước:": "Preview:",
+  "Gửi dạng embed": "Send as embed",
+  "Tắt = gửi tin nhắn thường (không khung)": "Off = send as a plain message (no frame)",
+  "Welcome & Goodbye": "Welcome & Goodbye",
+  "đang bật": "active",
+  "Đã bật": "Enabled",
+  "Đã tắt": "Disabled",
+  "Đã lưu": "Saved",
+  "Đã lưu — bot áp dụng trong vòng ~3 phút": "Saved — the bot applies it within ~3 minutes",
+  "Chào thành viên mới và tạm biệt thành viên rời server — kênh riêng, nội dung tùy chỉnh. Bot không chào bot, không ping @everyone từ nội dung tùy chỉnh (an toàn chống ping sập server).":
+    "Greet new members and farewell to leaving ones — separate channels, custom message body. The bot ignores bots and never pings @everyone from custom content (safe against mention spam).",
+  "Chào mừng {user} đã đến {server}! Bạn là thành viên thứ {count} 🎉":
+    "Welcome {user} to {server}! You are member #{count} 🎉",
+  "{user} đã rời {server}. Hẹn gặp lại!": "{user} left {server}. See you again!",
 };

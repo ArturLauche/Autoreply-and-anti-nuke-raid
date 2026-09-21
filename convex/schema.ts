@@ -109,6 +109,15 @@ export default defineSchema({
     emergencyAlertEnabled: v.optional(v.boolean()),
     /** AI Incident Report: cảnh báo khẩn có ping @everyone không. */
     logPingEveryone: v.optional(v.boolean()),
+    /** Welcome/Goodbye: chào thành viên mới + tạm biệt thành viên rời server. */
+    welcomeEnabled: v.optional(v.boolean()),
+    welcomeChannelId: v.optional(v.string()),
+    welcomeMessage: v.optional(v.string()),
+    welcomeUseEmbed: v.optional(v.boolean()),
+    goodbyeEnabled: v.optional(v.boolean()),
+    goodbyeChannelId: v.optional(v.string()),
+    goodbyeMessage: v.optional(v.string()),
+    goodbyeUseEmbed: v.optional(v.boolean()),
     badWords: v.optional(v.array(v.string())),
     heatEnabled: v.optional(v.boolean()),
     heatDecayPerMin: v.optional(v.number()),

@@ -317,9 +317,13 @@ client.on("interactionCreate", (i) =>
     } catch {}
   }),
 );
-client.on("guildMemberAdd", (m) =>
-  joinGate(client, m, store).catch((e) => console.error("[joinGate]", e.message)),
-);
+client.on("guildMemberAdd", (m) => {
+  joinGate(client, m, store).catch((e) => console.error("[joinGate]", e.message));
+  require("./handlers/welcome").handleWelcome(client, store, m);
+});
+client.on("guildMemberRemove", (m) => {
+  require("./handlers/welcome").handleGoodbye(client, store, m);
+});
 client.on("guildCreate", (guild) => {
   console.log(`[guildCreate] ${guild.name} (${guild.id}) — ${client.guilds.cache.size} server`);
   guildSync

@@ -518,4 +518,16 @@ export const DE_LABELS: Record<string, string> = {
   "{p}p trước": "vor {p}m",
   "{p} giờ trước": "vor {p} Std.",
   "{p} ngày trước": "vor {p} Tg.",
+  "đã ban": "verbannt",
+  "đã kick": "rausgeworfen",
+  "đã ghi nhận": "protokolliert",
+  "không thể ban": "Bann nicht möglich",
+  "không thể xử lý": "Konnte nicht handeln",
+  "không thể xử lý (thiếu quyền)": "Konnte nicht handeln (fehlende Berechtigungen)",
+  "không thể tạm khóa (thiếu quyền)": "Timeout nicht möglich (fehlende Berechtigungen)",
+  "đã cảnh báo qua DM": "per DM verwarnt",
+  "đã cảnh báo (không phạt)": "verwarnt (keine Strafe)",
+  "bỏ qua: vượt trần hành động tự động/phút (action budget)":
+    "übersprungen: Limit für automatische Aktionen/Minute überschritten",
+  "đã tạm khóa": "Timeout",
 };

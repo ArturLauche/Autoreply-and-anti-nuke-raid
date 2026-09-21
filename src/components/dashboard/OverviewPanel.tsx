@@ -79,13 +79,13 @@ function RecentEvents({ data }: { data: GuildData }) {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">
-                    {ANTINUKE_MODULE_META[e.module]?.label ?? e.module}
+                    {translate(ANTINUKE_MODULE_META[e.module]?.label ?? e.module)}
                     <span className="ml-2 text-xs font-normal text-muted-foreground">
                       {e.count} {translate("lượt")} · {e.windowSeconds}s
                     </span>
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {e.action}
+                    {translate(e.action)}
                     {e.executorName
                       ? ` · ${translate("thủ phạm")} ${e.executorName}`
                       : e.executorId

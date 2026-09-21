@@ -13,6 +13,7 @@ import {
   Loader2,
   Lock,
   Megaphone,
+  PartyPopper,
   Settings,
   ShieldAlert,
   ShieldCheck,
@@ -46,6 +47,7 @@ const ModerationPanel = lazy(() => import("../components/dashboard/ModerationPan
 const BackupPanel = lazy(() => import("../components/dashboard/BackupPanel"));
 const ModActionsPanel = lazy(() => import("../components/dashboard/ModActionsPanel"));
 const JoinGatePanel = lazy(() => import("../components/dashboard/JoinGatePanel"));
+const WelcomePanel = lazy(() => import("../components/dashboard/WelcomePanel"));
 const SettingsPanel = lazy(() => import("../components/dashboard/SettingsPanel"));
 const WhitelistPanel = lazy(() => import("../components/dashboard/WhitelistPanel"));
 const VerifyPanel = lazy(() => import("../components/dashboard/VerifyPanel"));
@@ -58,6 +60,7 @@ type SectionKey =
   | "automod"
   | "moderation"
   | "joingate"
+  | "welcome"
   | "altdetect"
   | "antinuke"
   | "externalapp"
@@ -74,6 +77,7 @@ const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof LayoutDashboard 
   { key: "automod", label: "Auto-mod", icon: ShieldCheck },
   { key: "moderation", label: "Moderation", icon: Megaphone },
   { key: "joingate", label: "Join Gate", icon: DoorOpen },
+  { key: "welcome", label: "Welcome & Goodbye", icon: PartyPopper },
   { key: "altdetect", label: "Alt Detection", icon: UserX },
   { key: "antinuke", label: "Chống nuke / raid", icon: ShieldAlert },
   { key: "externalapp", label: "Raid external app", icon: AppWindow },
@@ -331,6 +335,7 @@ export default function GuildPage() {
                   {section === "automod" && <AutoModPanel data={data} />}
                   {section === "moderation" && <ModerationPanel data={data} />}
                   {section === "joingate" && <JoinGatePanel data={data} />}
+                  {section === "welcome" && <WelcomePanel data={data} />}
                   {section === "altdetect" && <AltDetectionPanel data={data} />}
                   {section === "antinuke" && <AntiNukePanel data={data} />}
                   {section === "externalapp" && <ExternalAppRaidsPanel data={data} />}

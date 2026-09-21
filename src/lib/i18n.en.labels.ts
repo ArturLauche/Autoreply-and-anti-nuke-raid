@@ -522,4 +522,16 @@ export const EN_LABELS: Record<string, string> = {
   "{p}p trước": "{p}m ago",
   "{p} giờ trước": "{p}h ago",
   "{p} ngày trước": "{p}d ago",
+  "đã ban": "banned",
+  "đã kick": "kicked",
+  "đã ghi nhận": "logged",
+  "không thể ban": "could not ban",
+  "không thể xử lý": "could not act",
+  "không thể xử lý (thiếu quyền)": "could not act (missing permissions)",
+  "không thể tạm khóa (thiếu quyền)": "could not timeout (missing permissions)",
+  "đã cảnh báo qua DM": "warned via DM",
+  "đã cảnh báo (không phạt)": "warned (no punishment)",
+  "bỏ qua: vượt trần hành động tự động/phút (action budget)":
+    "skipped: exceeded the per-minute automated action budget",
+  "đã tạm khóa": "timed out",
 };

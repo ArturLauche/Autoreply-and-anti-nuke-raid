@@ -282,4 +282,29 @@ export const DE_PANELS: Record<string, string> = {
   '— hãy sửa lỗi rồi bấm "Gửi panel xác minh vào kênh" lại':
     "— behebe den Fehler und klicke erneut auf „Verifizierungspanel in den Kanal posten“",
   "—": "—",
+  "Bật rồi phải chọn kênh gửi — hoặc tắt tính năng":
+    "Aktiviert, aber kein Kanal gewählt — Kanal wählen oder Funktion ausschalten",
+  "Chào thành viên mới": "Neue Mitglieder begrüßen",
+  "Tạm biệt thành viên rời server": "Verabschiedung für gehende Mitglieder",
+  "Gửi tin chào vào kênh bạn chọn khi có thành viên tham gia":
+    "Sendet eine Begrüßung in den gewählten Kanal, wenn ein Mitglied beitritt",
+  "Gửi tin tạm biệt khi có thành viên rời server":
+    "Sendet eine Verabschiedung, wenn ein Mitglied den Server verlässt",
+  "Kênh gửi": "Zielkanal",
+  "Nội dung": "Nachricht",
+  "Xem trước:": "Vorschau:",
+  "Gửi dạng embed": "Als Embed senden",
+  "Tắt = gửi tin nhắn thường (không khung)": "Aus = als normale Nachricht senden (ohne Rahmen)",
+  "Welcome & Goodbye": "Welcome & Goodbye",
+  "đang bật": "aktiv",
+  "Đã bật": "Aktiviert",
+  "Đã tắt": "Deaktiviert",
+  "Đã lưu": "Gespeichert",
+  "Đã lưu — bot áp dụng trong vòng ~3 phút":
+    "Gespeichert — der Bot wendet es innerhalb von ~3 Minuten an",
+  "Chào thành viên mới và tạm biệt thành viên rời server — kênh riêng, nội dung tùy chỉnh. Bot không chào bot, không ping @everyone từ nội dung tùy chỉnh (an toàn chống ping sập server).":
+    "Begrüße neue Mitglieder und verabschiede gehende — eigene Kanäle, eigener Text. Der Bot ignoriert Bots und pinget nie @everyone aus eigenem Text (sicher gegen Ping-Spam).",
+  "Chào mừng {user} đã đến {server}! Bạn là thành viên thứ {count} 🎉":
+    "Willkommen {user} auf {server}! Du bist Mitglied #{count} 🎉",
+  "{user} đã rời {server}. Hẹn gặp lại!": "{user} hat {server} verlassen. Bis bald!",
 };
