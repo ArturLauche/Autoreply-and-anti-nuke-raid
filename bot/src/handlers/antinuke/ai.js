@@ -117,6 +117,7 @@ module.exports = function createAntiNukeLayer({ state }) {
           recentJoins: recentJoins ?? undefined,
           memberCount: guild.memberCount ?? undefined,
           evidence: opts?.evidence ?? undefined,
+          knownThreats: opts?.knownThreats ?? undefined,
         }),
         new Promise((r) => setTimeout(() => r(null), 6000)),
       ]);

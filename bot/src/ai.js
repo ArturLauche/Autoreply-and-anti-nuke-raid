@@ -539,16 +539,25 @@ ${samples.length ? samples.map((s, i) => `${i + 1}. ${s}`).join("\n") : "(không
     0.05,
     Math.min(0.99, calibrateConfidence(parsed.confidence, learnedHit) + (fb.bias || 0)),
   );
-  if (parsed.classification === "raid" && engineSignal >= 0.4)
+  // MINH BẠCH (đợt 7): khi ensemble can thiệp, reason ghi rõ để log mod nhìn
+  // thấy tại sao confidence khác với phán đoán thuần của model.
+  let engineNote = "";
+  if (parsed.classification === "raid" && engineSignal >= 0.4) {
     conf = Math.max(conf, Math.min(0.95, 0.5 + engineSignal * 0.5));
-  else if (parsed.classification === "benign" && engineSignal >= 0.4) conf = Math.min(conf, 0.6);
+    if (conf > parsed.confidence) engineNote = " · engine tín hiệu mạnh";
+  } else if (parsed.classification === "benign" && engineSignal >= 0.4) {
+    conf = Math.min(conf, 0.6);
+    engineNote = " · engine thấy tín hiệu nghi vấn";
+  }
   // TỰ KIỂM NHẤT QUÁN (vòng 5c): suggestPunish phải tương thích classification —
   // model trả "benign" kèm "ban" là mâu thuẫn → bỏ đề xuất (tầng gọi tự chọn).
   const punishOk = ["warn", "timeout", "kick", "ban", null].includes(parsed.suggestPunish);
   const result = {
     classification: parsed.classification,
     confidence: conf,
-    reason: learnedHit ? `${baseReason.slice(0, 240)} · khớp mẫu đã học`.trim() : baseReason,
+    reason: learnedHit
+      ? `${baseReason.slice(0, 240)} · khớp mẫu đã học`.trim()
+      : `${baseReason}${engineNote}`.trim().slice(0, 300),
     suggestPunish:
       parsed.classification === "benign" && parsed.suggestPunish
         ? null
@@ -662,18 +671,22 @@ ${recentActions || "(không có)"}`;
       offline: true,
     };
   }
-  // ENSEMBLE (đợt 6): evidence join/raid (tuổi acc, avatar, username máy) là dữ
-  // liệu engine — coordinated=false với tín hiệu mạnh không được tự tin quá 0.6,
-  // coordinated=true được floor khi engine thấy đủ tín hiệu.
+  // ENSEMBLE (đợt 6+7): evidence join/raid + minh bạch lý do can thiệp vào
+  // reasoning để log mod hiểu vì sao confidence khác phán đoán thuần model.
   const engineSignal = heuristicSignalScore(evidence);
   let conf = Math.max(0, Math.min(1, Number(parsed.confidence) || 0.5));
-  if (parsed.coordinated === true && engineSignal >= 0.4)
+  let raidEngineNote = "";
+  if (parsed.coordinated === true && engineSignal >= 0.4) {
     conf = Math.max(conf, Math.min(0.95, 0.5 + engineSignal * 0.5));
-  else if (parsed.coordinated === false && engineSignal >= 0.4) conf = Math.min(conf, 0.6);
+    if (conf > parsed.confidence) raidEngineNote = " · engine tín hiệu mạnh";
+  } else if (parsed.coordinated === false && engineSignal >= 0.4) {
+    conf = Math.min(conf, 0.6);
+    raidEngineNote = " · engine thấy tín hiệu nghi vấn";
+  }
   return {
     coordinated: parsed.coordinated,
     confidence: conf,
-    reasoning: String(parsed.reasoning || "").slice(0, 400),
+    reasoning: `${String(parsed.reasoning || "").slice(0, 380)}${raidEngineNote}`.trim(),
     sourceHint: parsed.sourceHint ? String(parsed.sourceHint).slice(0, 80) : null,
     offline: false,
   };
@@ -692,6 +705,7 @@ async function analyzeExternalApp({
   recentJoins,
   memberCount,
   evidence = [],
+  knownThreats = null,
 }) {
   if (!aiAvailable())
     return { isRaid: null, confidence: 0, reason: "AI chưa cấu hình", offline: true };
@@ -716,8 +730,22 @@ VÍ DỤ:
 - 4 acc mới cùng kết nối app "Free Nitro Premium" + spam @everyone link lạ → {"isRaid":true,"confidence":0.9}
 - 1 mod kết nối app nhạc quen thuộc, không spam → {"isRaid":false,"confidence":0.85}
 Chỉ trả lời JSON thuần (không markdown): {"isRaid": true|false|null, "confidence": 0-1, "reason": "ngắn gọn tiếng Việt"}`;
+  // Threat intel đã học (đợt 7): mẫu scam mạng bot tự ghi nhận — nạp vào prompt
+  // để AI đối chiếu + calib engine so khớp cục bộ như classifyViolation.
+  const appLearned = [];
+  for (const k of (knownThreats?.keywords || []).slice(0, 12)) {
+    if (k) appLearned.push(`từ khóa: ${String(k).slice(0, 40)}`);
+  }
+  for (const p of (knownThreats?.phrases || []).slice(0, 8)) {
+    if (p) appLearned.push(`cụm: "${String(p).slice(0, 60)}"`);
+  }
   const user = `Vụ: ${count} kết nối app ngoài trong ${windowSeconds}s (ngưỡng ${threshold}). Thành viên server: ${memberCount ?? "?"}. Thành viên mới gần đây: ${recentJoins ?? 0}.
-${evidenceBlock(evidence)}Hồ sơ kết nối / tin nhắn app:
+${evidenceBlock(evidence)}${
+    appLearned.length
+      ? `\nMẫu scam mạng ĐÃ XÁC NHẬN (khớp mẫu là tín hiệu raid mạnh):\n- ${appLearned.join("\n- ")}`
+      : ""
+  }
+Hồ sơ kết nối / tin nhắn app:
 ${appProfile ? sanitizeForPrompt(String(appProfile).slice(0, 1500)) : "(không có)"}`;
   const raw = await chat(
     [
@@ -730,17 +758,29 @@ ${appProfile ? sanitizeForPrompt(String(appProfile).slice(0, 1500)) : "(không c
   if (!parsed || (typeof parsed.isRaid !== "boolean" && parsed.isRaid !== null)) {
     return { isRaid: null, confidence: 0, reason: "AI trả về không hợp lệ", offline: true };
   }
-  // ENSEMBLE (đợt 6): evidence app raid (tên giả mạo, link rút gọn, @everyone,
-  // làn sóng acc mới) — cùng luật floor/trần như classifyViolation.
+  // ENSEMBLE (đợt 6+7): evidence app raid + khớp mẫu scam đã học (engine so
+  // chuỗi cục bộ 0 token) — cùng luật floor/trần như classifyViolation.
   const engineSignal = heuristicSignalScore(evidence);
+  const appLearnedHit = learnedMatchInSamples(
+    [String(appProfile || "").slice(0, 400)],
+    knownThreats,
+  );
   let conf = Math.max(0, Math.min(1, Number(parsed.confidence) || 0.5));
-  if (parsed.isRaid === true && engineSignal >= 0.4)
-    conf = Math.max(conf, Math.min(0.95, 0.5 + engineSignal * 0.5));
-  else if (parsed.isRaid === false && engineSignal >= 0.4) conf = Math.min(conf, 0.6);
+  if (parsed.isRaid === true && (engineSignal >= 0.4 || appLearnedHit))
+    conf = Math.max(
+      conf,
+      Math.min(0.95, 0.5 + Math.max(engineSignal, appLearnedHit ? 0.4 : 0) * 0.5),
+    );
+  else if (parsed.isRaid === false && (engineSignal >= 0.4 || appLearnedHit))
+    conf = Math.min(conf, 0.6);
+  const baseAppReason = String(parsed.reason || "").slice(0, 300);
   return {
     isRaid: parsed.isRaid,
     confidence: conf,
-    reason: String(parsed.reason || "").slice(0, 300),
+    reason:
+      appLearnedHit && parsed.isRaid === true
+        ? `${baseAppReason.slice(0, 240)} · khớp mẫu đã học`.trim()
+        : baseAppReason,
     offline: false,
   };
 }

@@ -11,6 +11,21 @@ const { sendCaseLog, CASE_LABEL } = require("../../caseLog");
 const { isLocked } = require("../../lockdown");
 const { cleanupMessages } = require("../../moduleActions");
 const { emergencyRaidAlert } = require("../incidentReport");
+// Threat intel đã học (đợt 7): mẫu scam mạng bot tự ghi nhận — nạp cho AI xác
+// định app raid đối chiếu mẫu đã xác nhận thay vì chỉ đoán trên tín hiệu lẻ.
+const { getLearnedThreats } = require("../filters");
+
+function learnedThreatContext() {
+  try {
+    const t = typeof getLearnedThreats === "function" ? getLearnedThreats() || {} : {};
+    const keywords = (t.keywords || []).filter(Boolean);
+    const phrases = (t.phrases || []).filter(Boolean);
+    if (keywords.length === 0 && phrases.length === 0) return undefined;
+    return { keywords, phrases };
+  } catch {
+    return undefined;
+  }
+}
 const {
   appNameSuspicion,
   normalizeFuzzy,
@@ -143,6 +158,7 @@ module.exports = function createAntiNukeLayer({ client, store, state, core, ai, 
       profile,
       recentJoins,
       {
+        knownThreats: learnedThreatContext(),
         evidence: [
           appSus.score > 0
             ? `Tên app đáng ngờ (điểm ${appSus.score}): ${appSus.parts.join(", ") || "không rõ lý do"}`

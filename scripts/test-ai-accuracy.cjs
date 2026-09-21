@@ -697,7 +697,76 @@ function check(name, fn) {
     assert.ok(!json.includes("fake-groq"), "không được lộ key provider");
   });
 
-  console.log("── 8. Offline path (không key AI) ──");
+  console.log("── 8. Đợt 7: knownThreats cho app raid + reason minh bạch ensemble ──");
+
+  await check(
+    "analyzeExternalApp nhận knownThreats → nạp vào prompt + calib khi khớp",
+    async () => {
+      ai._clearVerdictCacheForTest();
+      calls.length = 0;
+      replyContent = '{"isRaid":true,"confidence":0.5,"reason":"mờ"}';
+      const res = await ai.analyzeExternalApp({
+        count: 4,
+        windowSeconds: 10,
+        threshold: 4,
+        appProfile: "Free Nitro Bot:\n1. claim gift tại bit.ly/free-nitro-x9",
+        evidence: [],
+        knownThreats: { keywords: ["nitro"], phrases: [] },
+      });
+      assert.ok(
+        calls[0].user.includes("Mẫu scam mạng ĐÃ XÁC NHẬN"),
+        "prompt phải chứa mục mẫu scam đã học",
+      );
+      assert.strictEqual(res.isRaid, true);
+      // appLearnedHit → floor 0.5 + 0.4*0.5 = 0.7 — model chấm 0.5 phải được nâng.
+      assert.strictEqual(res.confidence, 0.7);
+      assert.ok(res.reason.includes("khớp mẫu đã học"), "reason phải ghi rõ khớp mẫu");
+    },
+  );
+
+  await check(
+    "Ensemble can thiệp → reason ghi chú · engine tín hiệu mạnh (minh bạch)",
+    async () => {
+      ai._clearVerdictCacheForTest();
+      calls.length = 0;
+      replyContent = '{"classification":"raid","confidence":0.45,"reason":"model mờ"}';
+      const res = await ai.classifyViolation({
+        module: "spam",
+        count: 8,
+        windowSeconds: 10,
+        threshold: 5,
+        sampleMessages: ["@everyone free nitro bit.ly/xyz"],
+        evidence: [
+          "Nội dung 6 mẫu tin GIỐNG HỆT nhau (engine so khớp chuỗi)",
+          "6 mẫu chứa link rút gọn (mẫu scam phổ biến)",
+          "6 mẫu tag @everyone/@here",
+        ],
+      });
+      assert.strictEqual(res.confidence, 0.875);
+      assert.ok(
+        res.reason.includes("engine tín hiệu mạnh"),
+        `reason phải ghi chú can thiệp — thực tế: "${res.reason}"`,
+      );
+    },
+  );
+
+  await check("Model chấm đủ cao → KHÔNG thêm chú thích engine (không noise)", async () => {
+    ai._clearVerdictCacheForTest();
+    calls.length = 0;
+    replyContent = '{"classification":"raid","confidence":0.9,"reason":"rõ"}';
+    const res = await ai.classifyViolation({
+      module: "spam",
+      count: 8,
+      windowSeconds: 10,
+      threshold: 5,
+      sampleMessages: [`chua can thiep ${Math.random()}`],
+      evidence: ["Nội dung 6 mẫu tin GIỐNG HỆT nhau (engine so khớp chuỗi)"],
+    });
+    assert.strictEqual(res.confidence, 0.9);
+    assert.ok(!res.reason.includes("engine"), "không can thiệp thì không ghi chú");
+  });
+
+  console.log("── 9. Offline path (không key AI) ──");
 
   await check("Không cấu hình AI → fallback ổn định, không throw", async () => {
     // providerChain đọc env lúc module load — kiểm qua module riêng với env rỗng.
