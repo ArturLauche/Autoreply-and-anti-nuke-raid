@@ -99,6 +99,7 @@ async function handleHelp(client, message) {
         "```",
         "!help                  - danh sách lệnh",
         "!ping                  - kiểm tra độ trễ",
+        "!health                - sức khỏe AI (mod/admin): provider, cache, giới hạn gọi",
         "!prefix                - xem prefix",
         "!prefix set ^          - đổi prefix thành ^",
         "!autoreply list        - danh sách rule",
@@ -150,6 +151,50 @@ async function handlePing(client, message) {
   const sent = await message.reply("🏓 Đang đo độ trễ…");
   const ws = Math.round(client.ws.ping);
   await sent.edit(`🏓 Pong! **${ws}ms** (WebSocket)`);
+}
+
+/** !health — sức khỏe AI (mod/admin): provider, cooldown, cache, giới hạn gọi.
+ * Dùng aiStats() thuần đọc (0 token/0 I/O) — luôn trả lời nhanh. */
+async function handleHealth(client, message, _args, config) {
+  const ai = require("../ai");
+  const ws = Math.round(client.ws.ping);
+  const { canManageWithConfig } = require("../util");
+  if (!canManageWithConfig(message.member, config)) {
+    return message.reply("⚠️ Lệnh này dành cho mod/admin.");
+  }
+  const stats = typeof ai.aiStats === "function" ? ai.aiStats() : null;
+  const { EmbedBuilder, Colors } = require("discord.js");
+  const embed = new EmbedBuilder()
+    .setColor(Colors.Aqua)
+    .setTitle("🩺 Sức khỏe Protogon")
+    .setDescription(`WebSocket: **${ws}ms**`);
+  if (!stats) {
+    embed.addFields({ name: "AI", value: "không có dữ liệu (bản bot cũ)", inline: false });
+  } else if (!stats.available) {
+    embed.addFields({
+      name: "AI",
+      value:
+        "⚠️ Chưa cấu hình key nào — bot chạy theo điểm nghi vấn deterministic (an toàn, không AI)",
+      inline: false,
+    });
+  } else {
+    embed.addFields(
+      {
+        name: "Providers",
+        value: stats.providers
+          .map((p) => `• ${p.label} (${p.model})${p.inCooldown ? " ⚠️ cooldown" : " ✅"}`)
+          .join("\n")
+          .slice(0, 1024),
+        inline: false,
+      },
+      {
+        name: "Hoạt động",
+        value: `Cache verdict: **${stats.verdictCacheSize}** mục · Gọi/phút: **${stats.callsLastMinute}** · Đang chạy: **${stats.inFlight}**`,
+        inline: false,
+      },
+    );
+  }
+  return message.reply({ embeds: [embed] });
 }
 
 async function handlePrefix(client, message, args, config, store) {
@@ -1141,6 +1186,7 @@ async function handleVerify(client, message, args, config, store) {
 module.exports = {
   help: handleHelp,
   ping: handlePing,
+  health: handleHealth,
   report: handleReport,
   research: handleResearch,
   prefix: handlePrefix,

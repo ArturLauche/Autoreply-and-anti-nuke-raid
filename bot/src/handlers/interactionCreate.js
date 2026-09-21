@@ -327,6 +327,45 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       return interaction.reply({ content: `🏓 Pong! **${ws}ms** (WebSocket)`, ephemeral: true });
     }
 
+    case "health": {
+      // Sức khỏe AI (mod/admin): bức tranh trạng thái hệ AI chống raid — không
+      // lộ key. aiStats() là hàm thuần đọc (0 token, 0 I/O) nên lệnh luôn trả
+      // lời nhanh, kể cả khi mọi provider đang sập.
+      if (!canManageWithConfig(interaction.member, await store.getConfig(guild.id)))
+        return needPerm(interaction);
+      const ai = require("../ai");
+      const ws = Math.round(client.ws.ping);
+      const stats = typeof ai.aiStats === "function" ? ai.aiStats() : null;
+      const embed = new EmbedBuilder()
+        .setColor(Colors.Aqua)
+        .setTitle("🩺 Sức khỏe Protogon")
+        .setDescription(`WebSocket: **${ws}ms**`);
+      if (!stats) {
+        embed.addFields({ name: "AI", value: "không có dữ liệu (bản bot cũ)", inline: false });
+      } else if (!stats.available) {
+        embed.addFields({
+          name: "AI",
+          value:
+            "⚠️ Chưa cấu hình key nào — bot chạy theo điểm nghi vấn deterministic (an toàn, không AI)",
+          inline: false,
+        });
+      } else {
+        const providerLines = stats.providers.map((p) => {
+          const cooldown = p.inCooldown ? " ⚠️ đang cooldown (fail liên tiếp)" : " ✅";
+          return `• ${p.label} (${p.model})${cooldown}`;
+        });
+        embed.addFields(
+          { name: "Providers", value: providerLines.join("\n").slice(0, 1024), inline: false },
+          {
+            name: "Hoạt động",
+            value: `Cache verdict: **${stats.verdictCacheSize}** mục · Gọi/phút: **${stats.callsLastMinute}** · Đang chạy: **${stats.inFlight}**`,
+            inline: false,
+          },
+        );
+      }
+      return interaction.reply({ embeds: [embed], ephemeral: true });
+    }
+
     case "help": {
       const embed = new EmbedBuilder()
         .setColor(Colors.Aqua)
@@ -344,7 +383,7 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
             "**Học tập** — `/research status` (tiến độ), `/research learn` (học ngay — mod/admin), `/research history` (10 lượt gần nhất)",
             "**Xác minh** — `/verify setup` (kênh + role), `/verify toggle`",
             "**Cấu hình** — `/setup log-channel`, `/setup mod-role`, `/setup admin-role`, `/prefix set`",
-            "**Khác** — `/ping`",
+            "**Khác** — `/ping`, `/health` (sức khỏe AI — mod/admin)",
           ].join("\n"),
         );
       return interaction.reply({ embeds: [embed], ephemeral: true });

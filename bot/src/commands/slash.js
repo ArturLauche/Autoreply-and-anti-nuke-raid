@@ -9,6 +9,10 @@ const commands = [
     description: "Kiểm tra độ trễ của bot",
   },
   {
+    name: "health",
+    description: "Xem sức khỏe AI: provider, cache, giới hạn gọi (mod/admin)",
+  },
+  {
     name: "prefix",
     description: "Xem hoặc đổi prefix lệnh text",
     options: [
