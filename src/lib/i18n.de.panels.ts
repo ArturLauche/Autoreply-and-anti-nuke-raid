@@ -10,17 +10,11 @@ export const DE_PANELS: Record<string, string> = {
   "Bot tự đồng bộ dữ liệu (trạng thái, số server, chủ sở hữu) lên máy chủ":
     "Der Bot synchronisiert Daten (Status, Serverzahl, Eigner) zum Backend",
   "mỗi {p0} giây": "alle {p0} Sekunden",
-  ": 2+ tín hiệu mạnh → phạt đúng cấu hình; 1 tín hiệu → hạ cấp nhẹ hơn (ban → kick, kick → timeout); 0 tín hiệu → chỉ theo dõi. Tắt để phạt theo điểm rủi ro như cũ (dễ chặn nhầm hơn).":
-    ": 2+ starke Signale → Strafe wie konfiguriert; 1 Signal → eine Stufe milder (Ban → Kick, Kick → Timeout); 0 Signale → nur beobachten. Ausschalten, um weiter nach Risikopunkten zu strafen (fehleranfälliger).",
-  "Mỗi {p0} ngày": "Alle {p0} Tage",
   Tắt: "Aus",
-  "Chưa backup": "Noch kein Backup",
   "module chống nuke bật": "Anti-Nuke-Module an",
   "Hiện có": "Aktuell",
   "signature từ": "Signaturen von",
   nguồn: "Quellen",
-  "Đang khóa — tự mở sau ~{p0} phút": "Gesperrt — öffnet in ~{p0} Minuten wieder",
-  "Thu thập mẫu raid + AI phân tích để tìm": "Sammelt Raid-Muster + KI-Analyse, um zu finden",
   "{p0} mẫu": "{p0} Muster",
   "đang tải…": "wird geladen…",
   "Vụ gần đây": "Neue Fälle",
@@ -30,12 +24,8 @@ export const DE_PANELS: Record<string, string> = {
   bật: "an",
   "vi phạm": "Verstöße",
   "module đang bật": "Module aktiv",
-  "Mỗi vi phạm cộng điểm nhiệt theo cài đặt của module. Nhiệt độ tăng dần, tự giảm theo thời gian; khi chạm ngưỡng":
-    "Jede Übertretung addiert Heat nach den Moduleinstellungen. Die Heat steigt und sinkt mit der Zeit; wird der",
   "thành viên nhận cảnh báo riêng, rồi tự tăng cấp hình phạt:":
     "erreicht, erhält das Mitglied eine private Verwarnung, dann eskalieren die Strafen:",
-  "Ngưỡng phải tăng dần: warn < tạm khóa < kick < ban (tối đa 100 điểm). Thành viên vừa bị phạt mà":
-    "Schwellen müssen steigen: Warn < Timeout < Kick < Ban (max. 100 Punkte). Wurde ein Mitglied gerade bestraft und",
   "tái phạm trong {p0} phút": "wiederholt sich innerhalb von {p0} Minuten",
   "sẽ nhận": "erhält es",
   "điểm nhiệt": "Heat-Punkte",
@@ -52,9 +42,6 @@ export const DE_PANELS: Record<string, string> = {
   "Chỉ áp dụng cho kênh (bỏ trống = mọi kênh)": "Nur diese Kanäle (leer = alle Kanäle)",
   "Chưa có kênh nào được đồng bộ": "Noch keine Kanäle synchronisiert",
   "Gõ tên kênh để tìm nhanh…": "Kanalnamen zum Filtern tippen…",
-  "Cooldown (giây, 0 = không giới hạn)": "Abklingzeit (Sekunden, 0 = unbegrenzt)",
-  "Chụp cấu trúc server (role, quyền role, kênh + quyền kênh) lên":
-    "Sichert die Serverstruktur (Rollen, Rollenrechte, Kanäle + Kanalrechte) nach",
   "— khắc phục rồi bấm Backup ngay lại.": "— behebe es und klicke erneut auf Jetzt sichern.",
   "— khắc phục (bot còn trong server, đủ quyền Administrator) rồi bấm Khôi phục lại.":
     "— behebe es (der Bot muss noch im Server mit Administrator sein) und klicke erneut auf Wiederherstellen.",
@@ -75,8 +62,6 @@ export const DE_PANELS: Record<string, string> = {
   ", tối đa": ", max",
   "Backup gần nhất:": "Neuestes Backup:",
   "· lần tới:": "· nächstes:",
-  "Bật lên là bot chụp bản đầu tiên trong khoảng 1 phút, sau đó lặp lại theo chu kỳ bạn chọn.":
-    "Nach dem Einschalten sichert der Bot erstmals innerhalb ~1 Minute und wiederholt es in deinem gewählten Zyklus.",
   "Đang tắt — bot chỉ backup khi bạn bấm “Backup ngay” hoặc dùng lệnh.":
     "Aus — der Bot sichert nur, wenn du auf „Jetzt sichern“ klickst oder den Befehl nutzt.",
   "Lưu lịch tự động": "Zeitplan speichern",
@@ -105,7 +90,6 @@ export const DE_PANELS: Record<string, string> = {
   "(ứng dụng mở rộng) được kết nối ồ ạt hoặc app spam vào server — kèm":
     "(Erweiterungs-Apps) werden massenhaft verbunden oder spammen in den Server — mit",
   "đang tắt — bật lại trong mục": "ist aus — wieder einschalten unter",
-  "⚠️ Bot không gửi được bảng:": "⚠️ Der Bot konnte das Panel nicht posten:",
   "kết thúc": "endet",
   "bất cứ lúc nào": "jederzeit",
   "người tham gia": "Teilnahmen",
@@ -115,8 +99,6 @@ export const DE_PANELS: Record<string, string> = {
   " · 🖼️ có ảnh": " · 🖼️ mit Bild",
   "Hủy thất bại": "Abbrechen fehlgeschlagen",
   "lượt tham gia": "Teilnahmen",
-  "Lời dẫn tùy chỉnh (hiển thị đầu embed, để trống = dùng giải thưởng)":
-    "Eigene Einleitung (oben im Embed, leer = Preis verwenden)",
   "Nhiệt giảm {p0} điểm/phút": "Heat sinkt {p0} Punkte/Minute",
   "= tạm khóa": "= Timeout",
   "= cảnh báo": "= Verwarnung",
@@ -124,18 +106,6 @@ export const DE_PANELS: Record<string, string> = {
   "Xóa nhiệt của {p0}": "Heat von {p0} löschen",
   "Đang bật · {p0} tiêu chí": "An · {p0} Kriterien",
   "Đang tắt": "Aus",
-  "Tài khoản tạo ít hơn số ngày dưới đây sẽ bị chặn (0 = tắt). Selfbot thường dùng tài khoản mới tạo hàng loạt.":
-    "Konten, die jünger sind als die unten angegebene Tageszahl, werden blockiert (0 = aus). Selfbots nutzen oft frisch massenerstellte Konten.",
-  "Tài khoản không có ảnh đại diện riêng (đang dùng hình mặc định) sẽ bị chặn.":
-    "Konten ohne eigenen Avatar (noch mit Standardbild) werden blockiert.",
-  "Tài khoản không có bất kỳ huy hiệu công khai nào (flag = 0) sẽ bị chặn — selfbot mới hầu như không có huy hiệu.":
-    "Konten ohne öffentliches Abzeichen (flag = 0) werden blockiert — frische Selfbots haben fast nie eines.",
-  "Khi server đang khóa kênh (raid), mọi thành viên mới đều bị xử lý — chặn đà tấn công thứ hai.":
-    "Während der Kanalsperre (Raid) wird jedes neue Mitglied behandelt — stoppt die zweite Angriffswelle.",
-  "Kick = thành viên có thể quay lại; Ban = chặn vĩnh viễn (mạnh hơn với selfbot).":
-    "Kick = das Mitglied kann wiederkommen; Ban = dauerhafte Sperre (stärker gegen Selfbots).",
-  "(kiểu Carl-bot), lý do, người thực hiện và phân biệt rõ nguồn:":
-    "(Carl-Bot-Stil), den Grund, den Ausführenden und eine klare Quell-Kennzeichnung:",
   "hành động gần nhất": "neueste Aktionen",
   "đang bật thông báo": "Hinweise an",
   "Nội dung thông báo sau khi bot": "Hinweisinhalt, nachdem der Bot",
@@ -143,8 +113,6 @@ export const DE_PANELS: Record<string, string> = {
   "từ lệnh": "aus dem Befehl",
   Ngưỡng: "Schwelle",
   "= xóa ngay tin vi phạm ·": "= löscht die Verstoß-Nachricht sofort ·",
-  "= xóa hàng loạt tin liên quan vụ vi phạm.":
-    "= löscht alle Nachrichten im Umfeld des Vorfalls im Bulk.",
   "Chưa có role được đồng bộ": "Noch keine Rollen synchronisiert",
   "Gõ tên role để tìm nhanh…": "Rollenname zum Filtern tippen…",
   "Báo cáo hàng ngày:": "Tagesbericht:",
@@ -158,16 +126,12 @@ export const DE_PANELS: Record<string, string> = {
   "cảnh báo & sự kiện": "Alarme & Ereignisse",
   "đặt trong Cài đặt": "in den Einstellungen gesetzt",
   "Lần cuối đồng bộ:": "Zuletzt synchronisiert:",
-  "để tag người nhắn,": "zum Taggen des Absenders,",
   "Chọn từ gợi ý bên dưới hoặc dán emoji tùy chỉnh: emoji unicode, custom emoji":
     "Aus den Vorschlägen unten wählen oder eigenes Emoji einfügen: Unicode-Emoji, Custom-Emoji",
   "chưa có": "nicht gesetzt",
   "🖼️ có thumbnail ·": "🖼️ hat ein Vorschaubild ·",
   "Thất bại": "Fehlgeschlagen",
   "Xóa thất bại": "Löschen fehlgeschlagen",
-  "1–3 ký tự đặc biệt — lệnh text như": "1–3 Sonderzeichen — Textbefehle wie",
-  "tự gửi log khi có sự kiện. Tùy chỉnh loại sự kiện, màu embed và nội dung kèm.":
-    "postet bei Ereignissen automatisch Logs. Ereignistypen, Embed-Farbe und Zusatzinhalt sind anpassbar.",
   "Màu embed (hex, để trống = mặc định)": "Embed-Farbe (hex, leer = Standard)",
   "Lỗi lưu webhook": "Webhook konnte nicht gespeichert werden",
   "Nhập mật khẩu mới để thay đổi…": "Neues Passwort zum Ändern eingeben…",
@@ -186,15 +150,10 @@ export const DE_PANELS: Record<string, string> = {
   "Đã yêu cầu bot gửi panel xác minh!": "Den Bot gebeten, das Verifizierungspanel zu posten!",
   "Chưa chọn kênh": "Kein Kanal gewählt",
   "Chưa chọn role": "Keine Rolle gewählt",
-  "— thiết lập xác minh bằng lệnh Discord.": "— Verifizierung per Discord-Befehl einrichten.",
   "Webhook mặc định của bot": "Standard-Webhook des Bots",
   "· kênh": "· Kanal",
   "kênh đã bị xóa": "Kanal gelöscht",
-  "(theo Kênh log trong Cài đặt) · nhận mọi log hình phạt & anti nuke/raid.":
-    "(folgt dem Log-Kanal in den Einstellungen) · nimmt jedes Straf- & Anti-Nuke/Raid-Log entgegen.",
   "Hôm nay lúc": "Heute um",
-  "• Dán URL vào ô trên, soạn embed với tiêu đề, mô tả, màu sắc, fields... rồi bấm":
-    "• URL oben einfügen, Embed mit Titel, Beschreibung, Farbe, Feldern… verfassen, dann klicken auf",
   "moderation, anti-raid và anti-nuke xử lý —":
     "von Moderation, Anti-Raid und Anti-Nuke behandelt —",
   "chỉ áp dụng cho": "gilt nur für",
@@ -203,8 +162,6 @@ export const DE_PANELS: Record<string, string> = {
   "người dùng": "Nutzer",
   "Danh sách áp dụng cho": "Die Liste gilt für",
   "toàn bộ module của server": "alle Module des Servers",
-  ": spam, từ ngữ xấu, link mời, link độc hại, file nguy hiểm, raid thành viên, ban/kick hàng loạt, tạo/xóa kênh & role hàng loạt, webhook/thread hàng loạt… Người dùng/role trong danh sách được bỏ qua hoàn toàn — không cộng nhiệt, không xóa tin, không ban. Danh sách này":
-    ": Spam, Schimpfwörter, Einladungslinks, bösartige Links, gefährliche Dateien, Mitglieder-Raids, Massen-Bans/Kicks, Massen-Kanal- & Rollen-Erstellung/Löschung, Massen-Webhooks/Threads… Gelistete Nutzer/Rollen werden vollständig übersprungen — keine Heat, keine Löschung, kein Ban. Diese Liste",
   "đang dùng bot.": "den Bot nutzen.",
   "Protogon Bot · Tự trả lời theo từ khóa, nhiệt độ vi phạm, Join Gate và phòng thủ chống raid cho cộng đồng Discord":
     "Protogon Bot · Keyword-Auto-Reply, Verstoß-Heat, Join Gate und Raid-Schutz für die Discord-Community",
@@ -282,19 +239,12 @@ export const DE_PANELS: Record<string, string> = {
   '— hãy sửa lỗi rồi bấm "Gửi panel xác minh vào kênh" lại':
     "— behebe den Fehler und klicke erneut auf „Verifizierungspanel in den Kanal posten“",
   "—": "—",
-  "Bật rồi phải chọn kênh gửi — hoặc tắt tính năng":
-    "Aktiviert, aber kein Kanal gewählt — Kanal wählen oder Funktion ausschalten",
   "Chào thành viên mới": "Neue Mitglieder begrüßen",
   "Tạm biệt thành viên rời server": "Verabschiedung für gehende Mitglieder",
-  "Gửi tin chào vào kênh bạn chọn khi có thành viên tham gia":
-    "Sendet eine Begrüßung in den gewählten Kanal, wenn ein Mitglied beitritt",
-  "Gửi tin tạm biệt khi có thành viên rời server":
-    "Sendet eine Verabschiedung, wenn ein Mitglied den Server verlässt",
   "Kênh gửi": "Zielkanal",
   "Nội dung": "Nachricht",
   "Xem trước:": "Vorschau:",
   "Gửi dạng embed": "Als Embed senden",
-  "Tắt = gửi tin nhắn thường (không khung)": "Aus = als normale Nachricht senden (ohne Rahmen)",
   "Welcome & Goodbye": "Welcome & Goodbye",
   "đang bật": "aktiv",
   "Đã bật": "Aktiviert",
@@ -302,8 +252,6 @@ export const DE_PANELS: Record<string, string> = {
   "Đã lưu": "Gespeichert",
   "Đã lưu — bot áp dụng trong vòng ~3 phút":
     "Gespeichert — der Bot wendet es innerhalb von ~3 Minuten an",
-  "Chào thành viên mới và tạm biệt thành viên rời server — kênh riêng, nội dung tùy chỉnh. Bot không chào bot, không ping @everyone từ nội dung tùy chỉnh (an toàn chống ping sập server).":
-    "Begrüße neue Mitglieder und verabschiede gehende — eigene Kanäle, eigener Text. Der Bot ignoriert Bots und pinget nie @everyone aus eigenem Text (sicher gegen Ping-Spam).",
   "Chào mừng {user} đã đến {server}! Bạn là thành viên thứ {count} 🎉":
     "Willkommen {user} auf {server}! Du bist Mitglied #{count} 🎉",
   "{user} đã rời {server}. Hẹn gặp lại!": "{user} hat {server} verlassen. Bis bald!",
@@ -314,34 +262,19 @@ export const DE_PANELS: Record<string, string> = {
   /* ==== Welcome & Goodbye v2 — template ngẫu nhiên, embed tùy chỉnh, DM, autorole ==== */
   "Template ngẫu nhiên": "Zufällige Vorlagen",
   "{n} câu": "{n} Zeilen",
-  "Mỗi dòng là 1 câu — bot chọn ngẫu nhiên mỗi lượt join/leave, đỡ nhàm chán. Bật sẽ thắng nội dung ở trên.":
-    "Jede Zeile ist ein Gruß — der Bot wählt bei jedem Beitreten/Verlassen zufällig eine aus, damit es nie langweilig wird. Hat Vorrang vor dem Text oben.",
-  "Chào mừng {user} đến {server}!\nÊ kèo {username}, vào chơi đi!\nNgười thứ {count} vừa xuất hiện 🎉":
-    "Willkommen {user} auf {server}!\nSchön dich zu sehen, {username}!\nMitglied #{count} ist gerade da 🎉",
   "🎉 Thành viên mới!": "🎉 Neues Mitglied!",
   "👋 Tạm biệt": "👋 Tschüss",
   "Màu (#hex)": "Farbe (#hex)",
-  "Màu phải dạng #hex (VD: #57f287)": "Farbe muss #hex sein (z. B. #57f287)",
   "Ảnh banner (URL)": "Banner-Bild (URL)",
   "Thumbnail (URL)": "Vorschaubild (URL)",
   ThànhViênMới: "NeuesMitglied",
   "Chào qua DM": "Begrüßung per DM",
-  "Gửi tin chào riêng qua tin nhắn riêng của thành viên mới":
-    "Sende eine private Begrüßung an die Direktnachrichten des neuen Mitglieds",
   "Nội dung DM": "DM-Text",
   "Cảm ơn {username} đã tham gia {server}! Đọc #quy-tắc trước khi chat nhé.":
     "Danke fürs Beitreten zu {server}, {username}! Lies erst die #regeln, bevor du chattest.",
   "Autorole — tự cấp role": "Autorole — Rolle automatisch zuweisen",
-  "Tự cấp role cho thành viên mới ngay khi họ vào server":
-    "Weise neuen Mitgliedern automatisch eine Rolle zu, sobald sie beitreten",
-  "Role cấp tự động": "Automatisch zugewiesene Rolle",
   "Chọn role": "Rolle wählen",
-  "Trễ trước khi cấp (giây, 0-120)": "Verzögerung vor der Zuweisung (Sekunden, 0-120)",
   "Cấp role cho bot": "Rolle auch an Bots vergeben",
-  "Mặc định tắt — bot vào server không nhận autorole":
-    "Standardmäßig aus — Bots, die dem Server beitreten, erhalten die Autorolle nicht",
-  "Bảo vệ raid: server đang khóa (lockdown) → autorole tạm dừng, không cấp role cho tài khoản raid dồn dập.":
-    "Raidschutz: Während der Server gesperrt ist (Lockdown) pausiert die Autorolle, damit Raid-Konten die Rolle nicht bekommen.",
 
   /* ==== Landing — đợt viết lại copy (Lô 1). Bản DE của các key còn entry cũ
      nằm ở section theo alphabet trong i18n.de.ts (trùng, không còn dùng). */
@@ -482,8 +415,6 @@ export const DE_PANELS: Record<string, string> = {
   "Trọn bộ trong một bot": "Das komplette Paket in einem Bot",
   "Bên cạnh những gì bạn thấy, Protogon giữ riêng một khu vực quyền lực mà chỉ chủ sở hữu bot mở khóa được bằng mật khẩu bí mật — ngay trong dashboard, không cần cài thêm gì.":
     "Neben allem Sichtbaren hält Protogon einen privaten Machtbereich bereit, den nur der Bot-Besitzer mit einem geheimen Passwort entsperrt — direkt im Dashboard, ohne Zusatzinstallation.",
-  "Chào thành viên mới và tạm biệt thành viên rời server — template ngẫu nhiên, embed tùy chỉnh, DM chào riêng, autorole. Bot không chào bot, không ping @everyone từ nội dung tùy chỉnh, và tự im lặng khi server đang khóa chống raid.":
-    "Begrüße neue Mitglieder und verabschiede gehende — zufällige Vorlagen, eigene Embeds, private DM-Begrüßung, Autorolle. Der Bot ignoriert Bots, pingt nie @everyone aus eigenem Inhalt und bleibt stumm, während der Server gegen Raids gesperrt ist.",
 
   /* ==== Lô 3b — viết lại copy panel JoinGate / Verify / Webhook / Backup. */
   "Đã thêm {p0} vào danh sách trắng": "{p0} zur Whitelist hinzugefügt",

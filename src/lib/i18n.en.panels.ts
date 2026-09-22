@@ -15,17 +15,11 @@ export const EN_PANELS: Record<string, string> = {
   "Bot tự đồng bộ dữ liệu (trạng thái, số server, chủ sở hữu) lên máy chủ":
     "The bot syncs data (status, server count, owner) to the backend",
   "mỗi {p0} giây": "every {p0} seconds",
-  ": 2+ tín hiệu mạnh → phạt đúng cấu hình; 1 tín hiệu → hạ cấp nhẹ hơn (ban → kick, kick → timeout); 0 tín hiệu → chỉ theo dõi. Tắt để phạt theo điểm rủi ro như cũ (dễ chặn nhầm hơn).":
-    ": 2+ strong signals → punish as configured; 1 signal → downgrade one step (ban → kick, kick → timeout); 0 signals → monitor only. Turn it off to punish by risk score as before (easier to false-positive).",
-  "Mỗi {p0} ngày": "Every {p0} days",
   Tắt: "Off",
-  "Chưa backup": "No backup yet",
   "module chống nuke bật": "anti-nuke modules on",
   "Hiện có": "Currently",
   "signature từ": "signatures from",
   nguồn: "sources",
-  "Đang khóa — tự mở sau ~{p0} phút": "Locked — reopens in ~{p0} minutes",
-  "Thu thập mẫu raid + AI phân tích để tìm": "Collects raid samples + AI analysis to find",
   "{p0} mẫu": "{p0} samples",
   "đang tải…": "loading…",
   "Vụ gần đây": "Recent incidents",
@@ -35,12 +29,8 @@ export const EN_PANELS: Record<string, string> = {
   bật: "on",
   "vi phạm": "violations",
   "module đang bật": "modules on",
-  "Mỗi vi phạm cộng điểm nhiệt theo cài đặt của module. Nhiệt độ tăng dần, tự giảm theo thời gian; khi chạm ngưỡng":
-    "Each violation adds heat based on the module settings. Heat rises, then decays over time; once it reaches the",
   "thành viên nhận cảnh báo riêng, rồi tự tăng cấp hình phạt:":
     "threshold the member gets a private warning, then punishments escalate:",
-  "Ngưỡng phải tăng dần: warn < tạm khóa < kick < ban (tối đa 100 điểm). Thành viên vừa bị phạt mà":
-    "Thresholds must increase: warn < timeout < kick < ban (max 100 points). A member who was just punished and",
   "tái phạm trong {p0} phút": "reoffends within {p0} minutes",
   "sẽ nhận": "gets",
   "điểm nhiệt": "heat points",
@@ -56,9 +46,6 @@ export const EN_PANELS: Record<string, string> = {
   "Chỉ áp dụng cho kênh (bỏ trống = mọi kênh)": "Only these channels (empty = all channels)",
   "Chưa có kênh nào được đồng bộ": "No channels synced yet",
   "Gõ tên kênh để tìm nhanh…": "Type a channel name to filter…",
-  "Cooldown (giây, 0 = không giới hạn)": "Cooldown (seconds, 0 = unlimited)",
-  "Chụp cấu trúc server (role, quyền role, kênh + quyền kênh) lên":
-    "Snapshots your server structure (roles, role permissions, channels + channel permissions) to",
   "— khắc phục rồi bấm Backup ngay lại.": "— fix it and press Backup now again.",
   "— khắc phục (bot còn trong server, đủ quyền Administrator) rồi bấm Khôi phục lại.":
     "— fix it (the bot must still be in the server with Administrator) and press Restore again.",
@@ -79,8 +66,6 @@ export const EN_PANELS: Record<string, string> = {
   ", tối đa": ", max",
   "Backup gần nhất:": "Latest backup:",
   "· lần tới:": "· next:",
-  "Bật lên là bot chụp bản đầu tiên trong khoảng 1 phút, sau đó lặp lại theo chu kỳ bạn chọn.":
-    "Once on, the bot takes the first snapshot within about 1 minute, then repeats on your chosen cycle.",
   "Đang tắt — bot chỉ backup khi bạn bấm “Backup ngay” hoặc dùng lệnh.":
     "Off — the bot only backs up when you press “Backup now” or use the command.",
   "Lưu lịch tự động": "Save schedule",
@@ -108,7 +93,6 @@ export const EN_PANELS: Record<string, string> = {
   "(ứng dụng mở rộng) được kết nối ồ ạt hoặc app spam vào server — kèm":
     "(extended apps) connecting en masse or spamming into the server — with",
   "đang tắt — bật lại trong mục": "is off — turn it back on in",
-  "⚠️ Bot không gửi được bảng:": "⚠️ The bot could not post the panel:",
   "kết thúc": "ends",
   "bất cứ lúc nào": "any moment",
   "người tham gia": "entries",
@@ -118,8 +102,6 @@ export const EN_PANELS: Record<string, string> = {
   " · 🖼️ có ảnh": " · 🖼️ has an image",
   "Hủy thất bại": "Cancel failed",
   "lượt tham gia": "entries",
-  "Lời dẫn tùy chỉnh (hiển thị đầu embed, để trống = dùng giải thưởng)":
-    "Custom intro (shown at the top of the embed, empty = use the prize)",
   "Nhiệt giảm {p0} điểm/phút": "Heat drops {p0} points/minute",
   "= tạm khóa": "= timeout",
   "= cảnh báo": "= warning",
@@ -127,18 +109,6 @@ export const EN_PANELS: Record<string, string> = {
   "Xóa nhiệt của {p0}": "Clear heat for {p0}",
   "Đang bật · {p0} tiêu chí": "On · {p0} checks",
   "Đang tắt": "Off",
-  "Tài khoản tạo ít hơn số ngày dưới đây sẽ bị chặn (0 = tắt). Selfbot thường dùng tài khoản mới tạo hàng loạt.":
-    "Accounts created fewer days ago than the number below are blocked (0 = off). Selfbots often mass-create fresh accounts.",
-  "Tài khoản không có ảnh đại diện riêng (đang dùng hình mặc định) sẽ bị chặn.":
-    "Accounts without a custom avatar (still on the default image) are blocked.",
-  "Tài khoản không có bất kỳ huy hiệu công khai nào (flag = 0) sẽ bị chặn — selfbot mới hầu như không có huy hiệu.":
-    "Accounts with no public badge at all (flag = 0) are blocked — fresh selfbots have almost none.",
-  "Khi server đang khóa kênh (raid), mọi thành viên mới đều bị xử lý — chặn đà tấn công thứ hai.":
-    "While the server is in lockdown (raid), every new member is punished — stopping a second wave.",
-  "Kick = thành viên có thể quay lại; Ban = chặn vĩnh viễn (mạnh hơn với selfbot).":
-    "Kick = the member can come back; Ban = permanent block (stronger against selfbots).",
-  "(kiểu Carl-bot), lý do, người thực hiện và phân biệt rõ nguồn:":
-    "(Carl-bot style), the reason, the executor, and a clear source label:",
   "hành động gần nhất": "most recent actions",
   "đang bật thông báo": "notifications on",
   "Nội dung thông báo sau khi bot": "Notification content after the bot",
@@ -146,7 +116,6 @@ export const EN_PANELS: Record<string, string> = {
   "từ lệnh": "from the command",
   Ngưỡng: "Threshold",
   "= xóa ngay tin vi phạm ·": "= delete the violating message right away ·",
-  "= xóa hàng loạt tin liên quan vụ vi phạm.": "= bulk-delete messages related to the incident.",
   "Chưa có role được đồng bộ": "No roles synced yet",
   "Gõ tên role để tìm nhanh…": "Type a role name to filter…",
   "Báo cáo hàng ngày:": "Daily report:",
@@ -160,16 +129,12 @@ export const EN_PANELS: Record<string, string> = {
   "cảnh báo & sự kiện": "alerts & events",
   "đặt trong Cài đặt": "set in Settings",
   "Lần cuối đồng bộ:": "Last synced:",
-  "để tag người nhắn,": "to tag the sender,",
   "Chọn từ gợi ý bên dưới hoặc dán emoji tùy chỉnh: emoji unicode, custom emoji":
     "Pick from the suggestions below or paste a custom emoji: unicode emoji, custom emoji",
   "chưa có": "not set",
   "🖼️ có thumbnail ·": "🖼️ has a thumbnail ·",
   "Thất bại": "Failed",
   "Xóa thất bại": "Delete failed",
-  "1–3 ký tự đặc biệt — lệnh text như": "1–3 special characters — text commands like",
-  "tự gửi log khi có sự kiện. Tùy chỉnh loại sự kiện, màu embed và nội dung kèm.":
-    "posts logs automatically on events. Customise the event types, embed colour and extra content.",
   "Màu embed (hex, để trống = mặc định)": "Embed colour (hex, empty = default)",
   "Lỗi lưu webhook": "Failed to save the webhook",
   "Nhập mật khẩu mới để thay đổi…": "Enter a new password to change it…",
@@ -188,15 +153,10 @@ export const EN_PANELS: Record<string, string> = {
   "Đã yêu cầu bot gửi panel xác minh!": "Asked the bot to post the verification panel!",
   "Chưa chọn kênh": "No channel selected",
   "Chưa chọn role": "No role selected",
-  "— thiết lập xác minh bằng lệnh Discord.": "— set verification up with a Discord command.",
   "Webhook mặc định của bot": "The bot's default webhook",
   "· kênh": "· channel",
   "kênh đã bị xóa": "channel deleted",
-  "(theo Kênh log trong Cài đặt) · nhận mọi log hình phạt & anti nuke/raid.":
-    "(follows the Log channel in Settings) · receives every punishment & anti nuke/raid log.",
   "Hôm nay lúc": "Today at",
-  "• Dán URL vào ô trên, soạn embed với tiêu đề, mô tả, màu sắc, fields... rồi bấm":
-    "• Paste the URL above, compose an embed with a title, description, colour, fields... then press",
   "moderation, anti-raid và anti-nuke xử lý —": "moderation, anti-raid and anti-nuke —",
   "chỉ áp dụng cho": "applies only to",
   "của người dùng (bật Chế độ nhà phát triển trong Discord → chuột phải tên người dùng → Sao chép ID người dùng) để họ không bị hệ thống xử lý":
@@ -204,8 +164,6 @@ export const EN_PANELS: Record<string, string> = {
   "người dùng": "users",
   "Danh sách áp dụng cho": "The list applies to",
   "toàn bộ module của server": "every module of the server",
-  ": spam, từ ngữ xấu, link mời, link độc hại, file nguy hiểm, raid thành viên, ban/kick hàng loạt, tạo/xóa kênh & role hàng loạt, webhook/thread hàng loạt… Người dùng/role trong danh sách được bỏ qua hoàn toàn — không cộng nhiệt, không xóa tin, không ban. Danh sách này":
-    ": spam, bad words, invite links, malicious links, dangerous files, member raids, mass bans/kicks, mass channel & role create/delete, mass webhooks/threads… Listed users/roles are skipped entirely — no heat, no message deletion, no ban. This list",
   "đang dùng bot.": "using the bot.",
   "Protogon Bot · Tự trả lời theo từ khóa, nhiệt độ vi phạm, Join Gate và phòng thủ chống raid cho cộng đồng Discord":
     "Protogon Bot · Keyword auto-reply, violation heat, Join Gate and raid defence for the Discord community",
@@ -282,27 +240,18 @@ export const EN_PANELS: Record<string, string> = {
   '— hãy sửa lỗi rồi bấm "Gửi panel xác minh vào kênh" lại':
     '— fix the error, then press "Post the verification panel into the channel" again',
   "—": "—",
-  "Bật rồi phải chọn kênh gửi — hoặc tắt tính năng":
-    "Enabled but no channel selected — pick one or turn the feature off",
   "Chào thành viên mới": "Greet new members",
   "Tạm biệt thành viên rời server": "Farewell to leaving members",
-  "Gửi tin chào vào kênh bạn chọn khi có thành viên tham gia":
-    "Sends a greeting to the channel you choose when a member joins",
-  "Gửi tin tạm biệt khi có thành viên rời server":
-    "Sends a farewell when a member leaves the server",
   "Kênh gửi": "Send channel",
   "Nội dung": "Message body",
   "Xem trước:": "Preview:",
   "Gửi dạng embed": "Send as embed",
-  "Tắt = gửi tin nhắn thường (không khung)": "Off = send as a plain message (no frame)",
   "Welcome & Goodbye": "Welcome & Goodbye",
   "đang bật": "active",
   "Đã bật": "Enabled",
   "Đã tắt": "Disabled",
   "Đã lưu": "Saved",
   "Đã lưu — bot áp dụng trong vòng ~3 phút": "Saved — the bot applies it within ~3 minutes",
-  "Chào thành viên mới và tạm biệt thành viên rời server — kênh riêng, nội dung tùy chỉnh. Bot không chào bot, không ping @everyone từ nội dung tùy chỉnh (an toàn chống ping sập server).":
-    "Greet new members and farewell to leaving ones — separate channels, custom message body. The bot ignores bots and never pings @everyone from custom content (safe against mention spam).",
   "Chào mừng {user} đã đến {server}! Bạn là thành viên thứ {count} 🎉":
     "Welcome {user} to {server}! You are member #{count} 🎉",
   "{user} đã rời {server}. Hẹn gặp lại!": "{user} left {server}. See you again!",
@@ -313,36 +262,19 @@ export const EN_PANELS: Record<string, string> = {
   /* ==== Welcome & Goodbye v2 — template ngẫu nhiên, embed tùy chỉnh, DM, autorole ==== */
   "Template ngẫu nhiên": "Random templates",
   "{n} câu": "{n} lines",
-  "Mỗi dòng là 1 câu — bot chọn ngẫu nhiên mỗi lượt join/leave, đỡ nhàm chán. Bật sẽ thắng nội dung ở trên.":
-    "Each line is one greeting — the bot picks one at random on every join/leave so it never gets stale. Takes priority over the body above.",
-  "Chào mừng {user} đến {server}!\nÊ kèo {username}, vào chơi đi!\nNgười thứ {count} vừa xuất hiện 🎉":
-    "Welcome {user} to {server}!\nNice to see you, {username}!\nMember #{count} just showed up 🎉",
   "🎉 Thành viên mới!": "🎉 New member!",
   "👋 Tạm biệt": "👋 Farewell",
   "Màu (#hex)": "Color (#hex)",
-  "Màu phải dạng #hex (VD: #57f287)": "Color must be #hex (e.g. #57f287)",
   "Ảnh banner (URL)": "Banner image (URL)",
   "Thumbnail (URL)": "Thumbnail (URL)",
   ThànhViênMới: "NewMember",
   "Chào qua DM": "Welcome via DM",
-  "Gửi tin chào riêng qua tin nhắn riêng của thành viên mới":
-    "Send a private greeting to the new member's direct messages",
   "Nội dung DM": "DM body",
   "Cảm ơn {username} đã tham gia {server}! Đọc #quy-tắc trước khi chat nhé.":
     "Thanks for joining {server}, {username}! Check the #rules before chatting.",
   "Autorole — tự cấp role": "Autorole — assign role automatically",
-  "Tự cấp role cho thành viên mới ngay khi họ vào server":
-    "Automatically assign a role to new members the moment they join",
-  "Role cấp tự động": "Auto-assigned role",
   "Chọn role": "Pick a role",
-  "Trễ trước khi cấp (giây, 0-120)": "Delay before assigning (seconds, 0-120)",
   "Cấp role cho bot": "Assign role to bots",
-  "Mặc định tắt — bot vào server không nhận autorole":
-    "Off by default — bots joining the server do not get the autorole",
-  "Bảo vệ raid: server đang khóa (lockdown) → autorole tạm dừng, không cấp role cho tài khoản raid dồn dập.":
-    "Raid protection: while the server is locked down, autorole pauses so raid accounts don't get the role.",
-  "Chào thành viên mới và tạm biệt thành viên rời server — template ngẫu nhiên, embed tùy chỉnh, DM chào riêng, autorole. Bot không chào bot, không ping @everyone từ nội dung tùy chỉnh, và tự im lặng khi server đang khóa chống raid.":
-    "Greet new members and farewell to leaving ones — random templates, custom embeds, private DM greeting, autorole. The bot ignores bots, never pings @everyone from custom content, and goes silent while the server is locked down against raids.",
 
   /* ==== Landing — đợt viết lại copy (Lô 1). Các key này còn bản cũ nằm ở
      section theo alphabet trong i18n.en.ts (entry trùng, không còn dùng) —

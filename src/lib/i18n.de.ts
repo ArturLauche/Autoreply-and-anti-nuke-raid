@@ -156,24 +156,16 @@ export const DE: Record<string, string> = {
     "Die Straftabelle liegt unter Strafen in der Server-Seitenleiste 🛠️. Sie listet die neuesten Strafen vollständig: Timeout, Kick, Ban, Purge — mit Zeit, bestraftem Mitglied, Ausführendem (Mod) und Grund. Automatische Strafen aus Anti-Nuke/Heat landen ebenfalls hier, mit der Markierung Automatisch. Der Bot erfasst sie bei /mod oder !timeout !kick !ban !purge.",
   "! Thử một trận Valorant 5v5 không? 🎮": "! Lust auf ein 5v5 in Valorant? 🎮",
   '"{p0}" đã có trong danh sách': "„{p0}“ ist bereits in der Liste",
-  "(.msc/.json tải lên). Phần tắt sẽ được bỏ qua khi khôi phục (kênh, tin nhắn + media vẫn được xử lý bình thường).":
-    "(.msc/.json hochgeladen). Deaktivierte Teile werden beim Wiederherstellen übersprungen (Kanäle, Nachrichten + Medien werden normal verarbeitet).",
   "(7 ngày)": "(7 Tage)",
   "(8 module) lọc nội dung độc hại mỗi ngày. Vượt ngưỡng → xác định thủ phạm qua audit log, phạt theo cài đặt và cảnh báo real-time tới kênh log.":
     "(8 Module) filtern täglich schädliche Inhalte. Schwellenwert überschritten → Täter über Audit-Log ermitteln, nach Einstellung strafen und den Log-Kanal in Echtzeit alarmieren.",
   "(JSON thường / base64 / có lớp bọc), tạo lại":
     "(einfaches JSON / base64 / verpackt), neu erstellen",
-  "(acc trùng avatar/username, người tạo invite, audit log) rồi tự ban.":
-    "(Konten mit gleichem Avatar/Namen, Einlader, Audit-Log) und bant automatisch.",
   "(chỉ server này)": "(nur dieser Server)",
   "(chống nuke / auto-mod — Responsible moderator hiển thị là “Bot tự động”) lẫn":
     "(Anti-Nuke / Auto-Mod — Verantwortlicher Moderator erscheint als „Automatisch“) als auch",
-  "(gồm cả media — file được giữ trong đám mây, không nhét vào bộ nhớ bot). Bot giữ nguyên role/kênh có sẵn của server hiện tại — chỉ thêm mới theo file, không xóa gì.":
-    "(inklusive Medien — Dateien bleiben in der Cloud, belasten nicht den Bot-Speicher). Der Bot behält vorhandene Rollen/Kanäle des aktuellen Servers — er ergänzt nur gemäß Datei und löscht nichts.",
   "(hiển thị tên người thực hiện). Lý do để trống → ghi “không có lý do”. Chọn":
     "(zeigt den Ausführenden). Leerer Grund → als „kein Grund“ vermerkt. Wähle",
-  "(hoặc một app đáng ngờ: giả mạo app nổi tiếng / tên scam / do acc mới kết nối / app spam @everyone + link lừa đảo), vụ đó sẽ xuất hiện ở đây kèm AI verdict, ứng dụng và người dùng đã bị xử lý.":
-    "(oder eine verdächtige App: imitiert eine bekannte App / Scam-Name / von neuem Konto verbunden / App spammt @everyone + Betrugslinks), erscheint der Fall hier mit KI-Urteil, App und den sanktionierten Nutzern.",
   "(khớp tài khoản Discord đã tạo bot). Người dùng khác không thấy nút này và không truy cập được trang này.":
     "(identisch mit dem Discord-Konto, das den Bot erstellt hat). Andere Nutzer sehen diese Schaltfläche nicht und können die Seite nicht öffnen.",
   "(kể cả raid/nuke phát hiện qua AI). Role ở server khác không ảnh hưởng.":
@@ -181,21 +173,11 @@ export const DE: Record<string, string> = {
   "(tên, màu, hoist, mentionable, quyền),": "(Name, Farbe, Hoist, Nennbar, Rechte),",
   "(tối thiểu": "(mindestens",
   "(đã đặt trong Keys) — owner các server khác": "(unter Keys gesetzt) — Owner anderer Server",
-  ") vào kênh log chung": ") in den gemeinsamen Log-Kanal",
-  "). Chỉ giữ": "). Behält nur",
-  ", bỏ qua mọi tiêu chí — dùng cho tài khoản phụ / bạn bè quen biết.":
-    ", überspringt alle Kriterien — für Zweitkonten / bekannte Freunde.",
   ", không avatar, không huy hiệu → đã bị kick.": ", kein Avatar, kein Abzeichen → gekickt.",
   ", mỗi lần vi phạm đếm": ", jede Übertretung zählt",
   ". Bot chưa có BOT_KEY sẽ": ". Ein Bot ohne BOT_KEY wird",
-  ". Khi server bị nuke/raid phá sập hoàn toàn, mời bot vào":
-    ". Wurde ein Server durch Nuke/Raid komplett zerstört, lade den Bot in",
   '. Lý do trống → ghi "không có lý do".': ". Leerer Grund → als „kein Grund“ vermerkt.",
-  ". Mỗi server dùng bot có danh sách whitelist riêng (local), không chia sẻ giữa các server.":
-    ". Jeder Server hat eine eigene (lokale) Whitelist, nicht zwischen Servern geteilt.",
   ". Slash command hoạt động độc lập.": ". Slash-Befehle funktionieren unabhängig.",
-  ". Đủ số warn trong cửa sổ thời gian, hình phạt tự":
-    ". Ist die Verwarnungsanzahl im Zeitfenster erreicht, eskaliert die Strafe automatisch",
   "1. Backup đã được đẩy lên GitHub từ trước → dữ liệu vẫn còn.":
     "1. Das Backup wurde zuvor bereits zu GitHub geschoben → Daten sind noch da.",
   "2. Tạo server phụ, mời bot vào.": "2. Erstelle einen Backup-Server und lade den Bot ein.",
@@ -210,7 +192,6 @@ export const DE: Record<string, string> = {
     "KI diagnostiziert Laufzeitfehler · schlägt Patch im Log-Kanal vor (kein Auto-Fix)",
   "AI nhận diện": "KI-Erkennung",
   "AI tổng hợp (Mimo V2.5)": "KI-Synthese (Mimo V2.5)",
-  "Anti-nuke (7 ngày)": "Anti-Nuke (7 Tage)",
   "App ngoài phát hiện": "Externe Apps erkannt",
   "Auto-mod nội dung": "Inhalts-Auto-Mod",
   "Avatar URL ghi đè (tùy chọn)": "Avatar-URL überschreiben (optional)",
@@ -219,18 +200,6 @@ export const DE: Record<string, string> = {
   "Biểu đồ độ trễ (5 giây / mẫu)": "Latenzdiagramm (5 s / Messung)",
   "Bot Discord bảo vệ server, đồng hành cùng trợ lý Haimiya":
     "Discord-Serverschutz-Bot, begleitet von Assistentin Haimiya",
-  "Bot chụp toàn bộ": "Der Bot sichert alles",
-  "Bot gửi embed chào mừng qua DM cho thành viên ngay khi xác minh thành công.":
-    "Der Bot sendet dem Mitglied sofort eine Willkommens-Embed per DM, sobald die Verifizierung klappt.",
-  "Bot gửi embed giveaway + phản ứng 🎉 theo mẫu bạn chọn (kèm ảnh nếu muốn). Hết giờ, bot tự chọn người thắng, cấp role thưởng (nếu chọn) và thông báo.":
-    "Der Bot postet eine Giveaway-Embed + 🎉-Reaktion nach deiner Vorlage (mit Bild, wenn gewünscht). Nach Ablauf ermittelt er die Gewinner, vergibt die Preisrolle (falls gesetzt) und kündigt an.",
-  "Bot gửi tin nhắn riêng kèm giải thưởng cho từng người thắng":
-    "Der Bot sendet jedem Gewinner eine DM mit dem Preis",
-  "Bot sẽ trả lời thành viên khi điều kiện kích hoạt được thỏa mãn.":
-    "Der Bot antwortet Mitgliedern, sobald der Auslöser erfüllt ist.",
-  "Bot tự chụp backup + đẩy lên": "Der Bot erstellt Backups und schiebt sie hoch",
-  "Bot tự trả lời thành viên khi nhắc từ khóa hoặc tag @bot":
-    "Der Bot antwortet automatisch, wenn ein Schlüsselwort fällt oder @bot getaggt wird",
   "Bot vẫn chưa xử lý file backup": "Der Bot hat die Backup-Datei noch nicht verarbeitet",
   "Bot vẫn chưa xử lý xong khôi phục": "Der Bot hat die Wiederherstellung noch nicht abgeschlossen",
   "Bot đang OFFLINE — hãy khởi động bot trên host (Wispbyte…) rồi tải lại file.":
@@ -251,52 +220,29 @@ export const DE: Record<string, string> = {
   "Bạn đã xác minh thành công. Chào mừng bạn đến với server!":
     "Du hast dich erfolgreich verifiziert. Willkommen auf dem Server!",
   "Bảng hình phạt": "Strafprotokoll",
-  "Bảng nhiệt & warn bên Moderation có nút xóa nhiệt từng người hoặc toàn bộ.":
-    "Die Heat- & Verwarnungstabelle unter Moderation hat Schaltflächen, um die Heat einzelner oder aller zu löschen.",
   "Bảng xếp hạng nhiệt độ": "Heat-Bestenliste",
   "Bảng điều khiển": "Dashboard",
   "Bảng điều khiển nhanh": "Schnellpanel",
   "Bảo mật": "Sicherheit",
-  "Bảo vệ cấu trúc server khỏi các cuộc tấn công hàng loạt (ban, kick, tạo/xóa kênh & role…)":
-    "Schützt die Serverstruktur vor Massenangriffen (Ban, Kick, Kanal-/Rollen-Erstellung/Löschung…)",
   "Bật Join Gate": "Join Gate einschalten",
   "Bật bảo vệ": "Schutz einschalten",
   "Bật xác minh thành viên": "Mitgliederverifizierung einschalten",
   "Bắt đầu ngay": "Jetzt starten",
   "Bắt đầu nhanh": "Schnellstart",
   "Bỏ ảnh": "Bild entfernen",
-  "Chia sẻ chữ ký raid (ẩn danh) với server khác dùng bot — server của bạn được bảo vệ bởi kinh nghiệm toàn mạng.":
-    "Teilt anonymisierte Raid-Signaturen mit anderen Bot-Servern — dein Server profitiert von der Erfahrung des gesamten Netzwerks.",
   Chào: "Hallo",
   "Chào {user}! Cần tớ giúp gì không?": "Hallo {user}! Kann ich dir helfen?",
   "Chèn:": "Einfügen:",
   "Chìa khóa bảo mật API": "API-Sicherheitsschlüssel",
   "Chưa có ID nào — mọi thành viên mới đều bị kiểm tra.":
     "Noch keine IDs — jedes neue Mitglied wird geprüft.",
-  "Chưa có ai vi phạm — chưa có nhiệt độ hay warn nào để hiển thị 🎉":
-    "Noch keine Verstöße — keine Heat oder Verwarnungen anzuzeigen 🎉",
-  "Chưa có ai vi phạm — server rất an toàn 🎉": "Noch keine Verstöße — dein Server ist sicher 🎉",
   "Chưa có backup nào — bấm “Backup ngay” phía trên để tạo bản đầu tiên.":
     "Noch keine Backups — klicke oben auf „Jetzt sichern“, um das erste zu erstellen.",
   'Chưa có bảng reaction role nào. Bấm "Tạo bảng mới" để bắt đầu 🌸':
     "Noch keine Reaktions-Rollen-Panels. Klicke auf „Neues Panel“, um zu starten 🌸",
-  "Chưa có chủ sở hữu nào được thiết lập. Chủ bot cần đăng nhập bằng chính tài khoản Discord đã tạo bot, vào":
-    "Es ist noch kein Besitzer eingerichtet. Der Bot-Besitzer muss sich mit genau dem Discord-Konto anmelden, das den Bot erstellt hat, und",
-  "Chưa có giveaway nào. Tạo giveaway đầu tiên để chúc mừng thành viên 🎀":
-    "Noch keine Giveaways. Erstelle das erste, um deine Mitglieder zu überraschen 🎀",
-  "Chưa có hình phạt nào — mọi thứ đang yên bình 🎉": "Noch keine Strafen — alles ist friedlich 🎉",
   "Chưa có người dùng nào — thêm ID phía trên để miễn trừ.":
     "Noch keine Nutzer — füge oben IDs hinzu, um sie auszunehmen.",
-  "Chưa có nội dung embed — hãy soạn bên trái.": "Noch kein Embed-Inhalt — links verfassen.",
-  "Chưa có rule nào. Tạo rule đầu tiên để bot trả lời khi ai đó nhắc từ khóa hoặc tag bot.":
-    "Noch keine Regeln. Erstelle die erste, damit der Bot antwortet, wenn ein Schlüsselwort fällt oder er getaggt wird.",
   "Chưa có server nào": "Noch keine Server",
-  "Chưa có sự kiện nào — bot chưa xử lý vi phạm chống nuke nào tại server này.":
-    "Noch keine Ereignisse — der Bot hat auf diesem Server noch keine Anti-Nuke-Verstöße behandelt.",
-  "Chưa có thay đổi nào được ghi nhận": "Noch keine Änderungen erfasst",
-  "Chưa có từ nào — bộ lọc từ ngữ xấu sẽ không hoạt động cho tới khi bạn thêm từ.":
-    "Noch keine Wörter — der Schimpfwortfilter bleibt aus, bis du welche hinzufügst.",
-  "Chưa có vụ raid external app nào bị chặn": "Noch kein Extern-App-Raid blockiert",
   "Chưa có — bot sẽ": "Noch nichts — der Bot wird",
   "Chưa học được từ khóa nào — bật research và chờ lượt chạy đầu tiên (5 phút sau khi bot online).":
     "Noch keine Schlüsselwörter gelernt — Research aktivieren und den ersten Lauf abwarten (5 Minuten nach Bot-Start).",
@@ -304,7 +250,6 @@ export const DE: Record<string, string> = {
   "Chưa xác định được tên app": "App-Name unbekannt",
   "Chưa đặt mật khẩu": "Kein Passwort gesetzt",
   Chậm: "Langsam",
-  "Chặn lượt vào khi đang bị raid": "Beitritte während eines Raids blocken",
   "Chặn tài khoản quá mới": "Zu neue Konten blocken",
   "Chặn đứng kẻ phá hoại": "Vandalen stoppen",
   "Chế độ an toàn (chống chặn nhầm)": "Sicherer Modus (weniger Fehlalarme)",
@@ -316,8 +261,6 @@ export const DE: Record<string, string> = {
   "Chọn kênh": "Kanal wählen",
   "Chọn kênh…": "Kanal wählen…",
   "Chọn loại": "Typ wählen",
-  "Chọn mẫu tin nhắn, chèn ảnh, tùy lời dẫn, cấp role thưởng tự động — bot chọn người thắng và thông báo.":
-    "Vorlage wählen, Bild einfügen, Einleitung anpassen, Preisrolle automatisch vergeben — der Bot ermittelt die Gewinner und kündigt an.",
   "Chọn role admin…": "Admin-Rolle wählen…",
   "Chọn role miễn trừ…": "Ausgenommene Rolle wählen…",
   "Chọn role mod…": "Mod-Rolle wählen…",
@@ -326,12 +269,8 @@ export const DE: Record<string, string> = {
   "Chọn server để cấu hình auto reply, nhiệt độ, Join Gate, chống nuke và các module bảo vệ.":
     "Wähle einen Server, um Auto-Reply, Heat, Join Gate, Anti-Nuke und Schutzmodule zu konfigurieren.",
   "Chọn server…": "Server wählen…",
-  "Chọn sắc độ xám áp dụng cho toàn bộ trang quản lý server này (nút, thẻ, sidebar).":
-    "Wähle eine Graustufe für die gesamte Verwaltungsseite dieses Servers (Schaltflächen, Karten, Seitenleiste).",
   "Chống nuke / raid": "Anti-Nuke / Raid",
   "Chống nuke / raid → Thành viên & quyền": "Anti-Nuke / Raid → Mitglieder & Rechte",
-  "Chống nuke/raid, báo cáo hàng ngày và sự kiện quan trọng gửi vào đây.":
-    "Anti-Nuke/Raid, Tagesberichte und wichtige Ereignisse landen hier.",
   "Chủ bot:": "Bot-Besitzer:",
   "Chủ sở hữu": "Besitzer",
   "Cài đặt server": "Server-Einstellungen",
@@ -359,20 +298,11 @@ export const DE: Record<string, string> = {
   "Danh sách các vụ bot đã chặn khi loạt": "Fälle, die der Bot im Schub blockiert hat",
   "Danh sách trắng": "Whitelist",
   "Danh sách tối đa 100 từ": "Bis zu 100 Wörter",
-  "Danh sách từ ngữ xấu (bad word)": "Schimpfwortliste",
-  "Discord Bot · Nhiệt độ · Join Gate · Tính năng ẩn":
-    "Discord-Bot · Heat · Join Gate · Versteckte Funktionen",
   "Dán vào API Keys với tên": "Unter API-Schlüssel einfügen als",
-  "Dán webhook URL từ Discord (Kênh → Tích hợp → Webhook → Tạo webhook), soạn nội dung & embed, bấm gửi.":
-    "Discord-Webhook-URL einfügen (Kanal → Integrationen → Webhooks → Neuer Webhook), Inhalt & Embed verfassen, auf Senden klicken.",
   "Dán đường dẫn ảnh hợp lệ (bắt đầu bằng http:// hoặc https://)":
     "Gültige Bild-URL einfügen (beginnend mit http:// oder https://)",
   Dùng: "Verwende",
-  "Dùng để mở khóa khu vực riêng tư dành cho chủ sở hữu bot — nội dung bên trong không tiết lộ công khai. Chỉ":
-    "Entsperrt den privaten Bereich des Bot-Besitzers — die Inhalte werden nie öffentlich gezeigt. Nur",
   "Dọn tin nhắn": "Nachrichtenaufräumung",
-  "Dựa trên tổng nhiệt độ & warn tích lũy của các thành viên. Vi phạm càng nhiều, nhiệt càng cao và mức an toàn càng giảm — khi chạm ngưỡng, hình phạt tự tăng cấp (cảnh báo → tạm khóa → kick → ban) và tái phạm sẽ bị nhân đôi nhiệt.":
-    "Basiert auf der Gesamt-Heat & den kumulierten Verwarnungen der Mitglieder. Mehr Verstöße → höhere Heat, weniger Sicherheit — bei Überschreitung eskaliert die Strafe automatisch (Verwarnung → Timeout → Kick → Ban), Wiederholung verdoppelt die Heat.",
   "Embed moderation hiển thị": "Moderations-Embed zeigt",
   "Emoji tùy chỉnh": "Eigenes Emoji",
   "File quá lớn (tối đa 8 MB) — hãy nén backup hoặc bỏ bớt media nặng rồi thử lại":
@@ -403,7 +333,6 @@ export const DE: Record<string, string> = {
   "Hai lớp phòng thủ:": "Zwei Verteidigungsebenen:",
   "Haimiya gợi ý": "Haimiya schlägt vor",
   "Haimiya — trợ lý ảo đáng tin cậy": "Haimiya — deine verlässliche Assistentin",
-  "Hiển thị timestamp hiện tại": "Aktuellen Zeitstempel anzeigen",
   "Hoạt động chống nuke gần đây": "Neue Anti-Nuke-Aktivität",
   "Hoạt động trong 3 bước": "In 3 Schritten",
   "Hoặc dán đường dẫn ảnh": "Oder Bild-URL einfügen",
@@ -418,32 +347,20 @@ export const DE: Record<string, string> = {
   "Hỏi Haimiya": "Haimiya fragen",
   "Hỏi thử Haimiya ngay": "Frag jetzt Haimiya",
   Hủy: "Abbrechen",
-  "ID Discord, VD: 123456789012345678 (cách nhau phẩy / space)":
-    "Discord-IDs, z. B. 123456789012345678 (getrennt mit Komma/Leerzeichen)",
   "ID người dùng": "Nutzer-ID",
   "ID người dùng không hợp lệ (15–20 chữ số)": "Ungültige Nutzer-ID (15–20 Ziffern)",
   "ID này đã có trong danh sách trắng": "Diese ID ist bereits auf der Whitelist",
   "JOIN GATE — TỰ ĐỘNG CHẶN SELFBOT": "JOIN GATE — SELFBOTS AUTO-BLOCKEN",
-  "Join Gate (sidebar) chặn selfbot: tài khoản quá mới, thiếu avatar/huy hiệu.":
-    "Join Gate (Seitenleiste) blockt Selfbots: zu neue Konten, fehlender Avatar/Abzeichen.",
   "Join Gate chống selfbot": "Join Gate gegen Selfbots",
   "Join Gate — cổng vào server": "Join Gate — Server-Eingangstor",
-  "Khi bot xác nhận raid/nuke: AI quét chat rồi gửi tin CẢNH BÁO KHẨN (kèm báo cáo tình hình, lệnh":
-    "Bestätigt der Bot einen Raid/Nuke: Die KI scannt den Chat und postet einen DRINGENDEN ALARM (mit Lagebericht, Befehlen",
   "Khi bật, bot tải tin an ninh công khai (Reddit security, CISA KEV) mỗi giờ, học từ khóa scam mới và dùng MIỄN PHÍ vĩnh viễn trong bộ lọc link độc hại. Từ khóa sai có thể bấm xóa bên dưới. Chi phí: gần như 0 — không cần key thêm.":
     "Aktiv lädt der Bot stündlich öffentliche Sicherheits-Feeds (Reddit Security, CISA KEV), lernt neue Scam-Schlüsselwörter und nutzt sie FÜR IMMER KOSTENLOS im Filter für bösartige Links. Falsche Schlüsselwörter kannst du unten löschen. Kosten: nahezu 0 — kein zusätzlicher Schlüssel nötig.",
-  "Khi bật, mọi thành viên mới đều được kiểm tra theo các tiêu chí bên dưới trước khi ở lại server. Kẻ không đạt sẽ bị":
-    "Aktiv wird jedes neue Mitglied vor dem Verbleib an den Kriterien unten geprüft. Nichtbestehende werden",
   "Khi bật, mỗi khi bot gặp lỗi runtime (unhandled rejection / uncaught exception), lỗi + đoạn code liên quan được gửi cho AI (Mimo V2.5 qua Kira — free 30M tokens/ngày riêng cho việc học) để chẩn đoán nguyên nhân và đề xuất bản vá dạng diff. KẾT QUẢ CHỈ LÀ ĐỀ XUẤT đăng vào kênh log — bot không tự sửa code, không tự restart. Cùng 1 lỗi chỉ chẩn đoán 1 lần/giờ.":
     "Aktiv wird jeder Laufzeitfehler des Bots (unhandled rejection / uncaught exception) an die KI geschickt (Mimo V2.5 über Kira — 30 Mio. Gratis-Tokens/Tag nur fürs Lernen), um die Ursache zu diagnostizieren und einen Diff-Patch vorzuschlagen. DAS ERGEBNIS IST NUR EIN VORSCHLAG im Log-Kanal — der Bot ändert keinen Code und startet nicht neu. Derselbe Fehler wird höchstens 1×/Stunde diagnostiziert.",
-  "Khi bật, thành viên mới sẽ nhận role chưa xác minh và cần verify để vào server.":
-    "Aktiv erhalten neue Mitglieder die Unverifiziert-Rolle und müssen sich verifizieren, um reinzukommen.",
   "Khi module dùng hình phạt": "Wenn ein Modul diese Strafe nutzt",
   "Khi đăng nhập, Protogon cần quyền": "Bei der Anmeldung braucht Protogon die Rechte",
   "Khu vực riêng tư · chỉ chủ sở hữu bot": "Privater Bereich · nur Bot-Besitzer",
   "Khung giờ cập nhật": "Update-Zeitfenster",
-  "Khuyến nghị 7-14 ngày để hạn chế tài khoản dùng 1 lần.":
-    "7–14 Tage werden empfohlen, um Wegwerfkonten einzudämmen.",
   "Khóa kênh khi bị raid": "Kanäle bei Raid sperren",
   "Khóa lại": "Erneut sperren",
   "Khôi phục emoji / sticker": "Emojis/Sticker wiederherstellen",
@@ -458,9 +375,7 @@ export const DE: Record<string, string> = {
   "Khôi phục từ file thất bại: {p0}": "Wiederherstellung aus Datei fehlgeschlagen: {p0}",
   "Không ai đang nóng đầu cả — server đang rất bình yên.":
     "Niemand ist aufgeheizt — dein Server ist ganz ruhig.",
-  "Không có khóa kênh nào đang hoạt động": "Keine Kanalsperre aktiv",
   "Không có quyền truy cập": "Kein Zugriff",
-  "Không có — tất cả role đều bị kiểm tra": "Keine — jede Rolle wird geprüft",
   "Không cấp role": "Keine Rolle vergeben",
   "Không ghi nhận sự cố trong phiên này — hệ thống ổn định ✅":
     "Keine Vorfälle in dieser Sitzung — das System ist stabil ✅",
@@ -480,24 +395,18 @@ export const DE: Record<string, string> = {
   "Không tìm thấy trang này": "Seite nicht gefunden",
   "Không tải được nội dung mục này": "Dieser Abschnitt ließ sich nicht laden",
   "Kick/Ban thành viên": "Mitglieder kicken/bannen",
-  "Kèm tin nhắn + media (tối đa 50 tin/kênh)":
-    "Nachrichten + Medien einbeziehen (max. 50 pro Kanal)",
   "Kênh gửi giveaway": "Giveaway-Kanal",
   "Kênh gửi thông báo hình phạt": "Straf-Hinweiskanal",
   "Kênh gửi tin nhắn": "Nachrichtenkanal",
   "Kênh hiển thị embed xác minh. Thành viên mới chỉ thấy kênh này.":
     "Der Kanal mit dem Verifizierungs-Embed. Neue Mitglieder sehen nur diesen Kanal.",
   "Kênh log chung": "Gemeinsamer Log-Kanal",
-  "Kênh log hành động mod (auto-mod + lệnh thủ công, kiểu Carl-bot)":
-    "Mod-Aktions-Log-Kanal (Auto-Mod + manuelle Befehle, Carl-Bot-Stil)",
   "Kênh xác minh": "Verifizierungskanal",
   "Loại kích hoạt": "Auslösertyp",
   "Loại sự kiện nhận log": "Zu loggende Ereignistypen",
   "Lý do": "Grund",
   "Lưu ý: bản ghi sự cố được ghi nhận trong phiên xem này (mất kết nối máy chủ, độ trễ quá cao). Để theo dõi xuyên suốt, hãy giữ trang này mở hoặc kiểm tra kênh log trong Discord.":
     "Hinweis: Vorfallaufzeichnungen gelten nur für diese Sitzung (Server-Verbindungsabbrüche, übermäßige Latenz). Für eine durchgehende Verfolgung lass diese Seite offen oder prüfe den Log-Kanal in Discord.",
-  "Lưu ý: whitelist không miễn trừ Join Gate (chống selfbot khi vào server) — tính năng đó có danh sách trắng riêng trong mục Join Gate.":
-    "Hinweis: Die Whitelist nimmt nicht von Join Gate aus (Selfbot-Schutz beim Beitritt) — diese Funktion hat eine eigene Liste unter Join Gate.",
   "Lưu đăng nhập": "Anmeldung merken",
 
   // ── D–G ──
@@ -508,22 +417,13 @@ export const DE: Record<string, string> = {
   "Lần khôi phục trước": "Vorherige Wiederherstellung",
   "Lần thử trước": "Vorheriger Versuch",
   "Lịch sử chống nuke": "Anti-Nuke-Verlauf",
-  "Lịch sử thay đổi": "Änderungsverlauf",
   "Lọc từ ngữ xấu": "Schimpfwortfilter",
   "Lời chúc mừng riêng khi gửi DM người thắng (tùy chọn)":
     "Eigener Glückwunsch in der Gewinner-DM (optional)",
   "Miễn phí · cập nhật tự động từ Discord": "Kostenlos · automatisch aus Discord aktualisiert",
-  "Miễn trừ chống nuke và quản lý rule auto reply trong Discord.":
-    "Ausnahme von Anti-Nuke; darf Auto-Reply-Regeln in Discord verwalten.",
   "Miễn trừ hoàn toàn khỏi mọi module chống nuke.":
     "Vollständig von allen Anti-Nuke-Modulen ausgenommen.",
-  "Mod actions (7 ngày)": "Mod-Aktionen (7 Tage)",
-  "Mod/Admin trong danh sách Cài đặt sẽ được miễn trừ khỏi chống nuke.":
-    "In den Einstellungen gelistete Mods/Admins sind von Anti-Nuke ausgenommen.",
-  "Moderation (7 ngày)": "Moderation (7 Tage)",
   "Moderation — thông báo sau khi phạt": "Moderation — Hinweis nach der Strafe",
-  'Module "Chống link độc hại & file nguy hiểm" quét domain scam + file đuôi .exe/.scr…':
-    "Das Modul „Bösartige Links & gefährliche Dateien“ scannt Scam-Domains + .exe/.scr-Anhänge…",
   "Module đang bảo vệ": "Schutzmodule aktiv",
   Màu: "Farbe",
   "Màu embed": "Embed-Farbe",
@@ -538,7 +438,6 @@ export const DE: Record<string, string> = {
   "Mọi thứ trong một bot": "Alles in einem Bot",
   Mỗi: "Jede",
   "Mỗi backup tạo một": "Jedes Backup erstellt ein",
-  "Mỗi dòng cần có emoji và chọn role": "Jede Zeile braucht ein Emoji und eine Rolle",
   "Một số khả năng đặc biệt…": "Einige besondere Fähigkeiten…",
   "Mời bot": "Bot einladen",
   "Mời bot vào server": "Bot auf den Server einladen",
@@ -549,8 +448,6 @@ export const DE: Record<string, string> = {
   "Mở dashboard": "Dashboard öffnen",
   "Mở khóa": "Entsperren",
   "Mở khóa ngay": "Jetzt entsperren",
-  "Mục này được bảo vệ bằng mật khẩu do chủ sở hữu bot đặt. Chỉ người biết mật khẩu mới nhìn thấy nội dung bên trong.":
-    "Dieser Bereich ist durch ein Passwort des Bot-Besitzers geschützt. Nur wer das Passwort kennt, sieht den Inhalt.",
   "Mức an toàn của server": "Sicherheitsniveau des Servers",
   "N ngày": "N Tage",
   "NHIỆT ĐỘ VI PHẠM — THÀNH VIÊN “dang_spam”": "VERSTOẞ-HEAT — MITGLIED „dang_spam“",
@@ -558,7 +455,6 @@ export const DE: Record<string, string> = {
     "Zusätzlich zum Sichtbaren hält Protogon einen privaten Machtbereich bereit, den nur der Bot-Besitzer mit einem geheimen Passwort entsperren kann — direkt im Dashboard, ohne Zusatzinstallation.",
   "Nguyên tắc ưu tiên": "Prioritätsregeln",
   Nguồn: "Quelle",
-  "Người dùng / role trong danh sách này sẽ": "Nutzer/Rollen in dieser Liste werden",
   "Người dùng bị xử lý": "Sanktionierte Nutzer",
   "Người dùng đã bị xử lý": "Sanktionierte Nutzer",
   "Người dùng được miễn trừ": "Ausgenommene Nutzer",
@@ -568,14 +464,10 @@ export const DE: Record<string, string> = {
   "Ngưỡng tạm khóa": "Timeout-Schwelle",
   "Ngưỡng warn": "Verwarnungs-Schwelle",
   "Nhiệt cao nhất:": "Höchste Heat:",
-  "Nhiệt tự giảm theo phút — đủ ngưỡng sẽ tự tăng cấp hình phạt.":
-    "Heat sinkt pro Minute — wird ein Schwellenwert erreicht, eskaliert die Strafe automatisch.",
   "Nhiệt · Warn": "Heat · Verwarnungen",
   "Nhận signature từ server khác": "Signaturen von anderen Servern empfangen",
   Nhập: "Eingeben",
   "Nhập Discord Webhook URL": "Discord-Webhook-URL eingeben",
-  "Nhập ID người dùng Discord và nội dung — bot sẽ nhắn riêng cho họ. (Bật chế độ developer trong Discord, bấm chuột phải vào người dùng → Copy User ID)":
-    "Discord-Nutzer-ID und Inhalt eingeben — der Bot schreibt ihnen per DM. (Entwicklermodus in Discord aktivieren, Rechtsklick auf den Nutzer → Nutzer-ID kopieren)",
   "Nhập ID người dùng Discord…": "Discord-Nutzer-ID eingeben…",
   "Nhập nội dung trả lời": "Antworttext eingeben",
   "Nhập tên rule": "Regelnamen eingeben",
@@ -588,7 +480,6 @@ export const DE: Record<string, string> = {
   Nén: "Komprimiert",
   "Nếu chọn “tự động”, bot ưu tiên kênh log hành động mod, rồi tới kênh log chung (Cài đặt → Kênh log). Chưa có kênh log nào → không gửi được thông báo.":
     "Bei „automatisch“ bevorzugt der Bot den Mod-Aktions-Log-Kanal, dann den gemeinsamen Log-Kanal (Einstellungen → Log-Kanäle). Kein Log-Kanal → Hinweise können nicht gesendet werden.",
-  "Nếu server bị một con": "Wird dein Server von einem",
   "Nội dung / mô tả": "Inhalt / Beschreibung",
   "Nội dung embed": "Embed-Inhalt",
   "Nội dung kèm (template)": "Angehängter Inhalt (Vorlage)",
@@ -600,14 +491,10 @@ export const DE: Record<string, string> = {
 
   // ── P–S ──
   "Phân quyền": "Berechtigungen",
-  "Phân tích cụm tài khoản + audit log sau mỗi vụ.":
-    "Analysiert nach jedem Fall Konto-Cluster + Audit-Log.",
   "Phòng thủ 32 module": "32 Verteidigungsmodule",
   "Phương thức xác minh": "Verifizierungsmethode",
   "Ping @everyone khi cảnh báo khẩn": "@everyone bei Dringend-Alarm pingen",
   "Prefix lệnh": "Befehlspräfix",
-  "Prefix phải là 1-3 ký tự đặc biệt, ví dụ: !, ^, !!":
-    "Das Präfix muss 1–3 Sonderzeichen sein, z. B. !, ^, !!",
   "Prefix · kênh log · phân quyền · bảo mật · giao diện":
     "Präfix · Log-Kanäle · Berechtigungen · Sicherheit · Erscheinungsbild",
   "Preset bảo mật 1 chạm": "Sicherheits-Preset auf einen Klick",
@@ -615,29 +502,16 @@ export const DE: Record<string, string> = {
     "Protogon erreicht den Datenserver nicht (das Convex-Backend meldet Fehler). Die Seite funktioniert wieder, sobald der Server gesundet — versuche neu zu laden.",
   "Quyền quản lý server không đủ để mở khóa mục này.":
     "Die Berechtigung „Server verwalten“ reicht nicht, um diesen Bereich zu entsperren.",
-  "Quét từng thành viên mới khi tham gia và tự động chặn tài khoản nghi selfbot":
-    "Prüft jedes neue Mitglied beim Beitritt und blockt selbstbotverdächtige Konten automatisch",
   "Quên mật khẩu? Vào Cài đặt để đặt lại (chỉ chủ sở hữu bot).":
     "Passwort vergessen? In den Einstellungen zurücksetzen (nur Bot-Besitzer).",
   "Quản lý bot Discord của bạn từ một nơi": "Verwalte deinen Discord-Bot an einem Ort",
   "Quản lý server": "Server verwalten",
   "Raid Intel — săn nguồn cơn raid 🎯": "Raid Intel — der Raid-Quelle auf der Spur 🎯",
   "Raid bằng ứng dụng ngoài": "Raid über externe App",
-  "Reaction role, giveaway, gửi DM trực tiếp, auto reply và tùy chỉnh giao diện — chỉ admin sở hữu bot mở khóa bằng mật khẩu mới dùng được.":
-    "Reaktions-Rollen, Giveaways, direkte DMs, Auto-Reply und Design-Anpassung — nutzbar erst, nachdem der botbesitzende Admin sie mit dem Passwort entsperrt hat.",
-  "Role Mod / Admin đã cấu hình trong Cài đặt vẫn hoạt động riêng — danh sách này dành cho role tùy chỉnh (ví dụ: VIP, YouTuber, Staff…).":
-    "In den Einstellungen konfigurierte Mod/Admin-Rollen wirken separat — diese Liste ist für eigene Rollen (z. B. VIP, YouTuber, Staff…).",
   "Role chưa xác minh (Unverified)": "Unverifiziert-Rolle",
-  "Role gán cho thành viên sau khi xác minh thành công. Role chưa xác minh sẽ bị gỡ.":
-    "Rolle nach erfolgreicher Verifizierung. Die Unverifiziert-Rolle wird entfernt.",
-  "Role gán tự động cho thành viên mới khi vừa vào server.":
-    "Rolle, die neuen Mitgliedern beim Beitritt automatisch gegeben wird.",
   "Role miễn trừ": "Ausgenommene Rolle",
   "Role đã xác minh (Verified)": "Verifiziert-Rolle",
   "Role được miễn trừ": "Ausgenommene Rollen",
-  'Rule "{p0}" {p1}': "Regel „{p0}“ {p1}",
-  "Rule auto reply dùng placeholder": "Auto-Reply-Regeln unterstützen Platzhalter",
-  "Sai mật khẩu rồi, thử lại nhé senpai!": "Falsches Passwort, versuch es nochmal!",
   "Sao chép": "Kopieren",
   "Seed bí mật (dòng bất kỳ, ví dụ: chuỗi ngẫu nhiên)":
     "Geheimer Seed (beliebige Zeile, z. B. Zufallszeichenkette)",
@@ -656,18 +530,10 @@ export const DE: Record<string, string> = {
   "Sửa bảng": "Panel bearbeiten",
   "Sự cố": "Vorfälle",
   "Sự cố / lỗi": "Vorfälle / Fehler",
-  "Sự kiện theo module (7 ngày)": "Ereignisse nach Modul (7 Tage)",
-  "Thang nhiệt tự leo thang hình phạt": "Heat-Skala mit automatischer Strafeskalation",
-  "Thay đổi cấu hình được bot đồng bộ tự động trong vòng ~3 phút.":
-    "Konfigurationsänderungen werden innerhalb von ~3 Minuten zum Bot synchronisiert.",
   "Threat Intel — bot tự học": "Threat Intel — der Bot lernt",
   "Threat relay liên server": "Serverübergreifendes Threat-Relay",
   "Thumbnail (ảnh nhỏ, tùy chọn)": "Vorschaubild (kleines Bild, optional)",
   "Thành viên": "Mitglieder",
-  "Thành viên bấm emoji dưới tin nhắn để tự nhận / gỡ role. Chỉnh được tên, mô tả, thumbnail và cặp emoji → role.":
-    "Mitglieder reagieren mit einem Emoji unter der Nachricht, um Rollen selbst zu nehmen/abzugeben. Name, Beschreibung, Vorschaubild und Emoji→Rollen-Paare sind bearbeitbar.",
-  "Thành viên mới sẽ nhận role Unverified và phải xác minh trước khi vào server.":
-    "Neue Mitglieder erhalten die Unverifiziert-Rolle und müssen sich vor dem Beitritt verifizieren.",
   "Thành viên sở hữu role này được bỏ qua toàn bộ kiểm tra moderation, anti-raid và anti-nuke của":
     "Mitglieder mit dieser Rolle überspringen alle Moderations-, Anti-Raid- und Anti-Nuke-Prüfungen von",
   Thêm: "Hinzufügen",
@@ -684,7 +550,6 @@ export const DE: Record<string, string> = {
   "Tin nhắn trực tiếp từ Protogon": "Direktnachricht von Protogon",
   "Tiêu đề embed": "Embed-Titel",
   "Top 10 thành viên bị cảnh báo nhiệt độ vi phạm": "Top 10 Mitglieder mit höchster Verstoß-Heat",
-  "Top nhiệt độ": "Heat-Bestenliste",
   "Trang trước": "Vorherige Seite",
   "Trung bình": "Durchschnitt",
   "Trò chuyện với Haimiya": "Mit Haimiya chatten",
@@ -692,8 +557,6 @@ export const DE: Record<string, string> = {
   "Trợ lý ảo của Protogon — giải đáp về bot, nhiệt độ, tính năng ẩn":
     "Protogons Assistentin — Antworten zu Bot, Heat und versteckten Funktionen",
   "Tuổi tối thiểu (ngày)": "Mindestalter (Tage)",
-  "Tái phạm trong 30 phút → nhiệt": "Wiederholung in 30 Minuten → Heat",
-  "Tái phạm ×(lần)": "Wiederholung ×(mal)",
   Tên: "Name",
   "Tên Discord…": "Discord-Name…",
   "Tên bảng": "Panelname",
@@ -707,8 +570,6 @@ export const DE: Record<string, string> = {
   "Tính năng ẩn — dành riêng admin sở hữu bot":
     "Versteckte Funktionen — nur für den botbesitzenden Admin",
   "Tính năng ẩn 🔒": "Versteckte Funktionen 🔒",
-  "Tóm tắt sự kiện chống nuke gửi vào kênh log lúc ~00:00 UTC mỗi ngày":
-    "Anti-Nuke-Zusammenfassung täglich ~00:00 UTC im Log-Kanal",
   "Tùy chỉnh": "Anpassung",
   "Tùy chỉnh Webhook Log": "Log-Webhook anpassen",
   "Tùy chỉnh giao diện bot": "Erscheinungsbild des Bots anpassen",
