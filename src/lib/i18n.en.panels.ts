@@ -693,4 +693,21 @@ export const EN_PANELS: Record<string, string> = {
     "Nobody has broken a rule — the server is very safe 🎉",
   "Bảng đang trống — chưa thành viên nào có nhiệt hay warn 🎉":
     "Nothing to show — no member has heat or warns 🎉",
+  /* ==== Lô 7 — bọc translate() cho 2 description nội suy + window.confirm của
+     BackupPanel. Danh sách tùy chỉnh ghép từ các MỤC ĐÃ DỊCH (không nối mảnh
+     câu tiếng Việt), nên mục bỏ qua mang tiền tố ⏭️ như log embed của bot. */
+  role: "roles",
+  "emoji/sticker": "emoji/stickers",
+  "các kênh": "channels",
+  "⏭️ bỏ qua {p0}": "⏭️ skip {p0}",
+  "không phần nào": "nothing",
+  "Phần khôi phục: {p0} · BỎ QUA: {p1}.": "Restoring: {p0} · SKIPPED: {p1}.",
+  "Phần khôi phục: {p0} (tất cả).": "Restoring: {p0} (everything).",
+  "Bot tự nhận diện định dạng (JSON thường, base64 hoặc có lớp bọc), dựng lại kênh đúng thứ tự cùng role/emoji/sticker theo Tùy chỉnh khôi phục, rồi phục hồi tin nhắn kèm media (ảnh/video…). Lỗi (nếu có) sẽ hiện ngay khi bot báo lại.":
+    "The bot detects the format itself (plain JSON, base64 or wrapped), rebuilds the channels in the right order plus roles and emoji/stickers according to your Restore options, then restores messages with their media (images/videos…). Any error shows up as soon as the bot reports back.",
+  'Khôi phục backup của "{p0}" vào server hiện tại?':
+    'Restore the backup of "{p0}" into the current server?',
+  "Bot dựng lại cấu trúc theo backup (kênh đúng thứ tự, kèm role và emoji/sticker nếu backup có) rồi phục hồi tin nhắn cùng media (ảnh/video…), theo đúng Tùy chỉnh khôi phục bên dưới. Các role/kênh đang có của server này được giữ nguyên.":
+    "The bot rebuilds the structure from the backup (channels in the right order, plus roles and emoji/stickers when the backup has them) and then restores messages with their media (images/videos…), following the Restore options below. Roles and channels already on this server stay untouched.",
+  "Tùy chỉnh đang áp dụng: {p0}.": "Options in effect: {p0}.",
 };

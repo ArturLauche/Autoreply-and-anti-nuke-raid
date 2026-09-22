@@ -38,6 +38,30 @@ function parseBotVersion(v: string | null): number {
   return m ? parseInt(m[1], 10) : 0;
 }
 
+/**
+ * Chia các phần khôi phục thành "sẽ làm" / "bỏ qua". MỖI MỤC được dịch trọn
+ * vẹn (tên phần, hoặc "bỏ qua <phần>") rồi mới ghép vào câu có placeholder —
+ * nối mảnh câu tiếng Việt với nhau thì bản EN/DE đọc ra chữ Việt giữa câu.
+ */
+function splitRestoreParts(flags: {
+  roles: boolean;
+  emojis: boolean;
+  channels: boolean;
+  messages: boolean;
+}): { applied: string[]; skipped: string[] } {
+  const applied: string[] = [];
+  const skipped: string[] = [];
+  const put = (on: boolean, vi: string) => {
+    if (on) applied.push(translate(vi));
+    else skipped.push(translate("⏭️ bỏ qua {p0}", { p0: translate(vi) }));
+  };
+  put(flags.roles, "role");
+  put(flags.emojis, "emoji/sticker");
+  put(flags.channels, "các kênh");
+  put(flags.messages, "tin nhắn");
+  return { applied, skipped };
+}
+
 export default function BackupPanel({ data }: { data: GuildData }) {
   const [pushGithub, setPushGithub] = useState(true);
   const [includeMessages, setIncludeMessages] = useState(true);
@@ -296,20 +320,19 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         restoreMessages,
         restoreEmojis,
       });
-      const parts = [
-        restoreRoles ? "role" : null,
-        restoreEmojis ? "emoji/sticker" : null,
-        restoreChannels ? "kênh" : null,
-        restoreMessages ? "tin nhắn" : null,
-      ].filter(Boolean);
-      const skipped = [
-        !restoreRoles ? "role" : null,
-        !restoreEmojis ? "emoji/sticker" : null,
-        !restoreChannels ? "kênh" : null,
-        !restoreMessages ? "tin nhắn" : null,
-      ].filter(Boolean);
+      const { applied, skipped } = splitRestoreParts({
+        roles: restoreRoles,
+        emojis: restoreEmojis,
+        channels: restoreChannels,
+        messages: restoreMessages,
+      });
       toast.success(translate("Đã lưu tùy chỉnh khôi phục"), {
-        description: `Phần khôi phục: ${parts.join(", ")} ${skipped.length ? `· BỎ QUA: ${skipped.join(", ")}` : "(tất cả)"}.`,
+        description: skipped.length
+          ? translate("Phần khôi phục: {p0} · BỎ QUA: {p1}.", {
+              p0: applied.length ? applied.join(", ") : translate("không phần nào"),
+              p1: skipped.join(", "),
+            })
+          : translate("Phần khôi phục: {p0} (tất cả).", { p0: applied.join(", ") }),
       });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : translate("Thất bại"));
@@ -349,7 +372,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         storageId,
       });
       toast.success(translate('Đã tải "{p0}" lên — bot đang xử lý', { p0: file.name }), {
-        description: `Bot nhận diện định dạng (JSON thường / base64 / có lớp bọc), tạo lại kênh đúng thứ tự${restoreRoles ? ", role" : ""}${restoreEmojis ? " + emoji/sticker" : ""} theo tùy chỉnh khôi phục, phục hồi tin nhắn và đăng lại media (ảnh/video…). Lỗi (nếu có) sẽ hiện ngay khi bot báo lại.`,
+        description: translate(
+          "Bot tự nhận diện định dạng (JSON thường, base64 hoặc có lớp bọc), dựng lại kênh đúng thứ tự cùng role/emoji/sticker theo Tùy chỉnh khôi phục, rồi phục hồi tin nhắn kèm media (ảnh/video…). Lỗi (nếu có) sẽ hiện ngay khi bot báo lại.",
+        ),
       });
       if (fileRef.current) fileRef.current.value = "";
       setImportFileName("");
@@ -373,17 +398,25 @@ export default function BackupPanel({ data }: { data: GuildData }) {
       });
       return;
     }
-    const skipNote = [
-      !restoreRoles ? "role (đã tắt trong Tùy chỉnh khôi phục)" : null,
-      !restoreEmojis ? "emoji/sticker (đã tắt trong Tùy chỉnh khôi phục)" : null,
-    ].filter(Boolean);
-    if (
-      !window.confirm(
-        `Khôi phục backup của "${backup.guildName}" vào server hiện tại?\n\nBot sẽ tạo lại kênh theo backup, sắp xếp lại đúng thứ tự, phục hồi tin nhắn kèm media (ảnh/video…)${
-          restoreRoles ? ", role (tên, màu, quyền)" : ""
-        }${restoreEmojis ? " cùng emoji/sticker nếu backup có" : ""}.${skipNote.length ? `\n\n⚠️ BỎ QUA: ${skipNote.join(", ")}.` : ""}\nCác role/kênh đang có của server này được giữ nguyên.`,
-      )
-    ) {
+    const { applied, skipped } = splitRestoreParts({
+      roles: restoreRoles,
+      emojis: restoreEmojis,
+      channels: restoreChannels,
+      messages: restoreMessages,
+    });
+    // Câu xác nhận gồm nhiều đoạn: dịch RIÊNG TỪNG ĐOẠN rồi nối bằng xuống dòng
+    // — không nhét "\n" vào trong key từ điển (key chứa escape \n rất dễ lọt
+    // lưới check-i18n và khó đọc trong file dịch).
+    const confirmText = [
+      translate('Khôi phục backup của "{p0}" vào server hiện tại?', {
+        p0: backup.guildName,
+      }),
+      translate(
+        "Bot dựng lại cấu trúc theo backup (kênh đúng thứ tự, kèm role và emoji/sticker nếu backup có) rồi phục hồi tin nhắn cùng media (ảnh/video…), theo đúng Tùy chỉnh khôi phục bên dưới. Các role/kênh đang có của server này được giữ nguyên.",
+      ),
+      translate("Tùy chỉnh đang áp dụng: {p0}.", { p0: [...applied, ...skipped].join(", ") }),
+    ].join("\n\n");
+    if (!window.confirm(confirmText)) {
       return;
     }
     setBusy(backup._id);

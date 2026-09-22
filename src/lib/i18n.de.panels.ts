@@ -702,4 +702,21 @@ export const DE_PANELS: Record<string, string> = {
     "Noch kein Verstoß — der Server ist sehr sicher 🎉",
   "Bảng đang trống — chưa thành viên nào có nhiệt hay warn 🎉":
     "Noch leer — kein Mitglied hat Heat oder Verwarnungen 🎉",
+  /* ==== Lô 7 — bọc translate() cho 2 description nội suy + window.confirm của
+     BackupPanel. Danh sách tùy chỉnh ghép từ các MỤC ĐÃ DỊCH (không nối mảnh
+     câu tiếng Việt), nên mục bỏ qua mang tiền tố ⏭️ như log embed của bot. */
+  role: "Rollen",
+  "emoji/sticker": "Emoji/Sticker",
+  "các kênh": "Kanäle",
+  "⏭️ bỏ qua {p0}": "⏭️ {p0} überspringen",
+  "không phần nào": "nichts",
+  "Phần khôi phục: {p0} · BỎ QUA: {p1}.": "Wiederherstellung: {p0} · ÜBERSPRUNGEN: {p1}.",
+  "Phần khôi phục: {p0} (tất cả).": "Wiederherstellung: {p0} (alles).",
+  "Bot tự nhận diện định dạng (JSON thường, base64 hoặc có lớp bọc), dựng lại kênh đúng thứ tự cùng role/emoji/sticker theo Tùy chỉnh khôi phục, rồi phục hồi tin nhắn kèm media (ảnh/video…). Lỗi (nếu có) sẽ hiện ngay khi bot báo lại.":
+    "Der Bot erkennt das Format selbst (normales JSON, Base64 oder mit Wrapper), baut die Kanäle in der richtigen Reihenfolge sowie Rollen und Emoji/Sticker gemäß den Wiederherstellungs-Optionen neu auf und stellt danach Nachrichten samt Medien (Bilder/Videos…) wieder her. Fehler erscheinen, sobald der Bot sie meldet.",
+  'Khôi phục backup của "{p0}" vào server hiện tại?':
+    'Backup von "{p0}" im aktuellen Server wiederherstellen?',
+  "Bot dựng lại cấu trúc theo backup (kênh đúng thứ tự, kèm role và emoji/sticker nếu backup có) rồi phục hồi tin nhắn cùng media (ảnh/video…), theo đúng Tùy chỉnh khôi phục bên dưới. Các role/kênh đang có của server này được giữ nguyên.":
+    "Der Bot baut die Struktur aus dem Backup neu auf (Kanäle in der richtigen Reihenfolge, dazu Rollen und Emoji/Sticker, wenn das Backup sie enthält) und stellt danach Nachrichten samt Medien (Bilder/Videos…) wieder her — gemäß den Wiederherstellungs-Optionen unten. Bereits vorhandene Rollen und Kanäle dieses Servers bleiben unangetastet.",
+  "Tùy chỉnh đang áp dụng: {p0}.": "Aktive Optionen: {p0}.",
 };
