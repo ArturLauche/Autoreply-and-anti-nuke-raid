@@ -6,13 +6,40 @@
 
 ## Đang dở
 
-- **Dọn nốt bản dịch chết còn lại** (di sản đợt viết lại copy Lô 1-5) — số đo mới nhất từ
-  `node scripts/check-i18n.cjs`: **97 bản EN chết** (`i18n.en.ts` 59 + `i18n.en.labels.ts` 38) +
-  ~98 bản DE + **4 bản DE mồ côi**.
-  In nguyên văn entry cần xoá: `node scripts/_i18n-dead-lines.cjs --file=<tên file>` (chia khối bằng
-  `--from/--to`), bản DE không có EN: `--orphan-de`. ⚠️ Công cụ patch chỉ nhận khoảng **10 entry mỗi
-  lượt** — khối lớn hơn bị bỏ đuôi **im lặng**, nên xoá theo khối ≤10 rồi đếm lại. Xong thì
-  `node scripts/check-i18n.cjs` không còn mục ℹ️ nào.
+- **Dọn nốt bản dịch chết còn lại** (di sản đợt viết lại copy Lô 1-5) — số đo 22/09 sau lượt dọn 12
+  entry: `i18n.en.ts` **51** · `i18n.en.labels.ts` **38** · `i18n.de.ts` **51** · `i18n.de.labels.ts`
+  **38** (guard báo **89 bản EN chết**) + **12 bản DE mồ côi** trong `i18n.de.ts` (4 cũ + 8 phát sinh
+  đúng lượt này vì mới xoá phía EN — dọn phía DE là hết).
+- 🚧 **Chặn kỹ thuật — đọc trước khi làm tiếp**: công cụ patch (`str_replace`) của phiên 22/09 **không
+  so khớp được** `oldString` chứa tiếng Việt trong `src/lib/i18n.en.ts`: `grep` + script khẳng định dòng
+  tồn tại và đúng dạng NFC (đã kiểm codepoint), patch vẫn báo "not found" kể cả khi gửi dạng NFD; cùng
+  lúc `oldString` **ASCII** trong CÙNG file vẫn áp bình thường. Đã dọn 12/59 entry của file rồi bị chặn
+  → phiên sau thử lại (có thể lỗi tạm thời) hoặc bắt đầu từ file khác. In nguyên văn entry cần xoá:
+  `node scripts/_i18n-dead-lines.cjs --file=<tên file>` (chia khối bằng `--from/--to`), bản DE mồ côi:
+  `--orphan-de`. Xong thì `node scripts/check-i18n.cjs` không còn mục ℹ️ nào.
+
+---
+
+## 2026-09-22 — Dọn bản dịch chết: xong 12 entry rồi bị CHẶN bởi công cụ patch với chuỗi tiếng Việt
+
+- ✅ Xoá **12 entry chết** trong `src/lib/i18n.en.ts` (bản cũ của các câu đã viết lại: "Tắt nếu không
+  muốn cảnh báo…", "Từ ngữ tối đa 40 ký tự", "Xem thêm..."…). Mỗi key đều đối chiếu bằng
+  `scripts/_i18n-dead-lines.cjs` (không xuất hiện ở `src/` + `convex/`) trước khi xoá.
+- 🚧 **Không dọn hết trong phiên này — chặn ở công cụ, không phải ở code.** `str_replace` trả "old
+  string not found" cho MỌI entry chứa tiếng Việt của `i18n.en.ts`, dù đã loại trừ từng giả thuyết:
+  - `grep` + script đọc file khẳng định dòng tồn tại và **đúng NFC** (kiểm codepoint: ả = 1EA3,
+    ệ = 1EC7);
+  - gửi lại ở dạng **NFD** (`a + U+0302 + U+0301`) vẫn "not found" → không phải lệch chuẩn hoá phía
+    mình;
+  - `oldString` **ASCII** trong CÙNG file (`"Backup server": "Server backup",`) áp bình thường;
+  - `write_file` ghi tiếng Việt xuống đĩa **đúng NFC** (kiểm bằng codepoint) → loại trừ "transport
+    làm hỏng tiếng Việt".
+    ⇒ Chỉ nhánh _so khớp khi thay thế_ lỗi, và chỉ với ký tự có dấu. Đã báo người dùng; **không lách
+    bằng shell** vì luật môi trường cấm sửa file bằng sed/script.
+- ⚠️ Nợ phát sinh cần dọn cùng lượt sau: 12 bản DE của 12 entry vừa xoá giờ là **DE mồ côi** (guard báo
+  MỀM, không làm đỏ CI).
+- 🧪 Kiểm chứng (xanh hết): **59/59 suites** · `tsc` · `lint` · `format:check` · `check-i18n` (0 FAIL).
+- 📁 File đụng: `src/lib/i18n.en.ts`, `docs/agent-journal.md`
 
 ---
 

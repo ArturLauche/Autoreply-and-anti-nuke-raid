@@ -592,8 +592,6 @@ export const EN: Record<string, string> = {
     "Fetches open sources hourly (0 tokens) · AI ≤ once a week",
   "Tất cả kênh": "All channels",
   "Tất cả module": "All modules",
-  "Tắt nếu không muốn cảnh báo làm phiền toàn bộ thành viên (mod vẫn thấy log)":
-    "Turn off so alerts don't ping everyone (mods still see the log)",
   "Tổng lượt:": "Total runs:",
   "Tổng thành viên": "Total members",
   "Từ file": "From file",
@@ -601,20 +599,12 @@ export const EN: Record<string, string> = {
   "Từ khóa mới lượt trước:": "New keywords last run:",
   "Từ khóa trong tin nhắn": "Keywords in messages",
   "Từ ngày": "From date",
-  "Từ ngữ tối đa 40 ký tự": "Up to 40 characters per word",
-  "Từ tự trả lời thông minh đến 32 module bảo vệ (24 chống nuke + 8 auto-mod) — Protogon canh server 24/7 và cấu hình mọi thứ qua dashboard trực quan, có trợ lý Haimiya sẵn sàng giải đáp.":
-    "From smart auto-reply to 32 protection modules (24 anti-nuke + 8 auto-mod) — Protogon guards your server 24/7, with everything configurable from a clean dashboard and Haimiya ready to answer.",
   "Tự ban nghi phạm nguồn cơn": "Auto-ban the source suspect",
   "Tự ban tài khoản đủ điểm nghi vấn (chủ mưu, trùng avatar…).":
     "Auto-bans accounts scoring high enough (mastermind, matching avatars…).",
-  "Tự chặn gửi tin nhắn & voice khi phát hiện raid, mở lại sau khi hết giờ hoặc bằng":
-    "Blocks message & voice sending when a raid is detected, reopens when the timer ends or via",
   "Tự động backup định kỳ": "Automatic scheduled backups",
-  "Tự động kiểm duyệt: chống spam tin nhắn, mention, từ ngữ xấu, spam ảnh/file và chặn link mời Discord":
-    "Automatic moderation: anti-spam, mention spam, bad words, image/file spam and Discord invite blocking",
   "Tự động:": "Automatic:",
   "URL khi nhấn tên": "URL when the name is clicked",
-  "Username ghi đè (tùy chọn)": "Username override (optional)",
   "VD: 1 tháng Nitro Boost 🚀": "e.g. 1 month of Nitro Boost 🚀",
   "VD: Bấm emoji bên dưới để nhận role tương ứng 🌸":
     "e.g. React below to get the matching role 🌸",
@@ -628,11 +618,9 @@ export const EN: Record<string, string> = {
   "Vào dashboard": "Open dashboard",
   "Về trang chủ": "Back to home",
   "Vụ đã chặn": "Cases blocked",
-  "Vừa bị phạt mà tái phạm → nhiệt nhân": "Repeat right after a punishment → heat multiplies",
   "Warn tích lũy (tăng cấp hình phạt)": "Accumulated warns (escalating punishment)",
   "Whitelist của server này": "This server's whitelist",
   "Xem lịch sử": "View history",
-  "Xem thêm...": "Show more...",
   "Xem trước": "Preview",
   "Xem trước DM chào mừng": "Preview the welcome DM",
   "Xác minh thành viên (Verify)": "Member verification (Verify)",
