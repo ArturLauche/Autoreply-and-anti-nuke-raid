@@ -13,6 +13,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "node scripts/run-all-tests.cjs",
+    "test:ts": "node scripts/run-all-tests.cjs --ts",
     "test:coverage": "c8 --config .c8rc.json node scripts/run-all-tests.cjs",
     "test:bot": "for s in scripts/test-*.cjs; do node \"$s\" || exit 1; done",
     "test:mutation": "node scripts/mutation-test.cjs",

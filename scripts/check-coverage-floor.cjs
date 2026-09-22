@@ -52,7 +52,13 @@ console.log("════ Coverage floor — sàn tối thiểu theo file (lines
 for (const [file, floor] of Object.entries(FLOORS)) {
   const data = files.get(file);
   if (!data) {
-    console.log(`⚠️  ${file.padEnd(24)} — không có dữ liệu (file bị xóa/exclude?)`);
+    // KHÔNG được "cảnh báo rồi bỏ qua": file biến mất khỏi báo cáo coverage
+    // (đổi tên, bị thêm vào exclude, hoặc không test nào nạp nữa) nghĩa là
+    // SÀN BỊ VÔ HIỆU IM LẶNG — đúng kiểu lỗi cổng này sinh ra để chặn.
+    console.log(
+      `❌ ${file.padEnd(24)} — KHÔNG có dữ liệu coverage (đổi tên / bị exclude / không test nào nạp?)`,
+    );
+    violations++;
     continue;
   }
   const pct = data.lines.pct;

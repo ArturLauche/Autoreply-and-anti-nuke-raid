@@ -5,6 +5,11 @@
  *
  * Suites nặng (restore e2e, security, restore pipeline) chạy SAU để fail sớm
  * ở các suite nhanh — phản hồi CI nhanh hơn.
+ *
+ * Cờ --ts: chạy các suite tầng Convex/Haimiya viết bằng TypeScript (bun).
+ * Vì sao tách cờ: 5 suite .ts từng không nằm trong runner/CI nào — test có mà
+ * không bao giờ chạy (91 assertion không bảo vệ gì). Tách khỏi luồng .cjs để
+ * không đụng phép đo coverage của c8 (c8 chỉ include bot/src/**\/*.js).
  */
 const { execFileSync } = require("child_process");
 const path = require("path");
@@ -12,22 +17,35 @@ const fs = require("fs");
 
 const HEAVY = ["test-restore-e2e", "test-restore-pipeline", "test-security-hardening"];
 
+const TS_MODE = process.argv.includes("--ts");
+
 const suites = fs
   .readdirSync(__dirname)
-  .filter((f) => /^test-.*\.cjs$/.test(f))
+  .filter((f) => (TS_MODE ? /^test-.*\.ts$/.test(f) : /^test-.*\.cjs$/.test(f)))
   .sort((a, b) => {
+    if (TS_MODE) return a.localeCompare(b);
     const heavy = (n) => (HEAVY.some((h) => n.startsWith(h)) ? 1 : 0);
     return heavy(a) - heavy(b);
   });
 
-console.log(`Chạy ${suites.length} test suites...\n`);
+// Không có suite nào = runner mất khả năng phát hiện (glob sai/đổi tên thư mục)
+// → fail to, thay vì in "0/0 suites pass" rồi xanh.
+if (suites.length === 0) {
+  console.error(
+    `❌ Không tìm thấy suite ${TS_MODE ? "test-*.ts" : "test-*.cjs"} nào trong scripts/ — kiểm tra lại glob.`,
+  );
+  process.exit(1);
+}
+
+const RUNNER = TS_MODE ? "bun" : "node";
+console.log(`Chạy ${suites.length} test suites (${RUNNER})...\n`);
 
 const failed = [];
 const t0 = Date.now();
 for (const suite of suites) {
   const s0 = Date.now();
   try {
-    const out = execFileSync("node", [path.join(__dirname, suite)], {
+    const out = execFileSync(RUNNER, [path.join(__dirname, suite)], {
       encoding: "utf8",
       timeout: 120_000,
       stdio: ["ignore", "pipe", "pipe"],
@@ -35,7 +53,7 @@ for (const suite of suites) {
     // Trích dòng tổng kết (pass/fail) nếu suite có in.
     const tail = out.trim().split("\n").slice(-1)[0];
     console.log(
-      `✅ ${suite.replace(/\.cjs$/, "")} (${((Date.now() - s0) / 1000).toFixed(1)}s) — ${tail}`,
+      `✅ ${suite.replace(/\.(cjs|ts)$/, "")} (${((Date.now() - s0) / 1000).toFixed(1)}s) — ${tail}`,
     );
   } catch (e) {
     const out = `${e.stdout || ""}\n${e.stderr || ""}`;
@@ -43,7 +61,7 @@ for (const suite of suites) {
       .split("\n")
       .filter((l) => /^(FAIL|Error|ERROR)/.test(l.trim()))
       .slice(0, 5);
-    console.error(`❌ ${suite.replace(/\.cjs$/, "")} — THẤT BẠI`);
+    console.error(`❌ ${suite.replace(/\.(cjs|ts)$/, "")} — THẤT BẠI`);
     for (const f of fails) console.error(`   ${f}`);
     failed.push(suite);
   }

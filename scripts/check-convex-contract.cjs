@@ -66,6 +66,32 @@ for (const file of convexFiles) {
   }
 }
 
+// ── 2b. Ref viết dạng LITERAL nhưng không nằm ngay trong lời gọi ──
+// Ví dụ bot/src/handlers/backup.js:
+//   const reportKind = item.kind === "import"
+//     ? "bot_writes:botReportImportError" : "bot_writes:botClearBackup";
+//   await store.client.mutation(reportKind, …)
+// Đối số là BIẾN nên regex ở mục 1 không thấy — gõ sai một trong hai nhánh này
+// sẽ lọt lưới cho tới lúc chạy thật (đúng kiểu bug hợp đồng script này chặn).
+// Chỉ xét literal có phần module TRÙNG tên file convex, nên chuỗi minh hoạ
+// kiểu "name:id" trong tài liệu không bị báo nhầm.
+const convexModules = new Set(convexFiles.map((f) => path.basename(f, ".ts")));
+const REF_LITERAL_RE = /["'`]([A-Za-z_][A-Za-z0-9_]*):([A-Za-z_][A-Za-z0-9_]*)["'`]/g;
+const literalRefs = new Map(); // ref -> [{file, line}]
+for (const file of walk(path.join(ROOT, "bot", "src"), ".js")) {
+  const text = fs.readFileSync(file, "utf8");
+  const rel = path.relative(ROOT, file);
+  let m;
+  while ((m = REF_LITERAL_RE.exec(text))) {
+    const ref = `${m[1]}:${m[2]}`;
+    if (!convexModules.has(m[1])) continue; // không phải namespace Convex
+    if (calls.has(ref)) continue; // đã kiểm qua lời gọi trực tiếp
+    const line = text.slice(0, m.index).split("\n").length;
+    if (!literalRefs.has(ref)) literalRefs.set(ref, []);
+    literalRefs.get(ref).push({ file: rel, line });
+  }
+}
+
 // ── 3. So khớp ──
 const missing = [];
 for (const [ref, sites] of [...calls.entries()].sort()) {
@@ -73,16 +99,24 @@ for (const [ref, sites] of [...calls.entries()].sort()) {
     missing.push({ ref, sites });
   }
 }
+const missingLiteral = [];
+for (const [ref, sites] of [...literalRefs.entries()].sort()) {
+  if (!convexExports.has(ref)) {
+    missingLiteral.push({ ref, sites });
+  }
+}
 
-if (missing.length === 0) {
+if (missing.length === 0 && missingLiteral.length === 0) {
   console.log(
-    `convex-contract OK — ${calls.size} function bot gọi đều tồn tại phía Convex (${convexExports.size} exports)`,
+    `convex-contract OK — ${calls.size} function gọi trực tiếp + ${literalRefs.size} ref dựng động đều tồn tại phía Convex (${convexExports.size} exports)`,
   );
   process.exit(0);
 }
 
-console.error(`convex-contract LỆCH — ${missing.length} function bot gọi nhưng Convex KHÔNG có:\n`);
-for (const { ref, sites } of missing) {
+console.error(
+  `convex-contract LỆCH — ${missing.length + missingLiteral.length} ref bot dùng nhưng Convex KHÔNG có:\n`,
+);
+for (const { ref, sites } of [...missing, ...missingLiteral]) {
   const where = sites.map((s) => `${s.file}:${s.line}`).join(", ");
   console.error(`  - ${ref}  (gọi tại ${where})`);
 }

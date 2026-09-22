@@ -23,6 +23,27 @@ const path = require("path");
 const ROOT = path.resolve(__dirname, "..");
 const MAP_PATH = path.join(ROOT, "docs", "repo-map.md");
 
+/**
+ * Cắt đúng 1 mục "## tên" của bản đồ (tới mục "##" kế tiếp).
+ * Vì sao cần: bản cũ tìm TÊN FILE bằng phép "chuỗi con" trên TOÀN BỘ bản đồ,
+ * nên `bot/src/ai.js` qua cửa vì chữ "ai" nằm trong "raid"/"haimiya", còn
+ * `convex/foo.ts` qua cửa vì "foo" xuất hiện ở mục khác — bản đồ thiếu dòng
+ * vẫn báo xanh (đúng kiểu lỗi im lặng script này sinh ra để chặn).
+ */
+function mapSection(mapText, heading) {
+  const after = mapText.split(new RegExp(`^## ${heading}`, "m"))[1];
+  return after ? after.split(/^## /m)[0] : "";
+}
+
+/**
+ * Tên file phải xuất hiện như MỘT TOKEN riêng trong mục, không phải chuỗi con
+ * của từ khác: "ai" không khớp trong "raid", "util" không khớp trong "utilities".
+ */
+function mentions(section, name) {
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<![A-Za-z0-9_.-])${esc}(?![A-Za-z0-9_])`, "i").test(section);
+}
+
 function listDir(dir, ext) {
   try {
     return fs
@@ -59,10 +80,10 @@ for (const mentioned of pageMentions) {
 
 // ── 2. convex/*.ts — function file phải được nhắc (lặng lẽ bỏ _generated) ──
 const convexFiles = listDir("convex", ".ts").filter((f) => !f.startsWith("_"));
-// Tên file convex cho phép dạng "bot_tick" — so trên chữ thường
-const mapLower = mapText.toLowerCase();
+// So trong ĐÚNG bảng convex/, không phải toàn bộ bản đồ
+const convexSection = mapSection(mapText, "convex/");
 for (const file of convexFiles) {
-  if (!mapLower.includes(file.toLowerCase())) {
+  if (!mentions(convexSection, file)) {
     problems.push(
       `TRẮNG: convex/${file}.ts chưa được nhắc trong bản đồ (bảng "convex/ — backend")`,
     );
@@ -71,18 +92,12 @@ for (const file of convexFiles) {
 
 // ── 3. bot/src/*.js — module top-level phải thuộc 1 nhóm hoặc được nhắc ──
 const botFiles = listDir("bot/src", ".js");
-const botSection = mapText.split("## bot/")[1]?.split("## convex/")[0] || "";
-const botSectionLower = botSection.toLowerCase();
+const botSection = mapSection(mapText, "bot/");
 for (const file of botFiles) {
-  const base = file.toLowerCase();
-  // Chấp nhận: tên file được nhắc trực tiếp, hoặc thuộc một dòng nhóm
-  // (ví dụ dòng "commands/, handlers/" bao phủ thư mục).
-  const covered =
-    botSectionLower.includes(base) ||
-    (fs.existsSync(path.join(ROOT, "bot/src", file)) &&
-      fs.statSync(path.join(ROOT, "bot/src", file)).isDirectory() &&
-      botSectionLower.includes(`${base}/`));
-  if (!covered) {
+  // Tên file phải được nhắc trong bảng bot/ (khớp theo token, xem `mentions`).
+  // Bản cũ còn một nhánh kiểm tra `isDirectory()` — code chết: listDir chỉ trả
+  // file *.js nên `file` không bao giờ là thư mục.
+  if (!mentions(botSection, file)) {
     problems.push(
       `TRẮNG: bot/src/${file}.js chưa được nhắc hoặc không thuộc dòng nhóm nào trong bản đồ (bảng "bot/ — Discord bot")`,
     );

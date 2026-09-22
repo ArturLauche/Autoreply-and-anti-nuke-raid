@@ -59,6 +59,8 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 | `moduleActions.js`, `tick.js`, `timeoutWatch.js`, `misfire.js` | Điều phối module + chu kỳ + theo dõi timeout + misfire AI (vòng 11) |
 | `caseLog.js`, `register-slash.js`, `loadenv.js`                | Log case + đăng ký slash + nạp env                                  |
 | `research.js`                                                  | Tra cứu/threat research hỗ trợ AI                                   |
+| `ai.js`                                                        | Client AI trực tiếp từ VPS (Kira gateway + fallback Groq/NVIDIA)    |
+| `util.js`                                                      | Tiện ích dùng chung: quyền, định dạng, helper                       |
 
 ## convex/ — backend
 
@@ -67,7 +69,9 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 | `schema.ts`                                                       | Schema DB duy nhất                                                                    |
 | `auth.ts`, `sessions.ts`, `sessionAuth.ts`, `sessionHardening.ts` | Auth dashboard                                                                        |
 | `botAuth.ts`, `botBootstrap.ts`                                   | botKey SHA-256, bootstrap — KHÔNG backdoor                                            |
-| `antinuke.ts`, `threatIntel.ts`                                   | Logic antinuke phía backend                                                           |     | `haimiya.ts` | Provider AI bot (self-heal fallback, không hardcode model cũ) |
+| `antinuke.ts`, `threatIntel.ts`                                   | Logic antinuke phía backend                                                           |
+| `haimiya.ts`                                                      | Provider AI bot (self-heal fallback, không hardcode model cũ)                         |
+| `altDetection.ts`                                                 | Chặn tài khoản phụ/trùng dấu hiệu (markJoinPunished theo cấu hình server)             |
 | `autoreplies.ts`                                                  | CRUD rule auto reply (giới hạn 50 rule/server)                                        |
 | `guilds.ts`                                                       | Document server + cấu hình bot ⇄ dashboard; botSyncGuilds gộp heartbeat + sức khỏe AI |
 | `modules.ts`, `presets.ts`                                        | Bật/tắt module + bộ preset an toàn                                                    |

@@ -13,7 +13,11 @@
  * đúng 1 token), rồi chạy assertions của test-property trỏ vào bản mutant.
  *
  * Chạy: node scripts/mutation-test.cjs           (mặc định: nhanh, 12 mutant)
- *       node scripts/mutation-test.cjs --full    (toàn bộ 24 mutant)
+ *       node scripts/mutation-test.cjs --full    (13 mutant — bộ đầy đủ)
+ *
+ * Chống "điểm xanh giả": anchor của mutant không còn khớp source (source đã
+ * refactor) KHÔNG được đếm là "mutant bị giết" — script kiểm anchor trước khi
+ * chạy và fail cứng kèm tên mutant cần cập nhật.
  */
 const fs = require("fs");
 const path = require("path");
@@ -21,13 +25,22 @@ const Module = require("module");
 
 // shared.js require discord.js — cần mock như test-property để mutant nạp được.
 // KHÔNG có mock thì mutant "crash lúc import" bị đếm nhầm là bị giết (kill giả).
+const MOCK_PATH = path.join(__dirname, "..", "bot", "test-djs-mock.cjs");
+/** Dọn file mock — gọi trước MỌI đường thoát để không để rác lại repo. */
+function cleanupMock() {
+  try {
+    fs.unlinkSync(MOCK_PATH);
+  } catch {
+    /* chưa tạo thì thôi */
+  }
+}
 const origResolve = Module._resolveFilename;
 Module._resolveFilename = function (request, ...args) {
-  if (request === "discord.js") return path.join(__dirname, "..", "bot", "test-djs-mock.cjs");
+  if (request === "discord.js") return MOCK_PATH;
   return origResolve.call(this, request, ...args);
 };
 fs.writeFileSync(
-  path.join(__dirname, "..", "bot", "test-djs-mock.cjs"),
+  MOCK_PATH,
   `class EmbedBuilder { constructor(d = {}) { this.d = d; } setColor() { return this; } setTitle() { return this; } setDescription() { return this; } addFields() { return this; } setTimestamp() { return this; } setFooter() { return this; } }
 module.exports = { Colors: new Proxy({}, { get: () => 0x000000 }), EmbedBuilder, PermissionFlagsBits: new Proxy({}, { get: () => 1n }), UserFlags: { VerifiedBot: 1n << 16n }, AuditLogEvent: new Proxy({}, { get: (t, k) => (t[k] ??= Symbol(k)) }) };
 `,
@@ -59,8 +72,13 @@ function weirdString(len) {
 function loadMutant(relPath, from, to) {
   const abs = path.join(__dirname, "..", relPath);
   const src = fs.readFileSync(abs, "utf8");
-  if (!src.includes(from))
-    throw new Error(`mutant anchor không tìm thấy trong ${relPath}: ${from}`);
+  if (!src.includes(from)) {
+    // Lỗi anchor KHÁC hẳn "mutant crash khi chạy" — phải fail cứng, xem khối
+    // kiểm anchor trước vòng lặp bên dưới.
+    const err = new Error(`mutant anchor không tìm thấy trong ${relPath}: ${from}`);
+    err.name = "AnchorError";
+    throw err;
+  }
   const mutated = src.replace(from, to);
   const m = new Module(abs, null);
   m.filename = abs; // relative require giải từ đây (không set → resolve từ CWD → fail)
@@ -141,6 +159,13 @@ function assertSuspicion(mod) {
   )
     return false;
   return true;
+}
+
+function assertBudgetGate(mod) {
+  // Guild CHƯA từng ghi hành động phải được phép chạy — mutant đổi nhánh
+  // `if (!list) return true` thành `return false` chết ngay tại đây.
+  const { canPunish } = mod;
+  return canPunish(`mut-guild-${int(1, 1e9)}`, { actionBudgetPerMinute: 5 }) === true;
 }
 
 function assertBudget(mod) {
@@ -252,20 +277,43 @@ const FULL = [
     "const list = hits.get(guildId);\n    if (!list) return true;",
     "const list = hits.get(guildId);\n    if (!list) return false;",
     "budget-guild-mới-bị-chặn",
-    null,
+    assertBudgetGate,
   ],
 ];
 
 const only = process.argv.includes("--full") ? FULL : MUTANTS;
 
+// ── Kiểm TRƯỚC khi chạy: anchor còn khớp source, mutant có assert ──
+// Bản cũ để lỗi anchor rơi vào catch() và đếm là "mutant bị giết": chỉ cần
+// refactor source một dòng là điểm mutation hiện 100% GIẢ (thực tế không
+// mutant nào chạy). Mutant thiếu assert cũng từng bị "bỏ qua" im lặng, vẫn
+// tính vào mẫu số thành công.
+const staleAnchors = [];
+const unasserted = [];
+for (const [file, from, , name, assertFn] of only) {
+  if (!assertFn) unasserted.push(name);
+  else if (!fs.readFileSync(path.join(__dirname, "..", file), "utf8").includes(from))
+    staleAnchors.push(`${name} — ${file}`);
+}
+if (staleAnchors.length || unasserted.length) {
+  if (staleAnchors.length)
+    console.error(
+      `❌ ${staleAnchors.length} mutant có anchor KHÔNG còn khớp source — cập nhật lại MUTANTS:\n` +
+        staleAnchors.map((s) => `   - ${s}`).join("\n"),
+    );
+  if (unasserted.length)
+    console.error(
+      `❌ ${unasserted.length} mutant chưa có assert — không được coi là "đã bị giết":\n` +
+        unasserted.map((s) => `   - ${s}`).join("\n"),
+    );
+  cleanupMock();
+  process.exit(1);
+}
+
 let killed = 0;
 let survived = 0;
 const survivors = [];
 for (const [file, from, to, name, assertFn] of only) {
-  if (!assertFn) {
-    console.log(`⏭️  ${name} — chưa có assert (bỏ qua)`);
-    continue;
-  }
   try {
     const mod = loadMutant(file, from, to);
     const alive = assertFn(mod);
@@ -278,13 +326,14 @@ for (const [file, from, to, name, assertFn] of only) {
       console.log(`🟢 bị giết  ${name}`);
     }
   } catch (e) {
+    if (e && e.name === "AnchorError") throw e; // đã kiểm trước — không nuốt thành "bị giết"
     // Mutant crash khi chạy = bị giết (test bắt được hành vi sai)
     killed++;
     console.log(`🟢 bị giết (crash)  ${name}`);
   }
 }
 
-fs.unlinkSync(path.join(__dirname, "..", "bot", "test-djs-mock.cjs"));
+cleanupMock();
 console.log(
   `\n════ Mutation score: ${killed}/${killed + survived} mutants bị giết (${((killed / Math.max(1, killed + survived)) * 100).toFixed(0)}%) ════`,
 );
