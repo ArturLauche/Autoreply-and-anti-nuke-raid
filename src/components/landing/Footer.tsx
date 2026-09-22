@@ -25,7 +25,7 @@ function FooterOwner() {
       )}
       <span>
         {translate("Chủ bot:")} <b className="text-foreground">{ownerName}</b>
-        <span className="ml-1.5 hidden sm:inline">{translate("· cập nhật 24/7")}</span>
+        <span className="ml-1.5 hidden sm:inline">{translate("· hoạt động 24/7")}</span>
       </span>
     </div>
   );
@@ -50,7 +50,7 @@ export default function Footer({
             <div>
               <p className="font-display font-semibold">Protogon Bot</p>
               <p className="text-xs text-muted-foreground">
-                {translate("Bot Discord bảo vệ server · trợ lý Haimiya")}{" "}
+                {translate("Bot Discord bảo vệ server, đồng hành cùng trợ lý Haimiya")}{" "}
               </p>
             </div>
           </div>
@@ -73,7 +73,7 @@ export default function Footer({
           <p className="text-center text-sm text-muted-foreground">
             © {new Date().getFullYear()}{" "}
             {translate(
-              "Protogon Bot · Tự trả lời thông minh, nhiệt độ vi phạm, Join Gate & phòng thủ chống raid cho Discord",
+              "Protogon Bot · Tự trả lời theo từ khóa, nhiệt độ vi phạm, Join Gate và phòng thủ chống raid cho cộng đồng Discord",
             )}
           </p>
           <FooterOwner />

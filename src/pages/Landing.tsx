@@ -45,7 +45,9 @@ export default function Landing() {
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
                   </span>
-                  {translate("Discord Bot · Nhiệt độ · Join Gate · Welcome · AI")}{" "}
+                  {translate(
+                    "Bot Discord · Nhiệt độ · Join Gate · Chào thành viên · Trợ lý AI",
+                  )}{" "}
                 </Badge>
               </motion.div>
               <motion.h1
@@ -55,7 +57,7 @@ export default function Landing() {
                 className="mt-4 text-center font-display text-4xl font-bold leading-[1.15] tracking-tight sm:text-5xl lg:mt-0 lg:text-left lg:text-4xl xl:text-[2.75rem]"
               >
                 Bot Discord
-                <span className="block text-primary">{translate("bảo vệ toàn diện")}</span>
+                <span className="block text-primary">{translate("bảo vệ server toàn diện")}</span>
                 <span className="block">{translate("tự trả lời & chống raid")}</span>
               </motion.h1>
               <motion.p
@@ -65,13 +67,13 @@ export default function Landing() {
                 className="mx-auto mt-5 max-w-lg text-center text-base text-muted-foreground sm:text-lg lg:mx-0 lg:text-left"
               >
                 Tag <span className="font-mono text-primary">@protogon</span>{" "}
-                {translate("hoặc nhắc từ khóa — bot trả lời ngay. Hệ thống")}{" "}
+                {translate("hoặc gọi từ khóa để bot phản hồi tức thì. Đi kèm")}{" "}
                 <b className="text-foreground">{translate("nhiệt độ 4 giai đoạn")}</b>{" "}
-                {translate("kèm warn tích lũy")},{" "}
+                {translate("cùng warn tích lũy")},{" "}
                 <b className="text-foreground">{translate("Join Gate chống selfbot")}</b>,{" "}
                 <b className="text-foreground">{translate("chặn link độc hại & file nguy hiểm")}</b>{" "}
                 {translate("và")} <b className="text-foreground">{translate("32 module bảo vệ")}</b>{" "}
-                {translate("canh server 24/7.")}
+                {translate("giám sát server 24/7.")}
               </motion.p>
               <motion.div
                 initial={{ opacity: 0, y: 24 }}

@@ -44,52 +44,52 @@ export function Features() {
     {
       icon: MessageSquareReply,
       title: "Tự trả lời thông minh",
-      desc: "Rule theo từ khóa hoặc @mention, hỗ trợ {user}, {username}, cooldown chống spam. Trả lời ngay, đúng giọng server của bạn.",
+      desc: "Đặt rule theo từ khóa hoặc @mention, chèn {user}, {username}, kèm cooldown chống spam. Bot phản hồi tức thì, đúng giọng điệu của server bạn.",
     },
     {
       icon: Flame,
       title: "Hệ thống nhiệt độ 4 giai đoạn",
-      desc: "Mỗi vi phạm cộng điểm nhiệt; đủ ngưỡng tự tăng cấp: cảnh báo DM → tạm khóa → kick → ban. Hạ nhiệt theo phút, tái phạm bị ×2 nhiệt.",
+      desc: "Mỗi vi phạm cộng điểm nhiệt và tự leo thang hình phạt: cảnh báo qua DM → tạm khóa → kick → ban. Nhiệt giảm dần theo phút, tái phạm trong cửa sổ ngắn bị nhân đôi.",
     },
     {
       icon: ShieldCheck,
       title: "Moderation lọc nội dung",
-      desc: "Chống spam tin nhắn, spam mention, từ ngữ xấu, spam ảnh/file và chặn link mời Discord — kèm warn tích lũy tăng cấp hình phạt.",
+      desc: "Tự động chặn spam tin nhắn, mention, ảnh/file và link mời Discord, lọc từ ngữ thô tục — song song với hệ thống warn tích lũy leo thang hình phạt.",
     },
     {
       icon: Bug,
       title: "Chặn link độc hại & file nguy hiểm",
-      desc: "Phát hiện domain lừa đảo (nitro giả, gift giả, crypto scam…), link IP và file đuôi nguy hiểm (.exe, .scr, .bat…) — xóa tin + cảnh báo ngay.",
+      desc: "Nhận diện domain lừa đảo (nitro giả, gift giả, crypto scam…), link IP và tệp nguy hiểm (.exe, .scr, .bat…) rồi xóa tin nhắn kèm cảnh báo cho mod.",
     },
     {
       icon: UserCheck,
       title: "Join Gate chống selfbot",
-      desc: "Cổng vào server: chặn tài khoản quá mới, không avatar, không huy hiệu và mọi lượt vào khi đang bị raid — kèm danh sách trắng.",
+      desc: "Cổng kiểm soát đầu vào: chặn tài khoản quá mới, không avatar, không huy hiệu và mọi lượt vào khi server đang bị raid — vẫn có danh sách trắng cho người quen.",
     },
     {
       icon: ShieldAlert,
       title: "Chống nuke & raid — 24 module",
-      desc: "Ban/kick hàng loạt, raid thành viên, phá kênh/role, webhook spam, bot lạ vào-rồi-rời (hit-and-run), tự cấp quyền quản trị… — phạt trực tiếp + khóa kênh tự động khi bị tấn công.",
+      desc: "Ban/kick hàng loạt, raid thành viên, phá kênh/role, webhook spam, bot hit-and-run, tự cấp quyền quản trị… đều bị phát hiện và xử lý tức thì, kèm khóa kênh tự động khi server bị tấn công.",
     },
     {
       icon: Gavel,
       title: "Công cụ Mod",
-      desc: "/mod timeout · kick · ban · purge — ghi đầy đủ lý do + người thực hiện vào kênh log. Lệnh text: !timeout !kick !ban !purge.",
+      desc: "Đầy đủ /mod timeout · kick · ban · purge cùng các lệnh text !timeout !kick !ban !purge — mọi hành động đều được ghi lại kèm lý do và người thực hiện.",
     },
     {
       icon: Archive,
       title: "Backup & khôi phục server",
-      desc: "Chụp toàn bộ server (role, kênh, tin nhắn kèm media, emoji), bản nén đẩy lên GitHub Gist, tự động backup định kỳ 2–30 ngày. Khôi phục vào server khác hoặc nhập cả file backup bot nuke (.msc).",
+      desc: "Sao lưu toàn bộ server (role, kênh, tin nhắn kèm media, emoji), nén và đẩy lên GitHub Gist, tự động chạy định kỳ 2–30 ngày. Khôi phục sang server khác hoặc nhập trực tiếp file backup của bot nuke (.msc).",
     },
     {
       icon: Megaphone,
       title: "Báo cáo khẩn & report",
-      desc: "/report và !report cho mod: khi có raid/nuke hoặc bot phạt nhầm, AI Mimu v2.5 dò hàng trăm tin nhắn gần nhất để hiểu tình huống và đưa ra báo cáo rõ ràng cho cả server.",
+      desc: "Dùng /report hoặc !report khi server bị raid/nuke hay bot phạt nhầm: AI Mimu v2.5 đọc hàng trăm tin nhắn gần nhất để dựng lại tình huống và gửi báo cáo rõ ràng cho bạn.",
     },
     {
       icon: PartyPopper,
       title: "Welcome & Goodbye",
-      desc: "Chào thành viên mới, tạm biệt thành viên rời server — kênh riêng, nội dung tùy chỉnh với placeholder ({user}, {server}, {count}…), gửi dạng embed hoặc tin nhắn thường.",
+      desc: "Chào thành viên mới và tạm biệt người rời đi bằng kênh riêng, nội dung tùy chỉnh với placeholder ({user}, {server}, {count}…), gửi dạng embed hoặc tin nhắn thường.",
     },
   ];
   return (
@@ -104,18 +104,18 @@ export function Features() {
         >
           <motion.div variants={fadeUp}>
             <Badge className="mb-4">
-              <Sparkles className="h-3.5 w-3.5" /> {translate("Mọi thứ trong một bot")}{" "}
+              <Sparkles className="h-3.5 w-3.5" /> {translate("Trọn bộ trong một bot")}{" "}
             </Badge>
           </motion.div>
           <motion.h2
             variants={fadeUp}
             className="font-display text-3xl font-bold tracking-tight md:text-5xl"
           >
-            {translate("Bảo vệ toàn diện & giao tiếp cho server của bạn")}
+            {translate("Bảo vệ vững chắc, giao tiếp mượt mà cho server của bạn")}
           </motion.h2>
           <motion.p variants={fadeUp} className="mt-4 text-muted-foreground">
             {translate(
-              "Từ tự trả lời thông minh đến 32 module bảo vệ (24 chống nuke + 8 auto-mod) — Protogon canh server 24/7 và cấu hình mọi thứ qua dashboard trực quan, có trợ lý Haimiya sẵn sàng giải đáp.",
+              "Protogon gom hệ thống tự trả lời và 32 module bảo vệ (24 chống nuke + 8 auto-mod) vào một chỗ: cấu hình trực quan trên dashboard, giám sát server 24/7, có trợ lý Haimiya đồng hành khi bạn cần.",
             )}{" "}
           </motion.p>
         </motion.div>
@@ -152,17 +152,21 @@ export function Features() {
         >
           {[
             // i18n-ok: nhãn dịch lúc render bằng translate(b.t)/translate(b.d)
-            { icon: Crown, t: "Warn tích lũy", d: "Đủ N lần warn → tự tăng cấp hình phạt" },
+            { icon: Crown, t: "Warn tích lũy", d: "Đủ N lần warn là tự tăng cấp hình phạt" },
             {
               icon: LayoutDashboard,
               t: "Bảng nhiệt & warn",
-              d: "Xem từng thành viên, xóa nhiệt 1 cú nhấn",
+              d: "Theo dõi từng thành viên, xóa nhiệt bằng một cú nhấn",
             },
-            { icon: Zap, t: "Đồng bộ tự động", d: "Chỉnh trên web → bot áp dụng sau ~1 phút" },
+            {
+              icon: Zap,
+              t: "Đồng bộ tự động",
+              d: "Chỉnh trên web, bot áp dụng sau khoảng một phút",
+            },
             {
               icon: Timer,
               t: "Báo cáo hàng ngày",
-              d: "Tóm tắt sự kiện, nhiệt & warn gửi vào kênh log",
+              d: "Tóm tắt sự kiện, nhiệt và warn gửi thẳng vào kênh log",
             },
           ].map((b) => (
             <div key={b.t} className="flex items-start gap-3">
@@ -200,7 +204,7 @@ export function HiddenFeatures() {
           <motion.div variants={fadeUp}>
             <Badge className="mb-4 border-primary/40 bg-primary/10 text-primary">
               <Lock className="h-3.5 w-3.5" />{" "}
-              {translate("Khu vực riêng tư — chỉ chủ sở hữu bot")}{" "}
+              {translate("Khu vực riêng tư · chỉ chủ sở hữu bot")}{" "}
             </Badge>
           </motion.div>
           <motion.h2
@@ -211,7 +215,7 @@ export function HiddenFeatures() {
           </motion.h2>
           <motion.p variants={fadeUp} className="mx-auto mt-3 max-w-xl text-muted-foreground">
             {translate(
-              "Ngoài những gì bạn thấy, Protogon còn giữ riêng một khu vực quyền lực chỉ chủ sở hữu bot mở khóa được bằng mật khẩu bí mật — ngay trong dashboard, không cần cài thêm gì.",
+              "Bên cạnh những gì bạn thấy, Protogon giữ riêng một khu vực quyền lực mà chỉ chủ sở hữu bot mở khóa được bằng mật khẩu bí mật — ngay trong dashboard, không cần cài thêm gì.",
             )}{" "}
           </motion.p>
           <motion.div
@@ -275,7 +279,8 @@ function HeatLadder() {
   return (
     <div className="rounded-xl border border-border bg-secondary/30 p-4">
       <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-foreground">
-        <Flame className="h-4 w-4" /> {translate("Thang nhiệt tự leo thang hình phạt")}{" "}
+        <Flame className="h-4 w-4" />{" "}
+        {translate("Nhiệt tăng dần, hình phạt leo thang theo ngưỡng")}{" "}
       </div>
       <div className="grid gap-2 sm:grid-cols-4">
         {tiers.map((t, i) => (
@@ -298,10 +303,8 @@ function HeatLadder() {
         ))}
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        {translate("Vừa bị phạt mà tái phạm → nhiệt nhân")} <b className="text-foreground">×2</b>{" "}
-        {translate(
-          "trong 30 phút. Warn tích lũy chạy song song: đủ 3 lần warn → tự tăng cấp.",
-        )}{" "}
+        {translate("Vừa bị phạt mà tái phạm, nhiệt sẽ nhân")} <b className="text-foreground">×2</b>{" "}
+        {translate("trong 30 phút. Warn tích lũy chạy song song: đủ 3 lần là tự tăng cấp.")}{" "}
       </p>
     </div>
   );
@@ -352,11 +355,11 @@ export function AntiNuke() {
             <p className="mt-4 max-w-lg text-muted-foreground">
               {translate("Hai lớp phòng thủ:")} <b className="text-foreground">Anti Nuke</b>{" "}
               {translate(
-                "(24 module) canh cấu trúc server (ban/kick hàng loạt, phá kênh, phá role…) và",
+                "(24 module) bám sát cấu trúc server (ban/kick hàng loạt, phá kênh, phá role…); còn",
               )}{" "}
               <b className="text-foreground">Moderation</b>{" "}
               {translate(
-                "(8 module) lọc nội dung độc hại mỗi ngày. Vượt ngưỡng → xác định thủ phạm qua audit log, phạt theo cài đặt và cảnh báo real-time tới kênh log.",
+                "(8 module) sàng lọc nội dung độc hại mỗi ngày. Vượt ngưỡng, bot truy ra thủ phạm qua audit log, phạt đúng cài đặt và báo real-time về kênh log.",
               )}{" "}
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
@@ -428,14 +431,14 @@ export function AntiNuke() {
               ))}
             </div>
             <p className="mb-3 mt-3 text-center text-[11px] text-muted-foreground">
-              {translate("…và 12 module chống nuke khác — xem đầy đủ trong dashboard.")}{" "}
+              {translate("…cùng 12 module chống nuke khác, xem đầy đủ trong dashboard.")}{" "}
             </p>
             <div className="mt-0 rounded-lg border border-white/20 bg-white/5 p-3 text-xs text-white/70">
               <span className="font-semibold text-white">
                 {translate("🔒 Khóa kênh khi raid:")}
               </span>{" "}
               {translate(
-                "vượt ngưỡng bất kỳ module nào → bot chặn thành viên gửi tin trong toàn server, tự mở lại sau vài phút hoặc khi mod dùng",
+                "khi bất kỳ module nào vượt ngưỡng, bot sẽ chặn toàn bộ thành viên gửi tin trong server, tự mở lại sau vài phút hoặc khi mod dùng",
               )}{" "}
               <code className="font-mono">/antinuke unlock</code>.
             </div>
@@ -484,7 +487,7 @@ export function HaimiyaSection() {
             </h2>
             <p className="mt-4 max-w-lg text-muted-foreground">
               {translate(
-                'Lấy cảm hứng từ nhân vật "đáng sợ mà đáng yêu" — Haimiya là trợ lý ảo của Protogon, luôn túc trực trên website và dashboard. Tôi giải đáp mọi thắc mắc về bot bằng tiếng Việt: hệ thống nhiệt độ, warn tích lũy, Join Gate, chống nuke/raid, auto reply, cách host bot…',
+                'Lấy cảm hứng từ nhân vật "đáng sợ mà đáng yêu", Haimiya là trợ lý ảo của Protogon, luôn túc trực trên website và dashboard. Haimiya giải đáp mọi thắc mắc về bot bằng tiếng Việt: hệ thống nhiệt độ, warn tích lũy, Join Gate, chống nuke/raid, auto reply, cách host bot…',
               )}{" "}
             </p>
             <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
@@ -523,19 +526,19 @@ export function HowItWorks() {
       n: "01",
       icon: Bot,
       title: "Tạo ứng dụng Discord",
-      desc: "Tạo bot trên Discord Developer Portal, lấy token và Client ID, dán vào API Keys của Protogon.",
+      desc: "Tạo bot trên Discord Developer Portal, lấy token và Client ID rồi dán vào mục API Keys của Protogon.",
     },
     {
       n: "02",
       icon: ShieldCheck,
       title: "Mời bot vào server",
-      desc: "Nhấn Mời bot, chọn server của bạn — Protogon tự tạo cấu hình mặc định an toàn với đầy đủ 32 module bật sẵn, chỉnh sửa mọi thứ sau đó bất cứ lúc nào.",
+      desc: "Nhấn Mời bot và chọn server của bạn — Protogon tạo sẵn cấu hình an toàn với đủ 32 module bật, chỉnh lại bất cứ lúc nào.",
     },
     {
       n: "03",
       icon: LayoutDashboard,
       title: "Cấu hình trên dashboard",
-      desc: "Thêm rule trả lời, chỉnh nhiệt độ & warn, bật Join Gate, chọn hình phạt — mọi thứ hiệu lực sau ~1 phút.",
+      desc: "Thêm rule trả lời, tinh chỉnh nhiệt độ và warn, bật Join Gate, chọn hình phạt — mọi thay đổi có hiệu lực sau khoảng một phút.",
     },
   ];
   return (
@@ -605,7 +608,7 @@ export function CtaBanner() {
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
               {translate(
-                "Đăng nhập bằng Discord, mời Protogon vào server — bật nhiệt độ, Join Gate, lọc nội dung và 32 module chống nuke ngay trên dashboard, có trợ lý ảo Haimiya đồng hành. Miễn phí cho mọi server.",
+                "Đăng nhập bằng Discord, mời Protogon vào server để bật nhiệt độ, Join Gate, lọc nội dung và 32 module chống nuke ngay trên dashboard — cùng trợ lý ảo Haimiya đồng hành. Miễn phí cho mọi server.",
               )}{" "}
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">

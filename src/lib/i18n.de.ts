@@ -57,8 +57,8 @@ export const DE: Record<string, string> = {
   "Công cụ mod: timeout, kick, ban, purge kèm lý do":
     "Mod-Werkzeuge: Timeout, Kick, Ban, Purge mit Grund",
   "Tùy chọn lưu / không lưu đăng nhập": "Option: Anmeldung merken / nicht merken",
-  'Lấy cảm hứng từ nhân vật "đáng sợ mà đáng yêu" — Haimiya là trợ lý ảo của Protogon, luôn túc trực trên website và dashboard. Tôi giải đáp mọi thắc mắc về bot bằng tiếng Việt: hệ thống nhiệt độ, warn tích lũy, Join Gate, chống nuke/raid, auto reply, cách host bot…':
-    "Inspiriert von einer Figur, die „gruselig und zugleich liebenswert“ ist — Haimiya ist Protogons virtuelle Assistentin, immer auf der Website und im Dashboard zur Stelle. Ich beantworte jede Frage zum Bot auf Deutsch: Heat-System, kumulierte Verwarnungen, Join Gate, Anti-Nuke/Raid, Auto-Reply, Bot-Hosting…",
+  'Lấy cảm hứng từ nhân vật "đáng sợ mà đáng yêu", Haimiya là trợ lý ảo của Protogon, luôn túc trực trên website và dashboard. Haimiya giải đáp mọi thắc mắc về bot bằng tiếng Việt: hệ thống nhiệt độ, warn tích lũy, Join Gate, chống nuke/raid, auto reply, cách host bot…':
+    "Inspiriert von einer Figur, die „gruselig und zugleich liebenswert“ ist, ist Haimiya Protogons virtuelle Assistentin — immer auf Website und Dashboard. Haimiya beantwortet jede Frage zum Bot auf Deutsch: Heat-System, kumulierte Verwarnungen, Join Gate, Anti-Nuke/Raid, Auto-Reply, Bot-Hosting…",
   /* ==== i18n-extra-kb ==== */
   "Tính năng ẩn là khu vực riêng tư dành cho chủ sở hữu bot 🔒 — nội dung bên trong không được tiết lộ công khai. Chỉ admin sở hữu bot mới được phép đặt mật khẩu và mở khu vực này; owner hay mod của một server có quyền quản lý cũng không đủ. Cách mở khóa: chủ bot đăng nhập bằng chính tài khoản Discord đã tạo bot → đặt mật khẩu trong Cài đặt → vào sidebar chọn Tính năng ẩn → nhập mật khẩu là xong.":
     "Versteckte Funktionen sind ein privater Bereich für den Bot-Besitzer 🔒 — die Inhalte dort werden nie öffentlich preisgegeben. Nur der Admin, dem der Bot gehört, darf das Passwort setzen und den Bereich entsperren; ein Server-Owner oder Moderator mit Verwaltungsrechten reicht nicht. Entsperren: Der Bot-Besitzer meldet sich mit genau dem Discord-Konto an, das den Bot erstellt hat → setzt das Passwort unter Einstellungen → wählt in der Seitenleiste Versteckte Funktionen → gibt das Passwort ein.",
@@ -154,7 +154,7 @@ export const DE: Record<string, string> = {
     "Damit der Bot 24/7 läuft, brauchst du ein Bot-Hosting (z. B. Wispbyte) 🚀. Ablauf: Bot-Zip vom GitHub-Zweig host-deploy laden → im Hosting alte Dateien löschen → neue Zip hochladen → Unarchive → Neustart. Bei jedem Update denselben Ablauf wiederholen. Discord-Token und Convex-Schlüssel in der Konfigurationsdatei nicht vergessen.",
   "Bảng hình phạt nằm trong mục Hình phạt trên sidebar trang quản lý server 🛠️. Nó liệt kê đầy đủ các hình phạt gần nhất: timeout, kick, ban, purge — kèm thời gian, thành viên bị phạt, người thực hiện (mod) và lý do. Các hình phạt tự động từ hệ thống chống nuke/nhiệt độ cũng được ghi vào bảng này với nhãn Tự động. Bot ghi nhận khi bạn dùng /mod hoặc !timeout !kick !ban !purge.":
     "Die Straftabelle liegt unter Strafen in der Server-Seitenleiste 🛠️. Sie listet die neuesten Strafen vollständig: Timeout, Kick, Ban, Purge — mit Zeit, bestraftem Mitglied, Ausführendem (Mod) und Grund. Automatische Strafen aus Anti-Nuke/Heat landen ebenfalls hier, mit der Markierung Automatisch. Der Bot erfasst sie bei /mod oder !timeout !kick !ban !purge.",
-  "! Hôm nay thử một trận Valorant 5v5 nhé 🎮": "! Lust auf ein 5v5 in Valorant heute? 🎮",
+  "! Thử một trận Valorant 5v5 không? 🎮": "! Lust auf ein 5v5 in Valorant? 🎮",
   '"{p0}" đã có trong danh sách': "„{p0}“ ist bereits in der Liste",
   "(.msc/.json tải lên). Phần tắt sẽ được bỏ qua khi khôi phục (kênh, tin nhắn + media vẫn được xử lý bình thường).":
     "(.msc/.json hochgeladen). Deaktivierte Teile werden beim Wiederherstellen übersprungen (Kanäle, Nachrichten + Medien werden normal verarbeitet).",
@@ -185,7 +185,7 @@ export const DE: Record<string, string> = {
   "). Chỉ giữ": "). Behält nur",
   ", bỏ qua mọi tiêu chí — dùng cho tài khoản phụ / bạn bè quen biết.":
     ", überspringt alle Kriterien — für Zweitkonten / bekannte Freunde.",
-  ", không avatar, không huy hiệu → đã kick.": ", kein Avatar, kein Abzeichen → gekickt.",
+  ", không avatar, không huy hiệu → đã bị kick.": ", kein Avatar, kein Abzeichen → gekickt.",
   ", mỗi lần vi phạm đếm": ", jede Übertretung zählt",
   ". Bot chưa có BOT_KEY sẽ": ". Ein Bot ohne BOT_KEY wird",
   ". Khi server bị nuke/raid phá sập hoàn toàn, mời bot vào":
@@ -217,7 +217,8 @@ export const DE: Record<string, string> = {
   "Backup có sẵn": "Verfügbare Backups",
   "Backup thất bại: {p0}": "Backup fehlgeschlagen: {p0}",
   "Biểu đồ độ trễ (5 giây / mẫu)": "Latenzdiagramm (5 s / Messung)",
-  "Bot Discord bảo vệ server · trợ lý Haimiya": "Discord-Serverschutz-Bot · Assistentin Haimiya",
+  "Bot Discord bảo vệ server, đồng hành cùng trợ lý Haimiya":
+    "Discord-Serverschutz-Bot, begleitet von Assistentin Haimiya",
   "Bot chụp toàn bộ": "Der Bot sichert alles",
   "Bot gửi embed chào mừng qua DM cho thành viên ngay khi xác minh thành công.":
     "Der Bot sendet dem Mitglied sofort eine Willkommens-Embed per DM, sobald die Verifizierung klappt.",
@@ -439,7 +440,7 @@ export const DE: Record<string, string> = {
     "Aktiv erhalten neue Mitglieder die Unverifiziert-Rolle und müssen sich verifizieren, um reinzukommen.",
   "Khi module dùng hình phạt": "Wenn ein Modul diese Strafe nutzt",
   "Khi đăng nhập, Protogon cần quyền": "Bei der Anmeldung braucht Protogon die Rechte",
-  "Khu vực riêng tư — chỉ chủ sở hữu bot": "Privater Bereich — nur Bot-Besitzer",
+  "Khu vực riêng tư · chỉ chủ sở hữu bot": "Privater Bereich · nur Bot-Besitzer",
   "Khung giờ cập nhật": "Update-Zeitfenster",
   "Khuyến nghị 7-14 ngày để hạn chế tài khoản dùng 1 lần.":
     "7–14 Tage werden empfohlen, um Wegwerfkonten einzudämmen.",

@@ -207,13 +207,13 @@ export const EN_PANELS: Record<string, string> = {
   ": spam, từ ngữ xấu, link mời, link độc hại, file nguy hiểm, raid thành viên, ban/kick hàng loạt, tạo/xóa kênh & role hàng loạt, webhook/thread hàng loạt… Người dùng/role trong danh sách được bỏ qua hoàn toàn — không cộng nhiệt, không xóa tin, không ban. Danh sách này":
     ": spam, bad words, invite links, malicious links, dangerous files, member raids, mass bans/kicks, mass channel & role create/delete, mass webhooks/threads… Listed users/roles are skipped entirely — no heat, no message deletion, no ban. This list",
   "đang dùng bot.": "using the bot.",
-  "Protogon Bot · Tự trả lời thông minh, nhiệt độ vi phạm, Join Gate & phòng thủ chống raid cho Discord":
-    "Protogon Bot · Smart auto-reply, violation heat, Join Gate & raid defence for Discord",
+  "Protogon Bot · Tự trả lời theo từ khóa, nhiệt độ vi phạm, Join Gate và phòng thủ chống raid cho cộng đồng Discord":
+    "Protogon Bot · Keyword auto-reply, violation heat, Join Gate and raid defence for the Discord community",
   "bị chặn: tài khoản": "blocked: the account is",
-  "Bảo vệ toàn diện & giao tiếp cho server của bạn":
-    "Full protection & conversation for your server",
-  "(24 module) canh cấu trúc server (ban/kick hàng loạt, phá kênh, phá role…) và":
-    "(24 modules) guards the server structure (mass bans/kicks, channel nuking, role nuking…) and",
+  "Bảo vệ vững chắc, giao tiếp mượt mà cho server của bạn":
+    "Solid protection and smooth conversation for your server",
+  "(24 module) bám sát cấu trúc server (ban/kick hàng loạt, phá kênh, phá role…); còn":
+    "(24 modules) watch the server structure (mass bans/kicks, channel and role vandalism…), while",
   "Không khớp": "No match for",
   "{p0} server · {p1} thành viên": "{p0} servers · {p1} members",
   "Lỗi kết nối": "Connection error",
@@ -265,8 +265,8 @@ export const EN_PANELS: Record<string, string> = {
   "• 🔗 Webhook & Log = bot tự tạo webhook tên/avatar/màu tùy chỉnh để nhận log.":
     "• 🔗 Webhook & Log = the bot creates a custom-named/avatar/colour webhook to receive logs.",
   "tự trả lời & chống raid": "auto-reply & anti-raid",
-  "kèm warn tích lũy": "with accumulating warns",
-  "canh server 24/7.": "guarding the server 24/7.",
+  "cùng warn tích lũy": "plus accumulated warns",
+  "giám sát server 24/7.": "monitoring your server 24/7.",
   "Trung bình:": "Average:",
   "Tối đa:": "Peak:",
   "đang đo": "measuring",
@@ -306,10 +306,10 @@ export const EN_PANELS: Record<string, string> = {
   "Chào mừng {user} đã đến {server}! Bạn là thành viên thứ {count} 🎉":
     "Welcome {user} to {server}! You are member #{count} 🎉",
   "{user} đã rời {server}. Hẹn gặp lại!": "{user} left {server}. See you again!",
-  "Discord Bot · Nhiệt độ · Join Gate · Welcome · AI":
-    "Discord bot · Heat · Join Gate · Welcome · AI",
-  "Chào thành viên mới, tạm biệt thành viên rời server — kênh riêng, nội dung tùy chỉnh với placeholder ({user}, {server}, {count}…), gửi dạng embed hoặc tin nhắn thường.":
-    "Greet new members and farewell to leaving ones — separate channels, custom text with placeholders ({user}, {server}, {count}…), sent as an embed or a plain message.",
+  "Bot Discord · Nhiệt độ · Join Gate · Chào thành viên · Trợ lý AI":
+    "Discord bot · Heat · Join Gate · Greetings · AI assistant",
+  "Chào thành viên mới và tạm biệt người rời đi bằng kênh riêng, nội dung tùy chỉnh với placeholder ({user}, {server}, {count}…), gửi dạng embed hoặc tin nhắn thường.":
+    "Greet new members and farewell to those leaving — separate channels, custom text with placeholders ({user}, {server}, {count}…), sent as an embed or a plain message.",
   /* ==== Welcome & Goodbye v2 — template ngẫu nhiên, embed tùy chỉnh, DM, autorole ==== */
   "Template ngẫu nhiên": "Random templates",
   "{n} câu": "{n} lines",
@@ -343,4 +343,27 @@ export const EN_PANELS: Record<string, string> = {
     "Raid protection: while the server is locked down, autorole pauses so raid accounts don't get the role.",
   "Chào thành viên mới và tạm biệt thành viên rời server — template ngẫu nhiên, embed tùy chỉnh, DM chào riêng, autorole. Bot không chào bot, không ping @everyone từ nội dung tùy chỉnh, và tự im lặng khi server đang khóa chống raid.":
     "Greet new members and farewell to leaving ones — random templates, custom embeds, private DM greeting, autorole. The bot ignores bots, never pings @everyone from custom content, and goes silent while the server is locked down against raids.",
+
+  /* ==== Landing — đợt viết lại copy (Lô 1). Các key này còn bản cũ nằm ở
+     section theo alphabet trong i18n.en.ts (entry trùng, không còn dùng) —
+     gom về đây để một chỗ dễ rà soát. */
+  "bảo vệ server toàn diện": "all-round server protection",
+  "hoặc gọi từ khóa để bot phản hồi tức thì. Đi kèm":
+    "or call a keyword and the bot answers instantly. Alongside",
+  "· hoạt động 24/7": "· running 24/7",
+  "Tái phạm trong 30 phút, nhiệt sẽ nhân": "Repeat within 30 minutes and the heat multiplies",
+  "Protogon gom hệ thống tự trả lời và 32 module bảo vệ (24 chống nuke + 8 auto-mod) vào một chỗ: cấu hình trực quan trên dashboard, giám sát server 24/7, có trợ lý Haimiya đồng hành khi bạn cần.":
+    "Protogon brings auto-reply and 32 protection modules (24 anti-nuke + 8 auto-mod) together in one place: configure everything from a clear dashboard, keep your server watched 24/7, with the Haimiya assistant on hand when you need it.",
+  "Nhiệt tăng dần, hình phạt leo thang theo ngưỡng":
+    "Heat climbs, punishments escalate by threshold",
+  "Vừa bị phạt mà tái phạm, nhiệt sẽ nhân":
+    "Repeat right after a punishment and the heat multiplies",
+  "trong 30 phút. Warn tích lũy chạy song song: đủ 3 lần là tự tăng cấp.":
+    "within 30 minutes. Accumulated warns run in parallel: 3 warns trigger automatic escalation.",
+  "khi bất kỳ module nào vượt ngưỡng, bot sẽ chặn toàn bộ thành viên gửi tin trong server, tự mở lại sau vài phút hoặc khi mod dùng":
+    "when any module crosses its threshold the bot blocks everyone from sending server-wide, reopening after a few minutes or when a mod runs",
+  "Đăng nhập bằng Discord, mời Protogon vào server để bật nhiệt độ, Join Gate, lọc nội dung và 32 module chống nuke ngay trên dashboard — cùng trợ lý ảo Haimiya đồng hành. Miễn phí cho mọi server.":
+    "Sign in with Discord and invite Protogon to switch on heat, Join Gate, content filtering and 32 anti-nuke modules right from the dashboard — with the Haimiya assistant along the way. Free for every server.",
+  "…cùng 12 module chống nuke khác, xem đầy đủ trong dashboard.":
+    "…plus 12 more anti-nuke modules, all listed in the dashboard.",
 };

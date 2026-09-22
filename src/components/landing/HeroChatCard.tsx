@@ -61,7 +61,7 @@ export default function HeroChatCard() {
               </p>
               <div className="rounded-lg rounded-bl-none border border-white/30 bg-white/10 px-3 py-2 text-sm text-white/90">
                 {translate("Chào")} <span className="font-semibold text-white">Huy</span>
-                {translate("! Hôm nay thử một trận Valorant 5v5 nhé 🎮")}{" "}
+                {translate("! Thử một trận Valorant 5v5 không? 🎮")}{" "}
               </div>
               <div className="mt-1.5 flex items-center gap-1.5 text-xs text-white/40">
                 <Timer className="h-3 w-3" /> rule “game-night” · cooldown 30s
@@ -90,7 +90,7 @@ export default function HeroChatCard() {
               </span>
             </div>
             <p className="mt-1.5 text-[11px] text-white/60">
-              {translate("Tái phạm trong 30 phút → nhiệt")} <b className="text-white">×2</b>{" "}
+              {translate("Tái phạm trong 30 phút, nhiệt sẽ nhân")} <b className="text-white">×2</b>{" "}
               {translate("· đã gửi DM cảnh báo ⚠️")}{" "}
             </p>
           </div>
@@ -104,7 +104,7 @@ export default function HeroChatCard() {
               🚪 <span className="font-mono text-white/80">selfbot_9123</span>{" "}
               {translate("bị chặn: tài khoản")}{" "}
               <b className="text-white">{translate("mới 2 ngày")}</b>
-              {translate(", không avatar, không huy hiệu → đã kick.")}{" "}
+              {translate(", không avatar, không huy hiệu → đã bị kick.")}{" "}
             </p>
           </div>
         </div>

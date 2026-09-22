@@ -206,13 +206,13 @@ export const DE_PANELS: Record<string, string> = {
   ": spam, từ ngữ xấu, link mời, link độc hại, file nguy hiểm, raid thành viên, ban/kick hàng loạt, tạo/xóa kênh & role hàng loạt, webhook/thread hàng loạt… Người dùng/role trong danh sách được bỏ qua hoàn toàn — không cộng nhiệt, không xóa tin, không ban. Danh sách này":
     ": Spam, Schimpfwörter, Einladungslinks, bösartige Links, gefährliche Dateien, Mitglieder-Raids, Massen-Bans/Kicks, Massen-Kanal- & Rollen-Erstellung/Löschung, Massen-Webhooks/Threads… Gelistete Nutzer/Rollen werden vollständig übersprungen — keine Heat, keine Löschung, kein Ban. Diese Liste",
   "đang dùng bot.": "den Bot nutzen.",
-  "Protogon Bot · Tự trả lời thông minh, nhiệt độ vi phạm, Join Gate & phòng thủ chống raid cho Discord":
-    "Protogon Bot · Smartes Auto-Reply, Verstoß-Heat, Join Gate & Raid-Schutz für Discord",
+  "Protogon Bot · Tự trả lời theo từ khóa, nhiệt độ vi phạm, Join Gate và phòng thủ chống raid cho cộng đồng Discord":
+    "Protogon Bot · Keyword-Auto-Reply, Verstoß-Heat, Join Gate und Raid-Schutz für die Discord-Community",
   "bị chặn: tài khoản": "blockiert: das Konto ist",
-  "Bảo vệ toàn diện & giao tiếp cho server của bạn":
-    "Rundumschutz & Konversation für deinen Server",
-  "(24 module) canh cấu trúc server (ban/kick hàng loạt, phá kênh, phá role…) và":
-    "(24 Module) bewachen die Serverstruktur (Massen-Bans/Kicks, Kanal-/Rollen-Vandalismus…) und",
+  "Bảo vệ vững chắc, giao tiếp mượt mà cho server của bạn":
+    "Solider Schutz und reibungslose Kommunikation für deinen Server",
+  "(24 module) bám sát cấu trúc server (ban/kick hàng loạt, phá kênh, phá role…); còn":
+    "(24 Module) überwachen die Serverstruktur (Massen-Bans/Kicks, Kanal- und Rollen-Vandalismus…), während",
   "Không khớp": "Keine Treffer für",
   "{p0} server · {p1} thành viên": "{p0} Server · {p1} Mitglieder",
   "Lỗi kết nối": "Verbindungsfehler",
@@ -265,8 +265,8 @@ export const DE_PANELS: Record<string, string> = {
   "• 🔗 Webhook & Log = bot tự tạo webhook tên/avatar/màu tùy chỉnh để nhận log.":
     "• 🔗 Webhook & Log = der Bot erstellt einen Webhook mit eigenem Namen/Avatar/Farbe für Logs.",
   "tự trả lời & chống raid": "Auto-Reply & Anti-Raid",
-  "kèm warn tích lũy": "mit kumulierenden Verwarnungen",
-  "canh server 24/7.": "bewacht den Server 24/7.",
+  "cùng warn tích lũy": "plus kumulierte Verwarnungen",
+  "giám sát server 24/7.": "überwacht deinen Server 24/7.",
   "Trung bình:": "Durchschnitt:",
   "Tối đa:": "Spitze:",
   "đang đo": "wird gemessen",
@@ -307,9 +307,9 @@ export const DE_PANELS: Record<string, string> = {
   "Chào mừng {user} đã đến {server}! Bạn là thành viên thứ {count} 🎉":
     "Willkommen {user} auf {server}! Du bist Mitglied #{count} 🎉",
   "{user} đã rời {server}. Hẹn gặp lại!": "{user} hat {server} verlassen. Bis bald!",
-  "Discord Bot · Nhiệt độ · Join Gate · Welcome · AI":
-    "Discord-Bot · Heat · Join Gate · Welcome · KI",
-  "Chào thành viên mới, tạm biệt thành viên rời server — kênh riêng, nội dung tùy chỉnh với placeholder ({user}, {server}, {count}…), gửi dạng embed hoặc tin nhắn thường.":
+  "Bot Discord · Nhiệt độ · Join Gate · Chào thành viên · Trợ lý AI":
+    "Discord-Bot · Heat · Join Gate · Begrüßungen · KI-Assistent",
+  "Chào thành viên mới và tạm biệt người rời đi bằng kênh riêng, nội dung tùy chỉnh với placeholder ({user}, {server}, {count}…), gửi dạng embed hoặc tin nhắn thường.":
     "Begrüße neue Mitglieder und verabschiede gehende — eigene Kanäle, eigener Text mit Platzhaltern ({user}, {server}, {count}…), als Embed oder normale Nachricht.",
   /* ==== Welcome & Goodbye v2 — template ngẫu nhiên, embed tùy chỉnh, DM, autorole ==== */
   "Template ngẫu nhiên": "Zufällige Vorlagen",
@@ -342,6 +342,34 @@ export const DE_PANELS: Record<string, string> = {
     "Standardmäßig aus — Bots, die dem Server beitreten, erhalten die Autorolle nicht",
   "Bảo vệ raid: server đang khóa (lockdown) → autorole tạm dừng, không cấp role cho tài khoản raid dồn dập.":
     "Raidschutz: Während der Server gesperrt ist (Lockdown) pausiert die Autorolle, damit Raid-Konten die Rolle nicht bekommen.",
+
+  /* ==== Landing — đợt viết lại copy (Lô 1). Bản DE của các key còn entry cũ
+     nằm ở section theo alphabet trong i18n.de.ts (trùng, không còn dùng). */
+  "bảo vệ server toàn diện": "umfassender Serverschutz",
+  "hoặc gọi từ khóa để bot phản hồi tức thì. Đi kèm":
+    "oder ruf ein Schlüsselwort auf und der Bot antwortet sofort. Dazu",
+  "· hoạt động 24/7": "· rund um die Uhr im Einsatz",
+  "Tái phạm trong 30 phút, nhiệt sẽ nhân":
+    "Wiederholung in 30 Minuten — die Heat wird multipliziert",
+  "Protogon gom hệ thống tự trả lời và 32 module bảo vệ (24 chống nuke + 8 auto-mod) vào một chỗ: cấu hình trực quan trên dashboard, giám sát server 24/7, có trợ lý Haimiya đồng hành khi bạn cần.":
+    "Protogon vereint Auto-Reply und 32 Schutzmodule (24 Anti-Nuke + 8 Auto-Mod) an einem Ort: alles im übersichtlichen Dashboard konfigurieren, den Server 24/7 im Blick — mit Assistentin Haimiya an deiner Seite.",
+  "Nhiệt tăng dần, hình phạt leo thang theo ngưỡng":
+    "Heat steigt, Strafen eskalieren nach Schwellenwert",
+  "Vừa bị phạt mà tái phạm, nhiệt sẽ nhân":
+    "Direkt nach einer Strafe wiederholt → Heat wird multipliziert",
+  "trong 30 phút. Warn tích lũy chạy song song: đủ 3 lần là tự tăng cấp.":
+    "innerhalb von 30 Minuten. Kumulierte Verwarnungen laufen parallel: 3 Verwarnungen lösen die Eskalation aus.",
+  "khi bất kỳ module nào vượt ngưỡng, bot sẽ chặn toàn bộ thành viên gửi tin trong server, tự mở lại sau vài phút hoặc khi mod dùng":
+    "sobald ein Modul seinen Schwellenwert überschreitet, sperrt der Bot serverweit das Senden — Freigabe nach einigen Minuten oder per Mod-Befehl",
+  "Đăng nhập bằng Discord, mời Protogon vào server để bật nhiệt độ, Join Gate, lọc nội dung và 32 module chống nuke ngay trên dashboard — cùng trợ lý ảo Haimiya đồng hành. Miễn phí cho mọi server.":
+    "Mit Discord anmelden und Protogon einladen, um Heat, Join Gate, Inhaltsfilter und 32 Anti-Nuke-Module direkt im Dashboard zu aktivieren — mit Assistentin Haimiya an deiner Seite. Kostenlos für jeden Server.",
+  "…cùng 12 module chống nuke khác, xem đầy đủ trong dashboard.":
+    "…plus 12 weitere Anti-Nuke-Module, vollständig im Dashboard.",
+  "(8 module) sàng lọc nội dung độc hại mỗi ngày. Vượt ngưỡng, bot truy ra thủ phạm qua audit log, phạt đúng cài đặt và báo real-time về kênh log.":
+    "(8 Module) filtern täglich schädliche Inhalte. Bei Schwellenwertüberschreitung ermittelt der Bot den Täter über das Audit-Log, straft nach deinen Einstellungen und alarmiert den Log-Kanal in Echtzeit.",
+  "Trọn bộ trong một bot": "Das komplette Paket in einem Bot",
+  "Bên cạnh những gì bạn thấy, Protogon giữ riêng một khu vực quyền lực mà chỉ chủ sở hữu bot mở khóa được bằng mật khẩu bí mật — ngay trong dashboard, không cần cài thêm gì.":
+    "Neben allem Sichtbaren hält Protogon einen privaten Machtbereich bereit, den nur der Bot-Besitzer mit einem geheimen Passwort entsperrt — direkt im Dashboard, ohne Zusatzinstallation.",
   "Chào thành viên mới và tạm biệt thành viên rời server — template ngẫu nhiên, embed tùy chỉnh, DM chào riêng, autorole. Bot không chào bot, không ping @everyone từ nội dung tùy chỉnh, và tự im lặng khi server đang khóa chống raid.":
     "Begrüße neue Mitglieder und verabschiede gehende — zufällige Vorlagen, eigene Embeds, private DM-Begrüßung, Autorolle. Der Bot ignoriert Bots, pingt nie @everyone aus eigenem Inhalt und bleibt stumm, während der Server gegen Raids gesperrt ist.",
 };

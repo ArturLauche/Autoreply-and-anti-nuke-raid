@@ -7,8 +7,8 @@ export const DE_LABELS: Record<string, string> = {
   " cùng emoji/sticker nếu backup có": " plus Emojis/Sticker, falls das Backup sie enthält",
   "(tất cả)": "(alle)",
   ", role (tên, màu, quyền)": ", Rollen (Name, Farbe, Rechte)",
-  "/report và !report cho mod: khi có raid/nuke hoặc bot phạt nhầm, AI Mimu v2.5 dò hàng trăm tin nhắn gần nhất để hiểu tình huống và đưa ra báo cáo rõ ràng cho cả server.":
-    "/report und !report für Mods: Bei Raid/Nuke oder falscher Strafe durchsucht die KI Mimu v2.5 hunderte aktuelle Nachrichten, versteht die Lage und erstellt einen klaren Bericht für den ganzen Server.",
+  "Dùng /report hoặc !report khi server bị raid/nuke hay bot phạt nhầm: AI Mimu v2.5 đọc hàng trăm tin nhắn gần nhất để dựng lại tình huống và gửi báo cáo rõ ràng cho bạn.":
+    "Nutze /report oder !report bei Raid/Nuke oder falscher Strafe: Die KI Mimu v2.5 liest hunderte aktuelle Nachrichten, rekonstruiert die Lage und liefert dir einen klaren Bericht.",
   "1 giờ": "1 Stunde",
   "24 module": "24 Module",
   "3 ngày": "3 Tage",
@@ -56,8 +56,8 @@ export const DE_LABELS: Record<string, string> = {
   "Chặn domain lừa đảo (nitro giả, gift giả…), link IP và file đuôi nguy hiểm (.exe, .scr, .bat…)":
     "Blockt Scam-Domains (Fake-Nitro, Fake-Geschenke…), IP-Links und gefährliche Dateiendungen (.exe, .scr, .bat…)",
   "Chặn link mời Discord": "Discord-Einladungen blocken",
-  "Chỉnh trên web → bot áp dụng sau ~1 phút":
-    "Im Web bearbeiten → der Bot wendet es in ~1 Minute an",
+  "Chỉnh trên web, bot áp dụng sau khoảng một phút":
+    "Im Web bearbeiten, der Bot übernimmt es in etwa einer Minute",
   "Chọn…": "Wählen…",
   "Chống ban hàng loạt": "Anti-Massen-Ban",
   "Chống kick hàng loạt": "Anti-Massen-Kick",
@@ -75,8 +75,8 @@ export const DE_LABELS: Record<string, string> = {
   "Chống tạo/xóa role": "Anti-Rollen-Erstellen/Löschen",
   "Chống tạo/xóa thread": "Anti-Thread-Erstellen/Löschen",
   "Chống xóa tin hàng loạt": "Anti-Massen-Nachrichtenlöschung",
-  "Chụp toàn bộ server (role, kênh, tin nhắn kèm media, emoji), bản nén đẩy lên GitHub Gist, tự động backup định kỳ 2–30 ngày. Khôi phục vào server khác hoặc nhập cả file backup bot nuke (.msc).":
-    "Sichert den ganzen Server (Rollen, Kanäle, Nachrichten mit Medien, Emojis), schiebt eine komprimierte Kopie ins GitHub Gist und sichert automatisch alle 2–30 Tage. In einen anderen Server wiederherstellen oder auch die Backup-Datei eines Nuke-Bots importieren (.msc).",
+  "Sao lưu toàn bộ server (role, kênh, tin nhắn kèm media, emoji), nén và đẩy lên GitHub Gist, tự động chạy định kỳ 2–30 ngày. Khôi phục sang server khác hoặc nhập trực tiếp file backup của bot nuke (.msc).":
+    "Sichert den ganzen Server (Rollen, Kanäle, Nachrichten mit Medien, Emojis), komprimiert und legt ihn in einem GitHub Gist ab, automatisch alle 2–30 Tage. In einen anderen Server wiederherstellen oder die Backup-Datei eines Nuke-Bots (.msc) direkt importieren.",
   "Cách hoạt động": "So funktioniert es",
   "Công cụ Mod": "Mod-Werkzeuge",
   "Cảm xúc": "Emotionen",
@@ -128,8 +128,8 @@ export const DE_LABELS: Record<string, string> = {
   "Module chống nuke": "Anti-Nuke-Module",
   "Màu sắc": "Farbe",
   "Mất kết nối tới máy chủ": "Verbindung zum Server verloren",
-  "Mỗi vi phạm cộng điểm nhiệt; đủ ngưỡng tự tăng cấp: cảnh báo DM → tạm khóa → kick → ban. Hạ nhiệt theo phút, tái phạm bị ×2 nhiệt.":
-    "Jede Übertretung addiert Heat; wird ein Schwellenwert erreicht, eskaliert die Strafe: DM-Verwarnung → Timeout → Kick → Ban. Heat sinkt pro Minute, Wiederholung verdoppelt sie.",
+  "Mỗi vi phạm cộng điểm nhiệt và tự leo thang hình phạt: cảnh báo qua DM → tạm khóa → kick → ban. Nhiệt giảm dần theo phút, tái phạm trong cửa sổ ngắn bị nhân đôi.":
+    "Jede Übertretung addiert Heat und eskaliert die Strafe: DM-Verwarnung → Timeout → Kick → Ban. Heat sinkt pro Minute; Wiederholung im Fenster verdoppelt sie.",
   "Nghi phạm nguồn cơn:": "Wahrscheinlicher Urheber:",
   "Nghiêm ngặt": "Streng",
   "Nội dung nguy hiểm": "Gefährliche Inhalte",
@@ -178,8 +178,8 @@ export const DE_LABELS: Record<string, string> = {
     "Rollen, Kanäle, Nachrichten und Emojis/Sticker wurden nach dem Backup neu erstellt. Prüfe die Bestätigungs-Embed im Log-Kanal.",
   "Role, quyền role và kênh sẽ được tạo lại theo backup. Kết quả sẽ hiện ở đây.":
     "Rollen, Rollenrechte und Kanäle werden nach dem Backup neu erstellt. Das Ergebnis erscheint hier.",
-  "Rule theo từ khóa hoặc @mention, hỗ trợ {user}, {username}, cooldown chống spam. Trả lời ngay, đúng giọng server của bạn.":
-    "Schlüsselwort- oder @Mention-Regeln, mit {user}- und {username}-Platzhaltern und Anti-Spam-Cooldown. Antwortet sofort, im Ton deines Servers.",
+  "Đặt rule theo từ khóa hoặc @mention, chèn {user}, {username}, kèm cooldown chống spam. Bot phản hồi tức thì, đúng giọng điệu của server bạn.":
+    "Regeln per Schlüsselwort oder @Mention, mit {user}- und {username}-Platzhaltern und Anti-Spam-Cooldown. Sofortige Antworten im Ton deines Servers.",
   "Server nhỏ": "Kleiner Server",
   "Spam & nhiễu kênh": "Spam & Kanalrauschen",
   "Spam tin dài / lặp nội dung": "Lange / doppelte Nachrichten-Spam",
@@ -209,11 +209,11 @@ export const DE_LABELS: Record<string, string> = {
   "Tên server": "Servername",
   "Tím, chữ GIVEAWAY VIP": "Lila, Schriftzug GIVEAWAY VIP",
   "Tính năng": "Funktionen",
-  "Tóm tắt sự kiện, nhiệt & warn gửi vào kênh log":
-    "Postet Ereignis-, Heat- & Verwarnungszusammenfassung in den Log-Kanal",
+  "Tóm tắt sự kiện, nhiệt và warn gửi thẳng vào kênh log":
+    "Ereignis-, Heat- und Verwarnungs-Zusammenfassung direkt in den Log-Kanal",
   "Tạm khóa": "Timeout",
   "Tạm khóa (timeout)": "Vorübergehende Sperre (Timeout)",
-  "Tạo bot trên Discord Developer Portal, lấy token và Client ID, dán vào API Keys của Protogon.":
+  "Tạo bot trên Discord Developer Portal, lấy token và Client ID rồi dán vào mục API Keys của Protogon.":
     "Bot im Discord Developer Portal erstellen, Token und Client ID kopieren und in Protogons API-Schlüssel einfügen.",
   "Tạo bảng": "Panel erstellen",
   "Tạo bảng reaction role": "Reaktions-Rollen-Panel erstellen",
@@ -243,7 +243,8 @@ export const DE_LABELS: Record<string, string> = {
   "Văn bản": "Text",
   "Warn tích lũy": "Kumulierte Verwarnungen",
   "Xanh lá, chữ QUÀ TẶNG": "Grün, Schriftzug GESCHENK",
-  "Xem từng thành viên, xóa nhiệt 1 cú nhấn": "Jedes Mitglied sehen, Heat mit einem Klick löschen",
+  "Theo dõi từng thành viên, xóa nhiệt bằng một cú nhấn":
+    "Jedes Mitglied im Blick, Heat mit einem Klick löschen",
   "Xác nhận": "Bestätigen",
   "Xóa hàng loạt mọi tin nhắn liên quan đến vụ vi phạm (ví dụ: toàn bộ tin spam trong cửa sổ phát hiện)":
     "Löscht im Bulk jede Nachricht, die mit dem Vorfall zusammenhängt (z. B. den gesamten Spam im Erkennungsfenster)",
@@ -338,7 +339,7 @@ export const DE_LABELS: Record<string, string> = {
   "Đổi nickname": "Spitznamen ändern",
   "Đổi tên kênh": "Kanal umbenennen",
   "Động vật": "Tiere",
-  "Đủ N lần warn → tự tăng cấp hình phạt": "Genug Verwarnungen → Strafe eskaliert automatisch",
+  "Đủ N lần warn là tự tăng cấp hình phạt": "N Verwarnungen → Strafe eskaliert automatisch",
   "đen thuần khiết": "reines Schwarz",
   "đã bật": "aktiviert",
   "đã hủy": "abgebrochen",
@@ -378,21 +379,21 @@ export const DE_LABELS: Record<string, string> = {
     "Die Anmeldekonfiguration ist unvollständig — versuche es in ein paar Minuten.",
 
   // ── Landing: Funktionsbeschreibungen (sections.tsx) ─────────────────────
-  "Chống spam tin nhắn, spam mention, từ ngữ xấu, spam ảnh/file và chặn link mời Discord — kèm warn tích lũy tăng cấp hình phạt.":
-    "Blockt Nachrichten-Spam, Mention-Spam, Schimpfwörter, Bild-/Datei-Spam und Discord-Einladungen — mit kumulierten Verwarnungen, die die Strafe eskalieren.",
-  "Phát hiện domain lừa đảo (nitro giả, gift giả, crypto scam…), link IP và file đuôi nguy hiểm (.exe, .scr, .bat…) — xóa tin + cảnh báo ngay.":
-    "Erkennt Scam-Domains (Fake-Nitro, Fake-Geschenke, Crypto-Scams…), IP-Links und gefährliche Dateiendungen (.exe, .scr, .bat…) — löscht die Nachricht und warnt sofort.",
-  "Cổng vào server: chặn tài khoản quá mới, không avatar, không huy hiệu và mọi lượt vào khi đang bị raid — kèm danh sách trắng.":
-    "Server-Eingangstor: blockt zu neue Konten, ohne Avatar oder Abzeichen und jeden Beitritt während eines Raids — mit Whitelist.",
+  "Tự động chặn spam tin nhắn, mention, ảnh/file và link mời Discord, lọc từ ngữ thô tục — song song với hệ thống warn tích lũy leo thang hình phạt.":
+    "Blockt Nachrichten-, Mention- und Bild-/Datei-Spam sowie Discord-Einladungen und filtert Schimpfwörter — parallel zur Eskalation über kumulierte Verwarnungen.",
+  "Nhận diện domain lừa đảo (nitro giả, gift giả, crypto scam…), link IP và tệp nguy hiểm (.exe, .scr, .bat…) rồi xóa tin nhắn kèm cảnh báo cho mod.":
+    "Erkennt Scam-Domains (Fake-Nitro, Fake-Geschenke, Crypto-Scams…), IP-Links und gefährliche Dateien (.exe, .scr, .bat…), löscht die Nachricht und alarmiert deine Mods.",
+  "Cổng kiểm soát đầu vào: chặn tài khoản quá mới, không avatar, không huy hiệu và mọi lượt vào khi server đang bị raid — vẫn có danh sách trắng cho người quen.":
+    "Ein Eingangs-Checkpoint: blockt zu neue Konten sowie solche ohne Avatar oder Abzeichen und jeden Beitritt während eines Raids — mit Whitelist für Vertraute.",
   "Chống nuke & raid — 24 module": "Anti-Nuke & Raid — 24 Module",
-  "Ban/kick hàng loạt, raid thành viên, phá kênh/role, webhook spam, bot lạ vào-rồi-rời (hit-and-run), tự cấp quyền quản trị… — phạt trực tiếp + khóa kênh tự động khi bị tấn công.":
-    "Massen-Bans/Kicks, Mitglieder-Raids, Kanal-/Rollen-Vandalismus, Webhook-Spam, unbekannte Bots mit Beitritt-und-Abgang (Hit-and-run), selbst erteilte Admin-Rechte… — direkte Strafe + automatische Kanalsperre bei Angriff.",
-  "/mod timeout · kick · ban · purge — ghi đầy đủ lý do + người thực hiện vào kênh log. Lệnh text: !timeout !kick !ban !purge.":
-    "/mod timeout · kick · ban · purge — protokolliert Grund + Ausführenden vollständig im Log-Kanal. Textbefehle: !timeout !kick !ban !purge.",
-  "Nhấn Mời bot, chọn server của bạn — Protogon tự tạo cấu hình mặc định an toàn với đầy đủ 32 module bật sẵn, chỉnh sửa mọi thứ sau đó bất cứ lúc nào.":
-    "Klicke auf Bot einladen und wähle deinen Server — Protogon erstellt eine sichere Standardkonfiguration mit allen 32 Modulen aktiv; alles lässt sich danach jederzeit anpassen.",
-  "Thêm rule trả lời, chỉnh nhiệt độ & warn, bật Join Gate, chọn hình phạt — mọi thứ hiệu lực sau ~1 phút.":
-    "Antwortregeln hinzufügen, Heat & Verwarnungen justieren, Join Gate aktivieren, Strafen wählen — alles greift in ~1 Minute.",
+  "Ban/kick hàng loạt, raid thành viên, phá kênh/role, webhook spam, bot hit-and-run, tự cấp quyền quản trị… đều bị phát hiện và xử lý tức thì, kèm khóa kênh tự động khi server bị tấn công.":
+    "Massen-Bans/Kicks, Mitglieder-Raids, Kanal-/Rollen-Vandalismus, Webhook-Spam, Hit-and-run-Bots, selbst erteilte Admin-Rechte… alles wird sofort erkannt und behandelt, samt automatischer Kanalsperre beim Angriff.",
+  "Đầy đủ /mod timeout · kick · ban · purge cùng các lệnh text !timeout !kick !ban !purge — mọi hành động đều được ghi lại kèm lý do và người thực hiện.":
+    "Das volle Set /mod timeout · kick · ban · purge plus die Textbefehle !timeout !kick !ban !purge — jede Aktion mit Grund und Moderator protokolliert.",
+  "Nhấn Mời bot và chọn server của bạn — Protogon tạo sẵn cấu hình an toàn với đủ 32 module bật, chỉnh lại bất cứ lúc nào.":
+    "Klicke auf Bot einladen und wähle deinen Server — Protogon legt eine sichere Standardkonfiguration mit allen 32 Modulen an; alles lässt sich später anpassen.",
+  "Thêm rule trả lời, tinh chỉnh nhiệt độ và warn, bật Join Gate, chọn hình phạt — mọi thay đổi có hiệu lực sau khoảng một phút.":
+    "Antwortregeln hinzufügen, Heat und Verwarnungen justieren, Join Gate aktivieren, Strafen wählen — jede Änderung greift in etwa einer Minute.",
 
   // ── Anti-Nuke-Modulbeschreibungen (constants.ts → ModuleCard) ───────────
   "Permission bombing — sửa overwrite nhiều kênh để khóa mọi người hoặc mở toang":

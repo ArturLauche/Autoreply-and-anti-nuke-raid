@@ -61,8 +61,8 @@ export const EN: Record<string, string> = {
   "Công cụ mod: timeout, kick, ban, purge kèm lý do":
     "Mod tools: timeout, kick, ban, purge with reasons",
   "Tùy chọn lưu / không lưu đăng nhập": "Remember / don't remember login option",
-  'Lấy cảm hứng từ nhân vật "đáng sợ mà đáng yêu" — Haimiya là trợ lý ảo của Protogon, luôn túc trực trên website và dashboard. Tôi giải đáp mọi thắc mắc về bot bằng tiếng Việt: hệ thống nhiệt độ, warn tích lũy, Join Gate, chống nuke/raid, auto reply, cách host bot…':
-    'Inspired by a character who is "scary yet adorable" — Haimiya is Protogon\'s virtual assistant, always around on the website and dashboard. I answer every question about the bot in English: heat system, accumulated warns, Join Gate, anti-nuke/raid, auto reply, how to host the bot…',
+  'Lấy cảm hứng từ nhân vật "đáng sợ mà đáng yêu", Haimiya là trợ lý ảo của Protogon, luôn túc trực trên website và dashboard. Haimiya giải đáp mọi thắc mắc về bot bằng tiếng Việt: hệ thống nhiệt độ, warn tích lũy, Join Gate, chống nuke/raid, auto reply, cách host bot…':
+    'Inspired by a character who is "scary yet adorable", Haimiya is Protogon\'s virtual assistant, always around on the website and dashboard. Haimiya answers every question about the bot in English: heat system, accumulated warns, Join Gate, anti-nuke/raid, auto reply, how to host the bot…',
   /* ==== i18n-extra-kb ==== Nốt phần kiến thức cục bộ còn lại của Haimiya
      (vùng riêng tư, mod tools, warn, moderation, chủ đề màu, báo cáo…). */
   "Tính năng ẩn là khu vực riêng tư dành cho chủ sở hữu bot 🔒 — nội dung bên trong không được tiết lộ công khai. Chỉ admin sở hữu bot mới được phép đặt mật khẩu và mở khu vực này; owner hay mod của một server có quyền quản lý cũng không đủ. Cách mở khóa: chủ bot đăng nhập bằng chính tài khoản Discord đã tạo bot → đặt mật khẩu trong Cài đặt → vào sidebar chọn Tính năng ẩn → nhập mật khẩu là xong.":
@@ -161,13 +161,13 @@ export const EN: Record<string, string> = {
     "To keep the bot online 24/7 you need bot hosting (Wispbyte, for example) 🚀. Steps: download the bot zip from the host-deploy branch on GitHub → open your hosting, delete the old files → upload the new zip → Unarchive → Restart. Repeat the same steps for every update. Remember to configure the Discord token and the Convex key in the config file.",
   "Bảng hình phạt nằm trong mục Hình phạt trên sidebar trang quản lý server 🛠️. Nó liệt kê đầy đủ các hình phạt gần nhất: timeout, kick, ban, purge — kèm thời gian, thành viên bị phạt, người thực hiện (mod) và lý do. Các hình phạt tự động từ hệ thống chống nuke/nhiệt độ cũng được ghi vào bảng này với nhãn Tự động. Bot ghi nhận khi bạn dùng /mod hoặc !timeout !kick !ban !purge.":
     "The punishment table lives under Punishments in the server sidebar 🛠️. It lists recent punishments in full: timeout, kick, ban, purge — with time, punished member, the moderator and the reason. Automatic punishments from anti-nuke/heat are logged here too, tagged Automatic. The bot records them when you use /mod or !timeout !kick !ban !purge.",
-  "! Hôm nay thử một trận Valorant 5v5 nhé 🎮": "! Up for a 5v5 Valorant match today? 🎮",
+  "! Thử một trận Valorant 5v5 không? 🎮": "! Up for a 5v5 Valorant match? 🎮",
   '"{p0}" đã có trong danh sách': '"{p0}" is already in the list',
   "(.msc/.json tải lên). Phần tắt sẽ được bỏ qua khi khôi phục (kênh, tin nhắn + media vẫn được xử lý bình thường).":
     "(.msc/.json upload). Disabled parts are skipped during restore (channels, messages + media are still handled normally).",
   "(7 ngày)": "(7 days)",
-  "(8 module) lọc nội dung độc hại mỗi ngày. Vượt ngưỡng → xác định thủ phạm qua audit log, phạt theo cài đặt và cảnh báo real-time tới kênh log.":
-    "(8 modules) filter harmful content every day. Exceeding a threshold → identify the offender via audit log, punish per settings and alert your log channel in real time.",
+  "(8 module) sàng lọc nội dung độc hại mỗi ngày. Vượt ngưỡng, bot truy ra thủ phạm qua audit log, phạt đúng cài đặt và báo real-time về kênh log.":
+    "(8 modules) screen harmful content every day. Break a threshold and the bot traces the offender through the audit log, punishes per your settings and alerts the log channel in real time.",
   "(JSON thường / base64 / có lớp bọc), tạo lại": "(plain JSON / base64 / wrapped), recreate",
   "(acc trùng avatar/username, người tạo invite, audit log) rồi tự ban.":
     "(accounts matching avatar/username, invite creator, audit log) then auto-bans.",
@@ -191,7 +191,7 @@ export const EN: Record<string, string> = {
   "). Chỉ giữ": "). Keeps only",
   ", bỏ qua mọi tiêu chí — dùng cho tài khoản phụ / bạn bè quen biết.":
     ", skips every check — for alt accounts / known friends.",
-  ", không avatar, không huy hiệu → đã kick.": ", no avatar, no badge → kicked.",
+  ", không avatar, không huy hiệu → đã bị kick.": ", no avatar, no badge → kicked.",
   ", mỗi lần vi phạm đếm": ", each violation counts",
   ". Bot chưa có BOT_KEY sẽ": ". A bot without BOT_KEY will",
   ". Khi server bị nuke/raid phá sập hoàn toàn, mời bot vào":
@@ -223,7 +223,8 @@ export const EN: Record<string, string> = {
   "Backup có sẵn": "Available backups",
   "Backup thất bại: {p0}": "Backup failed: {p0}",
   "Biểu đồ độ trễ (5 giây / mẫu)": "Latency chart (5s / sample)",
-  "Bot Discord bảo vệ server · trợ lý Haimiya": "Discord server protection bot · Haimiya assistant",
+  "Bot Discord bảo vệ server, đồng hành cùng trợ lý Haimiya":
+    "Discord server-protection bot, with the Haimiya assistant",
   "Bot chụp toàn bộ": "The bot captures everything",
   "Bot gửi embed chào mừng qua DM cho thành viên ngay khi xác minh thành công.":
     "The bot DMs a welcome embed the moment a member verifies successfully.",
@@ -442,7 +443,7 @@ export const EN: Record<string, string> = {
     "When on, new members get the unverified role and must verify to enter.",
   "Khi module dùng hình phạt": "When a module uses a punishment",
   "Khi đăng nhập, Protogon cần quyền": "On sign-in, Protogon needs the",
-  "Khu vực riêng tư — chỉ chủ sở hữu bot": "Private area — bot owner only",
+  "Khu vực riêng tư · chỉ chủ sở hữu bot": "Private area · bot owner only",
   "Khung giờ cập nhật": "Update schedule",
   "Khuyến nghị 7-14 ngày để hạn chế tài khoản dùng 1 lần.":
     "7–14 days is recommended to deter throwaway accounts.",
@@ -533,7 +534,7 @@ export const EN: Record<string, string> = {
   "Mật khẩu tính năng ẩn…": "Hidden features password…",
   "MẶC ĐỊNH — tự động": "DEFAULT — automatic",
   "Mọi thành viên": "Everyone",
-  "Mọi thứ trong một bot": "Everything in one bot",
+  "Trọn bộ trong một bot": "A full toolkit in one bot",
   Mỗi: "Every",
   "Mỗi backup tạo một": "Each backup creates a",
   "Mỗi dòng cần có emoji và chọn role": "Each row needs an emoji and a role",
@@ -552,8 +553,8 @@ export const EN: Record<string, string> = {
   "Mức an toàn của server": "Server safety level",
   "N ngày": "N days",
   "NHIỆT ĐỘ VI PHẠM — THÀNH VIÊN “dang_spam”": "VIOLATION HEAT — MEMBER “dang_spam”",
-  "Ngoài những gì bạn thấy, Protogon còn giữ riêng một khu vực quyền lực chỉ chủ sở hữu bot mở khóa được bằng mật khẩu bí mật — ngay trong dashboard, không cần cài thêm gì.":
-    "Beyond what you see, Protogon keeps a private power area only the bot owner can unlock with a secret password — right in the dashboard, nothing extra to install.",
+  "Bên cạnh những gì bạn thấy, Protogon giữ riêng một khu vực quyền lực mà chỉ chủ sở hữu bot mở khóa được bằng mật khẩu bí mật — ngay trong dashboard, không cần cài thêm gì.":
+    "Beyond what you see, Protogon keeps a private power area that only the bot owner can unlock with a secret password — right in the dashboard, nothing extra to install.",
   "Nguyên tắc ưu tiên": "Priority rules",
   Nguồn: "Source",
   "Người dùng / role trong danh sách này sẽ": "Users / roles in this list will",

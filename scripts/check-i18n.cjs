@@ -74,9 +74,8 @@ for (const name of ["i18n.de.ts", "i18n.de.panels.ts", "i18n.de.labels.ts"]) {
     deKeys.add(m[1] !== undefined ? unescapeJs(m[1]) : m[2] !== undefined ? m[2] : m[3]);
   }
 }
-for (const k of enKeys) if (!deKeys.has(k)) problems.push(`THIẾU DE: ${k.slice(0, 80)}`);
-
 const problems = [];
+for (const k of enKeys) if (!deKeys.has(k)) problems.push(`THIẾU DE: ${k.slice(0, 80)}`);
 
 // ── 1. Mọi translate("…") phải có bản EN ───────────────────────────────────
 const codeFiles = walk(SRC).filter((p) => !/lib[\\/]i18n(\.en|\.de)?\.tsx?$/.test(p));
@@ -259,7 +258,13 @@ for (const u of unresolved) problems.push(`CHƯA DỊCH (${u.kind}): ${u.file}:$
 // trong file dữ liệu phải có bản EN, TRỪ chuỗi kỹ thuật dùng để so khớp/parse
 // dữ liệu backend (includes/replace/test/replace…) và trừ khoá đối tượng.
 const dataLabels = [];
-for (const file of walk(SRC).filter((p) => !/lib[\\/]i18n(\.en(\.panels)?)?\.tsx?$/.test(p))) {
+// Bỏ qua MỌI file từ điển (i18n.ts / i18n.en|de.ts / *.panels.ts / *.labels.ts):
+// key trong đó vốn đã là chuỗi VI đã được dịch, quét như "nhãn dữ liệu" sẽ
+// báo lỗi giả (bản DE cũ còn sót bị đòi bản EN trong khi thiếu EN vốn không
+// làm người dùng DE thấy tiếng Việt).
+for (const file of walk(SRC).filter(
+  (p) => !/lib[\\/]i18n(\.(en|de)(\.(panels|labels))?)?\.tsx?$/.test(p),
+)) {
   if (!/\.(ts|tsx)$/.test(file)) continue;
   const source = fs.readFileSync(file, "utf8");
   const sf = ts.createSourceFile(
