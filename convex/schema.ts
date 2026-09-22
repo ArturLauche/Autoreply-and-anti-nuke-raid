@@ -118,6 +118,27 @@ export default defineSchema({
     goodbyeChannelId: v.optional(v.string()),
     goodbyeMessage: v.optional(v.string()),
     goodbyeUseEmbed: v.optional(v.boolean()),
+    /**
+     * Welcome/Goodbye v2 (học Carl-bot/Welcomer/ProBot): template ngẫu nhiên
+     * (1 dòng = 1 câu, bot chọn ngẫu nhiên mỗi lượt join/leave), welcome DM,
+     * embed tùy chỉnh (tiêu đề/màu/ảnh banner/thumbnail), autorole.
+     */
+    welcomeRandom: v.optional(v.string()),
+    goodbyeRandom: v.optional(v.string()),
+    welcomeDmEnabled: v.optional(v.boolean()),
+    welcomeDmMessage: v.optional(v.string()),
+    welcomeEmbedTitle: v.optional(v.string()),
+    welcomeEmbedColor: v.optional(v.string()),
+    welcomeEmbedImage: v.optional(v.string()),
+    welcomeEmbedThumbnail: v.optional(v.string()),
+    goodbyeEmbedTitle: v.optional(v.string()),
+    goodbyeEmbedColor: v.optional(v.string()),
+    goodbyeEmbedImage: v.optional(v.string()),
+    goodbyeEmbedThumbnail: v.optional(v.string()),
+    autoroleEnabled: v.optional(v.boolean()),
+    autoroleRoleId: v.optional(v.string()),
+    autoroleDelaySec: v.optional(v.number()),
+    autoroleIncludeBots: v.optional(v.boolean()),
     badWords: v.optional(v.array(v.string())),
     heatEnabled: v.optional(v.boolean()),
     heatDecayPerMin: v.optional(v.number()),

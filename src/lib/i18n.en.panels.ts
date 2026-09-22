@@ -310,4 +310,37 @@ export const EN_PANELS: Record<string, string> = {
     "Discord bot · Heat · Join Gate · Welcome · AI",
   "Chào thành viên mới, tạm biệt thành viên rời server — kênh riêng, nội dung tùy chỉnh với placeholder ({user}, {server}, {count}…), gửi dạng embed hoặc tin nhắn thường.":
     "Greet new members and farewell to leaving ones — separate channels, custom text with placeholders ({user}, {server}, {count}…), sent as an embed or a plain message.",
+  /* ==== Welcome & Goodbye v2 — template ngẫu nhiên, embed tùy chỉnh, DM, autorole ==== */
+  "Template ngẫu nhiên": "Random templates",
+  "{n} câu": "{n} lines",
+  "Mỗi dòng là 1 câu — bot chọn ngẫu nhiên mỗi lượt join/leave, đỡ nhàm chán. Bật sẽ thắng nội dung ở trên.":
+    "Each line is one greeting — the bot picks one at random on every join/leave so it never gets stale. Takes priority over the body above.",
+  "Chào mừng {user} đến {server}!\nÊ kèo {username}, vào chơi đi!\nNgười thứ {count} vừa xuất hiện 🎉":
+    "Welcome {user} to {server}!\nNice to see you, {username}!\nMember #{count} just showed up 🎉",
+  "🎉 Thành viên mới!": "🎉 New member!",
+  "👋 Tạm biệt": "👋 Farewell",
+  "Màu (#hex)": "Color (#hex)",
+  "Màu phải dạng #hex (VD: #57f287)": "Color must be #hex (e.g. #57f287)",
+  "Ảnh banner (URL)": "Banner image (URL)",
+  "Thumbnail (URL)": "Thumbnail (URL)",
+  ThànhViênMới: "NewMember",
+  "Chào qua DM": "Welcome via DM",
+  "Gửi tin chào riêng qua tin nhắn riêng của thành viên mới":
+    "Send a private greeting to the new member's direct messages",
+  "Nội dung DM": "DM body",
+  "Cảm ơn {username} đã tham gia {server}! Đọc #quy-tắc trước khi chat nhé.":
+    "Thanks for joining {server}, {username}! Check the #rules before chatting.",
+  "Autorole — tự cấp role": "Autorole — assign role automatically",
+  "Tự cấp role cho thành viên mới ngay khi họ vào server":
+    "Automatically assign a role to new members the moment they join",
+  "Role cấp tự động": "Auto-assigned role",
+  "Chọn role": "Pick a role",
+  "Trễ trước khi cấp (giây, 0-120)": "Delay before assigning (seconds, 0-120)",
+  "Cấp role cho bot": "Assign role to bots",
+  "Mặc định tắt — bot vào server không nhận autorole":
+    "Off by default — bots joining the server do not get the autorole",
+  "Bảo vệ raid: server đang khóa (lockdown) → autorole tạm dừng, không cấp role cho tài khoản raid dồn dập.":
+    "Raid protection: while the server is locked down, autorole pauses so raid accounts don't get the role.",
+  "Chào thành viên mới và tạm biệt thành viên rời server — template ngẫu nhiên, embed tùy chỉnh, DM chào riêng, autorole. Bot không chào bot, không ping @everyone từ nội dung tùy chỉnh, và tự im lặng khi server đang khóa chống raid.":
+    "Greet new members and farewell to leaving ones — random templates, custom embeds, private DM greeting, autorole. The bot ignores bots, never pings @everyone from custom content, and goes silent while the server is locked down against raids.",
 };

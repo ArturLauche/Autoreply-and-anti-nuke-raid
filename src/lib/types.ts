@@ -134,6 +134,23 @@ export interface GuildData {
     goodbyeChannelId: string | null;
     goodbyeMessage: string | null;
     goodbyeUseEmbed: boolean;
+    // Welcome/Goodbye v2 — template ngẫu nhiên, DM, embed tùy chỉnh, autorole.
+    welcomeRandom: string | null;
+    goodbyeRandom: string | null;
+    welcomeDmEnabled: boolean;
+    welcomeDmMessage: string | null;
+    welcomeEmbedTitle: string | null;
+    welcomeEmbedColor: string | null;
+    welcomeEmbedImage: string | null;
+    welcomeEmbedThumbnail: string | null;
+    goodbyeEmbedTitle: string | null;
+    goodbyeEmbedColor: string | null;
+    goodbyeEmbedImage: string | null;
+    goodbyeEmbedThumbnail: string | null;
+    autoroleEnabled: boolean;
+    autoroleRoleId: string | null;
+    autoroleDelaySec: number;
+    autoroleIncludeBots: boolean;
     badWords: string[];
     heatEnabled: boolean;
     heatDecayPerMin: number;

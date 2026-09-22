@@ -311,4 +311,37 @@ export const DE_PANELS: Record<string, string> = {
     "Discord-Bot · Heat · Join Gate · Welcome · KI",
   "Chào thành viên mới, tạm biệt thành viên rời server — kênh riêng, nội dung tùy chỉnh với placeholder ({user}, {server}, {count}…), gửi dạng embed hoặc tin nhắn thường.":
     "Begrüße neue Mitglieder und verabschiede gehende — eigene Kanäle, eigener Text mit Platzhaltern ({user}, {server}, {count}…), als Embed oder normale Nachricht.",
+  /* ==== Welcome & Goodbye v2 — template ngẫu nhiên, embed tùy chỉnh, DM, autorole ==== */
+  "Template ngẫu nhiên": "Zufällige Vorlagen",
+  "{n} câu": "{n} Zeilen",
+  "Mỗi dòng là 1 câu — bot chọn ngẫu nhiên mỗi lượt join/leave, đỡ nhàm chán. Bật sẽ thắng nội dung ở trên.":
+    "Jede Zeile ist ein Gruß — der Bot wählt bei jedem Beitreten/Verlassen zufällig eine aus, damit es nie langweilig wird. Hat Vorrang vor dem Text oben.",
+  "Chào mừng {user} đến {server}!\nÊ kèo {username}, vào chơi đi!\nNgười thứ {count} vừa xuất hiện 🎉":
+    "Willkommen {user} auf {server}!\nSchön dich zu sehen, {username}!\nMitglied #{count} ist gerade da 🎉",
+  "🎉 Thành viên mới!": "🎉 Neues Mitglied!",
+  "👋 Tạm biệt": "👋 Tschüss",
+  "Màu (#hex)": "Farbe (#hex)",
+  "Màu phải dạng #hex (VD: #57f287)": "Farbe muss #hex sein (z. B. #57f287)",
+  "Ảnh banner (URL)": "Banner-Bild (URL)",
+  "Thumbnail (URL)": "Vorschaubild (URL)",
+  ThànhViênMới: "NeuesMitglied",
+  "Chào qua DM": "Begrüßung per DM",
+  "Gửi tin chào riêng qua tin nhắn riêng của thành viên mới":
+    "Sende eine private Begrüßung an die Direktnachrichten des neuen Mitglieds",
+  "Nội dung DM": "DM-Text",
+  "Cảm ơn {username} đã tham gia {server}! Đọc #quy-tắc trước khi chat nhé.":
+    "Danke fürs Beitreten zu {server}, {username}! Lies erst die #regeln, bevor du chattest.",
+  "Autorole — tự cấp role": "Autorole — Rolle automatisch zuweisen",
+  "Tự cấp role cho thành viên mới ngay khi họ vào server":
+    "Weise neuen Mitgliedern automatisch eine Rolle zu, sobald sie beitreten",
+  "Role cấp tự động": "Automatisch zugewiesene Rolle",
+  "Chọn role": "Rolle wählen",
+  "Trễ trước khi cấp (giây, 0-120)": "Verzögerung vor der Zuweisung (Sekunden, 0-120)",
+  "Cấp role cho bot": "Rolle auch an Bots vergeben",
+  "Mặc định tắt — bot vào server không nhận autorole":
+    "Standardmäßig aus — Bots, die dem Server beitreten, erhalten die Autorolle nicht",
+  "Bảo vệ raid: server đang khóa (lockdown) → autorole tạm dừng, không cấp role cho tài khoản raid dồn dập.":
+    "Raidschutz: Während der Server gesperrt ist (Lockdown) pausiert die Autorolle, damit Raid-Konten die Rolle nicht bekommen.",
+  "Chào thành viên mới và tạm biệt thành viên rời server — template ngẫu nhiên, embed tùy chỉnh, DM chào riêng, autorole. Bot không chào bot, không ping @everyone từ nội dung tùy chỉnh, và tự im lặng khi server đang khóa chống raid.":
+    "Begrüße neue Mitglieder und verabschiede gehende — zufällige Vorlagen, eigene Embeds, private DM-Begrüßung, Autorolle. Der Bot ignoriert Bots, pingt nie @everyone aus eigenem Inhalt und bleibt stumm, während der Server gegen Raids gesperrt ist.",
 };

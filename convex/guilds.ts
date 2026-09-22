@@ -9,6 +9,18 @@ import {
   WARN_STRIKE_DEFAULTS,
 } from "./modules";
 
+/**
+ * Làm sạch field embed welcome/goodbye v2: màu phải #hex (3/4/6 ký tự), ảnh
+ * phải URL http(s) hợp lệ. Giá trị rác từ dashboard bị NUÔT thay vì lưu dơ —
+ * bot gửi embed sẽ lỗi nếu màu không parse được.
+ */
+function cleanGreetingField(field: string, val: string): string | undefined {
+  const s = val.trim();
+  if (!s) return undefined;
+  if (field.endsWith("Color")) return /^#[0-9a-fA-F]{3,8}$/.test(s) ? s.toLowerCase() : undefined;
+  return /^https?:\/\/\S+$/.test(s) && s.length <= 2000 ? s : undefined;
+}
+
 /** Decay a stored heat value by the guild's per-minute decay rate. */
 function decayHeat(heat: number, updatedAt: number, decayPerMin: number) {
   const elapsedMin = (Date.now() - updatedAt) / 60000;
@@ -356,6 +368,23 @@ export const getBotConfig = query({
       goodbyeChannelId: guild.goodbyeChannelId ?? null,
       goodbyeMessage: guild.goodbyeMessage ?? null,
       goodbyeUseEmbed: guild.goodbyeUseEmbed ?? true,
+      // Welcome/Goodbye v2 — bot đọc từ getConfig (guilds:botGetConfig đọc raw doc).
+      welcomeRandom: guild.welcomeRandom ?? null,
+      goodbyeRandom: guild.goodbyeRandom ?? null,
+      welcomeDmEnabled: guild.welcomeDmEnabled ?? false,
+      welcomeDmMessage: guild.welcomeDmMessage ?? null,
+      welcomeEmbedTitle: guild.welcomeEmbedTitle ?? null,
+      welcomeEmbedColor: guild.welcomeEmbedColor ?? null,
+      welcomeEmbedImage: guild.welcomeEmbedImage ?? null,
+      welcomeEmbedThumbnail: guild.welcomeEmbedThumbnail ?? null,
+      goodbyeEmbedTitle: guild.goodbyeEmbedTitle ?? null,
+      goodbyeEmbedColor: guild.goodbyeEmbedColor ?? null,
+      goodbyeEmbedImage: guild.goodbyeEmbedImage ?? null,
+      goodbyeEmbedThumbnail: guild.goodbyeEmbedThumbnail ?? null,
+      autoroleEnabled: guild.autoroleEnabled ?? false,
+      autoroleRoleId: guild.autoroleRoleId ?? null,
+      autoroleDelaySec: guild.autoroleDelaySec ?? 0,
+      autoroleIncludeBots: guild.autoroleIncludeBots ?? false,
       restoreRolesEnabled: guild.restoreRolesEnabled ?? true,
       restoreChannelsEnabled: guild.restoreChannelsEnabled ?? true,
       restoreMessagesEnabled: guild.restoreMessagesEnabled ?? true,
@@ -470,6 +499,23 @@ export const updateSettings = mutation({
     goodbyeChannelId: v.optional(v.union(v.string(), v.null())),
     goodbyeMessage: v.optional(v.union(v.string(), v.null())),
     goodbyeUseEmbed: v.optional(v.boolean()),
+    // Welcome/Goodbye v2 — template ngẫu nhiên, DM, embed tùy chỉnh, autorole.
+    welcomeRandom: v.optional(v.union(v.string(), v.null())),
+    goodbyeRandom: v.optional(v.union(v.string(), v.null())),
+    welcomeDmEnabled: v.optional(v.boolean()),
+    welcomeDmMessage: v.optional(v.union(v.string(), v.null())),
+    welcomeEmbedTitle: v.optional(v.union(v.string(), v.null())),
+    welcomeEmbedColor: v.optional(v.union(v.string(), v.null())),
+    welcomeEmbedImage: v.optional(v.union(v.string(), v.null())),
+    welcomeEmbedThumbnail: v.optional(v.union(v.string(), v.null())),
+    goodbyeEmbedTitle: v.optional(v.union(v.string(), v.null())),
+    goodbyeEmbedColor: v.optional(v.union(v.string(), v.null())),
+    goodbyeEmbedImage: v.optional(v.union(v.string(), v.null())),
+    goodbyeEmbedThumbnail: v.optional(v.union(v.string(), v.null())),
+    autoroleEnabled: v.optional(v.boolean()),
+    autoroleRoleId: v.optional(v.union(v.string(), v.null())),
+    autoroleDelaySec: v.optional(v.number()),
+    autoroleIncludeBots: v.optional(v.boolean()),
     badWords: v.optional(v.array(v.string())),
     heatEnabled: v.optional(v.boolean()),
     heatDecayPerMin: v.optional(v.number()),
@@ -536,6 +582,46 @@ export const updateSettings = mutation({
     if (args.goodbyeMessage !== undefined)
       patch.goodbyeMessage = args.goodbyeMessage ? args.goodbyeMessage.slice(0, 1000) : undefined;
     if (args.goodbyeUseEmbed !== undefined) patch.goodbyeUseEmbed = args.goodbyeUseEmbed;
+    // Welcome/Goodbye v2 — validate theo từng field (URL hợp lệ, màu #hex, trần 1000).
+    if (args.welcomeRandom !== undefined)
+      patch.welcomeRandom = args.welcomeRandom ? args.welcomeRandom.slice(0, 4000) : undefined;
+    if (args.goodbyeRandom !== undefined)
+      patch.goodbyeRandom = args.goodbyeRandom ? args.goodbyeRandom.slice(0, 4000) : undefined;
+    if (args.welcomeDmEnabled !== undefined) patch.welcomeDmEnabled = args.welcomeDmEnabled;
+    if (args.welcomeDmMessage !== undefined)
+      patch.welcomeDmMessage = args.welcomeDmMessage
+        ? args.welcomeDmMessage.slice(0, 1000)
+        : undefined;
+    if (args.welcomeEmbedTitle !== undefined)
+      patch.welcomeEmbedTitle = args.welcomeEmbedTitle
+        ? args.welcomeEmbedTitle.slice(0, 256)
+        : undefined;
+    if (args.goodbyeEmbedTitle !== undefined)
+      patch.goodbyeEmbedTitle = args.goodbyeEmbedTitle
+        ? args.goodbyeEmbedTitle.slice(0, 256)
+        : undefined;
+    for (const f of [
+      "welcomeEmbedColor",
+      "goodbyeEmbedColor",
+      "welcomeEmbedImage",
+      "goodbyeEmbedImage",
+      "welcomeEmbedThumbnail",
+      "goodbyeEmbedThumbnail",
+    ] as const) {
+      const val = args[f];
+      if (val === undefined) continue;
+      patch[f] = val ? cleanGreetingField(f, val) : undefined;
+    }
+    if (args.autoroleEnabled !== undefined) patch.autoroleEnabled = args.autoroleEnabled;
+    if (args.autoroleRoleId !== undefined)
+      patch.autoroleRoleId =
+        args.autoroleRoleId && /^\d{15,20}$/.test(args.autoroleRoleId)
+          ? args.autoroleRoleId
+          : undefined;
+    if (args.autoroleDelaySec !== undefined)
+      patch.autoroleDelaySec = Math.max(0, Math.min(120, Math.floor(args.autoroleDelaySec || 0)));
+    if (args.autoroleIncludeBots !== undefined)
+      patch.autoroleIncludeBots = args.autoroleIncludeBots;
     if (args.raidHuntEnabled !== undefined) patch.raidHuntEnabled = args.raidHuntEnabled;
     if (args.raidHuntBanSuspects !== undefined)
       patch.raidHuntBanSuspects = args.raidHuntBanSuspects;

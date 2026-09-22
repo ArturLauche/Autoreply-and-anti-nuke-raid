@@ -1,16 +1,21 @@
 "use strict";
 /**
- * welcome.js — Chào thành viên mới + tạm biệt thành viên rời server.
+ * welcome.js — Chào thành viên mới + tạm biệt thành viên rời server (v2).
  *
- * Config từ dashboard (Welcome & Goodbye panel): bật/tắt, kênh riêng cho mỗi
- * loại, nội dung tùy chỉnh với placeholder {user} {server} {count} — bot thay
- * lúc gửi. Embed hoặc tin nhắn thường tùy chọn.
+ * Nâng cấp học từ Carl-bot / Welcomer / ProBot — bộ tính năng tốt nhất thị trường:
+ *   1. Template NGẪU NHIÊN: welcomeRandom/goodbyeRandom nhiều dòng (mỗi dòng 1
+ *      câu) — bot chọn ngẫu nhiên mỗi lượt join/leave, đỡ nhàm chán.
+ *   2. Welcome DM riêng: gửi tin chào qua DM thành viên mới (nội dung riêng).
+ *   3. Embed tùy chỉnh sâu: tiêu đề, màu #hex, ảnh banner, thumbnail.
+ *   4. Autorole: tự cấp role khi vào server, trễ 0-120s, tùy chọn cấp cả bot.
+ *   5. Placeholder mở rộng: {user} {username} {server} {count} {created} {boost}.
+ *   6. RAID-SAFE (đặc thù Protogon): server đang lockdown → bỏ qua chào/DM/autorole
+ *      (không spam kênh log khi raid dồn dập, không cấp role cho tài khoản raid).
  *
- * An toàn: mọi gửi best-effort (kênh bị xoá/thiếu quyền → bỏ qua im lặng,
- * KHÔNG spam log); goodbye bỏ qua bot (bot rời là sự kiện kỹ thuật, không
- * phải "thành viên rời"); nội dung trống → dùng mặc định. Gửi qua channel.send
- * với allowedMentions giới hạn cho {user} — tránh @everyone từ nội dung tùy
- * chỉnh (kẻ có quyền dashboard không thể ping sập server qua welcome).
+ * An toàn giữ nguyên v1: mọi gửi best-effort (kênh bị xoá/thiếu quyền → bỏ qua
+ * im lặng); goodbye bỏ qua bot; nội dung trống → dùng mặc định theo ngôn ngữ
+ * server (lang.js); allowedMentions giới hạn cho {user} — nội dung tùy chỉnh
+ * không thể ping @everyone.
  */
 
 const { EmbedBuilder, Colors, PermissionFlagsBits } = require("discord.js");
@@ -20,33 +25,118 @@ const lang = require("./lang");
 const WELCOME_DEFAULT = lang.welcomeDefault("en");
 const GOODBYE_DEFAULT = lang.goodbyeDefault("en");
 
-/**
- * Nội dung mặc định khi config để trống — THEO NGÔN NGỮ SERVER (locale quốc
- * gia chủ server chọn; quốc gia không có bản dịch riêng → EN mặc định).
- * Owner đặt nội dung tùy chỉnh → dùng nguyên văn (tôn trọng nội dung đã viết).
- */
+/** Trần placeholder phải bền vững: tuổi account 4 chữ số, boost nhỏ. */
+function accountAgeDays(member) {
+  const ts = member.user?.createdTimestamp;
+  if (typeof ts !== "number" || !Number.isFinite(ts)) return 0;
+  return Math.max(0, Math.floor((Date.now() - ts) / 86_400_000));
+}
 
-/** Thay placeholder. {user} giữ nguyên dạng mention để allowedMentions hoạt động. */
+/** Thay placeholder mở rộng. {user} giữ nguyên dạng mention để allowedMentions hoạt động. */
 function fillTemplate(template, { member, guild }) {
   return template
     .replaceAll("{user}", `<@${member.id}>`)
     .replaceAll("{username}", member.user?.username ?? member.id)
     .replaceAll("{server}", guild.name)
     .replaceAll("{count}", String(guild.memberCount ?? 0))
+    .replaceAll("{created}", String(accountAgeDays(member)))
+    .replaceAll("{boost}", String(guild.premiumSubscriptionCount ?? 0))
     .slice(0, 1500);
 }
 
-/** Gửi tin welcome/goodbye vào kênh cấu hình. Trả true khi gửi thành công. */
+/** Chọn template ngẫu nhiên: config nhiều dòng (mỗi dòng 1 câu) → random 1 dòng. */
+function pickTemplate(configured, fallback) {
+  const lines = String(configured || "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return fallback;
+  return lines[Math.floor(Math.random() * lines.length)];
+}
+
+/**
+ * Màu embed: config #hex (validate phía Convex) → parse; rác → màu mặc định.
+ * Trả number cho EmbedBuilder.setColor.
+ */
+function embedColor(configured, fallback) {
+  if (typeof configured === "number" && Number.isFinite(configured)) return configured;
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(String(configured || "").trim());
+  if (m) return parseInt(m[1], 16);
+  // Cho phép #abc (3 ký tự) → mở rộng thành aabbcc.
+  const m3 = /^#?([0-9a-fA-F]{3})$/.exec(String(configured || "").trim());
+  if (m3)
+    return parseInt(
+      m3[1]
+        .split("")
+        .map((c) => c + c)
+        .join(""),
+      16,
+    );
+  return fallback;
+}
+
+/** URL hợp lệ cho embed (http/https) — rác → bỏ qua (không gửi embed lỗi). */
+function safeUrl(v) {
+  const s = String(v || "").trim();
+  return /^https?:\/\/\S+$/.test(s) ? s : undefined;
+}
+
+/**
+ * Xây payload (content + embed tùy chọn) từ config v2.
+ * Config UseEmbed=false → tin nhắn thường (như v1, vẫn nhận title/color nếu
+ * dashboard bật embed riêng — giữ hành vi cũ khi owner chưa đụng cài đặt mới).
+ */
+function buildPayload(kind, config, ctx) {
+  const isWelcome = kind === "welcome";
+  const serverLang = lang.langForGuild(ctx.guild);
+  const rawTemplate = pickTemplate(
+    isWelcome
+      ? config.welcomeRandom || config.welcomeMessage
+      : config.goodbyeRandom || config.goodbyeMessage,
+    isWelcome ? lang.welcomeDefault(serverLang) : lang.goodbyeDefault(serverLang),
+  );
+  const content = fillTemplate(rawTemplate, ctx);
+  const useEmbed = isWelcome ? config.welcomeUseEmbed : config.goodbyeUseEmbed;
+
+  const payload = { allowedMentions: { users: [ctx.member.id], parse: [] } };
+  if (!useEmbed) {
+    payload.content = content;
+    return payload;
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor(
+      embedColor(
+        isWelcome ? config.welcomeEmbedColor : config.goodbyeEmbedColor,
+        isWelcome ? Colors.Green : Colors.Grey,
+      ),
+    )
+    .setTimestamp();
+  const title = (isWelcome ? config.welcomeEmbedTitle : config.goodbyeEmbedTitle)?.trim();
+  if (title) embed.setTitle(fillTemplate(title, ctx).slice(0, 256));
+  embed.setDescription(content);
+  const image = safeUrl(isWelcome ? config.welcomeEmbedImage : config.goodbyeEmbedImage);
+  if (image) embed.setImage(image);
+  const thumb = safeUrl(isWelcome ? config.welcomeEmbedThumbnail : config.goodbyeEmbedThumbnail);
+  if (thumb) embed.setThumbnail(thumb);
+
+  // Mention member: giữ hành vi v1 embed mode — mention trong content + mô tả trong embed.
+  payload.content = `<@${ctx.member.id}>`;
+  payload.embeds = [embed];
+  return payload;
+}
+
+/**
+ * Gửi welcome/goodbye vào kênh cấu hình. Trả true khi gửi thành công.
+ * RAID-SAFE: lockdown đang hoạt động (guild.lockdownUntil > now) → bỏ qua.
+ */
 async function sendGreeting(client, config, kind, member, guild) {
   const enabled = kind === "welcome" ? config.welcomeEnabled : config.goodbyeEnabled;
   if (!enabled) return false;
   const channelId = kind === "welcome" ? config.welcomeChannelId : config.goodbyeChannelId;
   if (!channelId) return false;
-  const serverLang = lang.langForGuild(guild);
-  const rawTemplate =
-    (kind === "welcome" ? config.welcomeMessage : config.goodbyeMessage)?.trim() ||
-    (kind === "welcome" ? lang.welcomeDefault(serverLang) : lang.goodbyeDefault(serverLang));
-  const useEmbed = kind === "welcome" ? config.welcomeUseEmbed : config.goodbyeUseEmbed;
+  // Lockdown = đang bị raid → im lặng (config gửi chào sẽ trở thành noise + rò role).
+  if ((config.lockdownUntil ?? 0) > Date.now()) return false;
 
   const channel = await client.channels.fetch(channelId).catch(() => null);
   if (!channel?.isTextBased?.()) return false;
@@ -55,23 +145,7 @@ async function sendGreeting(client, config, kind, member, guild) {
   const perms = guild.members?.me?.permissionsIn?.(channel);
   if (perms && !perms.has(PermissionFlagsBits.SendMessages)) return false;
 
-  const content = fillTemplate(rawTemplate, { member, guild });
-
-  let payload;
-  if (useEmbed) {
-    const embed = new EmbedBuilder()
-      .setColor(kind === "welcome" ? Colors.Green : Colors.Grey)
-      .setDescription(content)
-      .setTimestamp();
-    payload = {
-      content: `<@${member.id}>`,
-      embeds: [embed],
-      allowedMentions: { users: [member.id], parse: [] },
-    };
-  } else {
-    payload = { content, allowedMentions: { users: [member.id], parse: [] } };
-  }
-
+  const payload = buildPayload(kind, config, { member, guild });
   const sent = await channel
     .send(payload)
     .then(() => true)
@@ -79,13 +153,50 @@ async function sendGreeting(client, config, kind, member, guild) {
   return sent;
 }
 
-/** guildMemberAdd — chào thành viên mới (bỏ qua bot). */
+/** Welcome DM: tin nhắn riêng qua DM thành viên mới (best-effort — user tắt DM là bỏ qua).
+ * RAID-SAFE: lockdown đang hoạt động → bỏ qua (không DM hàng loạt tài khoản raid). */
+async function sendWelcomeDm(config, member) {
+  if (!config.welcomeDmEnabled || member.user?.bot) return false;
+  if ((config.lockdownUntil ?? 0) > Date.now()) return false;
+  const raw = pickTemplate(
+    config.welcomeDmMessage,
+    lang.welcomeDefault(lang.langForGuild(member.guild)),
+  );
+  const content = fillTemplate(raw, { member, guild: member.guild });
+  return member
+    .send({ content, allowedMentions: { users: [member.id], parse: [] } })
+    .then(() => true)
+    .catch(() => false);
+}
+
+/**
+ * Autorole: cấp role cấu hình cho thành viên mới sau autoroleDelaySec giây.
+ * Bot chỉ được cấp khi autoroleIncludeBots=true; role có thể biến mất → catch im lặng.
+ * RAID-SAFE: lockdown → bỏ qua (không cấp role cho tài khoản raid dồn dập).
+ */
+function applyAutorole(config, member) {
+  if (!config.autoroleEnabled) return;
+  if ((config.lockdownUntil ?? 0) > Date.now()) return;
+  if (member.user?.bot && !config.autoroleIncludeBots) return;
+  const roleId = config.autoroleRoleId;
+  if (!roleId || !/^\d{15,20}$/.test(String(roleId))) return;
+  const delaySec = Math.max(0, Math.min(120, Math.floor(config.autoroleDelaySec ?? 0)));
+  setTimeout(() => {
+    member.roles.add(roleId, "Protogon autorole").catch(() => {}); // role bị xoá/bot mất quyền → bỏ qua im lặng
+  }, delaySec * 1000);
+}
+
+/** guildMemberAdd — chào thành viên mới (bỏ qua bot cho welcome channel + DM). */
 async function handleWelcome(client, store, member) {
   try {
-    if (!member?.guild || member.user?.bot) return;
+    if (!member?.guild) return;
     const config = await store.getConfig(member.guild.id);
     if (!config) return;
+    // Autorole áp dụng cho CẢ bot (nếu bật include) — chạy trước nhánh bỏ qua bot.
+    applyAutorole(config, member);
+    if (member.user?.bot) return;
     await sendGreeting(client, config, "welcome", member, member.guild);
+    await sendWelcomeDm(config, member);
   } catch (e) {
     console.error("[welcome]", e.message);
   }
@@ -110,4 +221,8 @@ module.exports = {
   WELCOME_DEFAULT,
   GOODBYE_DEFAULT,
   _fillTemplateForTest: fillTemplate,
+  _pickTemplateForTest: pickTemplate,
+  _embedColorForTest: embedColor,
+  _safeUrlForTest: safeUrl,
+  _buildPayloadForTest: buildPayload,
 };
