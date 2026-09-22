@@ -283,7 +283,7 @@ export default function ModuleCard({
             {showHeat && (
               <div className="grid gap-1">
                 <Label className="text-[11px] text-muted-foreground">
-                  {translate("🔥 Nhiệt/vi phạm")}
+                  {translate("🔥 Nhiệt mỗi vi phạm")}
                 </Label>
                 <ModuleNumber
                   value={config.heat}
@@ -401,11 +401,11 @@ export default function ModuleCard({
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             💡 <b className="text-foreground">{translate("Xóa tin phát hiện")}</b>{" "}
             {translate("= xóa ngay tin vi phạm ·")} <b className="text-foreground">Purge</b>{" "}
-            {translate("= xóa hàng loạt tin liên quan vụ vi phạm.")}
+            {translate("= xóa toàn bộ tin liên quan đến vụ vi phạm.")}
             {showHeat ? (
-              <> {translate("Nhiệt tự giảm theo phút — đủ ngưỡng sẽ tự tăng cấp hình phạt.")}</>
+              <> {translate("Nhiệt tự giảm dần theo phút; đủ ngưỡng là hình phạt tự tăng cấp.")}</>
             ) : (
-              <> {translate("⚡ Phạt trực tiếp theo hành động đã chọn — không cộng nhiệt.")}</>
+              <> {translate("⚡ Phạt thẳng theo hành động đã chọn, không cộng nhiệt.")}</>
             )}
           </p>
 
@@ -418,8 +418,8 @@ export default function ModuleCard({
               options={roleOptions}
               value={config.whitelistRoles}
               onChange={(v) => patchModule(module, { whitelistRoles: v })}
-              placeholder={translate("Không có — tất cả role đều bị kiểm tra")}
-              emptyLabel={translate("Chưa có role được đồng bộ")}
+              placeholder={translate("Không có — mọi role đều bị kiểm tra")}
+              emptyLabel={translate("Chưa có role nào được đồng bộ")}
               searchPlaceholder={translate("Gõ tên role để tìm nhanh…")}
             />
           </div>

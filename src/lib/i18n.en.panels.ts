@@ -366,4 +366,79 @@ export const EN_PANELS: Record<string, string> = {
     "Sign in with Discord and invite Protogon to switch on heat, Join Gate, content filtering and 32 anti-nuke modules right from the dashboard — with the Haimiya assistant along the way. Free for every server.",
   "…cùng 12 module chống nuke khác, xem đầy đủ trong dashboard.":
     "…plus 12 more anti-nuke modules, all listed in the dashboard.",
+
+  /* ==== Lô 2 — viết lại copy panel Overview / Settings / Branding / ModuleCard. */
+  "Chưa ghi nhận sự kiện nào — bot chưa xử lý vi phạm chống nuke ở server này.":
+    "No events recorded yet — the bot hasn't handled any anti-nuke violation on this server.",
+  "Tính từ tổng nhiệt độ và warn tích lũy của thành viên. Vi phạm càng nhiều thì nhiệt càng cao và mức an toàn càng giảm; khi chạm ngưỡng, hình phạt tự tăng cấp (cảnh báo → tạm khóa → kick → ban) và tái phạm bị nhân đôi nhiệt.":
+    "Calculated from your members' total heat and accumulated warns. The more violations, the higher the heat and the lower the safety score; once a threshold is reached the punishment escalates automatically (warning → timeout → kick → ban) and repeat offences double the heat.",
+  "Rule auto reply hỗ trợ placeholder:": "Auto-reply rules support placeholders:",
+  "để tag người nhắn và": "to mention the sender, and",
+  "để lấy tên hiển thị.": "for their display name.",
+  "Mọi thay đổi cấu hình được bot đồng bộ tự động trong khoảng 3 phút.":
+    "Every configuration change syncs to the bot automatically within about 3 minutes.",
+  "Bảng nhiệt & warn trong Moderation có nút xóa nhiệt cho từng người hoặc toàn bộ.":
+    "The heat & warn table in Moderation can clear heat for one member or for everyone.",
+  "Join Gate chặn selfbot ngay khi vào server: tài khoản quá mới, thiếu avatar hoặc huy hiệu.":
+    "Join Gate blocks selfbots the moment they join: accounts that are too new or missing an avatar or badge.",
+  "Module “Chống link độc hại & file nguy hiểm” quét domain lừa đảo và tệp đuôi .exe/.scr…":
+    "The “malicious links & dangerous files” module scans scam domains and files ending in .exe/.scr…",
+  "Mod/Admin có tên trong Cài đặt được miễn trừ khỏi toàn bộ hệ thống chống nuke.":
+    "Mods/Admins listed in Settings are exempt from the entire anti-nuke system.",
+  "Nhiệt tự giảm dần theo phút; đủ ngưỡng là hình phạt tự tăng cấp.":
+    "Heat decays by the minute; once the threshold is reached the punishment escalates automatically.",
+  "⚡ Phạt thẳng theo hành động đã chọn, không cộng nhiệt.":
+    "⚡ Punishes directly with the chosen action and adds no heat.",
+  "Không có — mọi role đều bị kiểm tra": "None — every role is checked",
+  "Chưa có role nào được đồng bộ": "No roles synced yet",
+  "= xóa toàn bộ tin liên quan đến vụ vi phạm.":
+    "= deletes every message related to the violation.",
+  "🔥 Nhiệt mỗi vi phạm": "🔥 Heat per violation",
+  "Logo bot xuất hiện trên trang chủ, trang quản lý và toàn bộ website.":
+    "The bot logo appears on the landing page, the management pages and the whole website.",
+  "Ảnh đại diện của Haimiya trong cửa sổ trò chuyện trợ giúp.":
+    "Haimiya's avatar inside the help chat window.",
+  "Đổi avatar bot và trợ lý AI ngay trên web — chỉ admin sở hữu bot được phép.":
+    "Change the bot and AI-assistant avatars right from the web — bot-owning admin only.",
+  "Ảnh tải lên được lưu trên bộ nhớ đám mây của bot và áp dụng ngay toàn web (trang chủ, đăng nhập, dashboard, chat AI).":
+    "Uploaded images are stored in the bot's cloud storage and applied across the site instantly (landing page, sign-in, dashboard, AI chat).",
+  "Ảnh tối đa 2MB, vui lòng chọn ảnh nhỏ hơn.":
+    "Images are capped at 2MB — please choose a smaller one.",
+  "Tải ảnh lên máy chủ thất bại (HTTP {p0})": "Image upload to the server failed (HTTP {p0})",
+  "Máy chủ không trả về ID ảnh — hãy thử dán đường dẫn ảnh thay thế":
+    "The server returned no image ID — try pasting an image URL instead",
+  "Đã đổi avatar bot, áp dụng ngay toàn web":
+    "Bot avatar updated — applied across the site instantly",
+  "Đã đổi avatar Haimiya, áp dụng ngay toàn web 🎀":
+    "Haimiya's avatar updated — applied across the site instantly 🎀",
+  "Tải ảnh thất bại": "Image upload failed",
+  "Đã lưu ảnh mới, áp dụng ngay toàn web": "New image saved — applied across the site instantly",
+  "Đã xóa ảnh tùy chỉnh, trở về mặc định": "Custom image removed — back to the default",
+  "Nhận sự kiện chống nuke/raid, báo cáo hàng ngày và các thông báo quan trọng.":
+    "Receives anti-nuke/raid events, the daily report and other important notices.",
+  "Kênh log hành động mod — auto-mod và lệnh thủ công, theo phong cách Carl-bot":
+    "Mod action log channel — auto-mod and manual commands, Carl-bot style",
+  "Tóm tắt sự kiện chống nuke gửi vào kênh log vào khoảng 00:00 UTC mỗi ngày":
+    "Posts an anti-nuke summary to the log channel around 00:00 UTC every day",
+  "Khi bot xác nhận raid/nuke: gửi DM khẩn cho chủ server (kẻ nuke không xóa được), AI quét chat và báo cáo vào kênh log, kèm lệnh":
+    "When the bot confirms a raid/nuke: an urgent DM to the server owner (a nuker can't delete it), the AI scans the chat and reports to the log channel, plus the command",
+  "Tắt nếu không muốn cảnh báo làm phiền cả server — mod vẫn thấy log":
+    "Turn off if you don't want the alert to bother the whole server — mods still see the log",
+  "tự gửi log khi có sự kiện; tùy chỉnh loại sự kiện, màu embed và nội dung kèm.":
+    "posts logs automatically when events happen; customise event types, embed colour and included content.",
+  "Được miễn trừ chống nuke và có quyền quản lý rule auto reply trong Discord.":
+    "Exempt from anti-nuke and allowed to manage auto-reply rules inside Discord.",
+  "Dùng để mở khóa khu vực riêng tư dành cho chủ sở hữu bot; nội dung bên trong không tiết lộ công khai. Chỉ":
+    "Used to unlock the private area reserved for the bot owner; its contents are never disclosed publicly. Only",
+  "🔒 Bạn không phải admin sở hữu bot — chỉ chủ sở hữu bot mới được đặt, đổi hoặc xóa mật khẩu này.":
+    "🔒 You are not the bot-owning admin — only the bot owner can set, change or delete this password.",
+  "Chọn sắc độ xám áp dụng cho toàn bộ trang quản lý của server (nút, thẻ, sidebar).":
+    "Pick the grey shade applied to this server's whole management area (buttons, cards, sidebar).",
+  "Đã lưu cài đặt, bot áp dụng trong khoảng 3 phút":
+    "Settings saved — the bot applies them within about 3 minutes",
+  "Prefix gồm 1–3 ký tự đặc biệt, ví dụ: !, ^, !!":
+    "The prefix is 1–3 special characters, e.g. !, ^, !!",
+  "1–3 ký tự đặc biệt, dùng cho lệnh text như":
+    "1–3 special characters, used for text commands such as",
+  ", kể cả người có quyền phá server.": ", including anyone with permission to wreck the server.",
 };

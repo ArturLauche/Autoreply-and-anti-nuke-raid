@@ -67,7 +67,7 @@ function RecentEvents({ data }: { data: GuildData }) {
         ) : !recent || recent.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">
             {translate(
-              "Chưa có sự kiện nào — bot chưa xử lý vi phạm chống nuke nào tại server này.",
+              "Chưa ghi nhận sự kiện nào — bot chưa xử lý vi phạm chống nuke ở server này.",
             )}{" "}
           </p>
         ) : (
@@ -173,7 +173,7 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
             </h3>
             <p className="text-sm text-muted-foreground">
               {translate(
-                "Dựa trên tổng nhiệt độ & warn tích lũy của các thành viên. Vi phạm càng nhiều, nhiệt càng cao và mức an toàn càng giảm — khi chạm ngưỡng, hình phạt tự tăng cấp (cảnh báo → tạm khóa → kick → ban) và tái phạm sẽ bị nhân đôi nhiệt.",
+                "Tính từ tổng nhiệt độ và warn tích lũy của thành viên. Vi phạm càng nhiều thì nhiệt càng cao và mức an toàn càng giảm; khi chạm ngưỡng, hình phạt tự tăng cấp (cảnh báo → tạm khóa → kick → ban) và tái phạm bị nhân đôi nhiệt.",
               )}{" "}
             </p>
             <SafetyBar data={data} />
@@ -244,38 +244,40 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
           <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
             <li className="flex gap-2">
               <span className="text-primary">•</span>
-              {translate("Rule auto reply dùng placeholder")}{" "}
+              {translate("Rule auto reply hỗ trợ placeholder:")}{" "}
               <code className="font-mono text-xs">{"{user}"}</code>{" "}
-              {translate("để tag người nhắn,")}{" "}
+              {translate("để tag người nhắn và")}{" "}
               <code className="font-mono text-xs">{"{username}"}</code>{" "}
-              {translate("để lấy tên họ.")}{" "}
+              {translate("để lấy tên hiển thị.")}{" "}
             </li>
             <li className="flex gap-2">
               <span className="text-primary">•</span>
               {translate(
-                "Bảng nhiệt & warn bên Moderation có nút xóa nhiệt từng người hoặc toàn bộ.",
+                "Bảng nhiệt & warn trong Moderation có nút xóa nhiệt cho từng người hoặc toàn bộ.",
               )}{" "}
             </li>
             <li className="flex gap-2">
               <span className="text-primary">•</span>
               {translate(
-                "Join Gate (sidebar) chặn selfbot: tài khoản quá mới, thiếu avatar/huy hiệu.",
+                "Join Gate chặn selfbot ngay khi vào server: tài khoản quá mới, thiếu avatar hoặc huy hiệu.",
               )}{" "}
             </li>
             <li className="flex gap-2">
               <span className="text-primary">•</span>
               {translate(
-                'Module "Chống link độc hại & file nguy hiểm" quét domain scam + file đuôi .exe/.scr…',
+                "Module “Chống link độc hại & file nguy hiểm” quét domain lừa đảo và tệp đuôi .exe/.scr…",
               )}{" "}
             </li>
             <li className="flex gap-2">
               <span className="text-primary">•</span>
-              {translate("Thay đổi cấu hình được bot đồng bộ tự động trong vòng ~3 phút.")}{" "}
+              {translate(
+                "Mọi thay đổi cấu hình được bot đồng bộ tự động trong khoảng 3 phút.",
+              )}{" "}
             </li>
             <li className="flex gap-2">
               <span className="text-primary">•</span>
               {translate(
-                "Mod/Admin trong danh sách Cài đặt sẽ được miễn trừ khỏi chống nuke.",
+                "Mod/Admin có tên trong Cài đặt được miễn trừ khỏi toàn bộ hệ thống chống nuke.",
               )}{" "}
             </li>
           </ul>

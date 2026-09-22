@@ -112,7 +112,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
 
   async function handleSave() {
     if (!/^[!^$#&%]{1,3}$/.test(prefix)) {
-      return toast.error(translate("Prefix phải là 1-3 ký tự đặc biệt, ví dụ: !, ^, !!"));
+      return toast.error(translate("Prefix gồm 1–3 ký tự đặc biệt, ví dụ: !, ^, !!"));
     }
     setSaving(true);
     try {
@@ -126,7 +126,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
         modRoles,
         adminRoles,
       });
-      toast.success(translate("Đã lưu cài đặt — bot áp dụng trong vòng ~3 phút"));
+      toast.success(translate("Đã lưu cài đặt, bot áp dụng trong khoảng 3 phút"));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     } finally {
@@ -173,7 +173,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                     placeholder="!"
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    {translate("1–3 ký tự đặc biệt — lệnh text như")}{" "}
+                    {translate("1–3 ký tự đặc biệt, dùng cho lệnh text như")}{" "}
                     <code className="font-mono text-primary">{prefix}help</code>
                     {translate(". Slash command hoạt động độc lập.")}{" "}
                   </p>
@@ -196,7 +196,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                   </Select>
                   <p className="text-[11px] text-muted-foreground">
                     {translate(
-                      "Chống nuke/raid, báo cáo hàng ngày và sự kiện quan trọng gửi vào đây.",
+                      "Nhận sự kiện chống nuke/raid, báo cáo hàng ngày và các thông báo quan trọng.",
                     )}{" "}
                   </p>
                 </div>
@@ -206,7 +206,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                 <Label>
                   <Hash className="mr-1 inline h-3.5 w-3.5" />
                   {translate(
-                    "Kênh log hành động mod (auto-mod + lệnh thủ công, kiểu Carl-bot)",
+                    "Kênh log hành động mod — auto-mod và lệnh thủ công, theo phong cách Carl-bot",
                   )}{" "}
                 </Label>
                 <Select value={modLogChannelId} onValueChange={setModLogChannelId}>
@@ -237,7 +237,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                   </p>
                   <p className="text-[11px] text-muted-foreground">
                     {translate(
-                      "Tóm tắt sự kiện chống nuke gửi vào kênh log lúc ~00:00 UTC mỗi ngày",
+                      "Tóm tắt sự kiện chống nuke gửi vào kênh log vào khoảng 00:00 UTC mỗi ngày",
                     )}{" "}
                   </p>
                 </div>
@@ -255,10 +255,10 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                   </p>
                   <p className="text-[11px] text-muted-foreground">
                     {translate(
-                      "Khi bot xác nhận raid/nuke: DM khẩn cho chủ server (kẻ nuke không xoá được) + AI quét chat gửi báo cáo vào kênh log, kèm lệnh",
+                      "Khi bot xác nhận raid/nuke: gửi DM khẩn cho chủ server (kẻ nuke không xóa được), AI quét chat và báo cáo vào kênh log, kèm lệnh",
                     )}{" "}
                     <code className="font-mono">/report</code>
-                    {translate(". Người có quyền phá server cũng được báo ngay")}{" "}
+                    {translate(", kể cả người có quyền phá server.")}{" "}
                   </p>
                 </div>
                 <Switch
@@ -275,7 +275,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                   </p>
                   <p className="text-[11px] text-muted-foreground">
                     {translate(
-                      "Tắt nếu không muốn cảnh báo làm phiền toàn bộ thành viên (mod vẫn thấy log)",
+                      "Tắt nếu không muốn cảnh báo làm phiền cả server — mod vẫn thấy log",
                     )}{" "}
                   </p>
                 </div>
@@ -292,7 +292,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                   <p className="text-[11px] text-muted-foreground">
                     {translate("Webhook")} "{webhookData[0]?.name}"{" "}
                     {translate(
-                      "tự gửi log khi có sự kiện. Tùy chỉnh loại sự kiện, màu embed và nội dung kèm.",
+                      "tự gửi log khi có sự kiện; tùy chỉnh loại sự kiện, màu embed và nội dung kèm.",
                     )}
                   </p>
                   <div className="grid gap-1.5">
@@ -415,7 +415,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                   />
                   <p className="text-[11px] text-muted-foreground">
                     {translate(
-                      "Miễn trừ chống nuke và quản lý rule auto reply trong Discord.",
+                      "Được miễn trừ chống nuke và có quyền quản lý rule auto reply trong Discord.",
                     )}{" "}
                   </p>
                 </div>
@@ -457,7 +457,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                 </p>
                 <p className="text-[11px] text-muted-foreground">
                   {translate(
-                    "Dùng để mở khóa khu vực riêng tư dành cho chủ sở hữu bot — nội dung bên trong không tiết lộ công khai. Chỉ",
+                    "Dùng để mở khóa khu vực riêng tư dành cho chủ sở hữu bot; nội dung bên trong không tiết lộ công khai. Chỉ",
                   )}{" "}
                   <b>{translate("admin sở hữu bot")}</b> {translate("được đặt.")}{" "}
                 </p>
@@ -466,7 +466,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
               {!data.guild.isBotOwner && (
                 <p className="rounded-lg bg-secondary px-3 py-2.5 text-xs text-muted-foreground">
                   {translate(
-                    "🔒 Bạn không phải admin sở hữu bot — chỉ chủ sở hữu bot mới được đặt / đổi / xóa mật khẩu này.",
+                    "🔒 Bạn không phải admin sở hữu bot — chỉ chủ sở hữu bot mới được đặt, đổi hoặc xóa mật khẩu này.",
                   )}{" "}
                 </p>
               )}
@@ -559,7 +559,7 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
               <p className="text-sm font-medium">{translate("Độ tương phản của server")}</p>
               <p className="mb-3 text-[11px] text-muted-foreground">
                 {translate(
-                  "Chọn sắc độ xám áp dụng cho toàn bộ trang quản lý server này (nút, thẻ, sidebar).",
+                  "Chọn sắc độ xám áp dụng cho toàn bộ trang quản lý của server (nút, thẻ, sidebar).",
                 )}{" "}
               </p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

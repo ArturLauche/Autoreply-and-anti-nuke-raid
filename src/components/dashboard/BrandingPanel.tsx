@@ -19,11 +19,11 @@ type Slot = "bot" | "haimiya";
 const SLOT_META: Record<Slot, { title: string; desc: string }> = {
   bot: {
     title: "Avatar bot (Protogon)",
-    desc: "Logo bot hiển thị trên trang chủ, trang quản lý và toàn bộ web.",
+    desc: "Logo bot xuất hiện trên trang chủ, trang quản lý và toàn bộ website.",
   },
   haimiya: {
     title: "Avatar trợ lý AI (Haimiya-senpai)",
-    desc: "Ảnh đại diện của Haimiya trong cửa sổ chat trợ giúp.",
+    desc: "Ảnh đại diện của Haimiya trong cửa sổ trò chuyện trợ giúp.",
   },
 };
 
@@ -63,7 +63,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
     e.target.value = "";
     if (!file) return;
     if (file.size > 2_000_000) {
-      toast.error(translate("Ảnh tối đa 2MB — vui lòng chọn ảnh nhỏ hơn"));
+      toast.error(translate("Ảnh tối đa 2MB, vui lòng chọn ảnh nhỏ hơn."));
       return;
     }
     const slot = pendingSlot;
@@ -78,9 +78,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
         body: file,
       });
       if (!res.ok)
-        throw new Error(
-          translate("Upload ảnh lên máy chủ thất bại (HTTP {p0})", { p0: res.status }),
-        );
+        throw new Error(translate("Tải ảnh lên máy chủ thất bại (HTTP {p0})", { p0: res.status }));
       let storageId = "";
       try {
         const data = (await res.json()) as { storageId?: string };
@@ -90,7 +88,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
       }
       if (!storageId)
         throw new Error(
-          translate("Không nhận được ID ảnh từ máy chủ — thử dán đường dẫn ảnh thay thế"),
+          translate("Máy chủ không trả về ID ảnh — hãy thử dán đường dẫn ảnh thay thế"),
         );
       const out = await saveBrandingUpload({
         token,
@@ -100,13 +98,13 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
       });
       toast.success(
         slot === "bot"
-          ? translate("Đã đổi avatar bot — áp dụng toàn web")
-          : translate("Đã đổi avatar Haimiya — áp dụng toàn web 🎀"),
+          ? translate("Đã đổi avatar bot, áp dụng ngay toàn web")
+          : translate("Đã đổi avatar Haimiya, áp dụng ngay toàn web 🎀"),
       );
       setUrls((u) => ({ ...u, [slot]: "" }));
       void out;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : translate("Upload thất bại"));
+      toast.error(err instanceof Error ? err.message : translate("Tải ảnh thất bại"));
     } finally {
       setUploading(null);
     }
@@ -125,7 +123,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
         guildId,
         ...(slot === "bot" ? { botAvatarUrl: value } : { haimiyaAvatarUrl: value }),
       });
-      toast.success(translate("Đã lưu ảnh mới — áp dụng toàn web"));
+      toast.success(translate("Đã lưu ảnh mới, áp dụng ngay toàn web"));
       setUrls((u) => ({ ...u, [slot]: "" }));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : translate("Lưu thất bại"));
@@ -141,7 +139,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
         guildId,
         ...(slot === "bot" ? { botAvatarUrl: null } : { haimiyaAvatarUrl: null }),
       });
-      toast.success(translate("Đã xóa ảnh tùy chỉnh — trở về mặc định"));
+      toast.success(translate("Đã xóa ảnh tùy chỉnh, trở về mặc định"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : translate("Xóa thất bại"));
     }
@@ -163,7 +161,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
             </h3>
             <p className="text-sm text-muted-foreground">
               {translate(
-                "Đổi avatar bot & trợ lý AI ngay từ web — chỉ admin sở hữu bot được phép.",
+                "Đổi avatar bot và trợ lý AI ngay trên web — chỉ admin sở hữu bot được phép.",
               )}{" "}
             </p>
           </div>
@@ -234,7 +232,7 @@ export default function BrandingPanel({ data }: { data: GuildData }) {
         <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
           <ImagePlus className="h-3.5 w-3.5 text-primary" />
           {translate(
-            "Ảnh tải lên được lưu trong bộ nhớ đám mây của bot — áp dụng ngay toàn web (trang chủ, đăng nhập, dashboard, chat AI).",
+            "Ảnh tải lên được lưu trên bộ nhớ đám mây của bot và áp dụng ngay toàn web (trang chủ, đăng nhập, dashboard, chat AI).",
           )}{" "}
         </p>
         <input
