@@ -129,8 +129,10 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
   async function toggleRule(rule: AutoReply, enabled: boolean) {
     try {
       await updateRule({ token: TOKEN(), id: rule._id, enabled });
+      // Ghép chuỗi kiểu "Rule X {đã bật}" không dịch được sang EN/DE — mỗi
+      // trạng thái là một câu trọn vẹn để bản dịch giữ đúng ngữ pháp.
       toast.success(
-        translate('Rule "{p0}" {p1}', { p0: rule.name, p1: enabled ? "đã bật" : "đã tắt" }),
+        translate(enabled ? 'Đã bật rule "{p0}"' : 'Đã tắt rule "{p0}"', { p0: rule.name }),
       );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : translate("Thất bại"));
@@ -153,7 +155,7 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
         <div>
           <h2 className="font-display text-lg font-semibold">Auto Reply</h2>
           <p className="text-sm text-muted-foreground">
-            {translate("Bot tự trả lời thành viên khi nhắc từ khóa hoặc tag @bot")}{" "}
+            {translate("Bot tự trả lời khi tin nhắn chứa từ khóa hoặc tag @bot")}{" "}
           </p>
         </div>
         <Button onClick={openCreate}>
@@ -169,7 +171,7 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
             </span>
             <p className="max-w-sm text-sm text-muted-foreground">
               {translate(
-                "Chưa có rule nào. Tạo rule đầu tiên để bot trả lời khi ai đó nhắc từ khóa hoặc tag bot.",
+                "Chưa có rule nào. Tạo rule đầu tiên để bot tự trả lời khi ai đó gõ từ khóa hoặc tag bot.",
               )}{" "}
             </p>
           </CardContent>
@@ -255,7 +257,9 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
                 : translate("Thêm rule auto reply")}
             </DialogTitle>
             <DialogDescription>
-              {translate("Bot sẽ trả lời thành viên khi điều kiện kích hoạt được thỏa mãn.")}{" "}
+              {translate(
+                "Bot trả lời thành viên mỗi khi điều kiện kích hoạt bên dưới được thỏa.",
+              )}{" "}
             </DialogDescription>
           </DialogHeader>
 
@@ -336,7 +340,7 @@ export default function AutoReplyPanel({ data }: { data: GuildData }) {
 
             <div className="grid gap-2">
               <Label htmlFor="rule-cooldown">
-                {translate("Cooldown (giây, 0 = không giới hạn)")}
+                {translate("Giãn cách giữa các lần trả lời (giây, 0 = không giới hạn)")}
               </Label>
               <Input
                 id="rule-cooldown"

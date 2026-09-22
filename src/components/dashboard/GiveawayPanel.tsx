@@ -89,7 +89,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
         imageUrl: imageUrl.trim() || undefined,
         endMessage: endMessage.trim() || undefined,
       });
-      toast.success(translate("Đã tạo giveaway — bot sẽ gửi trong vòng ~1 phút 🎉"));
+      toast.success(translate("Đã tạo giveaway — bot gửi trong khoảng 1 phút 🎉"));
       setOpen(false);
       setTitle("");
       setPrize("");
@@ -116,7 +116,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
             </h3>
             <p className="text-sm text-muted-foreground">
               {translate(
-                "Chọn mẫu tin nhắn, chèn ảnh, tùy lời dẫn, cấp role thưởng tự động — bot chọn người thắng và thông báo.",
+                "Chọn mẫu tin nhắn, thêm ảnh, viết lời dẫn và cấp role thưởng tự động — bot chọn người thắng rồi thông báo.",
               )}{" "}
             </p>
           </div>
@@ -149,7 +149,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                   </p>
                   {g.postError && (
                     <p className="mt-1 rounded-md border border-danger/30 bg-danger/10 px-2 py-1 text-xs text-danger">
-                      {translate("⚠️ Bot không gửi được bảng:")} {g.postError}
+                      {translate("⚠️ Bot không gửi được giveaway:")} {g.postError}
                     </p>
                   )}
                   <p className="mt-0.5 text-xs text-muted-foreground">
@@ -219,9 +219,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
 
         {data.giveaways.length === 0 && (
           <p className="mt-4 rounded-lg bg-secondary/40 px-3 py-3 text-sm text-muted-foreground">
-            {translate(
-              "Chưa có giveaway nào. Tạo giveaway đầu tiên để chúc mừng thành viên 🎀",
-            )}{" "}
+            {translate("Chưa có giveaway nào. Tạo cái đầu tiên để chúc mừng thành viên 🎀")}{" "}
           </p>
         )}
 
@@ -231,7 +229,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
               <DialogTitle>{translate("Tạo giveaway mới")}</DialogTitle>
               <DialogDescription>
                 {translate(
-                  "Bot gửi embed giveaway + phản ứng 🎉 theo mẫu bạn chọn (kèm ảnh nếu muốn). Hết giờ, bot tự chọn người thắng, cấp role thưởng (nếu chọn) và thông báo.",
+                  "Bot gửi embed giveaway kèm phản ứng 🎉 theo mẫu bạn chọn (thêm ảnh nếu muốn). Hết giờ, bot tự chọn người thắng, cấp role thưởng (nếu có) và thông báo.",
                 )}{" "}
               </DialogDescription>
             </DialogHeader>
@@ -351,7 +349,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
               </div>
               <div className="grid gap-1.5">
                 <Label>
-                  {translate("Lời dẫn tùy chỉnh (hiển thị đầu embed, để trống = dùng giải thưởng)")}
+                  {translate("Lời dẫn tùy chỉnh (hiện ở đầu embed, để trống = dùng giải thưởng)")}
                 </Label>
                 <Textarea
                   value={message}
@@ -385,7 +383,7 @@ export default function GiveawayPanel({ data }: { data: GuildData }) {
                 <div className="text-sm">
                   <p className="font-medium">{translate("💌 DM người thắng")}</p>
                   <p className="text-xs text-muted-foreground">
-                    {translate("Bot gửi tin nhắn riêng kèm giải thưởng cho từng người thắng")}{" "}
+                    {translate("Bot nhắn riêng kèm giải thưởng cho từng người thắng")}{" "}
                   </p>
                 </div>
                 <Switch checked={dmWinners} onCheckedChange={setDmWinners} />

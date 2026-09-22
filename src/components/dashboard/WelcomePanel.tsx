@@ -106,8 +106,8 @@ function GreetingCard({
               </h3>
               <p className="text-[11px] text-muted-foreground">
                 {isWelcome
-                  ? translate("Gửi tin chào vào kênh bạn chọn khi có thành viên tham gia")
-                  : translate("Gửi tin tạm biệt khi có thành viên rời server")}
+                  ? translate("Gửi lời chào vào kênh bạn chọn mỗi khi có thành viên tham gia")
+                  : translate("Gửi lời tạm biệt khi có thành viên rời server")}
               </p>
             </div>
           </div>
@@ -172,14 +172,14 @@ function GreetingCard({
           </div>
           <p className="text-[11px] text-muted-foreground">
             {translate(
-              "Mỗi dòng là 1 câu — bot chọn ngẫu nhiên mỗi lượt join/leave, đỡ nhàm chán. Bật sẽ thắng nội dung ở trên.",
+              "Mỗi dòng là một câu — bot chọn ngẫu nhiên mỗi lượt vào/rời server để tin nhắn không bị nhàm. Điền vào đây thì phần này thay cho nội dung ở trên.",
             )}
           </p>
           <Textarea
             rows={3}
             value={randomMsg}
             placeholder={translate(
-              "Chào mừng {user} đến {server}!\nÊ kèo {username}, vào chơi đi!\nNgười thứ {count} vừa xuất hiện 🎉",
+              "Chào mừng {user} đến {server}!\nRất vui có {username} trong nhà!\nNgười thứ {count} vừa xuất hiện 🎉",
             )}
             onFocus={() => setFocused(true)}
             onChange={(e) => setRandomMsg(e.target.value)}
@@ -192,7 +192,7 @@ function GreetingCard({
           <div>
             <p className="text-xs font-medium">{translate("Gửi dạng embed")}</p>
             <p className="text-[11px] text-muted-foreground">
-              {translate("Tắt = gửi tin nhắn thường (không khung)")}
+              {translate("Tắt = gửi tin nhắn thường, không có khung embed.")}
             </p>
           </div>
           <Switch
@@ -250,11 +250,13 @@ function GreetingCard({
           className="w-full"
           onClick={async () => {
             if (channel === "none" && enabled) {
-              return toast.error(translate("Bật rồi phải chọn kênh gửi — hoặc tắt tính năng"));
+              return toast.error(
+                translate("Đang bật thì phải chọn kênh gửi, hoặc tắt tính năng này."),
+              );
             }
             const colorTrim = color.trim();
             if (colorTrim && !/^#[0-9a-fA-F]{3,8}$/.test(colorTrim)) {
-              return toast.error(translate("Màu phải dạng #hex (VD: #57f287)"));
+              return toast.error(translate("Màu phải ở dạng #hex, ví dụ #57f287"));
             }
             await onSave(
               {
@@ -266,7 +268,7 @@ function GreetingCard({
                 [`${kind}EmbedImage`]: image.trim(),
                 [`${kind}EmbedThumbnail`]: thumb.trim(),
               },
-              translate("Đã lưu — bot áp dụng trong vòng ~3 phút"),
+              translate("Đã lưu — bot áp dụng trong khoảng 3 phút"),
             );
           }}
         >
@@ -303,7 +305,7 @@ function DmCard({
             <div>
               <h3 className="font-display text-sm font-bold">{translate("Chào qua DM")}</h3>
               <p className="text-[11px] text-muted-foreground">
-                {translate("Gửi tin chào riêng qua tin nhắn riêng của thành viên mới")}
+                {translate("Gửi lời chào riêng qua tin nhắn trực tiếp (DM) cho thành viên mới")}
               </p>
             </div>
           </div>
@@ -338,7 +340,7 @@ function DmCard({
         <Button
           className="w-full"
           onClick={() =>
-            onSave({ welcomeDmMessage: msg }, translate("Đã lưu — bot áp dụng trong vòng ~3 phút"))
+            onSave({ welcomeDmMessage: msg }, translate("Đã lưu — bot áp dụng trong khoảng 3 phút"))
           }
         >
           <Save className="h-4 w-4" /> {translate("Lưu cài đặt")}
@@ -377,7 +379,7 @@ function AutoroleCard({
                 {translate("Autorole — tự cấp role")}
               </h3>
               <p className="text-[11px] text-muted-foreground">
-                {translate("Tự cấp role cho thành viên mới ngay khi họ vào server")}
+                {translate("Tự gán role cho thành viên mới ngay khi họ vào server")}
               </p>
             </div>
           </div>
@@ -391,7 +393,7 @@ function AutoroleCard({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-1.5">
-            <Label className="text-xs">{translate("Role cấp tự động")}</Label>
+            <Label className="text-xs">{translate("Role gán tự động")}</Label>
             <Select
               value={roleId}
               onValueChange={(v) =>
@@ -412,7 +414,7 @@ function AutoroleCard({
             </Select>
           </div>
           <div className="grid gap-1.5">
-            <Label className="text-xs">{translate("Trễ trước khi cấp (giây, 0-120)")}</Label>
+            <Label className="text-xs">{translate("Chờ trước khi gán (giây, 0–120)")}</Label>
             <Input
               type="number"
               min={0}
@@ -434,7 +436,7 @@ function AutoroleCard({
           <div>
             <p className="text-xs font-medium">{translate("Cấp role cho bot")}</p>
             <p className="text-[11px] text-muted-foreground">
-              {translate("Mặc định tắt — bot vào server không nhận autorole")}
+              {translate("Mặc định tắt — bot mới vào server không nhận role tự động")}
             </p>
           </div>
           <Switch
@@ -445,7 +447,7 @@ function AutoroleCard({
 
         <p className="text-[11px] text-muted-foreground">
           {translate(
-            "Bảo vệ raid: server đang khóa (lockdown) → autorole tạm dừng, không cấp role cho tài khoản raid dồn dập.",
+            "Chống raid: khi server đang khóa vì raid, autorole tạm dừng để không gán role cho loạt tài khoản ập vào.",
           )}
         </p>
       </CardContent>
@@ -488,7 +490,7 @@ export default function WelcomePanel({ data }: { data: GuildData }) {
 
       <p className="text-xs text-muted-foreground">
         {translate(
-          "Chào thành viên mới và tạm biệt thành viên rời server — template ngẫu nhiên, embed tùy chỉnh, DM chào riêng, autorole. Bot không chào bot, không ping @everyone từ nội dung tùy chỉnh, và tự im lặng khi server đang khóa chống raid.",
+          "Chào thành viên mới và tạm biệt người rời server: template ngẫu nhiên, embed tùy chỉnh, DM chào riêng và autorole. Bot không chào bot, không bao giờ ping @everyone từ nội dung bạn nhập, và tự im lặng khi server đang khóa chống raid.",
         )}{" "}
       </p>
 

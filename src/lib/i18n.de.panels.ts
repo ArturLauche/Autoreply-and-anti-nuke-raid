@@ -586,4 +586,66 @@ export const DE_PANELS: Record<string, string> = {
     "Backup angefordert — der Bot führt es in etwa 20 Sekunden aus",
   "Đã yêu cầu khôi phục — bot thực hiện trong khoảng 1 phút":
     "Wiederherstellung angefordert — der Bot führt sie in etwa 1 Minute aus",
+
+  /* ==== Lô 4 — viết lại copy panel AutoReply / Welcome & Goodbye / Giveaway / ReactionRoles. */
+  "Bot tự trả lời khi tin nhắn chứa từ khóa hoặc tag @bot":
+    "Der Bot antwortet automatisch, wenn eine Nachricht ein Stichwort enthält oder @bot markiert",
+  "Chưa có rule nào. Tạo rule đầu tiên để bot tự trả lời khi ai đó gõ từ khóa hoặc tag bot.":
+    "Noch keine Regel. Erstelle die erste, und der Bot antwortet, sobald jemand ein Stichwort tippt oder ihn markiert.",
+  "Bot trả lời thành viên mỗi khi điều kiện kích hoạt bên dưới được thỏa.":
+    "Der Bot antwortet einem Mitglied, sobald der Auslöser unten zutrifft.",
+  'Đã bật rule "{p0}"': 'Regel "{p0}" aktiviert',
+  'Đã tắt rule "{p0}"': 'Regel "{p0}" deaktiviert',
+  "Giãn cách giữa các lần trả lời (giây, 0 = không giới hạn)":
+    "Abstand zwischen Antworten (Sekunden, 0 = unbegrenzt)",
+  "Gửi lời chào vào kênh bạn chọn mỗi khi có thành viên tham gia":
+    "Sendet eine Begrüßung in den gewählten Kanal, sobald ein Mitglied beitritt",
+  "Gửi lời tạm biệt khi có thành viên rời server":
+    "Sendet einen Abschiedsgruß, wenn ein Mitglied den Server verlässt",
+  "Mỗi dòng là một câu — bot chọn ngẫu nhiên mỗi lượt vào/rời server để tin nhắn không bị nhàm. Điền vào đây thì phần này thay cho nội dung ở trên.":
+    "Eine Aussage pro Zeile — der Bot wählt bei jedem Beitritt oder Austritt zufällig eine, damit der Gruß nie eintönig wird. Ausgefüllt ersetzt dieser Teil die Nachricht oben.",
+  "Đã lưu — bot áp dụng trong khoảng 3 phút":
+    "Gespeichert — der Bot übernimmt es in etwa 3 Minuten",
+  "Đang bật thì phải chọn kênh gửi, hoặc tắt tính năng này.":
+    "Solange das aktiv ist, musst du einen Kanal wählen — oder die Funktion abschalten.",
+  "Màu phải ở dạng #hex, ví dụ #57f287": "Die Farbe muss #hex sein, zum Beispiel #57f287",
+  "Gửi lời chào riêng qua tin nhắn trực tiếp (DM) cho thành viên mới":
+    "Sendet eine private Begrüßung per DM an das neue Mitglied",
+  "Tự gán role cho thành viên mới ngay khi họ vào server":
+    "Vergibt neuen Mitgliedern automatisch eine Rolle, sobald sie beitreten",
+  "Role gán tự động": "Automatisch vergebene Rolle",
+  "Chờ trước khi gán (giây, 0–120)": "Wartezeit vor der Vergabe (Sekunden, 0–120)",
+  "Mặc định tắt — bot mới vào server không nhận role tự động":
+    "Standardmäßig aus — beitretende Bots erhalten keine automatische Rolle",
+  "Chống raid: khi server đang khóa vì raid, autorole tạm dừng để không gán role cho loạt tài khoản ập vào.":
+    "Anti-Raid: Während der Server wegen eines Raids gesperrt ist, pausiert Autorole, damit keine Rollen an eine Kontenflut vergeben werden.",
+  "Chào thành viên mới và tạm biệt người rời server: template ngẫu nhiên, embed tùy chỉnh, DM chào riêng và autorole. Bot không chào bot, không bao giờ ping @everyone từ nội dung bạn nhập, và tự im lặng khi server đang khóa chống raid.":
+    "Begrüßt neue Mitglieder und verabschiedet gehende: zufällige Vorlagen, eigene Embeds, private DM-Begrüßung und Autorole. Der Bot begrüßt keine Bots, pingt nie @everyone aus deinem Text und bleibt stumm, während der Server gegen Raids gesperrt ist.",
+  "Tắt = gửi tin nhắn thường, không có khung embed.": "Aus = einfache Nachricht ohne Embed-Rahmen.",
+  "Chào mừng {user} đến {server}!\nRất vui có {username} trong nhà!\nNgười thứ {count} vừa xuất hiện 🎉":
+    "Willkommen {user} auf {server}!\nSchön, dass {username} dabei ist!\nMitglied Nummer {count} ist da 🎉",
+  "Chọn mẫu tin nhắn, thêm ảnh, viết lời dẫn và cấp role thưởng tự động — bot chọn người thắng rồi thông báo.":
+    "Wähle eine Nachrichtenvorlage, füge ein Bild hinzu, schreibe den Einleitungstext und vergib automatisch eine Gewinnrolle — der Bot zieht die Gewinner und verkündet sie.",
+  "Đã tạo giveaway — bot gửi trong khoảng 1 phút 🎉":
+    "Giveaway erstellt — der Bot postet es in etwa 1 Minute 🎉",
+  "⚠️ Bot không gửi được giveaway:": "⚠️ Der Bot konnte das Giveaway nicht posten:",
+  "Chưa có giveaway nào. Tạo cái đầu tiên để chúc mừng thành viên 🎀":
+    "Noch kein Giveaway. Erstelle das erste, um deine Mitglieder zu feiern 🎀",
+  "Bot gửi embed giveaway kèm phản ứng 🎉 theo mẫu bạn chọn (thêm ảnh nếu muốn). Hết giờ, bot tự chọn người thắng, cấp role thưởng (nếu có) và thông báo.":
+    "Der Bot postet das Giveaway-Embed mit 🎉-Reaktion in der gewählten Vorlage (auf Wunsch mit Bild). Nach Ablauf zieht er die Gewinner, vergibt die Gewinnrolle (falls gesetzt) und verkündet sie.",
+  "Lời dẫn tùy chỉnh (hiện ở đầu embed, để trống = dùng giải thưởng)":
+    "Eigener Einleitungstext (oben im Embed; leer lassen = Gewinn wird verwendet)",
+  "Bot nhắn riêng kèm giải thưởng cho từng người thắng":
+    "Der Bot schreibt jedem Gewinner eine DM mit dem Gewinn",
+  "Thành viên bấm emoji dưới tin nhắn để tự nhận hoặc gỡ role. Tùy chỉnh được tên, mô tả, thumbnail và từng cặp emoji → role.":
+    "Mitglieder klicken ein Emoji unter der Nachricht, um eine Rolle zu erhalten oder abzugeben. Titel, Beschreibung, Thumbnail und jedes Emoji-→-Rollen-Paar sind anpassbar.",
+  "Mỗi dòng cần có emoji và role được chọn": "Jede Zeile braucht ein Emoji und eine Rolle",
+  "Đã cập nhật bảng — bot gửi bảng mới trong khoảng 1 phút":
+    "Panel aktualisiert — der Bot postet das neue Panel in etwa 1 Minute",
+  "Đã tạo bảng — bot gửi tin nhắn trong khoảng 1 phút":
+    "Panel erstellt — der Bot postet die Nachricht in etwa 1 Minute",
+  "Bot gửi bảng mới với nội dung đã chỉnh trong khoảng 1 phút (tin nhắn cũ vẫn còn).":
+    "Der Bot postet dein geändertes Panel in etwa 1 Minute (die alte Nachricht bleibt).",
+  "Bot gửi một tin nhắn vào kênh đã chọn kèm các emoji; thành viên bấm emoji để nhận role.":
+    "Der Bot postet eine Nachricht mit den Emojis im gewählten Kanal; Mitglieder klicken ein Emoji, um die Rolle zu erhalten.",
 };

@@ -318,7 +318,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
 
   async function handleSave() {
     if (rows.some((r) => !r.emoji || !r.roleId)) {
-      return toast.error(translate("Mỗi dòng cần có emoji và chọn role"));
+      return toast.error(translate("Mỗi dòng cần có emoji và role được chọn"));
     }
     setSaving(true);
     try {
@@ -332,7 +332,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
           thumbnailUrl: thumbnailUrl.trim() || null,
           entries: rows,
         });
-        toast.success(translate("Đã cập nhật bảng — bot gửi bảng mới trong ~1 phút"));
+        toast.success(translate("Đã cập nhật bảng — bot gửi bảng mới trong khoảng 1 phút"));
       } else {
         await createPanel({
           token,
@@ -343,7 +343,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
           thumbnailUrl: thumbnailUrl.trim() || undefined,
           entries: rows,
         });
-        toast.success(translate("Đã tạo bảng — bot sẽ gửi tin nhắn trong vòng ~1 phút"));
+        toast.success(translate("Đã tạo bảng — bot gửi tin nhắn trong khoảng 1 phút"));
       }
       setOpen(false);
       setEditingPanel(null);
@@ -369,7 +369,7 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
             </h3>
             <p className="text-sm text-muted-foreground">
               {translate(
-                "Thành viên bấm emoji dưới tin nhắn để tự nhận / gỡ role. Chỉnh được tên, mô tả, thumbnail và cặp emoji → role.",
+                "Thành viên bấm emoji dưới tin nhắn để tự nhận hoặc gỡ role. Tùy chỉnh được tên, mô tả, thumbnail và từng cặp emoji → role.",
               )}{" "}
             </p>
           </div>
@@ -477,8 +477,8 @@ export default function ReactionRolesPanel({ data }: { data: GuildData }) {
               <DialogDescription>
                 {translate(
                   editingPanel
-                    ? "Bot sẽ gửi bảng mới với nội dung đã chỉnh trong vòng ~1 phút (tin nhắn cũ vẫn còn)."
-                    : "Bot sẽ gửi một tin nhắn vào kênh đã chọn kèm các emoji. Thành viên bấm emoji để nhận role.",
+                    ? "Bot gửi bảng mới với nội dung đã chỉnh trong khoảng 1 phút (tin nhắn cũ vẫn còn)."
+                    : "Bot gửi một tin nhắn vào kênh đã chọn kèm các emoji; thành viên bấm emoji để nhận role.",
                 )}
               </DialogDescription>
             </DialogHeader>
