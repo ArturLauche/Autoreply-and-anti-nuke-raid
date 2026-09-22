@@ -587,60 +587,6 @@ export const DE_PANELS: Record<string, string> = {
   "Đã yêu cầu khôi phục — bot thực hiện trong khoảng 1 phút":
     "Wiederherstellung angefordert — der Bot führt sie in etwa 1 Minute aus",
 
-  /* ==== Lô 6 — viết lại nốt copy ModerationPanel + bảng nhiệt (HeatBar). */
-  "Hệ số tái phạm (lần)": "Wiederholungsfaktor (mal)",
-  "Mỗi từ tối đa 40 ký tự": "Jedes Wort darf bis zu 40 Zeichen lang sein",
-  ". Đủ số warn trong cửa sổ thời gian thì hình phạt tự":
-    ". Ist die Verwarnungszahl im Zeitfenster erreicht, eskaliert die Bestrafung",
-  "lên một mức nặng hơn. Cơ chế này chạy song song với hệ thống nhiệt.":
-    "auf eine schwerere Stufe. Dieser Mechanismus läuft parallel zum Heat-System.",
-  "Đang tắt — mọi module chỉ cảnh báo, không tự tăng cấp theo số lần warn.":
-    "Aus — jedes Modul verwarnt nur; nichts eskaliert nach Verwarnungen.",
-  "Danh sách từ ngữ xấu": "Schimpfwort-Liste",
-  "Chưa có ai vi phạm — server đang rất an toàn 🎉":
-    "Noch kein Verstoß — der Server ist sehr sicher 🎉",
-  "Bảng đang trống — chưa thành viên nào có nhiệt hay warn 🎉":
-    "Noch leer — kein Mitglied hat Heat oder Verwarnungen 🎉",
-
-  /* ==== Lô 5 — viết lại copy panel ModActions / Dm / Hidden / Unlock / Whitelist / ExternalAppRaids. */
-  "Chưa có hình phạt nào — server đang yên bình 🎉":
-    "Noch keine Bestrafung — auf dem Server ist es ruhig 🎉",
-  "(kiểu Carl-bot), lý do, người thực hiện, và phân biệt rõ nguồn:":
-    "(Carl-bot-Stil), den Grund, wer es ausgeführt hat, und eine klare Trennung nach Quelle:",
-  "Đã gửi yêu cầu — bot gửi DM trong khoảng 1 phút 💌":
-    "Anfrage gesendet — der Bot schickt die DM in etwa 1 Minute 💌",
-  "Gửi tin nhắn riêng (DM)": "Direktnachricht (DM) senden",
-  "Nhập ID người dùng Discord và nội dung, bot sẽ nhắn riêng cho họ. (Bật Chế độ nhà phát triển trong Discord → chuột phải tên người dùng → Sao chép ID người dùng)":
-    "Gib die Discord-Benutzer-ID und deinen Text ein — der Bot schreibt der Person privat. (Entwicklermodus in Discord aktivieren → Rechtsklick auf den Nutzer → Benutzer-ID kopieren)",
-  "Reaction role, giveaway, nhắn tin riêng, auto reply và tùy chỉnh giao diện — chỉ admin sở hữu bot mở khóa bằng mật khẩu mới dùng được.":
-    "Reaction-Role, Giveaway, Direktnachrichten, Auto-Reply und Oberflächen-Anpassung — nur der Bot-besitzende Admin kann sie nach dem Entsperren mit dem Passwort nutzen.",
-  "mới được thao tác mật khẩu và mở khóa tính năng ẩn — chủ hay mod của một server không thay thế được.":
-    "darf das Passwort verwenden und den versteckten Bereich entsperren — Server-Owner oder Mod zu sein reicht dafür nicht.",
-  "Chưa thiết lập chủ sở hữu. Người tạo bot cần đăng nhập bằng chính tài khoản Discord đã tạo bot, vào":
-    "Noch kein Besitzer festgelegt. Wer den Bot erstellt hat, muss sich mit genau dem Discord-Konto anmelden, das den Bot erstellt hat, und dort",
-  "Sai mật khẩu rồi, thử lại nhé!": "Falsches Passwort — versuch es noch einmal!",
-  "Mục này được bảo vệ bằng mật khẩu do chủ sở hữu bot đặt. Chỉ người biết mật khẩu mới xem được nội dung bên trong.":
-    "Dieser Bereich ist durch ein Passwort des Bot-Besitzers geschützt. Nur wer es kennt, sieht die Inhalte darin.",
-  "Đã lưu danh sách trắng — bot áp dụng trong khoảng 3 phút":
-    "Whitelist gespeichert — der Bot übernimmt sie in etwa 3 Minuten",
-  "Người dùng và role trong danh sách này": "Nutzer und Rollen in dieser Liste",
-  ". Mỗi server giữ danh sách trắng riêng, không chia sẻ sang server khác.":
-    ". Jeder Server führt seine eigene Whitelist; nichts wird mit anderen Servern geteilt.",
-  "Role Mod và Admin cấu hình trong Cài đặt vẫn hoạt động riêng — danh sách này dành cho role tùy chỉnh (ví dụ VIP, YouTuber, Staff…).":
-    "Mod- und Admin-Rollen aus den Einstellungen gelten weiterhin separat — diese Liste ist für eigene Rollen (VIP, YouTuber, Staff…).",
-  "ID Discord, VD: 123456789012345678 (cách nhau bằng dấu phẩy hoặc khoảng trắng)":
-    "Discord-IDs, z. B. 123456789012345678 (getrennt durch Kommas oder Leerzeichen)",
-  ": spam, từ ngữ xấu, link mời, link độc hại, file nguy hiểm, raid thành viên, ban/kick hàng loạt, tạo/xóa kênh và role hàng loạt, webhook/thread hàng loạt… Người dùng và role trong danh sách được bỏ qua hoàn toàn — không cộng nhiệt, không xóa tin, không ban. Danh sách này":
-    ": Spam, Schimpfwörter, Einladungslinks, schädliche Links, gefährliche Dateien, Mitglieder-Raids, Massen-Bans/Kicks, massenhaftes Erstellen/Löschen von Kanälen und Rollen, Webhook- oder Thread-Flut… Nutzer und Rollen auf der Liste werden komplett übersprungen — keine Heat, keine gelöschten Nachrichten, keine Bans. Diese Liste",
-  "Lưu ý: danh sách này không miễn trừ Join Gate — tính năng chống selfbot khi vào server có danh sách trắng riêng trong mục Join Gate.":
-    "Hinweis: Diese Liste befreit nicht vom Join Gate — die Selfbot-Prüfung beim Beitritt hat unter Join Gate ihre eigene Whitelist.",
-  "đã xử lý": "behandelt",
-  "Chưa có vụ raid bằng ứng dụng ngoài nào bị chặn": "Noch kein External-App-Raid blockiert",
-  "(hoặc một app đáng ngờ: giả mạo app nổi tiếng, tên scam, do tài khoản mới kết nối, app spam @everyone kèm link lừa đảo), vụ đó xuất hiện ở đây kèm kết luận của AI, danh sách ứng dụng và người dùng đã bị xử lý.":
-    "(oder eine verdächtige App: Nachahmung einer bekannten App, Scam-Name, von einem brandneuen Konto verbunden oder eine App, die @everyone mit Scam-Links spammt), erscheint der Fall hier mit KI-Urteil, den beteiligten Apps und den behandelten Nutzern.",
-  "người dùng app có đang raid không. AI học các dạng raid app ngoài (tài khoản phụ cài app, app giả mạo hoặc tên scam, spam @everyone kèm link lừa đảo, webhook spam) để chặn cả biến thể tương tự: app nào được kết nối, ai đã bị xử lý.":
-    "ob die App-Nutzer tatsächlich raiden. Die KI lernt die Muster von External-App-Raids (Zweitkonten, die Apps installieren, gefälschte oder scam-benannte Apps, @everyone-Spam mit Scam-Links, Webhook-Spam), um auch ähnliche Varianten zu stoppen: welche App verbunden wurde und wer behandelt wurde.",
-
   /* ==== Lô 4 — viết lại copy panel AutoReply / Welcome & Goodbye / Giveaway / ReactionRoles. */
   "Bot tự trả lời khi tin nhắn chứa từ khóa hoặc tag @bot":
     "Der Bot antwortet automatisch, wenn eine Nachricht ein Stichwort enthält oder @bot markiert",
@@ -702,4 +648,58 @@ export const DE_PANELS: Record<string, string> = {
     "Der Bot postet dein geändertes Panel in etwa 1 Minute (die alte Nachricht bleibt).",
   "Bot gửi một tin nhắn vào kênh đã chọn kèm các emoji; thành viên bấm emoji để nhận role.":
     "Der Bot postet eine Nachricht mit den Emojis im gewählten Kanal; Mitglieder klicken ein Emoji, um die Rolle zu erhalten.",
+
+  /* ==== Lô 5 — viết lại copy panel ModActions / Dm / Hidden / Unlock / Whitelist / ExternalAppRaids. */
+  "Chưa có hình phạt nào — server đang yên bình 🎉":
+    "Noch keine Bestrafung — auf dem Server ist es ruhig 🎉",
+  "(kiểu Carl-bot), lý do, người thực hiện, và phân biệt rõ nguồn:":
+    "(Carl-bot-Stil), den Grund, wer es ausgeführt hat, und eine klare Trennung nach Quelle:",
+  "Đã gửi yêu cầu — bot gửi DM trong khoảng 1 phút 💌":
+    "Anfrage gesendet — der Bot schickt die DM in etwa 1 Minute 💌",
+  "Gửi tin nhắn riêng (DM)": "Direktnachricht (DM) senden",
+  "Nhập ID người dùng Discord và nội dung, bot sẽ nhắn riêng cho họ. (Bật Chế độ nhà phát triển trong Discord → chuột phải tên người dùng → Sao chép ID người dùng)":
+    "Gib die Discord-Benutzer-ID und deinen Text ein — der Bot schreibt der Person privat. (Entwicklermodus in Discord aktivieren → Rechtsklick auf den Nutzer → Benutzer-ID kopieren)",
+  "Reaction role, giveaway, nhắn tin riêng, auto reply và tùy chỉnh giao diện — chỉ admin sở hữu bot mở khóa bằng mật khẩu mới dùng được.":
+    "Reaction-Role, Giveaway, Direktnachrichten, Auto-Reply und Oberflächen-Anpassung — nur der Bot-besitzende Admin kann sie nach dem Entsperren mit dem Passwort nutzen.",
+  "mới được thao tác mật khẩu và mở khóa tính năng ẩn — chủ hay mod của một server không thay thế được.":
+    "darf das Passwort verwenden und den versteckten Bereich entsperren — Server-Owner oder Mod zu sein reicht dafür nicht.",
+  "Chưa thiết lập chủ sở hữu. Người tạo bot cần đăng nhập bằng chính tài khoản Discord đã tạo bot, vào":
+    "Noch kein Besitzer festgelegt. Wer den Bot erstellt hat, muss sich mit genau dem Discord-Konto anmelden, das den Bot erstellt hat, und dort",
+  "Sai mật khẩu rồi, thử lại nhé!": "Falsches Passwort — versuch es noch einmal!",
+  "Mục này được bảo vệ bằng mật khẩu do chủ sở hữu bot đặt. Chỉ người biết mật khẩu mới xem được nội dung bên trong.":
+    "Dieser Bereich ist durch ein Passwort des Bot-Besitzers geschützt. Nur wer es kennt, sieht die Inhalte darin.",
+  "Đã lưu danh sách trắng — bot áp dụng trong khoảng 3 phút":
+    "Whitelist gespeichert — der Bot übernimmt sie in etwa 3 Minuten",
+  "Người dùng và role trong danh sách này": "Nutzer und Rollen in dieser Liste",
+  ". Mỗi server giữ danh sách trắng riêng, không chia sẻ sang server khác.":
+    ". Jeder Server führt seine eigene Whitelist; nichts wird mit anderen Servern geteilt.",
+  "Role Mod và Admin cấu hình trong Cài đặt vẫn hoạt động riêng — danh sách này dành cho role tùy chỉnh (ví dụ VIP, YouTuber, Staff…).":
+    "Mod- und Admin-Rollen aus den Einstellungen gelten weiterhin separat — diese Liste ist für eigene Rollen (VIP, YouTuber, Staff…).",
+  "ID Discord, VD: 123456789012345678 (cách nhau bằng dấu phẩy hoặc khoảng trắng)":
+    "Discord-IDs, z. B. 123456789012345678 (getrennt durch Kommas oder Leerzeichen)",
+  ": spam, từ ngữ xấu, link mời, link độc hại, file nguy hiểm, raid thành viên, ban/kick hàng loạt, tạo/xóa kênh và role hàng loạt, webhook/thread hàng loạt… Người dùng và role trong danh sách được bỏ qua hoàn toàn — không cộng nhiệt, không xóa tin, không ban. Danh sách này":
+    ": Spam, Schimpfwörter, Einladungslinks, schädliche Links, gefährliche Dateien, Mitglieder-Raids, Massen-Bans/Kicks, massenhaftes Erstellen/Löschen von Kanälen und Rollen, Webhook- oder Thread-Flut… Nutzer und Rollen auf der Liste werden komplett übersprungen — keine Heat, keine gelöschten Nachrichten, keine Bans. Diese Liste",
+  "Lưu ý: danh sách này không miễn trừ Join Gate — tính năng chống selfbot khi vào server có danh sách trắng riêng trong mục Join Gate.":
+    "Hinweis: Diese Liste befreit nicht vom Join Gate — die Selfbot-Prüfung beim Beitritt hat unter Join Gate ihre eigene Whitelist.",
+  "đã xử lý": "behandelt",
+  "Chưa có vụ raid bằng ứng dụng ngoài nào bị chặn": "Noch kein External-App-Raid blockiert",
+  "(hoặc một app đáng ngờ: giả mạo app nổi tiếng, tên scam, do tài khoản mới kết nối, app spam @everyone kèm link lừa đảo), vụ đó xuất hiện ở đây kèm kết luận của AI, danh sách ứng dụng và người dùng đã bị xử lý.":
+    "(oder eine verdächtige App: Nachahmung einer bekannten App, Scam-Name, von einem brandneuen Konto verbunden oder eine App, die @everyone mit Scam-Links spammt), erscheint der Fall hier mit KI-Urteil, den beteiligten Apps und den behandelten Nutzern.",
+  "người dùng app có đang raid không. AI học các dạng raid app ngoài (tài khoản phụ cài app, app giả mạo hoặc tên scam, spam @everyone kèm link lừa đảo, webhook spam) để chặn cả biến thể tương tự: app nào được kết nối, ai đã bị xử lý.":
+    "ob die App-Nutzer tatsächlich raiden. Die KI lernt die Muster von External-App-Raids (Zweitkonten, die Apps installieren, gefälschte oder scam-benannte Apps, @everyone-Spam mit Scam-Links, Webhook-Spam), um auch ähnliche Varianten zu stoppen: welche App verbunden wurde und wer behandelt wurde.",
+
+  /* ==== Lô 6 — viết lại nốt copy ModerationPanel + bảng nhiệt (HeatBar). */
+  "Hệ số tái phạm (lần)": "Wiederholungsfaktor (mal)",
+  "Mỗi từ tối đa 40 ký tự": "Jedes Wort darf bis zu 40 Zeichen lang sein",
+  ". Đủ số warn trong cửa sổ thời gian thì hình phạt tự":
+    ". Ist die Verwarnungszahl im Zeitfenster erreicht, eskaliert die Bestrafung",
+  "lên một mức nặng hơn. Cơ chế này chạy song song với hệ thống nhiệt.":
+    "auf eine schwerere Stufe. Dieser Mechanismus läuft parallel zum Heat-System.",
+  "Đang tắt — mọi module chỉ cảnh báo, không tự tăng cấp theo số lần warn.":
+    "Aus — jedes Modul verwarnt nur; nichts eskaliert nach Verwarnungen.",
+  "Danh sách từ ngữ xấu": "Schimpfwort-Liste",
+  "Chưa có ai vi phạm — server đang rất an toàn 🎉":
+    "Noch kein Verstoß — der Server ist sehr sicher 🎉",
+  "Bảng đang trống — chưa thành viên nào có nhiệt hay warn 🎉":
+    "Noch leer — kein Mitglied hat Heat oder Verwarnungen 🎉",
 };
