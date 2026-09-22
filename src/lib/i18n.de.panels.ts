@@ -587,6 +587,21 @@ export const DE_PANELS: Record<string, string> = {
   "Đã yêu cầu khôi phục — bot thực hiện trong khoảng 1 phút":
     "Wiederherstellung angefordert — der Bot führt sie in etwa 1 Minute aus",
 
+  /* ==== Lô 6 — viết lại nốt copy ModerationPanel + bảng nhiệt (HeatBar). */
+  "Hệ số tái phạm (lần)": "Wiederholungsfaktor (mal)",
+  "Mỗi từ tối đa 40 ký tự": "Jedes Wort darf bis zu 40 Zeichen lang sein",
+  ". Đủ số warn trong cửa sổ thời gian thì hình phạt tự":
+    ". Ist die Verwarnungszahl im Zeitfenster erreicht, eskaliert die Bestrafung",
+  "lên một mức nặng hơn. Cơ chế này chạy song song với hệ thống nhiệt.":
+    "auf eine schwerere Stufe. Dieser Mechanismus läuft parallel zum Heat-System.",
+  "Đang tắt — mọi module chỉ cảnh báo, không tự tăng cấp theo số lần warn.":
+    "Aus — jedes Modul verwarnt nur; nichts eskaliert nach Verwarnungen.",
+  "Danh sách từ ngữ xấu": "Schimpfwort-Liste",
+  "Chưa có ai vi phạm — server đang rất an toàn 🎉":
+    "Noch kein Verstoß — der Server ist sehr sicher 🎉",
+  "Bảng đang trống — chưa thành viên nào có nhiệt hay warn 🎉":
+    "Noch leer — kein Mitglied hat Heat oder Verwarnungen 🎉",
+
   /* ==== Lô 5 — viết lại copy panel ModActions / Dm / Hidden / Unlock / Whitelist / ExternalAppRaids. */
   "Chưa có hình phạt nào — server đang yên bình 🎉":
     "Noch keine Bestrafung — auf dem Server ist es ruhig 🎉",

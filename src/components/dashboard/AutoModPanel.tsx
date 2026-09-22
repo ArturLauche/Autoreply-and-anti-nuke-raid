@@ -185,7 +185,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
   async function addBadWord() {
     const word = badWordInput.trim().toLowerCase();
     if (!word) return;
-    if (word.length > 40) return toast.error(translate("Từ ngữ tối đa 40 ký tự"));
+    if (word.length > 40) return toast.error(translate("Mỗi từ tối đa 40 ký tự"));
     const current = data.guild.badWords || [];
     if (current.includes(word)) {
       setBadWordInput("");
@@ -299,7 +299,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
               </div>
               <div className="grid gap-1.5">
                 <Label className="text-xs text-muted-foreground">
-                  {translate("Tái phạm ×(lần)")}
+                  {translate("Hệ số tái phạm (lần)")}
                 </Label>
                 <ModuleNumber
                   value={repeat.multiplier}
@@ -396,9 +396,11 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
               <p className="mt-1 max-w-xl text-sm text-muted-foreground">
                 {translate("Khi module dùng hình phạt")} <b className="text-foreground">Warn</b>
                 {translate(", mỗi lần vi phạm đếm")} <b className="text-foreground">1 warn</b>
-                {translate(". Đủ số warn trong cửa sổ thời gian, hình phạt tự")}{" "}
+                {translate(". Đủ số warn trong cửa sổ thời gian thì hình phạt tự")}{" "}
                 <b className="text-foreground">{translate("tăng cấp")}</b>{" "}
-                {translate("lên mức nặng hơn — song song với hệ thống nhiệt độ.")}{" "}
+                {translate(
+                  "lên một mức nặng hơn. Cơ chế này chạy song song với hệ thống nhiệt.",
+                )}{" "}
               </p>
             </div>
           </div>
@@ -466,7 +468,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
               ) : (
                 <>
                   {translate(
-                    "Đang tắt — mọi module chỉ cảnh báo, không tăng cấp theo số lần warn.",
+                    "Đang tắt — mọi module chỉ cảnh báo, không tự tăng cấp theo số lần warn.",
                   )}
                 </>
               )}
@@ -484,9 +486,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                 <ListX className="h-5 w-5" />
               </span>
               <div>
-                <p className="font-display font-semibold">
-                  {translate("Danh sách từ ngữ xấu (bad word)")}
-                </p>
+                <p className="font-display font-semibold">{translate("Danh sách từ ngữ xấu")}</p>
                 <p className="mt-1 max-w-xl text-sm text-muted-foreground">
                   Khi module <b className="text-foreground">{translate("Lọc từ ngữ xấu")}</b>{" "}
                   {translate(

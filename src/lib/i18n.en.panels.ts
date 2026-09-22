@@ -641,6 +641,21 @@ export const EN_PANELS: Record<string, string> = {
   "Bot gửi một tin nhắn vào kênh đã chọn kèm các emoji; thành viên bấm emoji để nhận role.":
     "The bot posts a message with the emojis in the channel you picked; members click an emoji to get the role.",
 
+  /* ==== Lô 6 — viết lại nốt copy ModerationPanel + bảng nhiệt (HeatBar). */
+  "Hệ số tái phạm (lần)": "Repeat multiplier (times)",
+  "Mỗi từ tối đa 40 ký tự": "Each word can be up to 40 characters",
+  ". Đủ số warn trong cửa sổ thời gian thì hình phạt tự":
+    ". Once the warn count is reached inside the time window the punishment",
+  "lên một mức nặng hơn. Cơ chế này chạy song song với hệ thống nhiệt.":
+    "to a heavier level. This mechanism runs alongside the heat system.",
+  "Đang tắt — mọi module chỉ cảnh báo, không tự tăng cấp theo số lần warn.":
+    "Off — every module only warns; nothing escalates by warn count.",
+  "Danh sách từ ngữ xấu": "Bad-word list",
+  "Chưa có ai vi phạm — server đang rất an toàn 🎉":
+    "Nobody has broken a rule — the server is very safe 🎉",
+  "Bảng đang trống — chưa thành viên nào có nhiệt hay warn 🎉":
+    "Nothing to show — no member has heat or warns 🎉",
+
   /* ==== Lô 5 — viết lại copy panel ModActions / Dm / Hidden / Unlock / Whitelist / ExternalAppRaids. */
   "Chưa có hình phạt nào — server đang yên bình 🎉": "No punishments yet — the server is calm 🎉",
   "(kiểu Carl-bot), lý do, người thực hiện, và phân biệt rõ nguồn:":

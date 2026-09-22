@@ -122,7 +122,7 @@ export function TopOffenders({ data, limit = 5 }: { data: GuildData; limit?: num
     return (
       <div className="flex items-center gap-3 rounded-lg bg-secondary/40 px-3 py-3 text-sm text-muted-foreground">
         <Flame className="h-4 w-4" />
-        {translate("Chưa có ai vi phạm — server rất an toàn 🎉")}{" "}
+        {translate("Chưa có ai vi phạm — server đang rất an toàn 🎉")}{" "}
       </div>
     );
   }
@@ -196,7 +196,7 @@ export function HeatTable({ data, limit = 20 }: { data: GuildData; limit?: numbe
     return (
       <div className="flex items-center gap-3 rounded-lg bg-secondary/40 px-3 py-3 text-sm text-muted-foreground">
         <Flame className="h-4 w-4" />
-        {translate("Chưa có ai vi phạm — chưa có nhiệt độ hay warn nào để hiển thị 🎉")}{" "}
+        {translate("Bảng đang trống — chưa thành viên nào có nhiệt hay warn 🎉")}{" "}
       </div>
     );
   }
