@@ -14,6 +14,9 @@
  *      nhãn dữ liệu cấp module) — không có translate() nào để dịch. Đợt trước
  *      chỉ rà bằng regex theo dòng nên bỏ sót text node một từ và cả nhóm trong
  *      {"…"}; nay check-i18n.cjs bắt bằng parser TypeScript và FAIL cứng.
+ *   5. Mảng dữ liệu tiếng Việt render NGUYÊN tham số .map() ({m}) — mảng khai
+ *      báo ngoài JSX nên không phải JsxText cũng chẳng phải {x.label}; đã lọt
+ *      ra production ở danh sách 32 module trang chủ (22/09/2026).
  *
  * Ngoài ra khoá: định dạng ngày/giờ theo ngôn ngữ (bug locale rác "vi-VV"),
  * công tắc ngôn ngữ có mặt ở chrome mọi trang, và Convex nhận lang để AI trả
@@ -216,6 +219,155 @@ try {
 }
 check("scripts/check-i18n.cjs xanh (không key nào thiếu bản EN/DE)", guardOk);
 if (!guardOk) console.error(String(guardOut).split("\n").slice(0, 12).join("\n"));
+
+// ─── 9. Guard i18n phải khớp key CÓ ESCAPE (\n, dấu " bên trong) ────────────
+// Bug thật (22/09): khi đọc từ điển, nhánh NHÁY ĐƠN lấy nguyên văn chuỗi nên
+// key chứa `\n` hay dấu " không bao giờ khớp key trong code — bản dịch đã có
+// mà vẫn báo "THIẾU EN" (lộ ra đúng lúc bọc translate() cho câu xác nhận khôi
+// phục nhiều đoạn). Test dựng một repo tí hon rồi chạy CHÍNH guard thật.
+const FIXTURE = path.join(__dirname, "_i18n-fixture");
+const NEWLINE_KEY_LIT = "'Dòng một\\ndòng hai'";
+// Nhãn tiếng Việt của mảng dữ liệu dùng ở mục 11 (đã có bản EN/DE trong fixture).
+const ARRAY_LABEL = "Chống ban hàng loạt";
+const QUOTE_KEY_LIT = '"Nhãn \\"trích dẫn\\" kèm \\n xuống dòng"';
+
+function makeFixture(codeExtra) {
+  fs.rmSync(FIXTURE, { recursive: true, force: true });
+  const put = (rel, body) => {
+    const p = path.join(FIXTURE, rel);
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, body);
+  };
+  put("scripts/check-i18n.cjs", read("scripts/check-i18n.cjs")); // chạy ĐÚNG guard của repo
+  put("convex/.keep", "");
+  put(
+    "src/App.tsx",
+    [
+      "import { translate } from './lib/i18n';",
+      `export const a = translate(${NEWLINE_KEY_LIT});`,
+      `export const b = translate(${QUOTE_KEY_LIT});`,
+      codeExtra || "",
+      "export default function App() { return <div />; }",
+    ].join("\n"),
+  );
+  put(
+    "src/lib/i18n.en.ts",
+    [
+      "export const EN: Record<string, string> = {",
+      `  ${NEWLINE_KEY_LIT}: 'line one\\nline two',`,
+      `  ${QUOTE_KEY_LIT}: "Label \\"quoted\\" with \\n newline",`,
+      `  "${ARRAY_LABEL}": "Anti mass ban",`,
+      "};",
+    ].join("\n"),
+  );
+  put(
+    "src/lib/i18n.de.ts",
+    [
+      "export const DE: Record<string, string> = {",
+      `  ${NEWLINE_KEY_LIT}: 'Zeile eins\\nZeile zwei',`,
+      `  ${QUOTE_KEY_LIT}: "Beschriftung \\"zitiert\\" mit \\n Umbruch",`,
+      `  "${ARRAY_LABEL}": "Anti-Massen-Ban",`,
+      "};",
+    ].join("\n"),
+  );
+}
+
+function runFixtureGuard() {
+  try {
+    // stdio ghim rõ ràng: mặc định stderr của tiến trình con được đẩy thẳng ra
+    // stderr của suite → log test đỏ nhoè dù assert đang xanh (gây hiểu nhầm).
+    const out = execFileSync("node", [path.join(FIXTURE, "scripts/check-i18n.cjs")], {
+      cwd: ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    return { ok: true, out: String(out) };
+  } catch (e) {
+    return { ok: false, out: `${e.stdout || ""}\n${e.stderr || ""}` };
+  }
+}
+
+try {
+  makeFixture("");
+  const escaped = runFixtureGuard();
+  check(
+    'Guard i18n khớp key từ điển có escape (\\n, dấu " bên trong) — không báo THIẾU EN oan',
+    escaped.ok,
+  );
+  if (!escaped.ok) console.error(escaped.out.split("\n").slice(0, 8).join("\n"));
+
+  // Đối chứng: fixture thiếu bản dịch THẬT thì guard phải đổ — chứng minh
+  // phép thử trên không "xanh vô nghĩa" vì harness hỏng.
+  makeFixture("export const c = translate('Chưa có bản dịch');");
+  const missing = runFixtureGuard();
+  check(
+    "Guard i18n vẫn bắt được key dùng mà thiếu bản EN (đối chứng)",
+    !missing.ok && /THIẾU EN/.test(missing.out),
+  );
+} finally {
+  fs.rmSync(FIXTURE, { recursive: true, force: true });
+}
+
+// ─── 10. Guard i18n báo (MỀM) bản DE mồ côi — không được làm đỏ CI ─────────
+// Key DE không có bản EN tương ứng là rác không bao giờ hiển thị (tra cứu
+// theo chuỗi VI, thiếu EN thì rơi về VI). Cổng phải BÁO nhưng vẫn xanh: nợ vệ
+// sinh từ điển không được chặn ship.
+try {
+  makeFixture("");
+  const dePath = path.join(FIXTURE, "src/lib/i18n.de.ts");
+  fs.writeFileSync(
+    dePath,
+    fs
+      .readFileSync(dePath, "utf8")
+      .replace("};", `  "Chuỗi mồ côi không có EN": "verwaiste Zeile",\n};`),
+  );
+  const orphan = runFixtureGuard();
+  check(
+    "Guard i18n báo MỀM bản DE mồ côi (key DE không có bản EN) — vẫn xanh",
+    orphan.ok && /mồ côi/.test(orphan.out),
+  );
+  if (!(orphan.ok && /mồ côi/.test(orphan.out)))
+    console.error(orphan.out.split("\n").slice(0, 6).join("\n"));
+} finally {
+  fs.rmSync(FIXTURE, { recursive: true, force: true });
+}
+
+// ─── 11. Guard bắt mảng dữ liệu render NGUYÊN tham số .map() ───────────────
+// Bug thật (22/09): 2 danh sách module ở trang chủ render {m} thẳng nên người
+// dùng EN/DE vẫn đọc tiếng Việt — mảng khai báo ngoài JSX nên cổng JsxText và
+// cổng {x.label} đều không thấy. Guard phải bắt, và bọc translate() thì yên.
+try {
+  makeFixture(
+    [
+      "const mods = ['" + ARRAY_LABEL + "'];",
+      "export function List() {",
+      "  return <div>{mods.map((m) => <span key={m}>{m}</span>)}</div>;",
+      "}",
+    ].join("\n"),
+  );
+  const bare = runFixtureGuard();
+  check(
+    "Guard i18n bắt được mảng VI render {m} thẳng trong .map() (chưa bọc translate)",
+    !bare.ok && /render mảng/.test(bare.out),
+  );
+  if (bare.ok || !/render mảng/.test(bare.out))
+    console.error(bare.out.split("\n").slice(0, 8).join("\n"));
+
+  // Đối chứng: bọc translate(m) thì mảng dữ liệu hợp lệ → guard xanh.
+  makeFixture(
+    [
+      "const mods = ['" + ARRAY_LABEL + "'];",
+      "export function List() {",
+      "  return <div>{mods.map((m) => <span key={m}>{translate(m)}</span>)}</div>;",
+      "}",
+    ].join("\n"),
+  );
+  const wrapped = runFixtureGuard();
+  check("Guard i18n cho qua khi mảng VI được bọc translate(m)", wrapped.ok);
+  if (!wrapped.ok) console.error(wrapped.out.split("\n").slice(0, 8).join("\n"));
+} finally {
+  fs.rmSync(FIXTURE, { recursive: true, force: true });
+}
 
 console.log(`\nKết quả i18n suite: ${pass} PASS, ${fail} FAIL`);
 process.exit(fail ? 1 : 0);

@@ -6,7 +6,63 @@
 
 ## Đang dở
 
-_(trống — mọi việc đã xong hoặc chờ yêu cầu mới)_
+- **Dọn nốt bản dịch chết còn lại** (di sản đợt viết lại copy Lô 1-5) — số đo mới nhất từ
+  `node scripts/check-i18n.cjs`: **97 bản EN chết** (`i18n.en.ts` 59 + `i18n.en.labels.ts` 38) +
+  ~98 bản DE + **4 bản DE mồ côi**.
+  In nguyên văn entry cần xoá: `node scripts/_i18n-dead-lines.cjs --file=<tên file>` (chia khối bằng
+  `--from/--to`), bản DE không có EN: `--orphan-de`. ⚠️ Công cụ patch chỉ nhận khoảng **10 entry mỗi
+  lượt** — khối lớn hơn bị bỏ đuôi **im lặng**, nên xoá theo khối ≤10 rồi đếm lại. Xong thì
+  `node scripts/check-i18n.cjs` không còn mục ℹ️ nào.
+
+---
+
+## 2026-09-22 — Trang chủ: 2 danh sách module chưa dịch + cổng i18n bắt được đúng kiểu lỗi này
+
+- 🐛 Người dùng báo (ảnh chụp panel "Schutzmodule aktiv"): người dùng DE đọc nguyên tiếng Việt 20
+  nhãn module. **Không phải thiếu bản dịch** — cả 20 nhãn đã có EN + DE trong `i18n.en|de.labels.ts`
+  và `i18n.en|de.ts`; gốc rễ là `AntiNuke` (`src/components/landing/sections.tsx`) render `{m}`
+  thẳng trong `.map()`. Mảng khai báo NGOÀI JSX nên không phải JsxText (cổng 3) cũng không phải
+  `{x.label}` (cổng 3d) → **cả hai cổng mù**, chuỗi VI không bao giờ bị đòi bản dịch.
+- ✅ Vá: `{translate(m)}` cho cả `nukeModules` lẫn `modModules`, kèm ghi chú `// i18n-ok` nêu rõ
+  "nhãn dịch lúc render" để không ai tưởng chuỗi VI còn sót là bug.
+- 🛡️ Thêm cổng CỨNG **3e** vào `scripts/check-i18n.cjs`: parser TS tìm `ARR.map((p) => …)` với ARR
+  là mảng chuỗi VI khai báo trong CÙNG file rồi bắt `>{p}` chưa bọc `translate()`. Bỏ qua `key={p}`
+  (thuộc tính, không phải chữ hiển thị) và mảng nhập từ file khác (không đủ dữ liệu để phán —
+  tránh báo nhầm). Miễn trừ: `// i18n-ok` trong 2 dòng trên lời gọi `.map()`.
+- 🧪 Đo TRƯỚC khi vá bằng script thăm dò AST tạm (`scripts/_i18n-raw-render-probe.cjs`, đã xoá):
+  đúng 2 điểm (dòng 405/421); sau khi vá về **0**, và guard mới bắt lại được khi tạm khôi phục code cũ
+  (đã kiểm bằng `git stash` file đó rồi pop lại).
+- 🧪 `scripts/test-i18n.cjs` +**2 case**: fixture mảng VI render `{m}` ⇒ cổng phải đổ; bọc
+  `translate(m)` ⇒ phải xanh (đối chứng, chứng minh test không xanh vô nghĩa).
+- ℹ️ Quét thêm toàn `src/`: không còn chỗ nào dùng mảng VI + `.map()` inline khác.
+- 🧪 Kiểm chứng: **59/59 suites** · `tsc` · `lint` · `format:check` · repo-map · convex-contract ·
+  `check-i18n` (0 FAIL) — tất cả xanh.
+- 📁 File đụng: `src/components/landing/sections.tsx`, `scripts/check-i18n.cjs`,
+  `scripts/test-i18n.cjs`, `docs/{agent-journal,decision-log}.md`
+
+---
+
+## 2026-09-22 — Cổng i18n: vá 2 lỗi cổng tự-báo-nhầm, thêm mục "DE mồ côi", dọn 251 entry chết
+
+- 🐛 2 lỗi của `scripts/check-i18n.cjs`, đều kiểu "cổng tự lừa mình":
+  1. Đọc key từ điển ở nhánh NHÁY ĐƠN lấy nguyên văn ⇒ key chứa escape (`\n`, dấu `"`) không bao giờ
+     khớp key trong code — bản dịch ĐÃ CÓ mà vẫn báo "THIẾU EN" (lộ ra đúng lúc bọc `translate()` cho
+     câu xác nhận khôi phục nhiều đoạn).
+  2. `codeFiles` chỉ loại base dict (`i18n.en.ts`/`i18n.de.ts`) ⇒ key sống sót nhờ entry của CHÍNH NÓ
+     trong `i18n.*.panels.ts`/`.labels.ts` không bao giờ bị báo là chết (từ điển tự quét chính mình),
+     che mất 223 bản dịch chết.
+- ✅ Thêm mục báo **mềm** "bản DE mồ côi" (key DE không có bản EN): rác không bao giờ hiển thị vì
+  tra cứu theo chuỗi VI + thiếu EN thì rơi về VI. Cố ý để mềm — nợ vệ sinh từ điển không nên làm đỏ CI.
+- ✅ Dọn **251 entry chết** (bản cũ của các câu đã viết lại: tiền tố trùng, hậu tố khác):
+  `i18n.en.panels.ts` 41 · `i18n.de.panels.ts` 41 · `i18n.en.ts` 85 · `i18n.de.ts` 84. Mỗi key đều
+  được grep toàn `src/` (trừ từ điển) + `convex/` trước khi xoá.
+- 🧪 `scripts/test-i18n.cjs` +1 case (fixture DE mồ côi ⇒ cổng báo nhưng vẫn xanh) và ghim `stdio` cho
+  tiến trình con — trước đây case ĐỐI CHỨNG in ❌ của guard ra màn hình, dễ tưởng suite đỏ.
+- ⚠️ Còn tồn (đo được, không giấu): 97 bản EN chết + 60/38 bản DE + 5 bản DE mồ côi → xem "Đang dở".
+- 🧪 Kiểm chứng: 59/59 suites · tsc · lint · format · repo-map · contract · check-i18n xanh.
+- 📁 File đụng: `scripts/check-i18n.cjs`, `scripts/test-i18n.cjs`,
+  `src/lib/{i18n.en.ts,i18n.en.panels.ts,i18n.de.ts,i18n.de.panels.ts}`,
+  `docs/{agent-journal,decision-log}.md` + script audit tạm `scripts/_i18n-dead-lines.cjs`
 
 ---
 

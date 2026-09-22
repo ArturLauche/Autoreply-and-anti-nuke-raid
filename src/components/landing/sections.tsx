@@ -311,6 +311,7 @@ function HeatLadder() {
 }
 
 export function AntiNuke() {
+  // i18n-ok: 12 nhãn dưới đây là mảng nội dung, dịch lúc render bằng translate(m)
   const nukeModules = [
     "Chống ban hàng loạt",
     "Chống kick hàng loạt",
@@ -325,6 +326,7 @@ export function AntiNuke() {
     "Cảnh báo bot lạ",
     "Bot vào-rồi-rời",
   ];
+  // i18n-ok: 8 nhãn dưới đây là mảng nội dung, dịch lúc render bằng translate(m)
   const modModules = [
     "Chống spam tin nhắn",
     "Chống lặp tin nhắn",
@@ -407,7 +409,7 @@ export function AntiNuke() {
                   key={m}
                   className="flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-3 py-2"
                 >
-                  <span className="text-sm">{m}</span>
+                  <span className="text-sm">{translate(m)}</span>
                   <span className="relative ml-2 flex h-4 w-7 items-center rounded-full bg-primary px-0.5">
                     <span className="ml-auto h-3 w-3 rounded-full bg-white" />
                   </span>
@@ -423,7 +425,7 @@ export function AntiNuke() {
                   key={m}
                   className="flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-3 py-2"
                 >
-                  <span className="text-sm">{m}</span>
+                  <span className="text-sm">{translate(m)}</span>
                   <span className="relative ml-2 flex h-4 w-7 items-center rounded-full bg-primary px-0.5">
                     <span className="ml-auto h-3 w-3 rounded-full bg-white" />
                   </span>

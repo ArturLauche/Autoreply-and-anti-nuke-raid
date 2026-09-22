@@ -12,11 +12,15 @@
  *      QUICK_QUESTIONS, answer, suggestions của từng topic, FALLBACK) phải
  *      có bản EN — phần này được dịch lúc render nên không lộ ra ở dạng
  *      literal translate("…").
+ *   3. Chuỗi VI hiển thị TRỰC TIẾP trong JSX (text node), {…} biểu thức, nhãn
+ *      dữ liệu ({x.label}) và mảng dữ liệu render qua .map ({m}) đều phải đi
+ *      qua translate(); thiếu là FAIL cứng (người dùng EN/DE đọc tiếng Việt).
  *
  * Báo cáo MỀM (không fail — chỉ nhắc để rà):
  *   3. Thuộc tính JSX (label/title/placeholder/aria-label/alt) có dấu tiếng
  *      Việt mà không bọc translate() — dấu hiệu quên dịch khi thêm UI mới.
  *   4. Key EN không còn xuất hiện trong code (bản dịch chết).
+ *   5. Key DE không có bản EN tương ứng (bản dịch mồ côi).
  *
  * Dùng: node scripts/check-i18n.cjs
  *       node scripts/check-i18n.cjs --all   # in HẾT danh sách việc còn lại
@@ -38,6 +42,18 @@ function unescapeJs(raw) {
   }
 }
 
+/**
+ * Key từ điển → chuỗi thật. PHẢI giải escape ở CẢ hai kiểu nháy: bản cũ lấy
+ * nguyên văn nhánh nháy đơn nên key chứa escape (`\n`, dấu " bên trong) không
+ * bao giờ khớp key trong code — bản dịch đã có mà vẫn báo "THIẾU EN".
+ */
+function dictKey(raw, quote) {
+  return quote === "'" ? unescapeJs(raw.replace(/\\'/g, "'")) : unescapeJs(raw);
+}
+
+/** Một dòng định nghĩa trong từ điển: `  "key": "value",` (key nháy đơn/kép/không nháy). */
+const DICT_KEY_RE = /^\s{2}(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|([^\s:]+))\s*:/gm;
+
 function walk(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
     const p = path.join(dir, e.name);
@@ -54,10 +70,10 @@ for (const name of ["i18n.en.ts", "i18n.en.panels.ts", "i18n.en.labels.ts"]) {
   const p = path.join(SRC, "lib", name);
   if (!fs.existsSync(p)) continue;
   const enSrc = fs.readFileSync(p, "utf8");
-  for (const m of enSrc.matchAll(
-    /^\s{2}(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|([^\s:]+))\s*:/gm,
-  )) {
-    enKeys.add(m[1] !== undefined ? unescapeJs(m[1]) : m[2] !== undefined ? m[2] : m[3]);
+  for (const m of enSrc.matchAll(DICT_KEY_RE)) {
+    enKeys.add(
+      m[1] !== undefined ? dictKey(m[1], '"') : m[2] !== undefined ? dictKey(m[2], "'") : m[3],
+    );
   }
 }
 
@@ -68,17 +84,28 @@ for (const name of ["i18n.de.ts", "i18n.de.panels.ts", "i18n.de.labels.ts"]) {
   const p = path.join(SRC, "lib", name);
   if (!fs.existsSync(p)) continue;
   const deSrc = fs.readFileSync(p, "utf8");
-  for (const m of deSrc.matchAll(
-    /^\s{2}(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|([^\s:]+))\s*:/gm,
-  )) {
-    deKeys.add(m[1] !== undefined ? unescapeJs(m[1]) : m[2] !== undefined ? m[2] : m[3]);
+  for (const m of deSrc.matchAll(DICT_KEY_RE)) {
+    deKeys.add(
+      m[1] !== undefined ? dictKey(m[1], '"') : m[2] !== undefined ? dictKey(m[2], "'") : m[3],
+    );
   }
 }
 const problems = [];
 for (const k of enKeys) if (!deKeys.has(k)) problems.push(`THIẾU DE: ${k.slice(0, 80)}`);
 
+// ── Key CHỈ có ở DE mà không có bản EN = bản dịch mồ côi: key chuỗi VI là
+//    nguồn tra cứu, thiếu EN thì không có cách nào chuỗi đó hiện ra bản DE —
+//    rác còn lại sau các đợt viết lại copy. Báo MỀM (không chặn ship) vì đây
+//    là vệ sinh từ điển, không phải chuỗi người dùng bị lọt tiếng Việt.
+const orphanDeKeys = [...deKeys].filter((k) => !enKeys.has(k));
+
 // ── 1. Mọi translate("…") phải có bản EN ───────────────────────────────────
-const codeFiles = walk(SRC).filter((p) => !/lib[\\/]i18n(\.en|\.de)?\.tsx?$/.test(p));
+// Loại MỌI file từ điển (base + panels + labels) khỏi "code": nếu chỉ quét
+// base dict, key sống sót nhờ chính entry của nó trong i18n.*.panels.ts sẽ
+// không bao giờ bị báo là bản dịch chết (đúng lỗi tự-quét-chính-mình).
+const codeFiles = walk(SRC).filter(
+  (p) => !/lib[\\/]i18n(\.en|\.de)?(\.(panels|labels))?\.tsx?$/.test(p),
+);
 const wrappedKeys = new Set();
 for (const file of codeFiles) {
   const src = fs.readFileSync(file, "utf8");
@@ -353,6 +380,63 @@ for (const file of codeFiles) {
   });
 }
 
+// ── 3e. Mảng dữ liệu tiếng Việt render NGUYÊN tham số .map() ───────────────
+// `{nukeModules.map((m) => <span>{m}</span>)}`: chuỗi VI nằm trong mảng khai
+// báo NGOÀI JSX nên không phải JsxText (3) cũng chẳng phải {x.label} (3d) →
+// cả hai cổng đều mù. Đây là lỗi thật đã lọt ra production: danh sách 32
+// module ở trang chủ hiện nguyên tiếng Việt cho người dùng EN/DE.
+// Miễn trừ: ghi chú `// i18n-ok: <lý do>` ngay trên lời gọi .map().
+for (const file of codeFiles) {
+  if (!/\.tsx$/.test(file)) continue;
+  const source = fs.readFileSync(file, "utf8");
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const lines = source.split(/\r?\n/);
+  const lineOf = (pos) => sf.getLineAndCharacterOfPosition(pos).line + 1;
+  // Mảng toàn chuỗi khai báo trong CHÍNH file này (mảng nhập từ file khác
+  // không đủ dữ liệu để phán — bỏ qua, tránh báo nhầm).
+  const viArrays = new Set();
+  const collectArrays = (node) => {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer &&
+      ts.isArrayLiteralExpression(node.initializer) &&
+      node.initializer.elements.some((el) => ts.isStringLiteral(el) && VIET.test(el.text))
+    ) {
+      viArrays.add(node.name.text);
+    }
+    ts.forEachChild(node, collectArrays);
+  };
+  collectArrays(sf);
+  if (!viArrays.size) continue;
+  const visitMaps = (node) => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      node.expression.name.text === "map" &&
+      ts.isIdentifier(node.expression.expression) &&
+      viArrays.has(node.expression.expression.text)
+    ) {
+      const cb = node.arguments[0];
+      const param = cb && cb.parameters && cb.parameters[0] && cb.parameters[0].name;
+      if (param && ts.isIdentifier(param)) {
+        // `>{m}` = thẻ bao NỘI DUNG; `key={m}` (thuộc tính) không phải chữ hiển thị.
+        const bare = new RegExp(`>\\s*\\{\\s*${param.text}\\s*\\}`);
+        const line = lineOf(node.getStart(sf));
+        const noted = lines.slice(Math.max(0, line - 3), line).some((l) => l.includes("i18n-ok"));
+        if (bare.test(cb.getText(sf)) && !noted) {
+          problems.push(
+            `CHƯA DỊCH (render mảng): ${rel(file)}:${line} — {${param.text}} trong ` +
+              `${node.expression.expression.text}.map(...) → bọc translate(${param.text})`,
+          );
+        }
+      }
+    }
+    ts.forEachChild(node, visitMaps);
+  };
+  visitMaps(sf);
+}
+
 // ── 4. Cảnh báo mềm: bản dịch không còn dùng trong code ───────────────────
 // Key chứa dấu nháy nằm trong code ở dạng escape (\") nên phải so cả bản
 // đã escape — nếu chỉ so bản thô sẽ báo nhầm "bản dịch chết".
@@ -409,6 +493,14 @@ if (deadKeys.length) {
   );
   for (const s of deadKeys.slice(0, 10)) console.log(`   · ${s.slice(0, 80)}`);
   if (deadKeys.length > 10) console.log(`   … còn ${deadKeys.length - 10} mục`);
+}
+
+if (orphanDeKeys.length) {
+  console.log(
+    `\nℹ️  ${orphanDeKeys.length} bản DE mồ côi (không có bản EN tương ứng — không bao giờ hiển thị):`,
+  );
+  for (const s of orphanDeKeys.slice(0, 10)) console.log(`   · ${s.slice(0, 80)}`);
+  if (orphanDeKeys.length > 10) console.log(`   … còn ${orphanDeKeys.length - 10} mục`);
 }
 
 if (problems.length) {
