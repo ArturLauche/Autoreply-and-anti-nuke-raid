@@ -39,7 +39,9 @@ process.on("exit", () => {
   } catch {}
 });
 const welcome = require("../bot/src/handlers/welcome");
-const { handleWelcome, handleGoodbye, GOODBYE_DEFAULT, _fillTemplateForTest } = welcome;
+const { handleWelcome, handleGoodbye, WELCOME_DEFAULT, GOODBYE_DEFAULT, _fillTemplateForTest } =
+  welcome;
+const lang = require("../bot/src/handlers/lang");
 
 let pass = 0,
   fail = 0;
@@ -150,11 +152,55 @@ const botMember = { id: "b1", user: { bot: true, username: "botbot" }, guild };
     makeStore({ goodbyeEnabled: true, goodbyeChannelId: "c2", goodbyeMessage: "" }),
     member,
   );
+  // Guild mock không có preferredLocale → mặc định sản phẩm VI (quy ước lang.js).
   check(
-    "goodbye: nội dung trống → dùng mặc định",
+    "goodbye: nội dung trống → mặc định theo ngôn ngữ server (VI)",
+    sent[0]?.content ===
+      lang.goodbyeDefault("vi").replaceAll("{user}", "<@u1>").replaceAll("{server}", "Test Server"),
+  );
+
+  // ── auto ngôn ngữ theo quốc gia (guild.preferredLocale) ──
+  const memberEn = { ...member, guild: { ...guild, preferredLocale: "en-US" } };
+  sent = [];
+  await handleWelcome(
+    makeClient(),
+    makeStore({ welcomeEnabled: true, welcomeChannelId: "c1", welcomeMessage: "" }),
+    memberEn,
+  );
+  check(
+    "welcome: locale en-US → mặc định EN",
+    sent[0]?.content ===
+      WELCOME_DEFAULT.replaceAll("{user}", "<@u1>")
+        .replaceAll("{server}", "Test Server")
+        .replaceAll("{count}", "42"),
+  );
+  sent = [];
+  await handleGoodbye(
+    makeClient(),
+    makeStore({ goodbyeEnabled: true, goodbyeChannelId: "c2", goodbyeMessage: "" }),
+    memberEn,
+  );
+  check(
+    "goodbye: locale en-US → mặc định EN",
     sent[0]?.content ===
       GOODBYE_DEFAULT.replaceAll("{user}", "<@u1>").replaceAll("{server}", "Test Server"),
   );
+  const memberJa = { ...member, guild: { ...guild, preferredLocale: "ja" } };
+  sent = [];
+  await handleWelcome(
+    makeClient(),
+    makeStore({ welcomeEnabled: true, welcomeChannelId: "c1", welcomeMessage: "" }),
+    memberJa,
+  );
+  check("welcome: quốc gia không hỗ trợ (ja) → EN mặc định", sent[0]?.content.includes("Welcome"));
+  // Nội dung tùy chỉnh luôn thắng mặc định bất kể ngôn ngữ server.
+  sent = [];
+  await handleWelcome(
+    makeClient(),
+    makeStore({ welcomeEnabled: true, welcomeChannelId: "c1", welcomeMessage: "Custom {user}" }),
+    memberJa,
+  );
+  check("welcome: nội dung tùy chỉnh ưu tiên hơn mặc định", sent[0]?.content === "Custom <@u1>");
 
   // ── bỏ qua bot ──
   sent = [];

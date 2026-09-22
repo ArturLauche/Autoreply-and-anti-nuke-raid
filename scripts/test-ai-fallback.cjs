@@ -6,29 +6,33 @@ const Module = require("module");
 let calls = [];
 let bodies = [];
 const realFetch = globalThis.fetch;
+// Mock Response đúng thực tế: HTTP Response thật luôn có .text() + .headers.get().
+const mkRes = (status, body, headers) => ({
+  ok: status >= 200 && status < 300,
+  status,
+  headers: { get: (k) => (headers || {})[String(k).toLowerCase()] ?? null },
+  text: async () => JSON.stringify(body),
+  json: async () => body,
+});
 globalThis.fetch = async (url) => {
   calls.push(new URL(url).host);
   if (String(url).includes("groq.com")) {
-    return { ok: false, status: 429, json: async () => ({}) };
+    return mkRes(429, {});
   }
-  return {
-    ok: true,
-    status: 200,
-    json: async () => ({
-      choices: [
-        {
-          message: {
-            content: JSON.stringify({
-              classification: "raid",
-              confidence: 0.9,
-              reason: "test",
-              suggestPunish: "ban",
-            }),
-          },
+  return mkRes(200, {
+    choices: [
+      {
+        message: {
+          content: JSON.stringify({
+            classification: "raid",
+            confidence: 0.9,
+            reason: "test",
+            suggestPunish: "ban",
+          }),
         },
-      ],
-    }),
-  };
+      },
+    ],
+  });
 };
 
 // Chặn loadenv để không đọc .env thật, và set fake env bằng cách ghi đè descriptor
@@ -87,7 +91,9 @@ ai.classifyViolation({
   .then((r) => {
     console.log("[case1: fallback] providers tried:", calls.join(" -> "));
     console.log("[case1: fallback] final:", JSON.stringify(r));
-    const ok = calls.length === 2 && r.classification === "raid" && !r.offline;
+    // FIX HTTP (chatOne retry 429): Groq 429 → retry đúng 1 lần (2 lượt gọi
+    // Groq) vẫn fail → mới nhảy sang NIM. Tổng 3 lượt, kết quả vẫn hợp lệ.
+    const ok = calls.length === 3 && r.classification === "raid" && !r.offline;
     console.log(ok ? "PASS case1: fallback chain hoạt động" : "FAIL case1: fallback chain lỗi");
     if (!ok) process.exit(1);
 
@@ -95,24 +101,20 @@ ai.classifyViolation({
     calls = [];
     globalThis.fetch = async (url) => {
       calls.push(new URL(url).host);
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
-                  classification: "benign",
-                  confidence: 0.8,
-                  reason: "x",
-                  suggestPunish: null,
-                }),
-              },
+      return mkRes(200, {
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                classification: "benign",
+                confidence: 0.8,
+                reason: "x",
+                suggestPunish: null,
+              }),
             },
-          ],
-        }),
-      };
+          },
+        ],
+      });
     };
     return ai.classifyViolation({
       module: "spam",
@@ -133,7 +135,7 @@ ai.classifyViolation({
     calls = [];
     globalThis.fetch = async (url) => {
       calls.push(new URL(url).host);
-      return { ok: false, status: 500, json: async () => ({}) };
+      return mkRes(500, {});
     };
     return ai.classifyViolation({
       module: "x",
@@ -146,7 +148,8 @@ ai.classifyViolation({
   .then((r) => {
     console.log("[case3: all fail] providers tried:", calls.join(" -> "));
     console.log("[case3: all fail] final:", JSON.stringify(r));
-    const ok = calls.length === 2 && r.offline === true;
+    // FIX HTTP: mỗi provider retry 1 lần khi 500 → 2 provider × 2 = 4 lượt.
+    const ok = calls.length === 4 && r.offline === true;
     console.log(ok ? "PASS case3: all fail → offline an toàn" : "FAIL case3");
     if (!ok) {
       globalThis.fetch = realFetch;
@@ -163,26 +166,22 @@ ai.classifyViolation({
       calls.push(new URL(url).host);
       bodies.push(JSON.parse(init.body).model);
       if (JSON.parse(init.body).model === "openai/gpt-oss-120b") {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            choices: [
-              {
-                message: {
-                  content: JSON.stringify({
-                    classification: "raid",
-                    confidence: 0.9,
-                    reason: "healed",
-                    suggestPunish: "ban",
-                  }),
-                },
+        return mkRes(200, {
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  classification: "raid",
+                  confidence: 0.9,
+                  reason: "healed",
+                  suggestPunish: "ban",
+                }),
               },
-            ],
-          }),
-        };
+            },
+          ],
+        });
       }
-      return { ok: false, status: 400, json: async () => ({}) };
+      return mkRes(400, {});
     };
     return ai.classifyViolation({
       module: "massJoin",
@@ -214,24 +213,20 @@ ai.classifyViolation({
     globalThis.fetch = async (url, init) => {
       calls.push(new URL(url).host);
       lastBody = init.body;
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
-                  classification: "benign",
-                  confidence: 0.8,
-                  reason: "x",
-                  suggestPunish: null,
-                }),
-              },
+      return mkRes(200, {
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                classification: "benign",
+                confidence: 0.8,
+                reason: "x",
+                suggestPunish: null,
+              }),
             },
-          ],
-        }),
-      };
+          },
+        ],
+      });
     };
     return ai
       .classifyViolation({

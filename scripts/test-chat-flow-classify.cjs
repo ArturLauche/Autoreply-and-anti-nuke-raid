@@ -53,6 +53,9 @@ if (!LIVE) {
     return {
       ok: true,
       status: 200,
+      // Response thật luôn có .text() — chatOne đọc text rồi parse JSON (fix HTTP).
+      text: async () =>
+        JSON.stringify({ choices: [{ message: { content: JSON.stringify(verdict) } }] }),
       json: async () => ({ choices: [{ message: { content: JSON.stringify(verdict) } }] }),
     };
   };

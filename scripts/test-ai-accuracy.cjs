@@ -63,6 +63,8 @@ const suiteMock = async (url, init) => {
   return {
     ok: true,
     status: 200,
+    // Response thật luôn có .text() — chatOne đọc text rồi parse JSON (fix HTTP).
+    text: async () => JSON.stringify({ choices: [{ message: { content: replyContent } }] }),
     json: async () => ({ choices: [{ message: { content: replyContent } }] }),
   };
 };
@@ -581,10 +583,12 @@ function check(name, fn) {
       globalThis.fetch = async (url, init) => {
         const body = JSON.parse(init.body);
         calls.push({ host: new URL(url).host, model: body.model });
-        if (mode === "fail") return { ok: false, status: 500, json: async () => ({}) };
+        if (mode === "fail")
+          return { ok: false, status: 500, text: async () => "", json: async () => ({}) };
         return {
           ok: true,
           status: 200,
+          text: async () => JSON.stringify({ choices: [{ message: { content: realReply } }] }),
           json: async () => ({ choices: [{ message: { content: realReply } }] }),
         };
       };

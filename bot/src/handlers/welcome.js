@@ -14,10 +14,17 @@
  */
 
 const { EmbedBuilder, Colors, PermissionFlagsBits } = require("discord.js");
+const lang = require("./lang");
 
-/** Nội dung mặc định khi config để trống. */
-const WELCOME_DEFAULT = "Chào mừng {user} đã đến **{server}**! Bạn là thành viên thứ {count} 🎉";
-const GOODBYE_DEFAULT = "{user} đã rời **{server}**. Hẹn gặp lại!";
+/** Mặc định EN (tương thích cũ) — luồng thật dùng lang.*Default(serverLang) theo ngôn ngữ server. */
+const WELCOME_DEFAULT = lang.welcomeDefault("en");
+const GOODBYE_DEFAULT = lang.goodbyeDefault("en");
+
+/**
+ * Nội dung mặc định khi config để trống — THEO NGÔN NGỮ SERVER (locale quốc
+ * gia chủ server chọn; quốc gia không có bản dịch riêng → EN mặc định).
+ * Owner đặt nội dung tùy chỉnh → dùng nguyên văn (tôn trọng nội dung đã viết).
+ */
 
 /** Thay placeholder. {user} giữ nguyên dạng mention để allowedMentions hoạt động. */
 function fillTemplate(template, { member, guild }) {
@@ -35,9 +42,10 @@ async function sendGreeting(client, config, kind, member, guild) {
   if (!enabled) return false;
   const channelId = kind === "welcome" ? config.welcomeChannelId : config.goodbyeChannelId;
   if (!channelId) return false;
+  const serverLang = lang.langForGuild(guild);
   const rawTemplate =
     (kind === "welcome" ? config.welcomeMessage : config.goodbyeMessage)?.trim() ||
-    (kind === "welcome" ? WELCOME_DEFAULT : GOODBYE_DEFAULT);
+    (kind === "welcome" ? lang.welcomeDefault(serverLang) : lang.goodbyeDefault(serverLang));
   const useEmbed = kind === "welcome" ? config.welcomeUseEmbed : config.goodbyeUseEmbed;
 
   const channel = await client.channels.fetch(channelId).catch(() => null);
@@ -99,6 +107,7 @@ async function handleGoodbye(client, store, member) {
 module.exports = {
   handleWelcome,
   handleGoodbye,
+  WELCOME_DEFAULT,
   GOODBYE_DEFAULT,
   _fillTemplateForTest: fillTemplate,
 };

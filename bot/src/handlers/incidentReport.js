@@ -19,6 +19,10 @@
 const { Colors, ChannelType } = require("discord.js");
 const { logEmbed, sendLog } = require("../util");
 const ai = require("../ai");
+const lang = require("./lang");
+
+/** Nhãn ngôn ngữ để nhét vào prompt AI — chỉ 3 giá trị, ngôn ngữ khác đã quy về EN. */
+const LANG_NAME = { vi: "tiếng Việt", en: "English", de: "Deutsch (tiếng Đức)" };
 
 /** Giới hạn quét chat — chốt trần để không chậm bot trên server lớn. */
 const MAX_MESSAGES = 400;
@@ -134,7 +138,10 @@ function auditSummary(events, modActions) {
   };
 }
 
-/** Prompt AI — Mimo V2.5 (Kira) đọc tình huống và viết báo cáo tiếng Việt. */
+/**
+ * Prompt AI — Mimo V2.5 (Kira) đọc tình huống và viết báo cáo THEO NGÔN NGỮ
+ * SERVER (locale quốc gia chủ server chọn; quốc gia không hỗ trợ → EN).
+ */
 function buildPrompt({
   guildName,
   memberCount,
@@ -144,8 +151,10 @@ function buildPrompt({
   actionsText,
   userNote,
   lockdownActive,
+  reportLang = "vi",
 }) {
-  const system = `Bạn là Trợ lý bảo mật của bot Protogon trong server Discord "${guildName}". Nhiệm vụ: đọc tình huống server và viết BÁO CÁO NGẮN tiếng Việt cho mọi thành viên.
+  const langName = LANG_NAME[reportLang] || "tiếng Việt";
+  const system = `Bạn là Trợ lý bảo mật của bot Protogon trong server Discord "${guildName}". Nhiệm vụ: đọc tình huống server và viết BÁO CÁO NGẮN bằng ${langName} cho mọi thành viên.
 
 Bối cảnh: có thể đang có raid/nuke, hoặc thành viên khiếu nại rằng bot phạt nhầm. Hãy đối chiếu:
 1) Tình trạng an ninh: có tín hiệu raid/nuke/spam không? Mức độ nghiêm trọng?
@@ -282,6 +291,7 @@ async function emergencyRaidAlert(client, store, guild, info = {}) {
       ...auditSummary(audit.events, audit.modActions),
       userNote: info.reason ? `Bot vừa xử lý: ${info.reason}` : "",
       lockdownActive: info.lockdownActive === true,
+      reportLang: lang.langForGuild(guild),
     });
     const raw = await askAI(prompt);
     const analysis = parseAnalysis(raw);
@@ -382,6 +392,7 @@ async function reportInteractive(client, store, source) {
       ...auditSummary(audit.events, audit.modActions),
       userNote,
       lockdownActive,
+      reportLang: lang.langForGuild(guild),
     });
     const raw = await askAI(prompt);
     const analysis = parseAnalysis(raw);

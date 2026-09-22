@@ -319,45 +319,91 @@ async function chat(messages, { maxTokens = 250, temperature = 0.2, timeoutMs = 
   }
 }
 
+/** Đọc + giải phóng body an toàn — trả text hoặc rỗng khi lỗi.
+ * KHÔNG ĐỌC body khi !ok thì undici giữ socket tới timeout → pool kết nối cạn
+ * khi raid dồn dập (lỗi HTTP thật: hàng chục lượt gọi treo socket không làm gì). */
+async function drainBody(res) {
+  try {
+    return (await res.text()) || "";
+  } catch {
+    return "";
+  }
+}
+
+/** Parse JSON từ text — trả null khi body KHÔNG phải JSON (error page HTML của
+ * Cloudflare/Nginx). Trước đây dùng res.json() trực tiếp: gateway quá tải trả
+ * HTML → throw SyntaxError → rơi vào catch coi như lỗi mạng DÙ HTTP đã thành
+ * công — câu trả lời của model bị vứt oan. */
+function parseJsonBody(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
 /** Một lần gọi tới 1 provider — trả content hoặc null, không throw.
  * TỰ VÁ MODEL: gateway trả 400/404 (model chết/bị retire) → thử lại đúng 1 lần
- * với FALLBACK_MODEL trong cùng lượt (không tốn lượt provider kế tiếp). */
+ * với FALLBACK_MODEL trong cùng lượt (không tốn lượt provider kế tiếp).
+ * 429/5xx: RETRY ĐÚNG 1 LẦN trong cùng lượt (tôn trọng Retry-After khi có,
+ * tối đa 2s — không vứt provider ngay khi gateway chớp mắt quá tải), sau đó
+ * mới nhảy provider kế. */
 async function chatOne(p, messages, { maxTokens, temperature, timeoutMs }) {
   const models = p.model === FALLBACK_MODEL ? [p.model] : [p.model, FALLBACK_MODEL];
   for (const model of models) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-    try {
-      const body = {
-        model,
-        messages,
-        max_tokens: maxTokens,
-        temperature,
-        ...(p.extraBody || {}),
-      };
-      const res = await fetch(`${p.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${p.key}` },
-        body: JSON.stringify(body),
-        signal: ctrl.signal,
-      });
-      if (!res.ok) {
-        // Model chết (400/404) mà còn model dự phòng chưa thử → thử tiếp vòng sau.
-        // Lỗi khác (401/429/5xx/mạng) → bỏ provider này ngay, sang provider kế.
-        if ((res.status === 400 || res.status === 404) && model !== FALLBACK_MODEL) continue;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      try {
+        const body = {
+          model,
+          messages,
+          max_tokens: maxTokens,
+          temperature,
+          ...(p.extraBody || {}),
+        };
+        const res = await fetch(`${p.baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${p.key}` },
+          body: JSON.stringify(body),
+          signal: ctrl.signal,
+        });
+        if (!res.ok) {
+          await drainBody(res);
+          // Model chết (400/404) mà còn model dự phòng chưa thử → thử tiếp vòng sau.
+          if ((res.status === 400 || res.status === 404) && model !== FALLBACK_MODEL) break;
+          // 429/5xx (gateway quá tải thoáng qua) → retry đúng 1 lần, chờ
+          // Retry-After nếu server chỉ định (cap 2s để không phá deadline).
+          if (attempt === 0 && (res.status === 429 || res.status >= 500)) {
+            const ra = Number(res.headers?.get?.("retry-after"));
+            const wait = Number.isFinite(ra) && ra > 0 ? Math.min(ra * 1000, 2000) : 500;
+            await new Promise((r) => setTimeout(r, wait));
+            continue;
+          }
+          noteProviderFailure(p);
+          return null;
+        }
+        const data = parseJsonBody(await drainBody(res));
+        if (!data) {
+          // HTTP ok nhưng body rác (HTML error page phía gateway) — retry 1 lần
+          // rồi bỏ provider; KHÔNG được coi như lỗi mạng và nuốt lượt retry.
+          if (attempt === 0) {
+            await new Promise((r) => setTimeout(r, 400));
+            continue;
+          }
+          noteProviderFailure(p);
+          return null;
+        }
+        const content = data?.choices?.[0]?.message?.content?.trim() ?? null;
+        if (content) noteProviderSuccess(p);
+        else noteProviderFailure(p);
+        return content;
+      } catch {
         noteProviderFailure(p);
         return null;
+      } finally {
+        clearTimeout(timer);
       }
-      const data = await res.json();
-      const content = data?.choices?.[0]?.message?.content?.trim() ?? null;
-      if (content) noteProviderSuccess(p);
-      else noteProviderFailure(p);
-      return content;
-    } catch {
-      noteProviderFailure(p);
-      return null;
-    } finally {
-      clearTimeout(timer);
     }
   }
   return null;
