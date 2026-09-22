@@ -61,7 +61,7 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
         whitelistUsers,
         whitelistRoles,
       });
-      toast.success(translate("Đã lưu whitelist — bot áp dụng trong vòng ~3 phút"));
+      toast.success(translate("Đã lưu danh sách trắng — bot áp dụng trong khoảng 3 phút"));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
     } finally {
@@ -77,14 +77,14 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
             {translate("Whitelist của server này")}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {translate("Người dùng / role trong danh sách này sẽ")}{" "}
+            {translate("Người dùng và role trong danh sách này")}{" "}
             <b className="text-foreground">{translate("không bị")}</b>{" "}
             {translate("moderation, anti-raid và anti-nuke xử lý —")}{" "}
             <b className="text-foreground">
               {translate("chỉ áp dụng cho")} {data.guild.name}
             </b>
             {translate(
-              ". Mỗi server dùng bot có danh sách whitelist riêng (local), không chia sẻ giữa các server.",
+              ". Mỗi server giữ danh sách trắng riêng, không chia sẻ sang server khác.",
             )}{" "}
           </p>
         </div>
@@ -120,7 +120,7 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
             />
             <p className="mt-3 text-xs text-muted-foreground">
               {translate(
-                "Role Mod / Admin đã cấu hình trong Cài đặt vẫn hoạt động riêng — danh sách này dành cho role tùy chỉnh (ví dụ: VIP, YouTuber, Staff…).",
+                "Role Mod và Admin cấu hình trong Cài đặt vẫn hoạt động riêng — danh sách này dành cho role tùy chỉnh (ví dụ VIP, YouTuber, Staff…).",
               )}{" "}
             </p>
           </CardContent>
@@ -144,7 +144,7 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
             <div className="flex gap-2">
               <Input
                 placeholder={translate(
-                  "ID Discord, VD: 123456789012345678 (cách nhau phẩy / space)",
+                  "ID Discord, VD: 123456789012345678 (cách nhau bằng dấu phẩy hoặc khoảng trắng)",
                 )}
                 value={userInput}
                 onChange={(e) => setUserInput(e.target.value)}
@@ -201,14 +201,14 @@ export default function WhitelistPanel({ data }: { data: GuildData }) {
                 {translate("toàn bộ module của server")} {data.guild.name}
               </b>
               {translate(
-                ": spam, từ ngữ xấu, link mời, link độc hại, file nguy hiểm, raid thành viên, ban/kick hàng loạt, tạo/xóa kênh & role hàng loạt, webhook/thread hàng loạt… Người dùng/role trong danh sách được bỏ qua hoàn toàn — không cộng nhiệt, không xóa tin, không ban. Danh sách này",
+                ": spam, từ ngữ xấu, link mời, link độc hại, file nguy hiểm, raid thành viên, ban/kick hàng loạt, tạo/xóa kênh và role hàng loạt, webhook/thread hàng loạt… Người dùng và role trong danh sách được bỏ qua hoàn toàn — không cộng nhiệt, không xóa tin, không ban. Danh sách này",
               )}{" "}
               <b className="text-foreground">{translate("không ảnh hưởng đến các server khác")}</b>{" "}
               {translate("đang dùng bot.")}
             </p>
             <p className="mt-1">
               {translate(
-                "Lưu ý: whitelist không miễn trừ Join Gate (chống selfbot khi vào server) — tính năng đó có danh sách trắng riêng trong mục Join Gate.",
+                "Lưu ý: danh sách này không miễn trừ Join Gate — tính năng chống selfbot khi vào server có danh sách trắng riêng trong mục Join Gate.",
               )}{" "}
             </p>
           </div>

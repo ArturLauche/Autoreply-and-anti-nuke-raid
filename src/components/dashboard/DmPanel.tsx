@@ -30,7 +30,7 @@ export default function DmPanel({ data }: { data: GuildData }) {
         userId: userId.trim(),
         message,
       });
-      toast.success(translate("Đã gửi yêu cầu — bot sẽ gửi DM trong vòng ~1 phút 💌"));
+      toast.success(translate("Đã gửi yêu cầu — bot gửi DM trong khoảng 1 phút 💌"));
       setUserId("");
       setMessage("");
     } catch (e) {
@@ -44,11 +44,11 @@ export default function DmPanel({ data }: { data: GuildData }) {
     <Card>
       <CardContent className="p-4 sm:p-5">
         <h3 className="flex items-center gap-2 font-display font-semibold">
-          <Mail className="h-4 w-4 text-primary" /> {translate("Gửi tin nhắn DM trực tiếp")}{" "}
+          <Mail className="h-4 w-4 text-primary" /> {translate("Gửi tin nhắn riêng (DM)")}{" "}
         </h3>
         <p className="mt-1 text-sm text-muted-foreground">
           {translate(
-            "Nhập ID người dùng Discord và nội dung — bot sẽ nhắn riêng cho họ. (Bật chế độ developer trong Discord, bấm chuột phải vào người dùng → Copy User ID)",
+            "Nhập ID người dùng Discord và nội dung, bot sẽ nhắn riêng cho họ. (Bật Chế độ nhà phát triển trong Discord → chuột phải tên người dùng → Sao chép ID người dùng)",
           )}{" "}
         </p>
         <div className="mt-4 grid gap-3">

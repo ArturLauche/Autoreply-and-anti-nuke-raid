@@ -46,7 +46,7 @@ export default function ModActionsPanel({ data }: { data: GuildData }) {
             </h3>
             <p className="text-sm text-muted-foreground">
               {translate("Timeout · kick · ban · warn · purge — ghi kèm")} <b>case N</b>{" "}
-              {translate("(kiểu Carl-bot), lý do, người thực hiện và phân biệt rõ nguồn:")}{" "}
+              {translate("(kiểu Carl-bot), lý do, người thực hiện, và phân biệt rõ nguồn:")}{" "}
               <b className="text-foreground">{translate("🛠️ lệnh thủ công của mod")}</b> vs{""}
               <b className="text-foreground">{translate("⚡ bot tự động")}</b> (auto-mod / anti
               nuke).
@@ -60,7 +60,7 @@ export default function ModActionsPanel({ data }: { data: GuildData }) {
         {actions.length === 0 ? (
           <div className="mt-4 flex items-center gap-3 rounded-lg bg-secondary/40 px-3 py-3 text-sm text-muted-foreground">
             <ShieldCheck className="h-4 w-4" />
-            {translate("Chưa có hình phạt nào — mọi thứ đang yên bình 🎉")}{" "}
+            {translate("Chưa có hình phạt nào — server đang yên bình 🎉")}{" "}
           </div>
         ) : (
           <div className="mt-4 -mx-1 overflow-x-auto px-1 [scrollbar-width:thin]">

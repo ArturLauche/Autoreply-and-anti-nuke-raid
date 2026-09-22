@@ -38,13 +38,13 @@ export default function UnlockPanel({
             <p className="mt-2 text-sm text-muted-foreground">
               {translate("Chỉ")} <b>{translate("admin sở hữu bot")}</b>{" "}
               {translate(
-                "mới được phép tương tác mật khẩu và đăng nhập vào tính năng ẩn — không phải owner hay mod của một server.",
+                "mới được thao tác mật khẩu và mở khóa tính năng ẩn — chủ hay mod của một server không thay thế được.",
               )}{" "}
             </p>
             {!data.guild.botOwnerSet && (
               <p className="mt-3 rounded-lg bg-secondary px-3 py-2 text-xs text-muted-foreground">
                 {translate(
-                  "Chưa có chủ sở hữu nào được thiết lập. Chủ bot cần đăng nhập bằng chính tài khoản Discord đã tạo bot, vào",
+                  "Chưa thiết lập chủ sở hữu. Người tạo bot cần đăng nhập bằng chính tài khoản Discord đã tạo bot, vào",
                 )}{" "}
                 <b>{translate("Cài đặt → Mật khẩu tính năng ẩn")}</b>{" "}
                 {translate("để đặt mật khẩu đầu tiên — người đó sẽ trở thành chủ sở hữu bot.")}{" "}
@@ -74,7 +74,7 @@ export default function UnlockPanel({
         toast.success(translate("Đã mở khóa tính năng ẩn 🔓"));
         onUnlocked();
       } else {
-        toast.error(translate("Sai mật khẩu rồi, thử lại nhé senpai!"));
+        toast.error(translate("Sai mật khẩu rồi, thử lại nhé!"));
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : translate("Mở khóa thất bại"));
@@ -93,7 +93,7 @@ export default function UnlockPanel({
           <h2 className="font-display text-xl font-bold">{translate("Tính năng ẩn 🔒")}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             {translate(
-              "Mục này được bảo vệ bằng mật khẩu do chủ sở hữu bot đặt. Chỉ người biết mật khẩu mới nhìn thấy nội dung bên trong.",
+              "Mục này được bảo vệ bằng mật khẩu do chủ sở hữu bot đặt. Chỉ người biết mật khẩu mới xem được nội dung bên trong.",
             )}{" "}
           </p>
         </div>

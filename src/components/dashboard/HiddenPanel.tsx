@@ -17,7 +17,7 @@ export default function HiddenPanel({ data }: { data: GuildData }) {
         </h2>
         <p className="text-sm text-muted-foreground">
           {translate(
-            "Reaction role, giveaway, gửi DM trực tiếp, auto reply và tùy chỉnh giao diện — chỉ admin sở hữu bot mở khóa bằng mật khẩu mới dùng được.",
+            "Reaction role, giveaway, nhắn tin riêng, auto reply và tùy chỉnh giao diện — chỉ admin sở hữu bot mở khóa bằng mật khẩu mới dùng được.",
           )}{" "}
         </p>
       </div>

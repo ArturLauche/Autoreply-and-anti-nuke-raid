@@ -30,7 +30,8 @@ const ACTION_STYLE: Record<string, string> = {
 };
 
 function actionLabel(action: string | null): string {
-  if (!action) return "xử lý";
+  // Không có hình phạt cụ thể → nhãn chung, phải dịch được theo ngôn ngữ.
+  if (!action) return translate("đã xử lý");
   return action;
 }
 
@@ -68,13 +69,13 @@ function IncidentList({ guildId }: { guildId: string }) {
       <div className="rounded-xl border border-dashed border-border bg-secondary/30 px-6 py-10 text-center">
         <AppWindow className="mx-auto h-8 w-8 text-muted-foreground/50" />
         <p className="mt-3 text-sm font-medium">
-          {translate("Chưa có vụ raid external app nào bị chặn")}
+          {translate("Chưa có vụ raid bằng ứng dụng ngoài nào bị chặn")}
         </p>
         <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
           {translate("Khi bot phát hiện loạt kết nối ứng dụng ngoài vượt ngưỡng module")}{" "}
           <code className="font-mono text-[10px]">{translate("Raid bằng ứng dụng ngoài")}</code>{" "}
           {translate(
-            "(hoặc một app đáng ngờ: giả mạo app nổi tiếng / tên scam / do acc mới kết nối / app spam @everyone + link lừa đảo), vụ đó sẽ xuất hiện ở đây kèm AI verdict, ứng dụng và người dùng đã bị xử lý.",
+            "(hoặc một app đáng ngờ: giả mạo app nổi tiếng, tên scam, do tài khoản mới kết nối, app spam @everyone kèm link lừa đảo), vụ đó xuất hiện ở đây kèm kết luận của AI, danh sách ứng dụng và người dùng đã bị xử lý.",
           )}{" "}
         </p>
       </div>
@@ -273,7 +274,7 @@ export default function ExternalAppRaidsPanel({ data }: { data: GuildData }) {
             {translate("(ứng dụng mở rộng) được kết nối ồ ạt hoặc app spam vào server — kèm")}{" "}
             <b className="text-foreground">{translate("AI nhận diện")}</b>{" "}
             {translate(
-              "người dùng app có đang raid không. AI học hỏi các dạng raid app ngoài (sockpuppet cài app, app giả mạo/tên scam, spam @everyone/link lừa đảo, webhook spam) để chặn cả biến thể tương tự: app nào được kết nối, ai đã bị xử lý.",
+              "người dùng app có đang raid không. AI học các dạng raid app ngoài (tài khoản phụ cài app, app giả mạo hoặc tên scam, spam @everyone kèm link lừa đảo, webhook spam) để chặn cả biến thể tương tự: app nào được kết nối, ai đã bị xử lý.",
             )}{" "}
           </p>
         </div>

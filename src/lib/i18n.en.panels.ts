@@ -640,4 +640,42 @@ export const EN_PANELS: Record<string, string> = {
     "The bot posts a new panel with your edits within about 1 minute (the old message stays).",
   "Bot gửi một tin nhắn vào kênh đã chọn kèm các emoji; thành viên bấm emoji để nhận role.":
     "The bot posts a message with the emojis in the channel you picked; members click an emoji to get the role.",
+
+  /* ==== Lô 5 — viết lại copy panel ModActions / Dm / Hidden / Unlock / Whitelist / ExternalAppRaids. */
+  "Chưa có hình phạt nào — server đang yên bình 🎉": "No punishments yet — the server is calm 🎉",
+  "(kiểu Carl-bot), lý do, người thực hiện, và phân biệt rõ nguồn:":
+    "(Carl-bot style), the reason, who did it, and a clear split by source:",
+  "Đã gửi yêu cầu — bot gửi DM trong khoảng 1 phút 💌":
+    "Request sent — the bot sends the DM within about 1 minute 💌",
+  "Gửi tin nhắn riêng (DM)": "Send a direct message (DM)",
+  "Nhập ID người dùng Discord và nội dung, bot sẽ nhắn riêng cho họ. (Bật Chế độ nhà phát triển trong Discord → chuột phải tên người dùng → Sao chép ID người dùng)":
+    "Enter the Discord user ID and your text and the bot will DM that person. (Turn on Developer Mode in Discord → right-click the user → Copy User ID)",
+  "Reaction role, giveaway, nhắn tin riêng, auto reply và tùy chỉnh giao diện — chỉ admin sở hữu bot mở khóa bằng mật khẩu mới dùng được.":
+    "Reaction role, giveaway, direct messages, auto reply and interface branding — only the bot-owning admin can use them, after unlocking with the password.",
+  "mới được thao tác mật khẩu và mở khóa tính năng ẩn — chủ hay mod của một server không thay thế được.":
+    "can touch the password and unlock the hidden area — being the owner or a mod of a server is not enough.",
+  "Chưa thiết lập chủ sở hữu. Người tạo bot cần đăng nhập bằng chính tài khoản Discord đã tạo bot, vào":
+    "No owner set up yet. Whoever created the bot has to sign in with the very Discord account that created it, then open",
+  "Sai mật khẩu rồi, thử lại nhé!": "Wrong password — try again!",
+  "Mục này được bảo vệ bằng mật khẩu do chủ sở hữu bot đặt. Chỉ người biết mật khẩu mới xem được nội dung bên trong.":
+    "This section is protected by a password set by the bot owner. Only someone who knows it can see what is inside.",
+  "Đã lưu danh sách trắng — bot áp dụng trong khoảng 3 phút":
+    "Whitelist saved — the bot applies it within about 3 minutes",
+  "Người dùng và role trong danh sách này": "Users and roles on this list",
+  ". Mỗi server giữ danh sách trắng riêng, không chia sẻ sang server khác.":
+    ". Every server keeps its own whitelist; nothing is shared with other servers.",
+  "Role Mod và Admin cấu hình trong Cài đặt vẫn hoạt động riêng — danh sách này dành cho role tùy chỉnh (ví dụ VIP, YouTuber, Staff…).":
+    "Mod and Admin roles from Settings keep working separately — this list is for custom roles (VIP, YouTuber, Staff…).",
+  "ID Discord, VD: 123456789012345678 (cách nhau bằng dấu phẩy hoặc khoảng trắng)":
+    "Discord IDs, e.g. 123456789012345678 (separated by commas or spaces)",
+  ": spam, từ ngữ xấu, link mời, link độc hại, file nguy hiểm, raid thành viên, ban/kick hàng loạt, tạo/xóa kênh và role hàng loạt, webhook/thread hàng loạt… Người dùng và role trong danh sách được bỏ qua hoàn toàn — không cộng nhiệt, không xóa tin, không ban. Danh sách này":
+    ": spam, bad words, invite links, malicious links, dangerous files, member raids, mass bans/kicks, mass channel and role create/delete, webhook or thread flooding… Users and roles on the list are skipped entirely — no heat, no deleted messages, no bans. This list",
+  "Lưu ý: danh sách này không miễn trừ Join Gate — tính năng chống selfbot khi vào server có danh sách trắng riêng trong mục Join Gate.":
+    "Note: this list does not exempt Join Gate — the anti-selfbot check on join keeps its own whitelist under Join Gate.",
+  "đã xử lý": "handled",
+  "Chưa có vụ raid bằng ứng dụng ngoài nào bị chặn": "No external-app raid blocked yet",
+  "(hoặc một app đáng ngờ: giả mạo app nổi tiếng, tên scam, do tài khoản mới kết nối, app spam @everyone kèm link lừa đảo), vụ đó xuất hiện ở đây kèm kết luận của AI, danh sách ứng dụng và người dùng đã bị xử lý.":
+    "(or a suspicious app: impersonating a well-known app, a scam name, connected by a brand-new account, or an app spamming @everyone with scam links), the incident shows up here with the AI verdict, the apps involved and the users that were handled.",
+  "người dùng app có đang raid không. AI học các dạng raid app ngoài (tài khoản phụ cài app, app giả mạo hoặc tên scam, spam @everyone kèm link lừa đảo, webhook spam) để chặn cả biến thể tương tự: app nào được kết nối, ai đã bị xử lý.":
+    "whether the app users are actually raiding. The AI learns the shapes of external-app raids (sockpuppet accounts installing apps, fake or scam-named apps, @everyone spam with scam links, webhook spam) so it can stop look-alike variants too: which app connected, and who was handled.",
 };
