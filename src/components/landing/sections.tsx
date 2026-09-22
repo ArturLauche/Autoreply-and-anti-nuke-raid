@@ -10,7 +10,6 @@ import {
   Gavel,
   Heart,
   LayoutDashboard,
-  Lock,
   MessageCircle,
   Megaphone,
   MessageSquareReply,
@@ -84,7 +83,7 @@ export function Features() {
     {
       icon: Megaphone,
       title: "Báo cáo khẩn & report",
-      desc: "Dùng /report hoặc !report khi server bị raid/nuke hay bot phạt nhầm: AI Mimu v2.5 đọc hàng trăm tin nhắn gần nhất để dựng lại tình huống và gửi báo cáo rõ ràng cho bạn.",
+      desc: "Dùng /report hoặc !report khi server bị raid/nuke hay bot phạt nhầm: hệ thống đọc lại hàng trăm tin nhắn gần nhất để dựng đúng diễn biến và gửi báo cáo kèm bằng chứng cho bạn.",
     },
     {
       icon: PartyPopper,
@@ -185,62 +184,10 @@ export function Features() {
   );
 }
 
-/**
- * Khu vực bí mật — KHÔNG liệt kê chi tiết tính năng ở đây. Những gì nằm trong
- * "Tính năng ẩn" chỉ dành riêng chủ sở hữu bot; công khai tên tính năng ra trang
- * chủ là lộ thông tin nội bộ cho mọi người.
- */
-export function HiddenFeatures() {
-  return (
-    <section className="relative py-16">
-      <div className="container">
-        <motion.div
-          variants={stagger}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: "-60px" }}
-          className="mx-auto max-w-2xl text-center"
-        >
-          <motion.div variants={fadeUp}>
-            <Badge className="mb-4 border-primary/40 bg-primary/10 text-primary">
-              <Lock className="h-3.5 w-3.5" />{" "}
-              {translate("Khu vực riêng tư · chỉ chủ sở hữu bot")}{" "}
-            </Badge>
-          </motion.div>
-          <motion.h2
-            variants={fadeUp}
-            className="font-display text-3xl font-bold tracking-tight md:text-4xl"
-          >
-            {translate("Một số khả năng đặc biệt…")}{" "}
-          </motion.h2>
-          <motion.p variants={fadeUp} className="mx-auto mt-3 max-w-xl text-muted-foreground">
-            {translate(
-              "Bên cạnh những gì bạn thấy, Protogon giữ riêng một khu vực quyền lực mà chỉ chủ sở hữu bot mở khóa được bằng mật khẩu bí mật — ngay trong dashboard, không cần cài thêm gì.",
-            )}{" "}
-          </motion.p>
-          <motion.div
-            variants={fadeUp}
-            className="mt-6 flex flex-wrap items-center justify-center gap-2"
-          >
-            {[
-              // i18n-ok: nhãn dịch lúc render bằng translate(t)
-              "Chỉ dành chủ sở hữu bot",
-              "Mở khóa bằng mật khẩu",
-              "Được bảo vệ chặt chẽ",
-            ].map((t) => (
-              <span
-                key={t}
-                className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1 text-xs text-muted-foreground"
-              >
-                {translate(t)}
-              </span>
-            ))}
-          </motion.div>
-        </motion.div>
-      </div>
-    </section>
-  );
-}
+// (Khối quảng cáo khu vực riêng của chủ bot đã được GỠ khỏi trang chủ:
+// quảng cáo một khu vực khoá bằng mật khẩu kèm "khả năng đặc biệt" là tiết lộ
+// sự tồn tại + phạm vi của tính năng ẩn cho mọi người. Trang công khai chỉ nói
+// về các tính năng ai cũng dùng được.)
 
 /** Thang nhiệt 4 giai đoạn — trực quan + sinh động. */
 function HeatLadder() {
@@ -433,10 +380,14 @@ export function AntiNuke() {
               ))}
             </div>
             <p className="mb-3 mt-3 text-center text-[11px] text-muted-foreground">
-              {translate("…cùng 12 module chống nuke khác, xem đầy đủ trong dashboard.")}{" "}
+              {translate("Đang hiển thị 20/32 module.")}{" "}
+              {translate("12 module chống nuke còn lại bật/tắt trong dashboard.")}{" "}
             </p>
-            <div className="mt-0 rounded-lg border border-white/20 bg-white/5 p-3 text-xs text-white/70">
-              <span className="font-semibold text-white">
+            {/* Nền/viền dùng token theme (border-border + bg-secondary) thay vì
+                trắng-trên-trắng: bản cũ hardcode chữ trắng trong khi nền ở light
+                mode cũng sáng — người dùng không đọc được gì. */}
+            <div className="mt-0 rounded-lg border border-border bg-secondary/60 p-3 text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">
                 {translate("🔒 Khóa kênh khi raid:")}
               </span>{" "}
               {translate(
@@ -489,7 +440,7 @@ export function HaimiyaSection() {
             </h2>
             <p className="mt-4 max-w-lg text-muted-foreground">
               {translate(
-                'Lấy cảm hứng từ nhân vật "đáng sợ mà đáng yêu", Haimiya là trợ lý ảo của Protogon, luôn túc trực trên website và dashboard. Haimiya giải đáp mọi thắc mắc về bot bằng tiếng Việt: hệ thống nhiệt độ, warn tích lũy, Join Gate, chống nuke/raid, auto reply, cách host bot…',
+                "Haimiya là trợ lý ảo của Protogon, luôn túc trực trên website và dashboard. Haimiya trả lời bằng đúng ngôn ngữ bạn đang chọn — tiếng Việt, tiếng Anh hoặc tiếng Đức — về hệ thống nhiệt độ, warn tích lũy, Join Gate, chống nuke/raid, auto reply và cách cấu hình bot.",
               )}{" "}
             </p>
             <ul className="mt-6 space-y-3 text-sm text-muted-foreground">

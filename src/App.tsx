@@ -18,6 +18,9 @@ const GuildHistory = lazy(() => import("./pages/GuildHistory"));
 const Monitor = lazy(() => import("./pages/Monitor"));
 const Admin = lazy(() => import("./pages/Admin"));
 const StatsPage = lazy(() => import("./pages/StatsPage"));
+// Trang pháp lý: 3 văn bản dùng CHUNG một component (khác tham số slug) — nội
+// dung nằm ở src/lib/legalContent.ts, không nhân bản code 3 lần.
+const LegalPage = lazy(() => import("./pages/LegalPage"));
 
 const BASE_TITLE = "Protogon — Bot Discord tự trả lời & chống nuke/raid";
 
@@ -28,6 +31,10 @@ const BASE_TITLE = "Protogon — Bot Discord tự trả lời & chống nuke/rai
  */
 const ROUTE_TITLES: Array<[pattern: string, title: string]> = [
   ["/auth", "Đăng nhập — Protogon"],
+  // Đứng TRƯỚC "/dashboard" để không bị khớp nhầm theo tiền tố.
+  ["/terms", "Điều khoản sử dụng — Protogon"],
+  ["/privacy", "Chính sách quyền riêng tư — Protogon"],
+  ["/data-deletion", "Lưu trữ & xoá dữ liệu — Protogon"],
   ["/dashboard", "Dashboard — Protogon"],
   ["/stats", "Thống kê nhiệt độ — Protogon"],
   ["/monitor", "Giám sát bot — Protogon"],
@@ -77,6 +84,11 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/discord/callback" element={<DiscordCallback />} />
+          {/* Trang công khai, không cần đăng nhập: Discord yêu cầu URL riêng cho
+              Terms of Service và Privacy Policy khi xác minh bot. */}
+          <Route path="/terms" element={<LegalPage slug="terms" />} />
+          <Route path="/privacy" element={<LegalPage slug="privacy" />} />
+          <Route path="/data-deletion" element={<LegalPage slug="data-deletion" />} />
           <Route path="/monitor" element={<Monitor />} />
           <Route path="/admin" element={<Admin />} />
           <Route

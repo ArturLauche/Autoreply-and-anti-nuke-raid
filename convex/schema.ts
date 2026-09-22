@@ -173,8 +173,11 @@ export default defineSchema({
      */
     relayShare: v.optional(v.boolean()),
     relayReceive: v.optional(v.boolean()),
+    /** DI SẢN: hash mật khẩu tính năng ẩn theo từng server (salt = guildId). Mật
+     *  khẩu giờ nằm toàn cục ở botStatus; field này chỉ được đọc để nâng cấp một
+     *  lần rồi xoá — đừng ghi mới vào đây. */
     hiddenPasswordHash: v.optional(v.string()),
-    /** Rate-limit dò mật khẩu ẩn: lần thử gần nhất + số lần SAI liên tiếp. */
+    /** DI SẢN: bộ đếm chống dò theo server (giờ đếm toàn cục ở botStatus). */
     hiddenVerifyLastAt: v.optional(v.number()),
     hiddenVerifyFails: v.optional(v.number()),
     /** Chủ đề màu riêng cho web của server (key trong SERVER_THEMES). */
@@ -506,6 +509,13 @@ export default defineSchema({
     botAvatarUrl: v.optional(v.string()),
     /** Avatar trợ lý AI Haimiya-senpai hiển thị trên web. */
     haimiyaAvatarUrl: v.optional(v.string()),
+    /** Mật khẩu mở khóa TÍNH NĂNG ẨN — TOÀN CỤC (một mật khẩu cho mọi server),
+     *  salt không kèm guildId: cổng phải giống nhau ở mọi dashboard, không chỉ
+     *  ở server nơi chủ bot đặt mật khẩu. */
+    hiddenPasswordHash: v.optional(v.string()),
+    /** Chống dò mật khẩu ẩn — bộ đếm toàn cục (5 lần sai / 10 phút). */
+    hiddenVerifyFails: v.optional(v.number()),
+    hiddenVerifyLastAt: v.optional(v.number()),
     /** Tên chủ bot (bot tự lấy từ Discord mỗi lần sync — cập nhật 24/7). */
     ownerName: v.optional(v.string()),
     /** Avatar chủ bot (bot tự lấy từ Discord mỗi lần sync — cập nhật 24/7). */

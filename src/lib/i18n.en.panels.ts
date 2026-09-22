@@ -348,8 +348,6 @@ export const EN_PANELS: Record<string, string> = {
   "Đã xóa ảnh tùy chỉnh, trở về mặc định": "Custom image removed — back to the default",
   "Nhận sự kiện chống nuke/raid, báo cáo hàng ngày và các thông báo quan trọng.":
     "Receives anti-nuke/raid events, the daily report and other important notices.",
-  "Kênh log hành động mod — auto-mod và lệnh thủ công, theo phong cách Carl-bot":
-    "Mod action log channel — auto-mod and manual commands, Carl-bot style",
   "Tóm tắt sự kiện chống nuke gửi vào kênh log vào khoảng 00:00 UTC mỗi ngày":
     "Posts an anti-nuke summary to the log channel around 00:00 UTC every day",
   "Khi bot xác nhận raid/nuke: gửi DM khẩn cho chủ server (kẻ nuke không xóa được), AI quét chat và báo cáo vào kênh log, kèm lệnh":
@@ -575,8 +573,8 @@ export const EN_PANELS: Record<string, string> = {
 
   /* ==== Lô 5 — viết lại copy panel ModActions / Dm / Hidden / Unlock / Whitelist / ExternalAppRaids. */
   "Chưa có hình phạt nào — server đang yên bình 🎉": "No punishments yet — the server is calm 🎉",
-  "(kiểu Carl-bot), lý do, người thực hiện, và phân biệt rõ nguồn:":
-    "(Carl-bot style), the reason, who did it, and a clear split by source:",
+  "(hình phạt, lý do, người xử lý) và tách rõ nguồn:":
+    "(the punishment, the reason, who handled it) and a clear split by source:",
   "Đã gửi yêu cầu — bot gửi DM trong khoảng 1 phút 💌":
     "Request sent — the bot sends the DM within about 1 minute 💌",
   "Gửi tin nhắn riêng (DM)": "Send a direct message (DM)",

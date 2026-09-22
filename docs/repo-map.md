@@ -17,18 +17,19 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 
 ## src/ — dashboard web
 
-| Trang                       | Vai trò                                           |
-| --------------------------- | ------------------------------------------------- |
-| `pages/Landing.tsx`         | Trang chủ mono + Taskbar pill trái + hero stagger |
-| `pages/AuthPage.tsx`        | Đăng nhập Discord OAuth                           |
-| `pages/Dashboard.tsx`       | Danh sách server của user                         |
-| `pages/GuildPage.tsx`       | Trang cấu hình 1 server (tabs → các panel dưới)   |
-| `pages/Monitor.tsx`         | Giám sát thời gian thực (chart, sự cố)            |
-| `pages/StatsPage.tsx`       | Thống kê tổng                                     |
-| `pages/Admin.tsx`           | Trang admin                                       |
-| `pages/GuildHistory.tsx`    | Lịch sử sự kiện server                            |
-| `pages/DiscordCallback.tsx` | Bắt callback OAuth                                |
-| `pages/NotFound.tsx`        | 404                                               |
+| Trang                       | Vai trò                                            |
+| --------------------------- | -------------------------------------------------- |
+| `pages/Landing.tsx`         | Trang chủ mono + Taskbar pill trái + hero stagger  |
+| `pages/AuthPage.tsx`        | Đăng nhập Discord OAuth                            |
+| `pages/Dashboard.tsx`       | Danh sách server của user                          |
+| `pages/GuildPage.tsx`       | Trang cấu hình 1 server (tabs → các panel dưới)    |
+| `pages/Monitor.tsx`         | Giám sát thời gian thực (chart, sự cố)             |
+| `pages/StatsPage.tsx`       | Thống kê tổng                                      |
+| `pages/Admin.tsx`           | Trang admin                                        |
+| `pages/GuildHistory.tsx`    | Lịch sử sự kiện server                             |
+| `pages/DiscordCallback.tsx` | Bắt callback OAuth                                 |
+| `pages/LegalPage.tsx`       | Văn bản pháp lý (/terms, /privacy, /data-deletion) |
+| `pages/NotFound.tsx`        | 404                                                |
 
 | Component nhóm               | Vai trò                                                                                              |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -40,6 +41,7 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 | `components/LangSwitch.tsx`  | Công tắc ngôn ngữ VI/EN/DE — nhúng vào chrome mọi trang (nav, taskbar, header dashboard, trang auth) |
 | `lib/i18n.tsx`               | Lõi đa ngôn ngữ gettext: LangProvider/useT, `translate()` toàn cục, `dateLocale()`                   |
 | `lib/i18n.en.ts`             | Từ điển EN (key = nguyên chuỗi tiếng Việt); thiếu key thì rơi về VI                                  |
+| `lib/legalContent.ts`        | Nội dung 3 văn bản pháp lý × VI/EN/DE (cổng 3f check-i18n kiểm cấu trúc)                             |
 | `lib/useBotMonitor.ts`       | Hook trạng thái bot realtime                                                                         |
 | `lib/constants.ts`           | SERVER_THEMES (đã mono xám), hằng số                                                                 |
 
@@ -61,6 +63,7 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 | `research.js`                                                  | Tra cứu/threat research hỗ trợ AI                                   |
 | `ai.js`                                                        | Client AI trực tiếp từ VPS (Kira gateway + fallback Groq/NVIDIA)    |
 | `util.js`                                                      | Tiện ích dùng chung: quyền, định dạng, helper                       |
+| `logDedupe.js`                                                 | Chống gửi trùng log (cùng embed + cùng kênh trong 3s)               |
 
 ## convex/ — backend
 

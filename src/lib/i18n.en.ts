@@ -52,6 +52,47 @@ export const EN: Record<string, string> = {
   "Raid external app": "External app raid",
   Whitelist: "Whitelist",
   "Backup server": "Server backup",
+  "Tôi là Haimiya, trợ lý ảo của Protogon — bot Discord bảo vệ server. Tôi có thể giải đáp về hệ thống nhiệt độ, Join Gate, chống nuke/raid, auto reply, công cụ mod… Bạn cứ hỏi, tôi sẽ trả lời rõ ràng.":
+    "I'm Haimiya, Protogon's assistant — the Discord bot that protects your server. I can walk you through violation heat, Join Gate, anti-nuke/raid, auto-replies and mod tools… Ask away and I'll answer plainly.",
+  "Dashboard là trang quản lý bot trên web 🖥️. Bạn đăng nhập bằng Discord, chọn server, rồi quản lý mọi thứ: Moderation (nhiệt độ, warn, lọc nội dung), Join Gate, Chống nuke/raid, Hình phạt và Cài đặt (prefix, kênh log, chủ đề màu). Thay đổi được bot áp dụng trong khoảng 3 phút.":
+    "The dashboard is the web control panel 🖥️. Sign in with Discord, pick a server, then manage everything: Moderation (heat, warns, content filtering), Join Gate, anti-nuke/raid, punishments and Settings (prefix, log channels, colour theme). The bot applies changes within about 3 minutes.",
+  "Bot hỗ trợ cả prefix và slash command ⌨️. Công cụ Mod: /mod timeout, /mod kick, /mod ban, /mod purge — lệnh text tương đương !timeout !kick !ban !purge. Ngoài ra: /heat status xem nhiệt & warn, /antinuke bật tắt bảo vệ, /prefix đổi prefix, /badword quản lý từ ngữ xấu. Gõ / trong Discord để xem toàn bộ danh sách slash command.":
+    "The bot supports both prefix and slash commands ⌨️. Mod tools: /mod timeout, /mod kick, /mod ban, /mod purge — the text equivalents are !timeout !kick !ban !purge. Also: /heat status for heat & warns, /antinuke to toggle protection, /prefix to change the prefix, /badword to manage banned words. Type / in Discord for the full slash command list.",
+  // ── Bổ sung 22/09: bịt rò rỉ khu vực chủ bot + gộp cấu hình kênh log ──
+  "Phần này nằm trong khu vực riêng của chủ sở hữu bot nên mình không chia sẻ công khai 🔒. Nếu bạn cần hỗ trợ về các tính năng dùng chung — auto reply, nhiệt độ vi phạm, chống nuke/raid, Join Gate, verify, backup — cứ hỏi mình nhé.":
+    "That part belongs to the bot owner's private area, so I don't share it publicly 🔒. If you need help with the shared features — auto-replies, violation heat, anti-nuke/raid, Join Gate, verification, backups — just ask.",
+  "Khóa khu vực riêng tư dành cho chủ sở hữu bot. Mật khẩu thuộc về chủ bot và áp dụng cho":
+    "Locks the bot owner's private area. The password belongs to the bot owner and applies to",
+  "mọi server": "every server",
+  "bạn quản lý trên dashboard — không riêng server này. Chỉ":
+    "you manage on the dashboard — not just this one. Only",
+  "được đặt, đổi hoặc xóa.": "may set, change or clear it.",
+  "Chống nuke/raid, Join Gate, verify, báo cáo hàng ngày và mọi thông báo hệ thống. Để trống = tắt toàn bộ log.":
+    "Anti-nuke/raid, Join Gate, verification, the daily report and every system notice. Leave empty to turn all logging off.",
+  "Kênh log hành động mod (tùy chọn)": "Mod action log channel (optional)",
+  "Case ban · kick · timeout · warn và auto-mod (embed hình phạt với":
+    "Ban · kick · timeout · warn cases and auto-mod (punishment embed with",
+  // ── Rà soát copy 22/09/2026: bỏ tên model/vendor khỏi câu chào hàng, sửa câu
+  //    nói sai số module, và Haimiya nay trả lời theo ngôn ngữ người dùng chọn.
+  "embed hình phạt chi tiết": "detailed punishment embed",
+  "Dùng /report hoặc !report khi server bị raid/nuke hay bot phạt nhầm: hệ thống đọc lại hàng trăm tin nhắn gần nhất để dựng đúng diễn biến và gửi báo cáo kèm bằng chứng cho bạn.":
+    "Use /report or !report when a raid/nuke hits or the bot punishes the wrong member: the system re-reads hundreds of recent messages to reconstruct what happened, then sends you a report with the evidence.",
+  "Đang hiển thị 20/32 module.": "Showing 20 of 32 modules.",
+  "12 module chống nuke còn lại bật/tắt trong dashboard.":
+    "The other 12 anti-nuke modules are toggled in the dashboard.",
+  "Haimiya là trợ lý ảo của Protogon, luôn túc trực trên website và dashboard. Haimiya trả lời bằng đúng ngôn ngữ bạn đang chọn — tiếng Việt, tiếng Anh hoặc tiếng Đức — về hệ thống nhiệt độ, warn tích lũy, Join Gate, chống nuke/raid, auto reply và cách cấu hình bot.":
+    "Haimiya is Protogon's virtual assistant, always available on the website and in the dashboard. Haimiya answers in whichever language you have selected — Vietnamese, English, or German — about the heat system, accumulated warnings, Join Gate, anti-nuke/raid, auto-reply, and how to configure the bot.",
+  '; lý do trống → ghi "không có lý do"). Để trống = dùng kênh log chung; chọn trùng kênh log chung thì bot vẫn chỉ gửi một tin cho mỗi case — không nhân đôi log.':
+    '; an empty reason is logged as "no reason"). Leave empty to use the general log channel; picking the same channel as the general log still sends only one message per case — no duplicate logs.',
+  "Kênh nhận thông báo": "Notification channel",
+  "Bot gửi case vào kênh log hành động mod; chưa đặt thì dùng kênh log chung. Nơi cấu hình duy nhất là":
+    "The bot posts each case to the mod action log channel, or to the general log channel if that is not set. The only place to configure it is",
+  "Cài đặt → Kênh log": "Settings → Log channels",
+  "— không chọn kênh lại ở đây để tránh hai nơi ghi đè nhau và log bị nhân đôi.":
+    "— don't pick a channel again here, so two places can't override each other and duplicate logs.",
+  "Đang gửi tới:": "Currently sending to:",
+  "Chưa chọn kênh log nào nên bot chưa gửi được thông báo hình phạt — vào Cài đặt → Kênh log để chọn.":
+    "No log channel is set yet, so the bot cannot post punishment notices — pick one in Settings → Log channels.",
   "Xác minh (Verify)": "Verify",
   "Webhook & Log": "Webhook & Log",
   "Cài đặt": "Settings",

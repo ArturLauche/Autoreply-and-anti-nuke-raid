@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Facebook, MessageCircle, User } from "lucide-react";
 import { Button } from "../ui/button";
 import { SafeHaimiyaAvatar } from "./shared";
@@ -69,6 +70,23 @@ export default function Footer({
             </a>
           </div>
         </div>
+        {/* Liên kết pháp lý: mọi trang (kể cả trang pháp lý khác) đều có đường
+            tới 3 văn bản này — yêu cầu bắt buộc để xác minh bot trên Discord. */}
+        <nav
+          aria-label={translate("Văn bản pháp lý")}
+          className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground"
+        >
+          <span className="font-semibold text-foreground">{translate("Văn bản pháp lý")}</span>
+          <Link to="/terms" className="transition-colors hover:text-foreground">
+            {translate("Điều khoản sử dụng")}
+          </Link>
+          <Link to="/privacy" className="transition-colors hover:text-foreground">
+            {translate("Chính sách quyền riêng tư")}
+          </Link>
+          <Link to="/data-deletion" className="transition-colors hover:text-foreground">
+            {translate("Lưu trữ & xoá dữ liệu")}
+          </Link>
+        </nav>
         <div className="mt-6 flex flex-col items-center justify-between gap-3 border-t border-border/60 pt-6 md:flex-row">
           <p className="text-center text-sm text-muted-foreground">
             © {new Date().getFullYear()}{" "}

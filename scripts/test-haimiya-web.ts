@@ -31,12 +31,14 @@ check("chữ hoa + có dấu → vẫn khớp chủ đề", !upper.text.includes
 const noDi = askHaimiya("cho hoi he thong nhiet do chay the nao");
 check("không dấu → vẫn khớp chủ đề nhiệt độ", !noDi.text.includes("chưa kết nối được"));
 
-// 3. Tính năng riêng tư → phải từ chối tiết lộ
+// 3. Tính năng riêng tư → phải từ chối tiết lộ.
+// Chấp nhận mọi cách diễn đạt của cùng một nguyên tắc: khu vực riêng của chủ
+// sở hữu bot thì không chia sẻ công khai. Ghim cứng một cụm từ khiến câu trả
+// lời đổi giọng (đợt rà soát copy) là test đỏ oan, còn luật thật vẫn nguyên.
+const PRIVATE_ANSWER_RE =
+  /riêng tư|riêng của chủ sở hữu bot|không chia sẻ công khai|không tiết lộ/i;
 const giveaway = askHaimiya("giveaway hoạt động sao?");
-check(
-  "hỏi giveaway → giữ nguyên tắc riêng tư",
-  giveaway.text.includes("riêng tư") || giveaway.text.includes("không tiết lộ"),
-);
+check("hỏi giveaway → giữ nguyên tắc riêng tư", PRIVATE_ANSWER_RE.test(giveaway.text));
 
 // 4. Câu ngoài phạm vi → fallback lịch sự
 const fallback = askHaimiya("hôm nay thời tiết thế nào nhỉ");

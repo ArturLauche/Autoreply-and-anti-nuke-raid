@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild, guildAccessibleBy } from "./auth";
 import { requireBotKeyStrict } from "./botAuth";
+import { hiddenPasswordIsSet } from "./hidden";
 import {
   ANTI_NUKE_MODULES,
   HEAT_DEFAULTS,
@@ -146,7 +147,10 @@ export const getGuild = query({
         },
         whitelistUsers: guild.whitelistUsers ?? [],
         whitelistRoles: guild.whitelistRoles ?? [],
-        hiddenPasswordSet: !!guild.hiddenPasswordHash,
+        // Cổng mật khẩu ẩn là TOÀN CỤC (thuộc chủ bot, không thuộc server này) →
+        // mọi server đều báo cùng trạng thái, không còn cảnh server có mật khẩu
+        // thì khoá còn server khác thì mở toang.
+        hiddenPasswordSet: await hiddenPasswordIsSet(ctx),
         isBotOwner,
         botOwnerSet: !!ownerDiscordId,
         theme: guild.theme ?? "pink",

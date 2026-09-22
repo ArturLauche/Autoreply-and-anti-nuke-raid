@@ -196,18 +196,19 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                   </Select>
                   <p className="text-[11px] text-muted-foreground">
                     {translate(
-                      "Nhận sự kiện chống nuke/raid, báo cáo hàng ngày và các thông báo quan trọng.",
+                      "Chống nuke/raid, Join Gate, verify, báo cáo hàng ngày và mọi thông báo hệ thống. Để trống = tắt toàn bộ log.",
                     )}{" "}
                   </p>
                 </div>
               </div>
 
-              <div className="grid gap-1.5">
+              {/* Kênh log hành động mod: TUỲ CHỌN. Đây là nơi DUY NHẤT chọn kênh
+                  log (bảng Moderation chỉ hiển thị lại), nên không còn cảnh hai
+                  nơi ghi đè nhau rồi một case bị gửi hai lần. */}
+              <div className="grid gap-1.5 rounded-xl border border-border bg-secondary/20 p-3">
                 <Label>
                   <Hash className="mr-1 inline h-3.5 w-3.5" />
-                  {translate(
-                    "Kênh log hành động mod — auto-mod và lệnh thủ công, theo phong cách Carl-bot",
-                  )}{" "}
+                  {translate("Kênh log hành động mod (tùy chọn)")}{" "}
                 </Label>
                 <Select value={modLogChannelId} onValueChange={setModLogChannelId}>
                   <SelectTrigger>
@@ -223,9 +224,11 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                   </SelectContent>
                 </Select>
                 <p className="text-[11px] text-muted-foreground">
-                  {translate("Embed moderation hiển thị")} <b>Offender</b> / <b>Reason</b> /{" "}
-                  <b>Responsible moderator</b>
-                  {translate('. Lý do trống → ghi "không có lý do".')}{" "}
+                  {translate("Case ban · kick · timeout · warn và auto-mod (embed hình phạt với")}{" "}
+                  <b>Offender</b> / <b>Reason</b> / <b>Responsible moderator</b>
+                  {translate(
+                    '; lý do trống → ghi "không có lý do"). Để trống = dùng kênh log chung; chọn trùng kênh log chung thì bot vẫn chỉ gửi một tin cho mỗi case — không nhân đôi log.',
+                  )}{" "}
                 </p>
               </div>
 
@@ -457,9 +460,11 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                 </p>
                 <p className="text-[11px] text-muted-foreground">
                   {translate(
-                    "Dùng để mở khóa khu vực riêng tư dành cho chủ sở hữu bot; nội dung bên trong không tiết lộ công khai. Chỉ",
+                    "Khóa khu vực riêng tư dành cho chủ sở hữu bot. Mật khẩu thuộc về chủ bot và áp dụng cho",
                   )}{" "}
-                  <b>{translate("admin sở hữu bot")}</b> {translate("được đặt.")}{" "}
+                  <b>{translate("mọi server")}</b>{" "}
+                  {translate("bạn quản lý trên dashboard — không riêng server này. Chỉ")}{" "}
+                  <b>{translate("admin sở hữu bot")}</b> {translate("được đặt, đổi hoặc xóa.")}{" "}
                 </p>
               </div>
 

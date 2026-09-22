@@ -3,7 +3,7 @@
 > Bot Discord tự trả lời theo từ khóa, hệ thống nhiệt độ vi phạm 4 giai đoạn
 > (cảnh báo → tạm khóa → kick → ban), Join Gate chống selfbot, chặn link độc
 > hại & file nguy hiểm, 32 module chống nuke/raid và bảng điều khiển web trực
-> quan. Có trợ lý ảo Haimiya giải đáp bằng tiếng Việt.
+> quan. Có trợ lý ảo Haimiya giải đáp theo ngôn ngữ người dùng chọn (VI/EN/DE).
 
 Trang chủ: https://protogon.freebuff.app
 Đăng nhập: https://protogon.freebuff.app/auth (qua Discord OAuth2)
@@ -12,6 +12,9 @@ Trang chủ: https://protogon.freebuff.app
 
 - `/` — giới thiệu tính năng, cách hoạt động, trợ lý Haimiya
 - `/auth` — đăng nhập bằng Discord
+- `/terms` — điều khoản sử dụng
+- `/privacy` — chính sách quyền riêng tư
+- `/data-deletion` — lưu trữ và xoá dữ liệu
 
 ## Trang cần đăng nhập (không thể xem khi chưa xác thực)
 

@@ -531,4 +531,21 @@ export const DE_LABELS: Record<string, string> = {
   "bỏ qua: vượt trần hành động tự động/phút (action budget)":
     "übersprungen: Limit für automatische Aktionen/Minute überschritten",
   "đã tạm khóa": "Timeout",
+  // ── Rechtstexte (/terms, /privacy, /data-deletion) ──
+  "Văn bản pháp lý": "Rechtliches",
+  "Cập nhật lần cuối": "Zuletzt aktualisiert",
+  "Áp dụng cho": "Gilt für",
+  "bot Protogon và dashboard web": "den Protogon-Bot und das Web-Dashboard",
+  "Mục lục": "Inhalt",
+  "Văn bản khác": "Weitere Dokumente",
+  "Về đầu trang": "Nach oben",
+  "Cần hỗ trợ thêm?": "Noch Fragen?",
+  "Mọi câu hỏi về văn bản này, yêu cầu xoá dữ liệu hoặc báo lỗi bot đều được tiếp nhận trong kênh hỗ trợ của cộng đồng.":
+    "Fragen zu diesem Dokument, Löschanfragen und Fehlerberichte zum Bot nehmen wir im Support-Kanal der Community entgegen.",
+  "Điều khoản sử dụng": "Nutzungsbedingungen",
+  "Chính sách quyền riêng tư": "Datenschutzerklärung",
+  "Lưu trữ & xoá dữ liệu": "Aufbewahrung & Löschung",
+  "Điều khoản sử dụng — Protogon": "Nutzungsbedingungen — Protogon",
+  "Chính sách quyền riêng tư — Protogon": "Datenschutzerklärung — Protogon",
+  "Lưu trữ & xoá dữ liệu — Protogon": "Aufbewahrung & Löschung — Protogon",
 };

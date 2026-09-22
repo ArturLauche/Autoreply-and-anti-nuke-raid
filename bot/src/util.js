@@ -1,4 +1,5 @@
 const { EmbedBuilder, Colors, PermissionFlagsBits } = require("discord.js");
+const { isDuplicateDelivery } = require("./logDedupe");
 
 function hasPermission(member, permission) {
   if (!member || !member.permissions) return false;
@@ -154,6 +155,9 @@ async function sendLog(guild, guildConfig, embed, eventType, meta = {}) {
   // webhook eventTypes "all" nên nó nhận MỌI hạng mục kể cả khi nằm ở kênh hình
   // phạt → log raid/nuke spam nhầm kênh phạt thay vì kênh log chung.
   const targetChannel = guildConfig.logChannelId ?? guildConfig.modLogChannelId;
+  // Chốt chống gửi trùng: cùng một embed vào CÙNG kênh trong vài giây là lỗi
+  // định tuyến (các nhánh log chồng kênh nhau), không phải hai sự kiện thật.
+  if (isDuplicateDelivery(targetChannel, embed)) return;
   // Cảnh báo quan trọng (raid/nuke) luôn ưu tiên ĐÚNG kênh log chung: chỉ dùng
   // webhook nếu webhook đó nằm TRONG kênh log chung; nếu không gửi thẳng kênh.
   const critical = et === "raid" || et === "antinuke";
@@ -198,6 +202,9 @@ async function sendModLog(
 ) {
   if (!guildConfig) return false;
   const targetChannel = preferChannelId ?? guildConfig.modLogChannelId ?? guildConfig.logChannelId;
+  // Chốt chống gửi trùng (xem logDedupe.js): chặn trường hợp kênh hình phạt và
+  // kênh log mod chồng nhau khiến cùng một case bị đẩy hai lần.
+  if (isDuplicateDelivery(targetChannel, embed)) return false;
   // Toàn bộ log gửi qua webhook — KHÔNG fallback kênh thường.
   return await deliverViaWebhooks(guild, eventType, embed, meta, targetChannel);
 }

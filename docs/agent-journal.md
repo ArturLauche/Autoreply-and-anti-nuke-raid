@@ -6,17 +6,62 @@
 
 ## Đang dở
 
-- **Dọn nốt bản dịch chết còn lại** (di sản đợt viết lại copy Lô 1-5) — số đo 22/09 sau lượt dọn 12
-  entry: `i18n.en.ts` **51** · `i18n.en.labels.ts` **38** · `i18n.de.ts` **51** · `i18n.de.labels.ts`
-  **38** (guard báo **89 bản EN chết**) + **12 bản DE mồ côi** trong `i18n.de.ts` (4 cũ + 8 phát sinh
-  đúng lượt này vì mới xoá phía EN — dọn phía DE là hết).
-- 🚧 **Chặn kỹ thuật — đọc trước khi làm tiếp**: công cụ patch (`str_replace`) của phiên 22/09 **không
-  so khớp được** `oldString` chứa tiếng Việt trong `src/lib/i18n.en.ts`: `grep` + script khẳng định dòng
-  tồn tại và đúng dạng NFC (đã kiểm codepoint), patch vẫn báo "not found" kể cả khi gửi dạng NFD; cùng
-  lúc `oldString` **ASCII** trong CÙNG file vẫn áp bình thường. Đã dọn 12/59 entry của file rồi bị chặn
-  → phiên sau thử lại (có thể lỗi tạm thời) hoặc bắt đầu từ file khác. In nguyên văn entry cần xoá:
-  `node scripts/_i18n-dead-lines.cjs --file=<tên file>` (chia khối bằng `--from/--to`), bản DE mồ côi:
-  `--orphan-de`. Xong thì `node scripts/check-i18n.cjs` không còn mục ℹ️ nào.
+- **Dọn nốt bản dịch chết còn lại** (di sản các đợt viết lại copy) — số đo 22/09 sau lượt này: guard
+  báo **119 bản EN chết** (liệt kê đầu danh sách là các câu Haimiya + landing cũ) và **12 bản DE mồ
+  côi**. In nguyên văn entry cần xoá: `node scripts/_i18n-dead-lines.cjs --file=<tên file>`
+  (chia khối bằng `--from/--to`), bản DE mồ côi: `--orphan-de`. Xong thì `node scripts/check-i18n.cjs`
+  không còn mục ℹ️ nào.
+- 🚧 **Chặn kỹ thuật đã xác định được quy luật (đọc trước khi làm tiếp)**: công cụ patch
+  (`str_replace`) chỉ sửa được **vùng ĐẦU của file lớn** — trong `src/lib/i18n.en.ts` (87 KB) sửa được
+  entry ở offset ~5 KB nhưng mọi `oldString` lấy từ offset ~56 KB đều báo "not found" (dòng tồn tại
+  thật, `grep` xác nhận; `i18n.de.ts` 92 KB và các file từ điển lớn tương tự). Quy tắc rút ra:
+  1. **Đừng sửa key ở cuối file từ điển lớn** — muốn đổi câu hiển thị thì tạo key MỚI chèn ở vùng đầu
+     (patch được) và chấp nhận entry cũ thành bản dịch chết (guard báo mềm), HOẶC ghi đè giá trị
+     EN/DE cho **cùng key** bằng entry trùng tên trong `i18n.*.labels.ts`/`.panels.ts` (file nhỏ, gộp
+     sau nên thắng) khi không cần đổi chính chuỗi VI.
+  2. Việc cần xoá entry ở vùng cuối → ghi vào danh sách nợ này, chờ phiên có công cụ đọc đủ file.
+     Nợ hiện tại từ lượt này: 2 entry `"embed moderation kiểu Carl-bot"` (EN + DE) trong
+     `i18n.en.ts`/`i18n.de.ts` đã chết vì UI đổi sang key `"embed hình phạt chi tiết"`.
+  3. `str_replace` cũng có lúc báo "file does not exist" hoặc dùng snapshot cũ cho file vừa ghi → luôn
+     `grep`/`read_files` kiểm lại nội dung trên đĩa sau mỗi lần áp patch.
+
+---
+
+## 2026-09-22 — Trang pháp lý 3 route + rà soát copy AI-slop + siết cổng nội dung đa ngữ
+
+- ✨ **Ba trang pháp lý công khai, URL riêng**: `/terms` · `/privacy` · `/data-deletion` (Discord chỉ
+  xác minh bot khi ToS + Privacy có URL riêng, không cần đăng nhập — dùng luôn tên miền dashboard,
+  không phải nuôi site phụ). Nội dung thật 3 thứ tiếng ở `src/lib/legalContent.ts`: **3 văn bản ×
+  3 ngôn ngữ × 9 mục**, viết theo đúng dữ liệu bot thật (bảng `users/sessions/guilds/modActions/
+guildBackups/antinukeEvents/memberJoins`, backup AES-256-GCM, gist GitHub, phiên dashboard).
+- 🎨 `src/pages/LegalPage.tsx`: MỘT component dùng chung cho 3 route (khác tham số `slug`) — layout
+  editorial (mục lục sticky, mục đánh số 01/02…, khối tóm tắt, liên kết chéo 3 văn bản, CTA liên hệ,
+  nút về đầu trang), đi qua `translate()` như mọi trang khác. Đổi văn bản tự cuộn về đầu trang.
+- 🔍 **Cổng i18n mới 3f — không có lỗ miễn trừ**: file đánh dấu `@i18n-content` được miễn luật "nhãn
+  dữ liệu phải có bản EN", ĐỔI LẠI phải qua kiểm tra CẤU TRÚC bằng parser: cây `vi` vs `en`/`de` phải
+  trùng đường dẫn, không ô rỗng, không đoạn nào giữ nguyên tiếng Việt. 3 test mới trong
+  `test-i18n.cjs` (đủ 3 ngôn ngữ → xanh; thiếu nhánh DE → đỏ; BỎ marker → vẫn đỏ vì luật nhãn dữ liệu)
+  chứng minh miễn trừ không phải lỗ.
+- 🧹 **Rà soát copy AI-slop/sai** (đợt này): bỏ tên model/hãng khỏi câu chào hàng (`AI Mimu v2.5` →
+  "hệ thống đọc lại hàng trăm tin nhắn…"), bỏ **4 chỗ gọi tên bot đối thủ** ("kiểu Carl-bot" → "embed
+  hình phạt chi tiết" / "(hình phạt, lý do, người xử lý)"), sửa câu nói **sai số module** ("…cùng 12
+  module chống nuke khác" sau danh sách 8 module → "Đang hiển thị 20/32 module. 12 module chống nuke
+  còn lại bật/tắt trong dashboard."), và Haimiya hết bị quảng cáo là "chỉ tiếng Việt" (nay đúng: trả
+  lời theo ngôn ngữ đang chọn) — kèm bản EN/DE cho mọi câu mới.
+- 🐛 **Bug tương phản thật ở trang chủ**: khối "Khóa kênh khi raid" hardcode `text-white` + `bg-white/5`
+  → ở theme SÁNG là chữ trắng trên nền trắng, không đọc được. Chuyển sang token theme
+  (`border-border`/`bg-secondary`/`text-foreground`) + test chặn tái diễn trong `test-web-contracts.cjs`
+  (bỏ qua dòng comment).
+- 🧪 `test-web-contracts.cjs` +21 case: 3 route pháp lý tồn tại, KHÔNG bọc `RequireAuth`, đứng trước
+  catch-all; footer trỏ đủ 3; `legalContent.ts` có marker + đủ 3 bộ ngôn ngữ + mỗi slug đủ 3 bản;
+  sitemap có 3 URL; chuỗi `translate("…")` không còn tên bot khác.
+- 📄 `docs/repo-map.md` (+2 dòng), `public/sitemap.xml` (+3 URL), `public/llms.txt` (danh sách trang
+  công khai + sửa câu "Haimiya tiếng Việt").
+- 🐛 Sửa **regression tiềm ẩn từ lượt trước**: `scripts/test-haimiya-web.ts` bắt cứng cụm "riêng tư"
+  trong câu trả lời OWNER_ONLY_ANSWER (đã đổi giọng ở đợt siết rò rỉ tính năng ẩn) → 5/5 suite TS
+  đang đỏ. Nay khớp theo NGỮ NGHĨA (`/riêng tư|riêng của chủ sở hữu bot|không chia sẻ công khai/`).
+- ✅ Kiểm chứng: `59/59 suites` · `test:ts 5/5` · `tsc` · `lint` · `format:check` · `check-repo-map`
+  (11 trang) · `check-convex-contract` · `check-i18n` (0 FAIL) · `bun convex dev --once` OK.
 
 ---
 

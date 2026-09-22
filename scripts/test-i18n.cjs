@@ -231,13 +231,14 @@ const NEWLINE_KEY_LIT = "'Dòng một\\ndòng hai'";
 const ARRAY_LABEL = "Chống ban hàng loạt";
 const QUOTE_KEY_LIT = '"Nhãn \\"trích dẫn\\" kèm \\n xuống dòng"';
 
-function makeFixture(codeExtra) {
+function makeFixture(codeExtra, extraFiles) {
   fs.rmSync(FIXTURE, { recursive: true, force: true });
   const put = (rel, body) => {
     const p = path.join(FIXTURE, rel);
     fs.mkdirSync(path.dirname(p), { recursive: true });
     fs.writeFileSync(p, body);
   };
+  for (const [rel, body] of Object.entries(extraFiles || {})) put(rel, body);
   put("scripts/check-i18n.cjs", read("scripts/check-i18n.cjs")); // chạy ĐÚNG guard của repo
   put("convex/.keep", "");
   put(
@@ -365,6 +366,49 @@ try {
   const wrapped = runFixtureGuard();
   check("Guard i18n cho qua khi mảng VI được bọc translate(m)", wrapped.ok);
   if (!wrapped.ok) console.error(wrapped.out.split("\n").slice(0, 8).join("\n"));
+} finally {
+  fs.rmSync(FIXTURE, { recursive: true, force: true });
+}
+
+// ─── 12. Cổng nội dung đa ngữ tự chứa (văn bản pháp lý) ─────────────────────
+// Trang pháp lý cần văn bản dài 3 thứ tiếng — không nhét vào từ điển key-VI
+// được. File đánh dấu `@i18n-content` vì thế được MIỄN luật "nhãn dữ liệu",
+// nhưng phải qua kiểm tra cấu trúc vi/en/de. Nếu cổng chỉ miễn mà không kiểm
+// thì đó là lỗ mở để mọi chuỗi VI lọt ra người dùng EN/DE.
+const CONTENT_OK = [
+  "// @i18n-content: fixture",
+  "export const DOCS = {",
+  "  vi: { name: 'Điều khoản sử dụng', sections: ['Mục một', 'Mục hai'] },",
+  "  en: { name: 'Terms of Service', sections: ['Section one', 'Section two'] },",
+  "  de: { name: 'Nutzungsbedingungen', sections: ['Abschnitt eins', 'Abschnitt zwei'] },",
+  "};",
+].join("\n");
+const CONTENT_MISSING_DE = CONTENT_OK.replace(", 'Abschnitt zwei'", "");
+try {
+  // 12a. Đủ 3 ngôn ngữ → cổng xanh (nội dung dài không cần vào từ điển).
+  makeFixture("", { "src/lib/content.ts": CONTENT_OK });
+  const okContent = runFixtureGuard();
+  check("Cổng i18n cho qua file @i18n-content có đủ bản vi/en/de", okContent.ok);
+  if (!okContent.ok) console.error(okContent.out.split("\n").slice(0, 8).join("\n"));
+
+  // 12b. Thiếu một nhánh DE → cổng PHẢI đổ (miễn luật cũ KHÔNG có nghĩa là bỏ kiểm).
+  makeFixture("", { "src/lib/content.ts": CONTENT_MISSING_DE });
+  const missingDe = runFixtureGuard();
+  check(
+    "Cổng i18n bắt được nội dung @i18n-content thiếu nhánh DE",
+    !missingDe.ok && /THIẾU DE \(nội dung đa ngữ\)/.test(missingDe.out),
+  );
+  if (missingDe.ok || !/THIẾU DE \(nội dung đa ngữ\)/.test(missingDe.out))
+    console.error(missingDe.out.split("\n").slice(0, 8).join("\n"));
+
+  // 12c. Đối chứng: CÙNG nội dung nhưng KHÔNG có marker → vẫn bị luật "nhãn dữ
+  //      liệu" bắt (chứng minh 12a xanh là nhờ kiểm cấu trúc, không phải lỗ).
+  makeFixture("", { "src/lib/content.ts": CONTENT_OK.replace("// @i18n-content: fixture\n", "") });
+  const unmarked = runFixtureGuard();
+  check(
+    "Không có marker @i18n-content thì chuỗi VI vẫn bị bắt là chưa dịch (đối chứng)",
+    !unmarked.ok && /nhãn dữ liệu/.test(unmarked.out),
+  );
 } finally {
   fs.rmSync(FIXTURE, { recursive: true, force: true });
 }

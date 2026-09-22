@@ -9,7 +9,6 @@ import Taskbar from "../components/Taskbar";
 import HeroChatCard from "../components/landing/HeroChatCard";
 import {
   Features,
-  HiddenFeatures,
   AntiNuke,
   HaimiyaSection,
   HowItWorks,
@@ -120,7 +119,6 @@ export default function Landing() {
         </section>
 
         <Features />
-        <HiddenFeatures />
         <AntiNuke />
         <HaimiyaSection />
         <HowItWorks />

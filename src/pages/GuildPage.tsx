@@ -103,7 +103,7 @@ export default function GuildPage() {
   const { guildId = "" } = useParams();
   const [section, setSection] = useState<SectionKey>("overview");
   const [hiddenUnlocked, setHiddenUnlocked] = useState(
-    () => sessionStorage.getItem(hiddenUnlockKey(guildId)) === "1",
+    () => sessionStorage.getItem(hiddenUnlockKey()) === "1",
   );
   const token = getSessionToken();
   const data = useQuery(api.guilds.getGuild, { token, guildId }) as GuildData | null | undefined;
@@ -354,7 +354,7 @@ export default function GuildPage() {
                           <div className="mb-4 flex justify-end">
                             <button
                               onClick={() => {
-                                sessionStorage.removeItem(hiddenUnlockKey(data.guild.discordId));
+                                sessionStorage.removeItem(hiddenUnlockKey());
                                 setHiddenUnlocked(false);
                               }}
                               className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"

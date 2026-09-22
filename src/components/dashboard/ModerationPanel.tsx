@@ -6,7 +6,6 @@ import { api } from "../../../convex/_generated/api";
 import { Card, CardContent } from "../ui/card";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import {
   DEFAULT_PUNISH_NOTICE,
@@ -28,7 +27,7 @@ const LEVEL_BADGE: Record<string, string> = {
   full: "bg-foreground text-primary-foreground",
 };
 
-/** Xem trước embed moderation kiểu Carl-bot bot sẽ gửi theo mức đã chọn. */
+/** Xem trước embed hình phạt bot sẽ gửi theo mức chi tiết đã chọn. */
 function previewFor(action: string, level: PunishNoticeLevel): string {
   const label = PUNISH_NOTICE_ACTION_LABEL[action] ?? action;
   switch (level) {
@@ -45,22 +44,31 @@ function previewFor(action: string, level: PunishNoticeLevel): string {
 
 export default function ModerationPanel({ data }: { data: GuildData }) {
   const updateSettings = useMutation(api.guilds.updateSettings);
-  const [channelId, setChannelId] = useState<string>(data.guild.punishNoticeChannelId ?? "none");
   const [saving, setSaving] = useState(false);
+  // Kênh nhận thông báo KHÔNG chọn ở đây nữa — xem bảng "Kênh nhận thông báo".
+  // Chỉ đọc để hiển thị tên kênh đang dùng theo thứ tự ưu tiên của bot.
+  const noticeChannelId = data.guild.modLogChannelId ?? data.guild.logChannelId;
+  const noticeChannelName =
+    data.channels.find((c) => c.channelId === noticeChannelId)?.name ?? null;
 
   const notice = {
     ...DEFAULT_PUNISH_NOTICE,
     ...(data.guild.punishNotice ?? {}),
   };
-  const textChannels = data.channels.filter((c) => c.type === 0 || c.type === 5);
 
   async function save(patch: {
-    punishNoticeChannelId?: string;
     punishNotice?: { ban: string; timeout: string; kick: string; warn: string };
   }) {
     setSaving(true);
     try {
-      await updateSettings({ token: TOKEN(), guildId: data.guild.discordId, ...patch });
+      // "" = xoá kênh hình phạt riêng (cấu hình cũ): từ nay đích thông báo lấy
+      // DUY NHẤT từ Cài đặt → Kênh log, không còn hai nơi ghi đè nhau.
+      await updateSettings({
+        token: TOKEN(),
+        guildId: data.guild.discordId,
+        punishNoticeChannelId: "",
+        ...patch,
+      });
       toast.success(translate("Đã lưu — bot áp dụng trong vòng ~3 phút"));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
@@ -79,7 +87,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
           </h2>
           <p className="text-sm text-muted-foreground">
             {translate("Tùy chỉnh")}{" "}
-            <b className="text-foreground">{translate("embed moderation kiểu Carl-bot")}</b>{" "}
+            <b className="text-foreground">{translate("embed hình phạt chi tiết")}</b>{" "}
             {translate(
               "bot gửi sau khi đã trừng phạt thành viên vi phạm — đồng bộ cả kênh lẫn mức chi tiết, theo từng hành động ban · timeout · warn · kick (cả tự động lẫn lệnh thủ công).",
             )}{" "}
@@ -92,47 +100,33 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
         </Badge>
       </div>
 
-      {/* Chọn kênh thông báo */}
-      <Card className="border-primary/25">
-        <CardContent className="grid gap-4 p-4 sm:p-5 sm:grid-cols-[1fr_auto]">
-          <div className="grid gap-1.5">
-            <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Hash className="h-3.5 w-3.5" /> {translate("Kênh gửi thông báo hình phạt")}{" "}
-            </Label>
-            <Select value={channelId} onValueChange={(v) => setChannelId(v)}>
-              <SelectTrigger>
-                <SelectValue placeholder={translate("Chọn kênh")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">
-                  {translate("— Tự động dùng kênh log mod / log chung —")}
-                </SelectItem>
-                {textChannels.map((c) => (
-                  <SelectItem key={c.channelId} value={c.channelId}>
-                    #{c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[11px] text-muted-foreground">
+      {/* Kênh nhận thông báo — CHỈ ĐỌC: cấu hình ở Cài đặt → Kênh log để không
+          còn hai nơi chọn kênh ghi đè nhau và log bị nhân đôi. */}
+      <Card className={noticeChannelName ? "border-primary/25" : "border-warning/40"}>
+        <CardContent className="space-y-2 p-4 sm:p-5">
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            <Hash className="h-4 w-4 text-primary" /> {translate("Kênh nhận thông báo")}{" "}
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            {translate(
+              "Bot gửi case vào kênh log hành động mod; chưa đặt thì dùng kênh log chung. Nơi cấu hình duy nhất là",
+            )}{" "}
+            <b className="text-foreground">{translate("Cài đặt → Kênh log")}</b>{" "}
+            {translate(
+              "— không chọn kênh lại ở đây để tránh hai nơi ghi đè nhau và log bị nhân đôi.",
+            )}{" "}
+          </p>
+          {noticeChannelName ? (
+            <p className="text-xs text-muted-foreground">
+              {translate("Đang gửi tới:")} <b className="text-foreground">#{noticeChannelName}</b>
+            </p>
+          ) : (
+            <p className="rounded-lg bg-secondary px-3 py-2 text-xs text-muted-foreground">
               {translate(
-                "Nếu chọn “tự động”, bot ưu tiên kênh log hành động mod, rồi tới kênh log chung (Cài đặt → Kênh log). Chưa có kênh log nào → không gửi được thông báo.",
+                "Chưa chọn kênh log nào nên bot chưa gửi được thông báo hình phạt — vào Cài đặt → Kênh log để chọn.",
               )}{" "}
             </p>
-          </div>
-          <div className="flex items-end">
-            <Button
-              disabled={saving}
-              onClick={() =>
-                save({
-                  // "" (chuỗi rỗng) = xóa kênh riêng → bot tự dùng log mod / log chung.
-                  punishNoticeChannelId: channelId === "none" ? "" : channelId,
-                })
-              }
-            >
-              {translate(saving ? "Đang lưu…" : "Lưu kênh")}
-            </Button>
-          </div>
+          )}
         </CardContent>
       </Card>
 
@@ -158,6 +152,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                   </Label>
                   <Select
                     value={level}
+                    disabled={saving}
                     onValueChange={(v) =>
                       save({
                         punishNotice: {

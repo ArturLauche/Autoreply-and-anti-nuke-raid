@@ -8,7 +8,7 @@ import {
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild } from "./auth";
 import { computeBotKey, requireBotKeyStrict } from "./botAuth";
-import { hashHiddenPassword } from "./sha256";
+import { hashHiddenPassword, hashHiddenPasswordGlobal } from "./sha256";
 
 async function requireGuild(ctx: QueryCtx | MutationCtx, token: string, guildId: string) {
   const user = await getUserByToken(ctx, token);
@@ -383,7 +383,85 @@ export const saveBrandingUpload = mutation({
   },
 });
 
-/** Đặt hoặc xóa mật khẩu mở khóa tính năng ẩn (chuỗi rỗng = xóa). CHỈ chủ sở hữu bot. */
+/**
+ * Ghi (hoặc xoá khi hash = undefined) mật khẩu tính năng ẩn vào botStatus —
+ * MỘT bản duy nhất cho toàn bộ dashboard, không theo từng server.
+ * Đổi mật khẩu cũng reset bộ đếm chống dò.
+ */
+async function patchHiddenPassword(ctx: MutationCtx, hash: string | undefined) {
+  const status = await getBotStatus(ctx);
+  if (!status) {
+    // Bot chưa heartbeat lần nào → chưa có dòng botStatus. Tạo tối thiểu để mật
+    // khẩu vừa đặt không bị mất (bot sync sau sẽ bổ sung các field còn lại).
+    const now = Date.now();
+    await ctx.db.insert("botStatus", {
+      kind: "status",
+      online: false,
+      guildCount: 0,
+      memberCount: 0,
+      lastHeartbeat: now,
+      startedAt: now,
+      version: "",
+      hiddenPasswordHash: hash,
+    });
+    return;
+  }
+  await ctx.db.patch(status._id, {
+    hiddenPasswordHash: hash,
+    hiddenVerifyFails: undefined,
+    hiddenVerifyLastAt: undefined,
+  });
+}
+
+/**
+ * Các guild còn giữ hash mật khẩu ẩn DI SẢN (bản cũ lưu theo từng server).
+ * Chỉ dùng trong giai đoạn chuyển tiếp và chỉ duyệt guild CÓ BOT (index
+ * by_botInGuild) nên luôn nhỏ; sau lần mở khóa đầu tiên danh sách này rỗng và
+ * code đi thẳng nhánh mật khẩu toàn cục.
+ */
+async function legacyHiddenPasswordGuilds(ctx: QueryCtx | MutationCtx) {
+  const guilds = await ctx.db
+    .query("guilds")
+    .withIndex("by_botInGuild", (q) => q.eq("botInGuild", true))
+    .collect();
+  return guilds.filter((g) => !!g.hiddenPasswordHash);
+}
+
+/**
+ * Cổng mật khẩu ẩn có đang BẬT không — dùng cho payload dashboard.
+ * Đúng ở MỌI server (không phụ thuộc guild nào): bật khi có mật khẩu toàn cục,
+ * hoặc khi còn hash di sản ở bất kỳ server nào (lúc đó mật khẩu cũ vẫn phải
+ * được nhập, để không có server nào mở toang trong lúc chuyển tiếp).
+ */
+export async function hiddenPasswordIsSet(ctx: QueryCtx | MutationCtx): Promise<boolean> {
+  const status = await getBotStatus(ctx);
+  if (status?.hiddenPasswordHash) return true;
+  return (await legacyHiddenPasswordGuilds(ctx)).length > 0;
+}
+
+/** Xoá mật khẩu tính năng ẩn ở MỌI nơi: bản toàn cục + các hash di sản theo server. */
+async function clearHiddenPasswordEverywhere(ctx: MutationCtx) {
+  await patchHiddenPassword(ctx, undefined);
+  const guilds = await ctx.db.query("guilds").collect();
+  for (const g of guilds) {
+    if (g.hiddenPasswordHash || g.hiddenVerifyFails || g.hiddenVerifyLastAt) {
+      await ctx.db.patch(g._id, {
+        hiddenPasswordHash: undefined,
+        hiddenVerifyFails: undefined,
+        hiddenVerifyLastAt: undefined,
+      });
+    }
+  }
+}
+
+/**
+ * Đặt hoặc xóa mật khẩu mở khóa tính năng ẩn (chuỗi rỗng = xóa). CHỈ chủ sở hữu bot.
+ *
+ * Mật khẩu thuộc về CHỦ BOT chứ không thuộc về một server: lưu một bản trên
+ * botStatus nên mọi server trong dashboard đều hỏi đúng mật khẩu đó. Bản cũ lưu
+ * hash theo từng guild (salt = guildId) nên tính năng ẩn chỉ bị khoá ở đúng
+ * server đã đặt mật khẩu, các server khác vào thẳng — đúng lỗi đã sửa.
+ */
 export const setHiddenPassword = mutation({
   args: {
     token: v.string(),
@@ -392,10 +470,10 @@ export const setHiddenPassword = mutation({
   },
   handler: async (ctx, { token, guildId, password }) => {
     const user = await getUserByToken(ctx, token);
-    const guild = await requireGuild(ctx, token, guildId);
+    await requireGuild(ctx, token, guildId);
     const status = await requireBotOwner(ctx, user);
     if (!password) {
-      await ctx.db.patch(guild._id, { hiddenPasswordHash: undefined, updatedAt: Date.now() });
+      await clearHiddenPasswordEverywhere(ctx);
       return { ok: true, cleared: true };
     }
     if (password.length < 4 || password.length > 64) {
@@ -406,13 +484,15 @@ export const setHiddenPassword = mutation({
     if (user && (!status?.ownerDiscordId || !(await ownerIsValid(ctx, status.ownerDiscordId)))) {
       await setOwnerId(ctx, user.discordId);
     }
-    await ctx.db.patch(guild._id, {
-      hiddenPasswordHash: hashHiddenPassword(password, guildId),
-      // Đổi mật khẩu → reset bộ đếm dò (nếu có).
-      hiddenVerifyFails: undefined,
-      hiddenVerifyLastAt: undefined,
-      updatedAt: Date.now(),
-    });
+    await patchHiddenPassword(ctx, hashHiddenPasswordGlobal(password));
+    // Đổi mật khẩu → xoá luôn hash di sản theo server của guild đang mở.
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (guild?.hiddenPasswordHash) {
+      await ctx.db.patch(guild._id, { hiddenPasswordHash: undefined, updatedAt: Date.now() });
+    }
     return { ok: true, cleared: false };
   },
 });
@@ -454,30 +534,60 @@ export const verifyHiddenPassword = mutation({
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
       .first();
-    if (!guild?.hiddenPasswordHash) return false;
-    // Rate-limit dò mật khẩu: quá 5 lần SAI trong 10 phút → khóa thử trong đủ 10 phút.
+    const status = await getBotStatus(ctx);
+    const globalHash = status?.hiddenPasswordHash;
+    // Trong giai đoạn chuyển tiếp, mật khẩu cũ có thể gắn với server KHÁC server
+    // đang mở → phải thử cả các hash di sản, nếu không chủ bot bị khoá ngoài
+    // chính khu vực của mình ở mọi server trừ server đầu tiên.
+    const legacyGuilds = globalHash ? [] : await legacyHiddenPasswordGuilds(ctx);
+    const legacyCandidates = guild?.hiddenPasswordHash
+      ? [guild, ...legacyGuilds.filter((g) => g._id !== guild._id)]
+      : legacyGuilds;
+    if (!globalHash && legacyCandidates.length === 0) return false;
+    // Rate-limit dò mật khẩu: quá 5 lần SAI trong 10 phút → khóa thử trong đủ 10
+    // phút. Bộ đếm toàn cục (gắn với chủ bot) vì mật khẩu cũng toàn cục — nếu
+    // đếm theo từng server thì kẻ dò chỉ cần đổi server là được thêm 5 lượt.
     const now = Date.now();
-    const fails = guild.hiddenVerifyFails ?? 0;
-    const lastAt = guild.hiddenVerifyLastAt ?? 0;
+    const fails = status?.hiddenVerifyFails ?? 0;
+    const lastAt = status?.hiddenVerifyLastAt ?? 0;
     const windowExpired = now - lastAt >= HIDDEN_VERIFY_WINDOW_MS;
     if (!windowExpired && fails >= HIDDEN_VERIFY_MAX_FAILS) {
       const waitSec = Math.ceil((HIDDEN_VERIFY_WINDOW_MS - (now - lastAt)) / 1000);
       throw new Error(`Đã thử sai quá nhiều lần — thử lại sau ${waitSec} giây`);
     }
-    const ok = hashHiddenPassword(password, guildId) === guild.hiddenPasswordHash;
-    if (ok) {
-      if (fails > 0) {
-        await ctx.db.patch(guild._id, {
+    const okGlobal = !!globalHash && hashHiddenPasswordGlobal(password) === globalHash;
+    // Mật khẩu DI SẢN (đặt hồi còn lưu theo server): chấp nhận đúng một lần để
+    // chủ bot không bị khoá ngoài khu vực của mình — đồng thời nâng luôn thành
+    // mật khẩu TOÀN CỤC (và xoá hash di sản), nhờ vậy mọi server được bảo vệ ngay.
+    const okLegacy =
+      !okGlobal &&
+      legacyCandidates.some(
+        (g) => hashHiddenPassword(password, g.discordId) === g.hiddenPasswordHash,
+      );
+    if (okGlobal || okLegacy) {
+      if (okLegacy) {
+        await patchHiddenPassword(ctx, hashHiddenPasswordGlobal(password));
+        for (const g of legacyCandidates) {
+          await ctx.db.patch(g._id, {
+            hiddenPasswordHash: undefined,
+            hiddenVerifyFails: undefined,
+            hiddenVerifyLastAt: undefined,
+          });
+        }
+      } else if (status && (fails > 0 || lastAt > 0)) {
+        await ctx.db.patch(status._id, {
           hiddenVerifyFails: undefined,
           hiddenVerifyLastAt: undefined,
         });
       }
       return true;
     }
-    await ctx.db.patch(guild._id, {
-      hiddenVerifyFails: windowExpired ? 1 : fails + 1,
-      hiddenVerifyLastAt: now,
-    });
+    if (status) {
+      await ctx.db.patch(status._id, {
+        hiddenVerifyFails: windowExpired ? 1 : fails + 1,
+        hiddenVerifyLastAt: now,
+      });
+    }
     return false;
   },
 });

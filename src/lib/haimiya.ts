@@ -19,6 +19,17 @@ function normalize(s: string): string {
     .replace(/đ/g, "d");
 }
 
+/**
+ * Câu trả lời chung cho MỌI chủ đề thuộc khu vực riêng của chủ bot.
+ *
+ * Cố ý KHÔNG liệt kê tính năng bên trong và KHÔNG hướng dẫn cách đặt/mở mật
+ * khẩu: người hỏi thường không phải chủ bot, còn mô tả nội dung khu vực riêng
+ * trên kênh công khai chính là tiết lộ thông tin nội bộ (danh sách gợi ý cũ vì
+ * thế mà lộ luôn cả tính năng ẩn).
+ */
+const OWNER_ONLY_ANSWER =
+  "Phần này nằm trong khu vực riêng của chủ sở hữu bot nên mình không chia sẻ công khai 🔒. Nếu bạn cần hỗ trợ về các tính năng dùng chung — auto reply, nhiệt độ vi phạm, chống nuke/raid, Join Gate, verify, backup — cứ hỏi mình nhé.";
+
 const TOPICS: Topic[] = [
   {
     id: "hidden",
@@ -36,22 +47,20 @@ const TOPICS: Topic[] = [
       "so huu bot",
       "chu bot",
     ],
-    answer:
-      "Tính năng ẩn là khu vực riêng tư dành cho chủ sở hữu bot 🔒 — nội dung bên trong không được tiết lộ công khai. Chỉ admin sở hữu bot mới được phép đặt mật khẩu và mở khu vực này; owner hay mod của một server có quyền quản lý cũng không đủ. Cách mở khóa: chủ bot đăng nhập bằng chính tài khoản Discord đã tạo bot → đặt mật khẩu trong Cài đặt → vào sidebar chọn Tính năng ẩn → nhập mật khẩu là xong.",
+    answer: OWNER_ONLY_ANSWER,
     suggestions: [
-      "Cách đặt mật khẩu tính năng ẩn",
-      "Chủ sở hữu bot là ai?",
+      "Công cụ mod gồm những gì?",
       "Hệ thống nhiệt độ hoạt động thế nào?",
+      "Join Gate là gì?",
     ],
   },
   {
     id: "reactionrole",
     keywords: ["reaction role", "reaction", "emoji", "nhan role", "go role", "tu nhan role"],
-    answer:
-      "Công cụ chọn role bằng emoji nằm trong khu vực riêng tư dành cho chủ sở hữu bot 🔒 — tôi không tiết lộ chi tiết công khai. Nếu bạn là chủ sở hữu, hãy đăng nhập bằng tài khoản Discord đã tạo bot, đặt mật khẩu trong Cài đặt rồi mở khóa Tính năng ẩn trong sidebar — mọi thứ đều nằm ở đó.",
+    answer: OWNER_ONLY_ANSWER,
     suggestions: [
-      "Cách đặt mật khẩu tính năng ẩn",
-      "Chủ sở hữu bot là ai?",
+      "Bot có những lệnh nào?",
+      "Công cụ mod gồm những gì?",
       "Hệ thống nhiệt độ hoạt động thế nào?",
     ],
   },
@@ -70,11 +79,10 @@ const TOPICS: Topic[] = [
       "chen anh",
       "loi dan",
     ],
-    answer:
-      "Giveaway nằm trong khu vực riêng tư dành cho chủ sở hữu bot 🔒 — tôi không tiết lộ chi tiết công khai. Nếu bạn là chủ sở hữu, hãy đăng nhập bằng tài khoản Discord đã tạo bot, đặt mật khẩu trong Cài đặt rồi mở khóa Tính năng ẩn trong sidebar.",
+    answer: OWNER_ONLY_ANSWER,
     suggestions: [
-      "Cách đặt mật khẩu tính năng ẩn",
       "Công cụ mod gồm những gì?",
+      "Bảng hình phạt là gì?",
       "Hệ thống nhiệt độ hoạt động thế nào?",
     ],
   },
@@ -88,13 +96,8 @@ const TOPICS: Topic[] = [
       "dm cho",
       "gui cho",
     ],
-    answer:
-      "Khả năng nhắn tin trực tiếp nằm trong khu vực riêng tư dành cho chủ sở hữu bot 🔒 — tôi không tiết lộ chi tiết công khai. Nếu bạn là chủ sở hữu, hãy đăng nhập bằng tài khoản Discord đã tạo bot, đặt mật khẩu trong Cài đặt rồi mở khóa Tính năng ẩn trong sidebar.",
-    suggestions: [
-      "Cách đặt mật khẩu tính năng ẩn",
-      "Công cụ mod gồm những gì?",
-      "Bảng hình phạt là gì?",
-    ],
+    answer: OWNER_ONLY_ANSWER,
+    suggestions: ["Công cụ mod gồm những gì?", "Bảng hình phạt là gì?", "Bot có những lệnh nào?"],
   },
   {
     id: "branding",
@@ -109,12 +112,11 @@ const TOPICS: Topic[] = [
       "doi anh",
       "avatar",
     ],
-    answer:
-      "Việc tùy chỉnh giao diện nằm trong khu vực riêng tư dành cho chủ sở hữu bot 🔒 — tôi không tiết lộ chi tiết công khai. Nếu bạn là chủ sở hữu, hãy đăng nhập bằng tài khoản Discord đã tạo bot, đặt mật khẩu trong Cài đặt rồi mở khóa Tính năng ẩn trong sidebar.",
+    answer: OWNER_ONLY_ANSWER,
     suggestions: [
-      "Cách đặt mật khẩu tính năng ẩn",
       "Chủ đề màu server là gì?",
       "Công cụ mod gồm những gì?",
+      "Bot có những lệnh nào?",
     ],
   },
   {
@@ -169,11 +171,7 @@ const TOPICS: Topic[] = [
     ],
     answer:
       "Công cụ Mod giúp xử lý thành viên nhanh chóng và có ghi chép đầy đủ 🛠️: /mod timeout @user 10m [lý do], /mod kick @user [lý do], /mod ban @user [lý do] (kèm --days để xóa tin nhắn) và /mod purge <số tin>. Lệnh text tương đương: !timeout, !kick, !ban, !purge. Mọi hành động đều được ghi vào kênh log và bảng hình phạt trên dashboard với lý do + người thực hiện. Cần quyền Quản lý server hoặc role Mod/Admin được cấu hình.",
-    suggestions: [
-      "Bảng hình phạt là gì?",
-      "Giveaway có những tùy chọn gì?",
-      "Tính năng ẩn gồm những gì?",
-    ],
+    suggestions: ["Bảng hình phạt là gì?", "Công cụ mod gồm những gì?", "Bot có những lệnh nào?"],
   },
   {
     id: "remember",
@@ -187,9 +185,9 @@ const TOPICS: Topic[] = [
     answer:
       "Trang đăng nhập có tùy chọn lưu đăng nhập 🪪. Tích Lưu đăng nhập → phiên đăng nhập được giữ lại trên thiết bị, mở lại trình duyệt không cần đăng nhập lại. Chọn Không lưu đăng nhập → token chỉ sống trong tab hiện tại, đóng trình duyệt là phải đăng nhập lại — an toàn hơn khi dùng máy công cộng.",
     suggestions: [
-      "Tính năng ẩn gồm những gì?",
-      "Cách đặt mật khẩu tính năng ẩn",
+      "Bot có những lệnh nào?",
       "Cách chạy bot trên hosting",
+      "Công cụ mod gồm những gì?",
     ],
   },
   {
@@ -207,11 +205,11 @@ const TOPICS: Topic[] = [
       "hi ",
     ],
     answer:
-      "Tôi là Haimiya, trợ lý ảo của Protogon — bot Discord bảo vệ server. Tôi có thể giải đáp về hệ thống nhiệt độ, Join Gate, chống nuke/raid, auto reply, công cụ mod… Bạn cứ hỏi, tôi sẽ trả lời rõ ràng. Một số khu vực riêng tư của chủ sở hữu bot thì tôi giữ bí mật 🔒.",
+      "Tôi là Haimiya, trợ lý ảo của Protogon — bot Discord bảo vệ server. Tôi có thể giải đáp về hệ thống nhiệt độ, Join Gate, chống nuke/raid, auto reply, công cụ mod… Bạn cứ hỏi, tôi sẽ trả lời rõ ràng.",
     suggestions: [
       "Hệ thống nhiệt độ hoạt động thế nào?",
       "Join Gate là gì?",
-      "Cách đặt mật khẩu tính năng ẩn",
+      "Bot có những lệnh nào?",
     ],
   },
   {
@@ -342,7 +340,7 @@ const TOPICS: Topic[] = [
     id: "dashboard",
     keywords: ["dashboard", "bang dieu khien", "trang quan ly", "web", "website", "giao dien web"],
     answer:
-      "Dashboard là trang quản lý bot trên web 🖥️. Bạn đăng nhập bằng Discord, chọn server, rồi quản lý mọi thứ: Moderation (nhiệt độ, warn, lọc nội dung), Join Gate, Chống nuke/raid, Hình phạt, Tính năng ẩn và Cài đặt (prefix, kênh log, chủ đề màu). Thay đổi được bot áp dụng trong khoảng 3 phút.",
+      "Dashboard là trang quản lý bot trên web 🖥️. Bạn đăng nhập bằng Discord, chọn server, rồi quản lý mọi thứ: Moderation (nhiệt độ, warn, lọc nội dung), Join Gate, Chống nuke/raid, Hình phạt và Cài đặt (prefix, kênh log, chủ đề màu). Thay đổi được bot áp dụng trong khoảng 3 phút.",
     suggestions: ["Cách đăng nhập dashboard", "Chủ đề màu server là gì?", "Bảng hình phạt là gì?"],
   },
   {
@@ -360,12 +358,8 @@ const TOPICS: Topic[] = [
       "lệnh",
     ],
     answer:
-      "Bot hỗ trợ cả prefix và slash command ⌨️. Công cụ Mod: /mod timeout, /mod kick, /mod ban, /mod purge — lệnh text tương đương !timeout !kick !ban !purge. Ngoài ra: /heat status xem nhiệt & warn, /antinuke bật tắt bảo vệ, /prefix đổi prefix, /badword quản lý từ ngữ xấu. Một số lệnh khác nằm trong khu vực riêng tư của chủ sở hữu bot 🔒. Gõ / trong Discord để xem toàn bộ danh sách slash command.",
-    suggestions: [
-      "Cách xem nhiệt của thành viên",
-      "Công cụ mod gồm những gì?",
-      "Cách đặt mật khẩu tính năng ẩn",
-    ],
+      "Bot hỗ trợ cả prefix và slash command ⌨️. Công cụ Mod: /mod timeout, /mod kick, /mod ban, /mod purge — lệnh text tương đương !timeout !kick !ban !purge. Ngoài ra: /heat status xem nhiệt & warn, /antinuke bật tắt bảo vệ, /prefix đổi prefix, /badword quản lý từ ngữ xấu. Gõ / trong Discord để xem toàn bộ danh sách slash command.",
+    suggestions: ["Cách xem nhiệt của thành viên", "Công cụ mod gồm những gì?", "Join Gate là gì?"],
   },
   {
     id: "hosting",
@@ -393,7 +387,7 @@ const TOPICS: Topic[] = [
       "Protogon miễn phí cho mọi server 💰. Toàn bộ tính năng công khai — auto reply, nhiệt độ 4 giai đoạn, warn tích lũy, Join Gate, chống nuke/raid, chặn link độc hại, công cụ mod, bảng hình phạt, báo cáo hàng ngày — đều dùng được không giới hạn. Bạn chỉ cần host bot và dùng dashboard, không mất phí.",
     suggestions: [
       "Cách chạy bot trên hosting",
-      "Cách đặt mật khẩu tính năng ẩn",
+      "Bot có những lệnh nào?",
       "Hệ thống nhiệt độ hoạt động thế nào?",
     ],
   },
@@ -422,7 +416,7 @@ export const GREETING =
 export const QUICK_QUESTIONS = [
   "Hệ thống nhiệt độ hoạt động thế nào?",
   "Join Gate là gì?",
-  "Cách đặt mật khẩu tính năng ẩn",
+  "Bot có những lệnh nào?",
   "Cách chạy bot trên hosting",
 ];
 

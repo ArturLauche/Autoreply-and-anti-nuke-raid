@@ -10,4 +10,20 @@
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
+  <!-- Văn bản pháp lý: URL riêng, công khai — Discord dùng để xác minh bot. -->
+  <url>
+    <loc>https://protogon.freebuff.app/terms</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://protogon.freebuff.app/privacy</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://protogon.freebuff.app/data-deletion</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
 </urlset>

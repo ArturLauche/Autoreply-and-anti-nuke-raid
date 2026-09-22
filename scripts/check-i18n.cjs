@@ -278,6 +278,98 @@ const exprText = unresolved.filter((u) => u.kind === "expr");
 const softAttr = unresolved.filter((u) => u.kind.startsWith("attr "));
 for (const u of unresolved) problems.push(`CHƯA DỊCH (${u.kind}): ${u.file}:${u.line} — ${u.text}`);
 
+// ── 3f. Nội dung đa ngữ TỰ CHỨA (văn bản pháp lý) ──────────────────────────
+// Văn bản dài (điều khoản, quyền riêng tư) không hợp với từ điển key-tiếng-Việt:
+// 3 bản × 3 ngôn ngữ là ~150 đoạn, nhét vào i18n.en/de.ts thì không ai đối chiếu
+// nổi. Vì vậy file được đánh dấu `@i18n-content` sẽ MIỄN luật 3c — ĐỔI LẠI phải
+// qua kiểm tra CẤU TRÚC dưới đây: cây `vi` và `en`/`de` phải trùng đường dẫn,
+// không ô rỗng, và không đoạn nào giữ nguyên tiếng Việt ở bản dịch.
+// Marker mà thiếu ngôn ngữ = FAIL cứng, nên không có chỗ nào giấu chuỗi chưa dịch.
+const selfTranslated = new Set();
+function flattenContent(node, pathParts, out) {
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+    out.set(pathParts.join("."), node.text);
+    return;
+  }
+  if (ts.isArrayLiteralExpression(node)) {
+    node.elements.forEach((el, i) => flattenContent(el, [...pathParts, String(i)], out));
+    return;
+  }
+  if (ts.isObjectLiteralExpression(node)) {
+    for (const prop of node.properties) {
+      if (!ts.isPropertyAssignment(prop)) continue;
+      const name =
+        ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name) ? prop.name.text : null;
+      if (name) flattenContent(prop.initializer, [...pathParts, name], out);
+    }
+    return;
+  }
+}
+for (const file of walk(SRC)) {
+  if (!/\.tsx?$/.test(file)) continue;
+  const source = fs.readFileSync(file, "utf8");
+  if (!source.includes("@i18n-content")) continue;
+  selfTranslated.add(file);
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  // Khai báo cấp file → tra tên (LEGAL_DOCS trỏ tới VI/EN/DE).
+  const decls = new Map();
+  for (const stmt of sf.statements) {
+    if (!ts.isVariableStatement(stmt)) continue;
+    for (const d of stmt.declarationList.declarations) {
+      if (ts.isIdentifier(d.name) && d.initializer) decls.set(d.name.text, d.initializer);
+    }
+  }
+  const resolve = (node) =>
+    ts.isIdentifier(node) && decls.has(node.text) ? decls.get(node.text) : node;
+  // Tìm object literal có đủ khoá vi/en/de (nội dung đa ngữ).
+  let langs = null;
+  for (const init of decls.values()) {
+    if (!ts.isObjectLiteralExpression(init)) continue;
+    const props = new Map();
+    for (const p of init.properties) {
+      if (ts.isPropertyAssignment(p) && ts.isIdentifier(p.name))
+        props.set(p.name.text, p.initializer);
+    }
+    if (props.has("vi") && props.has("en") && props.has("de")) {
+      langs = props;
+      break;
+    }
+  }
+  if (!langs) {
+    problems.push(
+      `NỘI DUNG ĐA NGỮ: ${rel(file)} có marker @i18n-content nhưng không thấy khối { vi, en, de }`,
+    );
+    continue;
+  }
+  const trees = {};
+  for (const l of ["vi", "en", "de"]) {
+    const out = new Map();
+    // KHÔNG kèm tên ngôn ngữ vào đường dẫn — nếu kèm thì "vi.0.name" và
+    // "en.0.name" không bao giờ khớp nhau và luật này báo sai toàn bộ.
+    flattenContent(resolve(langs.get(l)), [], out);
+    trees[l] = out;
+  }
+  for (const l of ["en", "de"]) {
+    for (const [path, value] of trees.vi) {
+      if (!trees[l].has(path)) {
+        problems.push(`THIẾU ${l.toUpperCase()} (nội dung đa ngữ): ${rel(file)} — ${path}`);
+        continue;
+      }
+      const tr = trees[l].get(path);
+      if (!tr.trim()) problems.push(`Ô RỖNG (nội dung đa ngữ): ${rel(file)} — ${l}:${path}`);
+      else if (tr === value && VIET.test(value))
+        problems.push(`CHƯA DỊCH (nội dung đa ngữ): ${rel(file)} — ${l}:${path}`);
+    }
+    for (const path of trees[l].keys())
+      if (!trees.vi.has(path))
+        problems.push(`THỪA ${l.toUpperCase()} (nội dung đa ngữ): ${rel(file)} — ${path}`);
+  }
+}
+if (selfTranslated.size)
+  console.log(
+    `Nội dung đa ngữ tự chứa (kiểm cấu trúc vi/en/de): ${[...selfTranslated].map(rel).join(", ")}`,
+  );
+
 // ── 3c. Nhãn DỮ LIỆU (object/array trong src/*.ts) render qua translate(item.label)
 // không đứng sau dấu ngoặc translate( nên các check trên không thấy — đúng
 // nguồn chữ Việt còn sót trên UI (tên/mô tả 32 module, tên nhóm, nhãn hình
@@ -293,6 +385,9 @@ for (const file of walk(SRC).filter(
   (p) => !/lib[\\/]i18n(\.(en|de)(\.(panels|labels))?)?\.tsx?$/.test(p),
 )) {
   if (!/\.(ts|tsx)$/.test(file)) continue;
+  // File nội dung đa ngữ tự chứa đã được luật 3f kiểm cấu trúc — không quét lại
+  // ở đây (chuỗi VI trong bản `vi` là hợp lệ, bản dịch nằm ngay cùng file).
+  if (selfTranslated.has(file)) continue;
   const source = fs.readFileSync(file, "utf8");
   const sf = ts.createSourceFile(
     file,

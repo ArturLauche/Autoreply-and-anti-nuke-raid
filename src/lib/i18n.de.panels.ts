@@ -346,8 +346,6 @@ export const DE_PANELS: Record<string, string> = {
   "Đã xóa ảnh tùy chỉnh, trở về mặc định": "Eigenes Bild entfernt — zurück zum Standard",
   "Nhận sự kiện chống nuke/raid, báo cáo hàng ngày và các thông báo quan trọng.":
     "Empfängt Anti-Nuke/Raid-Ereignisse, den Tagesbericht und weitere wichtige Hinweise.",
-  "Kênh log hành động mod — auto-mod và lệnh thủ công, theo phong cách Carl-bot":
-    "Log-Kanal für Mod-Aktionen — Auto-Mod und manuelle Befehle, im Carl-bot-Stil",
   "Tóm tắt sự kiện chống nuke gửi vào kênh log vào khoảng 00:00 UTC mỗi ngày":
     "Sendet täglich gegen 00:00 UTC eine Anti-Nuke-Zusammenfassung in den Log-Kanal",
   "Khi bot xác nhận raid/nuke: gửi DM khẩn cho chủ server (kẻ nuke không xóa được), AI quét chat và báo cáo vào kênh log, kèm lệnh":
@@ -583,8 +581,8 @@ export const DE_PANELS: Record<string, string> = {
   /* ==== Lô 5 — viết lại copy panel ModActions / Dm / Hidden / Unlock / Whitelist / ExternalAppRaids. */
   "Chưa có hình phạt nào — server đang yên bình 🎉":
     "Noch keine Bestrafung — auf dem Server ist es ruhig 🎉",
-  "(kiểu Carl-bot), lý do, người thực hiện, và phân biệt rõ nguồn:":
-    "(Carl-bot-Stil), den Grund, wer es ausgeführt hat, und eine klare Trennung nach Quelle:",
+  "(hình phạt, lý do, người xử lý) và tách rõ nguồn:":
+    "(die Strafe, den Grund, wer sie ausgeführt hat) und eine klare Trennung nach Quelle:",
   "Đã gửi yêu cầu — bot gửi DM trong khoảng 1 phút 💌":
     "Anfrage gesendet — der Bot schickt die DM in etwa 1 Minute 💌",
   "Gửi tin nhắn riêng (DM)": "Direktnachricht (DM) senden",

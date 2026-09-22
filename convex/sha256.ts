@@ -80,7 +80,15 @@ export function sha256Hex(input: string): string {
   return hex(h0) + hex(h1) + hex(h2) + hex(h3) + hex(h4) + hex(h5) + hex(h6) + hex(h7);
 }
 
-/** Băm mật khẩu kèm salt là guildId. */
+/** Băm mật khẩu kèm salt là guildId — DI SẢN: bản cũ lưu theo từng server nên
+ *  tính năng ẩn chỉ bị khóa ở đúng server đã đặt mật khẩu. Chỉ còn dùng để xác
+ *  minh mật khẩu cũ một lần rồi nâng lên bản toàn cục bên dưới. */
 export function hashHiddenPassword(password: string, guildId: string): string {
   return sha256Hex(`${guildId}::protogon-hidden::${password}`);
+}
+
+/** Băm mật khẩu tính năng ẩn KHÔNG kèm guildId — mật khẩu là của CHỦ BOT, dùng
+ *  chung cho mọi server trong dashboard (cổng không còn phụ thuộc guild nào). */
+export function hashHiddenPasswordGlobal(password: string): string {
+  return sha256Hex(`protogon-hidden::${password}`);
 }
