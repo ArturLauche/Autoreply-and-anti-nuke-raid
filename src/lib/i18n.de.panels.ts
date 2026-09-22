@@ -437,6 +437,46 @@ export const DE_PANELS: Record<string, string> = {
     "Das Präfix besteht aus 1–3 Sonderzeichen, z. B. !, ^, !!",
   "1–3 ký tự đặc biệt, dùng cho lệnh text như": "1–3 Sonderzeichen, für Textbefehle wie",
   ", kể cả người có quyền phá server.": ", auch für alle mit Rechten, den Server zu zerstören.",
+
+  /* ==== Lô 3a — viết lại copy panel AntiNuke / AutoMod / AltDetection. */
+  "Bảo vệ cấu trúc server khỏi các đợt tấn công hàng loạt: ban, kick, tạo/xóa kênh và role…":
+    "Schützt die Serverstruktur vor Massenangriffen: Bans, Kicks, Kanal- und Rollen-Erstellung/-Löschung…",
+  "⚠️ Chống nuke đang tắt toàn bộ — server chưa được bảo vệ khỏi raid.":
+    "⚠️ Anti-Nuke ist vollständig aus — dein Server ist vor Raids ungeschützt.",
+  "Áp cấu hình tối ưu theo quy mô server; danh sách trắng của bạn giữ nguyên.":
+    "Wendet eine optimale Konfiguration für deine Servergröße an; deine Whitelist bleibt unverändert.",
+  "Chia sẻ chữ ký raid ẩn danh với các server khác dùng Protogon — server của bạn được bảo vệ bằng kinh nghiệm toàn mạng.":
+    "Teilt anonymisierte Raid-Signaturen mit anderen Servern, die Protogon nutzen — dein Server profitiert von serverweiter Erfahrung.",
+  "Tự chặn gửi tin nhắn và voice khi phát hiện raid; mở lại khi hết giờ hoặc bằng":
+    "Blockiert bei erkanntem Raid automatisch Nachrichten und Voice; Freigabe nach Ablauf der Zeit oder per",
+  "(tài khoản trùng avatar/username, người tạo invite, audit log) rồi tự ban.":
+    "(Konten mit gleichem Avatar/Namen, Ersteller der Einladung, Audit-Log) und bannt sie automatisch.",
+  "Đã lưu cài đặt Raid Intel — bot áp dụng trong khoảng 3 phút":
+    "Raid-Intel-Einstellungen gespeichert — der Bot übernimmt sie in etwa 3 Minuten",
+  "Thu thập mẫu raid và dùng AI phân tích để tìm":
+    "Sammelt Raid-Muster und lässt die KI nachspüren",
+  "Phân tích cụm tài khoản và audit log sau mỗi vụ.":
+    "Analysiert nach jedem Fall das Konten-Cluster und das Audit-Log.",
+  "Đang khóa — tự mở sau khoảng {p0} phút": "Gesperrt — öffnet sich in etwa {p0} Minuten",
+  "Hiện không có kênh nào bị khóa": "Aktuell ist kein Kanal gesperrt",
+  "Tự động kiểm duyệt nội dung: chống spam tin nhắn, mention, từ ngữ thô tục, ảnh/file và link mời Discord":
+    "Automatische Inhaltsmoderation: Nachrichten-Spam, Mentions, Schimpfwörter, Bild-/Datei-Spam und Discord-Einladungen",
+  "Mỗi vi phạm cộng điểm nhiệt theo cài đặt của module. Nhiệt tăng dần rồi tự giảm theo thời gian; khi chạm ngưỡng":
+    "Jede Übertretung addiert Heat nach den Moduleinstellungen. Die Heat steigt und sinkt mit der Zeit; ab der Schwelle",
+  "Ngưỡng phải tăng dần: cảnh báo < tạm khóa < kick < ban (tối đa 100 điểm). Thành viên vừa bị phạt mà":
+    "Schwellen müssen steigen: Verwarnung < Timeout < Kick < Ban (max. 100 Punkte). Wer bestraft wird und",
+  "bật, mọi tin nhắn chứa từ trong danh sách dưới đây sẽ bị xóa và xử lý tự động. Xóa hết từ để tắt bộ lọc từ ngữ xấu.":
+    "aktiv, wird jede Nachricht mit einem Wort aus der Liste unten gelöscht und automatisch behandelt. Alle Wörter entfernen, um den Schimpfwortfilter auszuschalten.",
+  "Chưa có từ nào — bộ lọc từ ngữ xấu chỉ hoạt động sau khi bạn thêm từ.":
+    "Noch keine Wörter — der Schimpfwortfilter greift erst, wenn du welche hinzufügst.",
+  "mỗi lần vi phạm, thanh nhiệt đầy nhanh hơn.":
+    "pro Verstoß, der Heat-Balken füllt sich also schneller.",
+  "🔥 Bảng nhiệt và warn tích lũy của từng thành viên":
+    "🔥 Heat und kumulierte Verwarnungen je Mitglied",
+  "⚠️ Discord không cung cấp địa chỉ IP của thành viên cho bot, nên phát hiện VPN/Proxy trực tiếp là không khả thi với dữ liệu hiện có. Hệ thống tập trung vào phát hiện tài khoản phụ bằng bằng chứng hành vi (tuổi tài khoản, tên/avatar trùng, lịch sử bị phạt, cụm join) — cách chặn tài khoản lạm dụng VPN hiệu quả nhất mà Discord cho phép.":
+    "⚠️ Discord gibt Bots keine IP-Adressen der Mitglieder preis, daher ist eine direkte VPN/Proxy-Erkennung mit den vorhandenen Daten nicht möglich. Das System erkennt Zweitkonten anhand von Verhaltensbelegen (Kontoalter, gleiche Namen/Avatare, Strafhistorie, Join-Cluster) — der wirksamste von Discord erlaubte Weg gegen Konten mit VPN-Missbrauch.",
+  ": từ 2 tín hiệu mạnh trở lên → phạt đúng cấu hình; 1 tín hiệu → hạ cấp nhẹ hơn (ban → kick, kick → timeout); không có tín hiệu → chỉ theo dõi. Tắt để phạt theo điểm rủi ro như trước (dễ chặn nhầm hơn).":
+    ": ab zwei starken Signalen → Strafe nach Konfiguration; ein Signal → mildere Strafe (Ban → Kick, Kick → Timeout); keine Signale → nur beobachten. Ausschalten, um wie zuvor nach Risikopunkten zu strafen (anfälliger für Fehlalarme).",
   "(8 module) sàng lọc nội dung độc hại mỗi ngày. Vượt ngưỡng, bot truy ra thủ phạm qua audit log, phạt đúng cài đặt và báo real-time về kênh log.":
     "(8 Module) filtern täglich schädliche Inhalte. Bei Schwellenwertüberschreitung ermittelt der Bot den Täter über das Audit-Log, straft nach deinen Einstellungen und alarmiert den Log-Kanal in Echtzeit.",
   "Trọn bộ trong một bot": "Das komplette Paket in einem Bot",
@@ -444,4 +484,106 @@ export const DE_PANELS: Record<string, string> = {
     "Neben allem Sichtbaren hält Protogon einen privaten Machtbereich bereit, den nur der Bot-Besitzer mit einem geheimen Passwort entsperrt — direkt im Dashboard, ohne Zusatzinstallation.",
   "Chào thành viên mới và tạm biệt thành viên rời server — template ngẫu nhiên, embed tùy chỉnh, DM chào riêng, autorole. Bot không chào bot, không ping @everyone từ nội dung tùy chỉnh, và tự im lặng khi server đang khóa chống raid.":
     "Begrüße neue Mitglieder und verabschiede gehende — zufällige Vorlagen, eigene Embeds, private DM-Begrüßung, Autorolle. Der Bot ignoriert Bots, pingt nie @everyone aus eigenem Inhalt und bleibt stumm, während der Server gegen Raids gesperrt ist.",
+
+  /* ==== Lô 3b — viết lại copy panel JoinGate / Verify / Webhook / Backup. */
+  "Đã thêm {p0} vào danh sách trắng": "{p0} zur Whitelist hinzugefügt",
+  "Đã xóa {p0} khỏi danh sách trắng": "{p0} aus der Whitelist entfernt",
+  "Kiểm tra mọi thành viên mới ngay khi vào server và tự động chặn tài khoản nghi selfbot":
+    "Prüft jedes neue Mitglied beim Beitritt und blockiert verdächtige Selfbot-Konten automatisch",
+  "Khi bật, mọi thành viên mới đều phải vượt qua các tiêu chí bên dưới mới được ở lại server. Ai không đạt sẽ bị":
+    "Wenn aktiv, muss jedes neue Mitglied die Prüfungen unten bestehen, um im Server zu bleiben. Wer sie nicht besteht, wird",
+  "⚠️ Join Gate đang tắt — mọi tài khoản đều vào được, kể cả selfbot.":
+    "⚠️ Join Gate ist aus — jedes Konto darf beitreten, Selfbots inklusive.",
+  "Tài khoản mới hơn số ngày dưới đây sẽ bị chặn (0 = tắt). Selfbot thường đăng ký tài khoản mới hàng loạt.":
+    "Konten, die jünger sind als die unten angegebenen Tage, werden blockiert (0 = aus). Selfbots registrieren meist massenhaft frische Konten.",
+  "Khuyến nghị 7–14 ngày để chặn tài khoản dùng một lần.":
+    "Empfohlen sind 7–14 Tage, um Wegwerf-Konten zu blockieren.",
+  "Tài khoản còn dùng ảnh đại diện mặc định sẽ bị chặn.":
+    "Konten, die noch das Standard-Avatar nutzen, werden blockiert.",
+  "Tài khoản không có huy hiệu công khai nào (flag = 0) sẽ bị chặn — selfbot mới gần như không bao giờ có huy hiệu.":
+    "Konten ganz ohne öffentliches Abzeichen (flag = 0) werden blockiert — frische Selfbots haben fast nie eines.",
+  "Chặn người vào khi server đang bị raid":
+    "Beitritte blockieren, während der Server geraidet wird",
+  "Khi server đang khóa kênh vì raid, mọi thành viên mới đều bị xử lý — cắt đợt tấn công thứ hai.":
+    "Solange der Server wegen eines Raids gesperrt ist, wird jedes neue Mitglied bestraft — das stoppt die zweite Welle.",
+  "— bật tiêu chí trên thì mọi thành viên mới sẽ bị xử lý ngay lúc này.":
+    "— mit der Prüfung oben wird jetzt jedes neue Mitglied bestraft.",
+  "Kick = có thể quay lại; Ban = chặn vĩnh viễn (hiệu quả hơn với selfbot).":
+    "Kick = sie können zurückkommen; Ban = dauerhaft gesperrt (wirksamer gegen Selfbots).",
+  "— tài khoản vi phạm bị chặn vĩnh viễn. Chọn Kick nếu bạn muốn nhẹ tay hơn.":
+    "— verstoßende Konten werden dauerhaft gesperrt. Wähle Kick, wenn du milder sein willst.",
+  ", bỏ qua mọi tiêu chí — dành cho tài khoản phụ hoặc người bạn tin tưởng.":
+    ", überspringen jede Prüfung — für Zweitkonten oder Personen, denen du vertraust.",
+  "trạng thái email/số điện thoại đã xác thực, nên Join Gate chỉ dựa vào tín hiệu công khai (tuổi tài khoản, avatar, huy hiệu, trạng thái raid) để nhận diện selfbot.":
+    "ob eine E-Mail-Adresse oder Telefonnummer verifiziert ist, daher nutzt Join Gate nur öffentliche Signale (Kontoalter, Avatar, Abzeichen, Raid-Status), um Selfbots zu erkennen.",
+  "để xử lý. Muốn một người luôn được vào, hãy thêm ID của họ vào danh sách trắng phía trên.":
+    "um zu handeln. Damit jemand immer hineinkommt, füge seine ID oben zur Whitelist hinzu.",
+  "Thành viên mới nhận role Unverified và phải xác minh trước khi vào server.":
+    "Neue Mitglieder erhalten die Rolle Unverified und müssen sich verifizieren, bevor sie den Server sehen.",
+  "Khi bật, thành viên mới nhận role chưa xác minh và phải verify mới vào được server.":
+    "Wenn aktiv, erhalten neue Mitglieder die unverifizierte Rolle und müssen sich verifizieren, um den Server zu betreten.",
+  "— thành viên bấm nút là xác minh xong ngay.":
+    "— Mitglieder klicken einen Button und sind sofort verifiziert.",
+  "— bot gửi mã qua DM, thành viên nhập lại mã trong kênh.":
+    "— der Bot sendet einen Code per DM und das Mitglied tippt ihn im Kanal ein.",
+  "Bot gửi embed chào mừng qua DM ngay khi thành viên xác minh thành công.":
+    "Der Bot sendet das Willkommens-Embed per DM, sobald ein Mitglied erfolgreich verifiziert ist.",
+  "Role tự gán cho thành viên mới ngay khi vừa vào server.":
+    "Rolle wird automatisch vergeben, sobald ein neues Mitglied beitritt.",
+  "Role gán sau khi xác minh thành công; role chưa xác minh được gỡ ra.":
+    "Rolle wird nach erfolgreicher Verifizierung vergeben; die unverifizierte Rolle wird entfernt.",
+  "— thiết lập xác minh ngay trong Discord.": "— richte die Verifizierung direkt in Discord ein.",
+  "Chưa có nội dung embed — hãy soạn ở khung bên trái.":
+    "Noch kein Embed-Inhalt — schreibe etwas im linken Bereich.",
+  "Đã gửi thành công! Kiểm tra kênh Discord.": "Erfolgreich gesendet! Prüfe den Discord-Kanal.",
+  "(theo Kênh log trong Cài đặt) · nhận mọi log hình phạt và anti nuke/raid.":
+    "(folgt dem Log-Kanal in den Einstellungen) · erhält jeden Straf- und Anti-Nuke/Raid-Log.",
+  "tự tạo trong khoảng 1 phút": "erstellt ihn in etwa 1 Minute",
+  "chọn Kênh log": "Log-Kanal festlegen",
+  "Dán webhook URL từ Discord (Kênh → Tích hợp → Webhook → Tạo webhook), soạn nội dung và embed rồi bấm gửi.":
+    "Füge eine Webhook-URL aus Discord ein (Kanal → Integrationen → Webhooks → Neuer Webhook), schreibe Nachricht und Embed und drücke Senden.",
+  "Tên người gửi ghi đè (tùy chọn)": "Anzeigename überschreiben (optional)",
+  "Hiển thị thời gian hiện tại": "Aktuelle Uhrzeit anzeigen",
+  "• Dán URL vào ô trên, soạn embed với tiêu đề, mô tả, màu sắc, field… rồi bấm":
+    "• Füge die URL oben ein, erstelle ein Embed mit Titel, Beschreibung, Farbe und Feldern… und drücke",
+  "• Webhook mặc định (Protogon Log) ở trên chỉ dùng để nhận log hình phạt và anti nuke từ bot — không liên quan tới trình gửi embed.":
+    "• Der Standard-Webhook (Protogon Log) oben empfängt nur Straf- und Anti-Nuke-Logs vom Bot — er hat nichts mit dem Embed-Sender zu tun.",
+  "Hãy kiểm tra lại file backup hoặc tải lại file khác.":
+    "Prüfe die Backup-Datei erneut oder lade eine andere hoch.",
+  "Bot đã dừng giữa chừng. Kiểm tra bot còn trong server và đủ quyền Administrator rồi thử khôi phục lại.":
+    "Der Bot hat mittendrin abgebrochen. Prüfe, ob er noch im Server ist und Administratorrechte hat, und starte die Wiederherstellung erneut.",
+  "Bot đã dừng giữa chừng. Kiểm tra bot còn trong server và đủ quyền Administrator rồi bấm Backup ngay lại.":
+    "Der Bot hat mittendrin abgebrochen. Prüfe, ob er noch im Server ist und Administratorrechte hat, und klicke erneut auf Jetzt sichern.",
+  "Bot không gửi heartbeat (offline hơn 3 phút). Hãy khởi động bot trên host (pm2 start protogon-bot / bật lại service) rồi bấm Backup ngay sau khi bot online.":
+    "Der Bot sendet keine Heartbeats (länger als 3 Minuten offline). Starte ihn auf deinem Host (pm2 start protogon-bot / Dienst neu starten) und klicke dann auf Jetzt sichern.",
+  "Bot không gửi heartbeat. Hãy khởi động bot trên host rồi thử khôi phục lại sau khi bot online.":
+    "Der Bot sendet keine Heartbeats. Starte ihn auf deinem Host und versuche die Wiederherstellung danach erneut.",
+  "Role, quyền role và kênh sẽ được tạo lại theo backup. Kết quả sẽ hiện ở đây.":
+    "Rollen, Rollenrechte und Kanäle werden aus dem Backup neu erstellt. Das Ergebnis erscheint hier.",
+  "Sao lưu cấu trúc server (role, quyền role, kênh và quyền kênh) lên":
+    "Sichert deine Serverstruktur (Rollen, Rollenrechte, Kanäle und Kanalrechte) in",
+  ". Khi server bị nuke/raid phá sập hoàn toàn, hãy mời bot vào":
+    ". Wird dein Server durch Nuke oder Raid ausgelöscht, lade den Bot in einen",
+  "Đang khôi phục vào server này… server lớn kèm tin nhắn có thể mất vài phút. Kết quả hiện ở đây và trong kênh log.":
+    "Wiederherstellung läuft… ein großer Server mit Nachrichten kann einige Minuten brauchen. Das Ergebnis erscheint hier und im Log-Kanal.",
+  "Bot sao lưu toàn bộ": "Der Bot sichert alle",
+  "Kèm tin nhắn và media (tối đa 50 tin/kênh)":
+    "Nachrichten und Medien einschließen (bis zu 50 pro Kanal)",
+  "Nếu server bị": "Wenn dein Server von",
+  "phá sập mà bạn còn giữ được file backup của nó (định dạng":
+    "zerstört wurde und du noch die Backup-Datei hast (Format",
+  "(gồm cả media — file lưu trên đám mây, không nhét vào bộ nhớ bot). Bot giữ nguyên role/kênh có sẵn của server hiện tại, chỉ thêm mới theo file chứ không xóa gì.":
+    "(inklusive Medien — die Datei bleibt in der Cloud und wird nicht in den Bot-Speicher geladen). Der Bot behält die vorhandenen Rollen und Kanäle des aktuellen Servers und fügt nur hinzu, was in der Datei steht — gelöscht wird nichts.",
+  "Bot tự sao lưu và đẩy lên": "Der Bot sichert und lädt hoch zu",
+  "). Bot chỉ giữ": "). Der Bot behält nur",
+  "trong bot — bản cũ hơn tự bị xóa, còn GitHub giữ bản lưu vĩnh viễn.":
+    "im Bot — ältere werden automatisch gelöscht, GitHub behält sie dauerhaft.",
+  "Bật lên là bot sao lưu bản đầu tiên trong khoảng 1 phút, sau đó lặp lại theo chu kỳ bạn chọn.":
+    "Beim Einschalten erstellt der Bot in etwa einer Minute das erste Backup und wiederholt das im gewählten Zyklus.",
+  "(.msc/.json tải lên). Phần tắt sẽ được bỏ qua khi khôi phục (kênh, tin nhắn và media vẫn xử lý bình thường).":
+    "(.msc/.json-Uploads). Deaktivierte Teile werden bei der Wiederherstellung übersprungen (Kanäle, Nachrichten und Medien werden weiterhin verarbeitet).",
+  "Đã yêu cầu tạo backup — bot thực hiện trong khoảng 20 giây":
+    "Backup angefordert — der Bot führt es in etwa 20 Sekunden aus",
+  "Đã yêu cầu khôi phục — bot thực hiện trong khoảng 1 phút":
+    "Wiederherstellung angefordert — der Bot führt sie in etwa 1 Minute aus",
 };

@@ -102,7 +102,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
     if (!importWatch || importStatus === undefined || importStatus === null) return;
     if (importStatus.error) {
       toast.error(translate("Khôi phục từ file thất bại: {p0}", { p0: importStatus.error }), {
-        description: "Hãy kiểm tra lại file backup hoặc tải lại file khác.",
+        description: translate("Hãy kiểm tra lại file backup hoặc tải lại file khác."),
       });
       setImportWatch(null);
     } else if (!importStatus.requested) {
@@ -157,8 +157,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
     if (!restoreWatch || importStatus === undefined || importStatus === null) return;
     if (importStatus.restoreError) {
       toast.error(translate("Khôi phục thất bại: {p0}", { p0: importStatus.restoreError }), {
-        description:
-          "Bot đã dừng giữa chừng. Kiểm tra bot còn trong server + đủ quyền Administrator rồi thử khôi phục lại.",
+        description: translate(
+          "Bot đã dừng giữa chừng. Kiểm tra bot còn trong server và đủ quyền Administrator rồi thử khôi phục lại.",
+        ),
         duration: 12000,
       });
       setRestoreWatch(null);
@@ -189,8 +190,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
     if (!backupWatch || importStatus === undefined || importStatus === null) return;
     if (importStatus.backupError) {
       toast.error(translate("Backup thất bại: {p0}", { p0: importStatus.backupError }), {
-        description:
-          "Bot đã dừng giữa chừng. Kiểm tra bot còn trong server + đủ quyền Administrator rồi bấm Backup ngay lại.",
+        description: translate(
+          "Bot đã dừng giữa chừng. Kiểm tra bot còn trong server và đủ quyền Administrator rồi bấm Backup ngay lại.",
+        ),
         duration: 12000,
       });
       setBackupWatch(null);
@@ -225,8 +227,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
     // cảnh báo NGAY thay vì để người dùng chờ vô ích và tưởng "backup hỏng".
     if (importStatus && importStatus.botOnline === false) {
       toast.error(translate("Bot đang OFFLINE — không thể backup lúc này"), {
-        description:
-          "Bot không gửi heartbeat (offline > 3 phút). Hãy khởi động bot trên host (pm2 start protogon-bot / bật lại service) rồi bấm Backup ngay sau khi bot online.",
+        description: translate(
+          "Bot không gửi heartbeat (offline hơn 3 phút). Hãy khởi động bot trên host (pm2 start protogon-bot / bật lại service) rồi bấm Backup ngay sau khi bot online.",
+        ),
         duration: 8000,
       });
       return;
@@ -239,7 +242,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         pushToGithub: pushGithub,
         includeMessages,
       });
-      toast.success(translate("Đã yêu cầu tạo backup — bot thực hiện trong ~20 giây"), {
+      toast.success(translate("Đã yêu cầu tạo backup — bot thực hiện trong khoảng 20 giây"), {
         description: pushGithub
           ? includeMessages
             ? translate(
@@ -363,8 +366,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
     // Bot OFFLINE → yêu cầu khôi phục sẽ nằm chờ vô hạn — chặn sớm với lý do rõ ràng.
     if (importStatus && importStatus.botOnline === false) {
       toast.error(translate("Bot đang OFFLINE — không thể khôi phục lúc này"), {
-        description:
+        description: translate(
           "Bot không gửi heartbeat. Hãy khởi động bot trên host rồi thử khôi phục lại sau khi bot online.",
+        ),
         duration: 8000,
       });
       return;
@@ -390,8 +394,10 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         backupId: backup._id,
       });
       setRestoreWatch({ startedAt: Date.now() });
-      toast.success(translate("Đã yêu cầu khôi phục — bot thực hiện trong ~1 phút"), {
-        description: "Role, quyền role và kênh sẽ được tạo lại theo backup. Kết quả sẽ hiện ở đây.",
+      toast.success(translate("Đã yêu cầu khôi phục — bot thực hiện trong khoảng 1 phút"), {
+        description: translate(
+          "Role, quyền role và kênh sẽ được tạo lại theo backup. Kết quả sẽ hiện ở đây.",
+        ),
       });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : translate("Thất bại"));
@@ -407,9 +413,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
           <DatabaseBackup className="h-5 w-5 text-primary" /> Backup server
         </h2>
         <p className="text-sm text-muted-foreground">
-          {translate("Chụp cấu trúc server (role, quyền role, kênh + quyền kênh) lên")}{" "}
+          {translate("Sao lưu cấu trúc server (role, quyền role, kênh và quyền kênh) lên")}{" "}
           <b className="text-foreground">{translate("đám mây GitHub")}</b>
-          {translate(". Khi server bị nuke/raid phá sập hoàn toàn, mời bot vào")}{" "}
+          {translate(". Khi server bị nuke/raid phá sập hoàn toàn, hãy mời bot vào")}{" "}
           <b className="text-foreground">{translate("server phụ")}</b>{" "}
           {translate("rồi khôi phục lại từ backup.")}{" "}
         </p>
@@ -443,7 +449,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
             <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
             <span>
               {translate(
-                "Đang khôi phục vào server này… server lớn kèm tin nhắn có thể mất vài phút. Kết quả sẽ hiện ở đây và trong kênh log.",
+                "Đang khôi phục vào server này… server lớn kèm tin nhắn có thể mất vài phút. Kết quả hiện ở đây và trong kênh log.",
               )}{" "}
             </span>
           </p>
@@ -463,7 +469,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                   {translate("Tạo backup cho")} “{data.guild.name}”
                 </p>
                 <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                  {translate("Bot chụp toàn bộ")} <b className="text-foreground">role</b>{" "}
+                  {translate("Bot sao lưu toàn bộ")} <b className="text-foreground">role</b>{" "}
                   {translate("(tên, màu, hoist, mentionable, quyền),")}{" "}
                   <b className="text-foreground">{translate("kênh")}</b>{" "}
                   {translate("(danh mục, văn bản, thoại…) kèm quyền truy cập từng kênh, cùng")}{" "}
@@ -485,7 +491,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
               <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/50 px-3 py-2.5">
                 <span className="flex items-center gap-2 text-sm">
                   <MessageSquare className="h-4 w-4" />
-                  {translate("Kèm tin nhắn + media (tối đa 50 tin/kênh)")}{" "}
+                  {translate("Kèm tin nhắn và media (tối đa 50 tin/kênh)")}{" "}
                 </span>
                 <Switch checked={includeMessages} onCheckedChange={setIncludeMessages} />
               </label>
@@ -531,8 +537,8 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                 {translate("Khôi phục từ file backup của bot nuke (.msc / .json)")}{" "}
               </p>
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                {translate("Nếu server bị một con")} <b className="text-foreground">bot nuke</b>{" "}
-                {translate("phá sập mà bạn giữ được file backup của nó (định dạng")}{" "}
+                {translate("Nếu server bị")} <b className="text-foreground">bot nuke</b>{" "}
+                {translate("phá sập mà bạn còn giữ được file backup của nó (định dạng")}{" "}
                 <code className="font-mono">.msc</code> {translate("hoặc")}{" "}
                 <code className="font-mono">.json</code>
                 {translate("), tải file lên đây — bot sẽ")}{" "}
@@ -618,7 +624,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
           <p className="text-[11px] text-muted-foreground">
             {translate("Giới hạn file")} <b className="text-foreground">8 MB</b>{" "}
             {translate(
-              "(gồm cả media — file được giữ trong đám mây, không nhét vào bộ nhớ bot). Bot giữ nguyên role/kênh có sẵn của server hiện tại — chỉ thêm mới theo file, không xóa gì.",
+              "(gồm cả media — file lưu trên đám mây, không nhét vào bộ nhớ bot). Bot giữ nguyên role/kênh có sẵn của server hiện tại, chỉ thêm mới theo file chứ không xóa gì.",
             )}{" "}
           </p>
         </CardContent>
@@ -635,15 +641,15 @@ export default function BackupPanel({ data }: { data: GuildData }) {
               <div>
                 <p className="font-display font-semibold">{translate("Tự động backup định kỳ")}</p>
                 <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                  {translate("Bot tự chụp backup + đẩy lên")}{" "}
+                  {translate("Bot tự sao lưu và đẩy lên")}{" "}
                   <b className="text-foreground">{translate("GitHub của chủ bot")}</b>{" "}
                   {translate("mỗi")} <b className="text-foreground">{translate("N ngày")}</b>{" "}
                   {translate("(tối thiểu")} <b>2</b>
                   {translate(", tối đa")} <b>30</b>
-                  {translate("). Chỉ giữ")}{" "}
+                  {translate("). Bot chỉ giữ")}{" "}
                   <b className="text-foreground">{translate("3 bản mới nhất")}</b>{" "}
                   {translate(
-                    "trong bot — bản cũ hơn tự bị xóa, GitHub giữ bản lưu vĩnh viễn.",
+                    "trong bot — bản cũ hơn tự bị xóa, còn GitHub giữ bản lưu vĩnh viễn.",
                   )}{" "}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -676,7 +682,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                       </>
                     ) : (
                       translate(
-                        "Bật lên là bot chụp bản đầu tiên trong khoảng 1 phút, sau đó lặp lại theo chu kỳ bạn chọn.",
+                        "Bật lên là bot sao lưu bản đầu tiên trong khoảng 1 phút, sau đó lặp lại theo chu kỳ bạn chọn.",
                       )
                     )
                   ) : (
@@ -726,7 +732,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
                 {translate("lẫn")}{" "}
                 <b className="text-foreground">{translate("file backup của bot nuke")}</b>{" "}
                 {translate(
-                  "(.msc/.json tải lên). Phần tắt sẽ được bỏ qua khi khôi phục (kênh, tin nhắn + media vẫn được xử lý bình thường).",
+                  "(.msc/.json tải lên). Phần tắt sẽ được bỏ qua khi khôi phục (kênh, tin nhắn và media vẫn xử lý bình thường).",
                 )}{" "}
               </p>
             </div>

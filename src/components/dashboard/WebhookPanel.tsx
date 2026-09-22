@@ -93,7 +93,7 @@ function EmbedPreview({ embed }: { embed: EmbedData }) {
   if (!hasAnyContent) {
     return (
       <div className="rounded-lg border border-[#3f4147] bg-[#2b2d31] p-4 text-center text-xs text-[#b5bac1]">
-        {translate("Chưa có nội dung embed — hãy soạn bên trái.")}{" "}
+        {translate("Chưa có nội dung embed — hãy soạn ở khung bên trái.")}{" "}
       </div>
     );
   }
@@ -291,7 +291,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
         embeds: hasEmbed ? [embedPayload as any] : [],
       });
 
-      setResult({ ok: true, msg: "Đã gửi thành công! Kiểm tra kênh Discord." });
+      setResult({ ok: true, msg: translate("Đã gửi thành công! Kiểm tra kênh Discord.") });
       toast.success(translate("Gửi thành công!"));
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -328,15 +328,15 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
                       translate("kênh đã bị xóa")}
                   </b>{" "}
                   {translate(
-                    "(theo Kênh log trong Cài đặt) · nhận mọi log hình phạt & anti nuke/raid.",
+                    "(theo Kênh log trong Cài đặt) · nhận mọi log hình phạt và anti nuke/raid.",
                   )}
                 </>
               ) : (
                 <>
                   {translate("Chưa có — bot sẽ")}{" "}
-                  <b className="text-foreground">{translate("tự tạo trong ~1 phút")}</b>{" "}
+                  <b className="text-foreground">{translate("tự tạo trong khoảng 1 phút")}</b>{" "}
                   {translate("sau khi bạn")}{" "}
-                  <b className="text-foreground">{translate("set Kênh log")}</b>{" "}
+                  <b className="text-foreground">{translate("chọn Kênh log")}</b>{" "}
                   {translate("trong Cài đặt.")}{" "}
                 </>
               )}
@@ -374,7 +374,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
             {translate(
-              "Dán webhook URL từ Discord (Kênh → Tích hợp → Webhook → Tạo webhook), soạn nội dung & embed, bấm gửi.",
+              "Dán webhook URL từ Discord (Kênh → Tích hợp → Webhook → Tạo webhook), soạn nội dung và embed rồi bấm gửi.",
             )}{" "}
           </p>
         </div>
@@ -394,7 +394,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="text-[11px] font-medium text-muted-foreground">
-                {translate("Username ghi đè (tùy chọn)")}{" "}
+                {translate("Tên người gửi ghi đè (tùy chọn)")}{" "}
               </label>
               <input
                 value={username}
@@ -632,7 +632,7 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
                 className="accent-primary"
               />
               <Clock className="h-3 w-3" />
-              {translate("Hiển thị timestamp hiện tại")}{" "}
+              {translate("Hiển thị thời gian hiện tại")}{" "}
             </label>
           </div>
 
@@ -699,13 +699,13 @@ export default function WebhookPanel({ data }: { data: GuildData }) {
           </p>
           <p className="mt-1">
             {translate(
-              "• Dán URL vào ô trên, soạn embed với tiêu đề, mô tả, màu sắc, fields... rồi bấm",
+              "• Dán URL vào ô trên, soạn embed với tiêu đề, mô tả, màu sắc, field… rồi bấm",
             )}{" "}
             <b className="text-foreground">{translate("Gửi embed")}</b>.
           </p>
           <p className="mt-1">
             {translate(
-              "• Webhook mặc định (Protogon Log) ở trên chỉ dùng để nhận log hình phạt & anti nuke từ bot — không liên quan đến embed sender.",
+              "• Webhook mặc định (Protogon Log) ở trên chỉ dùng để nhận log hình phạt và anti nuke từ bot — không liên quan tới trình gửi embed.",
             )}{" "}
           </p>
           <p className="mt-1">

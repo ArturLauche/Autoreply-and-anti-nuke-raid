@@ -245,7 +245,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
           <h2 className="font-display text-lg font-semibold">{translate("Auto-mod nội dung")}</h2>
           <p className="text-sm text-muted-foreground">
             {translate(
-              "Tự động kiểm duyệt: chống spam tin nhắn, mention, từ ngữ xấu, spam ảnh/file và chặn link mời Discord",
+              "Tự động kiểm duyệt nội dung: chống spam tin nhắn, mention, từ ngữ thô tục, ảnh/file và link mời Discord",
             )}{" "}
           </p>
         </div>
@@ -270,7 +270,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                   </p>
                   <p className="mt-1 max-w-xl text-sm text-muted-foreground">
                     {translate(
-                      "Mỗi vi phạm cộng điểm nhiệt theo cài đặt của module. Nhiệt độ tăng dần, tự giảm theo thời gian; khi chạm ngưỡng",
+                      "Mỗi vi phạm cộng điểm nhiệt theo cài đặt của module. Nhiệt tăng dần rồi tự giảm theo thời gian; khi chạm ngưỡng",
                     )}{" "}
                     <b className="text-foreground">warn</b>{" "}
                     {translate("thành viên nhận cảnh báo riêng, rồi tự tăng cấp hình phạt:")}{" "}
@@ -359,7 +359,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
               </div>
               <p className="col-span-full text-xs text-muted-foreground">
                 {translate(
-                  "Ngưỡng phải tăng dần: warn < tạm khóa < kick < ban (tối đa 100 điểm). Thành viên vừa bị phạt mà",
+                  "Ngưỡng phải tăng dần: cảnh báo < tạm khóa < kick < ban (tối đa 100 điểm). Thành viên vừa bị phạt mà",
                 )}{" "}
                 <b className="text-foreground">
                   {translate("tái phạm trong {p0} phút", { p0: repeat.windowMin })}
@@ -368,14 +368,14 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                 <b className="text-foreground">
                   ×{repeat.multiplier} {translate("điểm nhiệt")}
                 </b>{" "}
-                {translate("mỗi lần vi phạm — đầy thanh nhanh hơn.")}{" "}
+                {translate("mỗi lần vi phạm, thanh nhiệt đầy nhanh hơn.")}{" "}
               </p>
             </div>
           </div>
           <div className="flex flex-col justify-center gap-4 rounded-xl border border-border bg-secondary/50 p-4">
             <SafetyBar data={data} />
             <p className="text-xs font-medium text-muted-foreground">
-              {translate("🔥 Bảng nhiệt độ & warn tích lũy của từng thành viên")}{" "}
+              {translate("🔥 Bảng nhiệt và warn tích lũy của từng thành viên")}{" "}
             </p>
             <HeatTable data={data} />
           </div>
@@ -490,7 +490,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
                 <p className="mt-1 max-w-xl text-sm text-muted-foreground">
                   Khi module <b className="text-foreground">{translate("Lọc từ ngữ xấu")}</b>{" "}
                   {translate(
-                    "bật, tin nhắn chứa một trong các từ dưới đây sẽ bị xóa và xử lý tự động. Thêm từ bỏ trống để tắt lọc từ ngữ xấu.",
+                    "bật, mọi tin nhắn chứa từ trong danh sách dưới đây sẽ bị xóa và xử lý tự động. Xóa hết từ để tắt bộ lọc từ ngữ xấu.",
                   )}{" "}
                 </p>
               </div>
@@ -517,7 +517,7 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
           {(data.guild.badWords ?? []).length === 0 ? (
             <p className="mt-3 text-sm text-muted-foreground">
               {translate(
-                "Chưa có từ nào — bộ lọc từ ngữ xấu sẽ không hoạt động cho tới khi bạn thêm từ.",
+                "Chưa có từ nào — bộ lọc từ ngữ xấu chỉ hoạt động sau khi bạn thêm từ.",
               )}{" "}
             </p>
           ) : (

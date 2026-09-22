@@ -103,7 +103,7 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
           </h2>
           <p className="text-xs text-muted-foreground">
             {translate(
-              "Thành viên mới sẽ nhận role Unverified và phải xác minh trước khi vào server.",
+              "Thành viên mới nhận role Unverified và phải xác minh trước khi vào server.",
             )}{" "}
           </p>
         </div>
@@ -119,7 +119,7 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
             <p className="text-sm font-semibold">{translate("Bật xác minh thành viên")}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               {translate(
-                "Khi bật, thành viên mới sẽ nhận role chưa xác minh và cần verify để vào server.",
+                "Khi bật, thành viên mới nhận role chưa xác minh và phải verify mới vào được server.",
               )}{" "}
             </p>
           </div>
@@ -145,9 +145,9 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
             <div>
               <p className="text-sm font-semibold">{translate("Phương thức xác minh")}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                <b>Button</b> {translate("— thành viên bấm nút để xác minh ngay lập tức.")}{" "}
+                <b>Button</b> {translate("— thành viên bấm nút là xác minh xong ngay.")}{" "}
                 <b>Captcha</b>{" "}
-                {translate("— bot gửi mã qua DM, thành viên nhập mã trong kênh.")}{" "}
+                {translate("— bot gửi mã qua DM, thành viên nhập lại mã trong kênh.")}{" "}
               </p>
             </div>
           </div>
@@ -182,7 +182,7 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {translate(
-                      "Bot gửi embed chào mừng qua DM cho thành viên ngay khi xác minh thành công.",
+                      "Bot gửi embed chào mừng qua DM ngay khi thành viên xác minh thành công.",
                     )}{" "}
                   </p>
                 </div>
@@ -381,7 +381,7 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
                 {translate("Role chưa xác minh (Unverified)")}{" "}
               </Label>
               <p className="text-xs text-muted-foreground">
-                {translate("Role gán tự động cho thành viên mới khi vừa vào server.")}{" "}
+                {translate("Role tự gán cho thành viên mới ngay khi vừa vào server.")}{" "}
               </p>
               <select
                 value={g.unverifiedRoleId ?? ""}
@@ -410,7 +410,7 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
               </Label>
               <p className="text-xs text-muted-foreground">
                 {translate(
-                  "Role gán cho thành viên sau khi xác minh thành công. Role chưa xác minh sẽ bị gỡ.",
+                  "Role gán sau khi xác minh thành công; role chưa xác minh được gỡ ra.",
                 )}{" "}
               </p>
               <select
@@ -524,7 +524,7 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
           <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">
             !verify setup
           </code>{" "}
-          {translate("— thiết lập xác minh bằng lệnh Discord.")}
+          {translate("— thiết lập xác minh ngay trong Discord.")}
         </p>
       </div>
     </div>

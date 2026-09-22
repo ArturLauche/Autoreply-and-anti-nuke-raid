@@ -116,14 +116,17 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
       setWhitelistInput("");
       return toast.info(translate("ID này đã có trong danh sách trắng"));
     }
-    await patch({ joinGateWhitelist: [...current, id] }, `Đã thêm ${id} vào danh sách trắng`);
+    await patch(
+      { joinGateWhitelist: [...current, id] },
+      translate("Đã thêm {p0} vào danh sách trắng", { p0: id }),
+    );
     setWhitelistInput("");
   }
 
   async function removeWhitelist(id: string) {
     await patch(
       { joinGateWhitelist: (g.joinGateWhitelist || []).filter((x) => x !== id) },
-      `Đã xóa ${id} khỏi danh sách trắng`,
+      translate("Đã xóa {p0} khỏi danh sách trắng", { p0: id }),
     );
   }
 
@@ -143,7 +146,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
           </h2>
           <p className="text-sm text-muted-foreground">
             {translate(
-              "Quét từng thành viên mới khi tham gia và tự động chặn tài khoản nghi selfbot",
+              "Kiểm tra mọi thành viên mới ngay khi vào server và tự động chặn tài khoản nghi selfbot",
             )}{" "}
           </p>
         </div>
@@ -169,7 +172,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
               <p className="font-display font-semibold">{translate("Bật Join Gate")}</p>
               <p className="mt-1 max-w-xl text-sm text-muted-foreground">
                 {translate(
-                  "Khi bật, mọi thành viên mới đều được kiểm tra theo các tiêu chí bên dưới trước khi ở lại server. Kẻ không đạt sẽ bị",
+                  "Khi bật, mọi thành viên mới đều phải vượt qua các tiêu chí bên dưới mới được ở lại server. Ai không đạt sẽ bị",
                 )}{" "}
                 <b className="text-foreground">{translate("kick hoặc ban")}</b>{" "}
                 {translate("ngay lập tức.")}{" "}
@@ -187,9 +190,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
 
       {!g.joinGateEnabled && (
         <div className="rounded-xl border border-border bg-secondary px-4 py-3 text-sm text-foreground">
-          {translate(
-            "⚠️ Join Gate đang tắt — mọi tài khoản đều được vào tự do (kể cả selfbot).",
-          )}{" "}
+          {translate("⚠️ Join Gate đang tắt — mọi tài khoản đều vào được, kể cả selfbot.")}{" "}
         </div>
       )}
 
@@ -199,7 +200,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
           icon={CalendarClock}
           title={translate("Chặn tài khoản quá mới")}
           desc={translate(
-            "Tài khoản tạo ít hơn số ngày dưới đây sẽ bị chặn (0 = tắt). Selfbot thường dùng tài khoản mới tạo hàng loạt.",
+            "Tài khoản mới hơn số ngày dưới đây sẽ bị chặn (0 = tắt). Selfbot thường đăng ký tài khoản mới hàng loạt.",
           )}
           checked={g.joinGateMinAgeDays > 0}
           onToggle={(v) => patch({ joinGateMinAgeDays: v ? 7 : 0 })}
@@ -218,7 +219,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              {translate("Khuyến nghị 7-14 ngày để hạn chế tài khoản dùng 1 lần.")}{" "}
+              {translate("Khuyến nghị 7–14 ngày để chặn tài khoản dùng một lần.")}{" "}
             </p>
           </div>
         )}
@@ -226,9 +227,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
         <GateRow
           icon={Image}
           title={translate("Yêu cầu có avatar riêng")}
-          desc={translate(
-            "Tài khoản không có ảnh đại diện riêng (đang dùng hình mặc định) sẽ bị chặn.",
-          )}
+          desc={translate("Tài khoản còn dùng ảnh đại diện mặc định sẽ bị chặn.")}
           checked={g.joinGateRequireAvatar}
           onToggle={(v) => patch({ joinGateRequireAvatar: v })}
         />
@@ -237,7 +236,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
           icon={BadgeCheck}
           title={translate("Yêu cầu có huy hiệu tài khoản")}
           desc={translate(
-            "Tài khoản không có bất kỳ huy hiệu công khai nào (flag = 0) sẽ bị chặn — selfbot mới hầu như không có huy hiệu.",
+            "Tài khoản không có huy hiệu công khai nào (flag = 0) sẽ bị chặn — selfbot mới gần như không bao giờ có huy hiệu.",
           )}
           checked={g.joinGateRequireFlag}
           onToggle={(v) => patch({ joinGateRequireFlag: v })}
@@ -245,9 +244,9 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
 
         <GateRow
           icon={Lock}
-          title={translate("Chặn lượt vào khi đang bị raid")}
+          title={translate("Chặn người vào khi server đang bị raid")}
           desc={translate(
-            "Khi server đang khóa kênh (raid), mọi thành viên mới đều bị xử lý — chặn đà tấn công thứ hai.",
+            "Khi server đang khóa kênh vì raid, mọi thành viên mới đều bị xử lý — cắt đợt tấn công thứ hai.",
           )}
           checked={g.joinGateRaidKick}
           onToggle={(v) => patch({ joinGateRaidKick: v })}
@@ -255,9 +254,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
         {locked && (
           <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
             {translate("🔒 Server của bạn")} <b>{translate("đang bị khóa kênh")}</b>{" "}
-            {translate(
-              "— nếu bật tiêu chí trên, mọi thành viên mới sẽ bị xử lý ngay bây giờ.",
-            )}{" "}
+            {translate("— bật tiêu chí trên thì mọi thành viên mới sẽ bị xử lý ngay lúc này.")}{" "}
           </div>
         )}
 
@@ -265,7 +262,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
           icon={ShieldQuestion}
           title={translate("Hình thức xử lý")}
           desc={translate(
-            "Kick = thành viên có thể quay lại; Ban = chặn vĩnh viễn (mạnh hơn với selfbot).",
+            "Kick = có thể quay lại; Ban = chặn vĩnh viễn (hiệu quả hơn với selfbot).",
           )}
           checked={g.joinGatePunish === "ban"}
           onToggle={(v) => patch({ joinGatePunish: v ? "ban" : "kick" })}
@@ -274,7 +271,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
           <p className="px-4 text-xs text-muted-foreground">
             {translate("⚠️ Đang ở chế độ")} <b className="text-danger">Ban</b>{" "}
             {translate(
-              "— tài khoản vi phạm bị cấm vĩnh viễn. Chọn Kick nếu bạn muốn nhẹ tay hơn.",
+              "— tài khoản vi phạm bị chặn vĩnh viễn. Chọn Kick nếu bạn muốn nhẹ tay hơn.",
             )}{" "}
           </p>
         )}
@@ -292,7 +289,7 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
               <p className="mt-1 max-w-xl text-sm text-muted-foreground">
                 {translate("Những ID người dùng này")} <b>{translate("luôn được vào")}</b>
                 {translate(
-                  ", bỏ qua mọi tiêu chí — dùng cho tài khoản phụ / bạn bè quen biết.",
+                  ", bỏ qua mọi tiêu chí — dành cho tài khoản phụ hoặc người bạn tin tưởng.",
                 )}{" "}
               </p>
             </div>
@@ -341,14 +338,14 @@ export default function JoinGatePanel({ data }: { data: GuildData }) {
         <p>
           • Discord <b>{translate("không cho bot đọc")}</b>{" "}
           {translate(
-            "trạng thái email/điện thoại đã xác thực, nên Join Gate dùng các tín hiệu công khai (tuổi tài khoản, avatar, huy hiệu, trạng thái raid) để nhận diện selfbot.",
+            "trạng thái email/số điện thoại đã xác thực, nên Join Gate chỉ dựa vào tín hiệu công khai (tuổi tài khoản, avatar, huy hiệu, trạng thái raid) để nhận diện selfbot.",
           )}{" "}
         </p>
         <p className="mt-1">
           {translate("• Bot cần quyền")}{" "}
           <b className="text-foreground">{translate("Kick/Ban thành viên")}</b>{" "}
           {translate(
-            "để xử lý. Muốn cho một người cụ thể luôn vào, thêm ID của họ vào danh sách trắng phía trên.",
+            "để xử lý. Muốn một người luôn được vào, hãy thêm ID của họ vào danh sách trắng phía trên.",
           )}{" "}
         </p>
       </div>
