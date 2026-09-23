@@ -265,8 +265,6 @@ export const DE_PANELS: Record<string, string> = {
   "🎉 Thành viên mới!": "🎉 Neues Mitglied!",
   "👋 Tạm biệt": "👋 Tschüss",
   "Màu (#hex)": "Farbe (#hex)",
-  "Ảnh banner (URL)": "Banner-Bild (URL)",
-  "Thumbnail (URL)": "Vorschaubild (URL)",
   ThànhViênMới: "NeuesMitglied",
   "Chào qua DM": "Begrüßung per DM",
   "Nội dung DM": "DM-Text",
@@ -361,8 +359,6 @@ export const DE_PANELS: Record<string, string> = {
     "sobald ein Modul seinen Schwellenwert überschreitet, sperrt der Bot serverweit das Senden — Freigabe nach einigen Minuten oder per Mod-Befehl",
   "Đăng nhập bằng Discord, mời Protogon vào server để bật nhiệt độ, Join Gate, lọc nội dung và 32 module chống nuke ngay trên dashboard — cùng trợ lý ảo Haimiya đồng hành. Miễn phí cho mọi server.":
     "Mit Discord anmelden und Protogon einladen, um Heat, Join Gate, Inhaltsfilter und 32 Anti-Nuke-Module direkt im Dashboard zu aktivieren — mit Assistentin Haimiya an deiner Seite. Kostenlos für jeden Server.",
-  "…cùng 12 module chống nuke khác, xem đầy đủ trong dashboard.":
-    "…plus 12 weitere Anti-Nuke-Module, vollständig im Dashboard.",
 
   /* ==== Lô 2 — viết lại copy panel Overview / Settings / Branding / ModuleCard. */
   "Chưa ghi nhận sự kiện nào — bot chưa xử lý vi phạm chống nuke ở server này.":
@@ -409,8 +405,6 @@ export const DE_PANELS: Record<string, string> = {
   "Tải ảnh thất bại": "Bild-Upload fehlgeschlagen",
   "Đã lưu ảnh mới, áp dụng ngay toàn web": "Neues Bild gespeichert — sofort websiteweit aktiv",
   "Đã xóa ảnh tùy chỉnh, trở về mặc định": "Eigenes Bild entfernt — zurück zum Standard",
-  "Nhận sự kiện chống nuke/raid, báo cáo hàng ngày và các thông báo quan trọng.":
-    "Empfängt Anti-Nuke/Raid-Ereignisse, den Tagesbericht und weitere wichtige Hinweise.",
   "Tóm tắt sự kiện chống nuke gửi vào kênh log vào khoảng 00:00 UTC mỗi ngày":
     "Sendet täglich gegen 00:00 UTC eine Anti-Nuke-Zusammenfassung in den Log-Kanal",
   "Khi bot xác nhận raid/nuke: gửi DM khẩn cho chủ server (kẻ nuke không xóa được), AI quét chat và báo cáo vào kênh log, kèm lệnh":
@@ -421,8 +415,6 @@ export const DE_PANELS: Record<string, string> = {
     "sendet Logs automatisch bei Ereignissen; Ereignistypen, Embed-Farbe und Zusatzinhalt anpassbar.",
   "Được miễn trừ chống nuke và có quyền quản lý rule auto reply trong Discord.":
     "Vom Anti-Nuke ausgenommen und darf Auto-Reply-Regeln in Discord verwalten.",
-  "Dùng để mở khóa khu vực riêng tư dành cho chủ sở hữu bot; nội dung bên trong không tiết lộ công khai. Chỉ":
-    "Dient zum Entsperren des privaten Bereichs für den Bot-Besitzer; die Inhalte werden nie öffentlich gezeigt. Nur",
   "🔒 Bạn không phải admin sở hữu bot — chỉ chủ sở hữu bot mới được đặt, đổi hoặc xóa mật khẩu này.":
     "🔒 Du bist nicht der Bot-besitzende Admin — nur der Bot-Besitzer darf dieses Passwort setzen, ändern oder löschen.",
   "Chọn sắc độ xám áp dụng cho toàn bộ trang quản lý của server (nút, thẻ, sidebar).":
@@ -476,8 +468,6 @@ export const DE_PANELS: Record<string, string> = {
   "(8 module) sàng lọc nội dung độc hại mỗi ngày. Vượt ngưỡng, bot truy ra thủ phạm qua audit log, phạt đúng cài đặt và báo real-time về kênh log.":
     "(8 Module) filtern täglich schädliche Inhalte. Bei Schwellenwertüberschreitung ermittelt der Bot den Täter über das Audit-Log, straft nach deinen Einstellungen und alarmiert den Log-Kanal in Echtzeit.",
   "Trọn bộ trong một bot": "Das komplette Paket in einem Bot",
-  "Bên cạnh những gì bạn thấy, Protogon giữ riêng một khu vực quyền lực mà chỉ chủ sở hữu bot mở khóa được bằng mật khẩu bí mật — ngay trong dashboard, không cần cài thêm gì.":
-    "Neben allem Sichtbaren hält Protogon einen privaten Machtbereich bereit, den nur der Bot-Besitzer mit einem geheimen Passwort entsperrt — direkt im Dashboard, ohne Zusatzinstallation.",
 
   /* ==== Lô 3b — viết lại copy panel JoinGate / Verify / Webhook / Backup. */
   "Đã thêm {p0} vào danh sách trắng": "{p0} zur Whitelist hinzugefügt",
@@ -546,8 +536,6 @@ export const DE_PANELS: Record<string, string> = {
     "Prüfe die Backup-Datei erneut oder lade eine andere hoch.",
   "Bot đã dừng giữa chừng. Kiểm tra bot còn trong server và đủ quyền Administrator rồi thử khôi phục lại.":
     "Der Bot hat mittendrin abgebrochen. Prüfe, ob er noch im Server ist und Administratorrechte hat, und starte die Wiederherstellung erneut.",
-  "Bot đã dừng giữa chừng. Kiểm tra bot còn trong server và đủ quyền Administrator rồi bấm Backup ngay lại.":
-    "Der Bot hat mittendrin abgebrochen. Prüfe, ob er noch im Server ist und Administratorrechte hat, und klicke erneut auf Jetzt sichern.",
   "Bot không gửi heartbeat (offline hơn 3 phút). Hãy khởi động bot trên host (pm2 start protogon-bot / bật lại service) rồi bấm Backup ngay sau khi bot online.":
     "Der Bot sendet keine Heartbeats (länger als 3 Minuten offline). Starte ihn auf deinem Host (pm2 start protogon-bot / Dienst neu starten) und klicke dann auf Jetzt sichern.",
   "Bot không gửi heartbeat. Hãy khởi động bot trên host rồi thử khôi phục lại sau khi bot online.":
@@ -633,8 +621,6 @@ export const DE_PANELS: Record<string, string> = {
     "Standardmäßig aus — beitretende Bots erhalten keine automatische Rolle",
   "Chống raid: khi server đang khóa vì raid, autorole tạm dừng để không gán role cho loạt tài khoản ập vào.":
     "Anti-Raid: Während der Server wegen eines Raids gesperrt ist, pausiert Autorole, damit keine Rollen an eine Kontenflut vergeben werden.",
-  "Chào thành viên mới và tạm biệt người rời server: template ngẫu nhiên, embed tùy chỉnh, DM chào riêng và autorole. Bot không chào bot, không bao giờ ping @everyone từ nội dung bạn nhập, và tự im lặng khi server đang khóa chống raid.":
-    "Begrüßt neue Mitglieder und verabschiedet gehende: zufällige Vorlagen, eigene Embeds, private DM-Begrüßung und Autorole. Der Bot begrüßt keine Bots, pingt nie @everyone aus deinem Text und bleibt stumm, während der Server gegen Raids gesperrt ist.",
   "Tắt = gửi tin nhắn thường, không có khung embed.": "Aus = einfache Nachricht ohne Embed-Rahmen.",
   "Chào mừng {user} đến {server}!\nRất vui có {username} trong nhà!\nNgười thứ {count} vừa xuất hiện 🎉":
     "Willkommen {user} auf {server}!\nSchön, dass {username} dabei ist!\nMitglied Nummer {count} ist da 🎉",

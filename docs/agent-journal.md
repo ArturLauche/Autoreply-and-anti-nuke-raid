@@ -6,11 +6,8 @@
 
 ## Đang dở
 
-- **Dọn nốt bản dịch chết còn lại** (di sản các đợt viết lại copy) — số đo 22/09 sau lượt này: guard
-  báo **119 bản EN chết** (liệt kê đầu danh sách là các câu Haimiya + landing cũ) và **12 bản DE mồ
-  côi**. In nguyên văn entry cần xoá: `node scripts/_i18n-dead-lines.cjs --file=<tên file>`
-  (chia khối bằng `--from/--to`), bản DE mồ côi: `--orphan-de`. Xong thì `node scripts/check-i18n.cjs`
-  không còn mục ℹ️ nào.
+- Không có việc bắt buộc. (Nợ cũ "dọn 119 bản dịch EN chết + 12 DE mồ côi" ĐÃ XONG phiên 23/09 —
+  dùng `scripts/_i18n-dead-remove.cjs`, check-i18n giờ sạch 100% không còn mục ℹ️.)
 - 🚧 **Chặn kỹ thuật đã xác định được quy luật (đọc trước khi làm tiếp)**: công cụ patch
   (`str_replace`) chỉ sửa được **vùng ĐẦU của file lớn** — trong `src/lib/i18n.en.ts` (87 KB) sửa được
   entry ở offset ~5 KB nhưng mọi `oldString` lấy từ offset ~56 KB đều báo "not found" (dòng tồn tại
@@ -19,9 +16,8 @@
      (patch được) và chấp nhận entry cũ thành bản dịch chết (guard báo mềm), HOẶC ghi đè giá trị
      EN/DE cho **cùng key** bằng entry trùng tên trong `i18n.*.labels.ts`/`.panels.ts` (file nhỏ, gộp
      sau nên thắng) khi không cần đổi chính chuỗi VI.
-  2. Việc cần xoá entry ở vùng cuối → ghi vào danh sách nợ này, chờ phiên có công cụ đọc đủ file.
-     Nợ hiện tại từ lượt này: 2 entry `"embed moderation kiểu Carl-bot"` (EN + DE) trong
-     `i18n.en.ts`/`i18n.de.ts` đã chết vì UI đổi sang key `"embed hình phạt chi tiết"`.
+  2. Việc cần xoá entry ở vùng cuối → dùng `scripts/_i18n-dead-remove.cjs` (script xoá theo key-list,
+     backup + kiểm esbuild sau mỗi file) — KHÔNG dùng str_replace cho entry vùng cuối.
   3. `str_replace` cũng có lúc báo "file does not exist" hoặc dùng snapshot cũ cho file vừa ghi → luôn
      `grep`/`read_files` kiểm lại nội dung trên đĩa sau mỗi lần áp patch.
   4. **Cách xử lý TỐT NHẤT khi cần sửa ở vùng cuối file lớn: đổi thiết kế cho khỏi phải sửa ở đó.**
@@ -30,6 +26,33 @@
      Thay vì mò cách vá đuôi file, gom việc đó về **một điểm chặn duy nhất ở file nhỏ**
      (`bot/src/convex.js`: proxy tự xoá cache sau mọi lượt ghi cấu hình của bot) → vừa vá được
      cả 7 chỗ cùng lúc, vừa không bao giờ phải chạm đuôi file lớn nữa.
+
+---
+
+## 2026-09-23 — Dọn sạch từ điển chết + rà pháp lý + tối ưu relay index
+
+- ✅ **Xong nợ cũ "dọn 119 bản dịch chết + 12 DE mồ côi"** (thực đo lúc chạy: 123 EN chết + 12 DE
+  mồ côi + 195 bản DE đối xứng theo sau): viết `scripts/_i18n-dead-remove.cjs` — xoá entry theo
+  đúng bộ lọc của script chẩn đoán (`_i18n-dead-lines.cjs`), backup `/tmp` + kiểm esbuild sau MỖI
+  file. `check-i18n` giờ sạch hoàn toàn: **1275 key ⇄ 1586 EN ⇄ 1586 DE, 0 entry chết, 0 mồ côi**.
+  Hai bài học ghi vào journal: (1) `parseEntries` của runner từng nuốt NHẦM dòng key kế làm entry
+  rớt value → tsc vỡ TS1005 (backup khôi phục được ngay); (2) dựa vào tsc + backup, đừng tin
+  script biến-đổi-chạy-một-lần nếu không có bước kiểm cú pháp.
+- ✅ **Rà 3 trang pháp lý** (`/terms`, `/privacy`, `/data-deletion`): route công khai không auth ✓,
+  footer link đủ 3 ✓, nội dung **3 ngôn ngữ × 26 mục đối xứng** (cổng 3f kiểm cấu trúc) ✓,
+  `test-web-contracts` 36 PASS ✓ — đủ điều kiện verify bot (URL riêng, công khai, không cần đăng nhập).
+- 🔧 **Tối ưu cân bằng Convex** — rà hết query không index (`withIndex`): mọi đường nóng đã dùng
+  index; phát hiện `relaySignatures` THIẾU index `by_createdAt` khiến **4 đường đọc relay full
+  scan toàn bảng** (relayStatus, relaySignatures admin, botGetRelaySignatures mỗi 10 phút/guild,
+  botCleanupRelay mỗi tick). Thêm index + sửa cả 4 đường: lọc TTL bằng `q.gt("createdAt", …)`,
+  cleanup chỉ đọc phần HẾT hạn (`q.lte`) → 0 đọc khi không có gì hết hạn. Bảng tăng theo số
+  server (mỗi nguồn tới 10 signature/phút) nên không phải tối ưu cosmetics.
+- 🧪 Kiểm chứng: `61/61` CJS · `9/9` TS · tsc web + convex · lint · format · repo-map ·
+  contract (199 exports) · i18n 0 FAIL + 0 ℹ️ · coverage 86.37% · mutation 12/12 ·
+  codegen OK (index đã tạo trên deployment) · welcome-goodbye 83 PASS · backup 4 suite 114 PASS.
+- 📁 File đụng: `src/lib/i18n.{en,de}{,.panels,.labels}.ts`, `convex/{schema,relay}.ts`,
+  `scripts/_i18n-dead-remove.cjs` (mới), docs.
+- ▶️ Tiếp theo: không có — chờ yêu cầu mới.
 
 ---
 

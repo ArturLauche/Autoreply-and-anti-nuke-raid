@@ -167,14 +167,18 @@ export const relayStatus = query({
       .first();
     if (!guild || !canManageGuild(user, guild)) return null;
     const now = Date.now();
-    const all = await ctx.db.query("relaySignatures").collect();
-    const active = all.filter((s) => now - s.createdAt < TTL_MS);
+    // Lọc TTL bằng index by_createdAt (createdAt > now - TTL) thay vì full scan:
+    // mọi đường đọc relay đều cần "signature còn hạn" và bảng tăng theo số server.
+    const all = await ctx.db
+      .query("relaySignatures")
+      .withIndex("by_createdAt", (q) => q.gt("createdAt", now - TTL_MS))
+      .collect();
     return {
       relayShare: guild.relayShare ?? false,
       relayReceive: guild.relayReceive ?? false,
-      activeSignatures: active.length,
-      distinctSources: new Set(active.map((s) => s.sourceHash)).size,
-      byKind: active.reduce<Record<string, number>>((acc, s) => {
+      activeSignatures: all.length,
+      distinctSources: new Set(all.map((s) => s.sourceHash)).size,
+      byKind: all.reduce<Record<string, number>>((acc, s) => {
         acc[s.kind] = (acc[s.kind] ?? 0) + 1;
         return acc;
       }, {}),
@@ -191,9 +195,11 @@ export const relaySignatures = query({
     const status = await getBotStatus(ctx);
     if (status?.ownerDiscordId && status.ownerDiscordId !== user.discordId) return null;
     const now = Date.now();
-    const all = await ctx.db.query("relaySignatures").collect();
+    const all = await ctx.db
+      .query("relaySignatures")
+      .withIndex("by_createdAt", (q) => q.gt("createdAt", now - TTL_MS))
+      .collect();
     return all
-      .filter((s) => now - s.createdAt < TTL_MS)
       .sort((a, b) => (b.weight ?? 1) - (a.weight ?? 1) || b.lastSeenAt - a.lastSeenAt)
       .slice(0, Math.min(100, Math.max(1, limit ?? 30)))
       .map((s) => ({
@@ -224,8 +230,11 @@ export const botGetRelaySignatures = query({
     if (!guild || guild.relayReceive !== true) return { signatures: [] };
 
     const now = Date.now();
-    const all = await ctx.db.query("relaySignatures").collect();
-    const active = all.filter((s) => now - s.createdAt < TTL_MS);
+    // Index by_createdAt: chỉ đọc signature còn hạn (xem relayStatus).
+    const active = await ctx.db
+      .query("relaySignatures")
+      .withIndex("by_createdAt", (q) => q.gt("createdAt", now - TTL_MS))
+      .collect();
     const distributable = active.filter(
       (s) => now - s.createdAt < 2 * 60 * 60 * 1000 || (s.weight ?? 1) >= MIN_WEIGHT_AGED,
     );
@@ -244,13 +253,16 @@ export const botCleanupRelay = mutation({
   handler: async (ctx, { botKey }) => {
     await requireBotKeyStrict(ctx, botKey);
     const now = Date.now();
-    const all = await ctx.db.query("relaySignatures").collect();
+    // Chỉ quét signature HẾT hạn (createdAt <= now - TTL) qua index — không đọc
+    // phần còn hạn của bảng; mỗi lượt cleanup là 0 đọc khi không có gì hết hạn.
+    const stale = await ctx.db
+      .query("relaySignatures")
+      .withIndex("by_createdAt", (q) => q.lte("createdAt", now - TTL_MS))
+      .collect();
     let deleted = 0;
-    for (const s of all) {
-      if (now - s.createdAt >= TTL_MS) {
-        await ctx.db.delete(s._id);
-        deleted++;
-      }
+    for (const s of stale) {
+      await ctx.db.delete(s._id);
+      deleted++;
     }
     return { ok: true, deleted };
   },

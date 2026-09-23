@@ -265,8 +265,6 @@ export const EN_PANELS: Record<string, string> = {
   "🎉 Thành viên mới!": "🎉 New member!",
   "👋 Tạm biệt": "👋 Farewell",
   "Màu (#hex)": "Color (#hex)",
-  "Ảnh banner (URL)": "Banner image (URL)",
-  "Thumbnail (URL)": "Thumbnail (URL)",
   ThànhViênMới: "NewMember",
   "Chào qua DM": "Welcome via DM",
   "Nội dung DM": "DM body",
@@ -361,8 +359,6 @@ export const EN_PANELS: Record<string, string> = {
     "when any module crosses its threshold the bot blocks everyone from sending server-wide, reopening after a few minutes or when a mod runs",
   "Đăng nhập bằng Discord, mời Protogon vào server để bật nhiệt độ, Join Gate, lọc nội dung và 32 module chống nuke ngay trên dashboard — cùng trợ lý ảo Haimiya đồng hành. Miễn phí cho mọi server.":
     "Sign in with Discord and invite Protogon to switch on heat, Join Gate, content filtering and 32 anti-nuke modules right from the dashboard — with the Haimiya assistant along the way. Free for every server.",
-  "…cùng 12 module chống nuke khác, xem đầy đủ trong dashboard.":
-    "…plus 12 more anti-nuke modules, all listed in the dashboard.",
 
   /* ==== Lô 2 — viết lại copy panel Overview / Settings / Branding / ModuleCard. */
   "Chưa ghi nhận sự kiện nào — bot chưa xử lý vi phạm chống nuke ở server này.":
@@ -411,8 +407,6 @@ export const EN_PANELS: Record<string, string> = {
   "Tải ảnh thất bại": "Image upload failed",
   "Đã lưu ảnh mới, áp dụng ngay toàn web": "New image saved — applied across the site instantly",
   "Đã xóa ảnh tùy chỉnh, trở về mặc định": "Custom image removed — back to the default",
-  "Nhận sự kiện chống nuke/raid, báo cáo hàng ngày và các thông báo quan trọng.":
-    "Receives anti-nuke/raid events, the daily report and other important notices.",
   "Tóm tắt sự kiện chống nuke gửi vào kênh log vào khoảng 00:00 UTC mỗi ngày":
     "Posts an anti-nuke summary to the log channel around 00:00 UTC every day",
   "Khi bot xác nhận raid/nuke: gửi DM khẩn cho chủ server (kẻ nuke không xóa được), AI quét chat và báo cáo vào kênh log, kèm lệnh":
@@ -423,8 +417,6 @@ export const EN_PANELS: Record<string, string> = {
     "posts logs automatically when events happen; customise event types, embed colour and included content.",
   "Được miễn trừ chống nuke và có quyền quản lý rule auto reply trong Discord.":
     "Exempt from anti-nuke and allowed to manage auto-reply rules inside Discord.",
-  "Dùng để mở khóa khu vực riêng tư dành cho chủ sở hữu bot; nội dung bên trong không tiết lộ công khai. Chỉ":
-    "Used to unlock the private area reserved for the bot owner; its contents are never disclosed publicly. Only",
   "🔒 Bạn không phải admin sở hữu bot — chỉ chủ sở hữu bot mới được đặt, đổi hoặc xóa mật khẩu này.":
     "🔒 You are not the bot-owning admin — only the bot owner can set, change or delete this password.",
   "Chọn sắc độ xám áp dụng cho toàn bộ trang quản lý của server (nút, thẻ, sidebar).":
@@ -541,8 +533,6 @@ export const EN_PANELS: Record<string, string> = {
     "Check the backup file again or upload a different one.",
   "Bot đã dừng giữa chừng. Kiểm tra bot còn trong server và đủ quyền Administrator rồi thử khôi phục lại.":
     "The bot stopped part-way. Make sure it is still in the server with Administrator permission, then try restoring again.",
-  "Bot đã dừng giữa chừng. Kiểm tra bot còn trong server và đủ quyền Administrator rồi bấm Backup ngay lại.":
-    "The bot stopped part-way. Make sure it is still in the server with Administrator permission, then hit Back up now again.",
   "Bot không gửi heartbeat (offline hơn 3 phút). Hãy khởi động bot trên host (pm2 start protogon-bot / bật lại service) rồi bấm Backup ngay sau khi bot online.":
     "The bot is not sending heartbeats (offline for more than 3 minutes). Start it on your host (pm2 start protogon-bot / restart the service), then hit Back up now once it is online.",
   "Bot không gửi heartbeat. Hãy khởi động bot trên host rồi thử khôi phục lại sau khi bot online.":
@@ -625,8 +615,6 @@ export const EN_PANELS: Record<string, string> = {
     "Off by default — bots joining the server get no automatic role",
   "Chống raid: khi server đang khóa vì raid, autorole tạm dừng để không gán role cho loạt tài khoản ập vào.":
     "Anti-raid: while the server is locked down for a raid, autorole pauses so it never mass-assigns roles to a flood of accounts.",
-  "Chào thành viên mới và tạm biệt người rời server: template ngẫu nhiên, embed tùy chỉnh, DM chào riêng và autorole. Bot không chào bot, không bao giờ ping @everyone từ nội dung bạn nhập, và tự im lặng khi server đang khóa chống raid.":
-    "Welcomes new members and says goodbye to leavers: random templates, custom embeds, a private DM greeting and autorole. The bot never greets other bots, never pings @everyone from text you wrote, and stays silent while the server is locked down against raids.",
   "Tắt = gửi tin nhắn thường, không có khung embed.": "Off = a plain message with no embed frame.",
   "Chào mừng {user} đến {server}!\nRất vui có {username} trong nhà!\nNgười thứ {count} vừa xuất hiện 🎉":
     "Welcome {user} to {server}!\nGreat to have {username} here!\nMember number {count} just showed up 🎉",

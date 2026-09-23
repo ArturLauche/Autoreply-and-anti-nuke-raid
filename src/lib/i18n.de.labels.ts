@@ -4,11 +4,7 @@
  * qua translate(item.label), mảnh câu ghép, toast dựng trong callback).
  */
 export const DE_LABELS: Record<string, string> = {
-  " cùng emoji/sticker nếu backup có": " plus Emojis/Sticker, falls das Backup sie enthält",
   "(tất cả)": "(alle)",
-  ", role (tên, màu, quyền)": ", Rollen (Name, Farbe, Rechte)",
-  "Dùng /report hoặc !report khi server bị raid/nuke hay bot phạt nhầm: AI Mimu v2.5 đọc hàng trăm tin nhắn gần nhất để dựng lại tình huống và gửi báo cáo rõ ràng cho bạn.":
-    "Nutze /report oder !report bei Raid/Nuke oder falscher Strafe: Die KI Mimu v2.5 liest hunderte aktuelle Nachrichten, rekonstruiert die Lage und liefert dir einen klaren Bericht.",
   "1 giờ": "1 Stunde",
   "24 module": "24 Module",
   "3 ngày": "3 Tage",
@@ -28,22 +24,12 @@ export const DE_LABELS: Record<string, string> = {
     "Der Bot bleibt nach der Strafe still (das Dashboard erfasst den Fall trotzdem)",
   "Bot không gửi embed nào sau khi trừng phạt (dashboard vẫn ghi nhận case).":
     "Der Bot postet kein Embed nach der Strafe (das Dashboard erfasst den Fall trotzdem).",
-  "Bot không gửi heartbeat (offline > 3 phút). Hãy khởi động bot trên host (pm2 start protogon-bot / bật lại service) rồi bấm Backup ngay sau khi bot online.":
-    "Der Bot sendet keine Heartbeats (offline > 3 Minuten). Starte den Bot auf dem Host (pm2 start protogon-bot / Dienst wieder einschalten) und klicke auf Jetzt sichern, sobald er online ist.",
   "Bot không gửi heartbeat. Hãy khởi động bot trên host rồi thử khôi phục lại sau khi bot online.":
     "Der Bot sendet keine Heartbeats. Starte den Bot auf dem Host und versuche die Wiederherstellung erneut, sobald er online ist.",
   "Bot lạ": "Unbekannter Bot",
-  "Bot sẽ gửi bảng mới với nội dung đã chỉnh trong vòng ~1 phút (tin nhắn cũ vẫn còn).":
-    "Der Bot postet das aktualisierte Panel innerhalb ~1 Minute (die alte Nachricht bleibt).",
-  "Bot sẽ gửi một tin nhắn vào kênh đã chọn kèm các emoji. Thành viên bấm emoji để nhận role.":
-    "Der Bot postet eine Nachricht mit den Emojis in den gewählten Kanal. Mitglieder klicken ein Emoji an, um die Rolle zu bekommen.",
   "Bot vào-rồi-rời": "Bot-Beitritt-und-Abgang",
   "Bot vào-rồi-rời (hit-and-run)": "Bot-Beitritt-und-Abgang (Hit-and-run)",
   "Bot đang học…": "Der Bot lernt…",
-  "Bot đã dừng giữa chừng. Kiểm tra bot còn trong server + đủ quyền Administrator rồi bấm Backup ngay lại.":
-    "Der Bot hat mitten drin aufgehört. Prüfe, ob er noch im Server mit Administratorrechten ist, und klicke erneut auf Jetzt sichern.",
-  "Bot đã dừng giữa chừng. Kiểm tra bot còn trong server + đủ quyền Administrator rồi thử khôi phục lại.":
-    "Der Bot hat mitten drin aufgehört. Prüfe, ob er noch im Server mit Administratorrechten ist, und versuche die Wiederherstellung erneut.",
   "Báo cáo hàng ngày": "Tagesbericht",
   "Báo cáo khẩn & report": "Dringend-Alarm & Report",
   "Bảng nhiệt & warn": "Heat- & Verwarnungstabelle",
@@ -93,7 +79,6 @@ export const DE_LABELS: Record<string, string> = {
   "Ghi log VPN nhưng không chặn": "VPNs protokollieren, ohne zu blocken",
   "Giai đoạn nhiệt": "Heat-Stufen",
   "Giám sát tự động": "Automatische Überwachung",
-  "Gán role": "Rolle zuweisen",
   "Gán/gỡ role hàng loạt": "Massen-Rollen-Zuweisung/-Entzug",
   "Gửi cảnh báo riêng (DM) cho thành viên": "Dem Mitglied eine private Verwarnung senden (DM)",
   "Hãy kiểm tra lại file backup hoặc tải lại file khác.":
@@ -115,10 +100,7 @@ export const DE_LABELS: Record<string, string> = {
     "Löst aus, wenn ein Mitglied den Bot in einer Nachricht taggt.",
   "Kích hoạt khi tin nhắn chứa một trong các từ khóa bên dưới.":
     "Löst aus, wenn eine Nachricht eines der Schlüsselwörter unten enthält.",
-  "Logo bot hiển thị trên trang chủ, trang quản lý và toàn bộ web.":
-    "Das Bot-Logo auf der Startseite, der Verwaltungsseite und seitenweit.",
   "Lưu cài đặt": "Einstellungen speichern",
-  "Lưu kênh": "Kanäle speichern",
   "Lưu phân quyền": "Berechtigungen speichern",
   "Lưu thay đổi": "Änderungen speichern",
   "Lưu webhook": "Webhook speichern",
@@ -165,12 +147,9 @@ export const DE_LABELS: Record<string, string> = {
     "Erkennt Nachrichten nur aus Leerzeichen / unsichtbaren Zeichen (Zero-Width), die Kanäle fluten",
   "Phổ biến": "Beliebt",
   Protogon: "Protogon",
-  "Protogon tự tạo cấu hình mặc định an toàn với đầy đủ 32 module bật sẵn, chỉnh sửa mọi thứ sau đó bất cứ lúc nào.":
-    "Protogon erstellt automatisch eine sichere Standardkonfiguration mit allen 32 Modulen aktiv; alles lässt sich danach jederzeit anpassen.",
   "Purge tin liên quan": "Zugehörige Nachrichten purgen",
   "Purge toàn bộ tin liên quan": "Alle zugehörigen Nachrichten purgen",
   "Quản lý": "Verwaltung",
-  "Raid app ngoài": "Extern-App-Raid",
   "Raid thành viên": "Mitglieder-Raid",
   "Role, kênh, tin nhắn + media và emoji/sticker đã được tạo lại trên server.":
     "Rollen, Kanäle, Nachrichten + Medien und Emojis/Sticker wurden im Server neu erstellt.",
@@ -219,7 +198,6 @@ export const DE_LABELS: Record<string, string> = {
   "Tạo bảng reaction role": "Reaktions-Rollen-Panel erstellen",
   "Tạo emoji/sticker hàng loạt": "Massen-Emoji/Sticker-Erstellung",
   "Tạo giveaway 🎉": "Giveaway erstellen 🎉",
-  "Tạo invite": "Einladung erstellen",
   "Tạo kênh": "Kanal erstellen",
   "Tạo kênh hàng loạt": "Massen-Kanalerstellung",
   "Tạo link mời hàng loạt": "Massen-Einladungserstellung",
@@ -272,10 +250,6 @@ export const DE_LABELS: Record<string, string> = {
   "dùng chung mọi server).": "von allen Servern geteilt).",
   "dấu hiệu kinh điển của bot nuke (dọn dấu vết, né audit log). Chỉ bot KHÔNG xác minh và MỚI vào server mới bị phạt; bot xác minh/ở lại lâu/mod kick bình thường được bỏ qua":
     "die klassische Nuke-Bot-Signatur (Spuren verwischen, Audit-Log meiden). Nur NICHT verifizierte Bots, die GERADE beigetreten sind, werden bestraft; verifizierte Bots, Langzeit-Mitglieder und normale Mod-Kicks bleiben unbehelligt",
-  "emoji/sticker (đã tắt trong Tùy chỉnh khôi phục)":
-    "Emojis/Sticker (in Wiederherstellungsoptionen deaktiviert)",
-  "ghi đầy đủ lý do + người thực hiện vào kênh log. Lệnh text: !timeout !kick !ban !purge.":
-    "protokolliert Grund + Ausführenden vollständig im Log-Kanal. Textbefehle: !timeout !kick !ban !purge.",
   "gán/gỡ role cho nhiều thành viên cùng lúc":
     "weist vielen Mitgliedern gleichzeitig Rollen zu/entzieht sie",
   "hãy khởi động bot trên host rồi tải lại file.":
@@ -284,16 +258,9 @@ export const DE_LABELS: Record<string, string> = {
     "prüfe, ob der Bot online ist (Tab Bot-Monitor).",
   "khởi động bot trên host rồi bấm Khôi phục lại.":
     "starte den Bot auf dem Host und klicke erneut auf Wiederherstellen.",
-  "kèm danh sách trắng.": "mit Whitelist.",
-  "kèm warn tích lũy tăng cấp hình phạt.":
-    "mit kumulierten Verwarnungen, die die Strafe eskalieren.",
-  "mọi thứ hiệu lực sau ~1 phút.": "alles greift in ~1 Minute.",
   "mời nhiều bot vào server cùng lúc": "lädt viele Bots gleichzeitig in den Server ein",
   "nhẹ nhàng, mờ ảo": "sanft, ätherisch",
-  "phạt trực tiếp + khóa kênh tự động khi bị tấn công.":
-    "direkte Strafe + automatische Kanalsperre bei Angriff.",
   "raid → ban + khóa kênh": "Raid → Ban + Kanalsperre",
-  "role (đã tắt trong Tùy chỉnh khôi phục)": "Rollen (in Wiederherstellungsoptionen deaktiviert)",
   "server lớn kèm tin nhắn có thể mất vài phút; nếu quá lâu hãy cập nhật bot lên bản mới nhất.":
     "große Server mit Nachrichten können einige Minuten dauern; zieht es sich hin, aktualisiere den Bot auf die neueste Version.",
   "sửa overwrite nhiều kênh để khóa mọi người hoặc mở toang":
@@ -306,7 +273,6 @@ export const DE_LABELS: Record<string, string> = {
   "tạo nhiều link mời trước khi tràn vào":
     "erstellt viele Einladungslinks, bevor er hineinschwemmt",
   "tối giản tuyệt đối": "absolut minimalistisch",
-  "xóa tin + cảnh báo ngay.": "löscht die Nachricht + warnt sofort.",
   "xử lý": "Maßnahme",
   "Áp dụng": "Anwenden",
   "Âm nhạc & giải trí": "Musik & Unterhaltung",
@@ -336,8 +302,6 @@ export const DE_LABELS: Record<string, string> = {
   "Đổi cấu hình": "Konfigurationsänderung",
   "Đổi cấu hình server": "Server-Konfigurationsänderung",
   "Đổi mật khẩu": "Passwort ändern",
-  "Đổi nickname": "Spitznamen ändern",
-  "Đổi tên kênh": "Kanal umbenennen",
   "Động vật": "Tiere",
   "Đủ N lần warn là tự tăng cấp hình phạt": "N Verwarnungen → Strafe eskaliert automatisch",
   "đen thuần khiết": "reines Schwarz",
@@ -373,8 +337,6 @@ export const DE_LABELS: Record<string, string> = {
     "Das Backup wird in Convex gespeichert und zu GitHub geschoben (Token des Bot-Besitzers — von allen Servern geteilt).",
   "Không tải file lên được — thử lại": "Datei konnte nicht hochgeladen werden — erneut versuchen",
   "Không nhận được mã file — thử lại": "Keine Datei-ID erhalten — erneut versuchen",
-  "Không nhận được ID ảnh từ máy chủ — thử dán đường dẫn ảnh thay thế":
-    "Keine Bild-ID vom Server erhalten — versuche stattdessen eine Bild-URL",
   "Cấu hình đăng nhập chưa hoàn tất — thử lại sau ít phút.":
     "Die Anmeldekonfiguration ist unvollständig — versuche es in ein paar Minuten.",
 
@@ -435,10 +397,7 @@ export const DE_LABELS: Record<string, string> = {
   "Gửi thất bại": "Senden fehlgeschlagen",
   "Tạo thất bại": "Erstellen fehlgeschlagen",
   "Tải file thất bại": "Datei-Upload fehlgeschlagen",
-  "Upload thất bại": "Upload fehlgeschlagen",
   "Mở khóa thất bại": "Entsperren fehlgeschlagen",
-  "Upload ảnh lên máy chủ thất bại (HTTP {p0})":
-    "Bild-Upload zum Server fehlgeschlagen (HTTP {p0})",
   "Lỗi trao đổi mã OAuth ({p0})": "OAuth-Code-Austausch fehlgeschlagen ({p0})",
   "Không lấy được thông tin user ({p0})": "Nutzerprofil konnte nicht geladen werden ({p0})",
   "Không lấy được danh sách server ({p0})": "Serverliste konnte nicht geladen werden ({p0})",
@@ -465,8 +424,6 @@ export const DE_LABELS: Record<string, string> = {
     "Sicherer Modus deaktiviert — Strafe nach Risikopunkten",
   "Đã bật tự động backup mỗi {p0} ngày": "Automatisches Backup alle {p0} Tage aktiviert",
   "Đã tắt tự động backup": "Automatisches Backup deaktiviert",
-  "Đã đổi avatar bot — áp dụng toàn web": "Bot-Avatar aktualisiert — gilt seitenweit",
-  "Đã đổi avatar Haimiya — áp dụng toàn web 🎀": "Haimiya-Avatar aktualisiert — gilt seitenweit 🎀",
   "kênh đã xóa": "Kanal gelöscht",
   // Präfix alter Bot-Daten in Strafprotokollen (action = "Tự động: …").
   "Tự động": "Automatisch",
@@ -489,9 +446,6 @@ export const DE_LABELS: Record<string, string> = {
   "Đăng nhập thất bại, vui lòng thử lại.": "Anmeldung fehlgeschlagen, bitte erneut versuchen.",
   "Bạn đã xác minh thành công. Chào mừng bạn đến với server!":
     "Du bist erfolgreich verifiziert. Willkommen auf dem Server!",
-  "Chỉ dành chủ sở hữu bot": "Nur Bot-Besitzer",
-  "Mở khóa bằng mật khẩu": "Mit Passwort entsperrt",
-  "Được bảo vệ chặt chẽ": "Streng geschützt",
   "Phạt trực tiếp": "Direkte Strafe",
   "Khóa kênh khi raid": "Kanalsperre bei Raids",
   "Miễn trừ role": "Rollen-Ausnahmen",
@@ -502,7 +456,6 @@ export const DE_LABELS: Record<string, string> = {
   "Trả lời rõ ràng, nghiêm túc — trên web lẫn trong dashboard":
     "Antwortet klar und ernsthaft — im Web wie im Dashboard",
   "Khu vực riêng tư dành cho chủ sở hữu bot 🔒": "Privater Bereich für den Bot-Besitzer 🔒",
-  "Ảnh đại diện của Haimiya trong cửa sổ chat trợ giúp.": "Haimiyas Avatar im Hilfschat-Fenster.",
   "⚡ Bot tự động": "⚡ Automatisch (Bot)",
   "✨ Sang trọng": "✨ Luxuriös",
   "🌐 Tất cả": "🌐 Alle",
@@ -520,17 +473,6 @@ export const DE_LABELS: Record<string, string> = {
   "{p} giờ trước": "vor {p} Std.",
   "{p} ngày trước": "vor {p} Tg.",
   "đã ban": "verbannt",
-  "đã kick": "rausgeworfen",
-  "đã ghi nhận": "protokolliert",
-  "không thể ban": "Bann nicht möglich",
-  "không thể xử lý": "Konnte nicht handeln",
-  "không thể xử lý (thiếu quyền)": "Konnte nicht handeln (fehlende Berechtigungen)",
-  "không thể tạm khóa (thiếu quyền)": "Timeout nicht möglich (fehlende Berechtigungen)",
-  "đã cảnh báo qua DM": "per DM verwarnt",
-  "đã cảnh báo (không phạt)": "verwarnt (keine Strafe)",
-  "bỏ qua: vượt trần hành động tự động/phút (action budget)":
-    "übersprungen: Limit für automatische Aktionen/Minute überschritten",
-  "đã tạm khóa": "Timeout",
   // ── Rechtstexte (/terms, /privacy, /data-deletion) ──
   "Văn bản pháp lý": "Rechtliches",
   "Cập nhật lần cuối": "Zuletzt aktualisiert",

@@ -479,7 +479,11 @@ export default defineSchema({
     lastSeenAt: v.number(),
   })
     .index("by_kind_value", ["kind", "value"])
-    .index("by_source_createdAt", ["sourceHash", "createdAt"]),
+    .index("by_source_createdAt", ["sourceHash", "createdAt"])
+    // Dùng cho lọc TTL (relayStatus / botGetRelaySignatures / botCleanupRelay đều
+    // chỉ cần signature còn hạn theo createdAt) — trước đây 3 đường này full scan
+    // toàn bảng, bảng càng đông server (mỗi nguồn ≤10 signature/phút) càng đắt.
+    .index("by_createdAt", ["createdAt"]),
 
   raidSamples: defineTable({
     guildId: v.string(),
