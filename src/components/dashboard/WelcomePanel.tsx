@@ -5,6 +5,7 @@ import {
   DoorClosed,
   Hash,
   IdCard,
+  ImageIcon,
   ImagePlus,
   Link2,
   Mail,
@@ -29,7 +30,7 @@ import { Textarea } from "../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import type { ChannelInfo, EmojiInfo, GuildData } from "../../lib/types";
 import { getSessionToken } from "../../lib/discord";
-import GreetingPreview, { unknownCustomEmojis } from "./GreetingPreview";
+import GreetingPreview, { CardPreview, unknownCustomEmojis } from "./GreetingPreview";
 
 import { translate } from "../../lib/i18n";
 const TOKEN = () => getSessionToken();
@@ -52,9 +53,14 @@ const TOKEN = () => getSessionToken();
 
 type Kind = "welcome" | "goodbye";
 
-/** Bốn ô ảnh hợp lệ — khớp đúng union trong convex/guilds.ts (saveGreetingImage). */
+/** Sáu ô ảnh hợp lệ — khớp đúng union trong convex/guilds.ts (saveGreetingImage). */
 type ImageSlot =
-  "welcomeEmbedImage" | "welcomeEmbedThumbnail" | "goodbyeEmbedImage" | "goodbyeEmbedThumbnail";
+  | "welcomeEmbedImage"
+  | "welcomeEmbedThumbnail"
+  | "goodbyeEmbedImage"
+  | "goodbyeEmbedThumbnail"
+  | "welcomeCardBackground"
+  | "goodbyeCardBackground";
 
 const PLACEHOLDER_BADGE = "{user} {username} {server} {count} {created} {boost}";
 
@@ -520,6 +526,8 @@ function GreetingCard({
   const embedColor = isWelcome ? g.welcomeEmbedColor : g.goodbyeEmbedColor;
   const embedImage = isWelcome ? g.welcomeEmbedImage : g.goodbyeEmbedImage;
   const embedThumbnail = isWelcome ? g.welcomeEmbedThumbnail : g.goodbyeEmbedThumbnail;
+  const cardEnabled = isWelcome ? g.welcomeCardEnabled : g.goodbyeCardEnabled;
+  const cardBackground = isWelcome ? g.welcomeCardBackground : g.goodbyeCardBackground;
 
   const [channel, setChannel] = useState(channelId ?? "none");
   const [msg, setMsg] = useState(message ?? "");
@@ -745,6 +753,65 @@ function GreetingCard({
                     previewClass="h-10 w-10"
                   />
                 </div>
+
+                {/*
+                  THẺ ẢNH — bot tự vẽ PNG riêng cho từng thành viên (nền ở dưới +
+                  avatar tròn + tên + số thành viên). Chỉ nằm trong nhánh useEmbed
+                  vì ảnh cần embed mới có chỗ hiển thị.
+                */}
+                <div className="space-y-3 rounded-lg border border-border bg-secondary/20 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-start gap-2">
+                      <ImageIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                      <div>
+                        <p className="text-xs font-medium">{translate("Thẻ ảnh riêng")}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {translate(
+                            "Bot tự vẽ một tấm ảnh cho riêng thành viên: nền của bạn + avatar tròn + tên + số thành viên.",
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={cardEnabled}
+                      onCheckedChange={(v) =>
+                        onSave({ [`${kind}CardEnabled`]: v }, translate("Đã lưu"))
+                      }
+                    />
+                  </div>
+
+                  {/* Bật thẻ mà máy chủ bot không vẽ được → người dùng phải biết NGAY,
+                      nếu không họ chỉ thấy "đã bật" mà chẳng có ảnh nào. */}
+                  {cardEnabled && data.botCardReady === false && (
+                    <p className="text-[11px] text-amber-500">
+                      ⚠{" "}
+                      {translate(
+                        "Máy chủ bot chưa vẽ được ảnh nên thẻ này chưa hoạt động — bot vẫn gửi tin nhắn thường. Lý do: {p0}",
+                        { p0: data.botCardReason ?? translate("không xác định") },
+                      )}
+                    </p>
+                  )}
+                  {cardEnabled && data.botCardReady === null && (
+                    <p className="text-[11px] text-muted-foreground">
+                      {translate(
+                        "Chưa nhận được báo cáo từ bot (bot đang chạy bản cũ hoặc chưa khởi động lại).",
+                      )}
+                    </p>
+                  )}
+
+                  {cardEnabled && (
+                    <ImageSlot
+                      slot={`${kind}CardBackground`}
+                      guildId={g.discordId}
+                      title={translate("Ảnh nền thẻ")}
+                      hint={translate(
+                        "Ảnh hiện phía sau avatar và tên (bỏ trống = nền màu chuyển sắc).",
+                      )}
+                      value={cardBackground ?? ""}
+                      previewClass="h-10 w-16"
+                    />
+                  )}
+                </div>
               </div>
             )}
 
@@ -779,6 +846,22 @@ function GreetingCard({
           {/* Cột phải: xem trước đúng như Discord sẽ hiển thị. */}
           <div className="space-y-2 xl:sticky xl:top-4 xl:self-start">
             <p className="text-xs font-medium">{translate("Xem trước trực tiếp")}</p>
+            {useEmbed && cardEnabled && (
+              <>
+                <CardPreview
+                  eyebrow={isWelcome ? translate("CHÀO MỪNG") : translate("TẠM BIỆT")}
+                  name={translate("ThànhViênMới")}
+                  meta={`${g.name} · ${translate("Thành viên thứ {count}", { count: g.memberCount ?? 0 })}`}
+                  backgroundUrl={cardBackground ?? ""}
+                  accent={color}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  {translate(
+                    "Thẻ ảnh dùng avatar của thành viên thật khi gửi; ở đây hiện vị trí giữ chỗ.",
+                  )}
+                </p>
+              </>
+            )}
             <GreetingPreview
               content={shown}
               useEmbed={useEmbed}

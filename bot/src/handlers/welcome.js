@@ -11,6 +11,10 @@
  *   5. Placeholder mở rộng: {user} {username} {server} {count} {created} {boost}.
  *   6. RAID-SAFE (đặc thù Protogon): server đang lockdown → bỏ qua chào/DM/autorole
  *      (không spam kênh log khi raid dồn dập, không cấp role cho tài khoản raid).
+ *   7. THẺ ẢNH (v3): bot tự VẼ ảnh chào riêng cho từng thành viên (nền người dùng
+ *      tải lên + avatar tròn + tên + số thành viên) qua ./welcomeCard — xem module
+ *      đó để biết vì sao font phải nhúng trong repo. Vẽ lỗi/thiếu thư viện → gửi
+ *      embed thường, TUYỆT ĐỐI không làm mất tin nhắn chào.
  *
  * An toàn giữ nguyên v1: mọi gửi best-effort (kênh bị xoá/thiếu quyền → bỏ qua
  * im lặng); goodbye bỏ qua bot; nội dung trống → dùng mặc định theo ngôn ngữ
@@ -18,8 +22,11 @@
  * không thể ping @everyone.
  */
 
-const { EmbedBuilder, Colors, PermissionFlagsBits } = require("discord.js");
+const { EmbedBuilder, AttachmentBuilder, Colors, PermissionFlagsBits } = require("discord.js");
 const lang = require("./lang");
+// Gọi qua MODULE (không destructure) để test CJS stub được `renderCard` mà
+// không cần cài module native `@napi-rs/canvas`.
+const cardMod = require("./welcomeCard");
 
 /** Mặc định EN (tương thích cũ) — luồng thật dùng lang.*Default(serverLang) theo ngôn ngữ server. */
 const WELCOME_DEFAULT = lang.welcomeDefault("en");
@@ -103,7 +110,7 @@ function safeUrl(v) {
  * Config UseEmbed=false → tin nhắn thường (như v1, vẫn nhận title/color nếu
  * dashboard bật embed riêng — giữ hành vi cũ khi owner chưa đụng cài đặt mới).
  */
-function buildPayload(kind, config, ctx) {
+function buildPayload(kind, config, ctx, card = null) {
   const isWelcome = kind === "welcome";
   const serverLang = lang.langForGuild(ctx.guild);
   const randomCfg = isWelcome ? config.welcomeRandom : config.goodbyeRandom;
@@ -137,8 +144,16 @@ function buildPayload(kind, config, ctx) {
   const title = (isWelcome ? config.welcomeEmbedTitle : config.goodbyeEmbedTitle)?.trim();
   if (title) embed.setTitle(fillTemplate(title, ctx).slice(0, 256));
   embed.setDescription(content);
-  const image = safeUrl(isWelcome ? config.welcomeEmbedImage : config.goodbyeEmbedImage);
-  if (image) embed.setImage(image);
+  // Thẻ PNG (nếu vẽ được) THẮNG ảnh banner tĩnh: đây là "ảnh chào" riêng của
+  // từng thành viên, gửi kèm dưới dạng attachment rồi embed trỏ vào attachment đó.
+  // Gửi ảnh local nên phải dùng `attachment://<tên>` — dán URL kiểu file:// không chạy.
+  if (card) {
+    payload.files = [new AttachmentBuilder(card, { name: cardMod.CARD_FILE_NAME })];
+    embed.setImage(`attachment://${cardMod.CARD_FILE_NAME}`);
+  } else {
+    const image = safeUrl(isWelcome ? config.welcomeEmbedImage : config.goodbyeEmbedImage);
+    if (image) embed.setImage(image);
+  }
   const thumb = safeUrl(isWelcome ? config.welcomeEmbedThumbnail : config.goodbyeEmbedThumbnail);
   if (thumb) embed.setThumbnail(thumb);
 
@@ -146,6 +161,35 @@ function buildPayload(kind, config, ctx) {
   payload.content = `<@${ctx.member.id}>`;
   payload.embeds = [embed];
   return payload;
+}
+
+/**
+ * Vẽ thẻ PNG nếu server bật thẻ. Trả Buffer hoặc null.
+ * Chỉ áp dụng ở chế độ EMBED (ảnh cần embed mới hiển thị được); nếu người dùng
+ * tắt embed thì thẻ không có chỗ hiển thị nên bỏ qua, không gửi file lơ lửng.
+ */
+async function buildCard(config, kind, member, guild) {
+  const cardEnabled = kind === "welcome" ? config.welcomeCardEnabled : config.goodbyeCardEnabled;
+  const useEmbed = kind === "welcome" ? config.welcomeUseEmbed : config.goodbyeUseEmbed;
+  if (!cardEnabled || !useEmbed) return null;
+  if (!cardMod.cardAvailable()) return null;
+  const labels = lang.cardLabels(lang.langForGuild(guild));
+  const count = guild.memberCount ?? 0;
+  const avatarUrl =
+    typeof member.displayAvatarURL === "function"
+      ? member.displayAvatarURL({ size: 256, extension: "png" })
+      : null;
+  return cardMod
+    .renderCard({
+      eyebrow: kind === "welcome" ? labels.welcome : labels.goodbye,
+      name: member.displayName ?? member.user?.username ?? member.id,
+      meta: `${guild.name} · ${labels.member.replaceAll("{count}", String(count))}`,
+      avatarUrl,
+      backgroundUrl:
+        kind === "welcome" ? config.welcomeCardBackground : config.goodbyeCardBackground,
+      accent: kind === "welcome" ? config.welcomeEmbedColor : config.goodbyeEmbedColor,
+    })
+    .catch(() => null);
 }
 
 /**
@@ -167,7 +211,10 @@ async function sendGreeting(client, config, kind, member, guild) {
   const perms = guild.members?.me?.permissionsIn?.(channel);
   if (perms && !perms.has(PermissionFlagsBits.SendMessages)) return false;
 
-  const payload = buildPayload(kind, config, { member, guild });
+  // RAID-SAFE + "không được làm chết tính năng": mọi lỗi vẽ thẻ trả null →
+  // gửi embed thường, tin nhắn chào vẫn tới kênh.
+  const card = await buildCard(config, kind, member, guild);
+  const payload = buildPayload(kind, config, { member, guild }, card);
   const sent = await channel
     .send(payload)
     .then(() => true)
@@ -248,4 +295,5 @@ module.exports = {
   _embedColorForTest: embedColor,
   _safeUrlForTest: safeUrl,
   _buildPayloadForTest: buildPayload,
+  _buildCardForTest: buildCard,
 };

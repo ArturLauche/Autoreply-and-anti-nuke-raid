@@ -148,6 +148,16 @@ export default defineSchema({
     autoroleRoleId: v.optional(v.string()),
     autoroleDelaySec: v.optional(v.number()),
     autoroleIncludeBots: v.optional(v.boolean()),
+    /**
+     * THẺ ẢNH (v3): bot tự vẽ PNG riêng cho từng thành viên (nền dưới đây +
+     * avatar + tên) rồi gửi kèm embed. Chỉ áp dụng khi `welcome/goodbyeUseEmbed`
+     * bật — ảnh cần embed mới có chỗ hiển thị. Màu nhấn dùng chung
+     * `welcome/goodbyeEmbedColor` (không thêm cột màu trùng nghĩa).
+     */
+    welcomeCardEnabled: v.optional(v.boolean()),
+    welcomeCardBackground: v.optional(v.string()),
+    goodbyeCardEnabled: v.optional(v.boolean()),
+    goodbyeCardBackground: v.optional(v.string()),
     badWords: v.optional(v.array(v.string())),
     heatEnabled: v.optional(v.boolean()),
     heatDecayPerMin: v.optional(v.number()),
@@ -553,6 +563,13 @@ export default defineSchema({
     ownerName: v.optional(v.string()),
     /** Avatar chủ bot (bot tự lấy từ Discord mỗi lần sync — cập nhật 24/7). */
     ownerAvatarUrl: v.optional(v.string()),
+    /**
+     * Khả năng VẼ THẺ ảnh chào của máy chủ bot (v3): thư viện canvas + font nhúng.
+     * Bot báo 1 lần lúc khởi động qua `status:reportCardCapability`.
+     * `undefined` = bot chưa báo (bản cũ) — dashboard KHÔNG được coi là hỏng.
+     */
+    cardReady: v.optional(v.boolean()),
+    cardUnavailableReason: v.optional(v.string()),
     /** Threat Intel: bật hệ thống tự nghiên cứu raid/nuke từ nguồn mở (owner bật/tắt). */
     threatResearchEnabled: v.optional(v.boolean()),
     /** Threat Intel: cho phép AI tổng hợp MỖI TUẦN 1 lần (~8-15k tokens/tháng) hay không. */

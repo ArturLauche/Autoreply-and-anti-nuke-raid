@@ -318,6 +318,23 @@ export const DE_PANELS: Record<string, string> = {
   "Đã xoá ảnh": "Bild entfernt",
   "Lưu ảnh thất bại": "Bild konnte nicht gespeichert werden",
   "Xoá ảnh thất bại": "Bild konnte nicht entfernt werden",
+  /* Thẻ ảnh v3 — der Bot zeichnet ein eigenes PNG pro Mitglied */
+  "Thẻ ảnh riêng": "Persönliche Bildkarte",
+  "Bot tự vẽ một tấm ảnh cho riêng thành viên: nền của bạn + avatar tròn + tên + số thành viên.":
+    "Der Bot zeichnet ein eigenes Bild für dieses Mitglied: dein Hintergrund, runder Avatar, Name und Mitgliedsnummer.",
+  "Ảnh nền thẻ": "Kartenhintergrund",
+  "Ảnh hiện phía sau avatar và tên (bỏ trống = nền màu chuyển sắc).":
+    "Liegt hinter Avatar und Name (leer lassen für einen Farbverlauf).",
+  "Máy chủ bot chưa vẽ được ảnh nên thẻ này chưa hoạt động — bot vẫn gửi tin nhắn thường. Lý do: {p0}":
+    "Der Bot-Server kann noch keine Bilder zeichnen, diese Karte ist inaktiv — der Bot sendet weiterhin die normale Nachricht. Grund: {p0}",
+  "không xác định": "unbekannt",
+  "Chưa nhận được báo cáo từ bot (bot đang chạy bản cũ hoặc chưa khởi động lại).":
+    "Noch keine Meldung vom Bot (er läuft auf einer älteren Version oder wurde nicht neu gestartet).",
+  "Thẻ ảnh dùng avatar của thành viên thật khi gửi; ở đây hiện vị trí giữ chỗ.":
+    "Die echte Karte nutzt den Avatar des Mitglieds — hier steht nur die Platzhalterposition.",
+  "CHÀO MỪNG": "WILLKOMMEN",
+  "TẠM BIỆT": "AUF WIEDERSEHEN",
+  "Thành viên thứ {count}": "Mitglied #{count}",
   "Nhắc tên thành viên kèm thông báo": "Erwähnt das Mitglied und benachrichtigt es",
   "Tên người dùng (không thông báo)": "Benutzername, ohne zu benachrichtigen",
   "Số thành viên hiện tại": "Aktuelle Mitgliederzahl",

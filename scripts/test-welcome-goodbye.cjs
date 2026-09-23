@@ -28,6 +28,9 @@ fs.writeFileSync(
   `module.exports = {
   Colors: { Green: 0x57f287, Grey: 0x99aab5 },
   PermissionFlagsBits: { SendMessages: 1 },
+  AttachmentBuilder: class {
+    constructor(data, opts) { this.attachment = data; this.name = opts?.name; }
+  },
   EmbedBuilder: class {
     setColor(c) { this.__color = c; return this; }
     setDescription(d) { this.__desc = d; return this; }
@@ -659,6 +662,156 @@ const botMember = { id: "b1", user: { bot: true, username: "botbot" }, guild };
   );
   check("v3 goodbye: KHÔNG gửi DM chào", dmsGb.length === 0);
   check("v3 goodbye: KHÔNG cấp autorole", roleAddsGb.length === 0);
+
+  // ══ Welcome/Goodbye v3 — THẺ ẢNH: bot tự vẽ PNG riêng cho từng thành viên ══
+  const cardMod = require("../bot/src/handlers/welcomeCard");
+  const realRenderCard = cardMod.renderCard;
+  let cardCalls = [];
+  const FAKE_PNG = Buffer.from("89504e470d0a1a0a", "hex");
+  const CARD_NAME = cardMod.CARD_FILE_NAME;
+  const memberCard = {
+    ...memberFull,
+    displayName: "Nguyễn Văn A",
+    displayAvatarURL: () => "https://cdn.example.com/avatar.png",
+  };
+
+  // ── Bật thẻ + embed: gửi kèm file PNG, embed trỏ vào attachment đó ──
+  cardCalls = [];
+  cardMod.renderCard = async (o) => {
+    cardCalls.push(o);
+    return FAKE_PNG;
+  };
+  sent = [];
+  await handleWelcome(
+    makeClient(),
+    makeStore({
+      welcomeEnabled: true,
+      welcomeChannelId: "c1",
+      welcomeUseEmbed: true,
+      welcomeCardEnabled: true,
+      welcomeCardBackground: "https://cdn.example.com/bg.png",
+      welcomeEmbedColor: "#57f287",
+      // Banner tĩnh cũng được cấu hình → thẻ phải THẮNG (ảnh chào riêng từng người).
+      welcomeEmbedImage: "https://cdn.example.com/banner-tinh.png",
+      welcomeEmbedTitle: "🎉 {username}",
+      welcomeMessage: "Chào {user}",
+    }),
+    memberCard,
+  );
+  const cardPayload = sent[0];
+  check("v3 thẻ: gửi đúng 1 tin", sent.length === 1);
+  check(
+    "v3 thẻ: PNG gửi kèm dưới dạng attachment đúng tên",
+    cardPayload?.files?.length === 1 && cardPayload.files[0].name === CARD_NAME,
+  );
+  check(
+    "v3 thẻ: embed trỏ vào attachment (attachment://) chứ không phải URL ngoài",
+    cardPayload?.embeds?.[0]?.__image === `attachment://${CARD_NAME}`,
+  );
+  check(
+    "v3 thẻ: thẻ THẮNG ảnh banner tĩnh đã cấu hình",
+    cardPayload?.embeds?.[0]?.__image !== "https://cdn.example.com/banner-tinh.png",
+  );
+  check(
+    "v3 thẻ: nhận đúng nền + màu nhấn + nhãn theo ngôn ngữ server",
+    cardCalls.length === 1 &&
+      cardCalls[0].backgroundUrl === "https://cdn.example.com/bg.png" &&
+      cardCalls[0].accent === "#57f287" &&
+      cardCalls[0].eyebrow === "CHÀO MỪNG",
+  );
+  check(
+    "v3 thẻ: dùng tên hiển thị + avatar của thành viên",
+    cardCalls[0].name === "Nguyễn Văn A" &&
+      cardCalls[0].avatarUrl === "https://cdn.example.com/avatar.png",
+  );
+  check(
+    "v3 thẻ: dòng phụ có tên server + số thành viên",
+    /Test Server/.test(cardCalls[0].meta) && /42/.test(cardCalls[0].meta),
+  );
+
+  // ── Tắt thẻ → không vẽ, không gửi file (nhưng vẫn gửi tin nhắn) ──
+  cardCalls = [];
+  sent = [];
+  await handleWelcome(
+    makeClient(),
+    makeStore({
+      welcomeEnabled: true,
+      welcomeChannelId: "c1",
+      welcomeUseEmbed: true,
+      welcomeCardEnabled: false,
+      welcomeMessage: "Chào {user}",
+    }),
+    memberCard,
+  );
+  check(
+    "v3 thẻ: tắt thẻ → không vẽ, không gửi file, vẫn gửi tin",
+    cardCalls.length === 0 && sent.length === 1 && !sent[0]?.files,
+  );
+
+  // ── Thẻ chỉ dùng ở chế độ EMBED (ảnh cần embed mới hiển thị) ──
+  cardCalls = [];
+  sent = [];
+  await handleWelcome(
+    makeClient(),
+    makeStore({
+      welcomeEnabled: true,
+      welcomeChannelId: "c1",
+      welcomeUseEmbed: false,
+      welcomeCardEnabled: true,
+      welcomeMessage: "Chào {user}",
+    }),
+    memberCard,
+  );
+  check(
+    "v3 thẻ: tắt embed → không vẽ thẻ (ảnh không có chỗ hiển thị)",
+    cardCalls.length === 0 && sent.length === 1 && !sent[0]?.files,
+  );
+  check("v3 thẻ: tắt embed vẫn gửi nội dung thường", sent[0]?.content === "Chào <@u1>");
+
+  // ── Máy chủ bot KHÔNG vẽ được (thiếu thư viện/font): không được làm mất tin ──
+  cardCalls = [];
+  sent = [];
+  cardMod.renderCard = realRenderCard;
+  cardMod._setCanvasUnavailableForTest("thiếu thư viện trong test");
+  await handleWelcome(
+    makeClient(),
+    makeStore({
+      welcomeEnabled: true,
+      welcomeChannelId: "c1",
+      welcomeUseEmbed: true,
+      welcomeCardEnabled: true,
+      welcomeEmbedTitle: "🎉 {username}",
+      welcomeMessage: "Chào {user}",
+    }),
+    memberCard,
+  );
+  check("v3 thẻ: máy chủ bot không vẽ được → vẫn gửi tin nhắn chào", sent.length === 1);
+  check(
+    "v3 thẻ: không có file đính kèm và embed không trỏ vào attachment ma",
+    !sent[0]?.files && sent[0]?.embeds?.[0]?.__image === undefined,
+  );
+  cardMod._resetForTest();
+  check("v3 thẻ: khôi phục trạng thái vẽ được sau test", cardMod.cardAvailable() === true);
+  cardMod.renderCard = realRenderCard;
+
+  // ── Lỗi khi vẽ (mạng/ảnh hỏng) → bot vẫn gửi tin nhắn ──
+  cardMod.renderCard = async () => {
+    throw new Error("vẽ hỏng");
+  };
+  sent = [];
+  await handleWelcome(
+    makeClient(),
+    makeStore({
+      welcomeEnabled: true,
+      welcomeChannelId: "c1",
+      welcomeUseEmbed: true,
+      welcomeCardEnabled: true,
+      welcomeMessage: "Chào {user}",
+    }),
+    memberCard,
+  );
+  check("v3 thẻ: vẽ lỗi → bắt được, vẫn gửi tin nhắn chào", sent.length === 1 && !sent[0]?.files);
+  cardMod.renderCard = realRenderCard;
 
   console.log(`\nKết quả welcome-goodbye: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail === 0 ? 0 : 1);

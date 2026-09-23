@@ -86,6 +86,28 @@ registerSweeper("voice-presence", () => {
 client.once("clientReady", async () => {
   console.log(`✅ Protogon đã online: ${client.user.tag} — ${client.guilds.cache.size} server`);
 
+  // Thẻ ảnh chào (v3): báo cho Convex biết máy chủ này có vẽ được thẻ hay không.
+  // Gọi MỘT LẦN — kết quả nạp thư viện/font được cache trong tiến trình. Phải
+  // báo cả trường hợp THẤT BẠI, nếu không dashboard chỉ thấy "thẻ đang bật" mà
+  // không có gì giải thích tại sao không có ảnh nào.
+  try {
+    const cardMod = require("./handlers/welcomeCard");
+    const ready = cardMod.cardAvailable();
+    // CHỈ gửi `reason` khi thất bại: validator Convex không nhận field optional mang
+    // giá trị undefined tường minh (test-convex-arg-contract chặn đúng kiểu này).
+    await store.client
+      .mutation(
+        "status:reportCardCapability",
+        ready
+          ? { ready: true }
+          : { ready: false, reason: cardMod.cardUnavailableReason?.() || "không rõ lý do" },
+      )
+      .then(() => console.log(`[welcomeCard] đã báo khả năng vẽ thẻ: ${ready}`))
+      .catch((e) => console.warn("[welcomeCard] không báo được trạng thái thẻ:", e?.message || e));
+  } catch (e) {
+    console.warn("[welcomeCard] bỏ qua báo trạng thái thẻ:", e?.message || e);
+  }
+
   // Register slash commands
   if (process.env.AUTO_REGISTER_COMMANDS !== "false") {
     try {

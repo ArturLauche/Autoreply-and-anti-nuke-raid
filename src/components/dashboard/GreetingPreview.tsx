@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { UserRound } from "lucide-react";
 import type { ChannelInfo, EmojiInfo } from "../../lib/types";
 import { translate } from "../../lib/i18n";
 
@@ -140,6 +141,58 @@ function renderTokens(text: string, channels: ChannelInfo[], emojis: EmojiInfo[]
       />
     );
   });
+}
+
+/**
+ * Bố cục THẺ ẢNH (bot tự vẽ PNG) — mô phỏng bằng CSS, KHÔNG dùng canvas.
+ * Tỉ lệ ở đây bám đúng toạ độ trong bot/src/handlers/welcomeCard.js (900×300,
+ * avatar tròn ở 160,150 bán kính 96, chữ bắt đầu ở x=300) để preview không hứa
+ * một bố cục khác với ảnh thật.
+ */
+export function CardPreview({
+  eyebrow,
+  name,
+  meta,
+  backgroundUrl,
+  accent,
+}: {
+  eyebrow: string;
+  name: string;
+  meta: string;
+  backgroundUrl: string;
+  accent: string;
+}) {
+  return (
+    <div
+      className="relative w-full overflow-hidden rounded-xl border border-border bg-[#0c0e12]"
+      style={{ aspectRatio: "3 / 1" }}
+    >
+      {backgroundUrl.trim() ? (
+        <>
+          <img
+            src={backgroundUrl.trim()}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <span className="absolute inset-0 bg-black/60" />
+        </>
+      ) : (
+        <span
+          className="absolute inset-0"
+          style={{ backgroundImage: `linear-gradient(135deg, ${accent} 0%, #0c0e12 100%)` }}
+        />
+      )}
+      <span className="absolute inset-y-0 left-0 w-[1.1%]" style={{ backgroundColor: accent }} />
+      <span className="absolute left-[7.1%] top-1/2 flex aspect-square w-[21.3%] -translate-y-1/2 items-center justify-center rounded-full border-4 border-white/70 bg-[#2b2d31] text-white/50">
+        <UserRound className="h-2/5 w-2/5" />
+      </span>
+      <div className="absolute left-[33.3%] top-0 flex h-full w-[62%] flex-col justify-center gap-1 text-white">
+        <p className="truncate text-[0.55rem] tracking-[0.18em] text-white/70">{eyebrow}</p>
+        <p className="truncate text-lg font-bold leading-tight">{name}</p>
+        <p className="truncate text-[0.68rem] text-white/75">{meta}</p>
+      </div>
+    </div>
+  );
 }
 
 /** Đổi #hex → rgba sẵn dùng cho thanh màu embed (Discord dùng màu thô). */

@@ -73,7 +73,7 @@ thôi. Khi nghi file có thể sửa dở: xem `git diff` trước khi sửa ti�
 Đơn vị công việc chỉ coi là XONG khi tất cả điều này thoả:
 
 - [ ] `bun run test` — toàn bộ suites xanh (hiện tại **60 suites** — số liệu 23/09/2026; nếu runner báo ít hơn nhiều → có suite bị bỏ sót, điều tra trước khi kết luận xanh). Số liệu này phải khớp với `CONTRACT_SUITES` trong `.opencode/plugins/guardrails.js` — đổi suite mới phải sửa CẢ HAI chỗ trong cùng commit
-- [ ] `bun run test:ts` — 8 suite tầng Convex/Haimiya/bot viết bằng TypeScript (chạy bằng bun; tách khỏi `bun run test` để không đụng phép đo coverage c8). Đụng `convex/`, `bot/src/ai.js` hoặc logic panel có test TS thì bắt buộc chạy
+- [ ] `bun run test:ts` — 9 suite tầng Convex/Haimiya/bot viết bằng TypeScript (chạy bằng bun; tách khỏi `bun run test` để không đụng phép đo coverage c8). Đụng `convex/`, `bot/src/ai.js`, logic panel hoặc thẻ ảnh `bot/src/handlers/welcomeCard.js` thì bắt buộc chạy
 - [ ] `bun tsc -b --noEmit` — typecheck sạch
 - [ ] `bun run lint` — sạch
 - [ ] `node scripts/check-repo-map.cjs` — bản đồ khớp cấu trúc thật (chỉ khi
@@ -161,6 +161,7 @@ Các lệnh kiểm chứng đã được allow sẵn trong `opencode.json` — c
 - **Hợp đồng bot ⇄ Convex**: bot gọi function bằng tên chuỗi
   (`"bot_writes:botClaimBackup"`) — tsc không phủ; đổi tên function phải grep
   - sửa cả 2 phía, script `check-convex-contract.cjs` chốt hạ.
+- **Thẻ ảnh chào (`bot/src/handlers/welcomeCard.js`)**: bot tự vẽ PNG 900×300 mỗi lượt join/leave → **cần dependency native `@napi-rs/canvas` trong `bot/`** (cài bằng `bun install` trong `bot/`) và **font nhúng** `bot/assets/fonts/NotoSans-Regular.ttf` (OFL, kèm `OFL.txt`). Font phải nhúng: nhiều máy chủ không có font hệ thống (`GlobalFonts.families === 0`) → `fillText` im lặng không vẽ gì. Thiếu thư viện/font → bot KHÔNG vỡ: lùi về embed thường và báo lý do qua `status:reportCardCapability` để dashboard hiển thị.
 - **Vấn đề đã biết**: Groq retire `llama-3.3-70b-versatile` 08/2026 — self-heal
   fallback `openai/gpt-oss-120b` có ở cả `convex/haimiya.ts` lẫn `bot/src/ai.js`
   (mặc định bot đã đổi sang model sống; Kira mặc định `mimo-v2.5` theo danh sách

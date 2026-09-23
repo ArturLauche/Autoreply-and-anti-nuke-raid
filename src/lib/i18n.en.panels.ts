@@ -317,6 +317,23 @@ export const EN_PANELS: Record<string, string> = {
   "Đã xoá ảnh": "Image removed",
   "Lưu ảnh thất bại": "Saving the image failed",
   "Xoá ảnh thất bại": "Removing the image failed",
+  /* Thẻ ảnh v3 — bot tự vẽ PNG riêng cho từng thành viên */
+  "Thẻ ảnh riêng": "Personal image card",
+  "Bot tự vẽ một tấm ảnh cho riêng thành viên: nền của bạn + avatar tròn + tên + số thành viên.":
+    "The bot draws a picture just for that member: your background, their round avatar, name and member number.",
+  "Ảnh nền thẻ": "Card background",
+  "Ảnh hiện phía sau avatar và tên (bỏ trống = nền màu chuyển sắc).":
+    "Sits behind the avatar and name (leave empty for a colour gradient).",
+  "Máy chủ bot chưa vẽ được ảnh nên thẻ này chưa hoạt động — bot vẫn gửi tin nhắn thường. Lý do: {p0}":
+    "The bot host cannot draw images yet, so this card is inactive — the bot still sends the normal message. Reason: {p0}",
+  "không xác định": "unknown",
+  "Chưa nhận được báo cáo từ bot (bot đang chạy bản cũ hoặc chưa khởi động lại).":
+    "No report from the bot yet (it is running an older build or has not restarted).",
+  "Thẻ ảnh dùng avatar của thành viên thật khi gửi; ở đây hiện vị trí giữ chỗ.":
+    "The real card uses the member's own avatar — this is just the placeholder position.",
+  "CHÀO MỪNG": "WELCOME",
+  "TẠM BIỆT": "GOODBYE",
+  "Thành viên thứ {count}": "Member #{count}",
   /* Gợi ý cho chip chèn biến (hiện khi rê chuột) */
   "Nhắc tên thành viên kèm thông báo": "Mentions the member and notifies them",
   "Tên người dùng (không thông báo)": "Username, without notifying anyone",

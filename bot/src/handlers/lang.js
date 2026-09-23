@@ -70,10 +70,27 @@ function goodbyeDefault(lang) {
   return GOODBYE_TEMPLATES[lang] || GOODBYE_TEMPLATES.en;
 }
 
+/**
+ * Nhãn in lên THẺ ẢNH chào/tạm biệt theo ngôn ngữ server.
+ * Font nhúng chỉ có chữ Latin + dấu tiếng Việt (không có emoji/kana) nên nhãn ở
+ * đây phải thuần chữ — emoji sẽ bị welcomeCard bỏ khỏi ảnh.
+ */
+const CARD_LABELS = {
+  vi: { welcome: "CHÀO MỪNG", goodbye: "TẠM BIỆT", member: "Thành viên thứ {count}" },
+  en: { welcome: "WELCOME", goodbye: "GOODBYE", member: "Member #{count}" },
+  de: { welcome: "WILLKOMMEN", goodbye: "AUF WIEDERSEHEN", member: "Mitglied #{count}" },
+};
+
+/** Nhãn thẻ theo ngôn ngữ server (lạ → EN). */
+function cardLabels(lang) {
+  return CARD_LABELS[lang] || CARD_LABELS.en;
+}
+
 module.exports = {
   SUPPORTED,
   langForLocale,
   langForGuild,
   welcomeDefault,
   goodbyeDefault,
+  cardLabels,
 };

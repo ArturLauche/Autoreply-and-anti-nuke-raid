@@ -158,6 +158,12 @@ export interface GuildData {
     autoroleRoleId: string | null;
     autoroleDelaySec: number;
     autoroleIncludeBots: boolean;
+    /** Thẻ ảnh riêng cho từng thành viên (bot tự vẽ PNG) — chỉ dùng khi bật embed. */
+    welcomeCardEnabled: boolean;
+    /** Ảnh nền của thẻ chào (URL Convex storage hoặc URL ngoài). */
+    welcomeCardBackground: string | null;
+    goodbyeCardEnabled: boolean;
+    goodbyeCardBackground: string | null;
     badWords: string[];
     heatEnabled: boolean;
     heatDecayPerMin: number;
@@ -227,6 +233,13 @@ export interface GuildData {
   roles: RoleInfo[];
   /** Emoji tuỳ chỉnh của server (bot đồng bộ) — picker chèn emoji cho welcome/goodbye. */
   emojis: EmojiInfo[];
+  /**
+   * Máy chủ bot có vẽ được thẻ ảnh chào không (thư viện canvas + font nhúng).
+   * `null` = bot chưa báo (bản cũ/chưa khởi động lại) — KHÔNG được coi là hỏng.
+   */
+  botCardReady: boolean | null;
+  /** Lý do không vẽ được (chỉ có nghĩa khi botCardReady === false). */
+  botCardReason: string | null;
   panels: ReactionRolePanel[];
   giveaways: Giveaway[];
   modActions: ModAction[];

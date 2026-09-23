@@ -27,6 +27,36 @@
 
 ---
 
+## 2026-09-23 — Welcome/Goodbye B: bot tự vẽ THẺ ẢNH PNG theo từng thành viên
+
+- ✅ **Xong**: `bot/src/handlers/welcomeCard.js` vẽ PNG 900×300 — nền người dùng tải lên +
+  avatar tròn + nhãn ngôn ngữ server + tên hiển thị + số thành viên; vạch màu nhấn dùng
+  chung `welcome/goodbyeEmbedColor`. Gửi kèm dạng attachment, embed trỏ
+  `attachment://protogon-card.png`.
+- 🔎 **Hai thứ phải khám phá bằng thực nghiệm mới dùng được** (ghi lại để lần sau không mất thời gian):
+  1. Máy chủ này **không có font hệ thống nào** (`GlobalFonts.families === 0`) → `fillText`
+     im lặng không vẽ gì, ảnh ra PNG hợp lệ nhưng TRỐNG CHỮ. Font KaTeX có sẵn trong máy
+     (CMU/KaTeX SansSerif) **thiếu toàn bộ dấu tiếng Việt** → không dùng được. Giải pháp:
+     nhúng `bot/assets/fonts/NotoSans-Regular.ttf` (OFL, 569 KB, kèm `OFL.txt`) và nạp
+     tường minh. Skia có sẵn bold tổng hợp (`bold 54px`) nên không cần thêm file Bold.
+  2. Phép đoán glyph khuyết bằng BỀ RỘNG là sai: trong Noto Sans, chữ **"V" rộng đúng
+     bằng glyph khuyết (14.4px)** → bị xoá oan khỏi ảnh (phát hiện qua test: câu
+     "Nguyễn Văn A" bị mất chữ V). Đổi sang so **chữ ký điểm ảnh** trên canvas 48×48.
+- 🛡️ **Không làm vỡ tính năng chào**: thiếu thư viện/font, ảnh nền hỏng (bị chặn SSRF),
+  ném lỗi bất kỳ → trả `null` → gửi embed thường. Thiếu thư viện/font thì bot báo lý do qua
+  `status:reportCardCapability` (mutation mới) → `getGuild` trả `botCardReady`/`botCardReason`
+  → panel hiện cảnh báo thay vì để người dùng tự đoán. `null` = bot chưa báo (bản cũ).
+- 📁 File đụng: `bot/src/handlers/welcomeCard.js` (mới), `bot/assets/fonts/*` (mới),
+  `bot/src/handlers/{welcome,lang}.js`, `bot/src/index.js`, `bot/package.json` + `bun.lock`,
+  `convex/{schema,guilds,status}.ts`, `src/lib/types.ts`, `src/components/dashboard/*`,
+  `src/lib/i18n.{en,de}.panels.ts`, `scripts/test-welcome-card.ts` (mới), `scripts/test-welcome-goodbye.cjs`.
+- 🧪 Kiểm chứng: **60/60** CJS · **9/9** TS (thêm `test-welcome-card`: PNG hợp lệ, đúng 900×300,
+  đếm điểm ảnh chứng minh CHỮ CÓ VẼ, chữ có dấu, emoji bị bỏ, mất thư viện → lùi an toàn) ·
+  `tsc` web + convex · `lint` · `format:check` · repo-map · convex-contract (199 exports) ·
+  i18n (0 FAIL) · coverage:floor · mutation 12/12.
+- ▶️ **Tiếp theo**: không có — B đã xong. Lưu ý triển khai: VPS cần `bun install` trong `bot/`
+  để lấy binary native `@napi-rs/canvas` (một lần), sau đó `/deploy` như bình thường.
+
 ## 2026-09-23 — Welcome/Goodbye v3: chèn emoji/kênh, xem trước trực tiếp, tải ảnh + test luồng thật
 
 - ✅ **Xong (A — không thêm dependency)**:

@@ -212,6 +212,11 @@ export const getGuild = query({
         autoroleRoleId: guild.autoroleRoleId ?? null,
         autoroleDelaySec: guild.autoroleDelaySec ?? 0,
         autoroleIncludeBots: guild.autoroleIncludeBots ?? false,
+        // Thẻ ảnh v3 — panel đọc trực tiếp từ `data.guild` (xem test-guild-panel-contract).
+        welcomeCardEnabled: guild.welcomeCardEnabled ?? false,
+        welcomeCardBackground: guild.welcomeCardBackground ?? null,
+        goodbyeCardEnabled: guild.goodbyeCardEnabled ?? false,
+        goodbyeCardBackground: guild.goodbyeCardBackground ?? null,
         heatEnabled: guild.heatEnabled ?? HEAT_DEFAULTS.enabled,
         heatDecayPerMin: decayPerMin,
         heatWarnAt: guild.heatWarnAt ?? HEAT_DEFAULTS.warnAt,
@@ -274,6 +279,13 @@ export const getGuild = query({
       emojis: emojis
         .map((e) => ({ emojiId: e.emojiId, name: e.name, animated: e.animated }))
         .sort((a, b) => a.name.localeCompare(b.name)),
+      /**
+       * Khả năng vẽ thẻ ảnh chào của MÁY CHỦ BOT (không thuộc server nào) — bot tự
+       * báo qua `status:reportCardCapability`. `null` = chưa báo (bản cũ/chưa khởi
+       * động lại) → panel KHÔNG được kết luận là hỏng.
+       */
+      botCardReady: botStatus?.cardReady ?? null,
+      botCardReason: botStatus?.cardUnavailableReason ?? null,
       // TÍNH NĂNG ẨN — chỉ trả cho CHỦ BOT (lỗ hổng cũ: mọi manager xem được,
       // trong khi API tạo/xóa lại chỉ cho owner → dữ liệu lệch trạng thái + lộ nội dung).
       panels: isBotOwner
@@ -429,6 +441,11 @@ export const getBotConfig = query({
       autoroleRoleId: guild.autoroleRoleId ?? null,
       autoroleDelaySec: guild.autoroleDelaySec ?? 0,
       autoroleIncludeBots: guild.autoroleIncludeBots ?? false,
+      // Thẻ ảnh v3 — bot đọc từ getBotConfig để tự vẽ PNG.
+      welcomeCardEnabled: guild.welcomeCardEnabled ?? false,
+      welcomeCardBackground: guild.welcomeCardBackground ?? null,
+      goodbyeCardEnabled: guild.goodbyeCardEnabled ?? false,
+      goodbyeCardBackground: guild.goodbyeCardBackground ?? null,
       restoreRolesEnabled: guild.restoreRolesEnabled ?? true,
       restoreChannelsEnabled: guild.restoreChannelsEnabled ?? true,
       restoreMessagesEnabled: guild.restoreMessagesEnabled ?? true,
@@ -560,6 +577,11 @@ export const updateSettings = mutation({
     autoroleRoleId: v.optional(v.union(v.string(), v.null())),
     autoroleDelaySec: v.optional(v.number()),
     autoroleIncludeBots: v.optional(v.boolean()),
+    // Thẻ ảnh v3 — bot tự vẽ PNG theo từng thành viên.
+    welcomeCardEnabled: v.optional(v.boolean()),
+    welcomeCardBackground: v.optional(v.union(v.string(), v.null())),
+    goodbyeCardEnabled: v.optional(v.boolean()),
+    goodbyeCardBackground: v.optional(v.union(v.string(), v.null())),
     badWords: v.optional(v.array(v.string())),
     heatEnabled: v.optional(v.boolean()),
     heatDecayPerMin: v.optional(v.number()),
@@ -668,6 +690,18 @@ export const updateSettings = mutation({
       patch.autoroleDelaySec = Math.max(0, Math.min(120, Math.floor(args.autoroleDelaySec || 0)));
     if (args.autoroleIncludeBots !== undefined)
       patch.autoroleIncludeBots = args.autoroleIncludeBots;
+    // Thẻ ảnh v3: công tắc + nền (nền đi qua cùng validator URL như ảnh embed,
+    // và cũng được dọn file cũ ở vòng lặp GREETING_IMAGE_SLOTS phía dưới).
+    if (args.welcomeCardEnabled !== undefined) patch.welcomeCardEnabled = args.welcomeCardEnabled;
+    if (args.goodbyeCardEnabled !== undefined) patch.goodbyeCardEnabled = args.goodbyeCardEnabled;
+    if (args.welcomeCardBackground !== undefined)
+      patch.welcomeCardBackground = args.welcomeCardBackground
+        ? cleanGreetingField("welcomeCardBackground", args.welcomeCardBackground)
+        : undefined;
+    if (args.goodbyeCardBackground !== undefined)
+      patch.goodbyeCardBackground = args.goodbyeCardBackground
+        ? cleanGreetingField("goodbyeCardBackground", args.goodbyeCardBackground)
+        : undefined;
     if (args.raidHuntEnabled !== undefined) patch.raidHuntEnabled = args.raidHuntEnabled;
     if (args.raidHuntBanSuspects !== undefined)
       patch.raidHuntBanSuspects = args.raidHuntBanSuspects;
@@ -852,6 +886,9 @@ const GREETING_IMAGE_SLOTS = [
   "welcomeEmbedThumbnail",
   "goodbyeEmbedImage",
   "goodbyeEmbedThumbnail",
+  // Nền của thẻ ảnh v3 — cùng luật validate URL + cùng luật dọn file.
+  "welcomeCardBackground",
+  "goodbyeCardBackground",
 ] as const;
 
 /** URL upload ảnh thẻ chào (banner/thumbnail) — manager của server tự tải lên. */
@@ -884,6 +921,8 @@ export const saveGreetingImage = mutation({
       v.literal("welcomeEmbedThumbnail"),
       v.literal("goodbyeEmbedImage"),
       v.literal("goodbyeEmbedThumbnail"),
+      v.literal("welcomeCardBackground"),
+      v.literal("goodbyeCardBackground"),
     ),
   },
   handler: async (ctx, { token, guildId, storageId, slot }) => {
@@ -956,6 +995,8 @@ export const removeGreetingImage = mutation({
       v.literal("welcomeEmbedThumbnail"),
       v.literal("goodbyeEmbedImage"),
       v.literal("goodbyeEmbedThumbnail"),
+      v.literal("welcomeCardBackground"),
+      v.literal("goodbyeCardBackground"),
     ),
   },
   handler: async (ctx, { token, guildId, slot }) => {
