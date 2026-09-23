@@ -830,10 +830,12 @@ export const botClearBackup = mutation({
     kind: v.union(v.literal("backup"), v.literal("restore"), v.literal("import")),
     /** true khi backup đã lưu thành công (hoặc bỏ qua vì không đổi) — chỉ khi đó mới cập nhật lastBackupAt. */
     storeOk: v.optional(v.boolean()),
+    /** Backup bị bỏ qua vì server không đổi (checksum trùng) — dashboard nói rõ lý do. */
+    unchanged: v.optional(v.boolean()),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()),
   },
-  handler: async (ctx, { botKey, guildId, kind, storeOk }) => {
+  handler: async (ctx, { botKey, guildId, kind, storeOk, unchanged }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
@@ -851,6 +853,17 @@ export const botClearBackup = mutation({
       // cập nhật mốc để botGetDueAuto không kích hoạt lại tức thì (chống lặp/spam).
       // Store thất bại → KHÔNG cập nhật, để bot thử lại ở vòng quét sau.
       if (storeOk !== false) patch.lastBackupAt = Date.now();
+      // Mốc "xong" + lý do (không đổi) cho dashboard báo kết quả cho người dùng.
+      // storeOk=false = lưu thất bại (bot còn thử lại) → KHÔNG đánh dấu xong, nếu
+      // không dashboard sẽ đọc thành "vừa tạo xong một bản" trong khi thật ra lỗi.
+      if (storeOk !== false) {
+        patch.backupFinishedAt = Date.now();
+        patch.backupUnchanged = !!unchanged;
+      } else {
+        // Lưu thất bại → xóa mốc: dashboard không được đọc thành "vừa tạo xong".
+        patch.backupFinishedAt = undefined;
+        patch.backupUnchanged = false;
+      }
     } else if (kind === "import") {
       patch.importRestoreRequested = false;
       patch.importFileName = undefined;
@@ -904,6 +917,10 @@ export const botReportBackupError = mutation({
       backupClaimedAt: undefined,
       backupError: String(error || "Lỗi không xác định").slice(0, 300),
       backupErrorAt: Date.now(),
+      // Xóa mốc "xong" cũ: lần này THẤT BẠI, giữ lại mốc cũ thì dashboard có thể
+      // đọc nhầm thành vừa tạo xong một bản backup.
+      backupFinishedAt: undefined,
+      backupUnchanged: false,
       updatedAt: Date.now(),
     });
     return { ok: true };

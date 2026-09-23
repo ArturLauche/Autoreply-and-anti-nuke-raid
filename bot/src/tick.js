@@ -16,6 +16,7 @@
  *  - hidden jobs  → hidden.processHiddenJobsData (panel, giveaway, DM, webhook log)
  *  - verify panel → hidden.processVerifyPanelItems
  *  - backup       → backup.runBackup / runRestore / runImportRestore + claim
+ *  - settings đổi → xóa cache config của guild vừa được dashboard sửa (settingsChanges)
  */
 
 // TỐI ƯU I/O: 180s (trước 120s, ban đầu 60s) — các cờ backup/restore/panel vẫn
@@ -31,6 +32,31 @@ const backupMod = require("./handlers/backup");
 /** Chống xử lý trùng trong process: item đang chạy bị bỏ qua ở lượt sau. */
 const backupInFlight = new Set();
 let batchBrokenUntil = 0;
+/** guildId → mốc `settingsChangedAt` đã xử lý (chống xóa cache lặp mỗi lượt tick). */
+const settingsSeen = new Map();
+
+/**
+ * Dashboard vừa sửa cấu hình → xóa cache config của đúng guild đó.
+ *
+ * Bối cảnh: getConfig cache tới 30 phút (cắt reads cho Convex free tier), còn
+ * giao diện hứa "bot áp dụng trong khoảng 3 phút". Không có bước này thì bật
+ * welcome/goodbye, đổi module antinuke... xong join thử sẽ thấy bot im lặng
+ * (bug thật 23/09). Mốc `at` giữ trong process để mỗi thay đổi chỉ xóa cache 1 lần.
+ */
+function applySettingsChanges(store, changes) {
+  if (!Array.isArray(changes)) return 0;
+  let cleared = 0;
+  for (const c of changes) {
+    const guildId = c?.guildId;
+    const at = Number(c?.at) || 0;
+    if (!guildId || !at) continue;
+    if ((settingsSeen.get(guildId) ?? 0) >= at) continue; // mốc này xử lý rồi
+    settingsSeen.set(guildId, at);
+    store.invalidate(guildId);
+    cleared++;
+  }
+  return cleared;
+}
 
 /**
  * Giành quyền xử lý trên Convex — chỉ ai claim được mới chạy (chống trùng khi
@@ -147,6 +173,15 @@ async function runTickOnce(client, store) {
   if (jobs && typeof jobs === "object") {
     // Self-Diagnose: đồng bộ flag bật/tắt từ batch (không tốn call thêm).
     try {
+      const cleared = applySettingsChanges(store, jobs.settingsChanges);
+      if (cleared > 0)
+        console.log(
+          `[tick:settings] xóa cache config ${cleared} guild (dashboard vừa đổi cấu hình)`,
+        );
+    } catch (e) {
+      console.error("[tick:settings]", e?.message || e);
+    }
+    try {
       require("./handlers/selfDiagnose").setEnabledFromJobs(jobs.selfDiagnose);
     } catch {}
     try {
@@ -215,4 +250,4 @@ function setupTick(client, store) {
   }
 }
 
-module.exports = { setupTick, runBackupJobs, runTickOnce };
+module.exports = { setupTick, runBackupJobs, runTickOnce, applySettingsChanges };

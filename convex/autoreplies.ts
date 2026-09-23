@@ -59,7 +59,10 @@ export const add = mutation({
     cooldownSeconds: v.number(),
   },
   handler: async (ctx, args) => {
-    await assertManage(ctx, args.token, args.guildId);
+    const guild = await assertManage(ctx, args.token, args.guildId);
+    // Rule auto reply được bot đọc qua cache getBotConfig → báo cấu hình vừa đổi
+    // (xem schema.ts) để bot xoá cache ở vòng tick kế tiếp thay vì chờ 30 phút.
+    await ctx.db.patch(guild._id, { settingsChangedAt: Date.now() });
     if (!/^[a-z0-9_-]{1,32}$/i.test(args.name)) {
       throw new Error("Tên rule chỉ gồm chữ, số, _ hoặc - (tối đa 32 ký tự)");
     }
@@ -111,7 +114,8 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const rule = await ctx.db.get(args.id);
     if (!rule) throw new Error("Không tìm thấy rule");
-    await assertManage(ctx, args.token, rule.guildId);
+    const guild = await assertManage(ctx, args.token, rule.guildId);
+    await ctx.db.patch(guild._id, { settingsChangedAt: Date.now() });
     if (args.name !== undefined && args.name !== rule.name) {
       if (!/^[a-z0-9_-]{1,32}$/i.test(args.name)) {
         throw new Error("Tên rule không hợp lệ");
@@ -163,7 +167,8 @@ export const remove = mutation({
   handler: async (ctx, { token, id }) => {
     const rule = await ctx.db.get(id);
     if (!rule) throw new Error("Không tìm thấy rule");
-    await assertManage(ctx, token, rule.guildId);
+    const guild = await assertManage(ctx, token, rule.guildId);
+    await ctx.db.patch(guild._id, { settingsChangedAt: Date.now() });
     await ctx.db.delete(id);
     return { ok: true };
   },

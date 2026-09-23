@@ -511,8 +511,28 @@ export const DE_PANELS: Record<string, string> = {
     "Beim Einschalten erstellt der Bot in etwa einer Minute das erste Backup und wiederholt das im gewählten Zyklus.",
   "(.msc/.json tải lên). Phần tắt sẽ được bỏ qua khi khôi phục (kênh, tin nhắn và media vẫn xử lý bình thường).":
     "(.msc/.json-Uploads). Deaktivierte Teile werden bei der Wiederherstellung übersprungen (Kanäle, Nachrichten und Medien werden weiterhin verarbeitet).",
-  "Đã yêu cầu tạo backup — bot thực hiện trong khoảng 20 giây":
-    "Backup angefordert — der Bot führt es in etwa 20 Sekunden aus",
+  "Đã gửi yêu cầu tạo backup — bot xử lý trong khoảng 3 phút":
+    "Backup angefordert — der Bot führt es in etwa 3 Minuten aus",
+  "Đang tạo backup — bot quét yêu cầu mỗi khoảng 3 phút. Kết quả hiện ngay tại đây.":
+    "Backup läuft — der Bot holt Anfragen etwa alle 3 Minuten ab. Das Ergebnis erscheint genau hier.",
+  "Bot đã tạo xong bản backup mới": "Der Bot hat ein neues Backup erstellt",
+  "Bản backup mới đã có trong danh sách bên dưới và được lưu trên cloud.":
+    "Das neue Backup steht in der Liste unten und ist in der Cloud gespeichert.",
+  "Server không có thay đổi kể từ bản backup gần nhất":
+    "Der Server hat sich seit dem letzten Backup nicht verändert",
+  'Bot không tạo bản trùng lặp. Bật "Kèm tin nhắn" hoặc chỉnh cấu trúc server rồi bấm Backup ngay lại nếu bạn cần một bản mới.':
+    'Der Bot erstellt keine Duplikate. Schalte "Nachrichten einschließen" ein oder ändere die Serverstruktur und tippe dann erneut auf „Backup jetzt“, wenn du eine neue Kopie brauchst.',
+  "Bot vẫn chưa xử lý xong yêu cầu backup":
+    "Der Bot hat die Backup-Anfrage noch nicht abgeschlossen",
+  "Bot online nhưng chưa xử lý xong — server lớn kèm tin nhắn có thể mất vài phút; nếu quá lâu hãy cập nhật bot lên bản mới nhất.":
+    "Der Bot ist online, aber noch nicht fertig — ein großer Server mit Nachrichten kann ein paar Minuten brauchen; dauert es länger, aktualisiere den Bot auf die neueste Version.",
+  "Bot đang OFFLINE — khởi động bot trên host rồi bấm Backup ngay lại.":
+    "Der Bot ist OFFLINE — starte ihn auf dem Host und tippe dann erneut auf „Backup jetzt“.",
+  "Bot không lưu được bản backup. Đọc lý do ở khung đỏ phía trên, khắc phục rồi bấm Backup ngay lại.":
+    "Der Bot konnte das Backup nicht speichern. Lies den Grund im roten Feld oben, behebe ihn und tippe dann erneut auf „Backup jetzt“.",
+  "Chọn kênh gửi trước khi bật tính năng này.":
+    "Wähle zuerst einen Zielkanal, bevor du das einschaltest.",
+  "Đã lưu kênh gửi": "Zielkanal gespeichert",
   "Đã yêu cầu khôi phục — bot thực hiện trong khoảng 1 phút":
     "Wiederherstellung angefordert — der Bot führt sie in etwa 1 Minute aus",
 

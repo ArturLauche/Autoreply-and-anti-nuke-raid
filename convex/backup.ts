@@ -157,6 +157,10 @@ export const requestBackup = mutation({
       // Yêu cầu mới = lần thử lại → xóa lỗi lượt trước (nếu có).
       backupError: undefined,
       backupErrorAt: undefined,
+      // Xóa luôn mốc "xong" của lượt trước: dashboard so mốc này với thời điểm vừa
+      // bấm để biết yêu cầu MỚI đã xử lý xong chưa (mốc cũ sẽ báo nhầm là xong ngay).
+      backupFinishedAt: undefined,
+      backupUnchanged: false,
       updatedAt: Date.now(),
     });
     return { ok: true };
@@ -323,6 +327,10 @@ export const importStatus = query({
       backupRequested: !!guild.backupRequested,
       backupError: guild.backupError ?? null,
       backupErrorAt: guild.backupErrorAt ?? null,
+      // Mốc bot xử lý xong + có bỏ qua vì không đổi không: web báo đúng kết quả
+      // (tạo bản mới / không tạo bản trùng) thay vì im lặng như trước.
+      backupFinishedAt: guild.backupFinishedAt ?? null,
+      backupUnchanged: guild.backupUnchanged ?? false,
       updatedAt: guild.updatedAt,
       botOnline,
       botVersion: status?.version ?? null,
@@ -349,6 +357,8 @@ export const setAutoBackup = mutation({
     await ctx.db.patch(guild._id, {
       backupAutoDays: next,
       updatedAt: Date.now(),
+      // Bot đọc lịch auto backup qua getBotConfig → cần tín hiệu đổi cấu hình.
+      settingsChangedAt: Date.now(),
     });
     return { ok: true, days: next };
   },
@@ -381,7 +391,9 @@ export const setRestoreOptions = mutation({
       throw new Error("Không có quyền quản lý server này");
     }
     if (!guild.botInGuild) throw new Error("Bot chưa có trong server này");
-    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    // restoreCore đọc 4 cờ này từ config của bot → phải báo cho bot biết cấu hình
+    // vừa đổi, nếu không tùy chỉnh khôi phục phải chờ hết TTL cache mới có tác dụng.
+    const patch: Record<string, unknown> = { updatedAt: Date.now(), settingsChangedAt: Date.now() };
     if (typeof restoreRoles === "boolean") patch.restoreRolesEnabled = restoreRoles;
     if (typeof restoreChannels === "boolean") patch.restoreChannelsEnabled = restoreChannels;
     if (typeof restoreMessages === "boolean") patch.restoreMessagesEnabled = restoreMessages;

@@ -8,8 +8,11 @@
 //      không thể tồn tại qua đường chuẩn.
 //   3. Claim không được 2 process cùng giữ (in_flight < 10 phút).
 //   4. botClearBackup reset cờ + lastBackupAt đúng điều kiện storeOk.
+//   5. botClearBackup phải nói RÕ kết quả (backupFinishedAt + backupUnchanged) để
+//      dashboard báo "đã tạo xong" / "server không đổi" thay vì im lặng (bug 23/09).
+//   6. importStatus trả các mốc đó; requestBackup xóa mốc cũ của lượt trước.
 import { botStoreBackup, botClaimBackup, botClearBackup } from "../convex/bot_writes";
-import { listGuild, botAuditBackups } from "../convex/backup";
+import { listGuild, botAuditBackups, importStatus, requestBackup } from "../convex/backup";
 import { computeBotKey } from "../convex/botAuth";
 
 // getBotStatus đọc ctx.db.query("botStatus") — ctx giả chỉ cần bảng botStatus
@@ -23,6 +26,8 @@ const claimHandler = (botClaimBackup as any)._handler;
 const clearHandler = (botClearBackup as any)._handler;
 const listGuildHandler = (listGuild as any)._handler;
 const auditHandler = (botAuditBackups as any)._handler;
+const importStatusHandler = (importStatus as any)._handler;
+const requestBackupHandler = (requestBackup as any)._handler;
 
 let pass = 0;
 let fail = 0;
@@ -37,6 +42,9 @@ type Row = Record<string, any>;
 function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
   const backupRows: Row[] = [];
   const guildRows: Row[] = [];
+  // Phiên + người dùng cho getUserByToken (importStatus/requestBackup cần đăng nhập).
+  const sessionRows: Row[] = [];
+  const userRows: Row[] = [];
   const statusRows: Row[] =
     opts.seed === null ? [] : [{ kind: "status", botKeySeed: computeBotKey(opts.seed ?? BOT_KEY) }];
   let idCounter = 0;
@@ -55,7 +63,11 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
         allRows()[table as keyof ReturnType<typeof allRows>]?.push({ _id: id, ...doc });
         return id;
       },
-      get: async (id: string) => backupRows.find((r) => r._id === id) ?? null,
+      get: async (id: string) =>
+        backupRows.find((r) => r._id === id) ??
+        userRows.find((r) => r._id === id) ??
+        guildRows.find((r) => r._id === id) ??
+        null,
       delete: async (id: string) => {
         const i = backupRows.findIndex((r) => r._id === id);
         if (i >= 0) backupRows.splice(i, 1);
@@ -77,6 +89,11 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
             return {
               first: async () =>
                 statusRows.find((s) => s.kind === (capture.kind ?? "status")) ?? null,
+            };
+          }
+          if (table === "sessions") {
+            return {
+              first: async () => sessionRows.find((s) => s.token === capture.token) ?? null,
             };
           }
           const rows = table === "guilds" ? guildRows : backupRows;
@@ -119,7 +136,7 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
       }),
     },
   };
-  return { ctx, backupRows, guildRows, nextId, statusRows };
+  return { ctx, backupRows, guildRows, nextId, statusRows, sessionRows, userRows };
 }
 
 (async () => {
@@ -236,6 +253,76 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
       "store thất bại → giữ nguyên lastBackupAt (bot thử lại)",
       guildRows[0].lastBackupAt === before,
     );
+    // storeOk=false không được đánh dấu "xong" (nếu không dashboard báo nhầm đã tạo xong).
+    check(
+      "store thất bại → KHÔNG đánh dấu backupFinishedAt",
+      guildRows[0].backupFinishedAt === undefined,
+    );
+  }
+
+  console.log("\n── botClearBackup: nói rõ kết quả cho dashboard (mốc xong + không đổi) ──");
+  {
+    const { ctx, guildRows } = makeCtx({ seed: BOT_KEY });
+    guildRows.push({ _id: "gld2", discordId: "g2", backupRequested: true });
+    await clearHandler(ctx as any, {
+      guildId: "g2",
+      kind: "backup",
+      storeOk: true,
+      unchanged: true,
+      botKey: BOT_KEY,
+    });
+    check(
+      "backup bỏ qua vì không đổi → backupUnchanged=true + mốc xong",
+      guildRows[0].backupUnchanged === true && typeof guildRows[0].backupFinishedAt === "number",
+    );
+    guildRows[0].backupRequested = true;
+    await clearHandler(ctx as any, {
+      guildId: "g2",
+      kind: "backup",
+      storeOk: true,
+      unchanged: false,
+      botKey: BOT_KEY,
+    });
+    check("backup tạo mới → backupUnchanged=false", guildRows[0].backupUnchanged === false);
+  }
+
+  console.log("\n── requestBackup + importStatus: hợp đồng trạng thái cho web ──");
+  {
+    const { ctx, guildRows, sessionRows, userRows } = makeCtx({ seed: BOT_KEY });
+    const discordId = "123456789012345678";
+    guildRows.push({
+      _id: "gld3",
+      discordId,
+      name: "Server",
+      managers: ["u1"],
+      botInGuild: true,
+      backupFinishedAt: 111,
+      backupUnchanged: true,
+    });
+    userRows.push({ _id: "u1", discordId: "u1", manageableGuildIds: [] });
+    sessionRows.push({ _id: "s1", token: "tok", userId: "u1", createdAt: Date.now() });
+
+    const st = await importStatusHandler(ctx as any, { token: "tok", guildId: discordId });
+    check(
+      "importStatus trả backupFinishedAt + backupUnchanged cho dashboard",
+      st.backupFinishedAt === 111 && st.backupUnchanged === true,
+    );
+
+    await requestBackupHandler(ctx as any, {
+      token: "tok",
+      guildId: discordId,
+      pushToGithub: false,
+      includeMessages: true,
+    });
+    check("requestBackup đặt cờ chờ bot xử lý", guildRows[0].backupRequested === true);
+    check(
+      'requestBackup xóa mốc "xong" cũ (không báo nhầm kết quả lượt trước)',
+      guildRows[0].backupFinishedAt === undefined && guildRows[0].backupUnchanged === false,
+    );
+
+    const post = await importStatusHandler(ctx as any, { token: "tok", guildId: discordId });
+    check("importStatus phản ánh yêu cầu đang chờ", post.backupRequested === true);
+    check("importStatus nhận diện bot offline/thiếu heartbeat", post.botOnline === false);
   }
 
   console.log("\n── backup:listGuild: map + sort mới nhất trước ──");

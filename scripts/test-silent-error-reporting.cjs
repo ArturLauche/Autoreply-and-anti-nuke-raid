@@ -11,6 +11,10 @@
 //   6. Giveaway lỗi kết thúc      → botReportGiveawayError(phase=end) + VẪN chốt winners
 //   7. DM trực tiếp lỗi           → botReportDmError; thành công → botClearDm
 //   8. Verify panel lỗi           → clearVerifySendPanel({error}) ; thành công → clear không error
+//   9. runBackup lưu Convex lỗi    → botReportBackupError (trước: chỉ console.error rồi
+//      vẫn xóa cờ + ghi log "đã tạo backup" → dashboard im lặng — bug thật 23/09)
+//  10. runBackup checksum trùng    → botClearBackup kèm unchanged=true (web báo "không đổi")
+//  11. runBackup thành công        → botClearBackup kèm unchanged=false (web báo "đã tạo xong")
 const path = require("path");
 const Module = require("module");
 const fs = require("fs");
@@ -65,7 +69,9 @@ const check = (label, ok) => {
   console.log(ok ? `PASS ${label}` : `FAIL ${label}`);
   ok ? pass++ : fail++;
 };
-const last = (arr, name) => [...arr].reverse().find((m) => m.name === name);
+// `match` là tên mutation hoặc hàm lọc (dùng khi cần lọc thêm args, vd kind="backup").
+const last = (arr, match) =>
+  [...arr].reverse().find((m) => (typeof match === "function" ? match(m) : m.name === match));
 
 /** Mock store ghi lại mọi mutation gọi ra. */
 function makeStore(opts = {}) {
@@ -77,6 +83,7 @@ function makeStore(opts = {}) {
     client: {
       mutation: async (name, args = {}) => {
         mutations.push({ name, args });
+        if (opts.onMutation) return opts.onMutation(name, args);
         if (name === "bot_writes:botClaimBackup") return { ok: true };
         return { ok: true };
       },
@@ -91,7 +98,9 @@ function makeStore(opts = {}) {
   };
 }
 
-function makeGuild({ failChannelSend = false, noChannel = false } = {}) {
+// `full: true` thêm emojis/stickers để snapshotGuild chạy hết (mặc định CỐ TÌNH thiếu
+// để case 1 mô phỏng snapshot lỗi — đừng thêm vào nhánh mặc định).
+function makeGuild({ failChannelSend = false, noChannel = false, full = false } = {}) {
   const sent = [];
   const channelById = (id) => ({
     id,
@@ -119,6 +128,10 @@ function makeGuild({ failChannelSend = false, noChannel = false } = {}) {
     roles: { cache: new Map(), create: async () => ({ id: "nr1", setPosition: async () => {} }) },
   };
   guild.channels.fetch = async () => (noChannel ? null : channelById("ch-1"));
+  if (full) {
+    guild.emojis = { cache: new Map() };
+    guild.stickers = { cache: new Map() };
+  }
   return {
     client: {
       guilds: { cache: new Map([[guild.id, guild]]) },
@@ -385,6 +398,137 @@ function makeGuild({ failChannelSend = false, noChannel = false } = {}) {
     check(
       "verify thiếu role → clearVerifySendPanel kèm error hướng dẫn",
       !!rep2 && typeof rep2.args.error === "string" && /role/i.test(rep2.args.error),
+    );
+  }
+
+  // 9️⃣ runBackup — lưu lên Convex THẤT BẠI không được nuốt lỗi.
+  // Trước đây chỉ console.error rồi vẫn xóa cờ + ghi log "Đã tạo backup server" →
+  // người dùng bấm "Backup ngay" thấy không có bản nào mà cũng không có báo lỗi.
+  {
+    const store = makeStore({
+      onMutation: (name) => {
+        if (name === "bot_writes:botClaimBackup") return { ok: true };
+        if (name === "bot_writes:botStoreBackup") {
+          throw new Error("Document is too large: 1187291 bytes (maximum 1048576)");
+        }
+        return { ok: true };
+      },
+    });
+    const { client } = makeGuild({ full: true });
+    await tick.runBackupJobs(client, store, [
+      { kind: "backup", guildId: "999888777666555444", pushToGithub: false, includeMessages: true },
+    ]);
+    const rep = last(store._mutations, "bot_writes:botReportBackupError");
+    check("lưu backup lỗi → botReportBackupError (không nuốt lỗi)", !!rep);
+    check(
+      "lỗi quá giới hạn document → chỉ đúng việc cần làm (tắt Kèm tin nhắn)",
+      !!rep && /Kèm tin nhắn/.test(rep.args.error) && /1 MB/.test(rep.args.error),
+    );
+    check(
+      "lưu backup lỗi → KHÔNG botClearBackup (không đánh dấu thành công)",
+      !store._mutations.some((m) => m.name === "bot_writes:botClearBackup"),
+    );
+  }
+
+  // 9b. Lỗi lưu KHÁC (mạng/Convex tạm lỗi) → vẫn báo lý do gốc, không nuốt.
+  {
+    const store = makeStore({
+      onMutation: (name) => {
+        if (name === "bot_writes:botClaimBackup") return { ok: true };
+        if (name === "bot_writes:botStoreBackup") throw new Error("ECONNRESET");
+        return { ok: true };
+      },
+    });
+    const { client } = makeGuild({ full: true });
+    await tick.runBackupJobs(client, store, [
+      {
+        kind: "backup",
+        guildId: "999888777666555444",
+        pushToGithub: false,
+        includeMessages: false,
+      },
+    ]);
+    const rep = last(store._mutations, "bot_writes:botReportBackupError");
+    check(
+      "lỗi lưu khác → botReportBackupError kèm lý do gốc",
+      !!rep && /ECONNRESET/.test(rep.args.error),
+    );
+  }
+
+  // 🔟+1️⃣1️⃣ runBackup xong → botClearBackup phải nói RÕ kết quả cho dashboard:
+  // unchanged=true (bỏ qua vì server không đổi) hay unchanged=false (đã tạo bản mới).
+  const utils = require("../bot/src/backupUtils.js");
+  const sameChecksum = utils.computeSnapshotChecksum({
+    roles: [],
+    channels: [],
+    emojis: [],
+    stickers: [],
+    settings: {
+      prefix: "!",
+      badWords: [],
+      modRoles: [],
+      adminRoles: [],
+      whitelistRoles: [],
+      whitelistUsers: [],
+      logChannelId: "log-ch-1",
+      modLogChannelId: null,
+    },
+  });
+  {
+    const store = makeStore({
+      onQuery: (name) =>
+        name === "backup:botGetLastChecksum"
+          ? { backupSnapshotChecksum: sameChecksum, backupMessageCount: 0 }
+          : null,
+    });
+    const { client } = makeGuild({ full: true });
+    await tick.runBackupJobs(client, store, [
+      {
+        kind: "backup",
+        guildId: "999888777666555444",
+        pushToGithub: false,
+        includeMessages: false,
+      },
+    ]);
+    const cleared = last(
+      store._mutations,
+      (m) => m.name === "bot_writes:botClearBackup" && m.args.kind === "backup",
+    );
+    check(
+      'checksum trùng → botClearBackup kèm unchanged=true (web báo "không có thay đổi")',
+      !!cleared && cleared.args.unchanged === true,
+    );
+    check(
+      "checksum trùng → KHÔNG lưu bản trùng lặp lên Convex",
+      !store._mutations.some((m) => m.name === "bot_writes:botStoreBackup"),
+    );
+  }
+  {
+    const store = makeStore({
+      onMutation: (name) => {
+        if (name === "bot_writes:botClaimBackup") return { ok: true };
+        if (name === "bot_writes:botStoreBackup") return { ok: true, backupId: "bk-9" };
+        return { ok: true };
+      },
+    });
+    const { client } = makeGuild({ full: true });
+    await tick.runBackupJobs(client, store, [
+      {
+        kind: "backup",
+        guildId: "999888777666555444",
+        pushToGithub: false,
+        includeMessages: false,
+      },
+    ]);
+    const stored = last(store._mutations, "bot_writes:botStoreBackup");
+    const cleared = last(
+      store._mutations,
+      (m) => m.name === "bot_writes:botClearBackup" && m.args.kind === "backup",
+    );
+    check("backup thành công → lưu lên Convex rồi mới xóa cờ", !!stored && !!cleared);
+    check(
+      'backup thành công → botClearBackup kèm unchanged=false (web báo "đã tạo xong")',
+      !!cleared && cleared.args.unchanged === false && cleared.args.storeOk === true,
     );
   }
 

@@ -505,8 +505,27 @@ export const EN_PANELS: Record<string, string> = {
     "Switch it on and the bot takes its first backup within about a minute, then repeats on the cycle you chose.",
   "(.msc/.json tải lên). Phần tắt sẽ được bỏ qua khi khôi phục (kênh, tin nhắn và media vẫn xử lý bình thường).":
     "(.msc/.json uploads). Anything switched off is skipped during a restore (channels, messages and media are still processed as usual).",
-  "Đã yêu cầu tạo backup — bot thực hiện trong khoảng 20 giây":
-    "Backup requested — the bot runs it within about 20 seconds",
+  "Đã gửi yêu cầu tạo backup — bot xử lý trong khoảng 3 phút":
+    "Backup requested — the bot runs it within about 3 minutes",
+  "Đang tạo backup — bot quét yêu cầu mỗi khoảng 3 phút. Kết quả hiện ngay tại đây.":
+    "Backup in progress — the bot picks up requests about every 3 minutes. The result appears right here.",
+  "Bot đã tạo xong bản backup mới": "The bot finished creating a new backup",
+  "Bản backup mới đã có trong danh sách bên dưới và được lưu trên cloud.":
+    "The new backup is in the list below and stored in the cloud.",
+  "Server không có thay đổi kể từ bản backup gần nhất":
+    "The server has not changed since the last backup",
+  'Bot không tạo bản trùng lặp. Bật "Kèm tin nhắn" hoặc chỉnh cấu trúc server rồi bấm Backup ngay lại nếu bạn cần một bản mới.':
+    'The bot does not create duplicate copies. Turn on "Include messages" or change the server structure, then press Backup now again if you need a fresh copy.',
+  "Bot vẫn chưa xử lý xong yêu cầu backup": "The bot has not finished the backup request yet",
+  "Bot online nhưng chưa xử lý xong — server lớn kèm tin nhắn có thể mất vài phút; nếu quá lâu hãy cập nhật bot lên bản mới nhất.":
+    "The bot is online but has not finished — a large server with messages can take a few minutes; if it drags on, update the bot to the latest version.",
+  "Bot đang OFFLINE — khởi động bot trên host rồi bấm Backup ngay lại.":
+    "The bot is OFFLINE — start it on the host, then press Backup now again.",
+  "Bot không lưu được bản backup. Đọc lý do ở khung đỏ phía trên, khắc phục rồi bấm Backup ngay lại.":
+    "The bot could not store the backup. Read the reason in the red box above, fix it, then press Backup now again.",
+  "Chọn kênh gửi trước khi bật tính năng này.":
+    "Pick a destination channel before turning this on.",
+  "Đã lưu kênh gửi": "Destination channel saved",
   "Đã yêu cầu khôi phục — bot thực hiện trong khoảng 1 phút":
     "Restore requested — the bot runs it within about 1 minute",
 

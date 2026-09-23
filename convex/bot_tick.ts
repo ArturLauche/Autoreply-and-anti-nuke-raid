@@ -10,6 +10,8 @@ import { requireBotKeyStrict } from "./botAuth";
  *    webhook mặc định cần tạo/gỡ (tái dùng buildHiddenJobs của hidden.ts).
  *  - verifyPanels: guild có cờ verifySendPanel (bot gửi panel xác minh rồi xóa cờ).
  *  - backups: yêu cầu backup/restore/import đang chờ + backup tự động đến hạn.
+ *  - settingsChanges: guild vừa được dashboard sửa cấu hình (settingsChangedAt mới)
+ *    → bot xóa cache getConfig của guild đó để thay đổi áp dụng trong ~1 tick.
  *  - meta: cờ lockdown/heat reset (tham khảo; bot vẫn đọc getConfig có cache).
  * Bot tự lọc guild mình đang ở. Query đọc-only, không có side effect.
  */
@@ -34,6 +36,17 @@ export const getPendingJobs = query({
         verifiedRoleId: g.verifiedRoleId ?? null,
         verifyMethod: g.verifyMethod ?? "button",
       }));
+
+    // Cấu hình vừa đổi từ dashboard (updateSettings / module antinuke / alt config /
+    // auto reply / tùy chỉnh khôi phục / lịch backup) → bot xóa cache config của
+    // đúng guild đó. Không có tín hiệu này thì thay đổi phải chờ hết TTL cache (30
+    // phút) mới tới bot, trong khi giao diện hứa "khoảng 3 phút" — bug thật 23/09
+    // (bật welcome xong join thử mà bot im lặng).
+    const nowMs = Date.now();
+    const SETTINGS_FRESH_MS = 15 * 60_000;
+    const settingsChanges = guilds
+      .filter((g) => (g.settingsChangedAt ?? 0) > nowMs - SETTINGS_FRESH_MS)
+      .map((g) => ({ guildId: g.discordId, at: g.settingsChangedAt as number }));
 
     const backups: {
       kind: string;
@@ -97,6 +110,6 @@ export const getPendingJobs = query({
       aiReview: !!status?.threatAiReviewRequested,
     };
 
-    return { hidden, verifyPanels, backups, selfDiagnose, threatFlags };
+    return { hidden, verifyPanels, backups, settingsChanges, selfDiagnose, threatFlags };
   },
 });

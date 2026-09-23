@@ -113,15 +113,34 @@ function GreetingCard({
           </div>
           <Switch
             checked={enabled}
-            onCheckedChange={(v) =>
-              onSave({ [`${kind}Enabled`]: v }, translate(v ? "Đã bật" : "Đã tắt"))
-            }
+            onCheckedChange={(v) => {
+              // Bật mà chưa có kênh gửi = bot im lặng mãi (không có chỗ nào để gửi).
+              // Chặn ngay tại đây kèm lý do rõ ràng thay vì lưu xong để người dùng
+              // tưởng tính năng hỏng.
+              if (v && channel === "none") {
+                toast.error(translate("Chọn kênh gửi trước khi bật tính năng này."));
+                return;
+              }
+              void onSave({ [`${kind}Enabled`]: v }, translate(v ? "Đã bật" : "Đã tắt"));
+            }}
           />
         </div>
 
         <div className="space-y-2">
           <Label className="text-xs">{translate("Kênh gửi")}</Label>
-          <Select value={channel} onValueChange={(v) => setChannel(v)}>
+          <Select
+            value={channel}
+            onValueChange={(v) => {
+              setChannel(v);
+              // Lưu NGAY khi chọn kênh: nếu chỉ giữ ở state rồi bật công tắc trước khi
+              // bấm "Lưu cài đặt", cấu hình sẽ là "đang bật + chưa có kênh" → bot
+              // không gửi gì và người dùng không hiểu vì sao.
+              void onSave(
+                { [`${kind}ChannelId`]: v === "none" ? "" : v },
+                translate("Đã lưu kênh gửi"),
+              );
+            }}
+          >
             <SelectTrigger>
               <SelectValue placeholder={translate("Chọn kênh")} />
             </SelectTrigger>

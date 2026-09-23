@@ -176,6 +176,36 @@ export const getGuild = query({
         emergencyAlertEnabled: guild.emergencyAlertEnabled ?? true,
         logPingEveryone: guild.logPingEveryone ?? true,
         badWords: guild.badWords ?? [],
+        // Welcome/Goodbye + Autorole — panel WelcomePanel đọc TRỰC TIẾP các field này
+        // từ `data.guild`. Thiếu ở đây (bug thật 23/09) thì dashboard luôn hiển thị
+        // trạng thái rỗng: công tắc trông như không bật được, kênh/nội dung đã lưu
+        // không hiện ra, và mỗi lượt bấm "Lưu cài đặt" lại ghi đè bằng chuỗi rỗng →
+        // bot không bao giờ gửi lời chào. Danh sách này PHẢI khớp `GuildData.guild`
+        // trong src/lib/types.ts — test-guild-panel-contract.cjs chốt hạ.
+        welcomeEnabled: guild.welcomeEnabled ?? false,
+        welcomeChannelId: guild.welcomeChannelId ?? null,
+        welcomeMessage: guild.welcomeMessage ?? null,
+        welcomeUseEmbed: guild.welcomeUseEmbed ?? true,
+        goodbyeEnabled: guild.goodbyeEnabled ?? false,
+        goodbyeChannelId: guild.goodbyeChannelId ?? null,
+        goodbyeMessage: guild.goodbyeMessage ?? null,
+        goodbyeUseEmbed: guild.goodbyeUseEmbed ?? true,
+        welcomeRandom: guild.welcomeRandom ?? null,
+        goodbyeRandom: guild.goodbyeRandom ?? null,
+        welcomeDmEnabled: guild.welcomeDmEnabled ?? false,
+        welcomeDmMessage: guild.welcomeDmMessage ?? null,
+        welcomeEmbedTitle: guild.welcomeEmbedTitle ?? null,
+        welcomeEmbedColor: guild.welcomeEmbedColor ?? null,
+        welcomeEmbedImage: guild.welcomeEmbedImage ?? null,
+        welcomeEmbedThumbnail: guild.welcomeEmbedThumbnail ?? null,
+        goodbyeEmbedTitle: guild.goodbyeEmbedTitle ?? null,
+        goodbyeEmbedColor: guild.goodbyeEmbedColor ?? null,
+        goodbyeEmbedImage: guild.goodbyeEmbedImage ?? null,
+        goodbyeEmbedThumbnail: guild.goodbyeEmbedThumbnail ?? null,
+        autoroleEnabled: guild.autoroleEnabled ?? false,
+        autoroleRoleId: guild.autoroleRoleId ?? null,
+        autoroleDelaySec: guild.autoroleDelaySec ?? 0,
+        autoroleIncludeBots: guild.autoroleIncludeBots ?? false,
         heatEnabled: guild.heatEnabled ?? HEAT_DEFAULTS.enabled,
         heatDecayPerMin: decayPerMin,
         heatWarnAt: guild.heatWarnAt ?? HEAT_DEFAULTS.warnAt,
@@ -563,7 +593,9 @@ export const updateSettings = mutation({
       .first();
     if (!guild || !canManageGuild(user, guild))
       throw new Error("Không có quyền quản lý server này");
-    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    // settingsChangedAt = tín hiệu riêng cho bot biết "cấu hình vừa đổi" (xem
+    // schema.ts). `updatedAt` không dùng được vì chính bot bump nó mỗi lượt sync.
+    const patch: Record<string, unknown> = { updatedAt: Date.now(), settingsChangedAt: Date.now() };
     if (args.theme !== undefined) {
       const THEME_KEYS = ["pink", "rose", "orange", "amber", "green", "teal", "sky", "violet"];
       if (!THEME_KEYS.includes(args.theme)) throw new Error("Chủ đề màu không hợp lệ");
@@ -862,7 +894,11 @@ export const setAntinukeGlobal = mutation({
       .first();
     if (!guild || !canManageGuild(user, guild))
       throw new Error("Không có quyền quản lý server này");
-    await ctx.db.patch(guild._id, { antinukeEnabled: enabled, updatedAt: Date.now() });
+    await ctx.db.patch(guild._id, {
+      antinukeEnabled: enabled,
+      updatedAt: Date.now(),
+      settingsChangedAt: Date.now(),
+    });
     // BẬT TOÀN BỘ = bật luôn mọi module con (ngưỡng/cấu hình từng module giữ
     // nguyên). TẮT TOÀN BỘ = chỉ tắt tổng (antinukeEnabled=false) — giữ nguyên
     // enabled từng module, bật lại tổng là mọi module sẵn sàng ngay.

@@ -28,6 +28,7 @@ const calls = {
   selfDiagnose: [],
   mutations: [],
   queries: [],
+  invalidate: [],
 };
 let batchResponse = null;
 let batchShouldThrow = false;
@@ -124,6 +125,7 @@ globalThis.fetch = async () => {
         return { ok: true };
       },
     },
+    invalidate: (guildId) => calls.invalidate.push(guildId),
   };
 
   // ── 1. Batch thành công → xử lý hidden/verify/backup + selfDiagnose ──
@@ -151,6 +153,52 @@ globalThis.fetch = async () => {
       "batch thành công → KHÔNG dùng fallback",
       !calls.queries.includes("hidden:getBotHiddenJobs"),
     );
+  }
+
+  // ── 1b. settingsChanges → xóa cache config (dashboard vừa sửa cấu hình) ──
+  // Bối cảnh: cache getConfig là 30 phút, giao diện hứa "khoảng 3 phút" → không có
+  // bước xóa cache này thì bật welcome/đổi module xong bot vẫn im lặng (bug 23/09).
+  // Đặt NGAY sau case 1 vì case 3 bật cờ "tạm bỏ batch 10 phút" (batchBrokenUntil)
+  // → mọi lượt tick sau đó không gọi batch nữa.
+  {
+    clear();
+    batchResponse = {
+      selfDiagnose: {},
+      hidden: [],
+      verifyPanels: [],
+      backups: [],
+      settingsChanges: [
+        { guildId: "cfg-g1", at: 1000 },
+        { guildId: "cfg-g2", at: 2000 },
+      ],
+    };
+    await runTickOnce(client, store);
+    check(
+      "settingsChanges → xóa cache config từng guild vừa sửa",
+      calls.invalidate.join(",") === "cfg-g1,cfg-g2",
+    );
+
+    clear();
+    await runTickOnce(client, store);
+    check(
+      "cùng mốc cấu hình → không xóa cache lặp (chống reads thừa)",
+      calls.invalidate.length === 0,
+    );
+
+    clear();
+    batchResponse.settingsChanges = [{ guildId: "cfg-g1", at: 3000 }];
+    await runTickOnce(client, store);
+    check("cấu hình đổi lần nữa → xóa cache lại", calls.invalidate.join(",") === "cfg-g1");
+
+    clear();
+    batchResponse.settingsChanges = [{ guildId: "cfg-g3" }, { at: 5 }, null, "rác"];
+    await runTickOnce(client, store);
+    check("mốc thiếu/rác → bỏ qua an toàn, không crash", calls.invalidate.length === 0);
+
+    clear();
+    batchResponse = { selfDiagnose: {}, hidden: [], verifyPanels: [], backups: [] };
+    await runTickOnce(client, store);
+    check("batch cũ không có settingsChanges → không xóa cache nào", calls.invalidate.length === 0);
   }
 
   // ── 2. Batch trả null → fallback 3 query ──

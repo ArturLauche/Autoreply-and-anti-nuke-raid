@@ -60,7 +60,7 @@ function looksLikeInfraLeak(command) {
 // GUARDRAIL_VERIFIED=1 ngay sau khi test/typecheck/lint/format đạt; plugin chỉ
 // chấp nhận dấu trong 15 phút (đủ cho 1 nhịp deploy, hết hạn phải chạy lại).
 // Số suites phải khớp AGENTS.md Pha 4 — đổi suite phải sửa CẢ HAI chỗ.
-const CONTRACT_SUITES = 59;
+const CONTRACT_SUITES = 60;
 let verifiedAt = 0;
 const VERIFY_WINDOW_MS = 15 * 60 * 1000;
 

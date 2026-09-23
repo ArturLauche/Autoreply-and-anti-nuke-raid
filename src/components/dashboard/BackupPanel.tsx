@@ -106,6 +106,10 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         backupRequested: boolean;
         backupError: string | null;
         backupErrorAt: number | null;
+        /** Mốc bot xử lý xong yêu cầu — so với lúc bấm để biết kết quả của lượt này. */
+        backupFinishedAt: number | null;
+        /** Backup vừa xong bị bỏ qua vì server không đổi (không tạo bản trùng). */
+        backupUnchanged: boolean;
         botOnline: boolean;
         botVersion: string | null;
         botGuildCount: number;
@@ -209,21 +213,64 @@ export default function BackupPanel({ data }: { data: GuildData }) {
     }
   }, [restoreWatch, importStatus]);
 
-  // Bot báo lỗi backup (chụp snapshot thất bại) → toast ngay thay vì im lặng.
+  // Kết quả của lượt "Backup ngay": lỗi → báo lý do; xong → báo ĐÃ TẠO BẢN MỚI
+  // hay BỎ QUA vì server không đổi. Trước đây nhánh thành công im lặng hoàn toàn
+  // nên người dùng bấm xong không thấy bản backup cũng không thấy thông báo nào.
   useEffect(() => {
     if (!backupWatch || importStatus === undefined || importStatus === null) return;
     if (importStatus.backupError) {
       toast.error(translate("Backup thất bại: {p0}", { p0: importStatus.backupError }), {
         description: translate(
-          "Bot đã dừng giữa chừng. Kiểm tra bot còn trong server và đủ quyền Administrator rồi bấm Backup ngay lại.",
+          "Bot không lưu được bản backup. Đọc lý do ở khung đỏ phía trên, khắc phục rồi bấm Backup ngay lại.",
         ),
         duration: 12000,
       });
       setBackupWatch(null);
       refresh();
-    } else if (!importStatus.backupRequested) {
-      setBackupWatch(null);
+      return;
     }
+    // Cờ còn treo = bot chưa tới lượt xử lý → tiếp tục chờ (banner "Đang tạo backup").
+    if (importStatus.backupRequested) return;
+    // So mốc thời gian để không nhầm với kết quả của lượt bấm trước đó.
+    if ((importStatus.backupFinishedAt ?? 0) > backupWatch.startedAt) {
+      if (importStatus.backupUnchanged) {
+        toast.info(translate("Server không có thay đổi kể từ bản backup gần nhất"), {
+          description: translate(
+            'Bot không tạo bản trùng lặp. Bật "Kèm tin nhắn" hoặc chỉnh cấu trúc server rồi bấm Backup ngay lại nếu bạn cần một bản mới.',
+          ),
+          duration: 10000,
+        });
+      } else {
+        toast.success(translate("Bot đã tạo xong bản backup mới"), {
+          description: translate(
+            "Bản backup mới đã có trong danh sách bên dưới và được lưu trên cloud.",
+          ),
+        });
+      }
+    }
+    setBackupWatch(null);
+    refresh();
+  }, [backupWatch, importStatus]);
+
+  // Chờ quá 4 phút mà bot chưa xử lý xong → cảnh báo chẩn đoán thay vì treo im lặng
+  // (tick của bot là 180s; quá lâu thường là bot offline hoặc bot chạy bản cũ).
+  useEffect(() => {
+    if (!backupWatch) return;
+    const timer = window.setTimeout(() => {
+      if (Date.now() - backupWatch.startedAt > 240_000) {
+        const hint =
+          importStatus?.botOnline === false
+            ? translate("Bot đang OFFLINE — khởi động bot trên host rồi bấm Backup ngay lại.")
+            : translate(
+                "Bot online nhưng chưa xử lý xong — server lớn kèm tin nhắn có thể mất vài phút; nếu quá lâu hãy cập nhật bot lên bản mới nhất.",
+              );
+        toast.warning(translate("Bot vẫn chưa xử lý xong yêu cầu backup"), {
+          description: hint,
+          duration: 10000,
+        });
+      }
+    }, 240_000);
+    return () => window.clearTimeout(timer);
   }, [backupWatch, importStatus]);
 
   // Restore chờ quá 3 phút → cảnh báo thay vì treo vô thời hạn.
@@ -266,7 +313,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         pushToGithub: pushGithub,
         includeMessages,
       });
-      toast.success(translate("Đã yêu cầu tạo backup — bot thực hiện trong khoảng 20 giây"), {
+      // Copy cũ hứa "khoảng 20 giây" trong khi vòng tick của bot là 180s → người
+      // dùng tưởng hỏng khi chưa thấy gì. Nói đúng thời gian chờ thật.
+      toast.success(translate("Đã gửi yêu cầu tạo backup — bot xử lý trong khoảng 3 phút"), {
         description: pushGithub
           ? includeMessages
             ? translate(
@@ -279,9 +328,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
             ? translate("Backup (kèm tin nhắn) sẽ được lưu trên Convex.")
             : translate("Backup sẽ được lưu trên Convex."),
       });
-      // Tự động tải lại danh sách sau khi bot kịp xử lý; watch lỗi backup (nếu bot báo lỗi).
+      // Danh sách backup là query realtime nên tự cập nhật khi bot lưu xong; watch
+      // chỉ để báo kết quả (tạo mới / không đổi / lỗi) và cảnh báo khi chờ quá lâu.
       setBackupWatch({ startedAt: Date.now() });
-      window.setTimeout(refresh, 25000);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : translate("Thất bại"));
     } finally {
@@ -460,6 +509,18 @@ export default function BackupPanel({ data }: { data: GuildData }) {
             <span>
               {translate("Lần backup trước")} <b>{translate("thất bại")}</b>:{" "}
               {importStatus.backupError} {translate("— khắc phục rồi bấm Backup ngay lại.")}
+            </span>
+          </p>
+        )}
+        {/* Yêu cầu đang chờ bot xử lý (bot quét mỗi ~3 phút) — nói rõ thay vì để
+            bấm "Backup ngay" xong không thấy gì và tưởng tính năng hỏng. */}
+        {importStatus && importStatus.backupRequested && (
+          <p className="mt-3 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-primary">
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+            <span>
+              {translate(
+                "Đang tạo backup — bot quét yêu cầu mỗi khoảng 3 phút. Kết quả hiện ngay tại đây.",
+              )}
             </span>
           </p>
         )}

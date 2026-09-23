@@ -419,6 +419,22 @@ async function pushBackupToGithub(store, { guildId, backupId, backupJson, guildN
   }
 }
 
+/**
+ * Thông điệp lỗi lưu backup dễ hành động (hiện cả trên dashboard lẫn kênh log).
+ * Nguyên nhân phổ biến nhất khi bấm "Backup ngay" mà không ra bản nào: mỗi
+ * document của Convex tối đa 1 MB, backup kèm tin nhắn của server lớn vượt ngưỡng
+ * → Convex từ chối. Nói đúng việc cần làm thay vì chỉ in mã lỗi.
+ */
+function describeStoreFailure(err, { includeMessages, messageCount } = {}) {
+  const raw = String(err?.message || err || "Lỗi không xác định").slice(0, 200);
+  if (/too large|1 ?MB|document.*size|maximum size|vượt quá/i.test(raw)) {
+    const extra =
+      includeMessages && messageCount > 0 ? ` (lần này kèm ${messageCount} tin nhắn)` : "";
+    return `Bản backup vượt giới hạn 1 MB mỗi document của Convex${extra}. Hãy tắt "Kèm tin nhắn" rồi bấm Backup ngay lại.`;
+  }
+  return `Không lưu được bản backup lên cloud: ${raw}`;
+}
+
 async function runBackup(client, store, guildId, opts = {}) {
   // LƯU Ý: option "pushToGithub" (boolean) TRÙNG TÊN với hàm pushBackupToGithub —
   // trước đây const { pushToGithub = false } đã che khuất hàm cùng tên khiến lệnh
@@ -441,8 +457,15 @@ async function runBackup(client, store, guildId, opts = {}) {
     const lastChecksum = lastBackup?.backupSnapshotChecksum;
     if (lastChecksum && lastChecksum === currentChecksum) {
       console.log(`[backup] ${guildId}: unchanged (checksum match) — skipping`);
+      // unchanged: true → dashboard biết lý do "không có bản mới" và báo cho người
+      // dùng thay vì để họ tưởng bot bỏ qua yêu cầu.
       await store.client
-        .mutation("bot_writes:botClearBackup", { guildId, kind: "backup", storeOk: true })
+        .mutation("bot_writes:botClearBackup", {
+          guildId,
+          kind: "backup",
+          storeOk: true,
+          unchanged: true,
+        })
         .catch(() => {});
       // Người dùng bấm "Backup ngay" chủ động → phải có thông báo, không im lặng
       // (im lặng khiến họ tưởng backup không hoạt động). Backup tự động theo lịch
@@ -494,8 +517,34 @@ async function runBackup(client, store, guildId, opts = {}) {
       backupEncrypted: encrypted || undefined,
     });
     backupId = stored?.backupId;
+    if (!backupId) throw new Error("Convex không trả về id bản backup vừa lưu");
   } catch (e) {
-    console.error(`[backup:store] ${guildId}:`, e.message);
+    // KHÔNG được nuốt lỗi: trước đây chỉ console.error rồi vẫn xóa cờ + ghi log
+    // "Đã tạo backup server" → dashboard im lặng hoàn toàn, người dùng bấm "Backup
+    // ngay" xong không thấy bản backup nào cũng không thấy báo lỗi (bug thật 23/09).
+    const reason = describeStoreFailure(e, {
+      includeMessages,
+      messageCount: snapshot.messageCount,
+    });
+    console.error(`[backup:store] ${guildId}:`, e?.message || e);
+    await store.client
+      .mutation("bot_writes:botReportBackupError", { guildId, error: reason })
+      .catch((err) => console.error(`[backup:store:report] ${guildId}:`, err?.message || err));
+    try {
+      await sendToLog(
+        guild,
+        logEmbed({
+          title: "❌ Backup thất bại — chưa lưu được lên cloud",
+          description: reason,
+          color: Colors.Red,
+          footer: "Protogon · Backup",
+        }),
+        store,
+      );
+    } catch {
+      // không gửi được log (chưa cấu hình kênh log) — lỗi đã báo lên dashboard rồi
+    }
+    return;
   }
 
   let githubLine = "không đẩy GitHub";
@@ -517,7 +566,12 @@ async function runBackup(client, store, guildId, opts = {}) {
   // Clear pending flag + cập nhật lastBackupAt (khi store thành công) để
   // botGetDueAuto không kích hoạt lại tức thì sau khi backup xong.
   await store.client
-    .mutation("bot_writes:botClearBackup", { guildId, kind: "backup", storeOk: !!backupId })
+    .mutation("bot_writes:botClearBackup", {
+      guildId,
+      kind: "backup",
+      storeOk: !!backupId,
+      unchanged: false,
+    })
     .catch((e) => console.error("[backup:clear]", e.message));
 
   const fields = [

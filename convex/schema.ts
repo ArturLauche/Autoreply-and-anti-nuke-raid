@@ -74,6 +74,15 @@ export default defineSchema({
     dmErrorAt: v.optional(v.number()),
     /** Mốc khôi phục hoàn tất gần nhất — dashboard hiển thị kết quả thay vì người dùng tự đoán. */
     restoreFinishedAt: v.optional(v.number()),
+    /**
+     * Mốc bot xử lý XONG yêu cầu backup chủ động (lưu xong hoặc bỏ qua vì server
+     * không đổi). Dashboard so với thời điểm người dùng bấm "Backup ngay" để báo
+     * kết quả — trước đây cờ backupRequested xoá im lặng nên người dùng chỉ thấy
+     * "bấm xong không có bản backup nào, cũng không báo gì" (bug thật 23/09).
+     */
+    backupFinishedAt: v.optional(v.number()),
+    /** Yêu cầu backup vừa rồi bị BỎ QUA vì server không đổi (checksum trùng bản gần nhất). */
+    backupUnchanged: v.optional(v.boolean()),
     /** Web bật/tắt khôi phục role khi restore (áp dụng cho backup Protogon lẫn file bot nuke). */
     restoreRolesEnabled: v.optional(v.boolean()),
     /** Web bật/tắt khôi phục emoji/sticker khi restore (áp dụng cho backup Protogon lẫn file bot nuke). */
@@ -224,6 +233,15 @@ export default defineSchema({
     altVpnMode: v.optional(v.union(v.literal("strict"), v.literal("warn"), v.literal("off"))),
     /** Chế độ an toàn: chỉ phạt khi có >= 2 bằng chứng độc lập (chống chặn nhầm). */
     altSafeMode: v.optional(v.boolean()),
+    /**
+     * Mốc LẦN CUỐI dashboard ghi cấu hình (updateSettings). Khác `updatedAt` —
+     * `updatedAt` bị chính bot bump mỗi lượt sync/heartbeat nên không dùng làm tín
+     * hiệu "cấu hình vừa đổi" được. Vòng tick của bot đọc field này để xoá cache
+     * config của đúng guild vừa sửa: không có nó thì thay đổi từ dashboard phải
+     * chờ hết TTL cache (30 phút) mới tới bot, trong khi giao diện hứa "khoảng 3
+     * phút" — người dùng tưởng tính năng hỏng (bug thật 23/09, welcome/goodbye).
+     */
+    settingsChangedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

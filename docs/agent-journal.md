@@ -27,6 +27,64 @@
 
 ---
 
+## 2026-09-23 — Welcome/Goodbye "không hoạt động" + "Backup ngay" không ra bản nào
+
+Người dùng báo 2 lỗi thật. Cả hai đều KHÔNG phải bot hỏng — bot làm đúng phần
+việc của nó; lỗi nằm ở dữ liệu web nhận được và ở tín hiệu giữa web ⇄ bot.
+
+- 🐛 **Gốc rễ welcome/goodbye: `convex/guilds.ts` `getGuild` thiếu TOÀN BỘ 24 field
+  welcome/goodbye/autorole.** Panel đọc `data.guild.welcomeEnabled`, `welcomeChannelId`,
+  `welcomeRandom`, `autoroleRoleId`… nhưng query không trả field nào → công tắc luôn
+  hiện TẮT (đọc `undefined`), kênh/nội dung đã lưu không hiện, badge "N đang bật" luôn
+  0, và **mỗi lượt bấm "Lưu cài đặt" ghi đè bằng chuỗi rỗng** → xoá luôn nội dung thật
+  trong DB. `GuildData.guild` trong `src/lib/types.ts` khai báo đủ + GuildPage ép
+  `useQuery(...) as GuildData` nên **tsc mù hoàn toàn** với lớp lỗi này.
+- 🐛 **Phụ 1 — độ trễ cấu hình tới 30 phút trong khi giao diện hứa ~3 phút**: cache
+  `getConfig` trong bot có TTL 30 phút và chỉ rút ngắn với vài cờ (lockdown/heat/DM/
+  verify panel). Bật welcome xong join thử là bot vẫn chạy cấu hình CŨ. `store.invalidate()`
+  chỉ được gọi sau khi CHÍNH BOT ghi cấu hình — không nhánh nào cho thay đổi từ web.
+- 🐛 **Phụ 2 — chọn kênh rồi bật công tắc là mất kênh**: `Select` chỉ set state, phải bấm
+  "Lưu cài đặt" mới ghi; công tắc thì lưu NGAY. Kết quả: `welcomeEnabled=true` +
+  `welcomeChannelId=""` → bot `return false` im lặng, không có cảnh báo nào trên web.
+- 🐛 **Gốc rễ backup — 4 lỗi cộng dồn thành "bấm Backup ngay xong không có gì"**:
+  1. Bot **nuốt lỗi `botStoreBackup`**: chỉ `console.error` rồi vẫn xoá cờ + ghi log
+     "Đã tạo backup server" → dashboard không bao giờ biết (thủ phạm thường gặp: document
+     Convex tối đa 1 MB, backup kèm tin nhắn của server lớn vượt ngưỡng).
+  2. **Bỏ qua vì "server không đổi"** chỉ có log trong Discord, web không nhận gì.
+  3. **Không có tín hiệu hoàn tất** nào cho web — nhánh thành công của `backupWatch`
+     im lặng, người dùng chỉ thấy cờ chờ biến mất.
+  4. **Copy sai thời gian**: hứa "trong khoảng 20 giây" + tự refresh danh sách ở 25s,
+     trong khi vòng tick của bot là **180s** → web tải lại quá sớm rồi đứng im.
+- ✅ **Vá**: thêm đủ 24 field vào `getGuild` (kèm comment chốt hợp đồng) · tín hiệu
+  `settingsChangedAt` (schema) được ghi ở 6 đường cấu hình của dashboard (updateSettings,
+  setAntinukeGlobal, updateModule, updateAltConfig, autoreplies ×3, setRestoreOptions,
+  setAutoBackup) → `bot_tick:getPendingJobs` trả `settingsChanges` → tick của bot xoá cache
+  đúng guild (mỗi thay đổi 1 lần, không xoá lặp) · panel welcome lưu kênh ngay khi chọn +
+  chặn bật khi chưa có kênh · bot báo `botReportBackupError` (kèm hướng dẫn "tắt Kèm tin
+  nhắn") + log đỏ khi lưu thất bại, KHÔNG ghi log thành công · `botClearBackup` ghi
+  `backupFinishedAt` + `backupUnchanged` · `importStatus` trả 2 field mới + `requestBackup`
+  xoá mốc cũ · panel: banner "Đang tạo backup (~3 phút)", toast kết quả (tạo mới / không
+  đổi), cảnh báo sau 4 phút, copy đúng thời gian, 12 key EN/DE mới.
+- 🛡️ **Cổng mới chặn đúng lớp lỗi này** (không chỉ vá 1 chỗ):
+  `scripts/test-guild-panel-contract.cjs` — phân tích tĩnh 3 chiều (field panel đọc ⊆
+  getGuild trả; `GuildData.guild` khai báo ⊆ getGuild trả; khoá 24 field welcome) +
+  self-test + case hồi quy chạy trên WelcomePanel THẬT với getGuild cũ → đỏ 25 field
+  (đúng bug). Thêm `scripts/test-bot-tick-settings.ts` cho đầu producer của tín hiệu.
+- 🧪 Kiểm chứng: **60/60 suite CJS** · **6/6 suite TS** · `tsc` · `lint` · `format:check` ·
+  `check-repo-map` · `check-convex-contract` (194 exports) · `check-i18n` (0 FAIL, 0 bản dịch
+  chết mới do lượt này) · `coverage:floor` (13 engine đạt sàn) · `test:mutation` 12/12 mutant
+  bị giết · `bun convex dev --once` OK · preview ready (index + WelcomePanel + BackupPanel
+  transform HTTP 200) · 12/12 khoá dịch mới tra được ở EN + DE.
+- 📁 File đụng: `convex/{guilds,schema,bot_tick,bot_writes,backup,antinuke,altDetection,autoreplies}.ts`,
+  `bot/src/{tick.js,handlers/backup.js}`, `src/components/dashboard/{WelcomePanel,BackupPanel}.tsx`,
+  `src/lib/i18n.{en,de}.panels.ts`, `scripts/test-{silent-error-reporting,tick,backup-convex}.*`,
+  `scripts/test-{guild-panel-contract.cjs,bot-tick-settings.ts}`, `.opencode/plugins/guardrails.js`,
+  `AGENTS.md`
+- ▶️ Tiếp theo: các mutation cấu hình còn lại chưa gắn `settingsChangedAt` (hidden/*, webhooks,
+  relay, threatIntel, presets, guilds.updateLockdown) — cùng lớp lỗi trễ 30 phút, nối tiếp khi cần.
+
+---
+
 ## 2026-09-22 — Trang pháp lý 3 route + rà soát copy AI-slop + siết cổng nội dung đa ngữ
 
 - ✨ **Ba trang pháp lý công khai, URL riêng**: `/terms` · `/privacy` · `/data-deletion` (Discord chỉ
