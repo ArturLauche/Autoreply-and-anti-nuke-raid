@@ -1039,7 +1039,13 @@ export const updateLockdown = mutation({
       .first();
     if (!guild || !canManageGuild(user, guild))
       throw new Error("Không có quyền quản lý server này");
-    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    // settingsChangedAt: bot đọc lockdownEnabled/lockdownMinutes từ bundle cache
+    // (TTL 30 phút) — thiếu tín hiệu thì bật/tắt "khóa kênh khi raid" phải chờ
+    // tới 30 phút mới có tác dụng (cùng lớp bug welcome/goodbye 23/09).
+    const patch: Record<string, unknown> = {
+      updatedAt: Date.now(),
+      settingsChangedAt: Date.now(),
+    };
     if (enabled !== undefined) patch.lockdownEnabled = enabled;
     if (minutes !== undefined) {
       patch.lockdownMinutes = Math.max(1, Math.min(120, Math.floor(minutes)));
@@ -1070,10 +1076,15 @@ export const resetHeat = mutation({
       await ctx.db.delete(s._id);
     }
     // Báo bot xóa nhiệt trong bộ nhớ (bot kiểm tra cờ này định kỳ).
+    // settingsChangedAt là BẮT BUỘC ở đây: cờ heatResetRequested được bot đọc
+    // qua bundle cache, mà `hasPending` phía bot chỉ rút ngắn TTL khi bản cache
+    // ĐÃ có cờ — lần yêu cầu đầu tiên (false → true) không được rút ngắn, nên
+    // nút "Xóa nhiệt" sẽ đứng im tới 30 phút nếu thiếu tín hiệu này.
     await ctx.db.patch(guild._id, {
       heatResetRequested: true,
       heatResetUserId: userId ?? undefined,
       updatedAt: Date.now(),
+      settingsChangedAt: Date.now(),
     });
     return { ok: true };
   },
@@ -1090,9 +1101,13 @@ export const requestUnlock = mutation({
       .first();
     if (!guild || !canManageGuild(user, guild))
       throw new Error("Không có quyền quản lý server này");
+    // settingsChangedAt: bot chỉ thấy lockdownRequested qua bundle cache. Khi
+    // đang khóa thì TTL tự ngắn (lockdownUntil tương lai), nhưng ca "khóa đã hết
+    // hạn mà kênh chưa mở" lại rơi vào TTL 30 phút → nút Mở khóa đứng im.
     await ctx.db.patch(guild._id, {
       lockdownRequested: true,
       updatedAt: Date.now(),
+      settingsChangedAt: Date.now(),
     });
     return { ok: true };
   },

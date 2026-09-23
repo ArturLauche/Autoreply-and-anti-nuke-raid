@@ -47,7 +47,7 @@ export const getGuildWebhooks = query({
 export const toggleDefaultWebhook = mutation({
   args: { token: v.string(), guildId: v.string() },
   handler: async (ctx, { token, guildId }) => {
-    await requireGuild(ctx, token, guildId);
+    const guild = await requireGuild(ctx, token, guildId);
     const wh = await ctx.db
       .query("guildWebhooks")
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
@@ -56,6 +56,9 @@ export const toggleDefaultWebhook = mutation({
     if (!wh)
       throw new Error("Server chưa có webhook mặc định — set kênh log trong Cài đặt để bot tự tạo");
     await ctx.db.patch(wh._id, { enabled: !wh.enabled, updatedAt: Date.now() });
+    // settingsChangedAt → tick xoá cache webhook phía bot (webhookHub TTL 5 phút
+    // trước đây): bật/tắt webhook log có tác dụng trong ~1 tick thay vì tới 5 phút.
+    await ctx.db.patch(guild._id, { settingsChangedAt: Date.now() });
     return { ok: true, enabled: !wh.enabled };
   },
 });
@@ -170,7 +173,7 @@ export const updateDefaultWebhook = mutation({
     contentTemplate: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, { token, guildId, eventTypes, color, contentTemplate }) => {
-    await requireGuild(ctx, token, guildId);
+    const guild = await requireGuild(ctx, token, guildId);
     const wh = await ctx.db
       .query("guildWebhooks")
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
@@ -190,6 +193,9 @@ export const updateDefaultWebhook = mutation({
       patch.contentTemplate = contentTemplate ? contentTemplate.slice(0, 2000) : undefined;
     }
     await ctx.db.patch(wh._id, patch);
+    // settingsChangedAt → tick xoá cache webhook phía bot: sửa lọc sự kiện / màu /
+    // template nội dung áp dụng trong ~1 tick thay vì tới 5 phút (TTL cache cũ).
+    await ctx.db.patch(guild._id, { settingsChangedAt: Date.now() });
     return { ok: true };
   },
 });

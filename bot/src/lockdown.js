@@ -54,6 +54,10 @@ async function lockGuild(client, guild, config, store) {
 
   locked.add(guild.id);
   const until = Date.now() + minutes * 60_000;
+  // Cache config được xóa TỰ ĐỘNG sau lượt ghi này (proxy trong convex.js — xem
+  // CONFIG_WRITE_MUTATIONS). Bắt buộc với tính đúng ở đây: `tickUnlocks` đọc
+  // `lockdownUntil` từ cache để biết lúc nào mở khóa, nên cache cũ (until = null)
+  // làm kênh bị khóa lâu hơn cấu hình (tới hết TTL 30 phút).
   await store.client.mutation("bot_writes:botLockState", { guildId: guild.id, until });
 
   const embed = logEmbed({
@@ -91,6 +95,9 @@ async function unlockGuild(client, guild, config, store) {
     }
   }
   locked.delete(guild.id);
+  // Cache được xóa tự động sau lượt ghi (convex.js). Không xóa thì bản cache cũ
+  // vẫn giữ `lockdownUntil` ở tương lai → `tickUnlocks` tưởng server còn đang khóa
+  // (đánh dấu lại vào `locked`) → lần raid sau bị bỏ qua → server mất bảo vệ.
   await store.client.mutation("bot_writes:botLockState", {
     guildId: guild.id,
     until: null,

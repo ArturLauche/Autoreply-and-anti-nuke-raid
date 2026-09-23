@@ -361,6 +361,79 @@ function freshStore() {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 
+  // ── Tự xoá cache sau khi CHÍNH BOT ghi cấu hình (proxy CONFIG_WRITE_MUTATIONS) ──
+  // Bug thật 23/09/2026: 7/35 chỗ gọi bot_writes quên store.invalidate() → bot
+  // chạy cấu hình CŨ tới 30 phút. Hệ quả đo được: server bị khoá kênh lâu hơn
+  // cấu hình (tickUnlocks đọc `lockdownUntil` cũ), mở khoá xong bot tưởng còn
+  // đang khoá nên BỎ QUA raid sau, báo cáo ngày gửi lặp, restore xong vẫn chạy
+  // cấu hình cũ. Nay proxy trong convex.js tự xoá — không thể quên ở call site.
+  {
+    const store = freshStore();
+    store.botKey = "k";
+    await store.getConfig("g-cfg");
+    check("trước khi bot ghi: cache có entry của guild", store.cache.has("g-cfg"));
+
+    await store.client.mutation("bot_writes:botLockState", { guildId: "g-cfg", until: 1 });
+    check("botLockState (đổi hạn khoá) → tự xoá cache config", !store.cache.has("g-cfg"));
+
+    await store.getConfig("g-cfg2");
+    await store.client.mutation("bot_writes:botSyncGuilds", { guildId: "g-cfg2" });
+    check(
+      "botSyncGuilds (vòng sync 5 phút) → KHÔNG xoá cache (giữ cache có ích)",
+      store.cache.has("g-cfg2"),
+    );
+
+    await store.getConfig("g-cfg3");
+    await store.client.mutation("bot_writes:botSetAutoBackup", { days: 3 });
+    check("thiếu guildId → không crash, cache giữ nguyên", store.cache.has("g-cfg3"));
+
+    await store.getConfig("g-cfg4");
+    failMode = { statusCode: 500 };
+    let cfgThrew = false;
+    try {
+      await store.client.mutation("bot_writes:botUpdateSettings", {
+        guildId: "g-cfg4",
+        prefix: "!",
+      });
+    } catch {
+      cfgThrew = true;
+    }
+    failMode = null;
+    check(
+      "ghi THẤT BẠI → không xoá cache (không có gì mới để đọc)",
+      cfgThrew && store.cache.has("g-cfg4"),
+    );
+
+    // Nhánh XOAY KEY: lượt đầu bị từ chối botKey → xoay → gọi lại → vẫn xoá cache.
+    const storeRot = freshStore();
+    storeRot.botKey = "stale";
+    await storeRot.getConfig("g-cfg5");
+    let attempts = 0;
+    storeRot._rawClient.mutation = async (name, args) => {
+      attempts++;
+      if (attempts === 1) throw new Error("Chìa khóa bot không hợp lệ (botKey)");
+      calls.push({ kind: "mutation", name, args });
+      return { ok: true };
+    };
+    storeRot._rawClient.action = async () => ({ ok: true, botKey: "fresh-key-9" });
+    const rotDir = fs.mkdtempSync(path.join(require("os").tmpdir(), "convex-cfg-"));
+    const rotCwd = process.cwd();
+    process.chdir(rotDir);
+    let rotThrew = false;
+    try {
+      await storeRot.client.mutation("bot_writes:botLockState", { guildId: "g-cfg5", until: 2 });
+    } catch {
+      rotThrew = true;
+    }
+    process.chdir(rotCwd);
+    fs.rmSync(rotDir, { recursive: true, force: true });
+    check(
+      "xoay botKey rồi gọi lại thành công → vẫn xoá cache config",
+      !rotThrew && attempts === 2 && !storeRot.cache.has("g-cfg5"),
+      `attempts=${attempts}, threw=${rotThrew}`,
+    );
+  }
+
   console.log(`\nKết quả: ${pass} pass, ${fail} fail`);
   process.exit(fail > 0 ? 1 : 0);
 })().catch((e) => {

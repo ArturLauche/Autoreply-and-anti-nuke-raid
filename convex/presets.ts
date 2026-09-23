@@ -199,7 +199,14 @@ export const applyPreset = mutation({
     }
 
     // 2) Global: antinuke tổng + joinGate + actionBudget (không đụng whitelist).
-    const globalPatch: Record<string, unknown> = { updatedAt: now };
+    // settingsChangedAt BẮT BUỘC: preset ghi thẳng cấu hình bot đọc
+    // (antinukeEnabled, joinGate*, actionBudgetPerMinute…) và cả bảng
+    // antinukeModules mà getBotConfig trả về — thiếu tín hiệu thì "Áp preset"
+    // không có tác dụng với bot tới 30 phút (cùng lớp bug 23/09).
+    const globalPatch: Record<string, unknown> = {
+      updatedAt: now,
+      settingsChangedAt: Date.now(),
+    };
     for (const [k, v] of Object.entries(def.global)) {
       globalPatch[k] = v;
     }

@@ -269,6 +269,10 @@ module.exports = async function joinGate(client, member, store) {
               enabled: true,
             })
             .catch(() => {});
+          // Cache config xóa tự động sau 2 lượt ghi trên (convex.js). Bắt buộc
+          // đúng ở đây: `tickUnlocks` đọc `lockdownUntil` từ cache để mở khóa
+          // đúng hạn — cache cũ (until = null) làm server bị khóa lâu hơn
+          // lockMinutes đã hứa tới khi TTL 30 phút hết.
 
           // Notify log channel
           const config2 = await store.getConfig(member.guild.id).catch(() => null);

@@ -24,6 +24,65 @@
      `i18n.en.ts`/`i18n.de.ts` đã chết vì UI đổi sang key `"embed hình phạt chi tiết"`.
   3. `str_replace` cũng có lúc báo "file does not exist" hoặc dùng snapshot cũ cho file vừa ghi → luôn
      `grep`/`read_files` kiểm lại nội dung trên đĩa sau mỗi lần áp patch.
+  4. **Cách xử lý TỐT NHẤT khi cần sửa ở vùng cuối file lớn: đổi thiết kế cho khỏi phải sửa ở đó.**
+     Ca thật 23/09: `bot/src/handlers/backup.js` (2126 dòng) cần thêm `store.invalidate()` sau
+     `botRestoreSettings` ở dòng ~1781 — patch báo "not found" dù `grep` xác nhận chuỗi đúng.
+     Thay vì mò cách vá đuôi file, gom việc đó về **một điểm chặn duy nhất ở file nhỏ**
+     (`bot/src/convex.js`: proxy tự xoá cache sau mọi lượt ghi cấu hình của bot) → vừa vá được
+     cả 7 chỗ cùng lúc, vừa không bao giờ phải chạm đuôi file lớn nữa.
+
+---
+
+## 2026-09-23 — Tín hiệu cấu hình: vá nốt 6 chỗ sót + CỔNG chặn cả lớp
+
+- ✅ **Xong việc "▶️ Tiếp theo" của lượt trước** (các mutation cấu hình chưa gắn tín hiệu).
+  Không vá bằng mắt: viết cổng tự-dò trước, cổng trả về worklist, rồi vá — nhờ vậy tìm thêm
+  được chỗ mà danh sách ghi tay bỏ sót.
+- 🐛 **6 chỗ sót thật của cùng lớp bug 30 phút** (thay đổi từ dashboard không tới bot):
+  1. `guilds.ts::resetHeat` — nút **"Xóa nhiệt" đứng im tới 30 phút**: cờ `heatResetRequested`
+     được bot đọc qua bundle cache, mà `hasPending` phía bot chỉ rút ngắn TTL khi bản **cache ĐÃ
+     có cờ** → lần yêu cầu ĐẦU TIÊN (false → true) không được rút ngắn.
+  2. `guilds.ts::requestUnlock` — ca "khóa đã hết hạn mà kênh chưa mở" rơi vào TTL 30 phút.
+  3. `guilds.ts::updateLockdown` — bật/tắt "khóa kênh khi raid" trễ 30 phút.
+  4. `presets.ts::applyPreset` — "Áp preset" ghi cả cục `def.global` (antinuke/joinGate/
+     actionBudget) + bảng `antinukeModules`; preset xong bot vẫn chạy cấu hình cũ.
+  5. `webhooks.ts` (toggle/update webhook mặc định) — **lớp riêng**: cache webhook phía bot TTL
+     **5 phút** ở `webhookHub`, không phải 30 phút. Nay ghi `settingsChangedAt` → tick xoá luôn
+     cache webhook của guild đó → áp dụng trong ~1 tick.
+  6. **Phía bot tự ghi cấu hình — 7/35 chỗ gọi quên `store.invalidate()`** (bug nặng hơn cả
+     nhóm trên, tìm bằng luật B của cổng): server bị **khóa kênh LÂU HƠN cấu hình** vì
+     `tickUnlocks` đọc `lockdownUntil` cũ (auto-lock 5 phút thành tới 30 phút); **mở khóa xong bot
+     tưởng còn đang khóa** → lần raid sau bị bỏ qua → server mất bảo vệ; **báo cáo ngày gửi lặp**
+     (`lastReportAt` cũ ⇒ vẫn "đến hạn" ⇒ gửi lại mỗi tick); **restore xong vẫn chạy cấu hình cũ**.
+- 🛠️ **Cách vá chỗ 6: một điểm chặn thay vì 35 chỗ** — proxy sẵn có trong `convex.js` (đang dùng
+  để chèn/ xoay botKey) thêm bước xoá cache khi tên mutation thuộc `CONFIG_WRITE_MUTATIONS`
+  (9 tên). "Đã đo được 7/35 chỗ quên" là bằng chứng không nên tin vào kỷ luật ở call site —
+  và nó cũng gỡ luôn chặn kỹ thuật "không patch được đuôi `backup.js` 2126 dòng".
+- 🛡️ **Cổng mới `scripts/check-settings-signal.cjs`** (2 luật, hợp đồng SUY TỪ CODE):
+  · **Luật A**: `BOT_FIELDS` = key trong `return` của `getBotConfig` ∩ field khai báo của bảng
+  `guilds` trong schema (**101 field** — thêm field mới là tự vào phạm vi kiểm). Mutation nào
+  ghi field đó phải có `settingsChangedAt`, hoặc là mutation bot-side trong danh sách của bot
+  (proxy tự xoá), hoặc nằm trong ALLOWLIST kèm lý do.
+  · **Luật B**: đối chiếu **2 chiều** `CONFIG_WRITE_MUTATIONS` (bot) ⇄ tập suy từ `bot_writes.ts`
+  — thêm mutation cấu hình mới mà quên danh sách là CI đỏ.
+  · Bắt được cả **gán động** (`patch.lockdownEnabled = …`) và **key tính toán** (`globalPatch[k] = v`)
+  — chính là 2 dạng mà bản nháp đầu của cổng bỏ lọt.
+  · **Bỏ comment trước khi phân tích** — cần thiết thật: test hồi quy của tôi gỡ CODE ghi tín hiệu
+  nhưng comment "// settingsChangedAt: …" còn lại làm cổng báo SẠCH.
+- 🧪 **Kiểm chứng**: **61/61 suite CJS** (+1: `test-settings-signal`) · **9/9 suite TS** · `tsc` web +
+  convex · `lint` · `format:check` · `check-repo-map` · `check-convex-contract` (199 exports) ·
+  `check-i18n` (0 FAIL) · `check-settings-signal --self-test` (**9 case**, gồm case báo nhầm
+  `saveBrandingUpload` — cổng từng báo nhầm vì key tính toán vào `botStatus`, đã siết: chỉ tính
+  key tính toán khi thân hàm thật sự đụng bảng `guilds`) · `coverage` 86.26% (sàn 58/65) ·
+  `coverage:floor` · `test:mutation` 12/12 · convex codegen OK.
+  Suite mới còn chạy hồi quy trên **nguồn THẬT**: tách `updateLockdown`/`resetHeat`/`requestUnlock`/
+  `applyPreset` từ file thật, gỡ tín hiệu → cổng phải báo đúng field đó (4 case).
+- 📁 File đụng: `convex/{guilds,presets,webhooks}.ts`, `bot/src/{convex.js,tick.js,lockdown.js}`,
+  `bot/src/handlers/joinGate.js`, `scripts/{check-settings-signal,test-settings-signal}.cjs`,
+  `scripts/{test-convex-client,test-tick}.cjs`, `.github/workflows/ci.yml`,
+  `.opencode/plugins/guardrails.js` (60→61), `AGENTS.md`, docs.
+- ▶️ Tiếp theo: không có việc bắt buộc. Nợ còn lại (không thuộc lớp này): dọn 119 bản dịch EN chết
+  - 12 bản DE mồ côi (mục "Đang dở" ở đầu file).
 
 ---
 

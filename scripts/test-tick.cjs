@@ -5,7 +5,10 @@
 //     tải file import (fileContent hoặc URL), báo lỗi đúng loại lên dashboard.
 //   - readImportContent: URL lỗi/timeout/thiếu dữ liệu.
 //   - setupTick: gắn 1 lần khi ready.
-// Mock discord.js + handlers/{hidden,backup,selfDiagnose} (không mạng thật, không Convex thật).
+//   - settingsChanges: xóa cache config VÀ cache webhook của guild vừa sửa (nếu chỉ
+//     xóa config thì thay đổi webhook log còn trễ tới 5 phút).
+// Mock discord.js + handlers/{hidden,backup,selfDiagnose} + webhookHub (không mạng thật,
+// không Convex thật).
 // Chạy: node scripts/test-tick.cjs
 const path = require("path");
 
@@ -29,6 +32,7 @@ const calls = {
   mutations: [],
   queries: [],
   invalidate: [],
+  webhookCache: [],
 };
 let batchResponse = null;
 let batchShouldThrow = false;
@@ -62,6 +66,14 @@ const backupMock = {
     if (importShouldThrow) throw new Error("import lỗi");
   },
 };
+// Webhook log cũng là cấu hình dashboard sửa được, nhưng cache ở webhookHub với
+// TTL 5 phút — tick phải xoá luôn khi có tín hiệu cấu hình (xem applySettingsChanges).
+const webhookMock = {
+  invalidateCache(guildId) {
+    calls.webhookCache.push(guildId);
+  },
+};
+
 const selfDiagnoseMock = {
   setEnabledFromJobs(v) {
     calls.selfDiagnose.push(v);
@@ -75,6 +87,7 @@ Module._load = function (request, parent) {
     if (request === "./handlers/hidden") return hiddenMock;
     if (request === "./handlers/backup") return backupMock;
     if (request === "./handlers/selfDiagnose") return selfDiagnoseMock;
+    if (request === "./webhookHub") return webhookMock;
   }
   return origLoad.apply(this, arguments);
 };
@@ -177,23 +190,34 @@ globalThis.fetch = async () => {
       "settingsChanges → xóa cache config từng guild vừa sửa",
       calls.invalidate.join(",") === "cfg-g1,cfg-g2",
     );
+    check(
+      "settingsChanges → xóa CẢ cache webhook (TTL 5 phút → áp dụng trong 1 tick)",
+      calls.webhookCache.join(",") === "cfg-g1,cfg-g2",
+    );
 
     clear();
     await runTickOnce(client, store);
     check(
       "cùng mốc cấu hình → không xóa cache lặp (chống reads thừa)",
-      calls.invalidate.length === 0,
+      calls.invalidate.length === 0 && calls.webhookCache.length === 0,
     );
 
     clear();
     batchResponse.settingsChanges = [{ guildId: "cfg-g1", at: 3000 }];
     await runTickOnce(client, store);
     check("cấu hình đổi lần nữa → xóa cache lại", calls.invalidate.join(",") === "cfg-g1");
+    check(
+      "cấu hình đổi lần nữa → xóa cache webhook theo",
+      calls.webhookCache.join(",") === "cfg-g1",
+    );
 
     clear();
     batchResponse.settingsChanges = [{ guildId: "cfg-g3" }, { at: 5 }, null, "rác"];
     await runTickOnce(client, store);
-    check("mốc thiếu/rác → bỏ qua an toàn, không crash", calls.invalidate.length === 0);
+    check(
+      "mốc thiếu/rác → bỏ qua an toàn, không crash",
+      calls.invalidate.length === 0 && calls.webhookCache.length === 0,
+    );
 
     clear();
     batchResponse = { selfDiagnose: {}, hidden: [], verifyPanels: [], backups: [] };

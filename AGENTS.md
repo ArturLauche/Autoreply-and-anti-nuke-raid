@@ -72,7 +72,7 @@ thôi. Khi nghi file có thể sửa dở: xem `git diff` trước khi sửa ti�
 
 Đơn vị công việc chỉ coi là XONG khi tất cả điều này thoả:
 
-- [ ] `bun run test` — toàn bộ suites xanh (hiện tại **60 suites** — số liệu 23/09/2026; nếu runner báo ít hơn nhiều → có suite bị bỏ sót, điều tra trước khi kết luận xanh). Số liệu này phải khớp với `CONTRACT_SUITES` trong `.opencode/plugins/guardrails.js` — đổi suite mới phải sửa CẢ HAI chỗ trong cùng commit
+- [ ] `bun run test` — toàn bộ suites xanh (hiện tại **61 suites** — số liệu 23/09/2026; nếu runner báo ít hơn nhiều → có suite bị bỏ sót, điều tra trước khi kết luận xanh). Số liệu này phải khớp với `CONTRACT_SUITES` trong `.opencode/plugins/guardrails.js` — đổi suite mới phải sửa CẢ HAI chỗ trong cùng commit
 - [ ] `bun run test:ts` — 9 suite tầng Convex/Haimiya/bot viết bằng TypeScript (chạy bằng bun; tách khỏi `bun run test` để không đụng phép đo coverage c8). Đụng `convex/`, `bot/src/ai.js`, logic panel hoặc thẻ ảnh `bot/src/handlers/welcomeCard.js` thì bắt buộc chạy
 - [ ] `bun tsc -b --noEmit` — typecheck sạch
 - [ ] `bun run lint` — sạch
@@ -85,6 +85,12 @@ thôi. Khi nghi file có thể sửa dở: xem `git diff` trước khi sửa ti�
       (chỉ khi thêm/sửa chuỗi UI hoặc từ điển `src/lib/i18n.en.ts`; CI cũng
       chặn bước này). Chuỗi UI viết thẳng bằng tiếng Việt rồi bọc
       `translate("…")` — key chính là chuỗi VI đó
+- [ ] `node scripts/check-settings-signal.cjs` (kèm `--self-test`) — mọi
+      mutation ghi field bot đọc phải có đường tới bot NGAY: `settingsChangedAt`
+      (dashboard sửa) hoặc nằm trong `CONFIG_WRITE_MUTATIONS` của bot (bot tự ghi →
+      proxy tự xoá cache). Chỉ khi đụng `convex/` (mutation cấu hình) hoặc thêm
+      mutation `bot_writes:*` mới; CI cũng chặn. Thêm mutation cấu hình mới mà
+      quên tín hiệu → thay đổi từ dashboard trễ tới 30 phút (bug thật 23/09)
 - [ ] `bun run format:check` — format Prettier sạch. Lệch format → chạy `bun run format` rồi kiểm tra lại (đây là biến đổi tất-định, tự sửa được; CI đã đỏ 5 run liên tiếp vì quên bước này — 19/09/2026)
 - [ ] Đụng file trong `convex/` → chạy `bun convex dev --once` (codegen) **trước** typecheck
 - [ ] Bug thuộc engine đã có test (antinuke, altDetection, heat, joinGate, backup,

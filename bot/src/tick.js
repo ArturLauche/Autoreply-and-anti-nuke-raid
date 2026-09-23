@@ -16,7 +16,8 @@
  *  - hidden jobs  → hidden.processHiddenJobsData (panel, giveaway, DM, webhook log)
  *  - verify panel → hidden.processVerifyPanelItems
  *  - backup       → backup.runBackup / runRestore / runImportRestore + claim
- *  - settings đổi → xóa cache config của guild vừa được dashboard sửa (settingsChanges)
+ *  - settings đổi → xóa cache config + cache webhook của guild vừa được dashboard sửa
+ *    (settingsChanges)
  */
 
 // TỐI ƯU I/O: 180s (trước 120s, ban đầu 60s) — các cờ backup/restore/panel vẫn
@@ -36,12 +37,16 @@ let batchBrokenUntil = 0;
 const settingsSeen = new Map();
 
 /**
- * Dashboard vừa sửa cấu hình → xóa cache config của đúng guild đó.
+ * Dashboard vừa sửa cấu hình → xóa cache cục bộ của đúng guild đó.
  *
  * Bối cảnh: getConfig cache tới 30 phút (cắt reads cho Convex free tier), còn
  * giao diện hứa "bot áp dụng trong khoảng 3 phút". Không có bước này thì bật
  * welcome/goodbye, đổi module antinuke... xong join thử sẽ thấy bot im lặng
  * (bug thật 23/09). Mốc `at` giữ trong process để mỗi thay đổi chỉ xóa cache 1 lần.
+ *
+ * Xóa CẢ cache webhook (TTL 5 phút ở webhookHub): webhook log cũng là cấu hình
+ * dashboard sửa được (bật/tắt, lọc sự kiện, màu, template nội dung) — không xóa
+ * thì thay đổi chậm tới 5 phút dù tín hiệu đã về trong 1 tick.
  */
 function applySettingsChanges(store, changes) {
   if (!Array.isArray(changes)) return 0;
@@ -53,6 +58,11 @@ function applySettingsChanges(store, changes) {
     if ((settingsSeen.get(guildId) ?? 0) >= at) continue; // mốc này xử lý rồi
     settingsSeen.set(guildId, at);
     store.invalidate(guildId);
+    // Lỗi ở module webhook KHÔNG được làm hỏng vòng tick (các việc khác trong
+    // batch vẫn phải chạy) — cùng nguyên tắc fail-open của tick.
+    try {
+      require("./webhookHub").invalidateCache(guildId);
+    } catch {}
     cleared++;
   }
   return cleared;

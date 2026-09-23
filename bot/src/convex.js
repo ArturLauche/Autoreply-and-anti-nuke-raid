@@ -66,6 +66,48 @@ async function withRetry(fn, label) {
   }
 }
 
+/**
+ * Mutation bot TỰ ghi cấu hình mà chính bot đọc lại qua `guilds:getBotConfig`
+ * (bundle cache TTL 30 phút). Ghi xong là bản cache cục bộ SAI ngay — bot phải
+ * xoá để lượt đọc sau thấy giá trị mới.
+ *
+ * Vì sao tập trung ở đây thay vì gọi store.invalidate() ở từng chỗ gọi: thực tế
+ * đã đo được 7/35 chỗ gọi quên, gây bug thật (23/09/2026) — server bị khoá kênh
+ * LÂU HƠN cấu hình vì tickUnlocks đọc `lockdownUntil` cũ, mở khoá xong bot tưởng
+ * còn đang khoá nên bỏ qua raid sau, báo cáo ngày gửi lặp, và restore xong vẫn
+ * chạy cấu hình cũ tới 30 phút. Proxy bên dưới bắt MỌI lượt ghi (kể cả chỗ gọi
+ * thêm sau này) nên không thể quên lần nữa.
+ *
+ * Danh sách này phải khớp CHÍNH XÁC tập mutation ghi field bot đọc trong
+ * convex/bot_writes.ts — `scripts/check-settings-signal.cjs` đối chiếu 2 chiều
+ * (lệch là CI đỏ), nên thêm mutation cấu hình mới mà quên đây sẽ bị chặn.
+ */
+const CONFIG_WRITE_MUTATIONS = new Set([
+  "bot_writes:botUpdateSettings",
+  "bot_writes:botModuleUpdate",
+  "bot_writes:botUpdateLockdown",
+  "bot_writes:botLockState",
+  "bot_writes:botClearHeatReset",
+  "bot_writes:botSetReportAt",
+  "bot_writes:botSetAntinuke",
+  "bot_writes:botSetAutoBackup",
+  "bot_writes:botRestoreSettings",
+]);
+
+/**
+ * Xoá cache config sau khi bot tự ghi cấu hình. Tổng (không bao giờ ném): lỗi ở
+ * bước dọn cache không được biến một mutation THÀNH CÔNG thành lỗi.
+ */
+function invalidateAfterConfigWrite(store, prop, fnName, payload) {
+  try {
+    if (prop !== "mutation" || !CONFIG_WRITE_MUTATIONS.has(fnName)) return;
+    const guildId = payload && payload.guildId;
+    if (guildId) store.invalidate(String(guildId));
+  } catch (e) {
+    console.error(`[convex] không xoá được cache config sau ${fnName}:`, e?.message || e);
+  }
+}
+
 class ConvexStore {
   constructor() {
     const url = process.env.CONVEX_URL;
@@ -105,7 +147,10 @@ class ConvexStore {
             payload.botKey = self.botKey;
           }
           try {
-            return await target[prop](fnName, payload);
+            const result = await target[prop](fnName, payload);
+            // Bot vừa ghi cấu hình → cache cục bộ của guild này sai ngay.
+            invalidateAfterConfigWrite(self, prop, fnName, payload);
+            return result;
           } catch (e) {
             // Key cache LỆCH (server đã xoay seed / key cũ hết hạn): Convex từ
             // chối → tự xoay key (bỏ cache + bootstrap lại) rồi retry ĐÚNG call
@@ -115,7 +160,9 @@ class ConvexStore {
             if (isBotKeyRejection(e)) {
               await self.rotateBotKey();
               const retry = { ...payload, botKey: self.botKey };
-              return target[prop](fnName, retry);
+              const retried = await target[prop](fnName, retry);
+              invalidateAfterConfigWrite(self, prop, fnName, payload);
+              return retried;
             }
             throw e;
           }
