@@ -95,6 +95,13 @@ export interface RoleInfo {
   position: number;
 }
 
+/** Emoji tuỳ chỉnh của server — dashboard dùng để chèn `<:name:id>` vào tin nhắn. */
+export interface EmojiInfo {
+  emojiId: string;
+  name: string;
+  animated: boolean;
+}
+
 export interface GuildData {
   guild: {
     discordId: string;
@@ -218,6 +225,8 @@ export interface GuildData {
   modules: ModuleConfig[];
   channels: ChannelInfo[];
   roles: RoleInfo[];
+  /** Emoji tuỳ chỉnh của server (bot đồng bộ) — picker chèn emoji cho welcome/goodbye. */
+  emojis: EmojiInfo[];
   panels: ReactionRolePanel[];
   giveaways: Giveaway[];
   modActions: ModAction[];

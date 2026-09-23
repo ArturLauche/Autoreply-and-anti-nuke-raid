@@ -448,6 +448,218 @@ const botMember = { id: "b1", user: { bot: true, username: "botbot" }, guild };
   await new Promise((r) => setTimeout(r, 20));
   check("v2 lockdown hết hạn: chào + autorole trở lại", sent.length === 1 && roleAdds.length === 1);
 
+  // ══ Welcome/Goodbye v3 — emoji tuỳ chỉnh, liên kết kênh, ảnh thẻ chào ══
+  const { _sliceSafeForTest } = welcome;
+  const EMOJI_STATIC = "<:wio:222222222222222222>";
+  const EMOJI_ANIM = "<a:party:111111111111111111>";
+  const RULES_CHANNEL = "<#333333333333333333>";
+  const ROLE_ID = "444444444444444444";
+
+  // ── sliceSafe: không cắt vào giữa mã Discord ──
+  check("v3 sliceSafe: nội dung ngắn giữ nguyên", _sliceSafeForTest("abc", 10) === "abc");
+  check(
+    "v3 sliceSafe: vượt trần → cắt đúng trần",
+    _sliceSafeForTest("x".repeat(1600)).length === 1500,
+  );
+  const cutMidEmoji = _sliceSafeForTest("a".repeat(1490) + EMOJI_STATIC);
+  check(
+    "v3 sliceSafe: cắt ngang mã emoji → bỏ nguyên mã (không để lại '<:wio:1234')",
+    cutMidEmoji.length === 1490 && !cutMidEmoji.includes("<"),
+  );
+  const cutMidChannel = _sliceSafeForTest("b".repeat(1495) + RULES_CHANNEL);
+  check("v3 sliceSafe: cắt ngang mã kênh → bỏ nguyên mã", cutMidChannel === "b".repeat(1495));
+
+  // ── thứ tự fallback: câu ngẫu nhiên → nội dung gốc → mặc định ngôn ngữ ──
+  const guildFull = { ...makeGuild(), premiumSubscriptionCount: 7 };
+  const memberFull = {
+    id: "u1",
+    user: { bot: false, username: "user1", createdTimestamp: Date.now() - 365 * 86_400_000 },
+    guild: guildFull,
+  };
+  // buildPayload cần CẢ member (để dựng mention) lẫn guild — fixture bám đúng ctx thật.
+  const silent = { member: memberFull, guild: guildFull };
+  const fallbackToPlain = _buildPayloadForTest(
+    "welcome",
+    { welcomeUseEmbed: false, welcomeRandom: "\n   \n", welcomeMessage: "Nội dung gốc {user}" },
+    silent,
+  );
+  check(
+    "v3 fallback: template ngẫu nhiên toàn dòng trống → dùng NỘI DUNG GỐC (không nhảy về mặc định)",
+    fallbackToPlain.content === "Nội dung gốc <@u1>",
+  );
+  const fallbackToDefault = _buildPayloadForTest(
+    "welcome",
+    { welcomeUseEmbed: false, welcomeRandom: "   ", welcomeMessage: "   " },
+    silent,
+  );
+  check(
+    "v3 fallback: cả hai đều trống → mặc định theo ngôn ngữ server",
+    fallbackToDefault.content ===
+      lang
+        .welcomeDefault("vi")
+        .replaceAll("{user}", "<@u1>")
+        .replaceAll("{server}", "Test Server")
+        .replaceAll("{count}", "42"),
+  );
+
+  // ── emoji tuỳ chỉnh + liên kết kênh đi xuyên qua nguyên vẹn ──
+  const withEmoji = _buildPayloadForTest(
+    "welcome",
+    {
+      welcomeUseEmbed: false,
+      welcomeMessage: `${EMOJI_ANIM} Chào {user} · ${EMOJI_STATIC} đọc ${RULES_CHANNEL}`,
+    },
+    silent,
+  );
+  check(
+    "v3 emoji: mã <:ten:id> và <a:ten:id> giữ nguyên",
+    withEmoji.content.includes(EMOJI_STATIC) && withEmoji.content.includes(EMOJI_ANIM),
+  );
+  check(
+    "v3 kênh: mã <#id> giữ nguyên (Discord tự vẽ thành link)",
+    withEmoji.content.includes(RULES_CHANNEL),
+  );
+  check(
+    "v3 an toàn: vẫn chỉ cho phép mention đúng thành viên dù nội dung có <#id>",
+    JSON.stringify(withEmoji.allowedMentions) === JSON.stringify({ users: ["u1"], parse: [] }),
+  );
+
+  // Mã emoji hỏng (<:bad>) — Discord chỉ hiện chữ, bot không được crash.
+  const malformed = _buildPayloadForTest(
+    "welcome",
+    { welcomeUseEmbed: false, welcomeMessage: "<:bad> {user}" },
+    silent,
+  );
+  check(
+    "v3 mã emoji hỏng → đi xuyên qua dạng chữ, không crash",
+    malformed.content === "<:bad> <@u1>",
+  );
+
+  // Emoji trong TIÊU ĐỀ embed cũng phải đi xuyên qua
+  const titleEmoji = _buildPayloadForTest(
+    "welcome",
+    {
+      welcomeUseEmbed: true,
+      welcomeEmbedTitle: `${EMOJI_STATIC} {username}`,
+      welcomeMessage: "hi {user}",
+    },
+    silent,
+  );
+  check(
+    "v3 emoji trong tiêu đề embed giữ nguyên",
+    titleEmoji.embeds?.[0]?.__title === `${EMOJI_STATIC} user1`,
+  );
+
+  // ── LUỒNG THẬT: welcome đầy đủ (emoji + kênh + ảnh + embed + DM + autorole) ──
+  const clientFull = makeClient();
+  const dmsFull = [];
+  const roleAddsFull = [];
+  const memberReal = {
+    ...memberFull,
+    send: async (p) => {
+      dmsFull.push(p);
+      return {};
+    },
+    roles: { add: async (id, reason) => roleAddsFull.push({ id, reason }) },
+  };
+  const LINE_A = `${EMOJI_ANIM} Chào {user} đến {server}!`;
+  const LINE_B = `${EMOJI_STATIC} {username} vừa vào, nhớ đọc ${RULES_CHANNEL} nhé!`;
+  await handleWelcome(
+    clientFull,
+    makeStore({
+      welcomeEnabled: true,
+      welcomeChannelId: "c1",
+      welcomeRandom: `${LINE_A}\n${LINE_B}`,
+      welcomeMessage: "bị bỏ qua vì có template ngẫu nhiên",
+      welcomeUseEmbed: true,
+      welcomeEmbedTitle: `🎉 {username} · thành viên #{count}`,
+      welcomeEmbedColor: "#57f287",
+      welcomeEmbedImage: "https://cdn.example.com/banner.png",
+      welcomeEmbedThumbnail: "https://cdn.example.com/thumb.png",
+      welcomeDmEnabled: true,
+      welcomeDmMessage: `Chào {username}, nhớ đọc ${RULES_CHANNEL}!`,
+      autoroleEnabled: true,
+      autoroleRoleId: ROLE_ID,
+      autoroleDelaySec: 0,
+    }),
+    memberReal,
+  );
+  await new Promise((r) => setTimeout(r, 20));
+  const full = sent[0];
+  const fullEmb = full?.embeds?.[0];
+  const fullDesc = String(fullEmb?.__desc ?? "");
+  const filledA = LINE_A.replaceAll("{user}", "<@u1>").replaceAll("{server}", "Test Server");
+  const filledB = LINE_B.replaceAll("{username}", "user1");
+  check("v3 luồng thật: gửi đúng 1 tin vào kênh", sent.length === 1);
+  check("v3 luồng thật: content là dòng mention thành viên", full?.content === "<@u1>");
+  check(
+    "v3 luồng thật: chọn 1 trong 2 câu ngẫu nhiên, giữ nguyên emoji + kênh",
+    fullDesc === filledA || fullDesc === filledB,
+  );
+  check(
+    "v3 luồng thật: tiêu đề embed fill {username}/{count} + emoji",
+    fullEmb?.__title === "🎉 user1 · thành viên #42",
+  );
+  check("v3 luồng thật: màu #57f287 parse thành số", fullEmb?.__color === 0x57f287);
+  check(
+    "v3 luồng thật: ảnh banner + thumbnail vào embed",
+    fullEmb?.__image === "https://cdn.example.com/banner.png" &&
+      fullEmb?.__thumb === "https://cdn.example.com/thumb.png",
+  );
+  check(
+    "v3 luồng thật: DM chào gửi kèm liên kết kênh cho thành viên mới",
+    dmsFull.length === 1 && dmsFull[0].content === "Chào user1, nhớ đọc <#333333333333333333>!",
+  );
+  check(
+    "v3 luồng thật: autorole cấp đúng role",
+    roleAddsFull.length === 1 && roleAddsFull[0].id === ROLE_ID,
+  );
+
+  // ── LUỒNG THẬT: goodbye đầy đủ (KHÔNG DM, KHÔNG autorole) ──
+  const clientGb = makeClient();
+  const dmsGb = [];
+  const roleAddsGb = [];
+  const memberGb = {
+    ...memberFull,
+    send: async (p) => {
+      dmsGb.push(p);
+      return {};
+    },
+    roles: { add: async (id) => roleAddsGb.push(id) },
+  };
+  await handleGoodbye(
+    clientGb,
+    makeStore({
+      goodbyeEnabled: true,
+      goodbyeChannelId: "c2",
+      goodbyeMessage: `Tạm biệt {user} ${EMOJI_STATIC}`,
+      goodbyeUseEmbed: true,
+      goodbyeEmbedColor: "#ed4245",
+      goodbyeEmbedImage: "https://cdn.example.com/goodbye.png",
+      // DM + autorole chỉ dành cho welcome — bật cũng không được chạy ở goodbye.
+      welcomeDmEnabled: true,
+      welcomeDmMessage: "không được gửi",
+      autoroleEnabled: true,
+      autoroleRoleId: ROLE_ID,
+      autoroleDelaySec: 0,
+    }),
+    memberGb,
+  );
+  await new Promise((r) => setTimeout(r, 20));
+  const gbEmb = sent[0]?.embeds?.[0];
+  check("v3 goodbye: gửi đúng 1 tin", sent.length === 1);
+  check(
+    "v3 goodbye: nội dung fill placeholder + emoji giữ nguyên",
+    gbEmb?.__desc === `Tạm biệt <@u1> ${EMOJI_STATIC}`,
+  );
+  check("v3 goodbye: màu riêng của goodbye (#ed4245)", gbEmb?.__color === 0xed4245);
+  check(
+    "v3 goodbye: ảnh riêng của goodbye",
+    gbEmb?.__image === "https://cdn.example.com/goodbye.png",
+  );
+  check("v3 goodbye: KHÔNG gửi DM chào", dmsGb.length === 0);
+  check("v3 goodbye: KHÔNG cấp autorole", roleAddsGb.length === 0);
+
   console.log(`\nKết quả welcome-goodbye: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail === 0 ? 0 : 1);
 })();

@@ -27,6 +27,47 @@
 
 ---
 
+## 2026-09-23 — Welcome/Goodbye v3: chèn emoji/kênh, xem trước trực tiếp, tải ảnh + test luồng thật
+
+- ✅ **Xong (A — không thêm dependency)**:
+  1. **Emoji tuỳ chỉnh của server**: bot đồng bộ `guild.emojis` lên bảng mới `guildEmojis`
+     (`syncEmojis`, chỉ ghi khi danh sách đổi) → `getGuild` trả `emojis` → panel có picker,
+     bấm là chèn `<:ten:id>` / `<a:ten:id>` tại vị trí con trỏ. Emoji động nhận đúng `a:`.
+  2. **Chèn liên kết kênh** `<#id>` bằng nút (danh sách kênh văn bản đã đồng bộ). Bot không
+     escape nên Discord tự vẽ link; `allowedMentions {users:[member], parse:[]}` giữ nguyên
+     → không ping ai, không ping @everyone từ nội dung người dùng.
+  3. **Xem trước trực tiếp** (`GreetingPreview.tsx`): dựng lại khung Discord (thanh màu, tiêu
+     đề, ảnh, thumbnail, emoji CDN, `#kênh`, chip mention) thay cho dòng chữ thô "Xem trước:".
+     Cảnh báo @everyone/@here bị chặn + cảnh báo emoji đã bị xoá khỏi server.
+  4. **Tải ảnh thật**: banner/thumbnail tải thẳng từ dashboard → Convex storage
+     (`generateGreetingImageUploadUrl` + `saveGreetingImage` + `removeGreetingImage`), vẫn giữ
+     đường dán URL ngoài. Đổi/xoá ảnh dọn file cũ (chỉ khi không dùng ở ô khác).
+- 🐛 **Hai lệch hành vi web ⇔ bot tìm được khi viết preview** (đã vá + test chặn):
+  1. Template ngẫu nhiên toàn dòng trống khiến bot gửi **câu mặc định** và **BỎ QUA nội dung
+     gốc** người dùng đã cấu hình, trong khi panel hiện nội dung gốc. Nay thứ tự fallback khớp
+     hẳn nhau: câu ngẫu nhiên → nội dung gốc → mặc định theo ngôn ngữ server.
+  2. `fillTemplate` cắt ở 1500 ký tự **giữa mã emoji** → để lại rác kiểu `<:wio:1234`. Nay
+     `sliceSafe()` bỏ nguyên mã bị cắt ngang.
+  3. Hồi quy do chính lượt này: bỏ guard `focused` khiến effect reset state mỗi lần `data` đổi
+     → **chọn kênh là mất chữ đang gõ dở**. Nay chỉ đồng bộ field có giá trị SERVER thay đổi thật.
+- 🧪 **Test "giống thật"**:
+  - `scripts/test-backup-flow-e2e.ts` (mới) — luồng backup THẬT xuyên 3 tầng: `requestBackup`
+    → `bot_tick:getPendingJobs` → claim → **`bot/src/handlers/backup.js:runBackup` thật** →
+    `botStoreBackup`/`botClearBackup` → `importStatus`/`listGuild`. 5 luồng: tạo mới, không đổi,
+    Convex từ chối document >1 MB, kèm tin nhắn, emoji/sticker. Convex giả là ctx.db trên Map —
+    mọi handler và mọi dòng của runBackup đều là code production.
+  - `scripts/test-greeting-preview.ts` (mới) — tokenizer emoji/kênh/mention, mã hỏng, ghép lại
+    phải bằng chuỗi gốc, cảnh báo emoji chết.
+  - `scripts/test-welcome-goodbye.cjs` — 44 → **69 PASS** (thêm luồng đầy đủ emoji + kênh + ảnh +
+    embed + DM + autorole, fallback, sliceSafe).
+  - `scripts/test-guild-panel-contract.cjs` — thêm tầng **top-level** (`data.emojis`…) + self-test.
+- 🧪 Kiểm chứng: **60/60 suite CJS** · **8/8 suite TS** · `tsc` (web) + `tsc -p convex/tsconfig.json`
+  · `lint` · `format:check` · `check-repo-map` · `check-convex-contract` (198 exports) · `check-i18n`
+  (0 FAIL) · `coverage:floor` · `test:mutation` 12/12 · convex codegen OK.
+- ▶️ **Tiếp theo (B, đã được người dùng duyệt "làm A trước, B sau")**: bot tự VẼ thẻ chào PNG
+  theo từng thành viên (avatar + tên + nền tuỳ chỉnh kiểu ảnh chào của Sapphire) — cần thêm thư
+  viện canvas phía bot (`@napi-rs/canvas`), chưa cài. Ảnh nền đã có đường upload sẵn từ A.
+
 ## 2026-09-23 — Welcome/Goodbye "không hoạt động" + "Backup ngay" không ra bản nào
 
 Người dùng báo 2 lỗi thật. Cả hai đều KHÔNG phải bot hỏng — bot làm đúng phần

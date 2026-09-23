@@ -32,16 +32,33 @@ function accountAgeDays(member) {
   return Math.max(0, Math.floor((Date.now() - ts) / 86_400_000));
 }
 
+/** Trần ký tự nội dung gửi đi (Discord cho 2000; chừa chỗ cho phần bot tự thêm). */
+const MAX_CONTENT = 1500;
+
+/**
+ * Cắt tới trần ký tự nhưng KHÔNG cắt vào giữa một mã Discord.
+ * Nội dung v3 có thể chứa `<:ten:id>`, `<a:ten:id>`, `<@id>`, `<#id>` — cắt ngang
+ * sẽ để lại rác như `<:wio:12345` hiện nguyên trong tin nhắn của thành viên.
+ */
+function sliceSafe(text, max = MAX_CONTENT) {
+  if (text.length <= max) return text;
+  const head = text.slice(0, max);
+  const open = head.lastIndexOf("<");
+  if (open !== -1 && !head.slice(open).includes(">")) return head.slice(0, open);
+  return head;
+}
+
 /** Thay placeholder mở rộng. {user} giữ nguyên dạng mention để allowedMentions hoạt động. */
 function fillTemplate(template, { member, guild }) {
-  return template
-    .replaceAll("{user}", `<@${member.id}>`)
-    .replaceAll("{username}", member.user?.username ?? member.id)
-    .replaceAll("{server}", guild.name)
-    .replaceAll("{count}", String(guild.memberCount ?? 0))
-    .replaceAll("{created}", String(accountAgeDays(member)))
-    .replaceAll("{boost}", String(guild.premiumSubscriptionCount ?? 0))
-    .slice(0, 1500);
+  return sliceSafe(
+    template
+      .replaceAll("{user}", `<@${member.id}>`)
+      .replaceAll("{username}", member.user?.username ?? member.id)
+      .replaceAll("{server}", guild.name)
+      .replaceAll("{count}", String(guild.memberCount ?? 0))
+      .replaceAll("{created}", String(accountAgeDays(member)))
+      .replaceAll("{boost}", String(guild.premiumSubscriptionCount ?? 0)),
+  );
 }
 
 /** Chọn template ngẫu nhiên: config nhiều dòng (mỗi dòng 1 câu) → random 1 dòng. */
@@ -89,11 +106,16 @@ function safeUrl(v) {
 function buildPayload(kind, config, ctx) {
   const isWelcome = kind === "welcome";
   const serverLang = lang.langForGuild(ctx.guild);
+  const randomCfg = isWelcome ? config.welcomeRandom : config.goodbyeRandom;
+  const plainCfg = String((isWelcome ? config.welcomeMessage : config.goodbyeMessage) || "").trim();
+  // Chuỗi fallback phải khớp CHÍNH XÁC thứ tự panel hiển thị ở "Xem trước trực tiếp":
+  //   câu ngẫu nhiên → nội dung gốc → mặc định theo ngôn ngữ server.
+  // Bản cũ truyền thẳng mặc định ngôn ngữ làm fallback, nên "template ngẫu nhiên"
+  // toàn dòng trống (hoặc chỉ khoảng trắng) khiến bot gửi câu mặc định và BỎ QUA
+  // nội dung gốc người dùng đã cấu hình — preview trên web lại hiện nội dung gốc.
   const rawTemplate = pickTemplate(
-    isWelcome
-      ? config.welcomeRandom || config.welcomeMessage
-      : config.goodbyeRandom || config.goodbyeMessage,
-    isWelcome ? lang.welcomeDefault(serverLang) : lang.goodbyeDefault(serverLang),
+    randomCfg,
+    plainCfg || (isWelcome ? lang.welcomeDefault(serverLang) : lang.goodbyeDefault(serverLang)),
   );
   const content = fillTemplate(rawTemplate, ctx);
   const useEmbed = isWelcome ? config.welcomeUseEmbed : config.goodbyeUseEmbed;
@@ -221,6 +243,7 @@ module.exports = {
   WELCOME_DEFAULT,
   GOODBYE_DEFAULT,
   _fillTemplateForTest: fillTemplate,
+  _sliceSafeForTest: sliceSafe,
   _pickTemplateForTest: pickTemplate,
   _embedColorForTest: embedColor,
   _safeUrlForTest: safeUrl,

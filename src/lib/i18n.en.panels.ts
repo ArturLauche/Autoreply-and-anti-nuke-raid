@@ -276,6 +276,54 @@ export const EN_PANELS: Record<string, string> = {
   "Chọn role": "Pick a role",
   "Cấp role cho bot": "Assign role to bots",
 
+  /* ==== Welcome & Goodbye v3 — chèn emoji/kênh/biến, preview trực tiếp, tải ảnh ==== */
+  Emoji: "Emoji",
+  Kênh: "Channel",
+  Biến: "Variable",
+  "Chèn {p0}": "Insert {p0}",
+  "Bấm để chèn ngay tại vị trí con trỏ.": "Click to insert at the cursor.",
+  "Emoji của server": "Server emoji",
+  "Chưa có emoji tuỳ chỉnh nào trong server này.": "This server has no custom emoji yet.",
+  "Emoji phổ biến": "Common emoji",
+  "Chọn kênh để chèn liên kết <#kênh> vào tin nhắn.": "Pick a channel to link it into the message.",
+  "Chưa đồng bộ được kênh nào của server.": "No channels have synced for this server yet.",
+  "Danh sách câu": "Message list",
+  "Xem trước trực tiếp": "Live preview",
+  "Tạm biệt": "Farewell",
+  "Bot chèn {user} ở dòng riêng khi gửi embed, còn nội dung nằm trong khung.":
+    "With embeds the bot puts {user} on its own line and your text inside the frame.",
+  "Emoji không còn trong server: {list} — Discord sẽ hiện dạng chữ. Hãy chèn lại từ danh sách emoji.":
+    "Emoji no longer in this server: {list} — Discord shows them as plain text. Insert them again from the emoji list.",
+  "Chào thành viên mới và tạm biệt người rời server: template ngẫu nhiên, embed tùy chỉnh, ảnh banner tự tải lên, emoji và kênh của server chèn thẳng vào tin nhắn, DM chào riêng và autorole. Xem trước ngay bên cạnh để biết tin nhắn ra sao trước khi thành viên thật vào.":
+    "Greet new members and farewell to those leaving: random templates, custom embeds, banner images you upload yourself, and the server's own emoji and channels inserted straight into the message, plus a separate welcome DM and autorole. The live preview beside each card shows exactly what members will see.",
+  "Bot luôn chặn ping @everyone/@here từ nội dung bạn nhập.":
+    "The bot always blocks @everyone/@here pings coming from your text.",
+  "kênh không có trong server": "channel not in this server",
+  "Emoji này không có trong server": "This emoji is not in this server",
+  "Nội dung có @everyone/@here — bot luôn chặn, không ai bị ping.":
+    "Your text contains @everyone/@here — the bot always blocks it, so nobody gets pinged.",
+  /* Ảnh thẻ chào: tải lên / dán URL / xoá */
+  "Ảnh banner": "Banner image",
+  "Ảnh lớn hiện dưới nội dung embed.": "Large image shown under the embed text.",
+  Thumbnail: "Thumbnail",
+  "Ảnh nhỏ ở góc phải embed.": "Small image in the embed's top-right corner.",
+  "Xoá ảnh": "Remove image",
+  "Hoặc dán URL ảnh": "Or paste an image URL",
+  "Dùng URL": "Use URL",
+  "Ảnh tối đa 8MB, vui lòng chọn ảnh nhỏ hơn.":
+    "Images are capped at 8MB — please pick a smaller one.",
+  "Đã lưu ảnh — bot dùng ảnh mới trong khoảng 1 phút":
+    "Image saved — the bot switches to it within about a minute",
+  "Đã xoá ảnh": "Image removed",
+  "Lưu ảnh thất bại": "Saving the image failed",
+  "Xoá ảnh thất bại": "Removing the image failed",
+  /* Gợi ý cho chip chèn biến (hiện khi rê chuột) */
+  "Nhắc tên thành viên kèm thông báo": "Mentions the member and notifies them",
+  "Tên người dùng (không thông báo)": "Username, without notifying anyone",
+  "Số thành viên hiện tại": "Current member count",
+  "Tài khoản đã tạo bao nhiêu ngày": "How many days ago the account was created",
+  "Số lượt boost của server": "Server boost count",
+
   /* ==== Landing — đợt viết lại copy (Lô 1). Các key này còn bản cũ nằm ở
      section theo alphabet trong i18n.en.ts (entry trùng, không còn dùng) —
      gom về đây để một chỗ dễ rà soát. */

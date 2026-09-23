@@ -1,4 +1,5 @@
 import { mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild, guildAccessibleBy } from "./auth";
 import { requireBotKeyStrict } from "./botAuth";
@@ -99,6 +100,11 @@ export const getGuild = query({
       .collect();
     const roles = await ctx.db
       .query("guildRoles")
+      .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
+      .collect();
+    // Emoji tuỳ chỉnh của server — panel welcome/goodbye dùng làm picker chèn emoji.
+    const emojis = await ctx.db
+      .query("guildEmojis")
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
       .collect();
     const decayPerMin = guild.heatDecayPerMin ?? HEAT_DEFAULTS.decayPerMin;
@@ -264,6 +270,10 @@ export const getGuild = query({
         color: r.color,
         position: r.position,
       })),
+      // Emoji tuỳ chỉnh — panel tự dựng mã `<:name:id>` / `<a:name:id>` khi chèn.
+      emojis: emojis
+        .map((e) => ({ emojiId: e.emojiId, name: e.name, animated: e.animated }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
       // TÍNH NĂNG ẨN — chỉ trả cho CHỦ BOT (lỗ hổng cũ: mọi manager xem được,
       // trong khi API tạo/xóa lại chỉ cho owner → dữ liệu lệch trạng thái + lộ nội dung).
       panels: isBotOwner
@@ -805,7 +815,170 @@ export const updateSettings = mutation({
       patch.verifyPanelError = undefined;
       patch.verifyPanelErrorAt = undefined;
     }
+    // Dọn ảnh Convex của các ô ảnh vừa bị XOÁ (dashboard xoá chữ trong ô) — nếu
+    // không, mỗi lần đổi ảnh để lại một file rác vĩnh viễn trong storage.
+    for (const f of GREETING_IMAGE_SLOTS) {
+      if (!(f in patch) || patch[f]) continue;
+      const oldId = storageIdFromUrl(guild[f]);
+      if (oldId && GREETING_IMAGE_SLOTS.every((k) => storageIdFromUrl(guild[k]) !== oldId)) {
+        try {
+          await ctx.storage.delete(oldId as Id<"_storage">);
+        } catch {
+          // file đã bị xoá / không còn — bỏ qua
+        }
+      }
+    }
     await ctx.db.patch(guild._id, patch);
+    return { ok: true };
+  },
+});
+
+/** Trần ảnh thẻ chào: 8 MB — ảnh nặng hơn khiến Discord tải chậm mỗi lượt join/leave. */
+const MAX_GREETING_IMAGE_BYTES = 8_000_000;
+
+/**
+ * Lấy id file storage từ URL Convex (`…/api/storage/<id>`) để dọn file cũ.
+ * URL dán từ ngoài (imgur, cdn…) trả null — không phải file do mình tạo, không xoá.
+ */
+function storageIdFromUrl(url: string | undefined): string | null {
+  if (!url) return null;
+  const m = /\/api\/storage\/([A-Za-z0-9_-]+)$/.exec(url.trim());
+  return m ? m[1] : null;
+}
+
+/** 4 ô ảnh của welcome/goodbye — dùng chung luật validate + dọn file. */
+const GREETING_IMAGE_SLOTS = [
+  "welcomeEmbedImage",
+  "welcomeEmbedThumbnail",
+  "goodbyeEmbedImage",
+  "goodbyeEmbedThumbnail",
+] as const;
+
+/** URL upload ảnh thẻ chào (banner/thumbnail) — manager của server tự tải lên. */
+export const generateGreetingImageUploadUrl = mutation({
+  args: { token: v.string(), guildId: v.string() },
+  handler: async (ctx, { token, guildId }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild))
+      throw new Error("Không có quyền quản lý server này");
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Lưu ảnh vừa upload (từ dashboard) vào đúng ô banner/thumbnail của welcome
+ * hoặc goodbye. Trả URL công khai để dashboard hiển thị preview NGAY; bot đọc
+ * lại URL từ `getGuild` mỗi tick nên đổi ảnh là bot dùng ảnh mới trong ~1 tick.
+ */
+export const saveGreetingImage = mutation({
+  args: {
+    token: v.string(),
+    guildId: v.string(),
+    storageId: v.id("_storage"),
+    slot: v.union(
+      v.literal("welcomeEmbedImage"),
+      v.literal("welcomeEmbedThumbnail"),
+      v.literal("goodbyeEmbedImage"),
+      v.literal("goodbyeEmbedThumbnail"),
+    ),
+  },
+  handler: async (ctx, { token, guildId, storageId, slot }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    const dropUpload = async () => {
+      try {
+        await ctx.storage.delete(storageId);
+      } catch {
+        // chưa lưu được thì cũng không cần dọn nữa
+      }
+    };
+    if (!guild || !canManageGuild(user, guild)) {
+      await dropUpload();
+      throw new Error("Không có quyền quản lý server này");
+    }
+    const meta = await ctx.storage.getMetadata(storageId);
+    if (!meta) throw new Error("Ảnh không tồn tại hoặc đã bị xoá — hãy chọn lại ảnh");
+    if (!String(meta.contentType ?? "").startsWith("image/")) {
+      await dropUpload();
+      throw new Error("Chỉ nhận file ảnh (PNG, JPG, GIF, WEBP).");
+    }
+    if (meta.size > MAX_GREETING_IMAGE_BYTES) {
+      await dropUpload();
+      throw new Error(
+        `Ảnh quá lớn (tối đa ${MAX_GREETING_IMAGE_BYTES / 1_000_000} MB — ảnh này ${(meta.size / 1_000_000).toFixed(1)} MB).`,
+      );
+    }
+    const url = await ctx.storage.getUrl(storageId);
+    if (!url) throw new Error("Không lấy được URL ảnh vừa tải lên");
+    // Dọn ảnh Convex cũ của CÙNG ô — chỉ khi ảnh đó không còn dùng ở ô khác
+    // (người dùng có thể dùng lại một banner cho cả welcome lẫn goodbye).
+    const oldId = storageIdFromUrl(guild[slot]);
+    const otherSlots = GREETING_IMAGE_SLOTS.filter((k) => k !== slot);
+    if (
+      oldId &&
+      oldId !== storageId &&
+      otherSlots.every((k) => storageIdFromUrl(guild[k]) !== oldId)
+    ) {
+      try {
+        await ctx.storage.delete(oldId as Id<"_storage">);
+      } catch {
+        // đã bị xoá — bỏ qua
+      }
+    }
+    await ctx.db.patch(guild._id, {
+      [slot]: url,
+      updatedAt: Date.now(),
+      // Tín hiệu cho bot áp dụng ngay (cùng cơ chế settingsChangedAt của updateSettings).
+      settingsChangedAt: Date.now(),
+    });
+    return { ok: true, url };
+  },
+});
+
+/**
+ * Xoá ảnh khỏi một ô banner/thumbnail + dọn file storage.
+ * Tách riêng khỏi updateSettings vì nút "Xoá ảnh" phải xoá ĐÚNG ô đó, không
+ * ghi đè các field khác mà panel đang giữ trong state.
+ */
+export const removeGreetingImage = mutation({
+  args: {
+    token: v.string(),
+    guildId: v.string(),
+    slot: v.union(
+      v.literal("welcomeEmbedImage"),
+      v.literal("welcomeEmbedThumbnail"),
+      v.literal("goodbyeEmbedImage"),
+      v.literal("goodbyeEmbedThumbnail"),
+    ),
+  },
+  handler: async (ctx, { token, guildId, slot }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild))
+      throw new Error("Không có quyền quản lý server này");
+    const oldId = storageIdFromUrl(guild[slot]);
+    if (oldId && GREETING_IMAGE_SLOTS.every((k) => storageIdFromUrl(guild[k]) !== oldId)) {
+      try {
+        await ctx.storage.delete(oldId as Id<"_storage">);
+      } catch {
+        // bỏ qua
+      }
+    }
+    await ctx.db.patch(guild._id, {
+      [slot]: undefined,
+      updatedAt: Date.now(),
+      settingsChangedAt: Date.now(),
+    });
     return { ok: true };
   },
 });
@@ -1383,5 +1556,47 @@ export const syncRoles = mutation({
       });
     }
     return { ok: true };
+  },
+});
+
+/**
+ * Emoji tuỳ chỉnh của server — chỉ để dashboard hiển thị picker chèn emoji.
+ * Bot gửi mã `<:ten:id>` chứ không gửi ảnh, nên bảng này là dữ liệu hiển thị:
+ * emoji bị xoá sau đó không làm hỏng tin nhắn đã lưu.
+ */
+export const syncEmojis = mutation({
+  args: {
+    guildId: v.string(),
+    emojis: v.array(v.object({ emojiId: v.string(), name: v.string(), animated: v.boolean() })),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { botKey, guildId, emojis }) => {
+    await requireBotKeyStrict(ctx, botKey);
+    // Chỉ ghi khi danh sách thật sự đổi — tránh xoá/ghi lại mỗi vòng sync
+    // (bot sync mỗi ~5 phút; ghi vô điều kiện làm dashboard re-render liên tục).
+    const old = await ctx.db
+      .query("guildEmojis")
+      .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
+      .collect();
+    const cur = old
+      .map((e) => `${e.emojiId}:${e.name}:${e.animated ? 1 : 0}`)
+      .sort()
+      .join(",");
+    const next = emojis
+      .map((e) => `${e.emojiId}:${e.name}:${e.animated ? 1 : 0}`)
+      .sort()
+      .join(",");
+    if (cur === next && old.length > 0) return { ok: true, unchanged: true };
+    for (const e of old) await ctx.db.delete(e._id);
+    for (const e of emojis) {
+      await ctx.db.insert("guildEmojis", {
+        guildId,
+        emojiId: e.emojiId,
+        name: e.name,
+        animated: e.animated,
+      });
+    }
+    return { ok: true, unchanged: false };
   },
 });

@@ -276,6 +276,54 @@ export const DE_PANELS: Record<string, string> = {
   "Chọn role": "Rolle wählen",
   "Cấp role cho bot": "Rolle auch an Bots vergeben",
 
+  /* ==== Welcome & Goodbye v3 — Emoji/Kanal/Variable einfügen, Live-Vorschau, Bild-Upload ==== */
+  Emoji: "Emoji",
+  Kênh: "Kanal",
+  Biến: "Variable",
+  "Chèn {p0}": "{p0} einfügen",
+  "Bấm để chèn ngay tại vị trí con trỏ.": "Klicken fügt an der Cursorposition ein.",
+  "Emoji của server": "Server-Emoji",
+  "Chưa có emoji tuỳ chỉnh nào trong server này.": "Dieser Server hat noch keine eigenen Emoji.",
+  "Emoji phổ biến": "Häufige Emoji",
+  "Chọn kênh để chèn liên kết <#kênh> vào tin nhắn.":
+    "Kanal wählen, um ihn als Link in die Nachricht einzufügen.",
+  "Chưa đồng bộ được kênh nào của server.":
+    "Für diesen Server wurden noch keine Kanäle synchronisiert.",
+  "Danh sách câu": "Nachrichtenliste",
+  "Xem trước trực tiếp": "Live-Vorschau",
+  "Tạm biệt": "Abschied",
+  "Bot chèn {user} ở dòng riêng khi gửi embed, còn nội dung nằm trong khung.":
+    "Bei Embeds setzt der Bot {user} in eine eigene Zeile, dein Text steht im Rahmen.",
+  "Emoji không còn trong server: {list} — Discord sẽ hiện dạng chữ. Hãy chèn lại từ danh sách emoji.":
+    "Emoji nicht mehr auf dem Server: {list} — Discord zeigt sie als Klartext. Bitte erneut aus der Emoji-Liste einfügen.",
+  "Chào thành viên mới và tạm biệt người rời server: template ngẫu nhiên, embed tùy chỉnh, ảnh banner tự tải lên, emoji và kênh của server chèn thẳng vào tin nhắn, DM chào riêng và autorole. Xem trước ngay bên cạnh để biết tin nhắn ra sao trước khi thành viên thật vào.":
+    "Neue Mitglieder begrüßen und Verabschiedungen für alle, die gehen: zufällige Vorlagen, eigene Embeds, selbst hochgeladene Bannerbilder sowie Emoji und Kanäle des Servers direkt in der Nachricht — dazu eine separate Willkommens-DM und Autorole. Die Live-Vorschau neben jeder Karte zeigt, was Mitglieder wirklich sehen.",
+  "Bot luôn chặn ping @everyone/@here từ nội dung bạn nhập.":
+    "Der Bot blockiert @everyone/@here-Pings aus deinem Text grundsätzlich.",
+  "kênh không có trong server": "Kanal nicht auf diesem Server",
+  "Emoji này không có trong server": "Dieses Emoji gibt es auf dem Server nicht",
+  "Nội dung có @everyone/@here — bot luôn chặn, không ai bị ping.":
+    "Dein Text enthält @everyone/@here — der Bot blockiert das, niemand wird benachrichtigt.",
+  "Ảnh banner": "Bannerbild",
+  "Ảnh lớn hiện dưới nội dung embed.": "Großes Bild unter dem Embed-Text.",
+  Thumbnail: "Vorschaubild",
+  "Ảnh nhỏ ở góc phải embed.": "Kleines Bild oben rechts im Embed.",
+  "Xoá ảnh": "Bild entfernen",
+  "Hoặc dán URL ảnh": "Oder Bild-URL einfügen",
+  "Dùng URL": "URL verwenden",
+  "Ảnh tối đa 8MB, vui lòng chọn ảnh nhỏ hơn.":
+    "Bilder sind auf 8 MB begrenzt — bitte ein kleineres wählen.",
+  "Đã lưu ảnh — bot dùng ảnh mới trong khoảng 1 phút":
+    "Bild gespeichert — der Bot nutzt es in etwa einer Minute",
+  "Đã xoá ảnh": "Bild entfernt",
+  "Lưu ảnh thất bại": "Bild konnte nicht gespeichert werden",
+  "Xoá ảnh thất bại": "Bild konnte nicht entfernt werden",
+  "Nhắc tên thành viên kèm thông báo": "Erwähnt das Mitglied und benachrichtigt es",
+  "Tên người dùng (không thông báo)": "Benutzername, ohne zu benachrichtigen",
+  "Số thành viên hiện tại": "Aktuelle Mitgliederzahl",
+  "Tài khoản đã tạo bao nhiêu ngày": "Wie viele Tage das Konto alt ist",
+  "Số lượt boost của server": "Anzahl der Server-Boosts",
+
   /* ==== Landing — đợt viết lại copy (Lô 1). Bản DE của các key còn entry cũ
      nằm ở section theo alphabet trong i18n.de.ts (trùng, không còn dùng). */
   "bảo vệ server toàn diện": "umfassender Serverschutz",

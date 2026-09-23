@@ -365,6 +365,21 @@ export default defineSchema({
     .index("by_guildId", ["guildId"])
     .index("by_guildId_roleId", ["guildId", "roleId"]),
 
+  /**
+   * Emoji tuỳ chỉnh của server (bot đồng bộ định kỳ) — dashboard hiển thị picker
+   * để chèn thẳng `<:ten:id>` / `<a:ten:id>` vào tin nhắn welcome/goodbye.
+   * Chỉ là bản sao để hiển thị: bot luôn gửi MÃ emoji, không phải ảnh, nên emoji
+   * xoá sau đó chỉ khiến tin nhắn hiện `:ten:` — không vỡ gì.
+   */
+  guildEmojis: defineTable({
+    guildId: v.string(),
+    emojiId: v.string(),
+    name: v.string(),
+    animated: v.boolean(),
+  })
+    .index("by_guildId", ["guildId"])
+    .index("by_guildId_emojiId", ["guildId", "emojiId"]),
+
   modActions: defineTable({
     guildId: v.string(),
     action: v.string(),

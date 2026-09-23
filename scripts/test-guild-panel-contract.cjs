@@ -13,6 +13,8 @@
 //   2. Field khai báo trong GuildData.guild ⊆ field getGuild trả (kiểu không nói dối).
 //   3. Danh sách field welcome/goodbye/autorole phải còn nguyên (khoá hồi quy —
 //      đúng chỗ đã vỡ, để lần sau ai xoá thì đỏ ngay).
+//   4. Field TOP-LEVEL panel đọc (data.emojis, data.channels, data.roles…) ⊆
+//      field top-level getGuild trả — cùng lớp lỗi, chỉ khác một tầng.
 // Kèm self-test: bơm nguồn giả có field thiếu và bắt bộ kiểm phải phát hiện
 // (chống cổng "xanh giả" vì regex không khớp gì).
 //
@@ -225,6 +227,40 @@ check(
   welcomeMissing.length === 0,
 );
 
+// ── Tầng TOP-LEVEL: panel đọc data.X (emojis, channels, roles, modules…) ──
+// Cùng lớp lỗi với welcome/goodbye, chỉ khác một tầng: panel mới đọc
+// `data.emojis` cho picker emoji; nếu getGuild không trả `emojis` thì picker
+// RỖNG ÂM THẦM mà không có gì báo (GuildPage ép kiểu nên tsc vẫn mù).
+const TOP_ANCHOR = "    return {\n      guild: {";
+const topAt = getGuildBlock.indexOf(TOP_ANCHOR);
+if (topAt === -1)
+  throw new Error("Không tìm thấy `return { guild: {` của getGuild — cập nhật cổng này");
+const getGuildTopKeys = new Set(keysOfBlock(getGuildBlock, topAt + "    return {".length - 1));
+check("đọc được danh sách field top-level getGuild trả về (>= 5)", getGuildTopKeys.size >= 5);
+check(
+  "getGuild trả `emojis` (picker emoji của WelcomePanel cần)" +
+    (getGuildTopKeys.has("emojis")
+      ? ""
+      : ` → thiếu: emojis (có: ${[...getGuildTopKeys].join(", ")})`),
+  getGuildTopKeys.has("emojis"),
+);
+
+/** Field top-level panel đọc qua `data.X`. */
+function readTopFields(src) {
+  return new Set([...src.matchAll(/\bdata\.([A-Za-z_$][\w$]*)/g)].map((m) => m[1]));
+}
+const badTop = {};
+for (const [file, src] of Object.entries(panelSources)) {
+  const gone = [...readTopFields(src)].filter((k) => !getGuildTopKeys.has(k));
+  if (gone.length) badTop[file] = gone.sort();
+}
+const badTopLines = Object.entries(badTop).map(([f, ks]) => `${f}: ${ks.join(", ")}`);
+check(
+  "mọi field top-level panel đọc từ data đều có trong getGuild" +
+    (badTopLines.length ? `\n     → thiếu: ${badTopLines.join(" | ")}` : ""),
+  badTopLines.length === 0,
+);
+
 // ─────────────────────── Self-test (cổng không rỗng) ───────────────────────
 {
   const fakeConvex = `
@@ -265,6 +301,19 @@ function Panel({ data }) {
     panelSources: { "FakePanel.tsx": fakePanel },
   });
   check("self-test: hết field thiếu thì báo sạch", Object.keys(clean).length === 0);
+
+  // Self-test tầng TOP-LEVEL: getGuild giả chỉ trả `guild` → panel đọc
+  // `data.emojis` phải bị bắt (đúng lỗi "picker emoji rỗng âm thầm").
+  const fakeTopKeys = new Set(
+    keysOfBlock(fakeConvex, fakeConvex.indexOf(TOP_ANCHOR) + "    return {".length - 1),
+  );
+  const fakeGone = [...readTopFields("const list = data.emojis ?? [];")].filter(
+    (k) => !fakeTopKeys.has(k),
+  );
+  check(
+    "self-test: phát hiện panel đọc data.emojis mà getGuild không trả",
+    fakeGone.join(",") === "emojis",
+  );
 }
 
 // ─── Hồi quy đúng bug 23/09: getGuild CŨ (không có field welcome/goodbye) + WELCOME
