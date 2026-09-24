@@ -151,6 +151,7 @@ git push → GitHub → Dokploy tự nhận (webhook)
 | Nút Discord login không hoạt động           | Thiếu `DISCORD_CLIENT_ID` lúc build                 | Thêm Build Argument → redeploy (Vite "bake" giá trị lúc build, không đọc runtime)             |
 | Redirect Discord báo "Invalid redirect URI" | URL mới chưa đăng ký trong Discord Developer Portal | Vào Dev Portal → OAuth2 → thêm `https://protogon.tên-miền.com/discord/callback` vào Redirects |
 | Build treo / OOM                            | VPS thiếu RAM lúc build                             | Build lúc khuya, hoặc nâng VPS tạm 4GB, hoặc dùng Build Server riêng                          |
+| Ping thông nhưng TCP 80/443/3000 refuse từ ngoài (ufw inactive, dịch vụ listen 0.0.0.0) | Firewall/security group TẦNG NHÀ CUNG CẤP chặn inbound (nằm ngoài VPS, không sửa được bằng lệnh) | Nhờ provider mở inbound 80/443/3000; hỏi rõ VPS có IP public dedicated hay shared NAT — NAT shared thì domain trỏ kiểu này không chạy được (bài thật 24/09 với Meowlix) |
 | Bot lag khi deploy                          | Build ngốn CPU/RAM                                  | Ổn — chỉ vài phút; hoặc tách build sang VPS khác                                              |
 
 ---
