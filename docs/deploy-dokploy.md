@@ -156,6 +156,35 @@ git push → GitHub → Dokploy tự nhận (webhook)
 
 ---
 
+## Phương án Cloudflare Tunnel — khi provider chặn inbound
+
+> Ca thật 24/09: Meowlix chặn inbound TCP ở tầng provider (ping thông, ufw
+> inactive, listen 0.0.0.0 vẫn không vào được từ ngoài). Tunnel chỉ tạo kết nối
+> RA OUT từ VPS tới Cloudflare → không cần mở cổng inbound nào.
+>
+> LƯU Ý: DuckDNS KHÔNG dùng được với named tunnel (Cloudflare không nhận zone
+> con của PSL). Quick tunnel thì không cần domain.
+
+**A. Test nhanh (quick tunnel — 2 phút, không cần tài khoản/domain):**
+
+```bash
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+chmod +x /usr/local/bin/cloudflared
+cloudflared tunnel --url http://localhost:3000
+```
+
+In ra URL `https://xxx.trycloudflare.com` — URL ĐỔI mỗi lần chạy, chỉ để test.
+
+**B. Production (cần domain NS về Cloudflare):**
+
+1. Domain riêng (mua ~50k/năm hoặc us.kg miễn phí) → Add site vào Cloudflare → đổi NS
+2. Zero Trust → Networks → Tunnels → Create tunnel → copy token
+3. VPS: `cloudflared service install <token>`
+4. Public hostname: `dashboard.tên-miền` → `http://localhost:3000`
+5. SSL do Cloudflare cấp ở biên — KHÔNG cần Let's Encrypt, KHÔNG cần mở cổng
+
+---
+
 ## Checklist tổng
 
 - [ ] VPS ≥2GB RAM, port 80/443/3000 rảnh
