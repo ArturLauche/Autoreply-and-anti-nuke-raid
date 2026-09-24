@@ -29,6 +29,25 @@
 
 ---
 
+## 2026-09-24 — Vá rò file ảnh greeting + hoàn tất luồng 6-9 greeting e2e
+
+- ✅ Xong: tiếp nối phiên gián đoạn — LUỒNG 6-9 của `test-greeting-flow-e2e.ts`
+  (nền CDN, SSRF chặn, upload ảnh nền qua storage giả, goodbye card riêng,
+  autorole trễ + welcomeRandom bỏ dòng trống) đã viết đủ nhưng CHƯA commit;
+  chạy thử bộc lộ 1 lỗi thật còn sót → vá + thêm 7g chặn tái diễn. 62/62.
+- 🐛 Bug thật (rò file storage vĩnh viễn): phép kiểm tra "file còn dùng ở ô
+  khác" trong `removeGreetingImage` lẫn vòng dọn của `updateSettings` đều
+  BAO GỒM cả ô đang bị xoá — `guild[slot]` lúc đó vẫn còn URL cũ (patch chạy
+  sau) nên `every()` luôn false → ảnh cũ không bao giờ được dọn khỏi Convex
+  storage. `saveGreetingImage` không sai vì nó lọc `otherSlots` trước. Vá:
+  loại ô đang xoá khỏi phép kiểm tra ở CẢ 2 chỗ.
+- 📁 File đụng: `convex/guilds.ts`, `scripts/test-greeting-flow-e2e.ts`
+  (luồng 6-9 + 7g: xoá qua updateSettings cũng dọn file).
+- 🧪 Kiểm chứng: greeting e2e 62/62 · test 61/61 CJS · 11/11 TS · tsc · lint ·
+  format · convex codegen · contract (80 call) · settings-signal self-test.
+- ▶️ Tiếp theo: cài Dokploy trên VPS theo `docs/deploy-dokploy.md` (đã có sẵn
+  `Dockerfile.web` — build dashboard, bot vẫn chạy Bun/pm2 trực tiếp).
+
 ## 2026-09-24 — Test sâu backup + welcome + lệnh prefix/slash xuyên 3 tầng
 
 - ✅ Xong: 3 suite e2e xuyên tầng theo cùng một khuôn mẫu "dispatcher thật →

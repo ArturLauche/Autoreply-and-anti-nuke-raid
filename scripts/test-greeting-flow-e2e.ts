@@ -27,7 +27,12 @@
  * Chạy: bun scripts/test-greeting-flow-e2e.ts
  */
 
-import { updateSettings, getBotConfig } from "../convex/guilds";
+import {
+  updateSettings,
+  getBotConfig,
+  saveGreetingImage,
+  removeGreetingImage,
+} from "../convex/guilds";
 import { botLockState } from "../convex/bot_writes";
 import { getPendingJobs } from "../convex/bot_tick";
 import { computeBotKey } from "../convex/botAuth";
@@ -99,6 +104,11 @@ function makeCtx() {
     };
   }
 
+  /** File storage giả: id → { bytes, contentType, size } — cho luồng upload ảnh. */
+  const storage = new Map<string, { bytes: Buffer; contentType: string; size: number }>();
+  let storageIdc = 0;
+  const deletedStorage: string[] = [];
+
   const db = {
     insert: async (t: string, doc: Row) => {
       const id = `${t}_${++idc}`;
@@ -142,7 +152,30 @@ function makeCtx() {
   };
 
   return {
-    ctx: { db, storage: { getUrl: async () => null, delete: async () => {} } },
+    ctx: {
+      db,
+      storage: {
+        getUrl: async (id: string) =>
+          storage.has(id) ? `https://cloud.example/api/storage/${id}` : null,
+        delete: async (id: string) => {
+          storage.delete(id);
+          deletedStorage.push(id);
+        },
+        generateUploadUrl: async () => "https://upload.example/convex",
+        getMetadata: async (id: string) => {
+          const f = storage.get(id);
+          return f ? { contentType: f.contentType, size: f.size } : null;
+        },
+      },
+    },
+    /** Tải file lên storage giả — id trả về là chuỗi "st_<n>". */
+    putStorage(bytes: Buffer, contentType: string) {
+      const id = `st_${++storageIdc}`;
+      storage.set(id, { bytes, contentType, size: bytes.length });
+      return id;
+    },
+    /** Danh sách ID file đã bị xoá — test dùng để khẳng định dọn ảnh không rò rỉ. */
+    deletedStorage,
     rows: rowsOf,
     tables,
   };
@@ -246,6 +279,9 @@ function makeMember(guild: any, over: Row = {}) {
  * cache của production → luồng RAID-SAVE fail giả.
  */
 let ACTIVE: { ctx: any; handlers: Record<string, Record<string, any>> } | null = null;
+/** Lưu ý SSRF cho fetch mock — dùng chung khi test luồng ảnh nền (luồng 6). */
+let ALLOW_FETCH_HTTPS = false;
+let FAIL_FETCH = false;
 
 const ConvexHttpClient = botRequire("convex/browser").ConvexHttpClient as any;
 for (const prop of ["query", "mutation", "action"] as const) {
@@ -272,6 +308,8 @@ function installHandlers(h: ReturnType<typeof seed>) {
       },
       mutation: {
         "bot_writes:botLockState": botLockState,
+        "guilds:saveGreetingImage": saveGreetingImage,
+        "guilds:removeGreetingImage": removeGreetingImage,
       },
     },
   };
@@ -525,6 +563,294 @@ async function applyDashboard(h: ReturnType<typeof seed>, store: any, client: an
     await welcomeMod.handleWelcome(client, store, raidJoin.member);
     check("lockdown: KHÔNG chào vào kênh", sents.length === 1);
     check("lockdown: KHÔNG DM thành viên mới", dms.length === 1);
+  }
+
+  console.log("\n═══ LUỒNG 6: nền thẻ từ URL — canvas vẽ được + SSRF chặn nội bộ ═══");
+  {
+    // Chặn mạng thật: chỉ https://cdn.example/* trả PNG 1×1 hợp lệ; mọi URL
+    // khác là lỗi test. CẢ DNS phải giả — assertSafeRemoteUrl phân giải host
+    // TRƯỚC khi fetch, sandbox không có DNS → host nào cũng chết ở bước lookup.
+    const realFetch = globalThis.fetch;
+    const dnsMod = require("node:dns");
+    const realLookup = dnsMod.promises.lookup;
+    dnsMod.promises.lookup = async (host: string) => {
+      if (host === "cdn.example") return [{ address: "93.184.216.34", family: 4 }];
+      throw new Error(`test không cho phân giải host: ${host}`);
+    };
+    const PNG_1PX = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "base64",
+    );
+    globalThis.fetch = (async (url: any) => {
+      const s = String(url);
+      if (s.startsWith("https://cdn.example/") && ALLOW_FETCH_HTTPS)
+        return new Response(PNG_1PX, { status: 200, headers: { "content-type": "image/png" } });
+      throw new Error(`test không cho fetch thật: ${s}`);
+    }) as typeof fetch;
+
+    try {
+      // 6a. Nền CDN hợp lệ → fetchImage nhận buffer PNG → thẻ vẫn vẽ được.
+      ALLOW_FETCH_HTTPS = true;
+      const okCard = await cardMod.renderCard({
+        eyebrow: "CHÀO MỪNG",
+        name: "Wio",
+        meta: "Server Thật · Thành viên thứ 128",
+        backgroundUrl: "https://cdn.example/bg.png",
+        accent: "#57f287",
+      });
+      check("6a: nền CDN hợp lệ → thẻ vẫn vẽ ra PNG", Buffer.isBuffer(okCard));
+      check(
+        "6a: PNG đúng chữ ký + kích thước",
+        okCard.slice(0, 8).toString("hex") === "89504e470d0a1a0a",
+      );
+
+      // 6b. SSRF: URL nội bộ bị assertSafeRemoteUrl chặn TRƯỚC cả khi fetch —
+      // fetchImage trả null → renderCard rơi về gradient, KHÔNG crash.
+      ALLOW_FETCH_HTTPS = false;
+      const ssrf = await cardMod.renderCard({
+        eyebrow: "CHÀO MỪNG",
+        name: "Wio",
+        meta: "Server",
+        backgroundUrl: "http://169.254.169.254/latest/meta-data/",
+        accent: "#5865f2",
+      });
+      check(
+        "6b: URL nội bộ (SSRF) → không fetch, rơi về gradient, vẫn vẽ được",
+        Buffer.isBuffer(ssrf),
+      );
+      const badHost = await cardMod.renderCard({
+        eyebrow: "CHÀO MỪNG",
+        name: "Wio",
+        meta: "Server",
+        backgroundUrl: "https://host-khong-ton-tai.example/bg.png",
+        accent: "#5865f2",
+      });
+      check(
+        "6b: host không phân giải được → fallback gradient, không chết",
+        Buffer.isBuffer(badHost),
+      );
+
+      // 6c. Fetch chết hoàn toàn → thẻ vẫn vẽ (tin nhắn chào không bao giờ mất).
+      FAIL_FETCH = true;
+      const deadNet = await cardMod.renderCard({ eyebrow: "CHÀO", name: "Wio", meta: "S" });
+      check("6c: mạng chết hoàn toàn → thẻ vẫn vẽ", Buffer.isBuffer(deadNet));
+      FAIL_FETCH = false;
+    } finally {
+      globalThis.fetch = realFetch;
+      dnsMod.promises.lookup = realLookup;
+      ALLOW_FETCH_HTTPS = false;
+    }
+  }
+
+  console.log("\n═══ LUỒNG 7: dashboard tải ảnh nền lên → bot dùng ảnh đó mỗi lượt join ═══");
+  {
+    const h = seed();
+    const { client, sents, guild } = makeDiscordClient();
+    const store = makeStore();
+    installHandlers(h);
+
+    // 7a. Upload ảnh vào ô welcomeCardBackground qua handler thật.
+    const PNG_1PX = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "base64",
+    );
+    const id1 = h.putStorage(PNG_1PX, "image/png");
+    await sleep(3);
+    const saved = await (saveGreetingImage as any)._handler(h.ctx, {
+      token: TOKEN,
+      guildId: GID,
+      storageId: id1,
+      slot: "welcomeCardBackground",
+    });
+    check(
+      "7a: saveGreetingImage lưu ảnh + trả URL công khai",
+      saved.ok === true && saved.url === `https://cloud.example/api/storage/${id1}`,
+    );
+    check(
+      "7a: tín hiệu settingsChangedAt được bump (bot áp dụng trong ~1 tick)",
+      typeof h.rows("guilds")[0].settingsChangedAt === "number",
+    );
+
+    // 7b. Bot lái qua tick + join thật → thẻ vẽ bằng nền vừa tải lên.
+    await applyDashboard(h, store, client, {
+      welcomeEnabled: true,
+      welcomeChannelId: "c1",
+      welcomeMessage: "Chào {username}!",
+      welcomeCardEnabled: true,
+    });
+    await welcomeMod.handleWelcome(client, store, makeMember(guild).member);
+    const card = sents[0]?.payload?.files?.[0]?.attachment as Buffer | undefined;
+    check("7b: thẻ PNG vẫn vẽ được với nền từ storage", Buffer.isBuffer(card));
+    check(
+      "7b: file gốc KHÔNG bị xoá sau khi bot đọc URL (chỉ dọn khi thay thế)",
+      !h.deletedStorage.includes(id1),
+    );
+
+    // 7c. Thay ảnh mới → ảnh CŨ bị dọn khỏi storage (không rác vĩnh viễn).
+    const id2 = h.putStorage(PNG_1PX, "image/png");
+    await sleep(3);
+    await (saveGreetingImage as any)._handler(h.ctx, {
+      token: TOKEN,
+      guildId: GID,
+      storageId: id2,
+      slot: "welcomeCardBackground",
+    });
+    check("7c: ảnh cũ bị xoá khỏi storage sau khi thay", h.deletedStorage.includes(id1));
+    check("7c: ảnh mới còn sống", !h.deletedStorage.includes(id2));
+
+    // 7d. Dùng lại CÙNG ảnh cho ô goodbye → thay ô welcome KHÔNG được xoá file
+    // (người dùng có thể dùng chung một banner cho cả welcome lẫn goodbye).
+    await (saveGreetingImage as any)._handler(h.ctx, {
+      token: TOKEN,
+      guildId: GID,
+      storageId: id2,
+      slot: "goodbyeCardBackground",
+    });
+    const d2 = h.deletedStorage.length;
+    await sleep(3);
+    const id3 = h.putStorage(PNG_1PX, "image/png");
+    await (saveGreetingImage as any)._handler(h.ctx, {
+      token: TOKEN,
+      guildId: GID,
+      storageId: id3,
+      slot: "welcomeCardBackground",
+    });
+    check(
+      "7d: file còn dùng ở ô goodbye KHÔNG bị xoá khi thay ô welcome",
+      !h.deletedStorage.includes(id2) && h.deletedStorage.length === d2,
+    );
+
+    // 7e. Nút "Xoá ảnh" — xoá đúng ô, file bị dọn, ô còn lại giữ nguyên.
+    await (removeGreetingImage as any)._handler(h.ctx, {
+      token: TOKEN,
+      guildId: GID,
+      slot: "goodbyeCardBackground",
+    });
+    check("7e: removeGreetingImage dọn file ô goodbye", h.deletedStorage.includes(id2));
+    check("7e: ô welcome KHÔNG bị đụng", h.rows("guilds")[0].welcomeCardBackground?.includes(id3));
+
+    // 7f. Upload sai loại file → bị TỪ CHỐI + file bị drop ngay.
+    const idTxt = h.putStorage(Buffer.from("không phải ảnh"), "text/plain");
+    await sleep(3);
+    let threw = "";
+    try {
+      await (saveGreetingImage as any)._handler(h.ctx, {
+        token: TOKEN,
+        guildId: GID,
+        storageId: idTxt,
+        slot: "welcomeEmbedImage",
+      });
+    } catch (e: any) {
+      threw = e?.message ?? "";
+    }
+    check("7f: file text bị từ chối", threw.includes("ảnh"));
+    check("7f: file sai loại bị drop khỏi storage", h.deletedStorage.includes(idTxt));
+
+    // 7g. Xoá ảnh qua updateSettings (dashboard xoá URL trong ô) — file cũng
+    // phải được dọn. Bug thật 24/09: phép kiểm tra "còn dùng ở ô khác" bao gồm
+    // cả ô đang bị xoá → every() luôn false → file rác vĩnh viễn.
+    const idDel = h.putStorage(PNG_1PX, "image/png");
+    await sleep(3);
+    await (saveGreetingImage as any)._handler(h.ctx, {
+      token: TOKEN,
+      guildId: GID,
+      storageId: idDel,
+      slot: "welcomeEmbedImage",
+    });
+    check(
+      "7g: chuẩn bị — ảnh đã lưu vào ô welcomeEmbedImage",
+      !!h.rows("guilds")[0].welcomeEmbedImage,
+    );
+    const dBefore = h.deletedStorage.length;
+    await (updateSettings as any)._handler(h.ctx, {
+      token: TOKEN,
+      guildId: GID,
+      welcomeEmbedImage: null, // dashboard xoá ảnh trong ô
+    });
+    check(
+      "7g: xoá ảnh qua updateSettings dọn file storage",
+      h.deletedStorage.includes(idDel) && h.deletedStorage.length > dBefore,
+    );
+    check("7g: ô bị xoá được đặt về trống", h.rows("guilds")[0].welcomeEmbedImage === undefined);
+  }
+
+  console.log("\n═══ LUỒNG 8: goodbye card — tạm biệt cũng có ảnh riêng ═══");
+  {
+    const h = seed();
+    const { client, sents, guild } = makeDiscordClient();
+    const store = makeStore();
+    installHandlers(h);
+
+    await applyDashboard(h, store, client, {
+      goodbyeEnabled: true,
+      goodbyeChannelId: "c2",
+      goodbyeMessage: "Tạm biệt {username}",
+      goodbyeCardEnabled: true,
+      goodbyeEmbedColor: "#ed4245",
+    });
+    await welcomeMod.handleGoodbye(client, store, makeMember(guild).member);
+    check("goodbye gửi đúng kênh", sents.length === 1 && sents[0]?.channelId === "c2");
+    const files = sents[0]?.payload?.files ?? [];
+    check("goodbye có thẻ PNG riêng", files.length === 1 && Buffer.isBuffer(files[0]?.attachment));
+    check(
+      "embed trỏ attachment đúng",
+      sents[0]?.payload?.embeds?.[0]?.data?.image?.url === `attachment://${cardMod.CARD_FILE_NAME}`,
+    );
+    check(
+      "màu goodbye theo cấu hình #ed4245",
+      sents[0]?.payload?.embeds?.[0]?.data?.color === 0xed4245,
+    );
+
+    // Bot rời server → không gửi goodbye (bỏ qua bot — v1 giữ nguyên).
+    const botLeave = makeMember(guild, { id: "b1", user: { bot: true, username: "botbot" } });
+    await welcomeMod.handleGoodbye(client, store, botLeave.member);
+    check("goodbye bỏ qua bot", sents.length === 1);
+  }
+
+  console.log("\n═══ LUỒNG 9: autorole trễ 1s + welcomeRandom có dòng rỗng ═══");
+  {
+    const h = seed();
+    const { client, sents, guild } = makeDiscordClient();
+    const store = makeStore();
+    installHandlers(h);
+
+    await applyDashboard(h, store, client, {
+      welcomeEnabled: true,
+      welcomeChannelId: "c1",
+      welcomeMessage: "Câu gốc",
+      // Dòng trống/dòng chỉ khoảng trắng bị bỏ — chỉ dòng có nội dung được chọn.
+      welcomeRandom: "\n   \nDòng 1 {username}\n\nDòng 2 {username}\n",
+      welcomeUseEmbed: false,
+      autoroleEnabled: true,
+      autoroleRoleId: "888888888888888888",
+      autoroleDelaySec: 1, // trễ thật 1 giây
+    });
+    const { member, roleAdds } = makeMember(guild);
+    await welcomeMod.handleWelcome(client, store, member);
+    check("chào gửi ngay (autorole không chặn tin nhắn)", sents.length === 1);
+    check("role CHƯA được cấp trước trễ 1s", roleAdds.length === 0);
+    await sleep(1300);
+    check(
+      "role được cấp đúng sau trễ 1s",
+      roleAdds.length === 1 && roleAdds[0]?.roleId === "888888888888888888",
+    );
+    check("nguyên nhân ghi rõ (Protogon autorole)", roleAdds[0]?.reason === "Protogon autorole");
+
+    // welcomeRandom: 40 lượt — chỉ xuất hiện 1 trong 2 dòng thật, không có câu gốc/mặc định.
+    const contents = new Set<string>();
+    for (let i = 0; i < 40; i++) {
+      const before = sents.length;
+      await welcomeMod.handleWelcome(client, store, makeMember(guild).member);
+      contents.add((sents[before]?.payload?.content as string) ?? "");
+    }
+    const lines = [...contents].filter((c) => c.startsWith("Dòng"));
+    check(
+      "dòng trống bị bỏ — chỉ 2 dòng có nội dung xuất hiện qua 40 lượt",
+      lines.length === 2 &&
+        contents.has("Dòng 1 wio") &&
+        contents.has("Dòng 2 wio") &&
+        !contents.has("Câu gốc"),
+    );
   }
 
   console.log(`\n${pass}/${pass + fail} ✅`);
