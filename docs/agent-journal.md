@@ -8,6 +8,11 @@
 
 - Không có việc bắt buộc. (Nợ cũ "dọn 119 bản dịch EN chết + 12 DE mồ côi" ĐÃ XONG phiên 23/09 —
   dùng `scripts/_i18n-dead-remove.cjs`, check-i18n giờ sạch 100% không còn mục ℹ️.)
+- ✅ Nợ cũ "~144 câu nội suy chưa bọc translate()" (ghi nhận 20/09) ĐÃ XONG — đo lại
+  24/09: check-i18n --all báo 0 JSX text · 0 biểu thức · 0 thuộc tính còn nợ (các đợt
+  viết lại copy lô 2→5 ngày 21/09 đã xử luôn khi viết lại copy). Sót lại cố ý: 3
+  `placeholder` mẫu cú pháp kỹ thuật (`{server} · {action}`…) và nhãn thuật ngữ
+  Kick/Ban — dịch sẽ phá mục đích sử dụng.
 - 🚧 **Chặn kỹ thuật đã xác định được quy luật (đọc trước khi làm tiếp)**: công cụ patch
   (`str_replace`) chỉ sửa được **vùng ĐẦU của file lớn** — trong `src/lib/i18n.en.ts` (87 KB) sửa được
   entry ở offset ~5 KB nhưng mọi `oldString` lấy từ offset ~56 KB đều báo "not found" (dòng tồn tại
