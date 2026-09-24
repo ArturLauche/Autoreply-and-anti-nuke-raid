@@ -7,7 +7,7 @@
 ## Đang dở
 
 - Toàn bộ slice đã triển khai và commit `e430976`; full gates + ultragoal-verify đã xanh.
-- Push/PR đang bị chặn bởi DNS của remote `github-ssh`; cần chạy lại pull/push khi mạng ổn định.
+- Push/PR bị chặn bởi remote `github-ssh` không resolve; kiểm tra HTTPS/SSH trực tiếp cũng trả `403 Write access ... not granted` cho credential hiện tại.
 - Không có blocker kỹ thuật code; không đọc/ghi secret.
 - **Bài học giữ lại từ phiên trước**:
   1. Công cụ patch chỉ sửa vùng đầu file lớn; key i18n ở cuối file nên chèn key mới ở đầu hoặc dùng `scripts/_i18n-dead-remove.cjs`.
@@ -21,8 +21,8 @@
 
 - ✅ Commit `e430976` đã tạo trên `opencode/whole-repo-quality-pass`; working tree sạch trước khi thử push.
 - ✅ `ultragoal-verify.sh ... manual`: 7/7 pass; CJS 61/61, TS 9/9, browser 24 trang không lỗi/axe.
-- ⚠️ `git pull` và `git push` đều fail trước khi tới GitHub: `Could not resolve hostname github-ssh`.
-- ▶️ Khi mạng ổn định: `git pull --no-rebase --no-edit origin main` rồi `git push -u origin opencode/whole-repo-quality-pass`; sau đó mở PR và theo dõi CI.
+- ⚠️ `git pull`/`git push` qua remote `github-ssh` fail DNS; `git ls-remote` HTTPS và SSH trực tiếp đều bị GitHub từ chối `403 Write access to repository not granted`.
+- ▶️ Cần credential có quyền push repo `wiothemilo-lang/Autoreply-and-anti-nuke-raid`; sau đó chạy `git pull --no-rebase --no-edit origin main`, `git push -u origin opencode/whole-repo-quality-pass`, mở PR và theo dõi CI.
 
 ---
 
