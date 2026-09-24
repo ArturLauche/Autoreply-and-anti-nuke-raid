@@ -34,6 +34,38 @@
 
 ---
 
+## 2026-09-24 — Production live: dashboard tự host trên VPS qua Cloudflare Tunnel
+
+- ✅ Xong: dashboard Protogon LIVE tại `https://protogon.dpdns.org` (HTTP 200,
+  SSL Cloudflare biên, code mới nhất) + Dokploy panel tại `https://panel.protogon.dpdns.org`.
+  Người dùng đã thêm OAuth redirect URI + đăng nhập Discord thành công.
+  Toàn bộ MIỄN PHÍ — không cần Meowlix (provider) mở cổng inbound nào.
+- 🧩 Chuỗi hạ tầng được dựng hôm nay (đã verify từng mắt xích):
+  1. Domain miễn phí `protogon.dpdns.org` từ DigitalPlat (nằm trong Public
+     Suffix List → dùng được với Cloudflare; `us.kg` đang PAUSED đăng ký —
+     mất 1 lượt, đổi sang `dpdns.org`). NS trỏ `pat`+`quincy.ns.cloudflare.com`.
+  2. Cloudflare zone Active → **không dùng Zero Trust UI** (đòi credit card) —
+     tạo tunnel bằng CLI: `cloudflared tunnel login` → `tunnel create meowlix`
+     → route dns → config.yml → `service install`. Tunnel UUID
+     `30583a3c-4f9b-4e37-a6ee-fd6695352e04` (kèm trong config trên VPS).
+  3. Tunnel nối 2 hostname: `panel` → localhost:3000 (Dokploy),
+     `protogon.dpdns.org` → localhost:8080 (app). CNAME `@` và `panel` →
+     `<UUID>.cfargotunnel.com`, Proxied 🟠.
+- 🐛 Chẩn đoán dài hôm nay (bài học để đời): Meowlix chặn TOÀN BỘ inbound TCP
+  ở tầng provider (ping thông, ufw inactive, kể cả SSH public — chỉ tunnel
+  outbound mới qua). Trong VPS lại dính 502 giữa Traefik (container thường)
+  và swarm service: DNS overlay phân giải được (10.0.1.8) nhưng connection
+  refused — bệnh VIP overlay vs container thường trên môi trường LXC/Proxmox,
+  KHÔNG đáng đánh nhau → đường vòng sạch: phát port Host-mode 8080→80 trong
+  Dokploy (Advanced → Ports) + trỏ cloudflared thẳng `localhost:8080`, bypass
+  Traefik/Traefik-label hoàn toàn. Traefik vẫn chạy song song cho panel.
+- 📁 Tài liệu: `docs/deploy-dokploy.md` đã bổ sung DuckDNS PSL, Cloudflare
+  Tunnel (quick + named), hàng lỗi provider-chặn-inbound.
+- ⚠️ Việc còn treo nhẹ (không gấp): xoá zone cũ `protogon.us.kg` trong
+  Cloudflare; container Traefik không route được qua overlay — nếu sau này
+  muốn domain thứ 2 qua Traefik phải đào tiếp (hoặc lặp lại mẹo Host-port).
+- ▶️ Tiếp theo: không có — production ổn định, chờ feedback người dùng.
+
 ## 2026-09-24 — Audit Convex lần 2: bỏ 2 full-scan trong batch tick 60s
 
 - ✅ Xong: rà lại toàn bộ query convex/ — còn 10 điểm collect() không index;
