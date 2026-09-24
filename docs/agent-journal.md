@@ -6,14 +6,23 @@
 
 ## Đang dở
 
-- Toàn bộ slice đã triển khai trong working tree; sau adversarial review đã đóng thêm claim fencing/audit miss/URL build/SEO deploy.
-- Còn rà staged diff, commit/push/PR sau full gates + ultragoal-verify.
-- Không còn blocker kỹ thuật đã biết; không đọc/ghi secret.
+- Toàn bộ slice đã triển khai và commit `e430976`; full gates + ultragoal-verify đã xanh.
+- Push/PR đang bị chặn bởi DNS của remote `github-ssh`; cần chạy lại pull/push khi mạng ổn định.
+- Không có blocker kỹ thuật code; không đọc/ghi secret.
 - **Bài học giữ lại từ phiên trước**:
   1. Công cụ patch chỉ sửa vùng đầu file lớn; key i18n ở cuối file nên chèn key mới ở đầu hoặc dùng `scripts/_i18n-dead-remove.cjs`.
   2. Sau mỗi patch phải đọc lại file trên đĩa; snapshot cũ có thể làm Edit báo sai.
   3. Khi cần sửa đuôi file lớn, ưu tiên đổi thiết kế về một điểm chặn nhỏ; đừng mò chuỗi ở vị trí khó patch.
   4. `bot/src/handlers/backup.js` đã gom việc xoá cache qua proxy `bot/src/convex.js`, không thêm `store.invalidate()` rải rác.
+
+---
+
+## 2026-09-24 — Commit xong, chờ remote trở lại
+
+- ✅ Commit `e430976` đã tạo trên `opencode/whole-repo-quality-pass`; working tree sạch trước khi thử push.
+- ✅ `ultragoal-verify.sh ... manual`: 7/7 pass; CJS 61/61, TS 9/9, browser 24 trang không lỗi/axe.
+- ⚠️ `git pull` và `git push` đều fail trước khi tới GitHub: `Could not resolve hostname github-ssh`.
+- ▶️ Khi mạng ổn định: `git pull --no-rebase --no-edit origin main` rồi `git push -u origin opencode/whole-repo-quality-pass`; sau đó mở PR và theo dõi CI.
 
 ---
 
