@@ -15,30 +15,32 @@ export async function getUserByToken(ctx: QueryCtx | MutationCtx, token: string)
     .query("sessions")
     .withIndex("by_token", (q) => q.eq("token", token))
     .first();
-  if (!session || sessionExpired(session)) return null;
+  if (!session || sessionExpired(session) || !isCurrentSession(session)) return null;
   return await ctx.db.get(session.userId);
+}
+
+export const CURRENT_SESSION_AUTH_VERSION = 1;
+
+/** Phiên cũ không có marker chỉ dùng client-trusted claims nên phải đăng nhập lại. */
+export function isCurrentSession(session: { authVersion?: number }): boolean {
+  return session.authVersion === CURRENT_SESSION_AUTH_VERSION;
 }
 
 /** MANAGE_GUILD permission bit (Discord). */
 export const PERM_MANAGE_GUILD = 0x20;
 
 /**
- * True khi người dùng có quyền quản lý guild này.
- * Chấp nhận cả: (1) đã được ghi trong guild.managers, hoặc (2) guild nằm trong
- * manageableGuildIds — danh sách server mà Discord xác nhận người dùng có quyền
- * Manage Server tại lần đăng nhập / làm mới gần nhất.
- * Nhờ đó server mới mời bot (được bot đồng bộ sau đó) vẫn hiện trên dashboard
- * mà người dùng không cần đăng nhập lại.
+ * True khi ảnh chụp quyền hiện tại của user có guild này.
+ * Chỉ tin manageableGuildIds — danh sách server Discord xác nhận user có Manage
+ * Server tại lần đăng nhập / làm mới gần nhất. guild.managers giữ lại để hiển thị
+ * và tương thích dữ liệu cũ, nhưng không cấp quyền vì có thể đã stale.
  */
 export function guildAccessibleBy(
   user: { discordId: string; manageableGuildIds?: string[] } | null,
   guild: { discordId?: string; managers?: string[] } | null | undefined,
 ) {
   if (!user || !guild) return false;
-  return (
-    (guild.managers ?? []).includes(user.discordId) ||
-    (user.manageableGuildIds ?? []).includes(guild.discordId ?? "")
-  );
+  return (user.manageableGuildIds ?? []).includes(guild.discordId ?? "");
 }
 
 export function canManageGuild(

@@ -76,6 +76,7 @@ export default function Monitor() {
           <div className="container flex items-center gap-3 py-5">
             <Link
               to="/"
+              aria-label={translate("← Về trang chủ")}
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />

@@ -6,9 +6,9 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://protogon.freebuff.app/auth</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
+    <loc>https://protogon.freebuff.app/monitor</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.6</priority>
   </url>
   <!-- Văn bản pháp lý: URL riêng, công khai — Discord dùng để xác minh bot. -->
   <url>

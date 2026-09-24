@@ -89,18 +89,33 @@ module.exports = function createAntiNukeState({ client, store }) {
     return arr.filter((j) => j.ts >= cutoff).length;
   }
 
-  async function auditExecutor(guild, eventType, targetId) {
+  async function auditLookup(guild, eventType, targetId) {
+    // Nếu chỉ lấy 5 entry, một burst kick có thể đẩy target ra khỏi cửa sổ và
+    // khiến bot tưởng bot tự rời. Lấy đủ 50 entry; khi target vẫn miss nhưng
+    // cửa sổ đã đầy, caller phải coi đây là UNKNOWN, không được phạt oan.
+    const limit = 50;
     try {
-      const fetched = await guild.fetchAuditLogs({ type: eventType, limit: 5 });
+      const fetched = await guild.fetchAuditLogs({ type: eventType, limit });
       if (targetId) {
         const entry = fetched.entries.find((e) => e.target?.id === targetId);
-        if (entry) return entry.executor;
+        const entryCount = fetched.entries.size ?? fetched.entries.length ?? 0;
+        return {
+          ok: true,
+          found: !!entry,
+          ambiguous: !entry && entryCount >= limit,
+          executor: entry?.executor ?? null,
+        };
       }
       const first = fetched.entries.first();
-      return first ? first.executor : null;
+      return { ok: true, found: !!first, ambiguous: false, executor: first?.executor ?? null };
     } catch {
-      return null;
+      return { ok: false, found: false, ambiguous: true, executor: null };
     }
+  }
+
+  async function auditExecutor(guild, eventType, targetId) {
+    const result = await auditLookup(guild, eventType, targetId);
+    return result.executor;
   }
 
   /** Xác định người dùng đã TẠO webhook (audit log WebhookCreate) — để phạt đúng người kết nối app. */
@@ -231,6 +246,7 @@ module.exports = function createAntiNukeState({ client, store }) {
     appUserHandledRecently,
     markAppUserHandled,
     recentJoinCount,
+    auditLookup,
     auditExecutor,
     webhookCreator,
     sweepMemory,

@@ -5,7 +5,12 @@ import { api } from "../../../convex/_generated/api";
 import { ChevronDown, LayoutDashboard, LogOut } from "lucide-react";
 import BotLogo from "../BotLogo";
 import { Button } from "../ui/button";
-import { clearSessionToken, discordAvatarUrl, setRememberLogin } from "../../lib/discord";
+import {
+  clearLegacyDiscordAccess,
+  clearSessionToken,
+  discordAvatarUrl,
+  setRememberLogin,
+} from "../../lib/discord";
 import { useMeSession } from "./shared";
 import LangSwitch from "../LangSwitch";
 
@@ -25,6 +30,7 @@ export default function Nav() {
     setMenuOpen(false);
     await logout({ token });
     clearSessionToken();
+    clearLegacyDiscordAccess();
     navigate("/");
   }
 
@@ -141,9 +147,9 @@ export default function Nav() {
               )}
             </div>
           ) : (
-            <Link to="/auth">
-              <Button size="sm">{translate("Đăng nhập")}</Button>
-            </Link>
+            <Button asChild size="sm">
+              <Link to="/auth">{translate("Đăng nhập")}</Link>
+            </Button>
           )}
         </div>
       </div>

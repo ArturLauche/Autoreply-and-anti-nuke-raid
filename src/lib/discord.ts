@@ -1,10 +1,7 @@
-import { translate } from "./i18n";
-
 export const SESSION_TOKEN_KEY = "wio_session_token";
 export const OAUTH_VERIFIER_KEY = "wio_oauth_verifier";
 export const OAUTH_STATE_KEY = "wio_oauth_state";
 export const REMEMBER_LOGIN_KEY = "wio_remember_login";
-export const DISCORD_ACCESS_KEY = "wio_discord_access";
 
 /** Luồng làm mới im lặng: prompt=none, dùng chung redirect /discord/callback. */
 export const SILENT_VERIFIER_KEY = "wio_silent_verifier";
@@ -65,8 +62,10 @@ export function getSessionToken(): string {
 
 /** Lưu token theo lựa chọn "Lưu đăng nhập" của người dùng. */
 export function setSessionToken(token: string): void {
+  clearLegacyDiscordAccess();
   const remember = sessionStorage.getItem(REMEMBER_LOGIN_KEY) !== "0";
   if (remember) {
+    sessionStorage.removeItem(SESSION_TOKEN_KEY);
     localStorage.setItem(
       SESSION_TOKEN_KEY,
       JSON.stringify({
@@ -75,17 +74,23 @@ export function setSessionToken(token: string): void {
       } as StoredSession),
     );
   } else {
+    localStorage.removeItem(SESSION_TOKEN_KEY);
     sessionStorage.setItem(SESSION_TOKEN_KEY, token);
   }
 }
 
 /** Xóa token ở cả hai nơi. */
+const LEGACY_DISCORD_ACCESS_KEY = "wio_discord_access";
+
+/** Xóa token OAuth cũ đã lưu nhầm trong trình duyệt sau khi chuyển sang server-side flow. */
+export function clearLegacyDiscordAccess(): void {
+  localStorage.removeItem(LEGACY_DISCORD_ACCESS_KEY);
+}
+
 export function clearSessionToken(): void {
   localStorage.removeItem(SESSION_TOKEN_KEY);
   sessionStorage.removeItem(SESSION_TOKEN_KEY);
 }
-
-const DISCORD_API = "https://discord.com/api/v10";
 
 export const PERM_MANAGE_GUILD = 0x20n;
 export const PERM_ADMINISTRATOR = 0x8n;
@@ -198,125 +203,6 @@ export function buildSilentAuthorizeUrl(
     prompt: "none",
   });
   return `https://discord.com/oauth2/authorize?${params.toString()}`;
-}
-
-export async function exchangeCode(
-  clientId: string,
-  code: string,
-  verifier: string,
-): Promise<{ access_token: string; refresh_token?: string; expires_in?: number }> {
-  const body = new URLSearchParams({
-    client_id: clientId,
-    grant_type: "authorization_code",
-    code,
-    redirect_uri: redirectUri(),
-    code_verifier: verifier,
-  });
-  const res = await fetch(`${DISCORD_API}/oauth2/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
-  if (!res.ok) throw new Error(translate("Lỗi trao đổi mã OAuth ({p0})", { p0: res.status }));
-  return res.json();
-}
-
-interface StoredDiscordAccess {
-  access_token: string;
-  refresh_token?: string;
-  expires_at: number; // ms
-}
-
-/** Lưu access token OAuth để dashboard tự làm mới danh sách server (không cần đăng nhập lại). */
-export function storeDiscordAccess(access: {
-  access_token: string;
-  refresh_token?: string | null;
-  expires_in?: number;
-}): void {
-  const item: StoredDiscordAccess = {
-    access_token: access.access_token,
-    refresh_token: access.refresh_token ?? undefined,
-    expires_at: Date.now() + (access.expires_in ? access.expires_in * 1000 : 7 * 86400_000),
-  };
-  localStorage.setItem(DISCORD_ACCESS_KEY, JSON.stringify(item));
-}
-
-export function clearDiscordAccess(): void {
-  localStorage.removeItem(DISCORD_ACCESS_KEY);
-}
-
-function readStoredDiscordAccess(): StoredDiscordAccess | null {
-  const raw = localStorage.getItem(DISCORD_ACCESS_KEY);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as StoredDiscordAccess;
-    if (parsed && typeof parsed.access_token === "string") return parsed;
-  } catch {
-    // dữ liệu cũ/hỏng — bỏ qua
-  }
-  return null;
-}
-
-/**
- * Lấy access token Discord còn hạn; nếu hết hạn thì thử refresh bằng
- * refresh_token. Trả về null khi không có token hợp lệ (cần đăng nhập lại).
- */
-export async function getDiscordAccessToken(clientId: string): Promise<string | null> {
-  const stored = readStoredDiscordAccess();
-  if (!stored) return null;
-  if (Date.now() < stored.expires_at - 60_000) return stored.access_token;
-  if (!stored.refresh_token) return null;
-  const body = new URLSearchParams({
-    client_id: clientId,
-    grant_type: "refresh_token",
-    refresh_token: stored.refresh_token,
-    scope: "identify guilds",
-  });
-  const res = await fetch(`${DISCORD_API}/oauth2/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
-  if (!res.ok) {
-    clearDiscordAccess();
-    return null;
-  }
-  const data = await res.json();
-  storeDiscordAccess(data);
-  return data.access_token ?? null;
-}
-
-export interface DiscordUser {
-  id: string;
-  username: string;
-  global_name?: string | null;
-  avatar?: string | null;
-}
-
-export interface DiscordGuild {
-  id: string;
-  name: string;
-  icon?: string | null;
-  permissions: string;
-  owner?: boolean;
-}
-
-export async function fetchDiscordUser(accessToken: string): Promise<DiscordUser> {
-  const res = await fetch(`${DISCORD_API}/users/@me`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!res.ok)
-    throw new Error(translate("Không lấy được thông tin user ({p0})", { p0: res.status }));
-  return res.json();
-}
-
-export async function fetchDiscordGuilds(accessToken: string): Promise<DiscordGuild[]> {
-  const res = await fetch(`${DISCORD_API}/users/@me/guilds`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!res.ok)
-    throw new Error(translate("Không lấy được danh sách server ({p0})", { p0: res.status }));
-  return res.json();
 }
 
 export function hasPermission(permissions: string, bit: bigint): boolean {

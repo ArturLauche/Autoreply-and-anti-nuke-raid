@@ -73,11 +73,11 @@ export default function LegalPage({ slug }: { slug: LegalSlug }) {
           </Link>
           <div className="flex items-center gap-2 sm:gap-3">
             <LangSwitch />
-            <Link to="/">
-              <Button variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm">
+              <Link to="/">
                 <ArrowLeft className="h-4 w-4" /> {translate("Về trang chủ")}{" "}
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </div>
       </header>
@@ -143,16 +143,16 @@ export default function LegalPage({ slug }: { slug: LegalSlug }) {
                 )}
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
-                <a href={discordInvite} target="_blank" rel="noreferrer">
-                  <Button size="sm">
+                <Button asChild size="sm">
+                  <a href={discordInvite} target="_blank" rel="noreferrer">
                     <MessageCircle className="h-4 w-4" /> Discord server
-                  </Button>
-                </a>
-                <a href={facebookUrl} target="_blank" rel="noreferrer">
-                  <Button size="sm" variant="outline">
+                  </a>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <a href={facebookUrl} target="_blank" rel="noreferrer">
                     <Facebook className="h-4 w-4" /> Fanpage Facebook
-                  </Button>
-                </a>
+                  </a>
+                </Button>
                 <button
                   type="button"
                   onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}

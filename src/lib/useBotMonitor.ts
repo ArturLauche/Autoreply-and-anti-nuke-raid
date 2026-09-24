@@ -1,14 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBotStatus, type BotStatus } from "./useBotStatus";
 import { dateLocale } from "./i18n";
+import { convexPingUrl } from "./convexUrl";
 
-/** Điểm cuối Convex dùng để đo độ trễ thực (khớp URL backend chọn trong main.tsx). */
-const configuredUrl = import.meta.env.VITE_CONVEX_URL ?? "";
-const isLocalDevUrl = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredUrl);
-const PING_URL =
-  !configuredUrl || isLocalDevUrl
-    ? "https://accomplished-chipmunk-74.convex.cloud/api/query"
-    : `${configuredUrl.replace(/\/$/, "")}/api/query`;
+const PING_URL = convexPingUrl();
 
 export const LATENCY_FAST = 300;
 export const LATENCY_SLOW = 800;

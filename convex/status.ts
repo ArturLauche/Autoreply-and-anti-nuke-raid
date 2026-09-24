@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken } from "./auth";
+import { isBotOwnerUser } from "./hidden";
 import { requireBotKeyStrict } from "./botAuth";
 
 /**
@@ -18,7 +19,7 @@ export const isOwner = query({
       .query("botStatus")
       .withIndex("by_kind", (q) => q.eq("kind", "status"))
       .first();
-    return !!status?.ownerDiscordId && status.ownerDiscordId === user.discordId;
+    return isBotOwnerUser(user, status);
   },
 });
 
@@ -126,8 +127,8 @@ export const getAiHealth = query({
       .query("botStatus")
       .withIndex("by_kind", (q) => q.eq("kind", "status"))
       .first();
-    if (!status?.ownerDiscordId || status.ownerDiscordId !== user.discordId) return null;
-    const ai = status.aiHealth;
+    if (!isBotOwnerUser(user, status)) return null;
+    const ai = status?.aiHealth;
     if (!ai) return null;
     // Bot ngừng sync quá 3 phút → số liệu cũ coi như mất kết nối (không hiển thị).
     if (Date.now() - status.lastHeartbeat > 180_000) return { stale: true, ...ai };

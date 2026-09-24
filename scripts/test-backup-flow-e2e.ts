@@ -312,8 +312,14 @@ function seed() {
     botInGuild: true,
     prefix: "!",
   });
-  h.rows("users").push({ _id: USER, discordId: USER, manageableGuildIds: [] });
-  h.rows("sessions").push({ _id: "s1", token: TOKEN, userId: USER, createdAt: Date.now() });
+  h.rows("users").push({ _id: USER, discordId: USER, manageableGuildIds: [GID] });
+  h.rows("sessions").push({
+    _id: "s1",
+    token: TOKEN,
+    userId: USER,
+    createdAt: Date.now(),
+    authVersion: 1,
+  });
   return h;
 }
 
@@ -388,7 +394,10 @@ const backupList = async (h: ReturnType<typeof seed>) =>
       (list[0] as any).backupJson === undefined,
     );
     check("bot xoá cờ chờ sau khi lưu xong", guildRow(h).backupRequested === false);
-    check("bot xoá khoá claim", guildRow(h).backupClaimedAt === undefined);
+    check(
+      "bot xoá khoá claim + lease",
+      guildRow(h).backupClaimedAt === undefined && guildRow(h).backupLeaseUntil === undefined,
+    );
     check(
       "lastBackupAt được cập nhật (không kích hoạt backup tự động lại)",
       typeof guildRow(h).lastBackupAt === "number",

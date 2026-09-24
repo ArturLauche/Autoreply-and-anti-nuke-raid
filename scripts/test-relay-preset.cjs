@@ -38,13 +38,14 @@ const hashMatch = relaySrc.match(
     // relayClient không export setter — test qua hành vi thật: reset → rỗng → null
     check(
       "matchSpamText khi rỗng → null (fail-open)",
-      relayClient.matchSpamText("free nitro gấp") === null,
+      relayClient.matchSpamText("g1", "free nitro gấp") === null,
     );
     check(
       "matchSpamText với null/rác → null, không ném",
-      relayClient.matchSpamText(null) === null && relayClient.matchSpamText(42) === null,
+      relayClient.matchSpamText("g1", null) === null &&
+        relayClient.matchSpamText("g1", 42) === null,
     );
-    check("localCount khởi đầu = 0", relayClient.localCount() === 0);
+    check("localCount khởi đầu = 0", relayClient.localCount("g1") === 0);
   }
 
   // reportSignatureBatch: fire-and-forget không ném với store rác
@@ -84,6 +85,107 @@ const hashMatch = relaySrc.match(
     }
     check("reportSignature store/guildId null → không ném", threw === null);
   }
+
+  // Cache, TTL và loading phải tách từng guild.
+  {
+    const queried = [];
+    relayClient.reset();
+    relayClient.attach({
+      client: {
+        query: async (name, args) => {
+          queried.push({ name, args });
+          return {
+            signatures: [
+              {
+                kind: "spam-text",
+                value: args.guildId === "g1" ? "free nitro gấp" : "verified-only-pattern",
+                weight: 2,
+              },
+            ],
+          };
+        },
+        mutation: async () => ({}),
+      },
+    });
+    await relayClient.refreshSignatures("g1");
+    await relayClient.refreshSignatures("g2");
+    await new Promise((resolve) => setImmediate(resolve));
+    check(
+      "refresh tải cache riêng cho từng guild",
+      queried.length === 2 &&
+        queried.every((call) => call.name === "relay:botGetRelaySignatures") &&
+        relayClient.localCount("g1") === 1 &&
+        relayClient.localCount("g2") === 1,
+    );
+    check(
+      "match chỉ dùng signature của guild hiện tại",
+      relayClient.matchSpamText("g1", "x free nitro gấp y")?.value === "free nitro gấp" &&
+        relayClient.matchSpamText("g2", "free nitro gấp") === null,
+    );
+  }
+
+  {
+    relayClient.reset();
+    relayClient.attach({
+      client: {
+        query: () => {
+          throw new Error("sync query failure");
+        },
+        mutation: async () => ({}),
+      },
+    });
+    let threw = null;
+    try {
+      await relayClient.refreshSignatures("g-sync-error");
+    } catch (error) {
+      threw = error;
+    }
+    check(
+      "refresh lỗi synchronous vẫn fail-open và không tạo cache",
+      threw === null && relayClient.localCount("g-sync-error") === 0,
+    );
+  }
+
+  {
+    relayClient.reset();
+    let queries = 0;
+    relayClient.attach({
+      client: {
+        query: async () => {
+          queries++;
+          return { signatures: "malformed" };
+        },
+        mutation: async () => ({}),
+      },
+    });
+    await relayClient.refreshSignatures("g-malformed");
+    await relayClient.refreshSignatures("g-malformed");
+    check(
+      "response relay malformed → backoff, không gọi lại mỗi tin nhắn",
+      queries === 1 && relayClient.localCount("g-malformed") === 0,
+    );
+  }
+
+  const relayClientSrc = fs.readFileSync("bot/src/relayClient.js", "utf8");
+  const filtersSrc = fs.readFileSync("bot/src/handlers/filters.js", "utf8");
+  check(
+    "relay client không còn cache/loading/TTL global",
+    /byGuild/.test(relayClientSrc) &&
+      !/let signatures = \[\]/.test(relayClientSrc) &&
+      !/let loading = false/.test(relayClientSrc) &&
+      /MAX_GUILD_CACHE/.test(relayClientSrc) &&
+      /retryAt/.test(relayClientSrc),
+  );
+  check(
+    "relay refresh không bị global threat-intel TTL chặn",
+    /relayClient\.attach\(store\);[\s\S]*relayClient\.refreshSignatures\(guildId\);[\s\S]*if \(threatLoading/.test(
+      filtersSrc,
+    ),
+  );
+  check(
+    "relay client truyền guild ID vào matchSpamText",
+    /matchSpamText\(message\.guild\.id,\s*message\.content\)/.test(filtersSrc),
+  );
 
   // ════════ 2. presets — shape + hợp lệ ════════
   // presets.ts là TypeScript — kiểm bằng regex đọc source (không compile TS trong test Node thuần)
@@ -153,7 +255,19 @@ const hashMatch = relaySrc.match(
     /0x811c9dc5/.test(relaySrc) && !/require\("crypto"\)/.test(relaySrc),
   );
   check("rate-limit 10/phút/guild nguồn", /RATE_LIMIT = 10/.test(relaySrc));
-  check("TTL 24h tự hết hạn", /TTL_MS = 24 \* 60 \* 60 \* 1000/.test(relaySrc));
+  check(
+    "relay query/cleanup có giới hạn số dòng đọc",
+    /MAX_STATUS_SCAN/.test(relaySrc) &&
+      /MAX_OWNER_SCAN/.test(relaySrc) &&
+      /MAX_DISTRIBUTABLE_SCAN/.test(relaySrc) &&
+      /MAX_CLEANUP_BATCH/.test(relaySrc),
+  );
+  check(
+    "legacy relay weight không được tin khi thiếu sourceHashes",
+    /function effectiveWeight/.test(relaySrc) &&
+      /effectiveWeight\(s\)/.test(relaySrc) &&
+      /weight: effectiveWeight\(s\)/.test(relaySrc),
+  );
   check(
     "weight >= 2 cho signature già (>2h) — chống đầu độc 1 server",
     /MIN_WEIGHT_AGED = 2/.test(relaySrc),

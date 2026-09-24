@@ -731,7 +731,26 @@ export const DE: Record<string, string> = {
   "Đang tải lên…": "Wird hochgeladen…",
   "Đang tải lịch sử…": "Verlauf wird geladen…",
   "Đang tải…": "Wird geladen…",
+  "Thiếu CONVEX_URL cho production build": "CONVEX_URL fehlt für den Production-Build",
+  "Đăng nhập thất bại, vui lòng thử lại.": "Anmeldung fehlgeschlagen. Bitte erneut versuchen.",
   "Đang xác thực với Discord…": "Authentifizierung mit Discord…",
+  "Quá nhiều lượt đăng nhập — thử lại sau ít phút":
+    "Zu viele Anmeldeversuche — in wenigen Minuten erneut versuchen",
+  "Chưa cấu hình redirect_uri cho phép trên deployment":
+    "Für dieses Deployment ist keine erlaubte Redirect-URI konfiguriert",
+  "Địa chỉ callback không được phép — kiểm tra cấu hình OAuth":
+    "Callback-Adresse ist nicht erlaubt — OAuth-Konfiguration prüfen",
+  "Mã OAuth hoặc PKCE không hợp lệ": "Ungültiger OAuth-Code oder PKCE-Verifier",
+  "Không kết nối được tới Discord — thử lại sau ít phút":
+    "Keine Verbindung zu Discord möglich — in wenigen Minuten erneut versuchen",
+  "Discord không trả dữ liệu hợp lệ — thử lại":
+    "Discord hat ungültige Daten geliefert — erneut versuchen",
+  "Trao đổi mã đăng nhập với Discord thất bại":
+    "Der Anmeldecode konnte nicht mit Discord ausgetauscht werden",
+  "Không ghi được phiên đăng nhập — thử lại":
+    "Anmeldesitzung konnte nicht gespeichert werden — erneut versuchen",
+  "DISCORD_CLIENT_ID chưa được cấu hình trên deployment":
+    "DISCORD_CLIENT_ID ist für dieses Deployment nicht konfiguriert",
   "Đang yêu cầu…": "Anfrage läuft…",
   "Điều hướng": "Navigation",
   "Điều hướng bảng điều khiển": "Dashboard-Navigation",
@@ -882,4 +901,33 @@ export const DE: Record<string, string> = {
   "Đang nghỉ tạm:": "Derzeit in Abkülhung:",
   "≥5 phạt nhầm đã xác nhận — AI đang tự siết độ tin cậy (bias giảm nhẹ + nhắc thận trọng trong prompt).":
     "≥5 bestätigte Fehlstrafen — die KI verschärft selbst ihr Vertrauen (leichte Bias-Kürzung + Vorsichtshinweis im Prompt).",
+  "Đang kiểm tra phiên đăng nhập": "Anmeldung wird geprüft",
+  "Mặc định": "Standard",
+  "Không thể làm mới danh sách server": "Serverliste konnte nicht aktualisiert werden",
+  "Protogon giúp bảo vệ server Discord với auto-reply, hệ thống nhiệt độ 4 giai đoạn, Join Gate chống selfbot, chặn link độc hại và 32 module chống nuke/raid.":
+    "Protogon schützt Discord-Server mit Auto-Antworten, einem vierstufigen Heat-System, Join Gate gegen Selfbots, Malware-Link-Blockierung und 32 Anti-Nuke-/Raid-Modulen.",
+  "Điều khoản sử dụng bot Protogon và bảng điều khiển web cho cộng đồng Discord.":
+    "Nutzungsbedingungen für den Protogon-Bot und das Web-Dashboard für Discord-Communitys.",
+  "Chính sách quyền riêng tư và cách Protogon xử lý dữ liệu người dùng.":
+    "Datenschutzrichtlinie und die Verarbeitung von Benutzerdaten durch Protogon.",
+  "Thông tin lưu trữ, thời hạn và quy trình yêu cầu xoá dữ liệu của Protogon.":
+    "Speicherinformationen und das Verfahren zur Anforderung einer Datenlöschung bei Protogon.",
+  "Theo dõi trạng thái, độ trễ và số liệu vận hành của bot Protogon theo thời gian thực.":
+    "Live-Status, Latenz und Betriebsdaten des Protogon-Bots.",
+  "Đăng nhập an toàn bằng Discord để quản lý các server của bạn trên Protogon.":
+    "Sicher mit Discord anmelden, um deine Server auf Protogon zu verwalten.",
+  "Quản lý cấu hình bảo vệ và tự động hóa cho các server Discord của bạn.":
+    "Schutz- und Automatisierungseinstellungen deiner Discord-Server verwalten.",
+  "Theo dõi thành viên có nhiệt độ vi phạm cao trong các server bạn quản lý.":
+    "Mitglieder mit der höchsten Verstoß-Heat auf deinen Servern verfolgen.",
+  "Khu vực quản trị dành riêng cho chủ sở hữu bot Protogon.":
+    "Administrationsbereich nur für den Protogon-Bot-Besitzer.",
+  "Đang xác thực Discord — Protogon": "Discord-Authentifizierung — Protogon",
+  "Đang hoàn tất đăng nhập Discord an toàn với Protogon.":
+    "Sichere Discord-Anmeldung bei Protogon wird abgeschlossen.",
+  "Không dùng CONVEX_URL localhost trong production build":
+    "Keine localhost-CONVEX_URL in einem Production-Build verwenden",
+  Xóa: "Entfernen",
+  "CONVEX_URL không hợp lệ hoặc không nằm trong allowlist":
+    "CONVEX_URL ist ungültig oder nicht auf der Allowlist",
 };

@@ -18,7 +18,7 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { buildBotInviteUrl, getSessionToken } from "../../lib/discord";
 import { usePublicConfig } from "../../lib/usePublicConfig";
-import { timeAgo } from "../../lib/utils";
+import { isHeartbeatFresh, timeAgo } from "../../lib/utils";
 import { ANTINUKE_MODULE_META } from "../../lib/constants";
 import { SafetyBar, TopOffenders } from "./HeatBar";
 import type { AntiNukeEvent, GuildData } from "../../lib/types";
@@ -108,6 +108,7 @@ function RecentEvents({ data }: { data: GuildData }) {
 export default function OverviewPanel({ data }: { data: GuildData }) {
   const { clientId } = usePublicConfig();
   const enabledModules = data.modules.filter((m) => m.enabled).length;
+  const botOnline = data.guild.botInGuild && isHeartbeatFresh(data.guild.lastHeartbeat);
   const logChannel = data.channels.find((c) => c.channelId === data.guild.logChannelId);
 
   const stats = [
@@ -192,21 +193,19 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
           <div className="flex items-center gap-3">
             <span
               className={`relative flex h-10 w-10 items-center justify-center rounded-lg ${
-                data.guild.botInGuild
-                  ? "bg-primary/15 text-primary"
-                  : "bg-secondary text-muted-foreground"
+                botOnline ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground"
               }`}
             >
               <Bot className="h-5 w-5" />
-              {data.guild.botInGuild && (
+              {botOnline && (
                 <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-card bg-foreground" />
               )}
             </span>
             <div>
               <p className="font-display font-semibold">
                 {translate("Trạng thái bot")}{" "}
-                <Badge variant={data.guild.botInGuild ? "success" : "danger"} className="ml-2">
-                  {translate(data.guild.botInGuild ? "Trực tuyến" : "Không hoạt động")}
+                <Badge variant={botOnline ? "success" : "danger"} className="ml-2">
+                  {translate(botOnline ? "Trực tuyến" : "Không hoạt động")}
                 </Badge>
               </p>
               <p className="text-xs text-muted-foreground">
@@ -217,21 +216,21 @@ export default function OverviewPanel({ data }: { data: GuildData }) {
           </div>
           <div className="flex flex-wrap gap-2">
             {clientId && (
-              <a href={buildBotInviteUrl(clientId)} target="_blank" rel="noreferrer">
-                <Button variant="secondary" size="sm">
+              <Button asChild variant="secondary" size="sm">
+                <a href={buildBotInviteUrl(clientId)} target="_blank" rel="noreferrer">
                   <ExternalLink className="h-4 w-4" /> {translate("Mời bot")}{" "}
-                </Button>
-              </a>
-            )}
-            <a
-              href={`https://discord.com/channels/${data.guild.discordId}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Button variant="secondary" size="sm">
-                <ArrowLeft className="h-4 w-4 rotate-180" /> {translate("Mở Discord")}{" "}
+                </a>
               </Button>
-            </a>
+            )}
+            <Button asChild variant="secondary" size="sm">
+              <a
+                href={`https://discord.com/channels/${data.guild.discordId}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <ArrowLeft className="h-4 w-4 rotate-180" /> {translate("Mở Discord")}{" "}
+              </a>
+            </Button>
           </div>
         </CardContent>
       </Card>

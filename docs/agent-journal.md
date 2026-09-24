@@ -6,26 +6,42 @@
 
 ## Đang dở
 
-- Không có việc bắt buộc. (Nợ cũ "dọn 119 bản dịch EN chết + 12 DE mồ côi" ĐÃ XONG phiên 23/09 —
-  dùng `scripts/_i18n-dead-remove.cjs`, check-i18n giờ sạch 100% không còn mục ℹ️.)
-- 🚧 **Chặn kỹ thuật đã xác định được quy luật (đọc trước khi làm tiếp)**: công cụ patch
-  (`str_replace`) chỉ sửa được **vùng ĐẦU của file lớn** — trong `src/lib/i18n.en.ts` (87 KB) sửa được
-  entry ở offset ~5 KB nhưng mọi `oldString` lấy từ offset ~56 KB đều báo "not found" (dòng tồn tại
-  thật, `grep` xác nhận; `i18n.de.ts` 92 KB và các file từ điển lớn tương tự). Quy tắc rút ra:
-  1. **Đừng sửa key ở cuối file từ điển lớn** — muốn đổi câu hiển thị thì tạo key MỚI chèn ở vùng đầu
-     (patch được) và chấp nhận entry cũ thành bản dịch chết (guard báo mềm), HOẶC ghi đè giá trị
-     EN/DE cho **cùng key** bằng entry trùng tên trong `i18n.*.labels.ts`/`.panels.ts` (file nhỏ, gộp
-     sau nên thắng) khi không cần đổi chính chuỗi VI.
-  2. Việc cần xoá entry ở vùng cuối → dùng `scripts/_i18n-dead-remove.cjs` (script xoá theo key-list,
-     backup + kiểm esbuild sau mỗi file) — KHÔNG dùng str_replace cho entry vùng cuối.
-  3. `str_replace` cũng có lúc báo "file does not exist" hoặc dùng snapshot cũ cho file vừa ghi → luôn
-     `grep`/`read_files` kiểm lại nội dung trên đĩa sau mỗi lần áp patch.
-  4. **Cách xử lý TỐT NHẤT khi cần sửa ở vùng cuối file lớn: đổi thiết kế cho khỏi phải sửa ở đó.**
-     Ca thật 23/09: `bot/src/handlers/backup.js` (2126 dòng) cần thêm `store.invalidate()` sau
-     `botRestoreSettings` ở dòng ~1781 — patch báo "not found" dù `grep` xác nhận chuỗi đúng.
-     Thay vì mò cách vá đuôi file, gom việc đó về **một điểm chặn duy nhất ở file nhỏ**
-     (`bot/src/convex.js`: proxy tự xoá cache sau mọi lượt ghi cấu hình của bot) → vừa vá được
-     cả 7 chỗ cùng lúc, vừa không bao giờ phải chạm đuôi file lớn nữa.
+- Toàn bộ slice đã triển khai trong working tree; sau adversarial review đã đóng thêm claim fencing/audit miss/URL build/SEO deploy.
+- Còn rà staged diff, commit/push/PR sau full gates + ultragoal-verify.
+- Không còn blocker kỹ thuật đã biết; không đọc/ghi secret.
+- **Bài học giữ lại từ phiên trước**:
+  1. Công cụ patch chỉ sửa vùng đầu file lớn; key i18n ở cuối file nên chèn key mới ở đầu hoặc dùng `scripts/_i18n-dead-remove.cjs`.
+  2. Sau mỗi patch phải đọc lại file trên đĩa; snapshot cũ có thể làm Edit báo sai.
+  3. Khi cần sửa đuôi file lớn, ưu tiên đổi thiết kế về một điểm chặn nhỏ; đừng mò chuỗi ở vị trí khó patch.
+  4. `bot/src/handlers/backup.js` đã gom việc xoá cache qua proxy `bot/src/convex.js`, không thêm `store.invalidate()` rải rác.
+
+---
+
+## 2026-09-24 — Adversarial review follow-up
+
+- Đóng lỗi import/restore claim sai lease field, lease renewal/fencing, stale settings/clear responses, audit-log miss gây phạt oan, malformed relay retry.
+- Build production giờ bắt buộc `CONVEX_URL`; validator regional `.convex.cloud`, Docker noindex/404 và OAuth docs đã đồng bộ.
+- Regression: backup convex 41/41, tick 37/37, anti-nuke state 47/47, relay 37/37, web contracts 61/61, security 67/67; full gate xanh.
+- ▶️ Tiếp theo: rà staged diff, commit/push/PR; CI GitHub sẽ được kiểm tra sau khi push.
+
+---
+
+## 2026-09-24 — Security/OAuth/UI quality pass
+
+- ✅ Xong: OAuth PKCE server-side + session version fail-closed, owner/relay/audit/backup hardening, SEO/deploy/a11y fixes.
+- 📁 File đụng: `convex/{sessionAuth,auth,sessionHardening,botBootstrapAction,backup,bot_writes,relay}.ts`, `src/`, `bot/`, `Dockerfile.web`, `vercel.json`.
+- 🧪 Kiểm chứng: 61/61 CJS · 9/9 TS · tsc/lint/format/build · i18n/map/contract/settings · Playwright 24 pages, 0 axe lỗi.
+- ▶️ Tiếp theo: final review, `ultragoal-verify`, commit/push và mở PR.
+
+---
+
+## 2026-09-23 — Backend/security slice: owner, session, relay, bot safety
+
+- Xong: khóa bot theo Application ID, canonical fail-closed owner, snapshot guild auth, session identity binding, relay distinct-source + guild cache, và các fix bot an toàn đã yêu cầu.
+- Kiểm chứng: security 59/59; rate 13/13; TS 9/9; CJS 60/61 (fail duy nhất là test web sửa sẵn); tsc/lint/contract/settings/map/diff sạch.
+- File đụng: nhóm `convex/{auth,hidden,status,selfDiagnose,threatIntel,relay,session*,bot*,rateGuard,altDetection,guilds,schema}.ts`, nhóm bot safety, các suite CJS/TS liên quan.
+- Còn chặn: `bun convex dev --once` timeout local backend 30s và 120s; full format chỉ fail `scripts/test-web-contracts.cjs` không thuộc slice.
+- Tiếp theo: không commit; xử lý blocker ngoài scope rồi chạy lại gate đầy đủ.
 
 ---
 

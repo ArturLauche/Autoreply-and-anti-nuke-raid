@@ -11,14 +11,27 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
   // Chưa đăng nhập → skip (RequireAuth sẽ chuyển hướng sang /auth ngay).
   const me = useQuery(api.sessions.me, token ? { token } : "skip");
 
+  if (!token) {
+    const returnTo = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/auth?returnTo=${returnTo}`} replace />;
+  }
+
   if (me === undefined) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+      <main
+        className="flex min-h-screen items-center justify-center bg-background"
+        aria-busy="true"
+      >
+        <div
+          className="flex flex-col items-center gap-3 text-muted-foreground"
+          role="status"
+          aria-live="polite"
+        >
+          <h1 className="sr-only">{translate("Đang kiểm tra phiên đăng nhập")}</h1>
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
           <span className="text-sm">{translate("Đang kiểm tra phiên đăng nhập…")}</span>
         </div>
-      </div>
+      </main>
     );
   }
 

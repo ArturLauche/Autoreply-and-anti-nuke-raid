@@ -3,6 +3,7 @@ Allow: /
 Disallow: /dashboard
 Disallow: /dashboard/
 Disallow: /admin
+Disallow: /stats
 Disallow: /discord/callback
 Disallow: /auth
 

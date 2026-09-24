@@ -193,55 +193,58 @@ export default function ModuleCard({
     // KHÔNG dùng overflow-hidden: dropdown chọn role bị cắt mất phần dưới trên
     // mobile. Bo góc giữ bằng rounded trên Card + rounded-r riêng cho header.
     <Card className={cn(!config.enabled && "opacity-60")}>
-      {/* Header — 1 dòng tóm tắt, bấm để mở cấu hình */}
-      <div
-        className="flex cursor-pointer items-center gap-3 rounded-t-xl px-4 py-3 transition-colors hover:bg-accent/40"
-        onClick={() => setOpen((o) => !o)}
-        role="button"
-        aria-expanded={open}
-      >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <Icon className="h-5 w-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-2 truncate text-sm font-semibold">
-            {translate(meta.label)}
-            {!config.enabled && (
-              <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px]">
-                {translate("tắt")}{" "}
-              </Badge>
-            )}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">{translate(meta.description)}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <div className="hidden items-center gap-1.5 md:flex">
-            <Badge variant="secondary" className="px-2 py-0.5 text-[10px]">
-              ≥{config.threshold}/{config.windowSeconds}s
-            </Badge>
-            {actions.map((a) => (
-              <Badge key={a} className={cn("px-2 py-0.5 text-[10px]", ACTION_STYLE[a])}>
-                {translate(ACTION_LABEL[a])}
-              </Badge>
-            ))}
-            {!hasMemberPunish && (
-              <Badge variant="secondary" className="px-2 py-0.5 text-[10px]">
-                {translate("chỉ dọn tin")}{" "}
-              </Badge>
-            )}
-          </div>
-          <Switch
-            checked={config.enabled}
-            onCheckedChange={(v) => patchModule(module, { enabled: v })}
-            onClick={(e) => e.stopPropagation()}
-          />
+      {/* Header — phần mở cấu hình là button native; Switch là control sibling để không nest control. */}
+      <div className="flex items-center gap-2 rounded-t-lg px-3 py-3 transition-colors hover:bg-accent/40 sm:px-4">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Icon className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-2 truncate text-sm font-semibold">
+              {translate(meta.label)}
+              {!config.enabled && (
+                <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px]">
+                  {translate("tắt")}{" "}
+                </Badge>
+              )}
+            </span>
+            <span className="block truncate text-xs text-muted-foreground">
+              {translate(meta.description)}
+            </span>
+          </span>
           <ChevronDown
             className={cn(
-              "h-4 w-4 text-muted-foreground transition-transform",
+              "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
               open && "rotate-180",
             )}
           />
+        </button>
+        <div className="hidden shrink-0 items-center gap-1.5 md:flex">
+          <Badge variant="secondary" className="px-2 py-0.5 text-[10px]">
+            ≥{config.threshold}/{config.windowSeconds}s
+          </Badge>
+          {actions.map((a) => (
+            <Badge key={a} className={cn("px-2 py-0.5 text-[10px]", ACTION_STYLE[a])}>
+              {translate(ACTION_LABEL[a])}
+            </Badge>
+          ))}
+          {!hasMemberPunish && (
+            <Badge variant="secondary" className="px-2 py-0.5 text-[10px]">
+              {translate("chỉ dọn tin")}{" "}
+            </Badge>
+          )}
         </div>
+        <Switch
+          checked={config.enabled}
+          onCheckedChange={(v) => patchModule(module, { enabled: v })}
+          aria-label={translate(meta.label)}
+          className="shrink-0"
+        />
       </div>
 
       {/* Cấu hình mở rộng */}

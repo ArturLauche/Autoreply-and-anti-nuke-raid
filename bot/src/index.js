@@ -306,12 +306,22 @@ client.once("clientReady", async () => {
 // Kira/Mimo) chẩn đoán + đăng đề xuất vá vào kênh log (chỉ khi owner bật).
 // diagnoseError giữ nguyên console.error cũ — console vẫn in đủ để pm2 logs đọc.
 const selfDiagnose = require("./handlers/selfDiagnose");
+const UNCAUGHT_DIAGNOSIS_TIMEOUT_MS = 5_000;
 process.on("unhandledRejection", (reason) => {
   selfDiagnose.diagnoseError("unhandledRejection", reason).catch(() => {});
 });
 process.on("uncaughtException", (err) => {
-  selfDiagnose.diagnoseError("uncaughtException", err).catch(() => {});
-  // Don't exit — PM2 will handle restarts
+  const diagnosisTimeout = setTimeout(() => {
+    console.error("[uncaughtException] chẩn đoán treo quá 5 giây — buộc restart");
+    process.exit(1);
+  }, UNCAUGHT_DIAGNOSIS_TIMEOUT_MS);
+  selfDiagnose
+    .diagnoseError("uncaughtException", err)
+    .catch(() => {})
+    .finally(() => {
+      clearTimeout(diagnosisTimeout);
+      process.exit(1);
+    });
 });
 
 // --- Event handlers ---

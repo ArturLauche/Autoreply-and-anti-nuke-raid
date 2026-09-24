@@ -7,8 +7,8 @@
 #   2. nginx     → chỉ copy dist/ → serve cực nhẹ (~25MB RAM)
 #
 # Lưu ý build-args (điền trong Dokploy → tab Build → Build Arguments):
-#   VITE_CONVEX_URL        URL deployment Convex thật (bắt buộc — mặc định đã
-#                          trỏ production nên có thể bỏ trống)
+#   VITE_CONVEX_URL        URL deployment Convex thật (bắt buộc — build fail
+#                          closed nếu thiếu, không tự trỏ production)
 #   VITE_DISCORD_CLIENT_ID application id bot (để nút đăng nhập Discord hoạt động)
 #   DISCORD_CLIENT_ID      shim scripts/build.mjs tự chuyển thành VITE_DISCORD_CLIENT_ID
 
@@ -24,6 +24,7 @@ RUN bun install --frozen-lockfile
 COPY index.html vite.config.ts tailwind.config.ts postcss.config.js tsconfig*.json ./
 COPY scripts/build.mjs ./scripts/build.mjs
 COPY src ./src
+COPY public ./public
 COPY convex ./convex
 
 ARG VITE_CONVEX_URL=""
@@ -42,9 +43,9 @@ FROM nginx:1.27-alpine
 # CSP: script-src chỉ 'self' (không inline script trong bundle Vite; thẻ
 # ld+json là data-block nên không bị chặn). style-src cần 'unsafe-inline' vì
 # thư viện UI (sonner/radix) chèn <style> runtime. connect-src mở cho Convex
-# (https + wss) và discord.com (luồng fallback trao đổi code OAuth phía client).
+# (https + wss) và discord.com (form-action OAuth).
 RUN printf '%s\n' \
-  "add_header Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.convex.cloud wss://*.convex.cloud https://discord.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self'\" always;" \
+  "add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'sha256-faae59ca5f6a0f958cf5644f8ed2c157c1ac583b0a57c70f4ff48840f0424c9c'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.convex.cloud wss://*.convex.cloud https://discord.com; object-src 'none'; base-uri 'self'; form-action 'self' https://discord.com; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self'\" always;" \
   "add_header X-Content-Type-Options \"nosniff\" always;" \
   "add_header X-Frame-Options \"DENY\" always;" \
   "add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;" \
@@ -58,9 +59,18 @@ RUN printf '%s\n' \
   "  root /usr/share/nginx/html;" \
   "  index index.html;" \
   "  include /etc/nginx/security-headers.conf;" \
-  "  location / {" \
-  "    try_files \$uri \$uri/ /index.html;" \
+  "  location ~ ^/(auth|discord/callback|admin|stats)/?$ {" \
+  "    try_files /index.html =404;" \
+  "    include /etc/nginx/security-headers.conf;" \
+  "    add_header X-Robots-Tag \"noindex, nofollow\" always;" \
   "  }" \
+  "  location ~ ^/dashboard(?:/.+)?/?$ {" \
+  "    try_files /index.html =404;" \
+  "    include /etc/nginx/security-headers.conf;" \
+  "    add_header X-Robots-Tag \"noindex, nofollow\" always;" \
+  "  }" \
+  "  location / { try_files \$uri \$uri/ =404; }" \
+  "  error_page 404 /404.html;" \
   "  location /assets/ {" \
   "    include /etc/nginx/security-headers.conf;" \
   "    expires 30d;" \

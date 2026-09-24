@@ -83,10 +83,12 @@ docker service update --publish-rm "published=3000,target=3000,mode=host" dokplo
 
 ### 3.2. Điền Build Arguments (tab **Build → Build Arguments**)
 
-| Argument            | Giá trị                                                                           | Bắt buộc?                                     |
-| ------------------- | --------------------------------------------------------------------------------- | --------------------------------------------- |
-| `VITE_CONVEX_URL`   | URL deployment Convex thật, ví dụ `https://accomplished-chipmunk-74.convex.cloud` | Không (mặc định trong code đã trỏ production) |
-| `DISCORD_CLIENT_ID` | Application ID của bot (Discord Developer Portal → General Information)           | Có — để nút đăng nhập Discord hoạt động       |
+| Argument            | Giá trị                                                                           | Bắt buộc?                               |
+| ------------------- | --------------------------------------------------------------------------------- | --------------------------------------- |
+| `VITE_CONVEX_URL`   | URL deployment Convex thật, ví dụ `https://accomplished-chipmunk-74.convex.cloud` | Bắt buộc — build fail nếu thiếu         |
+| `DISCORD_CLIENT_ID` | Application ID của bot (Discord Developer Portal → General Information)           | Có — để nút đăng nhập Discord hoạt động |
+
+Ở **Convex deployment** còn phải đặt `OAUTH_REDIRECT_URI` (hoặc `DASHBOARD_URL` gốc) bằng đúng `https://<domain>/discord/callback`; Discord Developer Portal chỉ kiểm tra một nơi, còn action exchange cũng kiểm tra allowlist phía server. Build frontend không tự suy ra được biến Convex này.
 
 ### 3.3. Đặt port
 
@@ -127,14 +129,14 @@ git push → GitHub → Dokploy tự nhận (webhook)
 
 ## Khắc phục lỗi thường gặp
 
-| Triệu chứng                                 | Nguyên nhân                                         | Cách xử lý                                                                                    |
-| ------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Deploy fail " bun: not found"               | Sai Dockerfile path                                 | Đảm bảo Build type = Dockerfile, path = `./Dockerfile.web`                                    |
-| Trang trắng sau deploy                      | Thiếu `VITE_CONVEX_URL` / client id                 | Kiểm tra Build Arguments → redeploy                                                           |
-| Nút Discord login không hoạt động           | Thiếu `DISCORD_CLIENT_ID` lúc build                 | Thêm Build Argument → redeploy (Vite "bake" giá trị lúc build, không đọc runtime)             |
-| Redirect Discord báo "Invalid redirect URI" | URL mới chưa đăng ký trong Discord Developer Portal | Vào Dev Portal → OAuth2 → thêm `https://protogon.tên-miền.com/discord/callback` vào Redirects |
-| Build treo / OOM                            | VPS thiếu RAM lúc build                             | Build lúc khuya, hoặc nâng VPS tạm 4GB, hoặc dùng Build Server riêng                          |
-| Bot lag khi deploy                          | Build ngốn CPU/RAM                                  | Ổn — chỉ vài phút; hoặc tách build sang VPS khác                                              |
+| Triệu chứng                                 | Nguyên nhân                                                            | Cách xử lý                                                                                      |
+| ------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Deploy fail " bun: not found"               | Sai Dockerfile path                                                    | Đảm bảo Build type = Dockerfile, path = `./Dockerfile.web`                                      |
+| Trang trắng sau deploy                      | Thiếu `VITE_CONVEX_URL` / client id                                    | Kiểm tra Build Arguments → redeploy                                                             |
+| Nút Discord login không hoạt động           | Thiếu `DISCORD_CLIENT_ID` lúc build hoặc `OAUTH_REDIRECT_URI` ở Convex | Thêm Build Argument và Convex env, rồi redeploy; URI phải khớp chính xác, không có dấu `/` cuối |
+| Redirect Discord báo "Invalid redirect URI" | URL mới chưa đăng ký trong Discord Developer Portal                    | Vào Dev Portal → OAuth2 → thêm `https://protogon.tên-miền.com/discord/callback` vào Redirects   |
+| Build treo / OOM                            | VPS thiếu RAM lúc build                                                | Build lúc khuya, hoặc nâng VPS tạm 4GB, hoặc dùng Build Server riêng                            |
+| Bot lag khi deploy                          | Build ngốn CPU/RAM                                                     | Ổn — chỉ vài phút; hoặc tách build sang VPS khác                                                |
 
 ---
 

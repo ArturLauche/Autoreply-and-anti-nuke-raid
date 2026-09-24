@@ -21,7 +21,7 @@ fs.writeFileSync(
   setTimestamp() { return this; }
   setFooter(f) { this.d.footer = f; return this; }
 }
-module.exports = { Colors: new Proxy({}, { get: () => 0x000000 }), EmbedBuilder, PermissionFlagsBits: { ManageGuild: 1n << 5n, Administrator: 1n << 3n } };
+module.exports = { Colors: new Proxy({}, { get: () => 0x000000 }), EmbedBuilder, PermissionFlagsBits: { ManageGuild: 1n << 5n, Administrator: 1n << 3n }, UserFlags: { VerifiedBot: 1n << 16n } };
 `,
 );
 
@@ -237,6 +237,28 @@ function mkAttachments(names) {
   check(
     "bot ở lại 30 ngày bị ban → HẠ xuống timeout",
     timeoutCalled === true && resBot.action.includes("tạm khóa"),
+  );
+
+  const verifiedNewBot = {
+    id: "bot2",
+    user: {
+      bot: true,
+      username: "verified",
+      flags: { has: (flag) => flag === 1n << 16n },
+    },
+    joinedTimestamp: now,
+    timeout: async () => {},
+    ban: async () => {
+      throw new Error("verified bot must not be banned");
+    },
+    kick: async () => {
+      throw new Error("verified bot must not be kicked");
+    },
+  };
+  const resVerified = await punishMember(fakeGuild, verifiedNewBot, "ban", "test", 300, null);
+  check(
+    "bot mới có UserFlags.VerifiedBot → HẠ xuống timeout",
+    resVerified.action.includes("tạm khóa"),
   );
 
   console.log(`\nKết quả misfire-guard: ${pass} PASS, ${fail} FAIL`);

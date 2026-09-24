@@ -3,7 +3,7 @@ import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild, guildAccessibleBy } from "./auth";
 import { requireBotKeyStrict } from "./botAuth";
-import { hiddenPasswordIsSet } from "./hidden";
+import { getBotStatus, hiddenPasswordIsSet, isBotOwnerUser } from "./hidden";
 import {
   ANTI_NUKE_MODULES,
   HEAT_DEFAULTS,
@@ -115,7 +115,7 @@ export const getGuild = query({
       .withIndex("by_kind", (q) => q.eq("kind", "status"))
       .first();
     const ownerDiscordId = botStatus?.ownerDiscordId;
-    const isBotOwner = !!ownerDiscordId && ownerDiscordId === user.discordId;
+    const isBotOwner = isBotOwnerUser(user, botStatus);
     const panels = (
       await ctx.db
         .query("reactionRolePanels")
@@ -159,7 +159,7 @@ export const getGuild = query({
         hiddenPasswordSet: await hiddenPasswordIsSet(ctx),
         isBotOwner,
         botOwnerSet: !!ownerDiscordId,
-        theme: guild.theme ?? "pink",
+        theme: guild.theme ?? "graphite",
         backupAutoDays: guild.backupAutoDays ?? 0,
         lastBackupAt: guild.lastBackupAt ?? null,
         restoreRolesEnabled: guild.restoreRolesEnabled ?? true,
@@ -629,7 +629,23 @@ export const updateSettings = mutation({
     // schema.ts). `updatedAt` không dùng được vì chính bot bump nó mỗi lượt sync.
     const patch: Record<string, unknown> = { updatedAt: Date.now(), settingsChangedAt: Date.now() };
     if (args.theme !== undefined) {
-      const THEME_KEYS = ["pink", "rose", "orange", "amber", "green", "teal", "sky", "violet"];
+      // Five grayscale keys are the current dashboard contract. Legacy color keys
+      // remain accepted during deployment skew; the UI maps them to Graphite.
+      const THEME_KEYS = [
+        "graphite",
+        "slate",
+        "steel",
+        "mist",
+        "fog",
+        "pink",
+        "rose",
+        "orange",
+        "amber",
+        "green",
+        "teal",
+        "sky",
+        "violet",
+      ];
       if (!THEME_KEYS.includes(args.theme)) throw new Error("Chủ đề màu không hợp lệ");
       patch.theme = args.theme;
     }
@@ -1480,11 +1496,8 @@ export const botGuildStats = query({
     } else if (token) {
       const user = await getUserByToken(ctx, token);
       if (!user) return null;
-      const owner = await ctx.db
-        .query("botStatus")
-        .withIndex("by_kind", (q) => q.eq("kind", "status"))
-        .first();
-      if (owner?.ownerDiscordId && owner.ownerDiscordId !== user.discordId) return null;
+      const status = await getBotStatus(ctx);
+      if (!isBotOwnerUser(user, status)) return null;
     } else {
       return null;
     }

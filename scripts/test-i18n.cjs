@@ -81,9 +81,8 @@ check(
   /const \{ lang \} = useT\(\);/.test(app),
 );
 check(
-  "TitleSync dịch title route và phụ thuộc lang",
-  /translate\(match \? match\[1\] : BASE_TITLE\)/.test(app) &&
-    /\}, \[pathname, lang\]\);/.test(app),
+  "RouteMetadataSync đồng bộ title/metadata và phụ thuộc lang",
+  /syncRouteMetadata\(pathname, lang\)/.test(app) && /\}, \[pathname, lang\]\);/.test(app),
 );
 
 // ─── 3. Công tắc ngôn ngữ có ở chrome mọi trang ────────────────────────────

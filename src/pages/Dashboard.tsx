@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Bot, Loader2, LogOut, Plus, RefreshCw, Server, ShieldAlert, Users } from "lucide-react";
 import { LogoMark } from "../components/BotLogo";
 import { api } from "../../convex/_generated/api";
@@ -14,13 +14,12 @@ import {
   SILENT_VERIFIER_KEY,
   buildBotInviteUrl,
   buildSilentAuthorizeUrl,
-  clearDiscordAccess,
+  clearLegacyDiscordAccess,
   clearSessionToken,
   discordAvatarUrl,
   discordGuildIconUrl,
   generateChallenge,
   generateVerifier,
-  getDiscordAccessToken,
   getSessionToken,
   randomState,
 } from "../lib/discord";
@@ -31,43 +30,22 @@ import { toast } from "sonner";
 import LangSwitch from "../components/LangSwitch";
 
 import { dateLocale, translate } from "../lib/i18n";
+import { isHeartbeatFresh } from "../lib/utils";
 export default function Dashboard() {
   const navigate = useNavigate();
   const token = getSessionToken();
   const me = useQuery(api.sessions.me, token ? ({ token } as { token: string }) : "skip") as
     MeData | null | undefined;
   const logout = useMutation(api.sessions.logout);
-  // Làm mới danh sách server qua action server-side: server tự hỏi Discord
-  // /users/@me/guilds bằng access token — client không tự báo danh sách.
-  const refreshGuilds = useAction(api.sessionAuth.refreshGuildsServer);
   const { clientId } = usePublicConfig();
   const [refreshing, setRefreshing] = useState(false);
 
-  /** Làm mới danh sách server từ Discord (không cần đăng nhập lại). */
-  async function refreshFromDiscord() {
-    if (!clientId || !token) return;
-    try {
-      const accessToken = await getDiscordAccessToken(clientId);
-      if (!accessToken) return;
-      await refreshGuilds({ token, accessToken });
-    } catch {
-      // Token hết hạn / mạng lỗi — bỏ qua, danh sách vẫn dùng dữ liệu đã lưu.
-    }
-  }
-
   /**
-   * Làm mới im lặng: có token OAuth thì dùng thẳng; chưa có (phiên đăng nhập từ
-   * trước bản cập nhật) thì chuyển hướng qua Discord với prompt=none — người dùng
-   * đã cấp quyền trước đó nên Discord tự quay về ngay, không hiện màn hình xác
-   * nhận. force = bỏ qua cooldown (khi bấm nút Tải lại).
+   * Làm mới im lặng qua authorization code mới (prompt=none). Convex trao đổi
+   * code + PKCE verifier và tự cập nhật quyền server; browser không giữ access token.
    */
   async function startSilentRefresh(force: boolean) {
     if (!clientId || !token) return;
-    const stored = await getDiscordAccessToken(clientId);
-    if (stored) {
-      await refreshFromDiscord();
-      return;
-    }
     const lastAttempt = Number(sessionStorage.getItem(SILENT_ATTEMPT_KEY) ?? 0);
     if (!force && Date.now() - lastAttempt < 10 * 60_000) return;
     sessionStorage.setItem(SILENT_ATTEMPT_KEY, String(Date.now()));
@@ -114,20 +92,27 @@ export default function Dashboard() {
   async function handleLogout() {
     await logout({ token });
     clearSessionToken();
-    clearDiscordAccess();
+    clearLegacyDiscordAccess();
     navigate("/");
   }
 
   async function handleRefresh() {
     setRefreshing(true);
-    await startSilentRefresh(true);
-    setRefreshing(false);
+    try {
+      await startSilentRefresh(true);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : translate("Không thể làm mới danh sách server"),
+      );
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   const avatar = discordAvatarUrl({ id: me.user.discordId, avatar: me.user.avatar });
   const managed = me.guilds;
   const onlineCount = managed.filter(
-    (g) => g.botInGuild && g.lastHeartbeat && Date.now() - g.lastHeartbeat < 180_000,
+    (g) => g.botInGuild && isHeartbeatFresh(g.lastHeartbeat),
   ).length;
   const totalMembers = managed.reduce((a, g) => a + (g.memberCount ?? 0), 0);
 
@@ -242,9 +227,11 @@ export default function Dashboard() {
                   </p>
                 </div>
                 {clientId && (
-                  <a href={buildBotInviteUrl(clientId)} target="_blank" rel="noreferrer">
-                    <Button size="lg">{translate("Mời bot vào server")}</Button>
-                  </a>
+                  <Button asChild size="lg">
+                    <a href={buildBotInviteUrl(clientId)} target="_blank" rel="noreferrer">
+                      {translate("Mời bot vào server")}
+                    </a>
+                  </Button>
                 )}
               </CardContent>
             </Card>
@@ -266,21 +253,18 @@ export default function Dashboard() {
                     {translate("Tải lại")}{" "}
                   </Button>
                   {clientId && (
-                    <a href={buildBotInviteUrl(clientId)} target="_blank" rel="noreferrer">
-                      <Button variant="secondary" size="sm">
+                    <Button asChild variant="secondary" size="sm">
+                      <a href={buildBotInviteUrl(clientId)} target="_blank" rel="noreferrer">
                         <Plus className="h-4 w-4" /> {translate("Thêm server")}{" "}
-                      </Button>
-                    </a>
+                      </a>
+                    </Button>
                   )}
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {managed.map((guild) => {
                   const icon = discordGuildIconUrl({ id: guild.discordId, icon: guild.icon });
-                  const online =
-                    guild.botInGuild &&
-                    guild.lastHeartbeat !== null &&
-                    Date.now() - guild.lastHeartbeat < 180_000;
+                  const online = guild.botInGuild && isHeartbeatFresh(guild.lastHeartbeat);
                   return (
                     <Card key={guild.discordId} className="card-hover overflow-hidden">
                       <div className="h-1 w-full bg-foreground/80" />

@@ -5,7 +5,13 @@
  */
 import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { v, type GenericId } from "convex/values";
-import { getUserByToken, PERM_MANAGE_GUILD, guildAccessibleBy, SESSION_TTL_MS } from "./auth";
+import {
+  getUserByToken,
+  PERM_MANAGE_GUILD,
+  guildAccessibleBy,
+  SESSION_TTL_MS,
+  CURRENT_SESSION_AUTH_VERSION,
+} from "./auth";
 
 /**
  * Dọn phiên đã quá hạn (gọi cơ hội khi đăng nhập — không cần cron, không tốn
@@ -96,6 +102,7 @@ export const loginInternal = internalMutation({
       token: args.token,
       userId,
       createdAt: Date.now(),
+      authVersion: CURRENT_SESSION_AUTH_VERSION,
     });
     return { ok: true };
   },
@@ -121,6 +128,7 @@ export const newSessionInternal = internalMutation({
       token: b64,
       userId: user._id,
       createdAt: Date.now(),
+      authVersion: CURRENT_SESSION_AUTH_VERSION,
     });
     return { token: b64 };
   },

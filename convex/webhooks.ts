@@ -35,6 +35,9 @@ export const getGuildWebhooks = query({
         enabled: w.enabled,
         status: w.status,
         isDefault: true,
+        eventTypes: w.eventTypes,
+        color: w.color ?? null,
+        contentTemplate: w.contentTemplate ?? null,
         lastError: w.lastError ?? null,
         createdAt: w.createdAt,
       }));

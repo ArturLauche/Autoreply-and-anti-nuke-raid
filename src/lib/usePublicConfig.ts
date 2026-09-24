@@ -21,10 +21,9 @@ const FALLBACK: PublicConfig = {
 };
 
 /**
- * Client ID nướng vào bundle lúc build (hosting build có env riêng). Convex
- * deployment có thể KHÔNG có DISCORD_CLIENT_ID (env deployment ≠ env hosting)
- * và bot offline thì không có botApplicationId để fallback — giá trị này cứu
- * nút đăng nhập trong cả 2 trường hợp đó.
+ * Client ID nướng vào bundle lúc build chỉ là fallback khởi tạo. Backend vẫn
+ * được hỏi để nhận ID đang hoạt động; nhờ vậy đổi/xoay Discord Application không
+ * cần rebuild toàn bộ dashboard nếu Convex đã cập nhật.
  */
 const BAKED_CLIENT_ID: string =
   (import.meta.env.VITE_DISCORD_CLIENT_ID as string | undefined) ?? "";
@@ -81,16 +80,15 @@ export function usePublicConfig(): {
     cache
       ? cache.data
       : pickValidClientId(BAKED_CLIENT_ID)
-        ? // Có Client ID nướng trong bundle (production): KHÔNG cần gọi Convex —
-          // khách ẩn danh mở landing ≈ 0 Function Call. Ai cần thông tin mới hơn
-          // (trường hợp deployment đổi Client ID) vẫn được cache 10 phút phục vụ.
+        ? // Có Client ID nướng trong bundle: hiển thị ngay để không chờ action,
+          // nhưng effect bên dưới vẫn hỏi Convex để đồng bộ ID mới nhất.
           { ...FALLBACK, clientId: pickValidClientId(BAKED_CLIENT_ID) }
         : null,
   );
   const [error, setError] = useState(false);
   useEffect(() => {
-    // Chỉ fetch khi chưa có cache VÀ không có baked ID (dev/preview).
-    if (cache || BAKED_CLIENT_ID) return;
+    // Baked ID chỉ là giá trị khởi tạo; server config là nguồn chuẩn khi có thể.
+    if (cache) return;
     let alive = true;
     fetchConfig(load).then((res) => {
       if (!alive) return;
