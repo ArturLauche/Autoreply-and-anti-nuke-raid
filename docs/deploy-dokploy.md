@@ -54,11 +54,28 @@ Bước mở `http://IP-VPS:3000` trên trình duyệt → tạo tài khoản ad
 
 ## Bước 2 — Gắn domain + HTTPS (bắt buộc trước khi xóa IP:port)
 
-Nếu chưa có domain: mua ~50-200k/năm (Namecheap, Porkbun, hoặc dùng miễn phí qua Cloudflare).
+### Cách A — MIỄN PHÍ, không cần mua domain (DuckDNS, ~10 phút)
+
+`duckdns.org` nằm trong **Public Suffix List** (đã xác minh 24/09/2026) → subdomain
+`tenban.duckdns.org` được tính là domain RIÊNG, hưởng hạn mức SSL riêng
+(50 chứng chỉ/tuần) — không bị người khác dùng chung hạn mức.
+
+1. Mở https://www.duckdns.org → đăng nhập bằng GitHub/Google/Reddit
+2. Tạo subdomain (ví dụ `wio-protogon`) → nhận `wio-protogon.duckdns.org`
+3. Nhập IP VPS vào ô IP → bấm **update ip**
+4. Trong Dokploy: **Web Server → Domains → thêm domain** `wio-protogon.duckdns.org` → **Let's Encrypt** → Save
+5. Đợi 1-2 phút → mở `https://wio-protogon.duckdns.org` — khóa SSL xanh là xong
+6. Sau này deploy app (Bước 3), làm tương tự với subdomain thứ 2, ví dụ `wio-protogon-web.duckdns.org`
+
+### Cách B — Mua domain (~50-200k/năm)
+
+Mua ở Namecheap/Porkbun (hoặc dùng `us.kg`, `eu.org` miễn phí — cũng nằm trong PSL).
 
 1. Vào trang quản lý domain → tạo bản ghi **A** trỏ `dokploy.tên-miền.com` → IP của VPS
 2. Trong Dokploy: **Web Server → Domains → thêm domain** `dokploy.tên-miền.com` → chọn **Let's Encrypt** → bấm Save
 3. Đợi 1-2 phút, mở `https://dokploy.tên-miền.com` — thấy khóa SSL xanh là xong
+
+### Tắt truy cập IP:port (SAU KHI domain + HTTPS hoạt động)
 
 Giờ mới chạy lệnh tắt IP:port (đã in ở Bước 1):
 
