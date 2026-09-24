@@ -90,8 +90,17 @@ export async function buildHiddenJobs(ctx: QueryCtx) {
     .query("guilds")
     .withIndex("by_botInGuild", (q) => q.eq("botInGuild", true))
     .collect();
-  const panels = await ctx.db.query("reactionRolePanels").collect();
-  const giveaways = await ctx.db.query("giveaways").collect();
+  // TỐI ƯU (audit Convex lần 2): batch tick chạy mỗi 60s — chỉ cần panel CHƯA
+  // gửi (enabled) + giveaway ĐANG chạy (status=active). Quét full bảng tại đây
+  // nghĩa là quét cả kho panel/giveaway lịch sử của mọi server mỗi phút.
+  const panels = await ctx.db
+    .query("reactionRolePanels")
+    .withIndex("by_enabled", (q) => q.eq("enabled", true))
+    .collect();
+  const giveaways = await ctx.db
+    .query("giveaways")
+    .withIndex("by_status", (q) => q.eq("status", "active"))
+    .collect();
   // Gộp luôn việc webhook (tạo/sửa/xóa/test) vào batch này để bot chỉ cần
   // 1 query mỗi vòng quét thay vì 2 (tiết kiệm function calls cho free tier).
   // Webhook mặc định: query riêng bên dưới (chỉ cần tìm 1 row isDefault per guild).

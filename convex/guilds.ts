@@ -1161,7 +1161,12 @@ export const getVerifySendPanelGuilds = query({
   args: { botKey: v.optional(v.string()) },
   handler: async (ctx, { botKey }) => {
     await requireBotKeyStrict(ctx, botKey);
-    const guilds = await ctx.db.query("guilds").collect();
+    // TỐI ƯU (audit Convex lần 2): chỉ duyệt guild ĐANG có bot qua index
+    // by_botInGuild thay vì quét toàn bảng — fallback của batch tick, ít chạy.
+    const guilds = await ctx.db
+      .query("guilds")
+      .withIndex("by_botInGuild", (q) => q.eq("botInGuild", true))
+      .collect();
     return guilds
       .filter((g) => g.verifySendPanel === true && g.verifyEnabled && g.verifyChannelId)
       .map((g) => ({

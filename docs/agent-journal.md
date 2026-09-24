@@ -34,6 +34,33 @@
 
 ---
 
+## 2026-09-24 — Audit Convex lần 2: bỏ 2 full-scan trong batch tick 60s
+
+- ✅ Xong: rà lại toàn bộ query convex/ — còn 10 điểm collect() không index;
+  xếp hạng theo tần suất × kích thước bảng, vá 3 điểm đắt nhất:
+  - `buildHiddenJobs` (chạy MỖI 60s qua bot_tick:getPendingJobs) từng quét
+    toàn bảng `reactionRolePanels` + `giveaways` → giờ dùng 2 index mới
+    `by_enabled` / `by_status`, chỉ lấy panel CHƯA gửi + giveaway ĐANG chạy.
+    Đắt nhất vì panel/giveaway đã kết thúc KHÔNG bao giờ bị xoá (chủ đích lưu
+    lịch sử) → bảng phình dần, quét mỗi phút sẽ chậm dần theo thời gian.
+  - `getVerifySendPanelGuilds` (fallback tick) quét toàn bảng guilds →
+    `by_botInGuild` có sẵn.
+- 🟢 Cố tình giữ nguyên (có lý do): `backup:botGetPending` (fallback, bảng
+  guilds đang có bot quản lý được) · `sessions.me` / `backup:listMine`
+  (per-user, kích thước bounded) · admin stats (admin-only) · `threatIntel`
+  (raidSamples giới hạn 500/guild) · per-guild webhook lookup trong
+  buildHiddenJobs (đã dùng index by_guildId — đọc nội bộ Convex tính theo doc
+  quét, không phải N+1 mạng).
+- 📁 File đụng: `convex/schema.ts` (+2 index), `convex/hidden.ts`,
+  `convex/guilds.ts` — không đổi hợp đồng bot ⇄ Convex (không đổi tên function
+  hay field bot đọc).
+- 🧪 Kiểm chứng: convex codegen tạo 2 index mới · tsc · test 61/61 CJS ·
+  11/11 TS · lint · format · contract · settings-signal · repo-map · i18n —
+  xanh đủ. Bài học: mock db của test-bot-tick-settings đã hỗ trợ withIndex sẵn
+  nên đổi query style không vỡ test.
+- ▶️ Tiếp theo: không có — khi server lớn hơn (>500 guild) xét thêm index
+  boolean `verifySendPanel` nếu fallback trở thành đường chính.
+
 ## 2026-09-24 — Vá rò file ảnh greeting + hoàn tất luồng 6-9 greeting e2e
 
 - ✅ Xong: tiếp nối phiên gián đoạn — LUỒNG 6-9 của `test-greeting-flow-e2e.ts`

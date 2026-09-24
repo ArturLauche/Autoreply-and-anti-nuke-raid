@@ -276,7 +276,10 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_guildId", ["guildId"])
-    .index("by_guildId_posted", ["guildId", "messageId"]),
+    .index("by_guildId_posted", ["guildId", "messageId"])
+    // Batch tick 60s (buildHiddenJobs) chỉ cần panel CHƯA gửi — index 1-field
+    // theo `enabled` giúp tránh quét mọi panel lịch sử của mọi server mỗi phút.
+    .index("by_enabled", ["enabled"]),
 
   giveaways: defineTable({
     guildId: v.string(),
@@ -310,7 +313,11 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_guildId", ["guildId"])
-    .index("by_guildId_endsAt", ["guildId", "endsAt"]),
+    .index("by_guildId_endsAt", ["guildId", "endsAt"])
+    // Batch tick 60s (buildHiddenJobs) chỉ cần giveaway ĐANG chạy — index theo
+    // `status` tránh quét cả kho giveaway đã kết thúc (không dọn, để chủ server
+    // xem lại) mỗi phút.
+    .index("by_status", ["status"]),
 
   autoReplies: defineTable({
     guildId: v.string(),
