@@ -29,6 +29,34 @@
 
 ---
 
+## 2026-09-24 — Test sâu backup + welcome + lệnh prefix/slash xuyên 3 tầng
+
+- ✅ Xong: 3 suite e2e xuyên tầng theo cùng một khuôn mẫu "dispatcher thật →
+  handler thật → Convex handler thật trên ctx.db Map":
+  - `test-backup-flow-e2e.ts` thêm luồng 6-10: restore (tạo lại role/kênh/emoji/
+    sticker TẬN TAY), import file .msc bot nuke (phát lại tin nhắn qua webhook
+    giữ tên người gửi + thứ tự), file rác → báo lỗi dashboard, backup ma →
+    tick không trả job, GitHub chết → backup vẫn lưu. 74/74.
+  - `test-greeting-flow-e2e.ts` (mới): dashboard updateSettings thật → tick tín
+    hiệu settingsChangedAt → ConvexStore cache TTL tự xoá → member join → thẻ
+    PNG canvas thật + DM + autorole + RAID-SAFE lockdown. 33/33.
+  - `test-commands-flow-e2e.ts` (mới): lệnh prefix + slash — đổi prefix chạy
+    ngay lượt sau, autoreply thêm/trả lời/xóa theo rule thật, quyền Manage
+    Guild chặn đủ nhánh, backup now đặt cờ mà tick thật nhặt được, /mod timeout
+    ghi case tăng dần + log tới kênh log qua webhookHub thật. 41/41.
+- 🐛 Bug mock (không phải production): (1) mock db.patch mutate in-place lệch
+  semantics Convex (document bất biến, patch = phiên bản mới) — handler đọc lại
+  field vừa xoá và bỏ qua storage.delete; (2) patch test thay store.client bằng
+  Proxy riêng làm MẤT logic CONFIG_WRITE_MUTATIONS tự xoá cache của production →
+  phải patch ở TẦNG DƯỚI NHẤT (ConvexHttpClient.prototype) dưới proxy của store;
+  (3) test flaky rotateLogs theo ngày thật — cố định mốc giờ tất định.
+- 📁 File đụng: `scripts/test-backup-flow-e2e.ts`, `scripts/test-greeting-flow-e2e.ts`,
+  `scripts/test-commands-flow-e2e.ts`, `scripts/test-boost-modules.cjs`, `AGENTS.md`
+  (số suite TS 9→10→11).
+- 🧪 Kiểm chứng: 61/61 CJS · 11/11 TS · tsc web+convex · lint · format · repo-map ·
+  convex-contract — xanh đủ. Commit `bb8f61c` + `fce5570` đã push main.
+- ▶️ Tiếp theo: không có — chờ feedback.
+
 ## 2026-09-23 — Dọn sạch từ điển chết + rà pháp lý + tối ưu relay index
 
 - ✅ **Xong nợ cũ "dọn 119 bản dịch chết + 12 DE mồ côi"** (thực đo lúc chạy: 123 EN chết + 12 DE
