@@ -21,6 +21,13 @@ export interface MonitorIncident {
   text: string;
 }
 
+/** Kết quả ping backend gần nhất — nguồn tin của thẻ "Backend (dữ liệu)". */
+export interface BackendPing {
+  state: "ok" | "down" | "checking";
+  /** Lần ping thành công gần nhất (ms epoch) — undefined khi chưa ping được lần nào. */
+  lastOkAt?: number;
+}
+
 export function latencyLabel(ms: number): { label: string; cls: string } {
   // Đen-trắng: trạng thái đọc qua chữ + độ đậm, không màu (trừ đỏ lỗi thật).
   if (ms < LATENCY_FAST) return { label: "Nhanh", cls: "text-foreground font-medium" };
@@ -61,6 +68,8 @@ export interface BotMonitor {
   lastUpdate: number | null;
   nextUpdate: number | null;
   refresh: () => void;
+  /** Kết quả ping HTTP gần nhất — KHÁC subscription: ping lỗi là backend thật sự không gọi được. */
+  backendPing: BackendPing;
 }
 
 /**
@@ -77,6 +86,7 @@ export function useBotMonitor(intervalMs = 5000): BotMonitor {
   const [latency, setLatency] = useState<number | null>(null);
   const [history, setHistory] = useState<number[]>([]);
   const [incidents, setIncidents] = useState<MonitorIncident[]>([]);
+  const [backendPing, setBackendPing] = useState<BackendPing>({ state: "checking" });
   const [nonce, setNonce] = useState(0);
   const timerRef = useRef<number>(0);
 
@@ -88,6 +98,7 @@ export function useBotMonitor(intervalMs = 5000): BotMonitor {
     try {
       const ms = await pingBackend();
       setLatency(ms);
+      setBackendPing({ state: "ok", lastOkAt: Date.now() });
       setHistory((h) => [...h.slice(-29), ms]);
       if (ms > INCIDENT_SLOW) {
         setIncidents((arr) =>
@@ -96,6 +107,7 @@ export function useBotMonitor(intervalMs = 5000): BotMonitor {
       }
     } catch {
       setLatency(null);
+      setBackendPing({ state: "down" });
       setIncidents((arr) =>
         [{ time: Date.now(), text: "Mất kết nối tới máy chủ" }, ...arr].slice(0, 10),
       );
@@ -130,5 +142,15 @@ export function useBotMonitor(intervalMs = 5000): BotMonitor {
   const lastUpdate = status?.lastHeartbeat ?? null;
   const nextUpdate = lastUpdate !== null ? lastUpdate + SYNC_INTERVAL_MS : null;
 
-  return { status, latency, history, avg, incidents, lastUpdate, nextUpdate, refresh };
+  return {
+    status,
+    latency,
+    history,
+    avg,
+    incidents,
+    lastUpdate,
+    nextUpdate,
+    refresh,
+    backendPing,
+  };
 }

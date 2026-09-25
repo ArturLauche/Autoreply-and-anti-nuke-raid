@@ -26,4 +26,10 @@
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>
+  <!-- Trạng thái hệ thống: công khai, cập nhật realtime theo dữ liệu bot. -->
+  <url>
+    <loc>https://protogon.freebuff.app/status</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.6</priority>
+  </url>
 </urlset>

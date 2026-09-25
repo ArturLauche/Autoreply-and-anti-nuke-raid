@@ -38,6 +38,7 @@ const ROUTE_TITLES: Array<[pattern: string, title: string]> = [
   ["/dashboard", "Dashboard — Protogon"],
   ["/stats", "Thống kê nhiệt độ — Protogon"],
   ["/monitor", "Giám sát bot — Protogon"],
+  ["/status", "Trạng thái hệ thống — Protogon"],
   ["/admin", "Quản trị — Protogon"],
 ];
 
@@ -90,6 +91,10 @@ export default function App() {
           <Route path="/privacy" element={<LegalPage slug="privacy" />} />
           <Route path="/data-deletion" element={<LegalPage slug="data-deletion" />} />
           <Route path="/monitor" element={<Monitor />} />
+          {/* Alias dễ nhớ của trang giám sát — không nhân bản component: cùng
+              1 trang Monitor, 2 đường vào (/status dùng cho status page công
+              khai, /monitor là tên gọi gốc trong dashboard link cũ). */}
+          <Route path="/status" element={<Monitor />} />
           <Route path="/admin" element={<Admin />} />
           <Route
             path="/stats"

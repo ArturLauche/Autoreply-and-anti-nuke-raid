@@ -7,6 +7,23 @@
  * (src/lib/i18n.tsx import "./i18n.en").
  */
 export const EN: Record<string, string> = {
+  /* ==== status-page ==== Thẻ trạng thái hệ thống (trang /monitor + /status).
+     Chèn ở ĐẦU file theo bài học journal: str_replace không chạm được vùng
+     cuối file từ điển lớn; alphabet chỉ là thói quen đọc, cổng i18n không đòi. */
+  "Trạng thái hệ thống": "System status",
+  "Trạng thái hệ thống — Protogon": "System status — Protogon",
+  "Trang web": "Website",
+  "Trang bạn đang mở — tải được là web sống.":
+    "The page you're viewing — if it loaded, the web is up.",
+  "Backend (dữ liệu)": "Backend (data)",
+  "Không phản hồi": "No response",
+  "Không gọi được API dữ liệu.": "Data API unreachable.",
+  "Phản hồi:": "Response:",
+  "Đồng bộ lần cuối:": "Last sync:",
+  "Heartbeat cuối:": "Last heartbeat:",
+  "Chưa từng thấy heartbeat.": "No heartbeat ever received.",
+  "đang kiểm tra…": "checking…",
+  "Bot Discord": "Discord bot",
   /* ==== i18n-extra-chrome ==== Đợt bổ sung: công tắc ngôn ngữ, chrome
      dashboard, trang đăng nhập. Gồm cả nhãn sidebar (hằng số cấp module —
      nay dịch lúc render) vốn nằm ngoài đợt codemod đầu. */

@@ -4,6 +4,21 @@
  * vẫn thiếu nữa mới rơi về VI. Giữ nguyên placeholder {p0}, {p1}…
  */
 export const DE: Record<string, string> = {
+  /* ==== status-page ==== Song song với EN (xem chú thích ở i18n.en.ts). */
+  "Trạng thái hệ thống": "Systemstatus",
+  "Trạng thái hệ thống — Protogon": "Systemstatus — Protogon",
+  "Trang web": "Webseite",
+  "Trang bạn đang mở — tải được là web sống.":
+    "Die gerade geöffnete Seite — wenn sie lädt, läuft die Website.",
+  "Backend (dữ liệu)": "Backend (Daten)",
+  "Không phản hồi": "Keine Antwort",
+  "Không gọi được API dữ liệu.": "Daten-API nicht erreichbar.",
+  "Phản hồi:": "Antwort:",
+  "Đồng bộ lần cuối:": "Letzte Synchronisierung:",
+  "Heartbeat cuối:": "Letzter Heartbeat:",
+  "Chưa từng thấy heartbeat.": "Noch nie einen Heartbeat erhalten.",
+  "đang kiểm tra…": "wird geprüft…",
+  "Bot Discord": "Discord-Bot",
   /* ==== i18n-extra-chrome ==== */
   "Ngôn ngữ": "Sprache",
   "Tiếng Việt": "Vietnamesisch",
