@@ -56,18 +56,18 @@ export default function Footer({
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-2">
-            <a href={discordInvite} target="_blank" rel="noreferrer">
-              <Button variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm">
+              <a href={discordInvite} target="_blank" rel="noreferrer">
                 <MessageCircle className="h-4 w-4" />
                 Discord server
-              </Button>
-            </a>
-            <a href={facebookUrl} target="_blank" rel="noreferrer">
-              <Button variant="outline" size="sm">
+              </a>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <a href={facebookUrl} target="_blank" rel="noreferrer">
                 <Facebook className="h-4 w-4" />
                 Fanpage Facebook
-              </Button>
-            </a>
+              </a>
+            </Button>
           </div>
         </div>
         {/* Liên kết pháp lý: mọi trang (kể cả trang pháp lý khác) đều có đường

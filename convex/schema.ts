@@ -15,6 +15,8 @@ export default defineSchema({
     token: v.string(),
     userId: v.id("users"),
     createdAt: v.number(),
+    /** Phiên mới phải do OAuth server-side xác thực; undefined = legacy bị từ chối. */
+    authVersion: v.optional(v.number()),
   })
     .index("by_token", ["token"])
     .index("by_userId", ["userId"]),
@@ -57,12 +59,14 @@ export default defineSchema({
     /** Lỗi xử lý file import gần nhất (bot báo lại — dashboard hiển thị thay vì im lặng). */
     importError: v.optional(v.string()),
     importErrorAt: v.optional(v.number()),
-    /** Khóa chống lặp: bot nào claim được thì mới được chạy (2 phút). */
+    /** Khóa chống lặp: bot nào claim được thì mới được chạy; lease được gia hạn khi job còn sống. */
     backupClaimedAt: v.optional(v.number()),
+    backupLeaseUntil: v.optional(v.number()),
     /** Backup server: cờ bot cần khôi phục + id backup dùng để khôi phục. */
     restoreRequested: v.optional(v.boolean()),
     restoreBackupId: v.optional(v.id("guildBackups")),
     restoreClaimedAt: v.optional(v.number()),
+    restoreLeaseUntil: v.optional(v.number()),
     /** Lỗi khôi phục gần nhất (bot báo lại — dashboard hiển thị thay vì im lặng). */
     restoreError: v.optional(v.string()),
     restoreErrorAt: v.optional(v.number()),
@@ -277,8 +281,6 @@ export default defineSchema({
   })
     .index("by_guildId", ["guildId"])
     .index("by_guildId_posted", ["guildId", "messageId"])
-    // Batch tick 60s (buildHiddenJobs) chỉ cần panel CHƯA gửi — index 1-field
-    // theo `enabled` giúp tránh quét mọi panel lịch sử của mọi server mỗi phút.
     .index("by_enabled", ["enabled"]),
 
   giveaways: defineTable({
@@ -314,9 +316,6 @@ export default defineSchema({
   })
     .index("by_guildId", ["guildId"])
     .index("by_guildId_endsAt", ["guildId", "endsAt"])
-    // Batch tick 60s (buildHiddenJobs) chỉ cần giveaway ĐANG chạy — index theo
-    // `status` tránh quét cả kho giveaway đã kết thúc (không dọn, để chủ server
-    // xem lại) mỗi phút.
     .index("by_status", ["status"]),
 
   autoReplies: defineTable({
@@ -482,6 +481,7 @@ export default defineSchema({
     weight: v.optional(v.number()),
     /** Hash 1 chiều của guild nguồn (không truy ngược được). */
     sourceHash: v.string(),
+    sourceHashes: v.optional(v.array(v.string())),
     createdAt: v.number(),
     lastSeenAt: v.number(),
   })
@@ -627,6 +627,11 @@ export default defineSchema({
     selfDiagnoseEnabled: v.optional(v.boolean()),
     /** Self-Diagnose: thời điểm chẩn đoán gần nhất (để hiển thị trên web + chống lặp). */
     selfDiagnoseLastAt: v.optional(v.number()),
+    selfDiagnoseLastFingerprint: v.optional(v.string()),
+    selfDiagnoseLastSeverity: v.optional(
+      v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+    ),
+    selfDiagnoseLastSummary: v.optional(v.string()),
     /** Self-Diagnose: số lượt chẩn đoán đã chạy (hiển thị thống kê trên web). */
     selfDiagnoseRuns: v.optional(v.number()),
     /** Chìa khóa bot (botAuth): SHA-256("protogon-bot-key::" + OWNER_SEED) — chủ bot đặt 1 lần qua Admin web. Khi có giá trị, mọi function bot-side yêu cầu botKey khớp. */

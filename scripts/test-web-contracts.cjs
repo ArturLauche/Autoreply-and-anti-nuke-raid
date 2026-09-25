@@ -57,7 +57,7 @@ const files = readSrc();
 // Token lưu 2 dạng (discord.ts:setSessionToken): sessionStorage = token thô
 // (không "Lưu đăng nhập"), localStorage = JSON {"t","e"} (có lưu, hết hạn 7
 // ngày). Chỉ getSessionToken() biết bóc 2 dạng này — đọc thô ở nơi khác là bug.
-const RAW_TOKEN_RE = /getItem\(\s*(SESSION_TOKEN_KEY|"wio_session_token")\s*\)/g;
+const RAW_TOKEN_RE = /getItem\(\s*(SESSION_TOKEN_KEY|"wio_session_token")\s*\)/;
 const rawReaders = [...files.entries()]
   .filter(([rel, src]) => rel !== "lib/discord.ts" && RAW_TOKEN_RE.test(src))
   .map(([rel]) => rel);
@@ -245,6 +245,136 @@ check(
   "sections.tsx không hardcode text-white (chữ trắng trên nền sáng = vô hình)",
   !/(?<![:\w-])text-white(?![\w/])/.test(sections),
   "dùng text-foreground / text-muted-foreground theo token theme",
+);
+
+// ─── 9. Hợp đồng UI/production mới: không để regression âm thầm quay lại ─────
+const requireAuth = files.get("components/RequireAuth.tsx") ?? "";
+check(
+  "RequireAuth chuyển hướng ngay khi chưa có token (không kẹt loading vô hạn)",
+  /if \(!token\)[\s\S]*<Navigate/.test(requireAuth),
+);
+check(
+  "App lazy-load Landing như các route nặng khác",
+  /const Landing = lazy\(\(\) => import\("\.\/pages\/Landing"\)\)/.test(appSrc),
+);
+const seo = files.get("lib/seo.ts") ?? "";
+check(
+  "App có đồng bộ metadata/canonical/noindex theo route",
+  /sync(Route|Document)Metadata/.test(appSrc) && /noindex/.test(seo),
+);
+check(
+  "SEO dùng origin domain đang phục vụ sau hydration",
+  /activeSiteUrl/.test(seo) && /window\.location\.origin/.test(seo),
+);
+const moduleCard = files.get("components/dashboard/ModuleCard.tsx") ?? "";
+check("ModuleCard không dùng div role=button thiếu keyboard", !/role="button"/.test(moduleCard));
+const multiSelect = files.get("components/ui/multi-select.tsx") ?? "";
+check(
+  "MultiSelect không nest button trong button",
+  !/<button[\s\S]{0,450}<button/.test(multiSelect),
+);
+const haimiyaChat = files.get("components/HaimiyaChat.tsx") ?? "";
+check(
+  "Haimiya có semantics dialog + focus/Escape contract",
+  /role="dialog"/.test(haimiyaChat) && /aria-modal/.test(haimiyaChat) && /Escape/.test(haimiyaChat),
+);
+check(
+  "Haimiya message ID không reset mỗi render",
+  /msgSeqRef = useRef\(0\)/.test(haimiyaChat) && /msgSeqRef\.current\+\+/.test(haimiyaChat),
+);
+const rootBoundary = files.get("components/RootErrorBoundary.tsx") ?? "";
+const panelBoundary = files.get("components/PanelErrorBoundary.tsx") ?? "";
+check(
+  "error boundary không render raw backend exception cho người dùng",
+  !/msg\.slice\(/.test(rootBoundary) && !/msg\.slice\(/.test(panelBoundary),
+);
+const welcomePanel = files.get("components/dashboard/WelcomePanel.tsx") ?? "";
+check(
+  "Welcome image URL mapping đủ card background slots",
+  /welcomeCardBackground[\s\S]{0,700}goodbyeCardBackground/.test(welcomePanel),
+);
+const verifyPanel = files.get("components/dashboard/VerifyPanel.tsx") ?? "";
+check(
+  "Verify dùng timer độc lập cho từng field",
+  /timers?Ref|fieldTimers|Record<string,.*setTimeout/.test(verifyPanel),
+);
+const settingsPanel = files.get("components/dashboard/SettingsPanel.tsx") ?? "";
+check(
+  "DiscordCallback không phụ thuộc public-config để xử lý code",
+  !/usePublicConfig|configLoading|configError/.test(files.get("pages/DiscordCallback.tsx") ?? ""),
+);
+check(
+  "MultiSelect có combobox/listbox semantics và input ngoài listbox",
+  /aria-haspopup="listbox"/.test(multiSelect) &&
+    /role="listbox"/.test(multiSelect) &&
+    /aria-multiselectable="true"/.test(multiSelect) &&
+    /role="listbox"[\s\S]{0,500}<input/.test(multiSelect) === false,
+);
+check(
+  "Settings remount theo guild trước khi đổi state cục bộ",
+  /PanelErrorBoundary key=\{`\$\{section\}:\$\{data\.guild\.discordId\}`\}/.test(
+    files.get("pages/GuildPage.tsx") ?? "",
+  ) && /useEffect[\s\S]{0,900}setWebhookEventTypes/.test(settingsPanel),
+);
+check(
+  "Webhook eventTypes=[] được giữ nguyên khi hydrate",
+  /current\.eventTypes\s*\?\?\s*DEFAULT_WEBHOOK_EVENT_TYPES/.test(settingsPanel) &&
+    !/current\.eventTypes\?\.length\s*\?/.test(settingsPanel),
+);
+check(
+  "AuthPage đọc lựa chọn nhớ đăng nhập đã lưu",
+  /REMEMBER_LOGIN_KEY/.test(files.get("pages/AuthPage.tsx") ?? ""),
+);
+const historyPage = files.get("pages/GuildHistory.tsx") ?? "";
+check("date filter dùng local day boundary, không UTC cứng", !/Date\.UTC\(/.test(historyPage));
+const convexUrl = files.get("lib/convexUrl.ts") ?? "";
+check(
+  "Convex URL fail-closed khi env sai, không fallback im lặng",
+  /throw new Error\("CONVEX_URL không hợp lệ/.test(convexUrl) &&
+    /!configured\) throw new Error/.test(convexUrl),
+);
+check(
+  "Convex validator nhận regional .convex.cloud và từ chối .convex.site",
+  convexUrl.includes("convex") &&
+    convexUrl.includes(".cloud") &&
+    convexUrl.includes("[a-z0-9-]+") &&
+    !convexUrl.includes("convex.site"),
+);
+const buildShim = fs.readFileSync(path.join(ROOT, "scripts", "build.mjs"), "utf8");
+const dockerfile = fs.readFileSync(path.join(ROOT, "Dockerfile.web"), "utf8");
+check(
+  "production build thiếu CONVEX_URL phải fail, không fallback im lặng",
+  /if \(!rawConvexUrl\)[\s\S]*process\.exit\(1\)/.test(buildShim) &&
+    !/VITE_CONVEX_URL\s*=\s*trimmedConvexUrl\s*\|\|/.test(buildShim),
+);
+check(
+  "Docker noindex chỉ áp route private và có branded 404",
+  /auth\|discord\/callback\|admin\|stats/.test(dockerfile) &&
+    !/terms\|privacy\|data-deletion\|monitor/.test(dockerfile) &&
+    /error_page 404 \/404\.html/.test(dockerfile),
+);
+const notFoundPage = fs.readFileSync(path.join(ROOT, "public", "404.html"), "utf8");
+const notFoundScript = fs.readFileSync(path.join(ROOT, "public", "404.js"), "utf8");
+check(
+  "404 static hỗ trợ VI/EN/DE qua script external",
+  /404\.js/.test(notFoundPage) &&
+    /navigator\.language/.test(notFoundScript) &&
+    /protogon-lang/.test(notFoundScript),
+);
+check(
+  "session token mới xóa storage cũ để không bị token cũ ghi đè",
+  /sessionStorage\.removeItem\(SESSION_TOKEN_KEY\)/.test(files.get("lib/discord.ts") ?? "") &&
+    /localStorage\.removeItem\(SESSION_TOKEN_KEY\)/.test(files.get("lib/discord.ts") ?? ""),
+);
+const utils = files.get("lib/utils.ts") ?? "";
+const overviewPanel = files.get("components/dashboard/OverviewPanel.tsx") ?? "";
+check(
+  "online status dùng chung heartbeat freshness helper",
+  /isHeartbeatFresh/.test(utils) && /isHeartbeatFresh/.test(overviewPanel),
+);
+check(
+  "useBotStatus tự tạo lại trạng thái khi heartbeat cũ",
+  /setInterval[\s\S]{0,180}setNow/.test(files.get("lib/useBotStatus.ts") ?? ""),
 );
 
 console.log(`\nKết quả web contracts: ${pass} PASS, ${fail} FAIL`);

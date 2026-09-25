@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Protogon — Discord server protection</title>
+  <desc id="desc">Auto-replies, heat moderation, Join Gate, and anti-nuke protection for Discord.</desc>
+  <rect width="1200" height="630" fill="#111111"/>
+  <path d="M0 470C260 390 410 560 650 470s360-120 550-35v195H0Z" fill="#1d1d1d"/>
+  <circle cx="1010" cy="124" r="170" fill="#1b2730" opacity=".8"/>
+  <circle cx="1010" cy="124" r="110" fill="#243746" opacity=".6"/>
+  <g transform="translate(92 118)">
+    <rect width="86" height="86" rx="20" fill="#f5f5f5"/>
+    <path d="M27 13C16 13 9 21 9 32v25c0 5 4 9 9 9h5l3 8h17l3-8h5c5 0 9-4 9-9V32c0-11-7-19-18-19Z" fill="#111"/>
+    <circle cx="29" cy="38" r="6" fill="#f5f5f5"/>
+    <circle cx="55" cy="38" r="6" fill="#f5f5f5"/>
+    <rect x="37" y="49" width="10" height="5" rx="2.5" fill="#f5f5f5"/>
+  </g>
+  <text x="210" y="180" fill="#fafafa" font-family="Inter, Arial, sans-serif" font-size="54" font-weight="700">Protogon.</text>
+  <text x="94" y="300" fill="#fafafa" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="700">Discord server protection</text>
+  <text x="98" y="360" fill="#bdbdbd" font-family="Inter, Arial, sans-serif" font-size="28">Auto-replies · Heat moderation · Join Gate · Anti-nuke</text>
+  <rect x="94" y="410" width="300" height="52" rx="12" fill="#fafafa"/>
+  <text x="126" y="444" fill="#111111" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">Open dashboard  →</text>
+  <text x="94" y="560" fill="#8f8f8f" font-family="JetBrains Mono, monospace" font-size="18">protogon.freebuff.app</text>
+</svg>

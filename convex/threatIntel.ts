@@ -1,7 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken } from "./auth";
-import { getBotStatus } from "./hidden";
+import { getBotStatus, isBotOwnerUser } from "./hidden";
 import { requireBotKeyStrict } from "./botAuth";
 
 /**
@@ -40,14 +40,7 @@ export const getSettings = query({
     const user = await getUserByToken(ctx, token);
     if (!user) return null;
     const status = await getBotStatus(ctx);
-    if (!status) return null;
-    const owner = await ctx.db
-      .query("botStatus")
-      .withIndex("by_kind", (q) => q.eq("kind", "status"))
-      .first();
-    if (owner?.ownerDiscordId && owner.ownerDiscordId !== user.discordId) {
-      return null;
-    }
+    if (!status || !isBotOwnerUser(user, status)) return null;
     return {
       researchEnabled: status?.threatResearchEnabled ?? false,
       aiWeeklyEnabled: status?.threatResearchAiWeekly ?? true,
@@ -93,18 +86,8 @@ export const setResearchSettings = mutation({
     const user = await getUserByToken(ctx, token);
     if (!user) throw new Error("Vui lòng đăng nhập");
     const status = await getBotStatus(ctx);
-    const ownerId = status?.ownerDiscordId;
-    if (
-      ownerId &&
-      /^\d{15,20}$/.test(ownerId) &&
-      (await ctx.db
-        .query("users")
-        .withIndex("by_discordId", (q) => q.eq("discordId", ownerId))
-        .first())
-    ) {
-      if (ownerId !== user.discordId) {
-        throw new Error("Chỉ admin sở hữu bot mới được đổi cài đặt Threat Intel 🔒");
-      }
+    if (!isBotOwnerUser(user, status)) {
+      throw new Error("Chỉ admin sở hữu bot mới được đổi cài đặt Threat Intel 🔒");
     }
     const patch: Record<string, unknown> = {};
     if (enabled !== undefined) patch.threatResearchEnabled = enabled;
@@ -268,16 +251,7 @@ export const removeKeyword = mutation({
     const user = await getUserByToken(ctx, token);
     if (!user) throw new Error("Vui lòng đăng nhập");
     const status = await getBotStatus(ctx);
-    const ownerId = status?.ownerDiscordId;
-    if (
-      ownerId &&
-      /^\d{15,20}$/.test(ownerId) &&
-      ownerId !== user.discordId &&
-      (await ctx.db
-        .query("users")
-        .withIndex("by_discordId", (q) => q.eq("discordId", ownerId))
-        .first())
-    ) {
+    if (!isBotOwnerUser(user, status)) {
       throw new Error("Chỉ admin sở hữu bot mới được sửa Threat Intel 🔒");
     }
     if (!status) return { ok: false };
@@ -298,11 +272,8 @@ export const sampleStats = query({
   handler: async (ctx, { token }) => {
     const user = await getUserByToken(ctx, token);
     if (!user) return { total: 0, last30d: 0, byModule: [] };
-    const owner = await ctx.db
-      .query("botStatus")
-      .withIndex("by_kind", (q) => q.eq("kind", "status"))
-      .first();
-    if (owner?.ownerDiscordId && owner.ownerDiscordId !== user.discordId) {
+    const status = await getBotStatus(ctx);
+    if (!isBotOwnerUser(user, status)) {
       return { total: 0, last30d: 0, byModule: [] };
     }
     const all = await ctx.db.query("raidSamples").collect();
@@ -334,11 +305,8 @@ export const getResearchHistory = query({
     if (token) {
       const user = await getUserByToken(ctx, token);
       if (!user) return [];
-      const owner = await ctx.db
-        .query("botStatus")
-        .withIndex("by_kind", (q) => q.eq("kind", "status"))
-        .first();
-      if (owner?.ownerDiscordId && owner.ownerDiscordId !== user.discordId) return [];
+      const status = await getBotStatus(ctx);
+      if (!isBotOwnerUser(user, status)) return [];
       isOwner = true;
     } else {
       await requireBotKeyStrict(ctx, botKey);
@@ -384,11 +352,8 @@ export const requestManualLearn = mutation({
     if (token) {
       const user = await getUserByToken(ctx, token);
       if (!user) throw new Error("Vui lòng đăng nhập");
-      const owner = await ctx.db
-        .query("botStatus")
-        .withIndex("by_kind", (q) => q.eq("kind", "status"))
-        .first();
-      if (owner?.ownerDiscordId && owner.ownerDiscordId !== user.discordId) {
+      const status = await getBotStatus(ctx);
+      if (!isBotOwnerUser(user, status)) {
         throw new Error("Chỉ admin sở hữu bot mới được kích hoạt học thủ công 🔒");
       }
       isOwner = true;

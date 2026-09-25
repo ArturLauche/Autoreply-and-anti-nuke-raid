@@ -1,15 +1,17 @@
 import { lazy, Suspense, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Route, Routes } from "react-router-dom";
+import { MotionConfig } from "framer-motion";
 import { Toaster } from "sonner";
-import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
 import RequireAuth from "./components/RequireAuth";
 
 import { translate, useT } from "./lib/i18n";
+import { syncRouteMetadata } from "./lib/seo";
 // Route-level code splitting: khách vào landing chỉ tải Landing + vendors.
 // Các trang dashboard/admin nặng (nhiều panel) chỉ tải khi thật sự mở —
 // giảm đáng kể JS parse/execute lần đầu.
+const Landing = lazy(() => import("./pages/Landing"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const DiscordCallback = lazy(() => import("./pages/DiscordCallback"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -22,32 +24,10 @@ const StatsPage = lazy(() => import("./pages/StatsPage"));
 // dung nằm ở src/lib/legalContent.ts, không nhân bản code 3 lần.
 const LegalPage = lazy(() => import("./pages/LegalPage"));
 
-const BASE_TITLE = "Protogon — Bot Discord tự trả lời & chống nuke/raid";
-
-/**
- * Title riêng cho từng route — tránh toàn bộ trang dùng chung 1 title.
- * Chuỗi ở đây là KEY tiếng Việt: dịch lúc render (xem TitleSync) để title
- * đổi theo ngôn ngữ người dùng chọn.
- */
-const ROUTE_TITLES: Array<[pattern: string, title: string]> = [
-  ["/auth", "Đăng nhập — Protogon"],
-  // Đứng TRƯỚC "/dashboard" để không bị khớp nhầm theo tiền tố.
-  ["/terms", "Điều khoản sử dụng — Protogon"],
-  ["/privacy", "Chính sách quyền riêng tư — Protogon"],
-  ["/data-deletion", "Lưu trữ & xoá dữ liệu — Protogon"],
-  ["/dashboard", "Dashboard — Protogon"],
-  ["/stats", "Thống kê nhiệt độ — Protogon"],
-  ["/monitor", "Giám sát bot — Protogon"],
-  ["/status", "Trạng thái hệ thống — Protogon"],
-  ["/admin", "Quản trị — Protogon"],
-];
-
-function TitleSync({ lang }: { lang: string }) {
+function RouteMetadataSync({ lang }: { lang: "vi" | "en" | "de" }) {
   const { pathname } = useLocation();
   useEffect(() => {
-    const match = ROUTE_TITLES.find(([p]) => pathname.startsWith(p));
-    document.title = translate(match ? match[1] : BASE_TITLE);
-    // lang nằm trong deps: đổi ngôn ngữ phải ghi lại title ngay.
+    syncRouteMetadata(pathname, lang);
   }, [pathname, lang]);
   return null;
 }
@@ -59,16 +39,20 @@ function TitleSync({ lang }: { lang: string }) {
  */
 function RouteFallback() {
   return (
-    <div className="flex min-h-screen flex-col">
+    <main className="flex min-h-screen flex-col" aria-busy="true">
       {/* Progress bar mảnh bám đỉnh — như top loading bar quen thuộc */}
       <div aria-hidden className="fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden">
         <div className="h-full w-1/3 animate-route-progress bg-foreground" />
       </div>
-      <div className="flex flex-1 flex-col items-center justify-center gap-4">
+      <div
+        className="flex flex-1 flex-col items-center justify-center gap-4"
+        role="status"
+        aria-live="polite"
+      >
         <img src="/favicon.svg" alt="" className="h-10 w-10 animate-pulse-fade" />
         <p className="text-xs tracking-wide text-muted-foreground">{translate("Đang tải…")}</p>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -79,58 +63,67 @@ export default function App() {
   const { lang } = useT();
   return (
     <>
-      <TitleSync lang={lang} />
-      <Suspense fallback={<RouteFallback />}>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/discord/callback" element={<DiscordCallback />} />
-          {/* Trang công khai, không cần đăng nhập: Discord yêu cầu URL riêng cho
+      <RouteMetadataSync lang={lang} />
+      <MotionConfig reducedMotion="user">
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/discord/callback" element={<DiscordCallback />} />
+            {/* Trang công khai, không cần đăng nhập: Discord yêu cầu URL riêng cho
               Terms of Service và Privacy Policy khi xác minh bot. */}
-          <Route path="/terms" element={<LegalPage slug="terms" />} />
-          <Route path="/privacy" element={<LegalPage slug="privacy" />} />
-          <Route path="/data-deletion" element={<LegalPage slug="data-deletion" />} />
-          <Route path="/monitor" element={<Monitor />} />
-          {/* Alias dễ nhớ của trang giám sát — không nhân bản component: cùng
-              1 trang Monitor, 2 đường vào (/status dùng cho status page công
-              khai, /monitor là tên gọi gốc trong dashboard link cũ). */}
-          <Route path="/status" element={<Monitor />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route
-            path="/stats"
-            element={
-              <RequireAuth>
-                <StatsPage />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/dashboard"
-            element={
-              <RequireAuth>
-                <Dashboard />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/dashboard/:guildId"
-            element={
-              <RequireAuth>
-                <GuildPage />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/dashboard/:guildId/history"
-            element={
-              <RequireAuth>
-                <GuildHistory />
-              </RequireAuth>
-            }
-          />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Suspense>
+            <Route path="/terms" element={<LegalPage slug="terms" />} />
+            <Route path="/privacy" element={<LegalPage slug="privacy" />} />
+            <Route path="/data-deletion" element={<LegalPage slug="data-deletion" />} />
+            <Route path="/monitor" element={<Monitor />} />
+            {/* Alias dễ nhớ của trang giám sát — không nhân bản component: cùng
+                1 trang Monitor, 2 đường vào (/status dùng cho status page công
+                khai, /monitor là tên gọi gốc trong dashboard link cũ). */}
+            <Route path="/status" element={<Monitor />} />
+            <Route
+              path="/admin"
+              element={
+                <RequireAuth>
+                  <Admin />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/stats"
+              element={
+                <RequireAuth>
+                  <StatsPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <RequireAuth>
+                  <Dashboard />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/dashboard/:guildId"
+              element={
+                <RequireAuth>
+                  <GuildPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/dashboard/:guildId/history"
+              element={
+                <RequireAuth>
+                  <GuildHistory />
+                </RequireAuth>
+              }
+            />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
+      </MotionConfig>
       <Toaster
         position="top-right"
         theme="system"

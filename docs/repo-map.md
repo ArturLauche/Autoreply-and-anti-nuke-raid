@@ -91,7 +91,7 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 
 ## Vòng lặp làm việc
 
-- Kiểm chứng: `bun run test` (56 suites) · `bun tsc -b --noEmit` ·
+- Kiểm chứng: `bun run test` (61 CJS suites) · `bun run test:ts` (9 TS suites) · `bun tsc -b --noEmit` ·
   `bun run lint` · `bun run format:check` — chi tiết gộp 1 lệnh xem skill
   `verification-loop`.
 - Kiểm tra cấu trúc: `scripts/check-repo-map.cjs` (bản đồ khớp thật) +

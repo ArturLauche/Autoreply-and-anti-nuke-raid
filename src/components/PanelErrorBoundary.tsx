@@ -40,12 +40,8 @@ export default class PanelErrorBoundary extends Component<Props, State> {
   render() {
     if (!this.state.error) return this.props.children;
 
-    const msg = this.state.error?.message || translate("Lỗi không xác định");
-    const isMissingFunction =
-      /(function|query|mutation|action).*(not found|không tồn tại)|server error/i.test(msg);
-
     return (
-      <Card className="border-danger/30">
+      <Card className="border-danger/30" role="alert">
         <CardContent className="flex flex-col items-start gap-3 p-4 sm:p-6">
           <div className="flex items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-danger/15 text-danger">
@@ -60,20 +56,10 @@ export default class PanelErrorBoundary extends Component<Props, State> {
                   "Có lỗi xảy ra khi kết nối với backend. Trang khác vẫn hoạt động bình thường — bạn có thể chuyển sang mục khác ở sidebar.",
                 )}{" "}
               </p>
-              {isMissingFunction && (
-                <p className="mt-2 rounded-lg bg-secondary px-3 py-2 text-xs text-muted-foreground">
-                  {translate("💡 Với mục")} <b>Backup server / Moderation</b>
-                  {translate(
-                    ": backend Convex production đang chạy bản cũ, chưa có các hàm mới. Chủ dự án cần chạy",
-                  )}{" "}
-                  <code className="font-mono">npx convex deploy</code>{" "}
-                  {translate(
-                    "tại thư mục gốc dự án để cập nhật backend (xem hướng dẫn trong README).",
-                  )}{" "}
-                </p>
-              )}
-              <p className="mt-2 max-w-xl break-words font-mono text-[11px] text-muted-foreground/70">
-                {msg.slice(0, 300)}
+              <p className="mt-2 max-w-xl text-xs text-muted-foreground">
+                {translate(
+                  "Có lỗi xảy ra khi kết nối với backend. Trang khác vẫn hoạt động bình thường — bạn có thể chuyển sang mục khác ở sidebar.",
+                )}
               </p>
             </div>
           </div>

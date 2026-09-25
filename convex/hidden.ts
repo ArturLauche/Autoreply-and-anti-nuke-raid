@@ -34,32 +34,39 @@ export const getBotStatusInternal = internalQuery({
   handler: async (ctx) => getBotStatus(ctx),
 });
 
-/**
- * Owner có hợp lệ không: phải khớp một tài khoản Discord đã từng đăng nhập web.
- * Nếu owner bị ghi sai (VD: ghi nhầm Team ID thay vì User ID) thì coi như chưa có,
- * để chủ bot thật có thể nhận lại quyền — đây cũng là cách tự phục hồi lỗi đổi ảnh.
- */
-async function ownerIsValid(ctx: QueryCtx | MutationCtx, ownerId: string | undefined) {
-  if (!ownerId || !/^\d{15,20}$/.test(ownerId)) return false;
-  const user = await ctx.db
-    .query("users")
-    .withIndex("by_discordId", (q) => q.eq("discordId", ownerId))
-    .first();
-  return !!user;
+const DISCORD_SNOWFLAKE_RE = /^\d{15,21}$/;
+
+function canonicalBotOwnerId(
+  status: { ownerDiscordId?: string } | null | undefined,
+): string | null {
+  const ownerDiscordId = status?.ownerDiscordId?.trim();
+  return ownerDiscordId && DISCORD_SNOWFLAKE_RE.test(ownerDiscordId) ? ownerDiscordId : null;
+}
+
+export function isBotOwnerUser(
+  user: { discordId: string } | null,
+  status: { ownerDiscordId?: string } | null | undefined,
+): boolean {
+  const ownerDiscordId = canonicalBotOwnerId(status);
+  return !!ownerDiscordId && ownerDiscordId === user?.discordId;
 }
 
 /**
  * Chỉ admin SỞ HỮU bot mới được tương tác mật khẩu / tính năng ẩn.
  * (Panel reaction role, giveaway, DM, auto-reply ẩn, branding…)
  */
-async function requireBotOwner(ctx: QueryCtx | MutationCtx, user: { discordId: string } | null) {
+export async function requireBotOwner(
+  ctx: QueryCtx | MutationCtx,
+  user: { discordId: string } | null,
+) {
   if (!user) throw new Error("Vui lòng đăng nhập");
   const status = await getBotStatus(ctx);
-  const ownerId = status?.ownerDiscordId;
-  if (ownerId && (await ownerIsValid(ctx, ownerId)) && ownerId !== user.discordId) {
+  if (!canonicalBotOwnerId(status)) {
+    throw new Error("Chủ sở hữu bot chưa được khởi tạo hoặc không hợp lệ");
+  }
+  if (!isBotOwnerUser(user, status)) {
     throw new Error("Chỉ admin sở hữu bot mới được phép tương tác tính năng ẩn 🔒");
   }
-  // Chưa có chủ sở hữu (hoặc owner cũ không hợp lệ) → người đặt mật khẩu đầu tiên là chủ bot.
   return status;
 }
 
@@ -90,9 +97,6 @@ export async function buildHiddenJobs(ctx: QueryCtx) {
     .query("guilds")
     .withIndex("by_botInGuild", (q) => q.eq("botInGuild", true))
     .collect();
-  // TỐI ƯU (audit Convex lần 2): batch tick chạy mỗi 60s — chỉ cần panel CHƯA
-  // gửi (enabled) + giveaway ĐANG chạy (status=active). Quét full bảng tại đây
-  // nghĩa là quét cả kho panel/giveaway lịch sử của mọi server mỗi phút.
   const panels = await ctx.db
     .query("reactionRolePanels")
     .withIndex("by_enabled", (q) => q.eq("enabled", true))
@@ -258,7 +262,7 @@ export const getBotBranding = query({
     return {
       botAvatarUrl: status?.botAvatarUrl ?? null,
       haimiyaAvatarUrl: status?.haimiyaAvatarUrl ?? null,
-      ownerSet: !!status?.ownerDiscordId,
+      ownerSet: canonicalBotOwnerId(status) !== null,
     };
   },
 });
@@ -274,11 +278,8 @@ export const botSetOwner = mutation({
   },
   handler: async (ctx, { botKey, ownerId, ownerName, ownerAvatarUrl }) => {
     await requireBotKeyStrict(ctx, botKey);
-    if (!/^\d{15,20}$/.test(ownerId)) return { ok: false };
+    if (!DISCORD_SNOWFLAKE_RE.test(ownerId)) return { ok: false };
     const status = await getBotStatus(ctx);
-    if (status?.ownerDiscordId && (await ownerIsValid(ctx, status.ownerDiscordId))) {
-      return { ok: false };
-    }
     const patch: Record<string, unknown> = { ownerDiscordId: ownerId };
     if (ownerName !== undefined) patch.ownerName = ownerName ? ownerName.slice(0, 120) : undefined;
     if (ownerAvatarUrl !== undefined)
@@ -480,18 +481,13 @@ export const setHiddenPassword = mutation({
   handler: async (ctx, { token, guildId, password }) => {
     const user = await getUserByToken(ctx, token);
     await requireGuild(ctx, token, guildId);
-    const status = await requireBotOwner(ctx, user);
+    await requireBotOwner(ctx, user);
     if (!password) {
       await clearHiddenPasswordEverywhere(ctx);
       return { ok: true, cleared: true };
     }
     if (password.length < 4 || password.length > 64) {
       throw new Error("Mật khẩu phải từ 4 đến 64 ký tự");
-    }
-    // Người đầu tiên đặt mật khẩu trở thành chủ sở hữu bot (bootstrap) —
-    // cũng cho phép nhận lại quyền khi owner cũ ghi sai / không tồn tại.
-    if (user && (!status?.ownerDiscordId || !(await ownerIsValid(ctx, status.ownerDiscordId)))) {
-      await setOwnerId(ctx, user.discordId);
     }
     await patchHiddenPassword(ctx, hashHiddenPasswordGlobal(password));
     // Đổi mật khẩu → xoá luôn hash di sản theo server của guild đang mở.
@@ -505,25 +501,6 @@ export const setHiddenPassword = mutation({
     return { ok: true, cleared: false };
   },
 });
-
-async function setOwnerId(ctx: MutationCtx, ownerId: string) {
-  const status = await getBotStatus(ctx);
-  if (status) {
-    await ctx.db.patch(status._id, { ownerDiscordId: ownerId });
-  } else {
-    const now = Date.now();
-    await ctx.db.insert("botStatus", {
-      kind: "status",
-      online: false,
-      guildCount: 0,
-      memberCount: 0,
-      lastHeartbeat: now,
-      startedAt: now,
-      version: "",
-      ownerDiscordId: ownerId,
-    });
-  }
-}
 
 /** Kiểm tra mật khẩu mở khóa tính năng ẩn — CHỈ chủ sở hữu bot + chống dò (5 lần sai / 10 phút). */
 const HIDDEN_VERIFY_MAX_FAILS = 5;

@@ -59,6 +59,53 @@ for (let i = 0; i < 30; i++) {
 }
 check("user-C (identity khác) vẫn đủ 30 lượt đầu", allOk);
 
+// 3b. Convex thực tế trả identity object; guard phải dùng subject, không bỏ qua bucket.
+__resetRateGuardForTest();
+const objectCtx: any = { auth: { getIdentity: () => ({ subject: "user-object" }) } };
+const objectFirst = rateLimitPublicAction(objectCtx, {
+  name: "publicConfig",
+  maxPerMin: 1,
+  globalMaxPerMin: 10,
+}).ok;
+const objectSecond = rateLimitPublicAction(objectCtx, {
+  name: "publicConfig",
+  maxPerMin: 1,
+  globalMaxPerMin: 10,
+}).ok;
+check("identity object dùng subject và vẫn bị giới hạn", objectFirst && !objectSecond);
+
+__resetRateGuardForTest();
+const tokenCtx: any = {
+  auth: { getIdentity: () => ({ tokenIdentifier: "token-identity" }) },
+};
+const tokenFirst = rateLimitPublicAction(tokenCtx, {
+  name: "publicConfig",
+  maxPerMin: 1,
+  globalMaxPerMin: 10,
+}).ok;
+const tokenSecond = rateLimitPublicAction(tokenCtx, {
+  name: "publicConfig",
+  maxPerMin: 1,
+  globalMaxPerMin: 10,
+}).ok;
+check("identity object fallback tokenIdentifier vẫn bị giới hạn", tokenFirst && !tokenSecond);
+
+__resetRateGuardForTest();
+const anonymousObjectCtx: any = { auth: { getIdentity: () => ({ opaque: true }) } };
+check(
+  "identity object không có subject/tokenIdentifier vẫn dùng anonymous/global",
+  rateLimitPublicAction(anonymousObjectCtx, {
+    name: "publicConfig",
+    maxPerMin: 1,
+    globalMaxPerMin: 10,
+  }).ok &&
+    rateLimitPublicAction(anonymousObjectCtx, {
+      name: "publicConfig",
+      maxPerMin: 1,
+      globalMaxPerMin: 10,
+    }).ok,
+);
+
 // 4. Trần toàn cục chặn cả identity mới (botnet).
 __resetRateGuardForTest();
 allOk = true;

@@ -6,6 +6,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export const HEARTBEAT_FRESH_MS = 180_000;
+
+/** Một heartbeat cũ không còn chứng minh bot đang online. */
+export function isHeartbeatFresh(ts: number | null | undefined, now = Date.now()): boolean {
+  return typeof ts === "number" && Number.isFinite(ts) && now - ts < HEARTBEAT_FRESH_MS;
+}
+
 export function timeAgo(ts: number | null | undefined): string {
   if (!ts) return translate("chưa rõ");
   const diff = Date.now() - ts;

@@ -41,10 +41,21 @@
   section[id] {
     scroll-margin-top: 5rem;
   }
+  :where(a, button, input, select, textarea, [role="button"]):focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
   /* Tôn trọng người dùng bật giảm chuyển động. */
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
     }
   }
 
@@ -86,12 +97,12 @@
 
   body {
     @apply text-foreground antialiased;
-    background: hsl(0 0% 100%) fixed;
+    background: hsl(var(--background)) fixed;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   html.dark body {
-    background: hsl(0 0% 4%) fixed;
+    background: hsl(var(--background)) fixed;
   }
 
   ::selection {

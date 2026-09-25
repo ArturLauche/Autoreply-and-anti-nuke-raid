@@ -15,7 +15,7 @@
  * Việc xử lý tái dùng processor của từng module (không nhân bản logic):
  *  - hidden jobs  → hidden.processHiddenJobsData (panel, giveaway, DM, webhook log)
  *  - verify panel → hidden.processVerifyPanelItems
- *  - backup       → backup.runBackup / runRestore / runImportRestore + claim
+ *  - backup       → backup.runBackup / runRestore / runImportRestore + claimAt fencing
  *  - settings đổi → xóa cache config + cache webhook của guild vừa được dashboard sửa
  *    (settingsChanges)
  */
@@ -78,10 +78,11 @@ async function claimBackup(store, guildId, kind) {
       guildId,
       kind,
     });
-    return !!res?.ok;
+    if (!res?.ok) return null;
+    return { claimAt: typeof res.claimAt === "number" ? res.claimAt : undefined };
   } catch (e) {
     console.error(`[tick:backup:claim] ${guildId}:`, e.message);
-    return false;
+    return null;
   }
 }
 
@@ -117,8 +118,9 @@ async function runBackupJobs(client, store, items) {
   for (const item of items) {
     const key = `${item.guildId}:${item.kind}`;
     if (backupInFlight.has(key)) continue;
-    const won = await claimBackup(store, item.guildId, item.kind);
-    if (!won) continue;
+    const lease = await claimBackup(store, item.guildId, item.kind);
+    if (!lease) continue;
+    const claimAt = lease.claimAt;
     backupInFlight.add(key);
     try {
       if (item.kind === "backup") {
@@ -128,22 +130,28 @@ async function runBackupJobs(client, store, items) {
           // Yêu cầu đến từ người dùng (dashboard/lệnh) hoặc lịch tự động —
           // nếu bị skip vì "không thay đổi" thì phải thông báo, không im lặng.
           skipNotice: true,
+          claimAt,
         });
       } else if (item.kind === "restore") {
-        await backupMod.runRestore(client, store, item.guildId, item.backupJson, item.guildName);
+        await backupMod.runRestore(client, store, item.guildId, item.backupJson, item.guildName, {
+          claimAt,
+        });
       } else if (item.kind === "import") {
         const content = await readImportContent(item);
-        await backupMod.runImportRestore(client, store, item.guildId, content, item.fileName);
+        await backupMod.runImportRestore(client, store, item.guildId, content, item.fileName, {
+          claimAt,
+        });
       }
     } catch (e) {
       console.error(`[tick:backup:${item.kind}] ${item.guildId}:`, e.message);
-      // Mọi nhánh đều BÁO LỄN lên dashboard để người dùng thấy lý do thay vì
+      // Mọi nhánh đều BÁO LỖI lên dashboard để người dùng thấy lý do thay vì
       // chờ mãi không thấy gì (restore/import trước đây xóa cờ IM LẶNG).
       if (item.kind === "import") {
         await store.client
           .mutation("bot_writes:botReportImportError", {
             guildId: item.guildId,
             error: String(e?.message || "Lỗi không xác định").slice(0, 300),
+            claimAt,
           })
           .catch(() => {});
       } else if (item.kind === "restore") {
@@ -151,6 +159,7 @@ async function runBackupJobs(client, store, items) {
           .mutation("bot_writes:botReportRestoreError", {
             guildId: item.guildId,
             error: String(e?.message || "Lỗi không xác định").slice(0, 300),
+            claimAt,
           })
           .catch(() => {});
       } else {
@@ -158,6 +167,7 @@ async function runBackupJobs(client, store, items) {
           .mutation("bot_writes:botReportBackupError", {
             guildId: item.guildId,
             error: String(e?.message || "Lỗi không xác định").slice(0, 300),
+            claimAt,
           })
           .catch(() => {});
       }

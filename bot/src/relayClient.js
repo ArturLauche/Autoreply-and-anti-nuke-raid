@@ -14,14 +14,36 @@
  * chạy deterministic path như chưa từng có relay.
  */
 const RELAY_REFRESH_MS = 10 * 60 * 1000;
+const RELAY_RETRY_MS = 60 * 1000;
+const MAX_GUILD_CACHE = 500;
+const GUILD_CACHE_TTL_MS = 30 * 60 * 1000;
 /** Signature nhận về tối đa giữ trong RAM. */
 const MAX_LOCAL = 100;
 
 let store = null;
-let lastFetchAt = 0;
-let loading = false;
-/** Mảng { kind, value, weight } từ relay — bot đang bật relayReceive. */
-let signatures = [];
+let cleanupPending = false;
+const byGuild = new Map();
+
+function stateFor(guildId) {
+  const now = Date.now();
+  if (byGuild.size >= MAX_GUILD_CACHE) {
+    for (const [id, state] of byGuild) {
+      if (!state.loading && now - state.lastFetchAt >= GUILD_CACHE_TTL_MS) byGuild.delete(id);
+      if (byGuild.size < MAX_GUILD_CACHE) break;
+    }
+    while (byGuild.size >= MAX_GUILD_CACHE) {
+      const removable = [...byGuild.entries()].find(([, value]) => !value.loading);
+      if (!removable) break;
+      byGuild.delete(removable[0]);
+    }
+  }
+  let state = byGuild.get(guildId);
+  if (!state) {
+    state = { lastFetchAt: 0, lastAttemptAt: 0, retryAt: 0, loading: false, signatures: [] };
+    byGuild.set(guildId, state);
+  }
+  return state;
+}
 
 /** Gắn store (gọi 1 lần khi bot ready). */
 function attach(storeRef) {
@@ -57,27 +79,52 @@ function reportSignatureBatch(guildId, kind, values) {
  * 10 phút — dùng chung TTL để không thêm call Convex.
  */
 function refreshSignatures(guildId) {
-  try {
-    if (!store || !guildId || loading) return;
-    if (Date.now() - lastFetchAt < RELAY_REFRESH_MS) return;
-    loading = true;
-    store.client
-      .query("relay:botGetRelaySignatures", { guildId })
-      .then((res) => {
-        if (res && Array.isArray(res.signatures)) {
-          signatures = res.signatures.slice(0, MAX_LOCAL);
-          lastFetchAt = Date.now();
-        }
-      })
-      .catch(() => {})
-      // Dọn rác relay định kỳ (mutation riêng — query không xóa được). Fire-and-forget.
-      .then(() => store.client.mutation("relay:botCleanupRelay", {}).catch(() => {}))
-      .finally(() => {
-        loading = false;
-      });
-  } catch {
-    loading = false;
+  if (!store || !guildId) return Promise.resolve();
+  const state = stateFor(guildId);
+  const now = Date.now();
+  if (state.loading || state.retryAt > now || now - state.lastFetchAt < RELAY_REFRESH_MS) {
+    return Promise.resolve();
   }
+  const storeRef = store;
+  state.loading = true;
+  state.lastAttemptAt = now;
+  let request;
+  try {
+    request = storeRef.client.query("relay:botGetRelaySignatures", { guildId });
+  } catch {
+    state.loading = false;
+    state.retryAt = Date.now() + RELAY_RETRY_MS;
+    return Promise.resolve();
+  }
+  return Promise.resolve(request)
+    .then((res) => {
+      if (res && Array.isArray(res.signatures)) {
+        state.signatures = res.signatures.slice(0, MAX_LOCAL);
+        state.lastFetchAt = Date.now();
+        state.retryAt = 0;
+      } else {
+        // Response malformed vẫn phải backoff; nếu không, mỗi tin nhắn sẽ gọi
+        // lại Convex liên tục và tạo một vòng lặp tốn quota.
+        state.retryAt = Date.now() + RELAY_RETRY_MS;
+      }
+    })
+    .catch(() => {
+      state.retryAt = Date.now() + RELAY_RETRY_MS;
+    })
+    .then(() => {
+      if (cleanupPending) return;
+      cleanupPending = true;
+      return storeRef.client
+        .mutation("relay:botCleanupRelay", {})
+        .catch(() => {})
+        .finally(() => {
+          cleanupPending = false;
+        });
+    })
+    .catch(() => {})
+    .finally(() => {
+      state.loading = false;
+    });
 }
 
 /**
@@ -85,8 +132,9 @@ function refreshSignatures(guildId) {
  * hoặc null. Signature là chuỗi đã chuẩn hóa phía Convex (≤60 ký tự) — so khớp
  * substring lower-case, đủ an toàn (không regex từ dữ liệu mạng).
  */
-function matchSpamText(content) {
+function matchSpamText(guildId, content) {
   try {
+    const signatures = byGuild.get(guildId)?.signatures ?? [];
     if (signatures.length === 0 || !content) return null;
     const lower = String(content).toLowerCase();
     for (const sig of signatures) {
@@ -101,14 +149,14 @@ function matchSpamText(content) {
 }
 
 /** Số signature đang giữ (cho test/đếm). */
-function localCount() {
-  return signatures.length;
+function localCount(guildId) {
+  return byGuild.get(guildId)?.signatures.length ?? 0;
 }
 
 /** Xóa cache local (test). */
 function reset() {
-  signatures = [];
-  lastFetchAt = 0;
+  byGuild.clear();
+  cleanupPending = false;
 }
 
 module.exports = {

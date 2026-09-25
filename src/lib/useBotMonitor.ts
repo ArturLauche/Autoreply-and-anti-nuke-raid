@@ -1,14 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBotStatus, type BotStatus } from "./useBotStatus";
 import { dateLocale } from "./i18n";
+import { convexPingUrl } from "./convexUrl";
 
-/** Điểm cuối Convex dùng để đo độ trễ thực (khớp URL backend chọn trong main.tsx). */
-const configuredUrl = import.meta.env.VITE_CONVEX_URL ?? "";
-const isLocalDevUrl = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredUrl);
-const PING_URL =
-  !configuredUrl || isLocalDevUrl
-    ? "https://accomplished-chipmunk-74.convex.cloud/api/query"
-    : `${configuredUrl.replace(/\/$/, "")}/api/query`;
+const PING_URL = convexPingUrl();
 
 export const LATENCY_FAST = 300;
 export const LATENCY_SLOW = 800;
@@ -19,13 +14,6 @@ export const SYNC_INTERVAL_MS = 60_000;
 export interface MonitorIncident {
   time: number;
   text: string;
-}
-
-/** Kết quả ping backend gần nhất — nguồn tin của thẻ "Backend (dữ liệu)". */
-export interface BackendPing {
-  state: "ok" | "down" | "checking";
-  /** Lần ping thành công gần nhất (ms epoch) — undefined khi chưa ping được lần nào. */
-  lastOkAt?: number;
 }
 
 export function latencyLabel(ms: number): { label: string; cls: string } {
@@ -57,6 +45,13 @@ async function pingBackend(): Promise<number> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   await res.json();
   return Math.round(performance.now() - t0);
+}
+
+/** Kết quả ping backend gần nhất — nguồn tin của thẻ "Backend (dữ liệu)". */
+export interface BackendPing {
+  state: "ok" | "down" | "checking";
+  /** Lần ping thành công gần nhất (ms epoch) — undefined khi chưa ping được lần nào. */
+  lastOkAt?: number;
 }
 
 export interface BotMonitor {

@@ -4,17 +4,14 @@ import { useAction } from "convex/react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "../components/ui/button";
-import { usePublicConfig } from "../lib/usePublicConfig";
 import {
   OAUTH_STATE_KEY,
   OAUTH_VERIFIER_KEY,
   SILENT_STATE_KEY,
   SILENT_VERIFIER_KEY,
-  exchangeCode,
   getSessionToken,
   safeRedirectPath,
   setSessionToken,
-  storeDiscordAccess,
 } from "../lib/discord";
 
 import { translate } from "../lib/i18n";
@@ -46,23 +43,33 @@ function friendlyAuthError(raw: string): string {
       );
     }
   }
-  return raw || translate("Đăng nhập thất bại, vui lòng thử lại.");
+  // Server trả lý do tiếng Việt để không lộ chi tiết nội bộ; ánh xạ các lý do
+  // biết trước sang thông điệp đã bản dịch để EN/DE không bị rơi về tiếng Việt.
+  const knownReasons: Array<[RegExp, string]> = [
+    [/Quá nhiều lượt đăng nhập/, "Quá nhiều lượt đăng nhập — thử lại sau ít phút"],
+    [/Chưa cấu hình redirect_uri/, "Chưa cấu hình redirect_uri cho phép trên deployment"],
+    [/redirect_uri không nằm/, "Địa chỉ callback không được phép — kiểm tra cấu hình OAuth"],
+    [/Mã OAuth hoặc PKCE/, "Mã OAuth hoặc PKCE không hợp lệ"],
+    [/Không kết nối được tới Discord/, "Không kết nối được tới Discord — thử lại sau ít phút"],
+    [/Discord không trả (access token|dữ liệu)/, "Discord không trả dữ liệu hợp lệ — thử lại"],
+    [/Trao đổi code với Discord/, "Trao đổi mã đăng nhập với Discord thất bại"],
+    [/Không ghi được phiên/, "Không ghi được phiên đăng nhập — thử lại"],
+    [/DISCORD_CLIENT_ID chưa/, "DISCORD_CLIENT_ID chưa được cấu hình trên deployment"],
+  ];
+  for (const [pattern, message] of knownReasons) {
+    if (pattern.test(raw)) return translate(message);
+  }
+  return translate("Đăng nhập thất bại, vui lòng thử lại.");
 }
 
 export default function DiscordCallback() {
   const navigate = useNavigate();
-  const { clientId, loading: configLoading, error: configError } = usePublicConfig();
   const exchangeAndLogin = useAction(api.sessionAuth.exchangeAndLogin);
-  // Làm mới im lặng: server tự hỏi Discord bằng access token (client không tự báo).
+  // Làm mới im lặng: authorization code + PKCE được exchange server-side; client không tự báo.
   const refreshGuildsServer = useAction(api.sessionAuth.refreshGuildsServer);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (configLoading) return;
-    if (configError) {
-      setError(translate("Không thể kết nối tới máy chủ Protogon. Vui lòng thử lại sau."));
-      return;
-    }
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
     const state = params.get("state");
@@ -82,18 +89,23 @@ export default function DiscordCallback() {
         const silentReturn = safeRedirectPath(sessionStorage.getItem("wio_silent_return"));
         sessionStorage.removeItem("wio_silent_return");
         async function runSilent() {
-          if (oauthError || !code || !clientId || !silentVerifier) {
+          if (oauthError || !code || !silentVerifier) {
             window.location.replace(`${silentReturn}?silent=err`);
             return;
           }
           try {
-            const oauth = await exchangeCode(clientId, code, silentVerifier);
-            storeDiscordAccess(oauth);
             const sessToken = getSessionToken();
-            if (sessToken) {
-              await refreshGuildsServer({ token: sessToken, accessToken: oauth.access_token });
+            if (!sessToken) {
+              window.location.replace(`${silentReturn}?silent=err`);
+              return;
             }
-            window.location.replace(`${silentReturn}?silent=ok`);
+            const refreshed = await refreshGuildsServer({
+              token: sessToken,
+              code,
+              codeVerifier: silentVerifier,
+              redirectUri: window.location.origin + "/discord/callback",
+            });
+            window.location.replace(`${silentReturn}?${refreshed.ok ? "silent=ok" : "silent=err"}`);
           } catch {
             window.location.replace(`${silentReturn}?silent=err`);
           }
@@ -106,10 +118,6 @@ export default function DiscordCallback() {
         setError(oauthError ?? translate("Thiếu mã xác nhận từ Discord."));
         return;
       }
-      if (!clientId) {
-        setError(translate("DISCORD_CLIENT_ID chưa được cấu hình trong API Keys."));
-        return;
-      }
       if (!verifier || !savedState || savedState !== state) {
         setError(translate("Phiên đăng nhập không hợp lệ. Vui lòng thử lại."));
         return;
@@ -119,34 +127,15 @@ export default function DiscordCallback() {
         // client_secret) và tự tạo session token — client không thể giả mạo
         // danh tính hay tự cấp token cho mình. Lỗi trả { ok: false, reason }
         // (không throw — Convex prod mask message action).
-        let result = await exchangeAndLogin({
+        const result = await exchangeAndLogin({
           code,
           codeVerifier: verifier,
           redirectUri: window.location.origin + "/discord/callback",
         });
-        if (!result.ok && result.reason.includes("NEED_CLIENT_SECRET_EXCHANGE") && clientId) {
-          // Fallback: deployment chưa có DISCORD_CLIENT_SECRET → web tự trao đổi
-          // code bằng PKCE (OAuth gốc đã dùng S256 challenge nên code không thể
-          // bị dùng bởi kẻ khác) rồi gửi access token lên — server vẫn xác thực
-          // lại với Discord.
-          const oauth = await exchangeCode(clientId, code, verifier);
-          result = await exchangeAndLogin({
-            code,
-            codeVerifier: verifier,
-            redirectUri: window.location.origin + "/discord/callback",
-            accessToken: oauth.access_token,
-          });
-        }
         if (!result.ok || !result.token) {
           setError(friendlyAuthError(!result.ok ? (result.reason ?? "") : ""));
           return;
         }
-        // Lưu access token để dashboard tự làm mới danh sách server sau này.
-        storeDiscordAccess({
-          access_token: result.accessToken,
-          refresh_token: undefined,
-          expires_in: undefined,
-        });
         setSessionToken(result.token);
         sessionStorage.removeItem(OAUTH_VERIFIER_KEY);
         sessionStorage.removeItem(OAUTH_STATE_KEY);
@@ -157,7 +146,7 @@ export default function DiscordCallback() {
       }
     }
     void run();
-  }, [clientId, configLoading, configError, exchangeAndLogin, navigate]);
+  }, [exchangeAndLogin, navigate]);
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">

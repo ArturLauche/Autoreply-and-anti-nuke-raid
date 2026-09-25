@@ -115,6 +115,31 @@ function StatusCard({
   );
 }
 
+/** Chi tiết thẻ backend: độ trễ ping gần nhất, hoặc lý do khi không gọi được. */
+function backendDetail(backendPing: BackendPing, latency: number | null): string | undefined {
+  if (backendPing.state === "down") return translate("Không gọi được API dữ liệu.");
+  if (backendPing.state === "ok" && latency !== null) {
+    return `${translate("Phản hồi:")} ${latency} ms`;
+  }
+  return undefined;
+}
+
+/** Chi tiết thẻ bot: mốc đồng bộ/heartbeat gần nhất theo giờ Việt Nam. */
+function botDetail(
+  status: { online: boolean; lastHeartbeat: number | null } | null,
+  botState: "ok" | "down" | "checking",
+): string | undefined {
+  if (status === null) return undefined;
+  if (botState === "ok") {
+    return status.lastHeartbeat
+      ? `${translate("Đồng bộ lần cuối:")} ${fmtVietnam(status.lastHeartbeat)}`
+      : undefined;
+  }
+  return status.lastHeartbeat
+    ? `${translate("Heartbeat cuối:")} ${fmtVietnam(status.lastHeartbeat)}`
+    : translate("Chưa từng thấy heartbeat.");
+}
+
 export default function Monitor() {
   const { status, latency, history, avg, incidents, lastUpdate, nextUpdate, refresh, backendPing } =
     useBotMonitor(30000);
@@ -135,6 +160,7 @@ export default function Monitor() {
           <div className="container flex items-center gap-3 py-5">
             <Link
               to="/"
+              aria-label={translate("← Về trang chủ")}
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -270,8 +296,9 @@ export default function Monitor() {
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   {" "}
                   {translate("Đánh giá:")} <b className="text-foreground">{translate("Nhanh")}</b>{" "}
-                  (&lt; 300ms) · <b className="text-foreground">{translate("Trung bình")}</b>{" "}
-                  (300–800ms) · <b className="text-danger">{translate("Chậm")}</b> (&gt; 800ms) ·{" "}
+                  (&lt; 300ms) ·{""}
+                  <b className="text-foreground">{translate("Trung bình")}</b> (300–800ms) ·{""}
+                  <b className="text-danger">{translate("Chậm")}</b> (&gt; 800ms) ·{""}
                   <b className="text-danger">{translate("Sự cố")}</b> (&gt; 1200ms)
                 </p>
               </div>
@@ -338,29 +365,4 @@ export default function Monitor() {
       </div>
     </div>
   );
-}
-
-/** Chi tiết thẻ backend: độ trễ ping gần nhất, hoặc lý do khi không gọi được. */
-function backendDetail(backendPing: BackendPing, latency: number | null): string | undefined {
-  if (backendPing.state === "down") return translate("Không gọi được API dữ liệu.");
-  if (backendPing.state === "ok" && latency !== null) {
-    return `${translate("Phản hồi:")} ${latency} ms`;
-  }
-  return undefined;
-}
-
-/** Chi tiết thẻ bot: mốc đồng bộ/heartbeat gần nhất theo giờ Việt Nam. */
-function botDetail(
-  status: { online: boolean; lastHeartbeat: number | null } | null,
-  botState: "ok" | "down" | "checking",
-): string | undefined {
-  if (status === null) return undefined;
-  if (botState === "ok") {
-    return status.lastHeartbeat
-      ? `${translate("Đồng bộ lần cuối:")} ${fmtVietnam(status.lastHeartbeat)}`
-      : undefined;
-  }
-  return status.lastHeartbeat
-    ? `${translate("Heartbeat cuối:")} ${fmtVietnam(status.lastHeartbeat)}`
-    : translate("Chưa từng thấy heartbeat.");
 }

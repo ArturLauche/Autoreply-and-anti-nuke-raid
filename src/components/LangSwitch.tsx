@@ -28,8 +28,7 @@ export default function LangSwitch({
   const { lang, setLang, t } = useT();
 
   return (
-    <div
-      role="group"
+    <nav
       aria-label={t("Ngôn ngữ")}
       className={cn(
         "inline-flex shrink-0 items-center gap-0.5 rounded-lg border border-border bg-secondary/50 p-0.5",
@@ -54,6 +53,6 @@ export default function LangSwitch({
           {label}
         </button>
       ))}
-    </div>
+    </nav>
   );
 }

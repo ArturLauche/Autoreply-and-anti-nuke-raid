@@ -750,7 +750,23 @@ export const EN: Record<string, string> = {
   "Đang tải lên…": "Uploading…",
   "Đang tải lịch sử…": "Loading history…",
   "Đang tải…": "Loading…",
+  "Thiếu CONVEX_URL cho production build": "Missing CONVEX_URL for the production build",
+  "Đăng nhập thất bại, vui lòng thử lại.": "Sign-in failed. Please try again.",
   "Đang xác thực với Discord…": "Authenticating with Discord…",
+  "Quá nhiều lượt đăng nhập — thử lại sau ít phút":
+    "Too many sign-in attempts — try again in a few minutes",
+  "Chưa cấu hình redirect_uri cho phép trên deployment":
+    "No allowed redirect URI is configured for this deployment",
+  "Địa chỉ callback không được phép — kiểm tra cấu hình OAuth":
+    "Callback address is not allowed — check the OAuth configuration",
+  "Mã OAuth hoặc PKCE không hợp lệ": "Invalid OAuth code or PKCE verifier",
+  "Không kết nối được tới Discord — thử lại sau ít phút":
+    "Cannot connect to Discord — try again in a few minutes",
+  "Discord không trả dữ liệu hợp lệ — thử lại": "Discord returned invalid data — try again",
+  "Trao đổi mã đăng nhập với Discord thất bại": "Could not exchange the sign-in code with Discord",
+  "Không ghi được phiên đăng nhập — thử lại": "Could not save the sign-in session — try again",
+  "DISCORD_CLIENT_ID chưa được cấu hình trên deployment":
+    "DISCORD_CLIENT_ID is not configured for this deployment",
   "Đang yêu cầu…": "Requesting…",
   "Điều hướng": "Navigation",
   "Điều hướng bảng điều khiển": "Dashboard navigation",
@@ -899,4 +915,33 @@ export const EN: Record<string, string> = {
   "Đang nghỉ tạm:": "Currently cooling down:",
   "≥5 phạt nhầm đã xác nhận — AI đang tự siết độ tin cậy (bias giảm nhẹ + nhắc thận trọng trong prompt).":
     "≥5 confirmed wrongful punishments — the AI is self-tightening its confidence (slight bias cut + caution reminder in the prompt).",
+  "Đang kiểm tra phiên đăng nhập": "Checking your session",
+  "Mặc định": "Default",
+  "Không thể làm mới danh sách server": "Could not refresh the server list",
+  "Protogon giúp bảo vệ server Discord với auto-reply, hệ thống nhiệt độ 4 giai đoạn, Join Gate chống selfbot, chặn link độc hại và 32 module chống nuke/raid.":
+    "Protogon protects Discord servers with auto-replies, a four-stage heat system, Join Gate anti-selfbot, malicious-link blocking, and 32 anti-nuke/raid modules.",
+  "Điều khoản sử dụng bot Protogon và bảng điều khiển web cho cộng đồng Discord.":
+    "Terms for using the Protogon Discord bot and web dashboard for Discord communities.",
+  "Chính sách quyền riêng tư và cách Protogon xử lý dữ liệu người dùng.":
+    "Privacy policy and how Protogon handles user data.",
+  "Thông tin lưu trữ, thời hạn và quy trình yêu cầu xoá dữ liệu của Protogon.":
+    "Protogon retention information and the process for requesting data deletion.",
+  "Theo dõi trạng thái, độ trễ và số liệu vận hành của bot Protogon theo thời gian thực.":
+    "Live Protogon bot status, latency, and operational metrics.",
+  "Đăng nhập an toàn bằng Discord để quản lý các server của bạn trên Protogon.":
+    "Securely sign in with Discord to manage your servers on Protogon.",
+  "Quản lý cấu hình bảo vệ và tự động hóa cho các server Discord của bạn.":
+    "Manage protection settings and automation for your Discord servers.",
+  "Theo dõi thành viên có nhiệt độ vi phạm cao trong các server bạn quản lý.":
+    "Track members with the highest violation heat across servers you manage.",
+  "Khu vực quản trị dành riêng cho chủ sở hữu bot Protogon.":
+    "Administration area reserved for the Protogon bot owner.",
+  "Đang xác thực Discord — Protogon": "Authenticating with Discord — Protogon",
+  "Đang hoàn tất đăng nhập Discord an toàn với Protogon.":
+    "Completing secure Discord sign-in with Protogon.",
+  "Không dùng CONVEX_URL localhost trong production build":
+    "Do not use a localhost CONVEX_URL in a production build",
+  Xóa: "Remove",
+  "CONVEX_URL không hợp lệ hoặc không nằm trong allowlist":
+    "CONVEX_URL is invalid or is not allowlisted",
 };

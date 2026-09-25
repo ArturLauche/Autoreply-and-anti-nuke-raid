@@ -178,6 +178,12 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       if (!member) {
         return interaction.reply({ content: "❌ Không tìm thấy thành viên.", ephemeral: true });
       }
+      if (!member.roles.cache.has(unverifiedRoleId)) {
+        return interaction.reply({
+          content: "❌ Bạn không có role chưa xác minh nên không thể xác minh.",
+          ephemeral: true,
+        });
+      }
       try {
         // === ALT DETECTION AT VERIFY GATE (Double Counter style) ===
         if (config.altDetectionEnabled) {

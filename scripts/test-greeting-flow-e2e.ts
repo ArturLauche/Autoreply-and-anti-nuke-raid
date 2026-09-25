@@ -196,12 +196,16 @@ function seed() {
     token: TOKEN,
     userId: "u_x",
     createdAt: Date.now(),
+    // Phiên mới phải có marker authVersion — legacy session bị từ chối (isCurrentSession).
+    authVersion: 1,
   });
   h.rows("guilds").push({
     _id: "g1",
     discordId: GID,
     name: "Server Thật",
     botInGuild: true,
+    // managers không còn cấp quyền (chỉ hiển thị) — quyền đến từ
+    // manageableGuildIds của user, được Discord xác nhận lúc đăng nhập.
     managers: [OWNER_ID],
   });
   return h;

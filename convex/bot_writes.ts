@@ -12,6 +12,30 @@ const ALLOWED_ACTIONS = [
   "purgeMessages",
 ] as const;
 const ACTION_STRENGTH: Record<string, number> = { warn: 1, timeout: 2, kick: 3, ban: 4 };
+const BACKUP_CLAIM_TTL_MS = 600_000;
+
+function claimIsActive(claimedAt: number | undefined, leaseUntil?: number): boolean {
+  if (claimedAt === undefined) return false;
+  return leaseUntil !== undefined
+    ? leaseUntil > Date.now()
+    : Date.now() - claimedAt < BACKUP_CLAIM_TTL_MS;
+}
+
+function claimMatches(
+  guild: {
+    backupClaimedAt?: number;
+    backupLeaseUntil?: number;
+    restoreClaimedAt?: number;
+    restoreLeaseUntil?: number;
+  },
+  kind: "backup" | "restore" | "import",
+  claimAt: number | undefined,
+): boolean {
+  if (claimAt === undefined) return true; // tương thích client cũ trong lúc rollout
+  const current = kind === "backup" ? guild.backupClaimedAt : guild.restoreClaimedAt;
+  const leaseUntil = kind === "backup" ? guild.backupLeaseUntil : guild.restoreLeaseUntil;
+  return current === claimAt && claimIsActive(current, leaseUntil);
+}
 
 /** Lọc + chuẩn hóa danh sách hành động, trả về hình phạt mạnh nhất. */
 function normalizeActions(raw: string[] | undefined): {
@@ -574,9 +598,19 @@ export const botStoreBackup = mutation({
     backupSnapshotChecksum: v.optional(v.string()),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()),
+    claimAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     await requireBotKeyStrict(ctx, args.botKey);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", args.guildId))
+      .first();
+    if (args.claimAt !== undefined && !guild) return { ok: false, reason: "no_guild" };
+    const claimKind = args.source === "import" ? "import" : "backup";
+    if (guild && !claimMatches(guild, claimKind, args.claimAt)) {
+      return { ok: false, reason: "stale_claim" };
+    }
     const now = Date.now();
     const backupId = await ctx.db.insert("guildBackups", {
       guildId: args.guildId,
@@ -599,13 +633,7 @@ export const botStoreBackup = mutation({
       createdAt: now,
     });
     // Đánh dấu lần backup gần nhất — lịch tự động tính từ đây.
-    const guild = await ctx.db
-      .query("guilds")
-      .withIndex("by_discordId", (q) => q.eq("discordId", args.guildId))
-      .first();
-    if (guild) {
-      await ctx.db.patch(guild._id, { lastBackupAt: now, updatedAt: now });
-    }
+    if (guild) await ctx.db.patch(guild._id, { lastBackupAt: now, updatedAt: now });
     // Tự dọn dẹp backup tồn dư: chỉ giữ 3 bản mới nhất mỗi server (bản cũ hơn bị xóa).
     const all = await ctx.db
       .query("guildBackups")
@@ -683,11 +711,18 @@ export const botSetBackupRequest = mutation({
       .first();
     if (!guild) throw new Error("Server chưa được đồng bộ");
     if (!guild.botInGuild) throw new Error("Bot chưa có trong server này");
+    if (
+      claimIsActive(guild.backupClaimedAt, guild.backupLeaseUntil) ||
+      claimIsActive(guild.restoreClaimedAt, guild.restoreLeaseUntil)
+    ) {
+      return { ok: false, reason: "in_flight" };
+    }
     await ctx.db.patch(guild._id, {
       backupRequested: true,
       backupPushToGithub: !!pushToGithub,
       backupIncludeMessages: !!includeMessages,
       backupClaimedAt: undefined,
+      backupLeaseUntil: undefined,
       updatedAt: Date.now(),
     });
     return { ok: true };
@@ -710,6 +745,12 @@ export const botSetRestoreRequest = mutation({
       .first();
     if (!guild) throw new Error("Server chưa được đồng bộ");
     if (!guild.botInGuild) throw new Error("Bot chưa có trong server này");
+    if (
+      claimIsActive(guild.backupClaimedAt, guild.backupLeaseUntil) ||
+      claimIsActive(guild.restoreClaimedAt, guild.restoreLeaseUntil)
+    ) {
+      return { ok: false, reason: "in_flight" };
+    }
     const backup = await ctx.db.get(backupId);
     if (!backup || backup.guildId !== guildId) {
       throw new Error("Backup không tồn tại hoặc không thuộc server này");
@@ -718,6 +759,7 @@ export const botSetRestoreRequest = mutation({
       restoreRequested: true,
       restoreBackupId: backupId,
       restoreClaimedAt: undefined,
+      restoreLeaseUntil: undefined,
       updatedAt: Date.now(),
     });
     return { ok: true };
@@ -747,10 +789,8 @@ export const botDeleteBackup = mutation({
 /**
  * Bot giành quyền xử lý một yêu cầu backup/khôi phục (chống lặp).
  * Chỉ bot claim THÀNH CÔNG mới được chạy; lượt quét khác/instance khác
- * gọi tới trong 10 phút sẽ bị từ chối và bỏ qua. Cửa sổ phải CHE ĐỦ thời gian
- * chạy thật (server lớn: backup ~2-5 phút, restore kèm media có thể > 10 phút
- * với rate limit webhook) — trước đây 2 phút bị quá ngắn: bot khác/lượt restart
- * cướp quyền giữa chừng và chạy lại từ đầu (tạo backup trùng / restore lặp).
+ * gọi tới trong 10 phút sẽ bị từ chối và bỏ qua. Job còn sống có thể gia hạn lease
+ * bằng `botRenewBackupClaim`; nếu bot chết, lease tự hết hạn để worker khác cứu.
  */
 export const botClaimBackup = mutation({
   args: {
@@ -769,26 +809,74 @@ export const botClaimBackup = mutation({
     const now = Date.now();
     if (kind === "backup") {
       if (!guild.backupRequested) return { ok: false, reason: "no_request" };
-      if (guild.backupClaimedAt !== undefined && now - guild.backupClaimedAt < 600_000) {
+      if (
+        claimIsActive(guild.backupClaimedAt, guild.backupLeaseUntil) ||
+        claimIsActive(guild.restoreClaimedAt, guild.restoreLeaseUntil)
+      ) {
         return { ok: false, reason: "in_flight" };
       }
-      await ctx.db.patch(guild._id, { backupClaimedAt: now, updatedAt: now });
-      return { ok: true };
+      await ctx.db.patch(guild._id, {
+        backupClaimedAt: now,
+        backupLeaseUntil: now + BACKUP_CLAIM_TTL_MS,
+        updatedAt: now,
+      });
+      return { ok: true, claimAt: now };
     }
     if (kind === "import") {
       if (!guild.importRestoreRequested) return { ok: false, reason: "no_request" };
-      if (guild.restoreClaimedAt !== undefined && now - guild.restoreClaimedAt < 600_000) {
+      if (
+        claimIsActive(guild.backupClaimedAt, guild.backupLeaseUntil) ||
+        claimIsActive(guild.restoreClaimedAt, guild.restoreLeaseUntil)
+      ) {
         return { ok: false, reason: "in_flight" };
       }
-      await ctx.db.patch(guild._id, { restoreClaimedAt: now, updatedAt: now });
-      return { ok: true };
+      await ctx.db.patch(guild._id, {
+        restoreClaimedAt: now,
+        restoreLeaseUntil: now + BACKUP_CLAIM_TTL_MS,
+        updatedAt: now,
+      });
+      return { ok: true, claimAt: now };
     }
     if (!guild.restoreRequested) return { ok: false, reason: "no_request" };
-    if (guild.restoreClaimedAt !== undefined && now - guild.restoreClaimedAt < 600_000) {
+    if (
+      claimIsActive(guild.backupClaimedAt, guild.backupLeaseUntil) ||
+      claimIsActive(guild.restoreClaimedAt, guild.restoreLeaseUntil)
+    ) {
       return { ok: false, reason: "in_flight" };
     }
-    await ctx.db.patch(guild._id, { restoreClaimedAt: now, updatedAt: now });
-    return { ok: true };
+    await ctx.db.patch(guild._id, {
+      restoreClaimedAt: now,
+      restoreLeaseUntil: now + BACKUP_CLAIM_TTL_MS,
+      updatedAt: now,
+    });
+    return { ok: true, claimAt: now };
+  },
+});
+
+/** Bot gia hạn lease khi restore còn sống; claimAt giữ nguyên làm fencing token. */
+export const botRenewBackupClaim = mutation({
+  args: {
+    guildId: v.string(),
+    kind: v.union(v.literal("backup"), v.literal("restore"), v.literal("import")),
+    claimAt: v.number(),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { botKey, guildId, kind, claimAt }) => {
+    await requireBotKeyStrict(ctx, botKey);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) return { ok: false, reason: "no_guild" };
+    if (!claimMatches(guild, kind, claimAt)) return { ok: false, reason: "stale_claim" };
+    const leaseUntil = Date.now() + BACKUP_CLAIM_TTL_MS;
+    if (kind === "backup") {
+      await ctx.db.patch(guild._id, { backupLeaseUntil: leaseUntil, updatedAt: Date.now() });
+    } else {
+      await ctx.db.patch(guild._id, { restoreLeaseUntil: leaseUntil, updatedAt: Date.now() });
+    }
+    return { ok: true, leaseUntil };
   },
 });
 
@@ -801,20 +889,23 @@ export const botReportRestoreError = mutation({
   args: {
     guildId: v.string(),
     error: v.string(),
+    claimAt: v.optional(v.number()),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()),
   },
-  handler: async (ctx, { botKey, guildId, error }) => {
+  handler: async (ctx, { botKey, guildId, error, claimAt }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
       .first();
     if (!guild) return { ok: true };
+    if (!claimMatches(guild, "restore", claimAt)) return { ok: false, reason: "stale_claim" };
     await ctx.db.patch(guild._id, {
       restoreRequested: false,
       restoreBackupId: undefined,
       restoreClaimedAt: undefined,
+      restoreLeaseUntil: undefined,
       restoreError: String(error || "Lỗi không xác định").slice(0, 300),
       restoreErrorAt: Date.now(),
       updatedAt: Date.now(),
@@ -832,21 +923,24 @@ export const botClearBackup = mutation({
     storeOk: v.optional(v.boolean()),
     /** Backup bị bỏ qua vì server không đổi (checksum trùng) — dashboard nói rõ lý do. */
     unchanged: v.optional(v.boolean()),
+    claimAt: v.optional(v.number()),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()),
   },
-  handler: async (ctx, { botKey, guildId, kind, storeOk, unchanged }) => {
+  handler: async (ctx, { botKey, guildId, kind, storeOk, unchanged, claimAt }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
       .first();
     if (!guild) return { ok: true };
+    if (!claimMatches(guild, kind, claimAt)) return { ok: false, reason: "stale_claim" };
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (kind === "backup") {
       patch.backupRequested = false;
       patch.backupPushToGithub = false;
       patch.backupClaimedAt = undefined;
+      patch.backupLeaseUntil = undefined;
       patch.backupError = undefined;
       patch.backupErrorAt = undefined;
       // Backup đã xử lý xong (kể cả trường hợp bỏ qua vì checksum trùng) —
@@ -871,6 +965,7 @@ export const botClearBackup = mutation({
       patch.importError = undefined;
       patch.importErrorAt = undefined;
       patch.restoreClaimedAt = undefined;
+      patch.restoreLeaseUntil = undefined;
       // Xóa luôn file backup đã tải lên (Convex file storage) — không để rác.
       if (guild.importStorageId) {
         try {
@@ -883,6 +978,7 @@ export const botClearBackup = mutation({
       patch.restoreRequested = false;
       patch.restoreBackupId = undefined;
       patch.restoreClaimedAt = undefined;
+      patch.restoreLeaseUntil = undefined;
       patch.restoreError = undefined;
       patch.restoreErrorAt = undefined;
       patch.restoreFinishedAt = Date.now();
@@ -901,20 +997,23 @@ export const botReportBackupError = mutation({
   args: {
     guildId: v.string(),
     error: v.string(),
+    claimAt: v.optional(v.number()),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()),
   },
-  handler: async (ctx, { botKey, guildId, error }) => {
+  handler: async (ctx, { botKey, guildId, error, claimAt }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
       .first();
     if (!guild) return { ok: true };
+    if (!claimMatches(guild, "backup", claimAt)) return { ok: false, reason: "stale_claim" };
     await ctx.db.patch(guild._id, {
       backupRequested: false,
       backupPushToGithub: false,
       backupClaimedAt: undefined,
+      backupLeaseUntil: undefined,
       backupError: String(error || "Lỗi không xác định").slice(0, 300),
       backupErrorAt: Date.now(),
       // Xóa mốc "xong" cũ: lần này THẤT BẠI, giữ lại mốc cũ thì dashboard có thể
@@ -936,16 +1035,18 @@ export const botReportImportError = mutation({
   args: {
     guildId: v.string(),
     error: v.string(),
+    claimAt: v.optional(v.number()),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()),
   },
-  handler: async (ctx, { botKey, guildId, error }) => {
+  handler: async (ctx, { botKey, guildId, error, claimAt }) => {
     await requireBotKeyStrict(ctx, botKey);
     const guild = await ctx.db
       .query("guilds")
       .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
       .first();
     if (!guild) return { ok: true };
+    if (!claimMatches(guild, "import", claimAt)) return { ok: false, reason: "stale_claim" };
     await ctx.db.patch(guild._id, {
       importRestoreRequested: false,
       importFileName: undefined,
@@ -953,6 +1054,7 @@ export const botReportImportError = mutation({
       importError: String(error || "Lỗi không xác định").slice(0, 300),
       importErrorAt: Date.now(),
       restoreClaimedAt: undefined,
+      restoreLeaseUntil: undefined,
       updatedAt: Date.now(),
     });
     // Xóa file backup đã tải lên — không để rác storage (người dùng sẽ tải lại).
@@ -982,6 +1084,8 @@ export const botRestoreSettings = mutation({
     adminRoles: v.optional(v.array(v.string())),
     logChannelId: v.optional(v.union(v.string(), v.null())),
     modLogChannelId: v.optional(v.union(v.string(), v.null())),
+    /** Claim timestamp để fence worker restore đã cũ. */
+    claimAt: v.optional(v.number()),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()),
   },
@@ -992,6 +1096,9 @@ export const botRestoreSettings = mutation({
       .withIndex("by_discordId", (q) => q.eq("discordId", args.guildId))
       .first();
     if (!guild) throw new Error("Server chưa được đồng bộ");
+    if (args.claimAt !== undefined && !claimMatches(guild, "restore", args.claimAt)) {
+      return { ok: false, reason: "stale_claim" };
+    }
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.prefix !== undefined) patch.prefix = args.prefix;
     if (args.badWords !== undefined) patch.badWords = args.badWords.slice(0, 100);

@@ -443,6 +443,7 @@ async function runBackup(client, store, guildId, opts = {}) {
     pushToGithub: pushToGithubOpt = false,
     includeMessages = false,
     skipNotice = false,
+    claimAt,
   } = opts;
   const { snapshot, guild } = await snapshotWithSettings(client, store, guildId, includeMessages);
 
@@ -459,14 +460,19 @@ async function runBackup(client, store, guildId, opts = {}) {
       console.log(`[backup] ${guildId}: unchanged (checksum match) — skipping`);
       // unchanged: true → dashboard biết lý do "không có bản mới" và báo cho người
       // dùng thay vì để họ tưởng bot bỏ qua yêu cầu.
-      await store.client
+      const cleared = await store.client
         .mutation("bot_writes:botClearBackup", {
           guildId,
           kind: "backup",
           storeOk: true,
           unchanged: true,
+          claimAt,
         })
-        .catch(() => {});
+        .catch(() => null);
+      if (cleared?.ok !== true) {
+        console.error(`[backup:clear] ${guildId}: không xác nhận được yêu cầu đã xong`);
+        return;
+      }
       // Người dùng bấm "Backup ngay" chủ động → phải có thông báo, không im lặng
       // (im lặng khiến họ tưởng backup không hoạt động). Backup tự động theo lịch
       // vẫn im lặng như cũ để không spam kênh log.
@@ -515,6 +521,7 @@ async function runBackup(client, store, guildId, opts = {}) {
       backupSnapshotChecksum: currentChecksum,
       backupCompressed: compressed || undefined,
       backupEncrypted: encrypted || undefined,
+      claimAt,
     });
     backupId = stored?.backupId;
     if (!backupId) throw new Error("Convex không trả về id bản backup vừa lưu");
@@ -528,7 +535,7 @@ async function runBackup(client, store, guildId, opts = {}) {
     });
     console.error(`[backup:store] ${guildId}:`, e?.message || e);
     await store.client
-      .mutation("bot_writes:botReportBackupError", { guildId, error: reason })
+      .mutation("bot_writes:botReportBackupError", { guildId, error: reason, claimAt })
       .catch((err) => console.error(`[backup:store:report] ${guildId}:`, err?.message || err));
     try {
       await sendToLog(
@@ -565,14 +572,22 @@ async function runBackup(client, store, guildId, opts = {}) {
 
   // Clear pending flag + cập nhật lastBackupAt (khi store thành công) để
   // botGetDueAuto không kích hoạt lại tức thì sau khi backup xong.
-  await store.client
+  const cleared = await store.client
     .mutation("bot_writes:botClearBackup", {
       guildId,
       kind: "backup",
       storeOk: !!backupId,
       unchanged: false,
+      claimAt,
     })
-    .catch((e) => console.error("[backup:clear]", e.message));
+    .catch((e) => {
+      console.error("[backup:clear]", e.message);
+      return null;
+    });
+  if (cleared?.ok !== true) {
+    console.error(`[backup:clear] ${guildId}: không xác nhận được yêu cầu đã xong`);
+    return;
+  }
 
   const fields = [
     { name: "Role", value: `${snapshot.roles.length}`, inline: true },
@@ -627,10 +642,12 @@ function sortedChannels(backup) {
 }
 
 /** Tạo lại role từ backup theo đúng thứ tự; trả về Map oldId -> newId. */
-async function createRoles(guild, backup) {
+async function createRoles(guild, backup, onProgress) {
   const map = new Map();
   const sorted = sortedRoles(backup);
+  let processed = 0;
   for (const r of sorted) {
+    if (onProgress && processed++ % 10 === 0) await onProgress();
     if (!r.name) continue;
     try {
       const opts = {
@@ -659,6 +676,7 @@ async function createRoles(guild, backup) {
   try {
     const createdSorted = sorted.map((r) => map.get(r.id)).filter(Boolean);
     for (let i = 0; i < createdSorted.length; i++) {
+      if (onProgress && i % 10 === 0) await onProgress();
       try {
         await createdSorted[i].setPosition(i);
       } catch {
@@ -672,9 +690,10 @@ async function createRoles(guild, backup) {
 }
 
 /** Tạo lại kênh từ backup theo đúng thứ tự + vị trí; trả về Map oldId -> newId. */
-async function createChannels(guild, backup, roleMap) {
+async function createChannels(guild, backup, roleMap, onProgress) {
   const map = new Map();
   const sorted = sortedChannels(backup);
+  let processed = 0;
 
   const buildOpts = (ch) => {
     const overwrites = (ch.overwrites || [])
@@ -716,6 +735,7 @@ async function createChannels(guild, backup, roleMap) {
 
   // Tạo danh mục trước (theo thứ tự vị trí), rồi kênh con.
   for (const ch of sorted) {
+    if (onProgress && processed++ % 10 === 0) await onProgress();
     if (ch.type !== ChannelType.GuildCategory) continue;
     if (map.has(ch.id)) continue;
     try {
@@ -727,6 +747,7 @@ async function createChannels(guild, backup, roleMap) {
     }
   }
   for (const ch of sorted) {
+    if (onProgress && processed++ % 10 === 0) await onProgress();
     if (ch.type === ChannelType.GuildCategory) continue;
     if (map.has(ch.id)) continue;
     try {
@@ -759,10 +780,11 @@ function sanitizeEmojiName(name) {
  * (TypeError: restoreEmojis is not a function) ngay sau khi phát lại tin nhắn:
  * không tạo emoji/sticker, không áp settings, không gửi embed hoàn tất.
  */
-async function recreateEmojis(guild, backup) {
+async function recreateEmojis(guild, backup, onProgress) {
   let created = 0;
   const list = backup.emojis || [];
   for (let i = 0; i < list.length; i++) {
+    if (onProgress && i % 5 === 0) await onProgress();
     const e = list[i];
     if (!e || !e.name) continue;
     const name = sanitizeEmojiName(e.name);
@@ -798,10 +820,11 @@ const MAX_STICKER_BYTES = 512 * 1024;
  * Tạo lại sticker từ backup (URL CDN hoặc raw base64 nhúng trong file bot nuke).
  * tags là emoji unicode đại diện (Discord bắt buộc với PNG/APNG) — mặc định 😀.
  */
-async function restoreStickers(guild, backup) {
+async function restoreStickers(guild, backup, onProgress) {
   let created = 0;
   const list = backup.stickers || [];
   for (let i = 0; i < list.length; i++) {
+    if (onProgress && i % 5 === 0) await onProgress();
     const s = list[i];
     if (!s || !s.name) continue;
     const name = sanitizeStickerName(s.name);
@@ -843,8 +866,9 @@ async function restoreStickers(guild, backup) {
  * (URL hoặc data URI base64 trong file bot nuke) và đăng LẠI THẬT vào tin khôi
  * phục — chỉ những file không tải được mới hiện dạng link 📎. Trả số tin đã phục hồi.
  */
-async function replayMessages(guild, backup, channelMap) {
+async function replayMessages(guild, backup, channelMap, onProgress) {
   let sent = 0;
+  let processed = 0;
   for (const ch of backup.channels || []) {
     const msgs = (Array.isArray(ch.messages) ? ch.messages : [])
       .slice()
@@ -868,6 +892,7 @@ async function replayMessages(guild, backup, channelMap) {
     }
 
     for (const m of msgs) {
+      if (onProgress && processed++ % 10 === 0) await onProgress();
       // Tải media (tối đa 3 file/tin, mỗi file ≤ 8 MB) — file lỗi thì hiện link.
       const files = [];
       const failedLines = [];
@@ -1730,7 +1755,13 @@ function normalizeBackupFile(content) {
 }
 
 /** Tạo lại role/kênh + phục hồi tin nhắn + áp cấu hình — dùng chung cho restore mọi nguồn. */
-async function restoreCore(client, store, guildId, backup, { backupName, source = "restore" }) {
+async function restoreCore(
+  client,
+  store,
+  guildId,
+  backup,
+  { backupName, source = "restore", claimAt },
+) {
   const guild = client.guilds.cache.get(guildId);
   if (!guild || guild.available === false) {
     throw new Error("Bot không còn trong server cần khôi phục");
@@ -1742,17 +1773,44 @@ async function restoreCore(client, store, guildId, backup, { backupName, source 
   const restoreChannels = cfg?.restoreChannelsEnabled !== false;
   const restoreMessages = cfg?.restoreMessagesEnabled !== false;
   const restoreEmojis = cfg?.restoreEmojisEnabled !== false;
+  const claimKind = source === "import" ? "import" : "restore";
+  const ensureClaim = async () => {
+    if (claimAt === undefined) return;
+    const result = await store.client.mutation("bot_writes:botRenewBackupClaim", {
+      guildId,
+      kind: claimKind,
+      claimAt,
+    });
+    if (result?.ok !== true) {
+      throw new Error(
+        result?.reason === "stale_claim"
+          ? "stale backup claim"
+          : "không xác nhận được claim restore",
+      );
+    }
+  };
+
+  await ensureClaim();
   if (!restoreRoles || !restoreChannels || !restoreMessages || !restoreEmojis) {
     console.log(
       `[backup:restore] ${guildId}: tùy chỉnh khôi phục — role=${restoreRoles ? "bật" : "TẮT"}, kênh=${restoreChannels ? "bật" : "TẮT"}, tin nhắn=${restoreMessages ? "bật" : "TẮT"}, emoji/sticker=${restoreEmojis ? "bật" : "TẮT"}`,
     );
   }
-  const roleMap = restoreRoles ? await createRoles(guild, backup) : new Map();
-  const channelMap = restoreChannels ? await createChannels(guild, backup, roleMap) : new Map();
-  const replayed = restoreMessages ? await replayMessages(guild, backup, channelMap) : 0;
+  const roleMap = restoreRoles ? await createRoles(guild, backup, ensureClaim) : new Map();
+  await ensureClaim();
+  const channelMap = restoreChannels
+    ? await createChannels(guild, backup, roleMap, ensureClaim)
+    : new Map();
+  await ensureClaim();
+  const replayed = restoreMessages
+    ? await replayMessages(guild, backup, channelMap, ensureClaim)
+    : 0;
+  await ensureClaim();
   // Emoji + sticker: tải ảnh/file về và tạo lại thật (best-effort, lỗi từng cái bỏ qua).
-  const emojisCreated = restoreEmojis ? await recreateEmojis(guild, backup) : 0;
-  const stickersCreated = restoreEmojis ? await restoreStickers(guild, backup) : 0;
+  const emojisCreated = restoreEmojis ? await recreateEmojis(guild, backup, ensureClaim) : 0;
+  await ensureClaim();
+  const stickersCreated = restoreEmojis ? await restoreStickers(guild, backup, ensureClaim) : 0;
+  await ensureClaim();
 
   // Áp lại cấu hình cơ bản với id mới (role/kênh đã được map sang server này).
   // File import có thể chứa settings sai kiểu (object/chuỗi thay vì mảng) —
@@ -1760,32 +1818,44 @@ async function restoreCore(client, store, guildId, backup, { backupName, source 
   const s = backup.settings || {};
   const asIdArray = (v) => (Array.isArray(v) ? v : []);
   const mapId = (id, m) => (id ? m.get(id) || undefined : undefined);
-  await store.client
-    .mutation("bot_writes:botRestoreSettings", {
-      guildId,
-      prefix: typeof s.prefix === "string" ? s.prefix : undefined,
-      badWords: Array.isArray(s.badWords) ? s.badWords : undefined,
-      whitelistRoles: asIdArray(s.whitelistRoles)
-        .map((id) => roleMap.get(id))
-        .filter(Boolean),
-      whitelistUsers: Array.isArray(s.whitelistUsers) ? s.whitelistUsers : undefined,
-      modRoles: asIdArray(s.modRoles)
-        .map((id) => roleMap.get(id))
-        .filter(Boolean),
-      adminRoles: asIdArray(s.adminRoles)
-        .map((id) => roleMap.get(id))
-        .filter(Boolean),
-      logChannelId: mapId(s.logChannelId, channelMap) ?? null,
-      modLogChannelId: mapId(s.modLogChannelId, channelMap) ?? null,
-    })
-    .catch((e) => console.error(`[backup:settings] ${guildId}:`, e.message));
+  const settingsResult = await store.client.mutation("bot_writes:botRestoreSettings", {
+    guildId,
+    prefix: typeof s.prefix === "string" ? s.prefix : undefined,
+    badWords: Array.isArray(s.badWords) ? s.badWords : undefined,
+    whitelistRoles: asIdArray(s.whitelistRoles)
+      .map((id) => roleMap.get(id))
+      .filter(Boolean),
+    whitelistUsers: Array.isArray(s.whitelistUsers) ? s.whitelistUsers : undefined,
+    modRoles: asIdArray(s.modRoles)
+      .map((id) => roleMap.get(id))
+      .filter(Boolean),
+    adminRoles: asIdArray(s.adminRoles)
+      .map((id) => roleMap.get(id))
+      .filter(Boolean),
+    logChannelId: mapId(s.logChannelId, channelMap) ?? null,
+    modLogChannelId: mapId(s.modLogChannelId, channelMap) ?? null,
+    claimAt,
+  });
+  if (settingsResult?.ok === false) {
+    throw new Error(
+      settingsResult.reason === "stale_claim"
+        ? "stale backup claim"
+        : "restore settings bị từ chối",
+    );
+  }
 
-  await store.client
-    .mutation("bot_writes:botClearBackup", {
-      guildId,
-      kind: source === "import" ? "import" : "restore",
-    })
-    .catch((e) => console.error("[backup:clear]", e.message));
+  const cleared = await store.client.mutation("bot_writes:botClearBackup", {
+    guildId,
+    kind: source === "import" ? "import" : "restore",
+    claimAt,
+  });
+  if (cleared?.ok !== true) {
+    throw new Error(
+      cleared?.reason === "stale_claim"
+        ? "stale backup claim"
+        : "không xác nhận được yêu cầu restore",
+    );
+  }
 
   const fields = [];
   if (restoreRoles) {
@@ -1867,7 +1937,11 @@ async function runRestore(client, store, guildId, backupJson, backupName, option
       messages: options.restoreMessages !== false,
     });
   }
-  return restoreCore(client, store, guildId, backup, { backupName, source: "restore" });
+  return restoreCore(client, store, guildId, backup, {
+    backupName,
+    source: "restore",
+    claimAt: options.claimAt,
+  });
 }
 
 /** Tải nội dung file import từ Convex file storage (URL botGetPending trả về). */
@@ -1920,7 +1994,7 @@ function slimBackupForStore(backup) {
 }
 
 /** Khôi phục từ file backup .msc/.json tải lên (bot nuke khác). */
-async function runImportRestore(client, store, guildId, fileContent, fileName) {
+async function runImportRestore(client, store, guildId, fileContent, fileName, { claimAt } = {}) {
   const backup = normalizeBackupFile(fileContent);
   if (!backup.guildName || backup.guildName === "server từ file backup") {
     backup.guildName =
@@ -1931,7 +2005,7 @@ async function runImportRestore(client, store, guildId, fileContent, fileName) {
   // Lưu bản đã chuẩn hóa (đã làm gọn blob base64) vào guildBackups để xem lại /
   // không mất dữ liệu — không nhét media nặng vào document (giới hạn 1 MB).
   try {
-    await store.client.mutation("bot_writes:botStoreBackup", {
+    const stored = await store.client.mutation("bot_writes:botStoreBackup", {
       guildId,
       guildName: backup.guildName,
       backupJson: JSON.stringify(slimBackupForStore(backup)),
@@ -1941,13 +2015,25 @@ async function runImportRestore(client, store, guildId, fileContent, fileName) {
       stickerCount: backup.stickers?.length ?? 0,
       messageCount: backup.messageCount ?? 0,
       source: "import",
+      claimAt,
     });
+    if (stored?.ok === false) {
+      throw new Error(
+        stored.reason === "stale_claim"
+          ? "stale backup claim"
+          : stored.reason || "không lưu được bản backup import",
+      );
+    }
   } catch (e) {
     console.error(`[backup:import:store] ${guildId}:`, e.message);
+    // Không được bỏ qua lỗi/fencing: nếu claim đã stale mà vẫn gọi restoreCore,
+    // bot có thể tạo role/kênh rồi mới phát hiện quyền đã chuyển sang worker khác.
+    throw e;
   }
   return restoreCore(client, store, guildId, backup, {
     backupName: backup.guildName,
     source: "import",
+    claimAt,
   });
 }
 
@@ -1964,7 +2050,9 @@ async function claim(client, store, guildId, kind) {
       guildId,
       kind,
     });
-    return !!res?.ok;
+    // Backend cũ chưa trả claimAt vẫn chạy được; undefined bị JSON stringify
+    // bỏ khỏi args, nên không làm bot mới gửi field lạ lên Convex cũ.
+    return res?.ok ? { claimAt: typeof res.claimAt === "number" ? res.claimAt : null } : null;
   } catch (e) {
     console.error(`[backup:claim] ${guildId}:`, e.message);
     return false;
@@ -1985,8 +2073,9 @@ async function pollBackups(client, store) {
     const key = `${item.guildId}:${item.kind}`;
     if (inFlight.has(key)) continue; // lượt quét trước đang xử lý — bỏ qua.
     // Giành quyền: nếu bot khác/lượt quét khác đã giành thì bỏ qua (không lặp).
-    const won = await claim(client, store, item.guildId, item.kind);
-    if (!won) continue;
+    const lease = await claim(client, store, item.guildId, item.kind);
+    if (!lease) continue;
+    const claimAt = lease.claimAt ?? undefined;
     inFlight.add(key);
     try {
       if (item.kind === "backup") {
@@ -1994,26 +2083,34 @@ async function pollBackups(client, store) {
           pushToGithub: !!item.pushToGithub,
           includeMessages: !!item.includeMessages,
           skipNotice: true,
+          claimAt,
         });
       } else if (item.kind === "restore") {
-        await runRestore(client, store, item.guildId, item.backupJson, item.guildName);
+        await runRestore(client, store, item.guildId, item.backupJson, item.guildName, {
+          claimAt,
+        });
       } else if (item.kind === "import") {
         const content = await readImportContent(item);
-        await runImportRestore(client, store, item.guildId, content, item.fileName);
+        await runImportRestore(client, store, item.guildId, content, item.fileName, {
+          claimAt,
+        });
       }
     } catch (e) {
       console.error(`[backup:${item.kind}] ${item.guildId}:`, e.message);
-      // Import (.msc/.json): BÁO LỖI lên dashboard để người dùng thấy lý do
-      // (bot xóa cờ + file, giữ lại importError — web đọc qua backup:importStatus).
-      // Backup/khôi phục backup có sẵn: xóa cờ như cũ (không có màn hình chờ).
+      // Luôn đi qua mutation báo lỗi riêng. `botClearBackup` được xem là
+      // xử lý thành công và sẽ đặt restoreFinishedAt/lastBackupAt — dùng nó ở
+      // catch khiến dashboard báo xong giả sau khi restore/backup đã hỏng.
       const reportKind =
-        item.kind === "import" ? "bot_writes:botReportImportError" : "bot_writes:botClearBackup";
+        item.kind === "import"
+          ? "bot_writes:botReportImportError"
+          : item.kind === "restore"
+            ? "bot_writes:botReportRestoreError"
+            : "bot_writes:botReportBackupError";
       await store.client
         .mutation(reportKind, {
           guildId: item.guildId,
-          ...(item.kind === "import"
-            ? { error: String(e?.message || "Lỗi không xác định").slice(0, 300) }
-            : { kind: item.kind }),
+          error: String(e?.message || "Lỗi không xác định").slice(0, 300),
+          claimAt,
         })
         .catch(() => {});
     } finally {

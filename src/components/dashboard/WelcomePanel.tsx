@@ -62,6 +62,15 @@ type ImageSlot =
   | "welcomeCardBackground"
   | "goodbyeCardBackground";
 
+const IMAGE_SLOT_FIELD: Record<ImageSlot, string> = {
+  welcomeEmbedImage: "welcomeEmbedImage",
+  welcomeEmbedThumbnail: "welcomeEmbedThumbnail",
+  goodbyeEmbedImage: "goodbyeEmbedImage",
+  goodbyeEmbedThumbnail: "goodbyeEmbedThumbnail",
+  welcomeCardBackground: "welcomeCardBackground",
+  goodbyeCardBackground: "goodbyeCardBackground",
+};
+
 const PLACEHOLDER_BADGE = "{user} {username} {server} {count} {created} {boost}";
 
 /** Biến bot thay khi gửi — hiện dưới dạng chip bấm-là-chèn. */
@@ -402,13 +411,7 @@ function ImageSlot({
       await updateSettings({
         token: TOKEN(),
         guildId,
-        ...(slot === "welcomeEmbedImage"
-          ? { welcomeEmbedImage: url }
-          : slot === "welcomeEmbedThumbnail"
-            ? { welcomeEmbedThumbnail: url }
-            : slot === "goodbyeEmbedImage"
-              ? { goodbyeEmbedImage: url }
-              : { goodbyeEmbedThumbnail: url }),
+        [IMAGE_SLOT_FIELD[slot]]: url,
       });
       toast.success(translate("Đã lưu ảnh — bot dùng ảnh mới trong khoảng 1 phút"));
       setUrlDraft("");

@@ -142,8 +142,8 @@ const aiHealthQuery =
 check(
   "getAiHealth guard owner TRƯỚC khi đọc aiHealth (người thường phải nhận null)",
   aiHealthQuery.includes("getUserByToken") &&
-    aiHealthQuery.includes("ownerDiscordId") &&
-    /ownerDiscordId !== user\.discordId/.test(aiHealthQuery),
+    aiHealthQuery.includes("isBotOwnerUser") &&
+    aiHealthQuery.indexOf("isBotOwnerUser") < aiHealthQuery.indexOf("const ai ="),
   "thiếu guard owner → provider/model AI lộ công khai qua API Convex",
 );
 const adminSrc = read("src/pages/Admin.tsx");
@@ -154,6 +154,20 @@ check(
       adminSrc.replace(/getAiHealth, token \? \{ token \} : "skip"/g, ""),
     ),
   "panel AI phải nằm trong cửa sổ Admin (chỉ owner nhìn thấy)",
+);
+
+const indexSrc = read("bot/src/index.js");
+const uncaughtBranch = indexSrc.slice(
+  indexSrc.indexOf('process.on("uncaughtException"'),
+  indexSrc.indexOf("// --- Event handlers ---"),
+);
+check(
+  "uncaughtException chẩn đoán có timeout rồi exit non-zero để PM2 restart",
+  /UNCAUGHT_DIAGNOSIS_TIMEOUT_MS\s*=\s*5_000/.test(indexSrc) &&
+    /setTimeout\(/.test(uncaughtBranch) &&
+    /process\.exit\(1\)/.test(uncaughtBranch) &&
+    /\.finally\(/.test(uncaughtBranch) &&
+    !/Don't exit/.test(uncaughtBranch),
 );
 
 console.log(`\nKết quả bot contracts: ${pass} PASS, ${fail} FAIL`);

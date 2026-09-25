@@ -41,12 +41,12 @@ function formatDateTime(ts: number): string {
   });
 }
 
-/** Convert an <input type="date"> value ("YYYY-MM-DD") to a UTC timestamp. */
+/** Chuyển ngày đầu/cuối theo múi giờ của người dùng, tránh lệch ngày ở Việt Nam. */
 function dateToTs(d: string, endOfDay: boolean): number | undefined {
   if (!d) return undefined;
   const [y, m, day] = d.split("-").map(Number);
-  const date = new Date(Date.UTC(y, m - 1, day));
-  if (endOfDay) date.setUTCHours(23, 59, 59, 999);
+  const date = new Date(y, m - 1, day, 0, 0, 0, 0);
+  if (endOfDay) date.setHours(23, 59, 59, 999);
   return date.getTime();
 }
 
@@ -114,11 +114,12 @@ export default function GuildHistory() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/60 bg-white/60 backdrop-blur">
+      <header className="border-b border-border/60 bg-background/70 backdrop-blur">
         <div className="container py-6">
           <div className="flex flex-wrap items-center gap-4">
             <Link
               to={`/dashboard/${guild.guild.discordId}`}
+              aria-label={translate("← Về danh sách server")}
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />

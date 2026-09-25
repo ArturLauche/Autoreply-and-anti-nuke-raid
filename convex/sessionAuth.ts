@@ -10,16 +10,23 @@ declare const process: {
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { requireFuncKey } from "./botFunc";
+// OAuth codes are exchanged server-side; the browser never receives a Discord token.
 
 const DISCORD_API = "https://discord.com/api/v10";
 const PERM_MANAGE_GUILD = 0x20;
+const DISCORD_SNOWFLAKE_RE = /^\d{15,21}$/;
+
+function configuredClientId(value: string | undefined | null): string {
+  const candidate = String(value ?? "").trim();
+  return DISCORD_SNOWFLAKE_RE.test(candidate) ? candidate : "";
+}
 
 /**
- * Rate-limit login attempt (in-memory, 60s window): IP-based bucket keyed from
- * the Convex request. Without this, anyone can spam bogus codes → each attempt
- * burns a Discord API roundtrip + writes; a botnet could drain quota and get
- * the deployment's Discord OAuth client flagged.
+ * Rate-limit login attempts (in-memory, 60s window). Convex không expose IP ổn
+ * định cho action, nên đây là trần global theo instance; refresh đã dùng bucket
+ * riêng theo Discord user. Without this, anyone can spam bogus codes → each
+ * attempt burns a Discord API roundtrip + writes; a botnet could drain quota and
+ * get the deployment's Discord OAuth client flagged.
  * (Best-effort: in-memory only survives one action instance — enough against
  * scripted bursts, same approach as haimiya:ask.)
  *
@@ -57,42 +64,87 @@ function checkLoginRateLimit(identity: string): string | null {
  * endpoint attacker-controlled và trao đổi thành access token).
  * Trả chuỗi lỗi thay vì throw (xem checkLoginRateLimit).
  */
+function normalizeRedirectUri(raw: string): string | null {
+  try {
+    const url = new URL(raw);
+    if (
+      (url.protocol !== "https:" && url.protocol !== "http:") ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    ) {
+      return null;
+    }
+    return `${url.origin}${url.pathname.replace(/\/+$/, "") || "/"}`;
+  } catch {
+    return null;
+  }
+}
+
 function checkAllowedRedirectUri(uri: string): string | null {
+  const candidate = normalizeRedirectUri(uri);
+  if (!candidate) return "redirect_uri không hợp lệ";
   const ALLOWED = [
     process.env.OAUTH_REDIRECT_URI,
     process.env.DASHBOARD_URL
       ? `${process.env.DASHBOARD_URL.replace(/\/+$/, "")}/discord/callback`
       : undefined,
-  ].filter((u): u is string => !!u);
-  if (ALLOWED.length === 0) return null; // chưa cấu hình → giữ back-compat (như trước đây)
-  if (!ALLOWED.includes(uri)) {
+  ]
+    .filter((u): u is string => !!u)
+    .map((u) => normalizeRedirectUri(u))
+    .filter((u): u is string => !!u);
+  if (ALLOWED.length === 0) return "Chưa cấu hình redirect_uri cho phép trên deployment";
+  if (!ALLOWED.includes(candidate)) {
     return "redirect_uri không nằm trong danh sách cho phép";
   }
   return null;
 }
 
+function hasValidOAuthParams(code: string, codeVerifier: string): boolean {
+  return (
+    code.length >= 8 &&
+    code.length <= 2048 &&
+    /^[A-Za-z0-9._~-]+$/.test(code) &&
+    codeVerifier.length >= 43 &&
+    codeVerifier.length <= 128 &&
+    /^[A-Za-z0-9_-]+$/.test(codeVerifier)
+  );
+}
+
+async function fetchDiscord(url: string, init: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  // Giữ signal sống tới khi body đọc xong, không chỉ tới lúc headers về; nếu
+  // clear ngay trong finally, res.json() có thể treo vô hạn sau header.
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  (timer as unknown as { unref?: () => void }).unref?.();
+  return fetch(url, { ...init, signal: controller.signal });
+}
+
 /**
- * Trao đổi code → access token bằng client_secret (đường chính).
- * Trả { error } thay vì throw — message của action bị Convex production mask.
+ * Trao đổi authorization code trên server. Có client secret thì dùng confidential
+ * flow; deployment chỉ có public client vẫn dùng PKCE an toàn, không cần browser
+ * gửi access token lên Convex.
  */
-async function exchangeWithSecret(
+async function exchangeCodeOnServer(
   clientId: string,
-  clientSecret: string,
+  clientSecret: string | undefined,
   code: string,
   codeVerifier: string,
   redirectUri: string,
 ): Promise<{ token?: string; error?: string }> {
   const body = new URLSearchParams({
     client_id: clientId,
-    client_secret: clientSecret,
     grant_type: "authorization_code",
     code,
     redirect_uri: redirectUri,
     code_verifier: codeVerifier,
   });
+  if (clientSecret) body.set("client_secret", clientSecret);
+
   let res: Response;
   try {
-    res = await fetch(`${DISCORD_API}/oauth2/token`, {
+    res = await fetchDiscord(`${DISCORD_API}/oauth2/token`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body,
@@ -100,82 +152,59 @@ async function exchangeWithSecret(
   } catch {
     return { error: "Không kết nối được tới Discord (mạng)" };
   }
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    return { error: `Discord token API lỗi ${res.status}: ${text.slice(0, 120)}` };
-  }
-  const data = (await res.json()) as { access_token?: string };
-  if (!data.access_token) return { error: "Discord không trả access token" };
+  if (!res.ok) return { error: `Discord token API lỗi ${res.status}` };
+  const data = (await res.json().catch(() => null)) as { access_token?: string } | null;
+  if (!data?.access_token) return { error: "Discord không trả access token" };
   return { token: data.access_token };
 }
 
 /**
  * Trao đổi code OAuth Discord + tạo phiên đăng nhập NGAY TRÊN SERVER.
  *
- * Trước đây web tự gọi Discord API bằng clientId công khai (PKCE không cần
- * client_secret) rồi TỰ báo user + danh sách server lên `sessions:login` —
- * kẻ xấu có thể tự gọi mutation này và GIẢ MẠ bất kỳ danh tính nào (lấy quyền
- * quản lý mọi server). Giờ:
- *  1. Web chỉ gửi `code` + `codeVerifier` (PKCE) lên action này.
- *  2. Server tự gọi Discord token endpoint (kèm client_secret), rồi hỏi
- *     Discord `/users/@me` + `/users/@me/guilds` — danh tính HOÀN TOÀN từ
- *     Discord, client không thể giả mạo.
- *  3. Server tự tạo session token (random 32 byte) và ghi vào bảng sessions,
- *     trả { token, user, guilds } cho web lưu.
- *
- * funcKey: action này dùng DISCORD_CLIENT_SECRET (env) — cần chìa khóa để
- * tránh bị lạm dụng. Chưa đặt FUNC_SEED → miễn check (back-compat).
+ * Web chỉ gửi authorization code + PKCE verifier. Browser không nhận và không
+ * lưu access/refresh token; mọi token chỉ tồn tại trong request server-side.
  */
 export const exchangeAndLogin = action({
   args: {
     code: v.string(),
     codeVerifier: v.string(),
     redirectUri: v.string(),
-    funcKey: v.optional(v.string()),
-    /**
-     * Fallback (15/09): deployment thiếu DISCORD_CLIENT_SECRET → web tự trao đổi
-     * code bằng PKCE (không cần secret) và gửi access token lên. Server KHÔNG tin
-     * token này: gọi ngay /users/@me xác thực với Discord — danh tính vẫn hoàn
-     * toàn từ Discord, không thể giả mạo nếu không giữ code+verifier thật.
-     */
-    accessToken: v.optional(v.string()),
   },
-  handler: async (ctx, { code, codeVerifier, redirectUri, funcKey, accessToken }) => {
-    requireFuncKey(funcKey, process.env.FUNC_SEED);
+  handler: async (ctx, { code, codeVerifier, redirectUri }) => {
     // Mọi lỗi trả về dạng { ok: false, reason } — Convex production MASK message
     // của mọi action (kể cả ConvexError) thành "Server Error", khiến web không
     // phân biệt được thiếu client secret / Discord sự cố / sai redirect...
     // Chỉ lỗi NỘI BỘ bất ngờ (DB) mới ném ra ngoài.
     const fail = (reason: string) => ({ ok: false as const, reason });
 
-    const rl = checkLoginRateLimit(
-      process.env.FUNC_SEED && funcKey ? "func:" + funcKey.slice(0, 16) : "public",
-    );
+    const rl = checkLoginRateLimit("public");
     if (rl) return fail(rl);
     const redirectErr = checkAllowedRedirectUri(redirectUri);
     if (redirectErr) return fail(redirectErr);
-
-    const clientId = process.env.DISCORD_CLIENT_ID;
-    const clientSecret = process.env.DISCORD_CLIENT_SECRET;
-
-    // 1. Access token: từ fallback (PKCE client-side) hoặc trao đổi server-side.
-    let accessTokenValue: string;
-    if (accessToken) {
-      accessTokenValue = accessToken;
-    } else {
-      if (!clientId) {
-        return fail(
-          "DISCORD_CLIENT_ID chưa được cấu hình trên deployment — thêm trong Keys/API keys",
-        );
-      }
-      if (!clientSecret) {
-        // Tín hiệu để web tự trao đổi code bằng PKCE rồi gửi access token lên.
-        return { ok: false as const, reason: "NEED_CLIENT_SECRET_EXCHANGE" };
-      }
-      const ex = await exchangeWithSecret(clientId, clientSecret, code, codeVerifier, redirectUri);
-      if (ex.error || !ex.token) return fail(ex.error ?? "Trao đổi code với Discord thất bại");
-      accessTokenValue = ex.token;
+    if (!hasValidOAuthParams(code, codeVerifier)) {
+      return fail("Mã OAuth hoặc PKCE không hợp lệ");
     }
+
+    const status = await ctx.runQuery(internal.botAuth.getBotKeyStatusInternal).catch(() => null);
+    const clientId =
+      configuredClientId(process.env.DISCORD_CLIENT_ID) ||
+      configuredClientId(status?.botApplicationId);
+    if (!clientId) {
+      return fail(
+        "DISCORD_CLIENT_ID chưa được cấu hình trên deployment — thêm trong Keys/API keys",
+      );
+    }
+    const exchanged = await exchangeCodeOnServer(
+      clientId,
+      process.env.DISCORD_CLIENT_SECRET,
+      code,
+      codeVerifier,
+      redirectUri,
+    );
+    if (exchanged.error || !exchanged.token) {
+      return fail(exchanged.error ?? "Trao đổi code với Discord thất bại");
+    }
+    const accessTokenValue = exchanged.token;
 
     // 2. Lấy danh tính + danh sách server NGAY TỪ DISCORD — không tin client.
     const authHeaders = { Authorization: `Bearer ${accessTokenValue}` };
@@ -183,8 +212,8 @@ export const exchangeAndLogin = action({
     let guildsRes: Response;
     try {
       [userRes, guildsRes] = await Promise.all([
-        fetch(`${DISCORD_API}/users/@me`, { headers: authHeaders }),
-        fetch(`${DISCORD_API}/users/@me/guilds`, { headers: authHeaders }),
+        fetchDiscord(`${DISCORD_API}/users/@me`, { headers: authHeaders }),
+        fetchDiscord(`${DISCORD_API}/users/@me/guilds`, { headers: authHeaders }),
       ]);
     } catch {
       return fail("Không kết nối được tới Discord (mạng) — thử lại sau ít phút");
@@ -197,20 +226,36 @@ export const exchangeAndLogin = action({
           : `Không lấy được thông tin người dùng (${st})`,
       );
     }
-    const user = (await userRes.json()) as {
+    let user: {
       id: string;
       username: string;
       global_name?: string | null;
       avatar?: string | null;
     };
-    const guilds = guildsRes.ok
-      ? ((await guildsRes.json()) as {
-          id: string;
-          name: string;
-          icon?: string | null;
-          permissions: string;
-        }[])
-      : [];
+    try {
+      user = (await userRes.json()) as typeof user;
+    } catch {
+      return fail("Discord trả dữ liệu người dùng không hợp lệ — thử lại");
+    }
+    if (!guildsRes.ok) {
+      const st = guildsRes.status;
+      return fail(
+        st >= 500
+          ? `Discord đang gặp sự cố tạm thời (lỗi ${st} từ phía Discord) — xem status.discord.com`
+          : `Không lấy được danh sách server (${st})`,
+      );
+    }
+    let guilds: {
+      id: string;
+      name: string;
+      icon?: string | null;
+      permissions: string;
+    }[];
+    try {
+      guilds = (await guildsRes.json()) as typeof guilds;
+    } catch {
+      return fail("Discord trả dữ liệu server không hợp lệ — thử lại");
+    }
 
     // 3. Tạo session token phía server và đăng nhập (internal mutation — client không gọi được)
     const tokenBytes = new Uint8Array(32);
@@ -257,7 +302,6 @@ export const exchangeAndLogin = action({
       manageableCount: guilds.filter(
         (g) => (BigInt(g.permissions) & BigInt(PERM_MANAGE_GUILD)) !== 0n,
       ).length,
-      accessToken: accessTokenValue,
     };
   },
 });
@@ -266,27 +310,66 @@ export const exchangeAndLogin = action({
  * Làm mới danh sách server NGAY TỪ DISCORD — không tin client.
  * Trước đây `sessions:refreshGuilds` nhận danh sách guilds do client tự báo →
  * người dùng đã đăng nhập có thể tự nhận quyền Manage Server trên BẤT KỲ guild
- * nào bằng cách gửi permissions giả. Giờ web chỉ gửi session token + Discord
- * access token; server tự gọi /users/@me/guilds và ghi danh sách thật.
+ * nào bằng cách gửi permissions giả. Giờ web chỉ gửi session token + authorization
+ * code/PKCE verifier; server tự trao đổi code và gọi /users/@me/guilds.
  */
 export const refreshGuildsServer = action({
   args: {
-    /** Session token của người dùng (đã đăng nhập qua exchangeAndLogin). */
+    /** Session token hiện tại; không dùng làm access token Discord. */
     token: v.string(),
-    /** Discord OAuth access token còn hạn (web lưu sau đăng nhập). */
-    accessToken: v.string(),
+    /** Authorization code mới tỉa Discord sau prompt=none. */
+    code: v.string(),
+    codeVerifier: v.string(),
+    redirectUri: v.string(),
   },
-  handler: async (ctx, { token, accessToken }) => {
+  handler: async (ctx, { token, code, codeVerifier, redirectUri }) => {
     const me = await ctx.runQuery(internal.sessionHardening.getUserByTokenInternal, { token });
     if (!me) return { ok: false as const, reason: "not_logged_in" as const };
+    const redirectErr = checkAllowedRedirectUri(redirectUri);
+    if (redirectErr) return { ok: false as const, reason: redirectErr };
+    if (!hasValidOAuthParams(code, codeVerifier)) {
+      return { ok: false as const, reason: "invalid_oauth_params" };
+    }
+    const rl = checkLoginRateLimit(`refresh:${me.discordId}`);
+    if (rl) return { ok: false as const, reason: rl };
+    const status = await ctx.runQuery(internal.botAuth.getBotKeyStatusInternal).catch(() => null);
+    const clientId =
+      configuredClientId(process.env.DISCORD_CLIENT_ID) ||
+      configuredClientId(status?.botApplicationId);
+    if (!clientId) return { ok: false as const, reason: "oauth_not_configured" as const };
+    const exchanged = await exchangeCodeOnServer(
+      clientId,
+      process.env.DISCORD_CLIENT_SECRET,
+      code,
+      codeVerifier,
+      redirectUri,
+    );
+    if (exchanged.error || !exchanged.token) {
+      return { ok: false as const, reason: exchanged.error ?? "oauth_exchange_failed" };
+    }
+
+    const authHeaders = { Authorization: `Bearer ${exchanged.token}` };
+    let identityRes: Response;
+    let guildsRes: Response;
+    try {
+      [identityRes, guildsRes] = await Promise.all([
+        fetchDiscord(`${DISCORD_API}/users/@me`, { headers: authHeaders }),
+        fetchDiscord(`${DISCORD_API}/users/@me/guilds`, { headers: authHeaders }),
+      ]);
+    } catch {
+      return { ok: false as const, reason: "network" as const };
+    }
+    if (!identityRes.ok || !guildsRes.ok) {
+      return { ok: false as const, reason: "discord_error" as const };
+    }
+    const identity = (await identityRes.json().catch(() => null)) as { id?: string } | null;
+    if (!identity?.id || identity.id !== me.discordId) {
+      return { ok: false as const, reason: "identity_mismatch" as const };
+    }
 
     let guilds: { id: string; name: string; icon?: string; permissions: string }[];
     try {
-      const res = await fetch(`${DISCORD_API}/users/@me/guilds`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!res.ok) return { ok: false as const, reason: "discord_error" as const };
-      const raw = (await res.json()) as {
+      const raw = (await guildsRes.json()) as {
         id: string;
         name: string;
         icon?: string | null;

@@ -43,7 +43,7 @@ module.exports = function createAntiNuke(client, store, heat) {
   });
   const audit = createAntiNukeAudit({ client, store, heat, state, core, ai, raidIntel });
 
-  const { auditExecutor, sweepMemory } = state;
+  const { auditLookup, sweepMemory } = state;
   const { botAddTimes } = state.state;
   const { handleExternalApp, handleButtonRaid } = externalApp;
   const { handleSuspiciousBotJoin, handleHitAndRunLeave, handleRaidJoin } = members;
@@ -71,10 +71,16 @@ module.exports = function createAntiNuke(client, store, heat) {
 
     client.on("guildMemberRemove", async (member) => {
       // Only treat as a kick when the audit log shows a kick for this member.
-      const executor = await auditExecutor(member.guild, AuditLogEvent.MemberKick, member.id).catch(
-        () => null,
-      );
-      if (executor) {
+      const lookup = () => auditLookup(member.guild, AuditLogEvent.MemberKick, member.id);
+      let audit = await lookup().catch(() => ({
+        ok: false,
+        found: false,
+        ambiguous: true,
+        executor: null,
+      }));
+      if (!audit.ok) return; // audit API lỗi: không kết luận tự rời, tránh phạt oan
+      if (audit.found) {
+        if (!audit.executor) return;
         await handleAttributeEvent({
           guild: member.guild,
           module: "massKick",
@@ -84,7 +90,30 @@ module.exports = function createAntiNuke(client, store, heat) {
         }).catch((e) => console.error("[antinuke:kick]", e.message));
         return; // bị mod/bot khác kick — không phải tự rời
       }
-      // Không có audit kick → có thể bot tự rời: kiểm hit-and-run.
+      // Audit log có thể đến trễ vài trăm ms sau guildMemberRemove. Thử lại một
+      // lần trước khi kết luận tự rời; nếu cửa sổ đã đầy thì coi là UNKNOWN.
+      if (!audit.ambiguous) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        audit = await lookup().catch(() => ({
+          ok: false,
+          found: false,
+          ambiguous: true,
+          executor: null,
+        }));
+      }
+      if (!audit.ok || audit.ambiguous) return;
+      if (audit.found) {
+        if (!audit.executor) return;
+        await handleAttributeEvent({
+          guild: member.guild,
+          module: "massKick",
+          eventType: AuditLogEvent.MemberKick,
+          targetId: member.id,
+          describeTarget: `<@${member.id}>`,
+        }).catch((e) => console.error("[antinuke:kick]", e.message));
+        return;
+      }
+      // Không có audit kick sau grace period → có thể bot tự rời: kiểm hit-and-run.
       await handleHitAndRunLeave(member, null).catch((e) =>
         console.error("[antinuke:hitAndRun]", e.message),
       );

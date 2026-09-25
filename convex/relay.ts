@@ -2,7 +2,7 @@ import { mutation, query, type MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { requireBotKeyStrict } from "./botAuth";
 import { getUserByToken, canManageGuild } from "./auth";
-import { getBotStatus } from "./hidden";
+import { getBotStatus, isBotOwnerUser } from "./hidden";
 
 /**
  * Threat Relay — chia sẻ chữ ký raid GIỮA CÁC SERVER dùng chung bot (Đợt 6).
@@ -33,6 +33,11 @@ const RATE_LIMIT = 10;
 const RATE_WINDOW_MS = 60_000;
 /** Trọng số tối thiểu để được phân phối khi signature đã quá 2 giờ. */
 const MIN_WEIGHT_AGED = 2;
+const MAX_SOURCE_HASHES = 100;
+const MAX_STATUS_SCAN = 10_000;
+const MAX_OWNER_SCAN = 1_000;
+const MAX_DISTRIBUTABLE_SCAN = MAX_FETCH * 8;
+const MAX_CLEANUP_BATCH = 500;
 
 /**
  * Băm 1 chiều guildId nguồn — không truy ngược được server gốc. FNV-1a thuần JS
@@ -58,6 +63,32 @@ function hashSource(guildId: string, salt: string): string {
     h2 = Math.imul(h2, 0x85ebca6b) >>> 0;
   }
   return (h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0")).slice(0, 16);
+}
+
+type RelaySignature = {
+  _id?: string;
+  kind: string;
+  value: string;
+  createdAt: number;
+  sourceHash: string;
+  sourceHashes?: string[];
+  weight?: number;
+};
+
+/** Dữ liệu legacy chỉ có sourceHash/weight; không được tin weight cũ. */
+function distinctSourceCount(signature: RelaySignature): number {
+  return Math.max(
+    1,
+    Math.min(
+      MAX_SOURCE_HASHES,
+      new Set(signature.sourceHashes?.length ? signature.sourceHashes : [signature.sourceHash])
+        .size,
+    ),
+  );
+}
+
+function effectiveWeight(signature: RelaySignature): number {
+  return distinctSourceCount(signature);
 }
 
 /** Chuẩn hóa + ràng buộc nội dung signature trước khi lưu. */
@@ -114,8 +145,14 @@ export const botReportSignature = mutation({
       .withIndex("by_kind_value", (q) => q.eq("kind", sig.kind).eq("value", sig.value))
       .first();
     if (existing && now - existing.createdAt < TTL_MS) {
+      const sourceHashes =
+        existing.sourceHashes ?? (existing.sourceHash ? [existing.sourceHash] : []);
+      const boundedSourceHashes = [...new Set([...sourceHashes, sourceHash])].slice(
+        -MAX_SOURCE_HASHES,
+      );
       await ctx.db.patch(existing._id, {
-        weight: Math.min(100, (existing.weight ?? 1) + 1),
+        weight: effectiveWeight({ ...existing, sourceHashes: boundedSourceHashes }),
+        sourceHashes: boundedSourceHashes,
         lastSeenAt: now,
       });
       return { ok: true, deduped: true };
@@ -125,6 +162,7 @@ export const botReportSignature = mutation({
       value: sig.value,
       weight: 1,
       sourceHash,
+      sourceHashes: [sourceHash],
       createdAt: now,
       lastSeenAt: now,
     });
@@ -172,12 +210,17 @@ export const relayStatus = query({
     const all = await ctx.db
       .query("relaySignatures")
       .withIndex("by_createdAt", (q) => q.gt("createdAt", now - TTL_MS))
-      .collect();
+      .order("desc")
+      .take(MAX_STATUS_SCAN);
     return {
       relayShare: guild.relayShare ?? false,
       relayReceive: guild.relayReceive ?? false,
       activeSignatures: all.length,
-      distinctSources: new Set(all.map((s) => s.sourceHash)).size,
+      distinctSources: new Set(
+        all.flatMap((signature) =>
+          signature.sourceHashes?.length ? signature.sourceHashes : [signature.sourceHash],
+        ),
+      ).size,
       byKind: all.reduce<Record<string, number>>((acc, s) => {
         acc[s.kind] = (acc[s.kind] ?? 0) + 1;
         return acc;
@@ -193,19 +236,20 @@ export const relaySignatures = query({
     const user = await getUserByToken(ctx, token);
     if (!user) return null;
     const status = await getBotStatus(ctx);
-    if (status?.ownerDiscordId && status.ownerDiscordId !== user.discordId) return null;
+    if (!isBotOwnerUser(user, status)) return null;
     const now = Date.now();
     const all = await ctx.db
       .query("relaySignatures")
       .withIndex("by_createdAt", (q) => q.gt("createdAt", now - TTL_MS))
-      .collect();
+      .order("desc")
+      .take(MAX_OWNER_SCAN);
     return all
-      .sort((a, b) => (b.weight ?? 1) - (a.weight ?? 1) || b.lastSeenAt - a.lastSeenAt)
+      .sort((a, b) => effectiveWeight(b) - effectiveWeight(a) || b.lastSeenAt - a.lastSeenAt)
       .slice(0, Math.min(100, Math.max(1, limit ?? 30)))
       .map((s) => ({
         kind: s.kind,
         value: s.value,
-        weight: s.weight ?? 1,
+        weight: effectiveWeight(s),
         ageMinutes: Math.floor((now - s.createdAt) / 60_000),
       }));
   },
@@ -230,19 +274,35 @@ export const botGetRelaySignatures = query({
     if (!guild || guild.relayReceive !== true) return { signatures: [] };
 
     const now = Date.now();
-    // Index by_createdAt: chỉ đọc signature còn hạn (xem relayStatus).
-    const active = await ctx.db
-      .query("relaySignatures")
-      .withIndex("by_createdAt", (q) => q.gt("createdAt", now - TTL_MS))
-      .collect();
+    // Index by_createdAt: chỉ đọc signature còn hạn (xem relayStatus). Quét theo
+    // page thay vì `.take()` trước rồi lọc: nếu hàng trăm signature mới nhất đều
+    // loại (một burst spam), signature cũ nhưng có weight >= 2 sẽ bị bỏ qua oan.
+    // Vẫn có trần scan để một guild không thể khiến query này đọc toàn bảng.
+    const active: RelaySignature[] = [];
+    let cursor: string | null = null;
+    let scanned = 0;
+    while (scanned < MAX_DISTRIBUTABLE_SCAN) {
+      const page = await ctx.db
+        .query("relaySignatures")
+        .withIndex("by_createdAt", (q) => q.gt("createdAt", now - TTL_MS))
+        .order("desc")
+        .paginate({ cursor, numItems: Math.min(100, MAX_DISTRIBUTABLE_SCAN - scanned) });
+      active.push(...page.page);
+      scanned += page.page.length;
+      const enough = active.filter(
+        (s) => now - s.createdAt < 2 * 60 * 60 * 1000 || effectiveWeight(s) >= MIN_WEIGHT_AGED,
+      ).length;
+      if (page.isDone || !page.continueCursor || enough >= MAX_FETCH) break;
+      cursor = page.continueCursor;
+    }
     const distributable = active.filter(
-      (s) => now - s.createdAt < 2 * 60 * 60 * 1000 || (s.weight ?? 1) >= MIN_WEIGHT_AGED,
+      (s) => now - s.createdAt < 2 * 60 * 60 * 1000 || effectiveWeight(s) >= MIN_WEIGHT_AGED,
     );
     return {
       signatures: distributable
-        .sort((a, b) => (b.weight ?? 1) - (a.weight ?? 1))
+        .sort((a, b) => effectiveWeight(b) - effectiveWeight(a))
         .slice(0, MAX_FETCH)
-        .map((s) => ({ kind: s.kind, value: s.value, weight: s.weight ?? 1 })),
+        .map((s) => ({ kind: s.kind, value: s.value, weight: effectiveWeight(s) })),
     };
   },
 });
@@ -258,7 +318,7 @@ export const botCleanupRelay = mutation({
     const stale = await ctx.db
       .query("relaySignatures")
       .withIndex("by_createdAt", (q) => q.lte("createdAt", now - TTL_MS))
-      .collect();
+      .take(MAX_CLEANUP_BATCH);
     let deleted = 0;
     for (const s of stale) {
       await ctx.db.delete(s._id);

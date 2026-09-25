@@ -4,7 +4,7 @@
 
 Bot Discord tự động trả lời tin nhắn thành viên theo **từ khóa** hoặc khi bị **tag @mention** (nội dung do bạn tùy chỉnh), hỗ trợ đầy đủ **prefix (`!`) + slash commands**, kèm hệ thống **chống nuke/raid** bật tắt từng phần theo ý mod & owner — tất cả quản lý qua một **dashboard web** tùy chỉnh.
 
-> **Chất lượng**: 56 test suites · coverage c8 (86.6% dòng / 93% hàm / 69% nhánh — toàn bộ engine chống nuke + alt detection được phủ test trực tiếp, **sàn coverage theo file** chặn engine bảo vệ tụt) · **mutation score 100%** (`bun run test:mutation`) · property-based + fuzz test · **memGuard sweeper bộ nhớ tập trung** · ESLint sạch · typecheck sạch · smoke test VPS · CI 4 job (lint + security + test → deploy): gitleaks chặn secret lộ, bun audit chặn CVE critical (`bun run test` để chạy local).
+> **Chất lượng**: 61 CJS + 9 TS test suites · coverage c8 (86.6% dòng / 93% hàm / 69% nhánh — toàn bộ engine chống nuke + alt detection được phủ test trực tiếp, **sàn coverage theo file** chặn engine bảo vệ tụt) · **mutation score 100%** (`bun run test:mutation`) · property-based + fuzz test · **memGuard sweeper bộ nhớ tập trung** · ESLint sạch · typecheck sạch · smoke test VPS · CI 4 job (lint + security + test → deploy): gitleaks chặn secret lộ, bun audit chặn CVE critical (`bun run test` để chạy local).
 >
 > **Hệ sinh thái**: threat relay liên server (chia sẻ signature raid ẩn danh, opt-in từng chiều) · preset bảo mật 1 chạm (server nhỏ / cộng đồng / rủi ro cao) — bật trên dashboard, tab Chống nuke.
 
@@ -26,9 +26,9 @@ Bot Discord tự động trả lời tin nhắn thành viên theo **từ khóa**
                                  └─────────────────────────┘
 ```
 
-- **Dashboard** (thư mục gốc): React + Vite + Tailwind + Convex. Đăng nhập bằng Discord (OAuth PKCE, không cần client secret), chọn server, cấu hình mọi thứ.
+- **Dashboard** (thư mục gốc): React + Vite + Tailwind + Convex. Đăng nhập bằng Discord (OAuth authorization code + PKCE; Convex trao đổi server-side, browser không giữ Discord access token), chọn server, cấu hình mọi thứ.
 - **Bot** (`bot/`): process Node.js standalone chạy 24/7 (máy bạn hoặc hosting). Đọc/ghi cấu hình qua Convex — dashboard và bot luôn đồng bộ trong ~1 phút.
-- **Backend** (`src/convex/`): schema + query/mutation. Mọi ghi dữ liệu từ dashboard được kiểm tra quyền _Manage Guild_ (xác thực qua Discord OAuth); bot dùng các mutation riêng `bot-writes:*` bảo vệ bằng deploy key.
+- **Backend** (`convex/`): schema + query/mutation. Mọi ghi dữ liệu từ dashboard được kiểm tra quyền _Manage Guild_ (xác thực qua Discord OAuth); bot dùng các mutation riêng `bot-writes:*` bảo vệ bằng deploy key.
 
 ## Bắt đầu
 
@@ -42,12 +42,13 @@ Bot Discord tự động trả lời tin nhắn thành viên theo **từ khóa**
 
 Điền vào mục **API Keys** của dự án:
 
-| Key                       | Giá trị                                                              |
-| ------------------------- | -------------------------------------------------------------------- |
-| `DISCORD_CLIENT_ID`       | Application ID ở bước 1 (cần cho đăng nhập + link mời bot)           |
-| `CONVEX_URL` (production) | URL deployment Convex khi deploy — set qua `freebuff-deploy env set` |
+| Key                           | Giá trị                                                                                       |
+| ----------------------------- | --------------------------------------------------------------------------------------------- |
+| `DISCORD_CLIENT_ID`           | Application ID ở bước 1 (khuyến nghị; nếu thiếu, Convex dùng ID bot đã bootstrap đã xác minh) |
+| `CONVEX_URL` (production)     | URL deployment `.convex.cloud` — bắt buộc cho build, set qua `freebuff-deploy env set`        |
+| `OAUTH_REDIRECT_URI` (Convex) | Đúng URL callback, ví dụ `https://dashboard.example.com/discord/callback` — bắt buộc          |
 
-Chạy preview → **Đăng nhập với Discord** → dán redirect URI `https://<địa chỉ preview>/discord/callback` vào ứng dụng Discord (_OAuth2 → Redirects_; với bản local thêm `http://localhost:5173/discord/callback`).
+Chạy preview → **Đăng nhập với Discord** → dán redirect URI `https://<địa chỉ preview>/discord/callback` vào ứng dụng Discord (_OAuth2 → Redirects_) **và** đặt cùng URL đó cho Convex bằng `OAUTH_REDIRECT_URI` (hoặc `DASHBOARD_URL` gốc, không có dấu `/` cuối). Hai danh sách phải khớp chính xác; với bản local thêm `http://localhost:5173/discord/callback` và biến tương ứng.
 
 ### 3. Chạy bot
 
@@ -92,7 +93,8 @@ Bot tự đăng ký slash commands và đồng bộ server/kênh/role lên Conve
 ## Kiểm thử & Coverage
 
 ```bash
-bun run test            # chạy toàn bộ 56 suites (~43s, thoát khác 0 nếu fail)
+bun run test            # chạy 61 suite CJS (~52s, thoát khác 0 nếu fail)
+bun run test:ts         # chạy 9 suite TypeScript
 bun run test:coverage   # chạy test + đo coverage (báo cáo HTML tại coverage/)
 bun run smoke:vps       # smoke test VPS (env + module + Convex + Discord login)
 ```
@@ -130,7 +132,7 @@ bun run format:check    # CI dùng lệnh này để chặn code chưa format
 
 **Dependabot** (`.github/dependabot.yml`) quét weekly: root `bun`, `bot/` (discord.js, convex) và `github-actions` — tự tạo PR cập nhật, group các bump minor/patch thành 1 PR. Bot bảo mật không được để deps cũ.
 
-**Thứ tự gate trong CI**: `lint` (ESLint + Prettier + check repo-map/hợp đồng bot⇄Convex/đa ngôn ngữ) → `test` (56 suites + coverage + typecheck) → `deploy` Convex production. Job sau chỉ chạy khi job trước pass.
+**Thứ tự gate trong CI**: `lint` (ESLint + Prettier + check repo-map/hợp đồng bot⇄Convex/đa ngôn ngữ) → `test` (61 CJS + 9 TS suites + coverage + typecheck) → `deploy` Convex production. Job sau chỉ chạy khi job trước pass.
 
 ## Phát triển
 

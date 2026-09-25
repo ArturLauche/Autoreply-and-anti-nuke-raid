@@ -34,11 +34,9 @@ export function DashboardCta({
   const loggedIn = getSessionToken() !== "";
   const to = loggedIn ? "/dashboard" : "/auth?returnTo=/dashboard";
   return (
-    <Link to={to}>
-      <Button size="lg" variant={variant}>
-        {children}
-      </Button>
-    </Link>
+    <Button asChild size="lg" variant={variant}>
+      <Link to={to}>{children}</Link>
+    </Button>
   );
 }
 

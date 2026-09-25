@@ -1,8 +1,8 @@
 // Test vòng tick TỔNG HỢP (bot/src/tick.js):
 //   - runTickOnce: batch bot_tick:getPendingJobs thành công → xử lý hidden/verify/backup;
 //     batch lỗi/không phải object → fallback 3 query riêng; sau lỗi tạm bỏ batch.
-//   - runBackupJobs: claim chống trùng, dispatch backup/restore/import,
-//     tải file import (fileContent hoặc URL), báo lỗi đúng loại lên dashboard.
+//   - runBackupJobs: claim chống trùng, truyền claimAt fencing vào mọi processor,
+//     dispatch backup/restore/import, tải file import (fileContent hoặc URL), báo lỗi đúng loại lên dashboard.
 //   - readImportContent: URL lỗi/timeout/thiếu dữ liệu.
 //   - setupTick: gắn 1 lần khi ready.
 //   - settingsChanges: xóa cache config VÀ cache webhook của guild vừa sửa (nếu chỉ
@@ -38,6 +38,7 @@ let batchResponse = null;
 let batchShouldThrow = false;
 let fallbackQueries = {};
 let claimOk = true;
+let claimAt = null;
 let claimShouldThrow = false;
 let backupShouldThrow = false;
 let restoreShouldThrow = false;
@@ -57,12 +58,12 @@ const backupMock = {
     calls.backup.push({ guildId, opts });
     if (backupShouldThrow) throw new Error("backup lỗi");
   },
-  async runRestore(client, store, guildId, backupJson, guildName) {
-    calls.restore.push({ guildId, backupJson, guildName });
+  async runRestore(client, store, guildId, backupJson, guildName, options) {
+    calls.restore.push({ guildId, backupJson, guildName, options });
     if (restoreShouldThrow) throw new Error("restore lỗi");
   },
-  async runImportRestore(client, store, guildId, content, fileName) {
-    calls.import.push({ guildId, content, fileName });
+  async runImportRestore(client, store, guildId, content, fileName, options) {
+    calls.import.push({ guildId, content, fileName, options });
     if (importShouldThrow) throw new Error("import lỗi");
   },
 };
@@ -133,7 +134,7 @@ globalThis.fetch = async () => {
         calls.mutations.push({ name, args });
         if (name === "bot_writes:botClaimBackup") {
           if (claimShouldThrow) throw new Error("claim lỗi");
-          return { ok: claimOk };
+          return claimAt === null ? { ok: claimOk } : { ok: claimOk, claimAt };
         }
         return { ok: true };
       },
@@ -278,6 +279,7 @@ globalThis.fetch = async () => {
   // ── 5. runBackupJobs: dispatch đúng loại ──
   {
     clear();
+    claimAt = 12345;
     await runBackupJobs(client, store, [
       { guildId: "g1", kind: "backup", pushToGithub: true, includeMessages: true },
       { guildId: "g2", kind: "restore", backupJson: "{}", guildName: "G2" },
@@ -287,14 +289,18 @@ globalThis.fetch = async () => {
       "kind backup → runBackup kèm cờ",
       calls.backup.length === 1 && calls.backup[0].opts.pushToGithub === true,
     );
+    check("claimAt từ Convex được truyền vào backup", calls.backup[0].opts.claimAt === 12345);
     check(
       "kind restore → runRestore",
       calls.restore.length === 1 && calls.restore[0].guildName === "G2",
     );
+    check("claimAt từ Convex được truyền vào restore", calls.restore[0].options.claimAt === 12345);
     check(
       "kind import (fileContent) → runImportRestore",
       calls.import.length === 1 && calls.import[0].content === "z:abc",
     );
+    check("claimAt từ Convex được truyền vào import", calls.import[0].options.claimAt === 12345);
+    claimAt = null;
   }
 
   // ── 6. runBackupJobs: import qua URL tải được ──
@@ -318,11 +324,14 @@ globalThis.fetch = async () => {
   // ── 7. runBackupJobs: lỗi từng loại → báo dashboard đúng mutation ──
   {
     clear();
+    claimAt = 222;
     backupShouldThrow = true;
     await runBackupJobs(client, store, [{ guildId: "g1", kind: "backup" }]);
     check(
-      "backup lỗi → botReportBackupError",
-      calls.mutations.some((m) => m.name === "bot_writes:botReportBackupError"),
+      "backup lỗi → botReportBackupError kèm claimAt",
+      calls.mutations.some(
+        (m) => m.name === "bot_writes:botReportBackupError" && m.args.claimAt === 222,
+      ),
     );
     backupShouldThrow = false;
 
@@ -343,6 +352,7 @@ globalThis.fetch = async () => {
       calls.mutations.some((m) => m.name === "bot_writes:botReportImportError"),
     );
     importShouldThrow = false;
+    claimAt = null;
   }
 
   // ── 8. runBackupJobs: claim lỗi mạng → bỏ qua an toàn ──

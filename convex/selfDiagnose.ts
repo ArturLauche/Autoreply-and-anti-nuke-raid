@@ -1,7 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken } from "./auth";
-import { getBotStatus } from "./hidden";
+import { getBotStatus, isBotOwnerUser, requireBotOwner } from "./hidden";
 import { requireBotKeyStrict } from "./botAuth";
 
 /**
@@ -18,21 +18,7 @@ import { requireBotKeyStrict } from "./botAuth";
 /** Kiểm tra user token là chủ bot — trả user hoặc throw. */
 async function requireOwner(ctx: Parameters<typeof getBotStatus>[0], token: string) {
   const user = await getUserByToken(ctx, token);
-  if (!user) throw new Error("Vui lòng đăng nhập");
-  const status = await getBotStatus(ctx);
-  const ownerId = status?.ownerDiscordId;
-  if (
-    ownerId &&
-    /^\d{15,20}$/.test(ownerId) &&
-    (await ctx.db
-      .query("users")
-      .withIndex("by_discordId", (q) => q.eq("discordId", ownerId))
-      .first())
-  ) {
-    if (ownerId !== user.discordId) {
-      throw new Error("Chỉ admin sở hữu bot mới được đổi cài đặt Self-Diagnose 🔒");
-    }
-  }
+  const status = await requireBotOwner(ctx, user);
   return { user, status };
 }
 
@@ -43,14 +29,7 @@ export const getSettings = query({
     const user = await getUserByToken(ctx, token);
     if (!user) return null;
     const status = await getBotStatus(ctx);
-    if (!status) return null;
-    const owner = await ctx.db
-      .query("botStatus")
-      .withIndex("by_kind", (q) => q.eq("kind", "status"))
-      .first();
-    if (owner?.ownerDiscordId && owner.ownerDiscordId !== user.discordId) {
-      return null;
-    }
+    if (!status || !isBotOwnerUser(user, status)) return null;
     return {
       enabled: status.selfDiagnoseEnabled ?? false,
       lastAt: status.selfDiagnoseLastAt ?? null,

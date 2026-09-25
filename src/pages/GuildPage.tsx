@@ -31,7 +31,7 @@ import { Badge } from "../components/ui/badge";
 import { cn } from "../lib/utils";
 import { buildBotInviteUrl, discordGuildIconUrl, getSessionToken } from "../lib/discord";
 import { usePublicConfig } from "../lib/usePublicConfig";
-import { timeAgo } from "../lib/utils";
+import { isHeartbeatFresh, timeAgo } from "../lib/utils";
 import type { GuildData } from "../lib/types";
 import OverviewPanel from "../components/dashboard/OverviewPanel";
 
@@ -134,10 +134,7 @@ export default function GuildPage() {
   }
 
   const icon = discordGuildIconUrl({ id: data.guild.discordId, icon: data.guild.icon });
-  const online =
-    data.guild.botInGuild &&
-    data.guild.lastHeartbeat !== null &&
-    Date.now() - data.guild.lastHeartbeat < 180_000;
+  const online = data.guild.botInGuild && isHeartbeatFresh(data.guild.lastHeartbeat);
 
   // Badge trạng thái server — khai báo 1 lần, dùng lại ở hàng desktop (dưới
   // tên) và dải cuộn ngang ở mobile, tránh 2 bản JSX lệch nhau.
@@ -329,7 +326,7 @@ export default function GuildPage() {
                 Ở ĐÂY (không để bubble lên App) để fallback chỉ thay vùng panel,
                 header/sidebar giữ nguyên khi đang tải chunk. */}
             <div className="min-w-0">
-              <PanelErrorBoundary key={section}>
+              <PanelErrorBoundary key={`${section}:${data.guild.discordId}`}>
                 <Suspense fallback={<PanelFallback />}>
                   {section === "overview" && <OverviewPanel data={data} />}
                   {section === "automod" && <AutoModPanel data={data} />}

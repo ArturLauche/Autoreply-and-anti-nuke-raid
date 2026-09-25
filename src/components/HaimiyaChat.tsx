@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
 import { ImagePlus, Send, Sparkles, X } from "lucide-react";
+import { useReducedMotion } from "framer-motion";
 import { api } from "../../convex/_generated/api";
 import { getSessionToken } from "../lib/discord";
 import { askHaimiya, GREETING, QUICK_QUESTIONS } from "../lib/haimiya";
@@ -100,13 +101,21 @@ async function fileToDataUrls(file: File): Promise<string[]> {
  * tóc bạc xanh, mắt xanh sáng, má hồng, răng nanh, choker đen.
  * Nếu truyền `src` (ảnh tùy chỉnh do admin sở hữu bot đặt) sẽ hiển thị ảnh đó thay SVG.
  */
-export function HaimiyaAvatar({ className, src }: { className?: string; src?: string | null }) {
+export function HaimiyaAvatar({
+  className,
+  src,
+  decorative = false,
+}: {
+  className?: string;
+  src?: string | null;
+  decorative?: boolean;
+}) {
   const [failed, setFailed] = useState(false);
   if (src && !failed) {
     return (
       <img
         src={src}
-        alt="Haimiya"
+        alt={decorative ? "" : "Haimiya"}
         onError={() => setFailed(true)}
         className={`rounded-full object-cover ${className ?? ""}`}
         draggable={false}
@@ -239,6 +248,8 @@ export default function HaimiyaChat({
   const [typing, setTyping] = useState(false);
   const [pending, setPending] = useState<string[]>([]); // ảnh đang đợi gửi (data URL đã nén)
   const fileRef = useRef<HTMLInputElement>(null);
+  const openerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: "greeting", role: "haimiya", text: GREETING, suggestions: QUICK_QUESTIONS },
   ]);
@@ -247,6 +258,12 @@ export default function HaimiyaChat({
   const branding = useBranding();
   const avatarSrc = branding?.haimiyaAvatarUrl ?? null;
   const askAI = useAction(api.haimiya.ask);
+  const reduceMotion = useReducedMotion();
+
+  const closeChat = () => {
+    setOpen(false);
+    openerRef.current?.focus();
+  };
 
   useEffect(() => {
     function onOpen() {
@@ -257,8 +274,48 @@ export default function HaimiyaChat({
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, typing, open]);
+    if (!open) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const focusableSelector =
+      'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
+    const focusFirst = window.setTimeout(() => {
+      panel.querySelector<HTMLElement>(focusableSelector)?.focus();
+    }, 0);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeChat();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = [...panel.querySelectorAll<HTMLElement>(focusableSelector)].filter(
+        (element) => element.offsetParent !== null,
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.clearTimeout(focusFirst);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "end",
+    });
+  }, [messages, typing, open, reduceMotion]);
 
   async function getAIResponse(
     history: Array<{ role: "user" | "assistant"; content: string }>,
@@ -309,8 +366,8 @@ export default function HaimiyaChat({
   }
 
   /** ID tăng dần — ổn định cho React key của tin nhắn. */
-  let msgSeq = 0;
-  const nextMsgId = () => `m${Date.now().toString(36)}-${msgSeq++}`;
+  const msgSeqRef = useRef(0);
+  const nextMsgId = () => `m${Date.now().toString(36)}-${msgSeqRef.current++}`;
 
   function send(text: string, withImages?: string[]) {
     const q = text.trim();
@@ -402,6 +459,7 @@ export default function HaimiyaChat({
           nút save của panel; trên mobile đặt cao hơn để không đè nút cuối panel.
          Khi một dropdown (radix portal) mở, nút tự hạ xuống dưới dropdown. */}
       <button
+        ref={openerRef}
         onClick={() => setOpen(true)}
         aria-label={translate("Trò chuyện với Haimiya")}
         className={cn(
@@ -415,7 +473,7 @@ export default function HaimiyaChat({
         )}
       >
         <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white/95 ring-2 ring-white/60 shadow-inner max-sm:h-12 max-sm:w-12">
-          <HaimiyaAvatar className="h-12 w-12 max-sm:h-10 max-sm:w-10" src={avatarSrc} />
+          <HaimiyaAvatar decorative className="h-12 w-12 max-sm:h-10 max-sm:w-10" src={avatarSrc} />
           <span className="absolute -right-0.5 -top-0.5 flex h-3 w-3">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-70" />
             <span className="relative inline-flex h-3 w-3 rounded-full border-2 border-primary bg-white" />
@@ -429,6 +487,10 @@ export default function HaimiyaChat({
       {/* Cửa sổ chat */}
       {open && (
         <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="haimiya-chat-title"
           className={cn(
             "fixed bottom-5 right-5 z-50 flex w-[min(94vw,24rem)] flex-col overflow-hidden rounded-2xl",
             "border border-primary/30 bg-card/95 shadow-lg backdrop-blur",
@@ -443,12 +505,15 @@ export default function HaimiyaChat({
           <div className="relative flex items-center gap-3 border-b border-border bg-secondary px-4 py-3">
             <div className="relative">
               <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/95 ring-2 ring-white/50">
-                <HaimiyaAvatar className="h-11 w-11" src={avatarSrc} />
+                <HaimiyaAvatar decorative className="h-11 w-11" src={avatarSrc} />
               </span>
               <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-secondary bg-foreground" />
             </div>
             <div className="flex-1">
-              <p className="font-display text-sm font-bold leading-tight text-foreground">
+              <p
+                id="haimiya-chat-title"
+                className="font-display text-sm font-bold leading-tight text-foreground"
+              >
                 Haimiya
               </p>
               <p className="text-[11px] font-medium text-[#5c1533]">
@@ -456,7 +521,7 @@ export default function HaimiyaChat({
               </p>
             </div>
             <button
-              onClick={() => setOpen(false)}
+              onClick={closeChat}
               aria-label={translate("Đóng")}
               className="rounded-lg p-1.5 text-[#5c1533] transition-colors hover:bg-white/20"
             >
@@ -465,7 +530,12 @@ export default function HaimiyaChat({
           </div>
 
           {/* Tin nhắn */}
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4">
+          <div
+            role="log"
+            aria-live="polite"
+            aria-relevant="additions text"
+            className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4"
+          >
             {messages.map((m, i) => (
               <div
                 key={m.id}
@@ -473,7 +543,7 @@ export default function HaimiyaChat({
               >
                 {m.role === "haimiya" && (
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/95 ring-1 ring-border">
-                    <HaimiyaAvatar className="h-8 w-8" src={avatarSrc} />
+                    <HaimiyaAvatar decorative className="h-8 w-8" src={avatarSrc} />
                   </span>
                 )}
                 <div
@@ -629,6 +699,7 @@ export default function HaimiyaChat({
                 placeholder={
                   pending.length ? translate("Mô tả về ảnh…") : translate("Hỏi tôi điều gì đó…")
                 }
+                aria-label={translate("Hỏi tôi điều gì đó…")}
                 className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
               />
               <button

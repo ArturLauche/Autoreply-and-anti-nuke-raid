@@ -31,10 +31,8 @@ export default class RootErrorBoundary extends Component<Props, State> {
   render() {
     if (!this.state.error) return this.props.children;
 
-    const msg = this.state.error?.message ?? "";
-
     return (
-      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 py-16 text-center">
+      <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 py-16 text-center">
         <div className="relative flex max-w-lg flex-col items-center">
           <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary p-2 shadow-sm">
             <BotLogo className="h-full w-full" />
@@ -50,17 +48,11 @@ export default class RootErrorBoundary extends Component<Props, State> {
             )}{" "}
           </p>
 
-          {msg && (
-            <p className="mt-5 max-w-full break-words rounded-lg border border-border bg-card/80 px-3 py-2 font-mono text-[11px] text-muted-foreground">
-              {msg.slice(0, 220)}
-            </p>
-          )}
-
           <Button size="lg" className="mt-7" onClick={() => window.location.reload()}>
             <RefreshCw className="h-4 w-4" /> {translate("Tải lại trang")}{" "}
           </Button>
         </div>
-      </div>
+      </main>
     );
   }
 }

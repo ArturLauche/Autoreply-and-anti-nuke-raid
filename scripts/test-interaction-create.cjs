@@ -110,8 +110,12 @@ const captchaMock = {
 };
 let altAnalysis = { riskScore: 0, action: "pass", riskFactors: [] };
 let punishResult = { executed: false };
+let altAnalysisCalls = 0;
 const altMock = {
-  analyzeNewMember: async () => altAnalysis,
+  analyzeNewMember: async () => {
+    altAnalysisCalls++;
+    return altAnalysis;
+  },
   executePunishment: async () => punishResult,
   buildRiskEmbed: () => ({
     data: {},
@@ -194,6 +198,7 @@ Module._load = function (request, parent) {
     ctl.giveawayEndOk = true;
     altAnalysis = { riskScore: 0, action: "pass", riskFactors: [] };
     punishResult = { executed: false };
+    altAnalysisCalls = 0;
   }
 
   function mkMember(id = "u1", { hasUnverified = true } = {}) {
@@ -335,6 +340,25 @@ Module._load = function (request, parent) {
     check(
       "confirm: thiếu verified role → từ chối",
       replies[0].content.includes("Chưa cấu hình role"),
+    );
+
+    reset();
+    configs.set("g1", {
+      verifyEnabled: true,
+      unverifiedRoleId: "r-unv",
+      verifiedRoleId: "r-ver",
+      altDetectionEnabled: true,
+    });
+    await run({
+      isButton: true,
+      customId: "verify_confirm",
+      member: mkMember("u1", { hasUnverified: false }),
+    });
+    check(
+      "confirm: thiếu role chưa xác minh → chặn trước analysis/grant",
+      replies[0].content.includes("role chưa xác minh") &&
+        altAnalysisCalls === 0 &&
+        calls.mutations.length === 0,
     );
 
     reset();

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import {
@@ -32,7 +32,8 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
   const [localTitle, setLocalTitle] = useState(g.verifyWelcomeTitle ?? "");
   const [localDesc, setLocalDesc] = useState(g.verifyWelcomeDescription ?? "");
   const [localColor, setLocalColor] = useState(g.verifyWelcomeColor ?? "#111111");
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pendingRef = useRef<Record<string, unknown>>({});
   const descRef = useRef<HTMLTextAreaElement>(null);
 
   /** Chèn placeholder vào vị trí cursor của textarea */
@@ -59,19 +60,44 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
     });
   }
 
-  const flushDebounced = useCallback(
-    (patch: Record<string, unknown>) => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(async () => {
-        try {
-          await updateSettings({ token: TOKEN(), guildId: g.discordId, ...patch });
-        } catch (e: unknown) {
-          toast.error(String(e));
-        }
-      }, 600);
+  const sendPatch = useCallback(
+    async (patch: Record<string, unknown>) => {
+      try {
+        await updateSettings({ token: TOKEN(), guildId: g.discordId, ...patch });
+      } catch (e: unknown) {
+        toast.error(String(e));
+      }
     },
     [g.discordId, updateSettings],
   );
+
+  const flushField = useCallback(
+    (field: string, value: unknown) => {
+      pendingRef.current[field] = value;
+      const previous = timersRef.current[field];
+      if (previous) clearTimeout(previous);
+      timersRef.current[field] = setTimeout(() => {
+        const patch = {
+          [pendingRef.current[field] === null ? field : field]: pendingRef.current[field],
+        };
+        delete pendingRef.current[field];
+        delete timersRef.current[field];
+        void sendPatch(patch);
+      }, 600);
+    },
+    [sendPatch],
+  );
+
+  const flushAll = useCallback(() => {
+    const patch = { ...pendingRef.current };
+    for (const timer of Object.values(timersRef.current)) clearTimeout(timer);
+    timersRef.current = {};
+    pendingRef.current = {};
+    if (Object.keys(patch).length > 0) void sendPatch(patch);
+  }, [sendPatch]);
+
+  // Không để timer của panel cũ ghi đè cấu hình guild mới sau khi điều hướng.
+  useEffect(() => flushAll, [flushAll]);
 
   async function patch(p: Record<string, unknown>, msg?: string) {
     try {
@@ -208,8 +234,9 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
                     value={localTitle}
                     onChange={(e) => {
                       setLocalTitle(e.target.value);
-                      flushDebounced({ verifyWelcomeTitle: e.target.value || null });
+                      flushField("verifyWelcomeTitle", e.target.value || null);
                     }}
+                    onBlur={flushAll}
                     placeholder={translate("🌸 Chào mừng bạn!")}
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                     maxLength={256}
@@ -223,8 +250,9 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
                     value={localDesc}
                     onChange={(e) => {
                       setLocalDesc(e.target.value);
-                      flushDebounced({ verifyWelcomeDescription: e.target.value || null });
+                      flushField("verifyWelcomeDescription", e.target.value || null);
                     }}
+                    onBlur={flushAll}
                     placeholder={translate(
                       "Bạn đã xác minh thành công. Chào mừng bạn đến với server!",
                     )}
@@ -249,7 +277,8 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
                             descRef,
                             setLocalDesc,
                             localDesc,
-                            flushDebounced,
+                            (p) =>
+                              flushField("verifyWelcomeDescription", p.verifyWelcomeDescription),
                             { verifyWelcomeDescription: null },
                             ph,
                           )
@@ -275,7 +304,7 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
                       value={localColor}
                       onChange={(e) => {
                         setLocalColor(e.target.value);
-                        flushDebounced({ verifyWelcomeColor: e.target.value });
+                        flushField("verifyWelcomeColor", e.target.value);
                       }}
                       className="h-8 w-8 cursor-pointer rounded border border-border bg-transparent"
                     />
@@ -286,7 +315,7 @@ export default function VerifyPanel({ data }: { data: GuildData }) {
                         const v = e.target.value;
                         setLocalColor(v);
                         if (/^#[0-9a-fA-F]{6}$/.test(v)) {
-                          flushDebounced({ verifyWelcomeColor: v });
+                          flushField("verifyWelcomeColor", v);
                         }
                       }}
                       placeholder="#111111"
