@@ -6,6 +6,22 @@
 
 ## Đang dở
 
+- 🔍 **Review refactor trên nhánh `host-deploy` (commit `df7dd00`, 18:56 25/09)**
+  — XONG phần review, CHỜ người dùng chốt hướng merge. Zip `l7qsdt.zip` =
+  snapshot repo nguyên vẹn tên `protogon-quality-pass`, niêm phong 24/09 06:04,
+  base ≈ main sau 24/09 sáng (journal có tới 3 mục 24/09, thiếu t3-devbox.md).
+  Refactor thật ~105 file, các nhóm chính: (1) **claimAt lease fencing** cho
+  backup (chống 2 lượt xử lý trùng, sửa cả lỗi chính tả "BÁO LỄN" main đang
+  có), (2) **cứng hoá sessionAuth** (rate-limit login + chuẩn hoá redirect URI),
+  (3) **botBootstrapAction** fetch Discord có AbortController 8s + xác nhận app
+  ID khớp, (4) **relay** chặn scan unbounded (MAX_SOURCE_HASHES/…), (5) **bộ
+  artifact Vercel** mới toàn phần: vercel.json (CSP có hash, noindex route
+  riêng tư), seo.ts, convexUrl.ts (allowlist URL Convex fail-closed), 404.js,
+  og-image — main chưa từng có. **Kiểm chứng trên chính code zip: 61/61 suite
+  CJS + 9/9 TS + tsc + lint + format XANH** (chạy trong /tmp, node_modules
+  riêng). Zip sạch secret (không .env/.pem/bot-key). LƯU Ý: zip cũ hơn main
+  2 ngày (thiếu docs 25/09 + 2 suite e2e) → KHÔNG merge nguyên cây; chỉ lấy
+  từng nhóm thay đổi sang main. Hỏi người dùng: lấy nhóm nào trước?
 - 🚨 **KHẨN — VPS sắp bị reinstall (~15 giờ, deadline ~09:00 26/09)**: staff
   Hiro (MLX) báo reinstall node (lý do mạng chậm/ping cao), "data will be gone",
   backup PHẢI lưu ngoài panel. VPS 205 sống lại (uptime 51m, 4 hostname
