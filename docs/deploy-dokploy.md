@@ -147,7 +147,7 @@ git push → GitHub → Dokploy tự nhận (webhook)
 - [ ] Domain A record → IP, cấu hình HTTPS trong Dokploy
 - [ ] Tắt IP:port access
 - [ ] Application: repo + branch main + Dockerfile `./Dockerfile.web`
-- [ ] Build args: `DISCORD_CLIENT_ID`
+- [ ] Build args: `VITE_CONVEX_URL`, `DISCORD_CLIENT_ID`
 - [ ] Domain `protogon.tên-miền.com` → port 80 → Let's Encrypt
 - [ ] Deploy + đăng nhập Discord OK
 - [ ] Discord Developer Portal: thêm redirect URI mới (`/discord/callback`)

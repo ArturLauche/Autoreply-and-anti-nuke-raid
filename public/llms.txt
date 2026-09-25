@@ -17,6 +17,7 @@ Trang chủ: https://protogon.freebuff.app
 - `/privacy` — chính sách quyền riêng tư
 - `/data-deletion` — lưu trữ và xoá dữ liệu
 - `/status` — trạng thái hệ thống realtime (web/backend/bot, không cần đăng nhập)
+- `/monitor` — alias của trang giám sát bot
 
 ## Trang cần đăng nhập (không thể xem khi chưa xác thực)
 
@@ -24,7 +25,6 @@ Trang chủ: https://protogon.freebuff.app
 - `/dashboard/:guildId` — cấu hình từng server (auto reply, nhiệt độ, module)
 - `/dashboard/:guildId/history` — lịch sử vi phạm
 - `/stats` — bảng xếp hạng thành viên có nhiệt độ vi phạm cao nhất
-- `/monitor` — trạng thái hoạt động của bot
 - `/admin` — khu vực dành riêng cho chủ sở hữu bot
 
 ## Cách hoạt động tóm tắt
