@@ -6,6 +6,12 @@
 
 ## Đang dở
 
+- 🚧 **VPS chết — chờ Meowlix** (25/09): host storage đầy, staff xác nhận trong
+  ticket #363 _"our main node disk is full — wait till we buy a new node"_. VM
+  205 boot-loop, bot pm2 + dashboard chỉ còn tồn tại theo RAM. Checklist khôi
+  phục đã soạn ở `docs/t3-devbox.md` mục 4b — làm theo đúng thứ tự khi VM sống
+  lại (fs check → swarm → pm2/curl → redeploy t3-code → xoay 2 key lộ + fix
+  bashrc dòng 111 → docs).
 - 🚧 **Setup T3 Code devbox — sót 2 việc phía người dùng** (xem `docs/t3-devbox.md`):
   (1) app mobile T3 đăng nhập bằng account `wiothemilo` (GitHub, cùng account
   devbox) → bật T3 Connect → chấm xanh; (2) đổi `GH_TOKEN` trong Dokploy
@@ -13,7 +19,7 @@
   redeploy → kiểm `/workspace/repos/` có repo Protogon. Hạ tầng đã xanh:
   T3 web 200, VS Code 302, devbox authorized `wiothemilo@gmail.com`, relay
   provisioned. Việc agent còn treo: `t3 uninstall` trên host (tuỳ chọn).
-- Không có việc bắt buộc khác. (Nợ cũ "dọn 119 bản dịch EN chết + 12 DE mồ côi" ĐÃ XONG phiên 23/09 —
+- Không có việc bắt buộc khác (ngoài khối VPS chết phía trên). (Nợ cũ "dọn 119 bản dịch EN chết + 12 DE mồ côi" ĐÃ XONG phiên 23/09 —
   dùng `scripts/_i18n-dead-remove.cjs`, check-i18n giờ sạch 100% không còn mục ℹ️.)
 - ✅ Nợ cũ "~144 câu nội suy chưa bọc translate()" (ghi nhận 20/09) ĐÃ XONG — đo lại
   24/09: check-i18n --all báo 0 JSX text · 0 biểu thức · 0 thuộc tính còn nợ (các đợt
@@ -38,6 +44,27 @@
      Thay vì mò cách vá đuôi file, gom việc đó về **một điểm chặn duy nhất ở file nhỏ**
      (`bot/src/convex.js`: proxy tự xoá cache sau mọi lượt ghi cấu hình của bot) → vừa vá được
      cả 7 chỗ cùng lúc, vừa không bao giờ phải chạm đuôi file lớn nữa.
+
+---
+
+## 2026-09-25 — Sự cố #2: đĩa RO tái diễn → staff xác nhận host storage đầy
+
+- 🚨 **Diễn biến (~14:30)**: sau deploy compose (thêm `hostname: t3-devbox`,
+  build nặng) đĩa rơi `emergency_ro` LẦN 2 trong ngày → panel 502, dokploy
+  container unhealthy, docker exec báo "read-only file system", swarm manager
+  mất, sshd chết, Stop/Start từ panel → **boot-loop**.
+- 🔍 **Chẩn đoán then chốt**: `journalctl -k` trong VM SẠCH — không một dòng
+  EXT4/jbd2/I/O error nào, dù đĩa chuyển emergency_ro 2 lần. Nếu filesystem
+  trong VM hỏng thật thì kernel VM phải kêu; nó im lặng → bệnh nằm ở tầng
+  dưới (host storage / thin pool). Chốt bằng lời staff `Bhadoria420` (15:55,
+  ticket #363): _"our main node disk is full — wait till we buy a new node"_.
+- ✅ **Việc làm được khi VPS chết** (chỉ đụng repo): bổ sung runbook
+  `docs/t3-devbox.md` mục 4b (bảng chẩn đoán + checklist khôi phục 6 bước khi
+  VM sống lại, gồm fs check → swarm → pm2 → redeploy t3-code → xoay 2 key lộ)
+  - decision-log 2 dòng (chờ node mới; checklist khôi phục). KHÔNG làm gì ở
+    VM nữa — mọi lệnh sửa đều fail, chỉ tốn công.
+- ⏸️ Kế hoạch: chờ staff. Khi VM sống → làm checklist 4b đúng thứ tự, KHÔNG
+  deploy gì nặng trước khi fs ổn định qua vài boot.
 
 ---
 

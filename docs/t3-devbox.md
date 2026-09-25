@@ -120,6 +120,43 @@ Bài học rút ra:
 3. Sau reboot luôn chạy checklist: FS ghi được → pm2 bot online → docker ps →
    cloudflared active → curl dashboard 200 từ bên ngoài.
 
+## 4b. Sự cố #2 (~14:30 25/09): tái diễn đĩa emergency read-only → chẩn đoán tầng host
+
+Cùng ngày, sự cố tái diễn sau deploy compose (thêm `hostname: t3-devbox`, build
+nặng): panel 502 → dokploy container unhealthy (`curl localhost:3000` = 000,
+`docker exec` báo `OCI runtime exec failed: … read-only file system`) → swarm
+manager mất (`This node is not a swarm manager`) → sshd chết (connection
+refused) → Stop/Start từ panel Meowlix **boot-loop** (Running↔Stopped).
+
+| Kiểm tra                                   | Kết quả                          | Chẩn                                                                       |
+| ------------------------------------------ | -------------------------------- | -------------------------------------------------------------------------- |
+| `journalctl -k` (trong VM)                 | Sạch, không EXT4/jbd2/I/O error  | Lỗi filesystem **không nằm trong VM** — kernel VM không thấy gì bất thường |
+| `mount \| grep " / "` (trước khi chết hẳn) | `ext4 (rw,…,emergency_ro)` lần 2 | Cùng cơ chế #1 nhưng fsck boot không giữ được sạch                         |
+| `df -h /`                                  | 78 GB đĩa, dùng ~23.6 GB (30%)   | Không phải full đĩa **trong VM**                                           |
+| Stop/Start từ panel                        | Boot-loop, không boot ổn định    | VM chết ngay khi host ghi đĩa lúc khởi động → bệnh ở tầng host storage     |
+
+**Kết luận cuối (staff Meowlix xác nhận 15:55, ticket #363):** _"our main node
+disk is full — wait till we buy a new node"_ — host storage đầy ở tầng provider,
+không phải corruption trong VM. Kế hoạch: **chờ staff mua node mới / migrate**.
+
+Checklist khôi phục khi VM 205 sống lại (theo thứ tự):
+
+1. `mount \| grep " / "` — phải là `rw` **không còn** `emergency_ro`; `touch /tmp/ok` ghi được.
+2. `sudo tune2fs -c 1 /dev/mapper/pve-vm--205--disk--0` — ép fsck mỗi boot
+   (theo dõi vài boot ổn định rồi `-c 0` trả về mặc định).
+3. `docker info \| grep -i swarm` — nếu vẫn "not a manager" → phục hồi Raft
+   riêng theo `docs/deploy-dokploy.md` trước khi động Dokploy.
+4. `pm2 status` bot online; curl 4 hostname (dashboard 200, panel 200, T3 web
+   200, VS Code 302).
+5. Redeploy `t3-code` (compose đã sửa sẵn `hostname: t3-devbox` trên Dokploy):
+   `docker exec $(docker ps -qf name=devbox) hostname` phải in `t3-devbox`;
+   restore symlink SSH bước 3b mục 6; sau đó phone T3 pull-to-refresh → entry
+   `t3-devbox` chấm xanh → model picker thấy các model `opencode/…-free`.
+6. Việc treo an ninh sau khi sống lại: xoay `CONVEX_DEPLOY_KEY` +
+   `UNOROUTER_API_KEY` (lộ trong screenshot 25/09, dòng 110–111 `/root/.bashrc`)
+   - fix cú pháp dòng 111:
+     `sed -i 's/ source \/root\.bashrc$//' /root/.bashrc`.
+
 ## 5. T3 cũ cài thẳng host (di vật pre-Dokploy) — đã dọn
 
 Trước khi có Dokploy, T3 từng cài thẳng host: binary `/root/.local/bin/t3` +
