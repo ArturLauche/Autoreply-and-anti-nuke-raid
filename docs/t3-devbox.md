@@ -220,17 +220,25 @@ trong volume.
 
 ## 7. Việc còn treo (người dùng tự làm)
 
-### ⚠️ CẬP NHẬT 25/09 ~17:50 — NODE SẮP BỊ REINSTALL (~15 GIỜ)
+### ⚠️ CẬP NHẬT 25/09 ~17:50 — NODE SẮP BỊ REINSTALL → ✅ GIẢI TRỪ 25/09 ~20:15
 
 Staff Hiro (MLX) báo: **reinstall India Node** (lý do: mạng chậm/ping cao),
 "Servers won't be deleted but the data will be gone" — hẹn 16 giờ, timer
-chạy đến ~15 giờ nữa. Chưa có xác nhận VM 205 có nằm trên node đó không.
+chạy đến ~15 giờ nữa.
 
-**VPS 205 là node Ấn Độ không?** Geo-IP `203.154.14.8` = **Bangkok/Samut
-Prakan, THÁI LAN** (AS4618 Internet Thailand, reverse `203-154-14-8.inter.net.th`) —
-theo IP thì KHÔNG phải Ấn Độ. Nhưng: (1) provider free có thể đặt tên node
-không khớp IP egress, (2) sự cố đĩa đầy hôm nay + lý do reinstall khớp nhau.
-→ **Coi như VM 205 bị ảnh hưởng cho tới khi staff xác nhận ngược lại.**
+**KẾT LUẬN CUỐI (staff Bhadoria420, 20:03–20:14 ticket #363):**
+
+1. **"The vps are not on india node"** — VM 205 KHÔNG nằm trên node bị
+   reinstall (khớp chẩn đoán geo-IP Thái Lan từ đầu: `203.154.14.8` =
+   AS4618 Internet Thailand).
+2. **"Not now"** — chưa mua node mới (VM 205 vẫn trên node cũ).
+3. **"The disk would be somewhat freed"** — reinstall node khác sẽ giải phóng
+   đĩa host (gốc rễ sự cố #1/#2 của ta hôm nay).
+4. **"No need"** — staff nói KHÔNG cần backup VM 205.
+
+→ **Rủi ro reinstall đối với VM 205: KHÔNG CÒN.** Checklist backup gấp dưới
+đây hạ cấp từ "làm ngay 15h" thành "việc tốt nên làm khi rảnh" (env vẫn nên
+lưu + xoay 2 key lộ vì đã vào screenshot).
 
 **Chết khi reinstall** (VPS-local): pm2 bot + toàn bộ env bot
 (`DISCORD_TOKEN`, `OWNER_SEED`, `KIRA_API_KEY`, key Groq/NVIDIA…),

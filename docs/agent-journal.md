@@ -6,8 +6,15 @@
 
 ## Đang dở
 
+- ✅ **GIẢI TRỪ reinstall (25/09 20:15)**: staff Bhadoria420 xác nhận VM 205
+  KHÔNG nằm trên India node sắp reinstall ("The vps are not on india node"),
+  chưa mua node mới ("Not now"), reinstall node khác sẽ giải phóng đĩa host
+  ("The disk would be somewhat freed" — đúng gốc rễ sự cố #1/#2), và không cần
+  backup ("No need"). Việc deploy bản refactor lên VPS trở lại như kế hoạch
+  bình thường: user chạy git pull + bun install + pm2 restart (hướng dẫn đã
+  gửi); CI đã deploy Convex xanh; hosting mirror deployable.
 - 🔍 **Review refactor trên nhánh `host-deploy` (commit `df7dd00`, 18:56 25/09)**
-  — XONG phần review, CHỜ người dùng chốt hướng merge. Zip `l7qsdt.zip` =
+  — XONG phần review + ĐÃ MERGE (commit b6e2fcd + a639490): zip `l7qsdt.zip` =
   snapshot repo nguyên vẹn tên `protogon-quality-pass`, niêm phong 24/09 06:04,
   base ≈ main sau 24/09 sáng (journal có tới 3 mục 24/09, thiếu t3-devbox.md).
   Refactor thật ~105 file, các nhóm chính: (1) **claimAt lease fencing** cho
@@ -19,18 +26,20 @@
   riêng tư), seo.ts, convexUrl.ts (allowlist URL Convex fail-closed), 404.js,
   og-image — main chưa từng có. **Kiểm chứng trên chính code zip: 61/61 suite
   CJS + 9/9 TS + tsc + lint + format XANH** (chạy trong /tmp, node_modules
-  riêng). Zip sạch secret (không .env/.pem/bot-key). LƯU Ý: zip cũ hơn main
-  2 ngày (thiếu docs 25/09 + 2 suite e2e) → KHÔNG merge nguyên cây; chỉ lấy
-  từng nhóm thay đổi sang main. Hỏi người dùng: lấy nhóm nào trước?
-- 🚨 **KHẨN — VPS sắp bị reinstall (~15 giờ, deadline ~09:00 26/09)**: staff
-  Hiro (MLX) báo reinstall node (lý do mạng chậm/ping cao), "data will be gone",
-  backup PHẢI lưu ngoài panel. VPS 205 sống lại (uptime 51m, 4 hostname
-  200/302) nhưng dữ liệu VPS-local sẽ mất khi reinstall. Geo-IP
-  `203.154.14.8` = Thái Lan (KHÔNG phải Ấn Độ theo IP, nhưng coi VM 205 là bị
-  ảnh hưởng tới khi staff xác nhận). Danh sách chết/sống + checklist 15 giờ +
-  thứ tự dựng lại đã ghi ở `docs/t3-devbox.md` mục 7 (phần ⚠️). Người dùng tự
-  làm: copy compose, lưu env ra chỗ an toàn, xoay 2 key lộ. Agent không chạm
-  được VPS từ đây.
+  riêng). Zip sạch secret (không .env/.pem/bot-key). → ĐÃ MERGE TOÀN BỘ (user
+  chốt "lấy hết") vào main: commit b6e2fcd (merge + chữa 3 regression của
+  zip: 2 index Convex, otherSlots ×2, seed authVersion cho 2 e2e) + a639490
+  (bỏ CSP hash chết trong Dockerfile.web/vercel.json + bổ sung /status vào
+  SPA routes — phát hiện khi build verify trước deploy).
+- ⬇️ **HẠ CẤP — reinstall KHÔNG còn đe doạ VM 205** (xem mục ✅ giải trừ
+  phía trên): cảnh báo 17:50 của staff Hiro (MLX) về reinstall India node
+  từng đặt VM 205 vào tình huống dữ liệu sẽ mất (geo-IP `203.154.14.8` =
+  Thái Lan, coi như bị ảnh hưởng tới khi staff xác nhận). Staff Bhadoria420
+  đã xác nhận 20:03–20:14: VM 205 không nằm trên node đó, chưa mua node mới,
+  reinstall node khác sẽ giải phóng đĩa host, không cần backup. Checklist
+  backup gấp hạ cấp thành việc nên làm khi rảnh (env vẫn nên lưu + xoay 2
+  key lộ vì đã vào screenshot). Runbook dự phòng vẫn giữ ở
+  `docs/t3-devbox.md` mục 7.
 - 🚧 **VPS chết — chờ Meowlix** (25/09): host storage đầy, staff xác nhận trong
   ticket #363 _"our main node disk is full — wait till we buy a new node"_. VM
   205 boot-loop, bot pm2 + dashboard chỉ còn tồn tại theo RAM. Checklist khôi
