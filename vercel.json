@@ -13,7 +13,7 @@
         { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'sha256-faae59ca5f6a0f958cf5644f8ed2c157c1ac583b0a57c70f4ff48840f0424c9c'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.convex.cloud wss://*.convex.cloud https://discord.com; object-src 'none'; base-uri 'self'; form-action 'self' https://discord.com; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self'"
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.convex.cloud wss://*.convex.cloud https://discord.com; object-src 'none'; base-uri 'self'; form-action 'self' https://discord.com; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self'"
         }
       ]
     },
@@ -33,6 +33,7 @@
     { "source": "/privacy", "destination": "/index.html" },
     { "source": "/data-deletion", "destination": "/index.html" },
     { "source": "/monitor", "destination": "/index.html" },
+    { "source": "/status", "destination": "/index.html" },
     { "source": "/admin", "destination": "/index.html" },
     { "source": "/stats", "destination": "/index.html" },
     { "source": "/dashboard", "destination": "/index.html" },
