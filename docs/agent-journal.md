@@ -6,7 +6,14 @@
 
 ## Đang dở
 
-- Không có việc bắt buộc. (Nợ cũ "dọn 119 bản dịch EN chết + 12 DE mồ côi" ĐÃ XONG phiên 23/09 —
+- 🚧 **Setup T3 Code devbox — sót 2 việc phía người dùng** (xem `docs/t3-devbox.md`):
+  (1) app mobile T3 đăng nhập bằng account `wiothemilo` (GitHub, cùng account
+  devbox) → bật T3 Connect → chấm xanh; (2) đổi `GH_TOKEN` trong Dokploy
+  (service `t3-code` → Environment) sang PAT của `wiothemilo` scope `repo` →
+  redeploy → kiểm `/workspace/repos/` có repo Protogon. Hạ tầng đã xanh:
+  T3 web 200, VS Code 302, devbox authorized `wiothemilo@gmail.com`, relay
+  provisioned. Việc agent còn treo: `t3 uninstall` trên host (tuỳ chọn).
+- Không có việc bắt buộc khác. (Nợ cũ "dọn 119 bản dịch EN chết + 12 DE mồ côi" ĐÃ XONG phiên 23/09 —
   dùng `scripts/_i18n-dead-remove.cjs`, check-i18n giờ sạch 100% không còn mục ℹ️.)
 - ✅ Nợ cũ "~144 câu nội suy chưa bọc translate()" (ghi nhận 20/09) ĐÃ XONG — đo lại
   24/09: check-i18n --all báo 0 JSX text · 0 biểu thức · 0 thuộc tính còn nợ (các đợt
@@ -31,6 +38,35 @@
      Thay vì mò cách vá đuôi file, gom việc đó về **một điểm chặn duy nhất ở file nhỏ**
      (`bot/src/convex.js`: proxy tự xoá cache sau mọi lượt ghi cấu hình của bot) → vừa vá được
      cả 7 chỗ cùng lúc, vừa không bao giờ phải chạm đuôi file lớn nữa.
+
+---
+
+## 2026-09-25 — T3 devbox đổi account + sự cố đĩa VPS emergency read-only
+
+- ✅ Xong: runbook đầy đủ ở `docs/t3-devbox.md` (bản đồ compose `t3-code`,
+  đường truy cập, quy tắc vàng tài khoản, runbook đổi account, sự cố đĩa).
+  Tóm tắt trạng thái cuối phiên:
+  - Devbox authorized `wiothemilo@gmail.com` qua GitHub — đúng GitHub chủ
+    repo Protogon (`wiothemilo-lang/Autoreply-and-anti-nuke-raid`). Login
+    đầu tiên nhầm identity (2 Gmail + 2 GitHub) → app điện thoại không thấy
+    environment dù relay provisioned. Bài học: **app và devbox phải cùng
+    tài khoản T3, cùng provider**; mở login URL bằng cửa sổ Ẩn danh.
+  - Di vật T3 host cũ (pre-Dokploy, v0.0.42 ở `/root/.local/bin/t3`): đã
+    `t3 connect logout` xoá credential; không chạy server trên host nữa
+    (bind 3773 thất bại âm thầm vì docker-proxy giữ port — từng gây nghi
+    sai rằng `t3.protogon…` là host cũ trả lời).
+- 🚨 **Sự cố hạ tầng: đĩa gốc VPS bị kernel chuyển emergency read-only**
+  (phát hiện khi `t3` trên host báo EROFS; `mount` thấy
+  `ext4 (rw,…,emergency_ro)`; `touch /tmp/x` xác nhận). Chẩn đoán sai ban
+  đầu: tưởng T3 host cũ chiếm port / tưởng lỗi T3 — thực ra là filesystem.
+  Chữa đúng: **không cài/vá gì thêm, `sudo reboot`** → fsck tự quét sửa lúc
+  boot (ext4 flag lỗi) → FS sạch, toàn hệ hồi sinh (pm2 bot online, 8
+  container Up, tunnel/dashboard 200, không mất dữ liệu). Bài học ghi trong
+  runbook mục 4: gặp EROFS rải rác → `mount | grep " / "` TRƯỚC khi chẩn
+  đoán sâu app.
+- 🧠 Ghi chú kỹ thuật: `ps aux` trên host thấy `t3 serve --host 0.0.0.0
+--port 3773` (node wrapper + native binary) là **process của devbox
+  container** — bình thường, đừng nhầm với T3 host cũ.
 
 ---
 
