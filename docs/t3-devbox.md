@@ -153,6 +153,8 @@ docker exec $(docker ps -qf name=devbox) bash -c '
 
 # 3. Bí danh trong devbox — CHÚ Ý: docker exec PHẢI có -i khi bơm heredoc
 #    (thiếu -i → tee nhận stdin rỗng → file rỗng → "Could not resolve hostname vps")
+#    Bẫy 2: config phải nằm ở $HOME/.ssh (=/root/.ssh) — ssh không đọc
+#    /workspace/.ssh/config → cần bước 3b symlink.
 docker exec -i $(docker ps -qf name=devbox) tee /workspace/.ssh/config > /dev/null <<'EOF'
 Host vps
   HostName 172.19.0.1
@@ -161,6 +163,10 @@ Host vps
   StrictHostKeyChecking accept-new
 EOF
 docker exec $(docker ps -qf name=devbox) chmod 600 /workspace/.ssh/config
+
+# 3b. ssh đọc config từ $HOME/.ssh (= /root/.ssh), KHÔNG phải /workspace/.ssh
+#     → symlink vào volume (làm lại đúng 1 dòng này sau mỗi lần redeploy container)
+docker exec $(docker ps -qf name=devbox) bash -c 'mkdir -p /root/.ssh && chmod 700 /root/.ssh && ln -sf /workspace/.ssh/config /root/.ssh/config'
 
 # 4. Kiểm chứng
 docker exec $(docker ps -qf name=devbox) ssh vps 'pm2 status'
@@ -171,7 +177,9 @@ mật khẩu T3 phải mạnh nhất hệ; ra lệnh cho agent phải cụ thể
 chung có tính phá hoại. Sau reboot, IP gateway mạng docker (`172.19.0.1`) có thể
 đổi — `ssh vps` refused thì tìm GW lại:
 `docker exec $(docker ps -qf name=devbox) sh -c 'ip route | awk "/default/ {print \$3}"'`
-rồi sửa `HostName` trong `/workspace/.ssh/config`.
+rồi sửa `HostName` trong `/workspace/.ssh/config`. Sau redeploy container:
+làm lại bước 3b (symlink config vào `/root/.ssh`) — key + config vẫn an toàn
+trong volume.
 
 ## 7. Việc còn treo (người dùng tự làm)
 
