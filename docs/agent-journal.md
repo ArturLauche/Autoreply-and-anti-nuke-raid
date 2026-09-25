@@ -6,13 +6,13 @@
 
 ## Đang dở
 
-- 🚧 **PR branch ownership**: PR #12 còn conflict và commit cũ gắn `wiothemilo-lang`; đang tạo branch sạch từ `main` mới, squash thành một commit tác giả `ArturLauche`, xanh toàn bộ gate, chờ push fork + PR thay thế.
+- ✅ **Branch sạch đã push**: `artur/quality-pass` trên fork `ArturLauche`, commit `6da5a97` tác giả `ArturLauche`, ahead 1 / behind 0 so với `main`; chờ mở PR mới thay PR #12 (token agent không có quyền tạo PR trên upstream).
 
 ## 2026-09-25 — Chuẩn hoá branch PR theo Git identity ArturLauche
 
 - ✅ Xong: dựng lại diff trên `main` mới, bỏ metadata commit cũ, giữ hardening lease/session và test e2e; sửa route `/status` trong SEO.
 - 🧪 Kiểm chứng: CJS 61/61 · TS 11/11 · typecheck/lint/format/build/contract/repo-map/i18n/settings đều xanh.
-- ▶️ Tiếp theo: commit bằng identity ArturLauche, push fork, tạo PR thay PR #12.
+- ▶️ Tiếp theo: mở PR từ `artur/quality-pass` vào `main`, rồi đóng PR #12 cũ.
 
 - ✅ **GIẢI TRỪ reinstall (25/09 20:15)**: staff Bhadoria420 xác nhận VM 205
   KHÔNG nằm trên India node sắp reinstall ("The vps are not on india node"),
