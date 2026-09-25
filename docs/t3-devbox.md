@@ -135,13 +135,49 @@ Trước khi có Dokploy, T3 từng cài thẳng host: binary `/root/.local/bin/
 - Tuỳ chọn chưa làm: `t3 uninstall` trên host để gỡ hẳn binary + launcher
   (state `~/.t3` giữ lại làm backup projects/threads cũ).
 
-## 6. Việc còn treo (người dùng tự làm)
+## 6. SSH devbox → host (agent chạm được tầng host VPS)
 
-1. **App mobile T3**: đăng nhập bằng đúng account `wiothemilo` (GitHub — cùng
-   account devbox) → Environments → bật T3 Connect → chấm xanh 🟢.
-2. **`GH_TOKEN`**: đổi trong Dokploy → service `t3-code` → Environment sang PAT
+Lắp ngày 25/09 — cho agent trong T3 chạy được `pm2`, `journalctl`, docker chính,
+cloudflared… của host. Key nằm trong `/workspace/.ssh` (volume — sống sót qua
+redeploy). **Key này chỉ dùng cho devbox→host**, thu hồi bằng xoá 1 dòng trong
+`/root/.ssh/authorized_keys` của host.
+
+```bash
+# 1. Tạo key trong devbox (chỉ chạy nếu chưa có)
+docker exec $(docker ps -qf name=devbox) bash -c '
+  mkdir -p /workspace/.ssh && chmod 700 /workspace/.ssh
+  test -f /workspace/.ssh/id_ed25519 || ssh-keygen -t ed25519 -N "" -f /workspace/.ssh/id_ed25519 -C "devbox-t3"
+  cat /workspace/.ssh/id_ed25519.pub'
+
+# 2. Host nhận key: dán pubkey vào /root/.ssh/authorized_keys (chmod 600)
+
+# 3. Bí danh trong devbox — CHÚ Ý: docker exec PHẢI có -i khi bơm heredoc
+#    (thiếu -i → tee nhận stdin rỗng → file rỗng → "Could not resolve hostname vps")
+docker exec -i $(docker ps -qf name=devbox) tee /workspace/.ssh/config > /dev/null <<'EOF'
+Host vps
+  HostName 172.19.0.1
+  User root
+  IdentityFile /workspace/.ssh/id_ed25519
+  StrictHostKeyChecking accept-new
+EOF
+docker exec $(docker ps -qf name=devbox) chmod 600 /workspace/.ssh/config
+
+# 4. Kiểm chứng
+docker exec $(docker ps -qf name=devbox) ssh vps 'pm2 status'
+```
+
+Bảo mật: tài khoản T3 giờ gần như = root VPS (ai vào được T3 là vào được host) →
+mật khẩu T3 phải mạnh nhất hệ; ra lệnh cho agent phải cụ thể, tránh lệnh chung
+chung có tính phá hoại. Sau reboot, IP gateway mạng docker (`172.19.0.1`) có thể
+đổi — `ssh vps` refused thì tìm GW lại:
+`docker exec $(docker ps -qf name=devbox) sh -c 'ip route | awk "/default/ {print \$3}"'`
+rồi sửa `HostName` trong `/workspace/.ssh/config`.
+
+## 7. Việc còn treo (người dùng tự làm)
+
+1. **`GH_TOKEN`**: đổi trong Dokploy → service `t3-code` → Environment sang PAT
    của `wiothemilo` (scope `repo`, GitHub chứa repo Protogon) → Save →
    Redeploy → kiểm `docker exec $(docker ps -qf name=devbox) ls /workspace/repos/`
    thấy `Autoreply-and-anti-nuke-raid`.
-3. Tuỳ chọn: login app bằng account Gmail cũ để xoá record environment chết
+2. Tuỳ chọn: login app bằng account Gmail cũ để xoá record environment chết
    phía relay; `t3 uninstall` trên host.
