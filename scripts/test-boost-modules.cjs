@@ -322,16 +322,18 @@ const snap = require("../bot/src/localSnapshot.js");
       );
 
       // Rotate: tạo file giả 10 ngày trước → bị xoá; file hôm nay → giữ.
-      const todayFile = snap.logFileFor(new Date());
-      fs.mkdirSync(path.dirname(todayFile), { recursive: true });
-      fs.writeFileSync(todayFile, "hôm nay\n");
-      const old = new Date(Date.now() - 10 * 24 * 3600 * 1000);
+      // TẤT ĐỊNH: "bây giờ" cố định 2026-09-20T00:00Z, cách xa nửa đêm — nếu lấy
+      // Date.now() thật thì test chạy lúc 23:xx UTC làm rotateLogs tính cutoff
+      // đã lật sang ngày mới và XOÁ cả file log "hôm nay" (fail ngẫu nhiên,
+      // đã gặp thật 24/09/2026 chạy lúc 23:11 UTC).
+      const anchor = new Date("2026-09-20T00:00:00Z");
+      const old = new Date(anchor.getTime() - 10 * 24 * 3600 * 1000);
       const oldFile = snap.logFileFor(old);
       fs.mkdirSync(path.dirname(oldFile), { recursive: true });
       fs.writeFileSync(oldFile, "cũ\n");
-      const removed = snap.rotateLogs(new Date());
+      const removed = snap.rotateLogs(anchor);
       check("C2: rotate xoá file quá 7 ngày", removed >= 1 && !fs.existsSync(oldFile));
-      check("C2: file hôm nay còn sống", fs.existsSync(todayFile));
+      check("C2: file hôm nay còn sống", fs.existsSync(file));
     } finally {
       delete process.env.PROTOGON_LOG_DIR;
       fs.rmSync(tmpDir, { recursive: true, force: true });

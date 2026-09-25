@@ -15,7 +15,8 @@ Trang chủ: https://protogon.freebuff.app
 - `/terms` — điều khoản sử dụng
 - `/privacy` — chính sách quyền riêng tư
 - `/data-deletion` — lưu trữ và xoá dữ liệu
-- `/monitor` — trạng thái hoạt động của bot
+- `/status` — trạng thái hệ thống realtime (web/backend/bot, không cần đăng nhập)
+- `/monitor` — alias của trang giám sát bot
 
 ## Trang cần đăng nhập (không thể xem khi chưa xác thực)
 

@@ -11,7 +11,6 @@ import { syncRouteMetadata } from "./lib/seo";
 // Route-level code splitting: khách vào landing chỉ tải Landing + vendors.
 // Các trang dashboard/admin nặng (nhiều panel) chỉ tải khi thật sự mở —
 // giảm đáng kể JS parse/execute lần đầu.
-const Landing = lazy(() => import("./pages/Landing"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const DiscordCallback = lazy(() => import("./pages/DiscordCallback"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -23,6 +22,7 @@ const StatsPage = lazy(() => import("./pages/StatsPage"));
 // Trang pháp lý: 3 văn bản dùng CHUNG một component (khác tham số slug) — nội
 // dung nằm ở src/lib/legalContent.ts, không nhân bản code 3 lần.
 const LegalPage = lazy(() => import("./pages/LegalPage"));
+const Landing = lazy(() => import("./pages/Landing"));
 
 function RouteMetadataSync({ lang }: { lang: "vi" | "en" | "de" }) {
   const { pathname } = useLocation();
@@ -76,6 +76,10 @@ export default function App() {
             <Route path="/privacy" element={<LegalPage slug="privacy" />} />
             <Route path="/data-deletion" element={<LegalPage slug="data-deletion" />} />
             <Route path="/monitor" element={<Monitor />} />
+            {/* Alias dễ nhớ của trang giám sát — không nhân bản component: cùng
+              1 trang Monitor, 2 đường vào (/status dùng cho status page công
+              khai, /monitor là tên gọi gốc trong dashboard link cũ). */}
+            <Route path="/status" element={<Monitor />} />
             <Route
               path="/admin"
               element={

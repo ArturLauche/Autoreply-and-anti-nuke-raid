@@ -1,0 +1,282 @@
+# T3 Code devbox trên VPS (Dokploy compose `t3-code`)
+
+> Runbook cho môi trường dev-from-anywhere dựng 24–25/09/2026. Đọc cái này trước
+> khi đụng tới T3/devbox — phần "Tài khoản" và "Sự cố 25/09" là bài học xương máu.
+
+## 1. Bản đồ
+
+Docker Compose service `t3-code` trong Dokploy (project `protogon`), compose
+file dán qua tab **Files** (không nằm trong repo này). 5 service:
+
+| Service                     | Vai trò                                                                                                            |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `devbox`                    | T3 server (`t3 serve :3773`) + VS Code web/code-server (`:8000`) + kho agent CLI (claude, codex, cline, opencode…) |
+| `docker`                    | Docker-in-Docker để devbox build/test không đụng daemon chính                                                      |
+| `chrome` + `playwright-mcp` | Chrome thật cho agent duyệt web/test UI                                                                            |
+| `repo-sync`                 | Cron 6h: dùng `GH_TOKEN` clone toàn bộ repos GitHub vào `/workspace/repos` (gồm `Autoreply-and-anti-nuke-raid`)    |
+
+Env bắt buộc (đặt qua tab **Environment** của Dokploy, **không** sửa yml):
+`GH_TOKEN` (PAT scope `repo` của GitHub **chứ repo Protogon**),
+`VSCODE_PASSWORD`, `BROWSER_PASSWORD`.
+
+Ports publish chỉ bind loopback — `127.0.0.1:8000:8000`,
+`127.0.0.1:3773:3773` — không lộ Internet công cộng, chỉ cloudflared trên cùng
+host với tới được.
+
+## 2. Đường truy cập (verify 25/09/2026)
+
+| Kênh                          | Địa chỉ                                         | Trạng thái chuẩn                           |
+| ----------------------------- | ----------------------------------------------- | ------------------------------------------ |
+| T3 Code web (mọi trình duyệt) | `https://t3.protogon.dpdns.org`                 | HTTP 200                                   |
+| VS Code web (máy tính)        | `https://code.protogon.dpdns.org`               | HTTP 302 → trang login (`VSCODE_PASSWORD`) |
+| App T3 trên điện thoại        | qua relay `relay.t3.codes` (outbound từ devbox) | chấm xanh khi account khớp                 |
+| Repo Protogon trong devbox    | `/workspace/repos/Autoreply-and-anti-nuke-raid` | repo-sync tự clone                         |
+
+Mạch DNS: record CNAME `t3` + `code` → tunnel `meowlix`
+(`30583a3c-4f9b-4e37-a6ee-fd6695352e04.cfargotunnel.com`, Proxied 🟠);
+`/etc/cloudflared/config.yml` ingress có 4 hostname: `panel`→`:3000`,
+root→`:8080`, `t3`→`:3773`, `code`→`:8000`, cuối là `http_status:404`.
+
+## 3. Tài khoản — quy tắc vàng
+
+> **Environment chỉ hiện trên app khi app và devbox là CÙNG MỘT tài khoản T3**
+> (cùng identity VÀ cùng provider đăng nhập). Relay chỉ là đường ống; tài khoản
+> mới là chìa khoá.
+
+- Devbox hiện authorized: `wiothemilo@gmail.com` qua **GitHub** — đúng GitHub
+  chủ repo Protogon (`wiothemilo-lang/Autoreply-and-anti-nuke-raid`).
+- Bài học 25/09: lần đầu login nhầm identity khác → app điện thoại (đang dùng
+  account khác) nhìn không thấy environment dù relay đã provisioned. Chẩn
+  đoán bằng `t3 connect status` (dòng `Authorized as …`).
+
+### Runbook đổi account devbox
+
+```bash
+# 1. Ngắt ủy quyền cũ
+docker exec $(docker ps -qf name=devbox) t3 connect logout
+
+# 2. Login lại — OAuth device flow
+docker exec -it $(docker ps -qf name=devbox) t3 connect login --headless
+```
+
+⚠️ 2 bẫy ở bước 2 (đã cắn 1 lần):
+
+1. Mở URL trên **cửa sổ ẨN DANH** — cửa sổ thường tự đăng nhập session cũ.
+2. Chọn **đúng provider mà app điện thoại đang dùng** (Google với Gmail đó,
+   hoặc GitHub tạo từ Gmail đó). Khác provider = tạo tài khoản T3 riêng = app
+   vẫn không thấy.
+
+```bash
+# 3. Link vào relay + restart để server nạp
+docker exec -it $(docker ps -qf name=devbox) t3 connect link
+docker restart $(docker ps -qf name=devbox)
+
+# 4. Đợi 1–2 phút rồi kiểm — kỳ vọng:
+#    Environment link: provisioned · Relay: https://relay.t3.codes
+docker exec $(docker ps -qf name=devbox) t3 connect status
+```
+
+### Đọc `t3 connect status`
+
+| Dòng                               | Ý nghĩa                                                                                      |
+| ---------------------------------- | -------------------------------------------------------------------------------------------- |
+| `pending server startup`           | Server `t3 serve` (entrypoint container) chưa kịp provision — đợi 1–2 phút, xem log bên dưới |
+| `Relay: https://relay.t3.codes`    | Đã provisioned xong — chỉ còn chuyện account phía app                                        |
+| `Authorization: stored credential` | Đã login (email xem ở lúc login in ra `Signed in as …`)                                      |
+
+```bash
+# Log provision — kỳ vọng 4 dòng "Relay client tunnel connection registered"
+docker logs $(docker ps -qf name=devbox) 2>&1 | grep -iE "relay|provision|tunnel" | tail -15
+```
+
+- WARN `ping_group_range` từ cloudflared: **vô hại** (cảnh báo ICMP).
+- `t3 connect logout` có thể in WARN `relay-environment-unlink … HTTP 500`:
+  lỗi phía relay khi xoá record cũ, nhưng **credential local vẫn được xoá**
+  (`Signed out … locally`) → coi là xong; record chết phía relay vô hại.
+
+## 4. Sự cố 25/09: đĩa VPS emergency read-only (bài học lớn)
+
+Triệu chứng ban đầu tưởng là bug T3: lệnh `t3` trên host báo
+`EROFS: read-only file system` khi đụng `~/.t3/userdata/secrets`.
+
+| Kiểm tra              | Kết quả                    | Chẩn                                                                                                                       |
+| --------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `mount \| grep " / "` | `ext4 (rw,…,emergency_ro)` | Kernel tự chuyển **toàn đĩa** sang read-only khẩn cấp khi phát hiện lỗi filesystem (`EXT4_FLAGS_EMERGENCY_RO`, kernel mới) |
+| `touch /tmp/x`        | `Read-only file system`    | Xác nhận không ghi được gì — không phải lỗi T3                                                                             |
+| `df -h /`             | 33% dùng                   | Không phải full đĩa                                                                                                        |
+
+**Chữa đúng**: không cài/vá gì thêm (ghi không được thì cài gì cũng fail) →
+`sudo reboot` → ext4 có cờ lỗi nên fsck **tự quét + sửa toàn đĩa lúc boot**
+→ sau reboot: `FS SẠCH ✅`, toàn hệ hồi sinh không mất gì (pm2 bot online,
+8 container Up, tunnel 200 dashboard/panel).
+
+Bài học rút ra:
+
+1. **`EROFS` rải rác trên nhiều path ≠ lỗi app.** Chạm lỗi read-only ở bất kỳ
+   file nào → chạy `mount | grep " / "` + `touch /tmp/x` TRƯỚC khi chẩn đoán
+   sâu. `emergency_ro` trong mount options là chìa khoá.
+2. Đĩa đang read-only thì **không mất thêm dữ liệu khi đợi** — reboot là pha
+   chữa đúng đắn, không phải rủi ro.
+3. Sau reboot luôn chạy checklist: FS ghi được → pm2 bot online → docker ps →
+   cloudflared active → curl dashboard 200 từ bên ngoài.
+
+## 4b. Sự cố #2 (~14:30 25/09): tái diễn đĩa emergency read-only → chẩn đoán tầng host
+
+Cùng ngày, sự cố tái diễn sau deploy compose (thêm `hostname: t3-devbox`, build
+nặng): panel 502 → dokploy container unhealthy (`curl localhost:3000` = 000,
+`docker exec` báo `OCI runtime exec failed: … read-only file system`) → swarm
+manager mất (`This node is not a swarm manager`) → sshd chết (connection
+refused) → Stop/Start từ panel Meowlix **boot-loop** (Running↔Stopped).
+
+| Kiểm tra                                   | Kết quả                          | Chẩn                                                                       |
+| ------------------------------------------ | -------------------------------- | -------------------------------------------------------------------------- |
+| `journalctl -k` (trong VM)                 | Sạch, không EXT4/jbd2/I/O error  | Lỗi filesystem **không nằm trong VM** — kernel VM không thấy gì bất thường |
+| `mount \| grep " / "` (trước khi chết hẳn) | `ext4 (rw,…,emergency_ro)` lần 2 | Cùng cơ chế #1 nhưng fsck boot không giữ được sạch                         |
+| `df -h /`                                  | 78 GB đĩa, dùng ~23.6 GB (30%)   | Không phải full đĩa **trong VM**                                           |
+| Stop/Start từ panel                        | Boot-loop, không boot ổn định    | VM chết ngay khi host ghi đĩa lúc khởi động → bệnh ở tầng host storage     |
+
+**Kết luận cuối (staff Meowlix xác nhận 15:55, ticket #363):** _"our main node
+disk is full — wait till we buy a new node"_ — host storage đầy ở tầng provider,
+không phải corruption trong VM. Kế hoạch: **chờ staff mua node mới / migrate**.
+
+Checklist khôi phục khi VM 205 sống lại (theo thứ tự):
+
+1. `mount \| grep " / "` — phải là `rw` **không còn** `emergency_ro`; `touch /tmp/ok` ghi được.
+2. `sudo tune2fs -c 1 /dev/mapper/pve-vm--205--disk--0` — ép fsck mỗi boot
+   (theo dõi vài boot ổn định rồi `-c 0` trả về mặc định).
+3. `docker info \| grep -i swarm` — nếu vẫn "not a manager" → phục hồi Raft
+   riêng theo `docs/deploy-dokploy.md` trước khi động Dokploy.
+4. `pm2 status` bot online; curl 4 hostname (dashboard 200, panel 200, T3 web
+   200, VS Code 302).
+5. Redeploy `t3-code` (compose đã sửa sẵn `hostname: t3-devbox` trên Dokploy):
+   `docker exec $(docker ps -qf name=devbox) hostname` phải in `t3-devbox`;
+   restore symlink SSH bước 3b mục 6; sau đó phone T3 pull-to-refresh → entry
+   `t3-devbox` chấm xanh → model picker thấy các model `opencode/…-free`.
+6. Việc treo an ninh sau khi sống lại: xoay `CONVEX_DEPLOY_KEY` +
+   `UNOROUTER_API_KEY` (lộ trong screenshot 25/09, dòng 110–111 `/root/.bashrc`)
+   - fix cú pháp dòng 111:
+     `sed -i 's/ source \/root\.bashrc$//' /root/.bashrc`.
+
+## 5. T3 cũ cài thẳng host (di vật pre-Dokploy) — đã dọn
+
+Trước khi có Dokploy, T3 từng cài thẳng host: binary `/root/.local/bin/t3` +
+`/usr/local/lib/node_modules/t3`, state `~/.t3` (v0.0.42). Đã xử lý:
+
+- ✅ `t3 connect logout` trên host (25/09) — credential account cũ đã xoá.
+- ❌ **KHÔNG chạy `t3 serve` trên host nữa** — devbox là nơi chính thức; T3
+  host cũ từng bị nghi chiếm port 3773 nhưng thực ra bind thất bại âm thầm
+  (docker-proxy giữ port) — chạy lại sẽ tái diễn rối.
+- Lưu ý khi soi `ps aux` trên host: thấy process `t3 serve --host 0.0.0.0
+--port 3773` là **của devbox container** (1 node wrapper + 1 native binary)
+  — bình thường, không phải process host cũ.
+- Tuỳ chọn chưa làm: `t3 uninstall` trên host để gỡ hẳn binary + launcher
+  (state `~/.t3` giữ lại làm backup projects/threads cũ).
+
+## 6. SSH devbox → host (agent chạm được tầng host VPS)
+
+Lắp ngày 25/09 — cho agent trong T3 chạy được `pm2`, `journalctl`, docker chính,
+cloudflared… của host. Key nằm trong `/workspace/.ssh` (volume — sống sót qua
+redeploy). **Key này chỉ dùng cho devbox→host**, thu hồi bằng xoá 1 dòng trong
+`/root/.ssh/authorized_keys` của host.
+
+```bash
+# 1. Tạo key trong devbox (chỉ chạy nếu chưa có)
+docker exec $(docker ps -qf name=devbox) bash -c '
+  mkdir -p /workspace/.ssh && chmod 700 /workspace/.ssh
+  test -f /workspace/.ssh/id_ed25519 || ssh-keygen -t ed25519 -N "" -f /workspace/.ssh/id_ed25519 -C "devbox-t3"
+  cat /workspace/.ssh/id_ed25519.pub'
+
+# 2. Host nhận key: dán pubkey vào /root/.ssh/authorized_keys (chmod 600)
+
+# 3. Bí danh trong devbox — CHÚ Ý: docker exec PHẢI có -i khi bơm heredoc
+#    (thiếu -i → tee nhận stdin rỗng → file rỗng → "Could not resolve hostname vps")
+#    Bẫy 2: config phải nằm ở $HOME/.ssh (=/root/.ssh) — ssh không đọc
+#    /workspace/.ssh/config → cần bước 3b symlink.
+docker exec -i $(docker ps -qf name=devbox) tee /workspace/.ssh/config > /dev/null <<'EOF'
+Host vps
+  HostName 172.19.0.1
+  User root
+  IdentityFile /workspace/.ssh/id_ed25519
+  StrictHostKeyChecking accept-new
+EOF
+docker exec $(docker ps -qf name=devbox) chmod 600 /workspace/.ssh/config
+
+# 3b. ssh đọc config từ $HOME/.ssh (= /root/.ssh), KHÔNG phải /workspace/.ssh
+#     → symlink vào volume (làm lại đúng 1 dòng này sau mỗi lần redeploy container)
+docker exec $(docker ps -qf name=devbox) bash -c 'mkdir -p /root/.ssh && chmod 700 /root/.ssh && ln -sf /workspace/.ssh/config /root/.ssh/config'
+
+# 4. Kiểm chứng
+docker exec $(docker ps -qf name=devbox) ssh vps 'pm2 status'
+```
+
+Bảo mật: tài khoản T3 giờ gần như = root VPS (ai vào được T3 là vào được host) →
+mật khẩu T3 phải mạnh nhất hệ; ra lệnh cho agent phải cụ thể, tránh lệnh chung
+chung có tính phá hoại. Sau reboot, IP gateway mạng docker (`172.19.0.1`) có thể
+đổi — `ssh vps` refused thì tìm GW lại:
+`docker exec $(docker ps -qf name=devbox) sh -c 'ip route | awk "/default/ {print \$3}"'`
+rồi sửa `HostName` trong `/workspace/.ssh/config`. Sau redeploy container:
+làm lại bước 3b (symlink config vào `/root/.ssh`) — key + config vẫn an toàn
+trong volume.
+
+## 7. Việc còn treo (người dùng tự làm)
+
+### ⚠️ CẬP NHẬT 25/09 ~17:50 — NODE SẮP BỊ REINSTALL (~15 GIỜ)
+
+Staff Hiro (MLX) báo: **reinstall India Node** (lý do: mạng chậm/ping cao),
+"Servers won't be deleted but the data will be gone" — hẹn 16 giờ, timer
+chạy đến ~15 giờ nữa. Chưa có xác nhận VM 205 có nằm trên node đó không.
+
+**VPS 205 là node Ấn Độ không?** Geo-IP `203.154.14.8` = **Bangkok/Samut
+Prakan, THÁI LAN** (AS4618 Internet Thailand, reverse `203-154-14-8.inter.net.th`) —
+theo IP thì KHÔNG phải Ấn Độ. Nhưng: (1) provider free có thể đặt tên node
+không khớp IP egress, (2) sự cố đĩa đầy hôm nay + lý do reinstall khớp nhau.
+→ **Coi như VM 205 bị ảnh hưởng cho tới khi staff xác nhận ngược lại.**
+
+**Chết khi reinstall** (VPS-local): pm2 bot + toàn bộ env bot
+(`DISCORD_TOKEN`, `OWNER_SEED`, `KIRA_API_KEY`, key Groq/NVIDIA…),
+`/etc/dokploy` (compose `t3-code` trong tab Files cũng chết theo!),
+tất cả docker volume (workspace devbox + key SSH + auth OpenCode Zen),
+config cloudflared + cert.pem, `/root/.bashrc`, password Gatekeeper.
+**Sống**: repo GitHub · Convex (DB + functions) · Cloudflare DNS + object
+tunnel `meowlix` (UUID giữ nguyên, nhưng credentials file trên VPS mất).
+
+Checklist TRƯỚC khi hết 15 giờ (người dùng làm, agent không chạm được VPS):
+
+1. **Copy compose `t3-code`** từ Dokploy → service `t3-code` → tab Files
+   (dán cho agent lưu vào docs hoặc tự lưu chỗ an toàn) — KHÔNG có bản nào
+   khác, mất là dựng lại từ đầu.
+2. **Lưu giá trị env ra trình quản lý mật khẩu** (agent không đọc được env —
+   người dùng tự copy): `DISCORD_TOKEN`, `OWNER_SEED`, `KIRA_API_KEY`,
+   `GH_TOKEN` (PAT trong Dokploy Environment), `VSCODE_PASSWORD`,
+   `BROWSER_PASSWORD`, key AI phụ (nếu có). Nhân tiện **XOAY 2 key đã lộ**:
+   `CONVEX_DEPLOY_KEY` + `UNOROUTER_API_KEY` (đã vào screenshot 25/09) —
+   xoay trước reinstall là sạch cả hai chuyện.
+3. Kiểm VPS đang sống khỏe (mục 4b): `mount | grep " / "` không còn
+   `emergency_ro` + `pm2 status` + `docker ps` đủ container.
+4. Devbox: đẩy mọi thay đổi chưa commit trong `/workspace/repos/*` lên
+   GitHub; auth OpenCode Zen sẽ phải login lại sau reinstall — chấp nhận.
+
+Thứ tự dựng lại SAU reinstall (chi tiết lệnh ở `docs/deploy-dokploy.md` +
+mục 6 bản đồ):
+
+1. OS sạch → `cloudflared tunnel login` → dựng lại `/etc/cloudflared/config.yml`
+   (nội dung 4 hostname nguyên văn ở mục 2; CNAME trỏ UUID cũ vẫn còn — nếu
+   mất credentials file của tunnel thì tạo tunnel mới + `tunnel route dns
+--overwrite-dns`).
+2. Cài Dokploy (curl script trong deploy-dokploy.md) → dán lại compose `t3-code`
+   - Environment (`GH_TOKEN`, `VSCODE_PASSWORD`, `BROWSER_PASSWORD`) → Deploy.
+3. Bot: clone repo → `bun install` trong `bot/` (lấy `@napi-rs/canvas`) →
+   ghi env → `pm2 start` → checklist mục 4b.
+4. Devbox: tạo lại key SSH + bước symlink 3b (mục 6), login lại OpenCode Zen,
+   phone T3 pull-to-refresh.
+
+---
+
+### Việc gốc của mục 7 (trước cảnh báo reinstall)
+
+1. **`GH_TOKEN`**: đổi trong Dokploy → service `t3-code` → Environment sang PAT
+   của `wiothemilo` (scope `repo`, GitHub chứa repo Protogon) → Save →
+   Redeploy → kiểm `docker exec $(docker ps -qf name=devbox) ls /workspace/repos/`
+   thấy `Autoreply-and-anti-nuke-raid`.
+2. Tuỳ chọn: login app bằng account Gmail cũ để xoá record environment chết
+   phía relay; `t3 uninstall` trên host.

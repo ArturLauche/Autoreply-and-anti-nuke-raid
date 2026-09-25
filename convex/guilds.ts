@@ -869,8 +869,12 @@ export const updateSettings = mutation({
     // không, mỗi lần đổi ảnh để lại một file rác vĩnh viễn trong storage.
     for (const f of GREETING_IMAGE_SLOTS) {
       if (!(f in patch) || patch[f]) continue;
+      // Ô đang bị xoá (f) phải loại khỏi phép kiểm tra — giá trị cũ của nó vẫn
+      // còn trong guild lúc này (patch chạy sau) nên every() bao gồm f sẽ luôn
+      // thấy file "còn dùng" → file rác vĩnh viễn (bug thật luồng 7e).
+      const otherSlots = GREETING_IMAGE_SLOTS.filter((k) => k !== f);
       const oldId = storageIdFromUrl(guild[f]);
-      if (oldId && GREETING_IMAGE_SLOTS.every((k) => storageIdFromUrl(guild[k]) !== oldId)) {
+      if (oldId && otherSlots.every((k) => storageIdFromUrl(guild[k]) !== oldId)) {
         try {
           await ctx.storage.delete(oldId as Id<"_storage">);
         } catch {
@@ -1023,8 +1027,13 @@ export const removeGreetingImage = mutation({
       .first();
     if (!guild || !canManageGuild(user, guild))
       throw new Error("Không có quyền quản lý server này");
+    // Ô đang bị xoá phải được LOẠI khỏi phép kiểm tra "còn dùng ở chỗ khác" —
+    // guild[slot] lúc này vẫn còn giữ URL cũ (patch xảy ra sau) nên every() bao
+    // gồm ô đó sẽ luôn thấy file "còn dùng" → file rác không bao giờ được dọn
+    // (bug thật bắt bởi luồng 7e của test-greeting-flow-e2e).
+    const otherSlots = GREETING_IMAGE_SLOTS.filter((k) => k !== slot);
     const oldId = storageIdFromUrl(guild[slot]);
-    if (oldId && GREETING_IMAGE_SLOTS.every((k) => storageIdFromUrl(guild[k]) !== oldId)) {
+    if (oldId && otherSlots.every((k) => storageIdFromUrl(guild[k]) !== oldId)) {
       try {
         await ctx.storage.delete(oldId as Id<"_storage">);
       } catch {
@@ -1168,7 +1177,12 @@ export const getVerifySendPanelGuilds = query({
   args: { botKey: v.optional(v.string()) },
   handler: async (ctx, { botKey }) => {
     await requireBotKeyStrict(ctx, botKey);
-    const guilds = await ctx.db.query("guilds").collect();
+    // TỐI ƯU (audit Convex lần 2): chỉ duyệt guild ĐANG có bot qua index
+    // by_botInGuild thay vì quét toàn bảng — fallback của batch tick, ít chạy.
+    const guilds = await ctx.db
+      .query("guilds")
+      .withIndex("by_botInGuild", (q) => q.eq("botInGuild", true))
+      .collect();
     return guilds
       .filter((g) => g.verifySendPanel === true && g.verifyEnabled && g.verifyChannelId)
       .map((g) => ({

@@ -1,7 +1,14 @@
 import { Link } from "react-router-dom";
 import { Activity, AlertTriangle, ArrowLeft, Gauge, Server, Users, Wifi } from "lucide-react";
 import UpdateWindow from "../components/UpdateWindow";
-import { INCIDENT_SLOW, LATENCY_SLOW, latencyLabel, useBotMonitor } from "../lib/useBotMonitor";
+import {
+  INCIDENT_SLOW,
+  LATENCY_SLOW,
+  latencyLabel,
+  useBotMonitor,
+  fmtVietnam,
+  type BackendPing,
+} from "../lib/useBotMonitor";
 import { cn } from "../lib/utils";
 
 import LangSwitch from "../components/LangSwitch";
@@ -62,12 +69,64 @@ function LatencyChart({ samples }: { samples: number[] }) {
   );
 }
 
+/**
+ * Thẻ 1 thành phần hệ thống: chấm tròn (đen = sống, đỏ = lỗi, xám nhấp nháy =
+ * chưa biết) + tên + nhãn trạng thái + chi tiết phụ. Không tự đi lấy dữ liệu —
+ * trạng thái được tính ở mức trang rồi truyền xuống, để hook chỉ chạy 1 lần.
+ */
+function StatusCard({
+  label,
+  state,
+  detail,
+}: {
+  label: string;
+  state: "ok" | "down" | "checking";
+  detail?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold">{label}</p>
+        <p
+          className={cn(
+            "flex shrink-0 items-center gap-1.5 text-xs font-medium",
+            state === "ok" && "text-foreground",
+            state === "down" && "text-danger",
+            state === "checking" && "text-muted-foreground",
+          )}
+        >
+          <span
+            className={cn(
+              "h-2 w-2 rounded-full",
+              state === "ok" && "bg-foreground",
+              state === "down" && "bg-danger",
+              state === "checking" && "animate-pulse bg-muted-foreground",
+            )}
+          />
+          {state === "ok"
+            ? translate("Hoạt động")
+            : state === "down"
+              ? translate("Không phản hồi")
+              : translate("đang kiểm tra…")}
+        </p>
+      </div>
+      {detail ? <p className="mt-1.5 text-xs text-muted-foreground">{detail}</p> : null}
+    </div>
+  );
+}
+
 export default function Monitor() {
-  const { status, latency, history, avg, incidents, lastUpdate, nextUpdate, refresh } =
+  const { status, latency, history, avg, incidents, lastUpdate, nextUpdate, refresh, backendPing } =
     useBotMonitor(30000);
 
   const lat = latency ?? avg;
   const rate = lat !== null ? latencyLabel(lat) : null;
+
+  // Trạng thái 3 thành phần hệ thống (web/backend/bot) — tính 1 lần ở đây rồi
+  // truyền xuống thẻ. Bot "checking" khi chưa nhận được dữ liệu lần nào: chưa
+  // biết là sống hay chết, đừng kết luận sớm.
+  const botState: "ok" | "down" | "checking" =
+    status === null ? "checking" : status.online ? "ok" : "down";
 
   return (
     <div className="relative min-h-screen">
@@ -99,6 +158,35 @@ export default function Monitor() {
         </header>
 
         <main className="container space-y-4 py-6">
+          {/* Trạng thái hệ thống: 3 thẻ trả lời câu hỏi đầu tiên của ai mở trang
+              này — "hệ có sống không?". Web sống theo định nghĩa (đang hiển thị);
+              backend đo bằng ping HTTP định kỳ của hook (không phải subscription —
+              subscription lỗi không nổi lên được qua useQuery); bot theo heartbeat
+              3 phút từ Convex. */}
+          <div className="grid gap-3 sm:grid-cols-3">
+            <StatusCard
+              label={translate("Trang web")}
+              state="ok"
+              detail={translate("Trang bạn đang mở — tải được là web sống.")}
+            />
+            <StatusCard
+              label={translate("Backend (dữ liệu)")}
+              state={
+                backendPing.state === "down"
+                  ? "down"
+                  : backendPing.state === "ok"
+                    ? "ok"
+                    : "checking"
+              }
+              detail={backendDetail(backendPing, latency)}
+            />
+            <StatusCard
+              label={translate("Bot Discord")}
+              state={botState}
+              detail={botDetail(status, botState)}
+            />
+          </div>
+
           {/* Trạng thái tổng */}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-xl border border-border bg-card p-4">
@@ -183,9 +271,8 @@ export default function Monitor() {
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   {" "}
                   {translate("Đánh giá:")} <b className="text-foreground">{translate("Nhanh")}</b>{" "}
-                  (&lt; 300ms) ·{""}
-                  <b className="text-foreground">{translate("Trung bình")}</b> (300–800ms) ·{""}
-                  <b className="text-danger">{translate("Chậm")}</b> (&gt; 800ms) ·{""}
+                  (&lt; 300ms) · <b className="text-foreground">{translate("Trung bình")}</b>{" "}
+                  (300–800ms) · <b className="text-danger">{translate("Chậm")}</b> (&gt; 800ms) ·{" "}
                   <b className="text-danger">{translate("Sự cố")}</b> (&gt; 1200ms)
                 </p>
               </div>
@@ -252,4 +339,29 @@ export default function Monitor() {
       </div>
     </div>
   );
+}
+
+/** Chi tiết thẻ backend: độ trễ ping gần nhất, hoặc lý do khi không gọi được. */
+function backendDetail(backendPing: BackendPing, latency: number | null): string | undefined {
+  if (backendPing.state === "down") return translate("Không gọi được API dữ liệu.");
+  if (backendPing.state === "ok" && latency !== null) {
+    return `${translate("Phản hồi:")} ${latency} ms`;
+  }
+  return undefined;
+}
+
+/** Chi tiết thẻ bot: mốc đồng bộ/heartbeat gần nhất theo giờ Việt Nam. */
+function botDetail(
+  status: { online: boolean; lastHeartbeat: number | null } | null,
+  botState: "ok" | "down" | "checking",
+): string | undefined {
+  if (status === null) return undefined;
+  if (botState === "ok") {
+    return status.lastHeartbeat
+      ? `${translate("Đồng bộ lần cuối:")} ${fmtVietnam(status.lastHeartbeat)}`
+      : undefined;
+  }
+  return status.lastHeartbeat
+    ? `${translate("Heartbeat cuối:")} ${fmtVietnam(status.lastHeartbeat)}`
+    : translate("Chưa từng thấy heartbeat.");
 }

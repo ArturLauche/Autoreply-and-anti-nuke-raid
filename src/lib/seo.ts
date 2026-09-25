@@ -169,7 +169,7 @@ function routeKind(pathname: string): RouteKind {
   if (path === "/terms") return "terms";
   if (path === "/privacy") return "privacy";
   if (path === "/data-deletion") return "data-deletion";
-  if (path === "/monitor") return "monitor";
+  if (path === "/monitor" || path === "/status") return "monitor";
   if (path === "/auth") return "auth";
   if (path === "/discord/callback") return "callback";
   if (path === "/dashboard" || path.startsWith("/dashboard/")) return "dashboard";

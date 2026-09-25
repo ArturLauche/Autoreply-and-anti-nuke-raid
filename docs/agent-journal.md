@@ -6,53 +6,220 @@
 
 ## Đang dở
 
-- Toàn bộ slice đã triển khai và commit `e430976`; full gates + ultragoal-verify đã xanh.
-- Push/PR bị chặn bởi remote `github-ssh` không resolve; kiểm tra HTTPS/SSH trực tiếp cũng trả `403 Write access ... not granted` cho credential hiện tại.
-- Không có blocker kỹ thuật code; không đọc/ghi secret.
-- **Bài học giữ lại từ phiên trước**:
-  1. Công cụ patch chỉ sửa vùng đầu file lớn; key i18n ở cuối file nên chèn key mới ở đầu hoặc dùng `scripts/_i18n-dead-remove.cjs`.
-  2. Sau mỗi patch phải đọc lại file trên đĩa; snapshot cũ có thể làm Edit báo sai.
-  3. Khi cần sửa đuôi file lớn, ưu tiên đổi thiết kế về một điểm chặn nhỏ; đừng mò chuỗi ở vị trí khó patch.
-  4. `bot/src/handlers/backup.js` đã gom việc xoá cache qua proxy `bot/src/convex.js`, không thêm `store.invalidate()` rải rác.
+- 🚧 **PR chưa mở**: merge đã xanh toàn bộ gate; còn commit merge, push nhánh qua HTTPS và tạo PR vào `main`.
+
+## 2026-09-25 — Gộp main mới và xác minh PR
+
+- ✅ Xong: giải quyết 6 conflict, giữ route `/status`, auth admin, SEO và hardening lease/session; bổ sung regression cho mutation renewal + `authVersion`.
+- 📁 File đụng: `src/App.tsx`, `convex/`, `scripts/test-{backup,greeting}-flow-e2e.ts`, `docs/{agent-journal,decision-log,deploy-dokploy}.md`.
+- 🧪 Kiểm chứng: codegen UTC · CJS 61/61 · TS 11/11 · typecheck/lint/format/build/contract/repo-map/i18n/settings đều xanh; HTTP smoke `/`, `/status`, `/llms.txt` 200.
+- ▶️ Tiếp theo: commit merge → push HTTPS → mở PR.
+
+- 🚨 **KHẨN — VPS sắp bị reinstall (~15 giờ, deadline ~09:00 26/09)**: staff
+  Hiro (MLX) báo reinstall node (lý do mạng chậm/ping cao), "data will be gone",
+  backup PHẢI lưu ngoài panel. VPS 205 sống lại (uptime 51m, 4 hostname
+  200/302) nhưng dữ liệu VPS-local sẽ mất khi reinstall. Geo-IP
+  `203.154.14.8` = Thái Lan (KHÔNG phải Ấn Độ theo IP, nhưng coi VM 205 là bị
+  ảnh hưởng tới khi staff xác nhận). Danh sách chết/sống + checklist 15 giờ +
+  thứ tự dựng lại đã ghi ở `docs/t3-devbox.md` mục 7 (phần ⚠️). Người dùng tự
+  làm: copy compose, lưu env ra chỗ an toàn, xoay 2 key lộ. Agent không chạm
+  được VPS từ đây.
+- 🚧 **VPS chết — chờ Meowlix** (25/09): host storage đầy, staff xác nhận trong
+  ticket #363 _"our main node disk is full — wait till we buy a new node"_. VM
+  205 boot-loop, bot pm2 + dashboard chỉ còn tồn tại theo RAM. Checklist khôi
+  phục đã soạn ở `docs/t3-devbox.md` mục 4b — làm theo đúng thứ tự khi VM sống
+  lại (fs check → swarm → pm2/curl → redeploy t3-code → xoay 2 key lộ + fix
+  bashrc dòng 111 → docs).
+- 🚧 **Setup T3 Code devbox — sót 2 việc phía người dùng** (xem `docs/t3-devbox.md`):
+  (1) app mobile T3 đăng nhập bằng account `wiothemilo` (GitHub, cùng account
+  devbox) → bật T3 Connect → chấm xanh; (2) đổi `GH_TOKEN` trong Dokploy
+  (service `t3-code` → Environment) sang PAT của `wiothemilo` scope `repo` →
+  redeploy → kiểm `/workspace/repos/` có repo Protogon. Hạ tầng đã xanh:
+  T3 web 200, VS Code 302, devbox authorized `wiothemilo@gmail.com`, relay
+  provisioned. Việc agent còn treo: `t3 uninstall` trên host (tuỳ chọn).
+- Không có việc bắt buộc khác (ngoài khối VPS chết phía trên). (Nợ cũ "dọn 119 bản dịch EN chết + 12 DE mồ côi" ĐÃ XONG phiên 23/09 —
+  dùng `scripts/_i18n-dead-remove.cjs`, check-i18n giờ sạch 100% không còn mục ℹ️.)
+- ✅ Nợ cũ "~144 câu nội suy chưa bọc translate()" (ghi nhận 20/09) ĐÃ XONG — đo lại
+  24/09: check-i18n --all báo 0 JSX text · 0 biểu thức · 0 thuộc tính còn nợ (các đợt
+  viết lại copy lô 2→5 ngày 21/09 đã xử luôn khi viết lại copy). Sót lại cố ý: 3
+  `placeholder` mẫu cú pháp kỹ thuật (`{server} · {action}`…) và nhãn thuật ngữ
+  Kick/Ban — dịch sẽ phá mục đích sử dụng.
+- 🚧 **Chặn kỹ thuật đã xác định được quy luật (đọc trước khi làm tiếp)**: công cụ patch
+  (`str_replace`) chỉ sửa được **vùng ĐẦU của file lớn** — trong `src/lib/i18n.en.ts` (87 KB) sửa được
+  entry ở offset ~5 KB nhưng mọi `oldString` lấy từ offset ~56 KB đều báo "not found" (dòng tồn tại
+  thật, `grep` xác nhận; `i18n.de.ts` 92 KB và các file từ điển lớn tương tự). Quy tắc rút ra:
+  1. **Đừng sửa key ở cuối file từ điển lớn** — muốn đổi câu hiển thị thì tạo key MỚI chèn ở vùng đầu
+     (patch được) và chấp nhận entry cũ thành bản dịch chết (guard báo mềm), HOẶC ghi đè giá trị
+     EN/DE cho **cùng key** bằng entry trùng tên trong `i18n.*.labels.ts`/`.panels.ts` (file nhỏ, gộp
+     sau nên thắng) khi không cần đổi chính chuỗi VI.
+  2. Việc cần xoá entry ở vùng cuối → dùng `scripts/_i18n-dead-remove.cjs` (script xoá theo key-list,
+     backup + kiểm esbuild sau mỗi file) — KHÔNG dùng str_replace cho entry vùng cuối.
+  3. `str_replace` cũng có lúc báo "file does not exist" hoặc dùng snapshot cũ cho file vừa ghi → luôn
+     `grep`/`read_files` kiểm lại nội dung trên đĩa sau mỗi lần áp patch.
+  4. **Cách xử lý TỐT NHẤT khi cần sửa ở vùng cuối file lớn: đổi thiết kế cho khỏi phải sửa ở đó.**
+     Ca thật 23/09: `bot/src/handlers/backup.js` (2126 dòng) cần thêm `store.invalidate()` sau
+     `botRestoreSettings` ở dòng ~1781 — patch báo "not found" dù `grep` xác nhận chuỗi đúng.
+     Thay vì mò cách vá đuôi file, gom việc đó về **một điểm chặn duy nhất ở file nhỏ**
+     (`bot/src/convex.js`: proxy tự xoá cache sau mọi lượt ghi cấu hình của bot) → vừa vá được
+     cả 7 chỗ cùng lúc, vừa không bao giờ phải chạm đuôi file lớn nữa.
 
 ---
 
-## 2026-09-24 — Commit xong, chờ remote trở lại
+## 2026-09-25 — Sự cố #2: đĩa RO tái diễn → staff xác nhận host storage đầy
 
-- ✅ Commit `e430976` đã tạo trên `opencode/whole-repo-quality-pass`; working tree sạch trước khi thử push.
-- ✅ `ultragoal-verify.sh ... manual`: 7/7 pass; CJS 61/61, TS 9/9, browser 24 trang không lỗi/axe.
-- ⚠️ `git pull`/`git push` qua remote `github-ssh` fail DNS; `git ls-remote` HTTPS và SSH trực tiếp đều bị GitHub từ chối `403 Write access to repository not granted`.
-- ▶️ Cần credential có quyền push repo `wiothemilo-lang/Autoreply-and-anti-nuke-raid`; sau đó chạy `git pull --no-rebase --no-edit origin main`, `git push -u origin opencode/whole-repo-quality-pass`, mở PR và theo dõi CI.
-
----
-
-## 2026-09-24 — Adversarial review follow-up
-
-- Đóng lỗi import/restore claim sai lease field, lease renewal/fencing, stale settings/clear responses, audit-log miss gây phạt oan, malformed relay retry.
-- Build production giờ bắt buộc `CONVEX_URL`; validator regional `.convex.cloud`, Docker noindex/404 và OAuth docs đã đồng bộ.
-- Regression: backup convex 41/41, tick 37/37, anti-nuke state 47/47, relay 37/37, web contracts 61/61, security 67/67; full gate xanh.
-- ▶️ Tiếp theo: rà staged diff, commit/push/PR; CI GitHub sẽ được kiểm tra sau khi push.
-
----
-
-## 2026-09-24 — Security/OAuth/UI quality pass
-
-- ✅ Xong: OAuth PKCE server-side + session version fail-closed, owner/relay/audit/backup hardening, SEO/deploy/a11y fixes.
-- 📁 File đụng: `convex/{sessionAuth,auth,sessionHardening,botBootstrapAction,backup,bot_writes,relay}.ts`, `src/`, `bot/`, `Dockerfile.web`, `vercel.json`.
-- 🧪 Kiểm chứng: 61/61 CJS · 9/9 TS · tsc/lint/format/build · i18n/map/contract/settings · Playwright 24 pages, 0 axe lỗi.
-- ▶️ Tiếp theo: final review, `ultragoal-verify`, commit/push và mở PR.
+- 🚨 **Diễn biến (~14:30)**: sau deploy compose (thêm `hostname: t3-devbox`,
+  build nặng) đĩa rơi `emergency_ro` LẦN 2 trong ngày → panel 502, dokploy
+  container unhealthy, docker exec báo "read-only file system", swarm manager
+  mất, sshd chết, Stop/Start từ panel → **boot-loop**.
+- 🔍 **Chẩn đoán then chốt**: `journalctl -k` trong VM SẠCH — không một dòng
+  EXT4/jbd2/I/O error nào, dù đĩa chuyển emergency_ro 2 lần. Nếu filesystem
+  trong VM hỏng thật thì kernel VM phải kêu; nó im lặng → bệnh nằm ở tầng
+  dưới (host storage / thin pool). Chốt bằng lời staff `Bhadoria420` (15:55,
+  ticket #363): _"our main node disk is full — wait till we buy a new node"_.
+- ✅ **Việc làm được khi VPS chết** (chỉ đụng repo): bổ sung runbook
+  `docs/t3-devbox.md` mục 4b (bảng chẩn đoán + checklist khôi phục 6 bước khi
+  VM sống lại, gồm fs check → swarm → pm2 → redeploy t3-code → xoay 2 key lộ)
+  - decision-log 2 dòng (chờ node mới; checklist khôi phục). KHÔNG làm gì ở
+    VM nữa — mọi lệnh sửa đều fail, chỉ tốn công.
+- ⏸️ Kế hoạch: chờ staff. Khi VM sống → làm checklist 4b đúng thứ tự, KHÔNG
+  deploy gì nặng trước khi fs ổn định qua vài boot.
 
 ---
 
-## 2026-09-23 — Backend/security slice: owner, session, relay, bot safety
+## 2026-09-25 — T3 devbox đổi account + sự cố đĩa VPS emergency read-only
 
-- Xong: khóa bot theo Application ID, canonical fail-closed owner, snapshot guild auth, session identity binding, relay distinct-source + guild cache, và các fix bot an toàn đã yêu cầu.
-- Kiểm chứng: security 59/59; rate 13/13; TS 9/9; CJS 60/61 (fail duy nhất là test web sửa sẵn); tsc/lint/contract/settings/map/diff sạch.
-- File đụng: nhóm `convex/{auth,hidden,status,selfDiagnose,threatIntel,relay,session*,bot*,rateGuard,altDetection,guilds,schema}.ts`, nhóm bot safety, các suite CJS/TS liên quan.
-- Còn chặn: `bun convex dev --once` timeout local backend 30s và 120s; full format chỉ fail `scripts/test-web-contracts.cjs` không thuộc slice.
-- Tiếp theo: không commit; xử lý blocker ngoài scope rồi chạy lại gate đầy đủ.
+- ✅ Xong: runbook đầy đủ ở `docs/t3-devbox.md` (bản đồ compose `t3-code`,
+  đường truy cập, quy tắc vàng tài khoản, runbook đổi account, sự cố đĩa).
+  Tóm tắt trạng thái cuối phiên:
+  - Devbox authorized `wiothemilo@gmail.com` qua GitHub — đúng GitHub chủ
+    repo Protogon (`wiothemilo-lang/Autoreply-and-anti-nuke-raid`). Login
+    đầu tiên nhầm identity (2 Gmail + 2 GitHub) → app điện thoại không thấy
+    environment dù relay provisioned. Bài học: **app và devbox phải cùng
+    tài khoản T3, cùng provider**; mở login URL bằng cửa sổ Ẩn danh.
+  - Di vật T3 host cũ (pre-Dokploy, v0.0.42 ở `/root/.local/bin/t3`): đã
+    `t3 connect logout` xoá credential; không chạy server trên host nữa
+    (bind 3773 thất bại âm thầm vì docker-proxy giữ port — từng gây nghi
+    sai rằng `t3.protogon…` là host cũ trả lời).
+- 🚨 **Sự cố hạ tầng: đĩa gốc VPS bị kernel chuyển emergency read-only**
+  (phát hiện khi `t3` trên host báo EROFS; `mount` thấy
+  `ext4 (rw,…,emergency_ro)`; `touch /tmp/x` xác nhận). Chẩn đoán sai ban
+  đầu: tưởng T3 host cũ chiếm port / tưởng lỗi T3 — thực ra là filesystem.
+  Chữa đúng: **không cài/vá gì thêm, `sudo reboot`** → fsck tự quét sửa lúc
+  boot (ext4 flag lỗi) → FS sạch, toàn hệ hồi sinh (pm2 bot online, 8
+  container Up, tunnel/dashboard 200, không mất dữ liệu). Bài học ghi trong
+  runbook mục 4: gặp EROFS rải rác → `mount | grep " / "` TRƯỚC khi chẩn
+  đoán sâu app.
+- 🧠 Ghi chú kỹ thuật: `ps aux` trên host thấy `t3 serve --host 0.0.0.0
+--port 3773` (node wrapper + native binary) là **process của devbox
+  container** — bình thường, đừng nhầm với T3 host cũ.
 
 ---
+
+## 2026-09-24 — Production live: dashboard tự host trên VPS qua Cloudflare Tunnel
+
+- ✅ Xong: dashboard Protogon LIVE tại `https://protogon.dpdns.org` (HTTP 200,
+  SSL Cloudflare biên, code mới nhất) + Dokploy panel tại `https://panel.protogon.dpdns.org`.
+  Người dùng đã thêm OAuth redirect URI + đăng nhập Discord thành công.
+  Toàn bộ MIỄN PHÍ — không cần Meowlix (provider) mở cổng inbound nào.
+- 🧩 Chuỗi hạ tầng được dựng hôm nay (đã verify từng mắt xích):
+  1. Domain miễn phí `protogon.dpdns.org` từ DigitalPlat (nằm trong Public
+     Suffix List → dùng được với Cloudflare; `us.kg` đang PAUSED đăng ký —
+     mất 1 lượt, đổi sang `dpdns.org`). NS trỏ `pat`+`quincy.ns.cloudflare.com`.
+  2. Cloudflare zone Active → **không dùng Zero Trust UI** (đòi credit card) —
+     tạo tunnel bằng CLI: `cloudflared tunnel login` → `tunnel create meowlix`
+     → route dns → config.yml → `service install`. Tunnel UUID
+     `30583a3c-4f9b-4e37-a6ee-fd6695352e04` (kèm trong config trên VPS).
+  3. Tunnel nối 2 hostname: `panel` → localhost:3000 (Dokploy),
+     `protogon.dpdns.org` → localhost:8080 (app). CNAME `@` và `panel` →
+     `<UUID>.cfargotunnel.com`, Proxied 🟠.
+- 🐛 Chẩn đoán dài hôm nay (bài học để đời): Meowlix chặn TOÀN BỘ inbound TCP
+  ở tầng provider (ping thông, ufw inactive, kể cả SSH public — chỉ tunnel
+  outbound mới qua). Trong VPS lại dính 502 giữa Traefik (container thường)
+  và swarm service: DNS overlay phân giải được (10.0.1.8) nhưng connection
+  refused — bệnh VIP overlay vs container thường trên môi trường LXC/Proxmox,
+  KHÔNG đáng đánh nhau → đường vòng sạch: phát port Host-mode 8080→80 trong
+  Dokploy (Advanced → Ports) + trỏ cloudflared thẳng `localhost:8080`, bypass
+  Traefik/Traefik-label hoàn toàn. Traefik vẫn chạy song song cho panel.
+- 📁 Tài liệu: `docs/deploy-dokploy.md` đã bổ sung DuckDNS PSL, Cloudflare
+  Tunnel (quick + named), hàng lỗi provider-chặn-inbound.
+- ⚠️ Việc còn treo nhẹ (không gấp): xoá zone cũ `protogon.us.kg` trong
+  Cloudflare; container Traefik không route được qua overlay — nếu sau này
+  muốn domain thứ 2 qua Traefik phải đào tiếp (hoặc lặp lại mẹo Host-port).
+- ▶️ Tiếp theo: không có — production ổn định, chờ feedback người dùng.
+
+## 2026-09-24 — Audit Convex lần 2: bỏ 2 full-scan trong batch tick 60s
+
+- ✅ Xong: rà lại toàn bộ query convex/ — còn 10 điểm collect() không index;
+  xếp hạng theo tần suất × kích thước bảng, vá 3 điểm đắt nhất:
+  - `buildHiddenJobs` (chạy MỖI 60s qua bot_tick:getPendingJobs) từng quét
+    toàn bảng `reactionRolePanels` + `giveaways` → giờ dùng 2 index mới
+    `by_enabled` / `by_status`, chỉ lấy panel CHƯA gửi + giveaway ĐANG chạy.
+    Đắt nhất vì panel/giveaway đã kết thúc KHÔNG bao giờ bị xoá (chủ đích lưu
+    lịch sử) → bảng phình dần, quét mỗi phút sẽ chậm dần theo thời gian.
+  - `getVerifySendPanelGuilds` (fallback tick) quét toàn bảng guilds →
+    `by_botInGuild` có sẵn.
+- 🟢 Cố tình giữ nguyên (có lý do): `backup:botGetPending` (fallback, bảng
+  guilds đang có bot quản lý được) · `sessions.me` / `backup:listMine`
+  (per-user, kích thước bounded) · admin stats (admin-only) · `threatIntel`
+  (raidSamples giới hạn 500/guild) · per-guild webhook lookup trong
+  buildHiddenJobs (đã dùng index by_guildId — đọc nội bộ Convex tính theo doc
+  quét, không phải N+1 mạng).
+- 📁 File đụng: `convex/schema.ts` (+2 index), `convex/hidden.ts`,
+  `convex/guilds.ts` — không đổi hợp đồng bot ⇄ Convex (không đổi tên function
+  hay field bot đọc).
+- 🧪 Kiểm chứng: convex codegen tạo 2 index mới · tsc · test 61/61 CJS ·
+  11/11 TS · lint · format · contract · settings-signal · repo-map · i18n —
+  xanh đủ. Bài học: mock db của test-bot-tick-settings đã hỗ trợ withIndex sẵn
+  nên đổi query style không vỡ test.
+- ▶️ Tiếp theo: không có — khi server lớn hơn (>500 guild) xét thêm index
+  boolean `verifySendPanel` nếu fallback trở thành đường chính.
+
+## 2026-09-24 — Vá rò file ảnh greeting + hoàn tất luồng 6-9 greeting e2e
+
+- ✅ Xong: tiếp nối phiên gián đoạn — LUỒNG 6-9 của `test-greeting-flow-e2e.ts`
+  (nền CDN, SSRF chặn, upload ảnh nền qua storage giả, goodbye card riêng,
+  autorole trễ + welcomeRandom bỏ dòng trống) đã viết đủ nhưng CHƯA commit;
+  chạy thử bộc lộ 1 lỗi thật còn sót → vá + thêm 7g chặn tái diễn. 62/62.
+- 🐛 Bug thật (rò file storage vĩnh viễn): phép kiểm tra "file còn dùng ở ô
+  khác" trong `removeGreetingImage` lẫn vòng dọn của `updateSettings` đều
+  BAO GỒM cả ô đang bị xoá — `guild[slot]` lúc đó vẫn còn URL cũ (patch chạy
+  sau) nên `every()` luôn false → ảnh cũ không bao giờ được dọn khỏi Convex
+  storage. `saveGreetingImage` không sai vì nó lọc `otherSlots` trước. Vá:
+  loại ô đang xoá khỏi phép kiểm tra ở CẢ 2 chỗ.
+- 📁 File đụng: `convex/guilds.ts`, `scripts/test-greeting-flow-e2e.ts`
+  (luồng 6-9 + 7g: xoá qua updateSettings cũng dọn file).
+- 🧪 Kiểm chứng: greeting e2e 62/62 · test 61/61 CJS · 11/11 TS · tsc · lint ·
+  format · convex codegen · contract (80 call) · settings-signal self-test.
+- ▶️ Tiếp theo: cài Dokploy trên VPS theo `docs/deploy-dokploy.md` (đã có sẵn
+  `Dockerfile.web` — build dashboard, bot vẫn chạy Bun/pm2 trực tiếp).
+
+## 2026-09-24 — Test sâu backup + welcome + lệnh prefix/slash xuyên 3 tầng
+
+- ✅ Xong: 3 suite e2e xuyên tầng theo cùng một khuôn mẫu "dispatcher thật →
+  handler thật → Convex handler thật trên ctx.db Map":
+  - `test-backup-flow-e2e.ts` thêm luồng 6-10: restore (tạo lại role/kênh/emoji/
+    sticker TẬN TAY), import file .msc bot nuke (phát lại tin nhắn qua webhook
+    giữ tên người gửi + thứ tự), file rác → báo lỗi dashboard, backup ma →
+    tick không trả job, GitHub chết → backup vẫn lưu. 74/74.
+  - `test-greeting-flow-e2e.ts` (mới): dashboard updateSettings thật → tick tín
+    hiệu settingsChangedAt → ConvexStore cache TTL tự xoá → member join → thẻ
+    PNG canvas thật + DM + autorole + RAID-SAFE lockdown. 33/33.
+  - `test-commands-flow-e2e.ts` (mới): lệnh prefix + slash — đổi prefix chạy
+    ngay lượt sau, autoreply thêm/trả lời/xóa theo rule thật, quyền Manage
+    Guild chặn đủ nhánh, backup now đặt cờ mà tick thật nhặt được, /mod timeout
+    ghi case tăng dần + log tới kênh log qua webhookHub thật. 41/41.
+- 🐛 Bug mock (không phải production): (1) mock db.patch mutate in-place lệch
+  semantics Convex (document bất biến, patch = phiên bản mới) — handler đọc lại
+  field vừa xoá và bỏ qua storage.delete; (2) patch test thay store.client bằng
+  Proxy riêng làm MẤT logic CONFIG_WRITE_MUTATIONS tự xoá cache của production →
+  phải patch ở TẦNG DƯỚI NHẤT (ConvexHttpClient.prototype) dưới proxy của store;
+  (3) test flaky rotateLogs theo ngày thật — cố định mốc giờ tất định.
+- 📁 File đụng: `scripts/test-backup-flow-e2e.ts`, `scripts/test-greeting-flow-e2e.ts`,
+  `scripts/test-commands-flow-e2e.ts`, `scripts/test-boost-modules.cjs`, `AGENTS.md`
+  (số suite TS 9→10→11).
+- 🧪 Kiểm chứng: 61/61 CJS · 11/11 TS · tsc web+convex · lint · format · repo-map ·
+  convex-contract — xanh đủ. Commit `bb8f61c` + `fce5570` đã push main.
+- ▶️ Tiếp theo: không có — chờ feedback.
 
 ## 2026-09-23 — Dọn sạch từ điển chết + rà pháp lý + tối ưu relay index
 

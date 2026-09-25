@@ -86,6 +86,11 @@ export default function Footer({
           <Link to="/data-deletion" className="transition-colors hover:text-foreground">
             {translate("Lưu trữ & xoá dữ liệu")}
           </Link>
+          {/* Trạng thái hệ thống: công khai (không auth) — người dùng tự kiểm
+              bot/web có sống không mà không cần hỏi trong Discord. */}
+          <Link to="/status" className="transition-colors hover:text-foreground">
+            {translate("Trạng thái hệ thống")}
+          </Link>
         </nav>
         <div className="mt-6 flex flex-col items-center justify-between gap-3 border-t border-border/60 pt-6 md:flex-row">
           <p className="text-center text-sm text-muted-foreground">
