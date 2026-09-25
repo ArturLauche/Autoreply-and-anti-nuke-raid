@@ -220,6 +220,60 @@ trong volume.
 
 ## 7. Việc còn treo (người dùng tự làm)
 
+### ⚠️ CẬP NHẬT 25/09 ~17:50 — NODE SẮP BỊ REINSTALL (~15 GIỜ)
+
+Staff Hiro (MLX) báo: **reinstall India Node** (lý do: mạng chậm/ping cao),
+"Servers won't be deleted but the data will be gone" — hẹn 16 giờ, timer
+chạy đến ~15 giờ nữa. Chưa có xác nhận VM 205 có nằm trên node đó không.
+
+**VPS 205 là node Ấn Độ không?** Geo-IP `203.154.14.8` = **Bangkok/Samut
+Prakan, THÁI LAN** (AS4618 Internet Thailand, reverse `203-154-14-8.inter.net.th`) —
+theo IP thì KHÔNG phải Ấn Độ. Nhưng: (1) provider free có thể đặt tên node
+không khớp IP egress, (2) sự cố đĩa đầy hôm nay + lý do reinstall khớp nhau.
+→ **Coi như VM 205 bị ảnh hưởng cho tới khi staff xác nhận ngược lại.**
+
+**Chết khi reinstall** (VPS-local): pm2 bot + toàn bộ env bot
+(`DISCORD_TOKEN`, `OWNER_SEED`, `KIRA_API_KEY`, key Groq/NVIDIA…),
+`/etc/dokploy` (compose `t3-code` trong tab Files cũng chết theo!),
+tất cả docker volume (workspace devbox + key SSH + auth OpenCode Zen),
+config cloudflared + cert.pem, `/root/.bashrc`, password Gatekeeper.
+**Sống**: repo GitHub · Convex (DB + functions) · Cloudflare DNS + object
+tunnel `meowlix` (UUID giữ nguyên, nhưng credentials file trên VPS mất).
+
+Checklist TRƯỚC khi hết 15 giờ (người dùng làm, agent không chạm được VPS):
+
+1. **Copy compose `t3-code`** từ Dokploy → service `t3-code` → tab Files
+   (dán cho agent lưu vào docs hoặc tự lưu chỗ an toàn) — KHÔNG có bản nào
+   khác, mất là dựng lại từ đầu.
+2. **Lưu giá trị env ra trình quản lý mật khẩu** (agent không đọc được env —
+   người dùng tự copy): `DISCORD_TOKEN`, `OWNER_SEED`, `KIRA_API_KEY`,
+   `GH_TOKEN` (PAT trong Dokploy Environment), `VSCODE_PASSWORD`,
+   `BROWSER_PASSWORD`, key AI phụ (nếu có). Nhân tiện **XOAY 2 key đã lộ**:
+   `CONVEX_DEPLOY_KEY` + `UNOROUTER_API_KEY` (đã vào screenshot 25/09) —
+   xoay trước reinstall là sạch cả hai chuyện.
+3. Kiểm VPS đang sống khỏe (mục 4b): `mount | grep " / "` không còn
+   `emergency_ro` + `pm2 status` + `docker ps` đủ container.
+4. Devbox: đẩy mọi thay đổi chưa commit trong `/workspace/repos/*` lên
+   GitHub; auth OpenCode Zen sẽ phải login lại sau reinstall — chấp nhận.
+
+Thứ tự dựng lại SAU reinstall (chi tiết lệnh ở `docs/deploy-dokploy.md` +
+mục 6 bản đồ):
+
+1. OS sạch → `cloudflared tunnel login` → dựng lại `/etc/cloudflared/config.yml`
+   (nội dung 4 hostname nguyên văn ở mục 2; CNAME trỏ UUID cũ vẫn còn — nếu
+   mất credentials file của tunnel thì tạo tunnel mới + `tunnel route dns
+--overwrite-dns`).
+2. Cài Dokploy (curl script trong deploy-dokploy.md) → dán lại compose `t3-code`
+   - Environment (`GH_TOKEN`, `VSCODE_PASSWORD`, `BROWSER_PASSWORD`) → Deploy.
+3. Bot: clone repo → `bun install` trong `bot/` (lấy `@napi-rs/canvas`) →
+   ghi env → `pm2 start` → checklist mục 4b.
+4. Devbox: tạo lại key SSH + bước symlink 3b (mục 6), login lại OpenCode Zen,
+   phone T3 pull-to-refresh.
+
+---
+
+### Việc gốc của mục 7 (trước cảnh báo reinstall)
+
 1. **`GH_TOKEN`**: đổi trong Dokploy → service `t3-code` → Environment sang PAT
    của `wiothemilo` (scope `repo`, GitHub chứa repo Protogon) → Save →
    Redeploy → kiểm `docker exec $(docker ps -qf name=devbox) ls /workspace/repos/`

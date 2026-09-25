@@ -6,6 +6,15 @@
 
 ## Đang dở
 
+- 🚨 **KHẨN — VPS sắp bị reinstall (~15 giờ, deadline ~09:00 26/09)**: staff
+  Hiro (MLX) báo reinstall node (lý do mạng chậm/ping cao), "data will be gone",
+  backup PHẢI lưu ngoài panel. VPS 205 sống lại (uptime 51m, 4 hostname
+  200/302) nhưng dữ liệu VPS-local sẽ mất khi reinstall. Geo-IP
+  `203.154.14.8` = Thái Lan (KHÔNG phải Ấn Độ theo IP, nhưng coi VM 205 là bị
+  ảnh hưởng tới khi staff xác nhận). Danh sách chết/sống + checklist 15 giờ +
+  thứ tự dựng lại đã ghi ở `docs/t3-devbox.md` mục 7 (phần ⚠️). Người dùng tự
+  làm: copy compose, lưu env ra chỗ an toàn, xoay 2 key lộ. Agent không chạm
+  được VPS từ đây.
 - 🚧 **VPS chết — chờ Meowlix** (25/09): host storage đầy, staff xác nhận trong
   ticket #363 _"our main node disk is full — wait till we buy a new node"_. VM
   205 boot-loop, bot pm2 + dashboard chỉ còn tồn tại theo RAM. Checklist khôi
