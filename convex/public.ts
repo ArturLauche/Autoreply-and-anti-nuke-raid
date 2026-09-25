@@ -11,6 +11,13 @@ import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { rateLimitPublicAction } from "./rateGuard";
 
+const DISCORD_SNOWFLAKE_RE = /^\d{15,21}$/;
+
+function validClientId(value: string | undefined | null): string {
+  const candidate = String(value ?? "").trim();
+  return DISCORD_SNOWFLAKE_RE.test(candidate) ? candidate : "";
+}
+
 /**
  * Reads non-secret public config from the environment. Only actions run on
  * Node.js, so this is an action rather than a query.
@@ -37,18 +44,18 @@ export const publicConfig = action({
     if (!guard.ok) {
       // Hợp đồng no-throw: trả mặc định, web tự dùng VITE_DISCORD_CLIENT_ID.
       return {
-        clientId: process.env.DISCORD_CLIENT_ID ?? "",
+        clientId: validClientId(process.env.DISCORD_CLIENT_ID),
         discordInvite: "https://discord.gg/rftv",
         facebookUrl: "https://www.facebook.com/profile.php?id=61592820547312",
         rateLimited: true,
       };
     }
 
-    let clientId = process.env.DISCORD_CLIENT_ID ?? "";
+    let clientId = validClientId(process.env.DISCORD_CLIENT_ID);
     if (!clientId) {
       try {
         const status = await ctx.runQuery(internal.hidden.getBotStatusInternal);
-        clientId = status?.botApplicationId ?? "";
+        clientId = validClientId(status?.botApplicationId);
       } catch {
         // Deployment chưa bootstrap bot → giữ rỗng, web hiển thị hướng dẫn cấu hình.
       }

@@ -6,7 +6,54 @@
 
 ## Đang dở
 
-- Không có việc bắt buộc. (Nợ cũ "dọn 119 bản dịch EN chết + 12 DE mồ côi" ĐÃ XONG phiên 23/09 —
+- ✅ **GIẢI TRỪ reinstall (25/09 20:15)**: staff Bhadoria420 xác nhận VM 205
+  KHÔNG nằm trên India node sắp reinstall ("The vps are not on india node"),
+  chưa mua node mới ("Not now"), reinstall node khác sẽ giải phóng đĩa host
+  ("The disk would be somewhat freed" — đúng gốc rễ sự cố #1/#2), và không cần
+  backup ("No need"). Việc deploy bản refactor lên VPS trở lại như kế hoạch
+  bình thường: user chạy git pull + bun install + pm2 restart (hướng dẫn đã
+  gửi); CI đã deploy Convex xanh; hosting mirror deployable.
+- 🔍 **Review refactor trên nhánh `host-deploy` (commit `df7dd00`, 18:56 25/09)**
+  — XONG phần review + ĐÃ MERGE (commit b6e2fcd + a639490): zip `l7qsdt.zip` =
+  snapshot repo nguyên vẹn tên `protogon-quality-pass`, niêm phong 24/09 06:04,
+  base ≈ main sau 24/09 sáng (journal có tới 3 mục 24/09, thiếu t3-devbox.md).
+  Refactor thật ~105 file, các nhóm chính: (1) **claimAt lease fencing** cho
+  backup (chống 2 lượt xử lý trùng, sửa cả lỗi chính tả "BÁO LỄN" main đang
+  có), (2) **cứng hoá sessionAuth** (rate-limit login + chuẩn hoá redirect URI),
+  (3) **botBootstrapAction** fetch Discord có AbortController 8s + xác nhận app
+  ID khớp, (4) **relay** chặn scan unbounded (MAX_SOURCE_HASHES/…), (5) **bộ
+  artifact Vercel** mới toàn phần: vercel.json (CSP có hash, noindex route
+  riêng tư), seo.ts, convexUrl.ts (allowlist URL Convex fail-closed), 404.js,
+  og-image — main chưa từng có. **Kiểm chứng trên chính code zip: 61/61 suite
+  CJS + 9/9 TS + tsc + lint + format XANH** (chạy trong /tmp, node_modules
+  riêng). Zip sạch secret (không .env/.pem/bot-key). → ĐÃ MERGE TOÀN BỘ (user
+  chốt "lấy hết") vào main: commit b6e2fcd (merge + chữa 3 regression của
+  zip: 2 index Convex, otherSlots ×2, seed authVersion cho 2 e2e) + a639490
+  (bỏ CSP hash chết trong Dockerfile.web/vercel.json + bổ sung /status vào
+  SPA routes — phát hiện khi build verify trước deploy).
+- ⬇️ **HẠ CẤP — reinstall KHÔNG còn đe doạ VM 205** (xem mục ✅ giải trừ
+  phía trên): cảnh báo 17:50 của staff Hiro (MLX) về reinstall India node
+  từng đặt VM 205 vào tình huống dữ liệu sẽ mất (geo-IP `203.154.14.8` =
+  Thái Lan, coi như bị ảnh hưởng tới khi staff xác nhận). Staff Bhadoria420
+  đã xác nhận 20:03–20:14: VM 205 không nằm trên node đó, chưa mua node mới,
+  reinstall node khác sẽ giải phóng đĩa host, không cần backup. Checklist
+  backup gấp hạ cấp thành việc nên làm khi rảnh (env vẫn nên lưu + xoay 2
+  key lộ vì đã vào screenshot). Runbook dự phòng vẫn giữ ở
+  `docs/t3-devbox.md` mục 7.
+- 🚧 **VPS chết — chờ Meowlix** (25/09): host storage đầy, staff xác nhận trong
+  ticket #363 _"our main node disk is full — wait till we buy a new node"_. VM
+  205 boot-loop, bot pm2 + dashboard chỉ còn tồn tại theo RAM. Checklist khôi
+  phục đã soạn ở `docs/t3-devbox.md` mục 4b — làm theo đúng thứ tự khi VM sống
+  lại (fs check → swarm → pm2/curl → redeploy t3-code → xoay 2 key lộ + fix
+  bashrc dòng 111 → docs).
+- 🚧 **Setup T3 Code devbox — sót 2 việc phía người dùng** (xem `docs/t3-devbox.md`):
+  (1) app mobile T3 đăng nhập bằng account `wiothemilo` (GitHub, cùng account
+  devbox) → bật T3 Connect → chấm xanh; (2) đổi `GH_TOKEN` trong Dokploy
+  (service `t3-code` → Environment) sang PAT của `wiothemilo` scope `repo` →
+  redeploy → kiểm `/workspace/repos/` có repo Protogon. Hạ tầng đã xanh:
+  T3 web 200, VS Code 302, devbox authorized `wiothemilo@gmail.com`, relay
+  provisioned. Việc agent còn treo: `t3 uninstall` trên host (tuỳ chọn).
+- Không có việc bắt buộc khác (ngoài khối VPS chết phía trên). (Nợ cũ "dọn 119 bản dịch EN chết + 12 DE mồ côi" ĐÃ XONG phiên 23/09 —
   dùng `scripts/_i18n-dead-remove.cjs`, check-i18n giờ sạch 100% không còn mục ℹ️.)
 - ✅ Nợ cũ "~144 câu nội suy chưa bọc translate()" (ghi nhận 20/09) ĐÃ XONG — đo lại
   24/09: check-i18n --all báo 0 JSX text · 0 biểu thức · 0 thuộc tính còn nợ (các đợt
@@ -31,6 +78,56 @@
      Thay vì mò cách vá đuôi file, gom việc đó về **một điểm chặn duy nhất ở file nhỏ**
      (`bot/src/convex.js`: proxy tự xoá cache sau mọi lượt ghi cấu hình của bot) → vừa vá được
      cả 7 chỗ cùng lúc, vừa không bao giờ phải chạm đuôi file lớn nữa.
+
+---
+
+## 2026-09-25 — Sự cố #2: đĩa RO tái diễn → staff xác nhận host storage đầy
+
+- 🚨 **Diễn biến (~14:30)**: sau deploy compose (thêm `hostname: t3-devbox`,
+  build nặng) đĩa rơi `emergency_ro` LẦN 2 trong ngày → panel 502, dokploy
+  container unhealthy, docker exec báo "read-only file system", swarm manager
+  mất, sshd chết, Stop/Start từ panel → **boot-loop**.
+- 🔍 **Chẩn đoán then chốt**: `journalctl -k` trong VM SẠCH — không một dòng
+  EXT4/jbd2/I/O error nào, dù đĩa chuyển emergency_ro 2 lần. Nếu filesystem
+  trong VM hỏng thật thì kernel VM phải kêu; nó im lặng → bệnh nằm ở tầng
+  dưới (host storage / thin pool). Chốt bằng lời staff `Bhadoria420` (15:55,
+  ticket #363): _"our main node disk is full — wait till we buy a new node"_.
+- ✅ **Việc làm được khi VPS chết** (chỉ đụng repo): bổ sung runbook
+  `docs/t3-devbox.md` mục 4b (bảng chẩn đoán + checklist khôi phục 6 bước khi
+  VM sống lại, gồm fs check → swarm → pm2 → redeploy t3-code → xoay 2 key lộ)
+  - decision-log 2 dòng (chờ node mới; checklist khôi phục). KHÔNG làm gì ở
+    VM nữa — mọi lệnh sửa đều fail, chỉ tốn công.
+- ⏸️ Kế hoạch: chờ staff. Khi VM sống → làm checklist 4b đúng thứ tự, KHÔNG
+  deploy gì nặng trước khi fs ổn định qua vài boot.
+
+---
+
+## 2026-09-25 — T3 devbox đổi account + sự cố đĩa VPS emergency read-only
+
+- ✅ Xong: runbook đầy đủ ở `docs/t3-devbox.md` (bản đồ compose `t3-code`,
+  đường truy cập, quy tắc vàng tài khoản, runbook đổi account, sự cố đĩa).
+  Tóm tắt trạng thái cuối phiên:
+  - Devbox authorized `wiothemilo@gmail.com` qua GitHub — đúng GitHub chủ
+    repo Protogon (`wiothemilo-lang/Autoreply-and-anti-nuke-raid`). Login
+    đầu tiên nhầm identity (2 Gmail + 2 GitHub) → app điện thoại không thấy
+    environment dù relay provisioned. Bài học: **app và devbox phải cùng
+    tài khoản T3, cùng provider**; mở login URL bằng cửa sổ Ẩn danh.
+  - Di vật T3 host cũ (pre-Dokploy, v0.0.42 ở `/root/.local/bin/t3`): đã
+    `t3 connect logout` xoá credential; không chạy server trên host nữa
+    (bind 3773 thất bại âm thầm vì docker-proxy giữ port — từng gây nghi
+    sai rằng `t3.protogon…` là host cũ trả lời).
+- 🚨 **Sự cố hạ tầng: đĩa gốc VPS bị kernel chuyển emergency read-only**
+  (phát hiện khi `t3` trên host báo EROFS; `mount` thấy
+  `ext4 (rw,…,emergency_ro)`; `touch /tmp/x` xác nhận). Chẩn đoán sai ban
+  đầu: tưởng T3 host cũ chiếm port / tưởng lỗi T3 — thực ra là filesystem.
+  Chữa đúng: **không cài/vá gì thêm, `sudo reboot`** → fsck tự quét sửa lúc
+  boot (ext4 flag lỗi) → FS sạch, toàn hệ hồi sinh (pm2 bot online, 8
+  container Up, tunnel/dashboard 200, không mất dữ liệu). Bài học ghi trong
+  runbook mục 4: gặp EROFS rải rác → `mount | grep " / "` TRƯỚC khi chẩn
+  đoán sâu app.
+- 🧠 Ghi chú kỹ thuật: `ps aux` trên host thấy `t3 serve --host 0.0.0.0
+--port 3773` (node wrapper + native binary) là **process của devbox
+  container** — bình thường, đừng nhầm với T3 host cũ.
 
 ---
 

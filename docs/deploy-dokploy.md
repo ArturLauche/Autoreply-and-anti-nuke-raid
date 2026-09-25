@@ -54,28 +54,11 @@ Bước mở `http://IP-VPS:3000` trên trình duyệt → tạo tài khoản ad
 
 ## Bước 2 — Gắn domain + HTTPS (bắt buộc trước khi xóa IP:port)
 
-### Cách A — MIỄN PHÍ, không cần mua domain (DuckDNS, ~10 phút)
-
-`duckdns.org` nằm trong **Public Suffix List** (đã xác minh 24/09/2026) → subdomain
-`tenban.duckdns.org` được tính là domain RIÊNG, hưởng hạn mức SSL riêng
-(50 chứng chỉ/tuần) — không bị người khác dùng chung hạn mức.
-
-1. Mở https://www.duckdns.org → đăng nhập bằng GitHub/Google/Reddit
-2. Tạo subdomain (ví dụ `wio-protogon`) → nhận `wio-protogon.duckdns.org`
-3. Nhập IP VPS vào ô IP → bấm **update ip**
-4. Trong Dokploy: **Web Server → Domains → thêm domain** `wio-protogon.duckdns.org` → **Let's Encrypt** → Save
-5. Đợi 1-2 phút → mở `https://wio-protogon.duckdns.org` — khóa SSL xanh là xong
-6. Sau này deploy app (Bước 3), làm tương tự với subdomain thứ 2, ví dụ `wio-protogon-web.duckdns.org`
-
-### Cách B — Mua domain (~50-200k/năm)
-
-Mua ở Namecheap/Porkbun (hoặc dùng `us.kg`, `eu.org` miễn phí — cũng nằm trong PSL).
+Nếu chưa có domain: mua ~50-200k/năm (Namecheap, Porkbun, hoặc dùng miễn phí qua Cloudflare).
 
 1. Vào trang quản lý domain → tạo bản ghi **A** trỏ `dokploy.tên-miền.com` → IP của VPS
 2. Trong Dokploy: **Web Server → Domains → thêm domain** `dokploy.tên-miền.com` → chọn **Let's Encrypt** → bấm Save
 3. Đợi 1-2 phút, mở `https://dokploy.tên-miền.com` — thấy khóa SSL xanh là xong
-
-### Tắt truy cập IP:port (SAU KHI domain + HTTPS hoạt động)
 
 Giờ mới chạy lệnh tắt IP:port (đã in ở Bước 1):
 
@@ -100,10 +83,12 @@ docker service update --publish-rm "published=3000,target=3000,mode=host" dokplo
 
 ### 3.2. Điền Build Arguments (tab **Build → Build Arguments**)
 
-| Argument            | Giá trị                                                                           | Bắt buộc?                                     |
-| ------------------- | --------------------------------------------------------------------------------- | --------------------------------------------- |
-| `VITE_CONVEX_URL`   | URL deployment Convex thật, ví dụ `https://accomplished-chipmunk-74.convex.cloud` | Không (mặc định trong code đã trỏ production) |
-| `DISCORD_CLIENT_ID` | Application ID của bot (Discord Developer Portal → General Information)           | Có — để nút đăng nhập Discord hoạt động       |
+| Argument            | Giá trị                                                                           | Bắt buộc?                               |
+| ------------------- | --------------------------------------------------------------------------------- | --------------------------------------- |
+| `VITE_CONVEX_URL`   | URL deployment Convex thật, ví dụ `https://accomplished-chipmunk-74.convex.cloud` | Bắt buộc — build fail nếu thiếu         |
+| `DISCORD_CLIENT_ID` | Application ID của bot (Discord Developer Portal → General Information)           | Có — để nút đăng nhập Discord hoạt động |
+
+Ở **Convex deployment** còn phải đặt `OAUTH_REDIRECT_URI` (hoặc `DASHBOARD_URL` gốc) bằng đúng `https://<domain>/discord/callback`; Discord Developer Portal chỉ kiểm tra một nơi, còn action exchange cũng kiểm tra allowlist phía server. Build frontend không tự suy ra được biến Convex này.
 
 ### 3.3. Đặt port
 
@@ -144,44 +129,14 @@ git push → GitHub → Dokploy tự nhận (webhook)
 
 ## Khắc phục lỗi thường gặp
 
-| Triệu chứng                                                                             | Nguyên nhân                                                                                      | Cách xử lý                                                                                                                                                              |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Deploy fail " bun: not found"                                                           | Sai Dockerfile path                                                                              | Đảm bảo Build type = Dockerfile, path = `./Dockerfile.web`                                                                                                              |
-| Trang trắng sau deploy                                                                  | Thiếu `VITE_CONVEX_URL` / client id                                                              | Kiểm tra Build Arguments → redeploy                                                                                                                                     |
-| Nút Discord login không hoạt động                                                       | Thiếu `DISCORD_CLIENT_ID` lúc build                                                              | Thêm Build Argument → redeploy (Vite "bake" giá trị lúc build, không đọc runtime)                                                                                       |
-| Redirect Discord báo "Invalid redirect URI"                                             | URL mới chưa đăng ký trong Discord Developer Portal                                              | Vào Dev Portal → OAuth2 → thêm `https://protogon.tên-miền.com/discord/callback` vào Redirects                                                                           |
-| Build treo / OOM                                                                        | VPS thiếu RAM lúc build                                                                          | Build lúc khuya, hoặc nâng VPS tạm 4GB, hoặc dùng Build Server riêng                                                                                                    |
-| Ping thông nhưng TCP 80/443/3000 refuse từ ngoài (ufw inactive, dịch vụ listen 0.0.0.0) | Firewall/security group TẦNG NHÀ CUNG CẤP chặn inbound (nằm ngoài VPS, không sửa được bằng lệnh) | Nhờ provider mở inbound 80/443/3000; hỏi rõ VPS có IP public dedicated hay shared NAT — NAT shared thì domain trỏ kiểu này không chạy được (bài thật 24/09 với Meowlix) |
-| Bot lag khi deploy                                                                      | Build ngốn CPU/RAM                                                                               | Ổn — chỉ vài phút; hoặc tách build sang VPS khác                                                                                                                        |
-
----
-
-## Phương án Cloudflare Tunnel — khi provider chặn inbound
-
-> Ca thật 24/09: Meowlix chặn inbound TCP ở tầng provider (ping thông, ufw
-> inactive, listen 0.0.0.0 vẫn không vào được từ ngoài). Tunnel chỉ tạo kết nối
-> RA OUT từ VPS tới Cloudflare → không cần mở cổng inbound nào.
->
-> LƯU Ý: DuckDNS KHÔNG dùng được với named tunnel (Cloudflare không nhận zone
-> con của PSL). Quick tunnel thì không cần domain.
-
-**A. Test nhanh (quick tunnel — 2 phút, không cần tài khoản/domain):**
-
-```bash
-curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
-chmod +x /usr/local/bin/cloudflared
-cloudflared tunnel --url http://localhost:3000
-```
-
-In ra URL `https://xxx.trycloudflare.com` — URL ĐỔI mỗi lần chạy, chỉ để test.
-
-**B. Production (cần domain NS về Cloudflare):**
-
-1. Domain riêng (mua ~50k/năm hoặc us.kg miễn phí) → Add site vào Cloudflare → đổi NS
-2. Zero Trust → Networks → Tunnels → Create tunnel → copy token
-3. VPS: `cloudflared service install <token>`
-4. Public hostname: `dashboard.tên-miền` → `http://localhost:3000`
-5. SSL do Cloudflare cấp ở biên — KHÔNG cần Let's Encrypt, KHÔNG cần mở cổng
+| Triệu chứng                                 | Nguyên nhân                                                            | Cách xử lý                                                                                      |
+| ------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Deploy fail " bun: not found"               | Sai Dockerfile path                                                    | Đảm bảo Build type = Dockerfile, path = `./Dockerfile.web`                                      |
+| Trang trắng sau deploy                      | Thiếu `VITE_CONVEX_URL` / client id                                    | Kiểm tra Build Arguments → redeploy                                                             |
+| Nút Discord login không hoạt động           | Thiếu `DISCORD_CLIENT_ID` lúc build hoặc `OAUTH_REDIRECT_URI` ở Convex | Thêm Build Argument và Convex env, rồi redeploy; URI phải khớp chính xác, không có dấu `/` cuối |
+| Redirect Discord báo "Invalid redirect URI" | URL mới chưa đăng ký trong Discord Developer Portal                    | Vào Dev Portal → OAuth2 → thêm `https://protogon.tên-miền.com/discord/callback` vào Redirects   |
+| Build treo / OOM                            | VPS thiếu RAM lúc build                                                | Build lúc khuya, hoặc nâng VPS tạm 4GB, hoặc dùng Build Server riêng                            |
+| Bot lag khi deploy                          | Build ngốn CPU/RAM                                                     | Ổn — chỉ vài phút; hoặc tách build sang VPS khác                                                |
 
 ---
 

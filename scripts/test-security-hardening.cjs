@@ -74,6 +74,25 @@ check(
   read("convex/botBootstrap.ts").includes("ATTEMPT_COOLDOWN_MS = 10 * 60_000"),
 );
 check(
+  "bootstrap không bị request sai khóa cooldown bot thật",
+  (() => {
+    const body = bootstrapAction.slice(bootstrapAction.indexOf("export const requestBotKey"));
+    return body.indexOf("markBootstrapAttempt") > body.indexOf("assertExpectedBotApplication");
+  })(),
+);
+check(
+  "backup/restore có lease renewal + claim fencing ở từng giai đoạn",
+  read("convex/bot_writes.ts").includes("botRenewBackupClaim") &&
+    read("convex/bot_writes.ts").includes("backupLeaseUntil") &&
+    read("bot/src/handlers/backup.js").includes("botRenewBackupClaim"),
+);
+check(
+  "Discord bootstrap có timeout và rate-limit trước API",
+  bootstrapAction.includes("AbortController") &&
+    bootstrapAction.includes("KEY_STATUS_MAX_PER_WINDOW") &&
+    bootstrapAction.includes("BOOTSTRAP_MAX_PER_WINDOW"),
+);
+check(
   "xoay key: bootstrap lại được ngay sau khi seed thay (success >= attempt mở cổng)",
   read("convex/botBootstrap.ts").includes("lastSuccess >= lastAttempt"),
 );
@@ -189,6 +208,177 @@ check(
   read("src/pages/Admin.tsx").includes("tự cấp phát chìa khóa an toàn"),
 );
 check("README bot tài liệu cơ chế bootstrap", read("bot/README.md").includes("bot/.bot-key"));
+
+// ===== 9. Các lớp fail-closed mới: không được quay lại first-user/first-audit =====
+// Các check này khóa đúng các bug kiểm tra tay đã tìm thấy trong audit toàn repo.
+check(
+  "bootstrap gắn bot ID đã xác minh với Application ID deployment",
+  /(BOT_APPLICATION_ID|EXPECTED_BOT_APPLICATION_ID)/.test(bootstrapAction) &&
+    /bot\.id\s*!==\s*expected/.test(bootstrapAction),
+);
+check(
+  "owner gate fail-closed khi chưa có owner hợp lệ",
+  /Chủ sở hữu bot chưa được khởi tạo/.test(hidden) &&
+    !/setOwnerId\(ctx, user\.discordId\)/.test(hidden),
+);
+check(
+  "guild authorization không còn tin guild.managers cũ",
+  !/guild\.managers/.test(
+    read("convex/auth.ts")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, ""),
+  ),
+);
+check(
+  "session purge dùng implicit _creation_time index có sẵn",
+  read("convex/sessionHardening.ts").includes('withIndex("by_creation_time")'),
+);
+check(
+  "schema khai báo đủ self-diagnose fields bot đang ghi",
+  ["selfDiagnoseLastFingerprint", "selfDiagnoseLastSeverity", "selfDiagnoseLastSummary"].every(
+    (field) => schema.includes(field),
+  ),
+);
+check(
+  "relay weight có danh sách source distinct",
+  schema.includes("sourceHashes") && read("convex/relay.ts").includes("sourceHashes"),
+);
+check(
+  "func key so sánh đúng hash gửi từ client",
+  read("convex/botFunc.ts").includes("funcKey === computeFuncKey(funcSeed)"),
+);
+
+const statusSrc = read("convex/status.ts");
+const selfDiagnoseSrc = read("convex/selfDiagnose.ts");
+const threatIntelSrc = read("convex/threatIntel.ts");
+const relaySrc = read("convex/relay.ts");
+const guildsSrc = read("convex/guilds.ts");
+const sessionHardeningSrc = read("convex/sessionHardening.ts");
+const sessionAuthSrc = read("convex/sessionAuth.ts");
+const discordClientSrc = read("src/lib/discord.ts");
+const callbackSrc = read("src/pages/DiscordCallback.tsx");
+const altDetectionSrc = read("convex/altDetection.ts");
+const authSrc = read("convex/auth.ts");
+const authLogic = authSrc.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+check(
+  "requestBotKey + keyStatus cùng kiểm tra Application ID deployment",
+  (bootstrapAction.match(/assertExpectedBotApplication\(bot, status\.botApplicationId\)/g) ?? [])
+    .length === 2 &&
+    /BOT_APPLICATION_ID[\s\S]*EXPECTED_BOT_APPLICATION_ID[\s\S]*DISCORD_CLIENT_ID[\s\S]*storedApplicationId/.test(
+      bootstrapAction,
+    ),
+);
+check(
+  "canonical owner không phụ thuộc users row và chỉ nhận snowflake hợp lệ",
+  hidden.includes("export function isBotOwnerUser") &&
+    /DISCORD_SNOWFLAKE_RE\.test\(ownerDiscordId\)/.test(hidden) &&
+    !hidden.slice(0, hidden.indexOf("export const botSetOwner")).includes('query("users")'),
+);
+check(
+  "mọi path owner toàn cục dùng helper chuẩn, không còn so sánh owner yếu",
+  [statusSrc, selfDiagnoseSrc, threatIntelSrc, relaySrc, guildsSrc].every((src) =>
+    /isBotOwnerUser\(|requireBotOwner\(/.test(src),
+  ) &&
+    [statusSrc, selfDiagnoseSrc, threatIntelSrc, relaySrc, guildsSrc].every(
+      (src) => !/(owner|status)\?\.ownerDiscordId\s*&&/.test(src),
+    ),
+);
+const botSetOwnerBody = hidden.slice(
+  hidden.indexOf("export const botSetOwner"),
+  hidden.indexOf("export const setBotBranding"),
+);
+check(
+  "botSetOwner vẫn strict nhưng cho bot cập nhật owner sau khi Discord đổi chủ",
+  botSetOwnerBody.includes("requireBotKeyStrict") &&
+    botSetOwnerBody.includes("ownerDiscordId: ownerId") &&
+    !botSetOwnerBody.includes("ownerIsValid"),
+);
+check(
+  "setHiddenPassword không còn first-web-manager claim",
+  !hidden.slice(hidden.indexOf("export const setHiddenPassword")).includes("setOwnerId("),
+);
+check(
+  "guild.managers chỉ còn compatibility/display, authorization dùng snapshot",
+  authSrc.includes("managers?: string[]") &&
+    authLogic.includes("manageableGuildIds") &&
+    !authLogic.includes("guild.managers"),
+);
+check(
+  "refresh session xác minh /users/@me khớp user trước khi cập nhật guild",
+  (() => {
+    const refresh = sessionAuthSrc.slice(
+      sessionAuthSrc.indexOf("export const refreshGuildsServer"),
+    );
+    return (
+      refresh.includes("/users/@me") &&
+      /identity\.id\s*!==\s*me\.discordId|identity\.id\s*!==\s*user\.discordId/.test(refresh) &&
+      refresh.indexOf("/users/@me") < refresh.indexOf("internal.sessionHardening.guildsInternal")
+    );
+  })(),
+);
+check(
+  "legacy session không còn dùng sau đổi sang server-side OAuth",
+  read("convex/auth.ts").includes("isCurrentSession") &&
+    read("convex/sessionHardening.ts").includes("authVersion: CURRENT_SESSION_AUTH_VERSION") &&
+    schema.includes("authVersion"),
+);
+check(
+  "redirect allowless deployment fail closed",
+  sessionAuthSrc.includes("Chưa cấu hình redirect_uri cho phép") &&
+    !sessionAuthSrc.includes("ALLOWED.length === 0) return null"),
+);
+check(
+  "OAuth access token không còn được lưu/gửi từ browser",
+  !/storeDiscordAccess|getDiscordAccessToken|exchangeCode\(/.test(discordClientSrc) &&
+    !/localStorage\.setItem\([^)]*wio_discord_access/.test(discordClientSrc) &&
+    !sessionAuthSrc.includes("accessToken: v.optional"),
+);
+check(
+  "OAuth code + PKCE verifier được trao đổi trong Convex server action",
+  sessionAuthSrc.includes("exchangeCodeOnServer") &&
+    sessionAuthSrc.includes("code_verifier") &&
+    sessionAuthSrc.includes("codeVerifier: v.string()") &&
+    sessionAuthSrc.includes("hasValidOAuthParams"),
+);
+check(
+  "OAuth client ID dùng cùng Application ID đã xác minh khi env thiếu",
+  sessionAuthSrc.includes("configuredClientId(status?.botApplicationId)") &&
+    read("convex/public.ts").includes("validClientId(status?.botApplicationId)"),
+);
+check(
+  "silent refresh chỉ báo thành công khi action trả ok",
+  callbackSrc.includes('refreshed.ok ? "silent=ok" : "silent=err"'),
+);
+check(
+  "session purge dùng index _creation_time ẩn, schema không khai báo index thừa",
+  sessionHardeningSrc.includes('withIndex("by_creation_time")') &&
+    !/sessions:[\s\S]*?\.index\("by_creation_time"/.test(schema),
+);
+const recentJoinsBody = altDetectionSrc.slice(
+  altDetectionSrc.indexOf("export const getRecentJoins"),
+  altDetectionSrc.indexOf("export const getAltStats"),
+);
+const altStatsBody = altDetectionSrc.slice(altDetectionSrc.indexOf("export const getAltStats"));
+check(
+  "recent joins dùng index guild+joinedAt có range/order",
+  recentJoinsBody.includes('withIndex("by_guildId_joinedAt"') &&
+    recentJoinsBody.includes('.gte("joinedAt", 0)') &&
+    recentJoinsBody.includes('.order("desc")'),
+);
+check(
+  "alt stats 7 ngày dùng index + joinedAt range",
+  altStatsBody.includes('withIndex("by_guildId_joinedAt"') &&
+    altStatsBody.includes('.gte("joinedAt", sevenDaysAgo)'),
+);
+check(
+  "relay giữ nguồn distinct có giới hạn và chỉ tăng weight cho nguồn mới",
+  schema.includes("sourceHashes") &&
+    relaySrc.includes("MAX_SOURCE_HASHES") &&
+    /new Set\(\[\.\.\.sourceHashes, sourceHash\]\)/.test(relaySrc) &&
+    relaySrc.includes("effectiveWeight") &&
+    /\.slice\(\s*-MAX_SOURCE_HASHES/.test(relaySrc),
+);
 
 console.log(`\nKết quả security hardening: ${pass} PASS, ${fail} FAIL`);
 process.exit(fail > 0 ? 1 : 0);

@@ -10,6 +10,12 @@
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
+  <!-- Monitor: trang công khai, dữ liệu realtime theo heartbeat bot. -->
+  <url>
+    <loc>https://protogon.freebuff.app/monitor</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.6</priority>
+  </url>
   <!-- Văn bản pháp lý: URL riêng, công khai — Discord dùng để xác minh bot. -->
   <url>
     <loc>https://protogon.freebuff.app/terms</loc>
@@ -25,5 +31,11 @@
     <loc>https://protogon.freebuff.app/data-deletion</loc>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
+  </url>
+  <!-- Trạng thái hệ thống: công khai, cập nhật realtime theo dữ liệu bot. -->
+  <url>
+    <loc>https://protogon.freebuff.app/status</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.6</priority>
   </url>
 </urlset>

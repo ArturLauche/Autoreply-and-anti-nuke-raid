@@ -130,7 +130,7 @@ fs.writeFileSync(
     check("guild chưa có → 0", state.recentJoinCount("g-none", 60_000) === 0);
   }
 
-  // ── 6. auditExecutor: ưu tiên entry đúng target, fallback first ──
+  // ── 6. auditExecutor: target bắt buộc phải khớp chính xác ──
   {
     const g = {
       fetchAuditLogs: async () => ({
@@ -143,8 +143,11 @@ fs.writeFileSync(
     const ex = await state.auditExecutor(g, Symbol("MemberBanAdd"), "t1");
     check("auditExecutor khớp target → trả executor đúng", ex.id === "ex1");
 
+    const fallback = await state.auditExecutor(g, Symbol("MemberBanAdd"));
+    check("không có targetId → mới fallback entry đầu", fallback.id === "ex-fallback");
+
     const ex2 = await state.auditExecutor(g, Symbol("MemberBanAdd"), "khong-co");
-    check("không khớp target → fallback entry đầu", ex2.id === "ex-fallback");
+    check("có targetId nhưng không khớp → null", ex2 === null);
 
     const gErr = {
       fetchAuditLogs: async () => {
@@ -154,6 +157,22 @@ fs.writeFileSync(
     check(
       "auditExecutor lỗi → null (không crash)",
       (await state.auditExecutor(gErr, 1, "x")) === null,
+    );
+    const noMatch = await state.auditLookup(g, 1, "khong-co");
+    const lookupError = await state.auditLookup(gErr, 1, "x");
+    check(
+      "auditLookup phân biệt miss và lỗi audit",
+      noMatch.ok && !noMatch.found && !noMatch.ambiguous && lookupError.ok === false,
+    );
+    const crowded = {
+      fetchAuditLogs: async () => ({
+        entries: Array.from({ length: 50 }, (_, i) => ({ target: { id: `other-${i}` } })),
+      }),
+    };
+    const crowdedMiss = await state.auditLookup(crowded, 1, "target-bi-an");
+    check(
+      "audit đầy cửa sổ mà chưa thấy target → ambiguous, không kết luận tự rời",
+      crowdedMiss.ok && !crowdedMiss.found && crowdedMiss.ambiguous,
     );
   }
 

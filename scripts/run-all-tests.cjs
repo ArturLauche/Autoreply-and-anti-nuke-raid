@@ -37,7 +37,13 @@ if (suites.length === 0) {
   process.exit(1);
 }
 
-const RUNNER = TS_MODE ? "bun" : "node";
+const BUN_BIN =
+  process.env.BUN_BIN ||
+  ["/usr/local/bun/bin/bun", "/usr/local/bin/bun", "/usr/bin/bun"].find((candidate) =>
+    fs.existsSync(candidate),
+  ) ||
+  "bun";
+const RUNNER = TS_MODE ? BUN_BIN : "node";
 console.log(`Chạy ${suites.length} test suites (${RUNNER})...\n`);
 
 const failed = [];

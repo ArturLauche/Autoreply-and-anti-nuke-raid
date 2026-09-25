@@ -79,9 +79,15 @@ export function rateLimitPublicAction(
 
   // Identity: chỉ per-identity khi ĐÃ đăng nhập. Ẩn danh dùng chung trần toàn cục.
   const identity = (ctx as any)?.auth?.getIdentity?.() ?? null;
-  const raw = typeof identity === "string" ? identity : null;
-  if (!raw) return { ok: true };
-  return { ok: record(`${name}:${raw}`, now, windowMs, maxPerMin) };
+  const raw =
+    typeof identity === "string"
+      ? identity
+      : [identity?.subject, identity?.tokenIdentifier].find(
+          (value) => typeof value === "string" && value.trim().length > 0,
+        );
+  const subject = typeof raw === "string" ? raw.trim().slice(0, 256) : "";
+  if (!subject) return { ok: true };
+  return { ok: record(`${name}:${subject}`, now, windowMs, maxPerMin) };
 }
 
 /** Chỉ dùng trong test: xóa sạch bucket. */

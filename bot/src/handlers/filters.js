@@ -118,13 +118,12 @@ const relayClient = require("../relayClient");
 
 /** Tải intel từ Convex (fire-and-forget, không bao giờ làm fail quét tin nhắn). */
 function refreshThreatIntel(store, guildId) {
+  // Relay có TTL riêng theo từng guild; không để global threat-intel gate chặn nó.
+  relayClient.attach(store);
+  if (guildId) void relayClient.refreshSignatures(guildId);
   if (threatLoading || Date.now() - threatLoadedAt < THREAT_REFRESH_MS) return;
   threatLoading = true;
-  // Relay (Đợt 6): tải signature chia sẻ cùng nhịp 10 phút (botGetRelaySignatures
-  // tự kiểm guild có bật relayReceive — không bật thì trả rỗng, 0 chi phí thêm).
-  // Lỗi → im lặng, filters vẫn chạy như chưa có relay.
-  relayClient.attach(store);
-  if (guildId) relayClient.refreshSignatures(guildId);
+  // Threat intel dùng một query chung; lỗi → im lặng, filters vẫn chạy deterministic path.
   store.client
     .query("threatIntel:botGetIntel", {})
     .then((intel) => {
@@ -495,7 +494,7 @@ async function scanMessage(client, message, store, heat) {
     // Threat Relay (Đợt 6): nội dung khớp signature raid server khác đã xác nhận
     // (weight >= 2 hoặc < 2h tuổi) → chặn NGAY trước cả AI classify. Đây là
     // "miễn dịch cộng đồng" — server mới được bảo vệ bởi kinh nghiệm toàn mạng.
-    const relayHit = relayClient.matchSpamText(message.content);
+    const relayHit = relayClient.matchSpamText(message.guild.id, message.content);
     if (relayHit) {
       return punishFlow(
         client,

@@ -8,7 +8,7 @@ import { translate } from "../lib/i18n";
 export default function NotFound() {
   const loggedIn = getSessionToken() !== "";
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+    <main className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
       <p className="font-mono text-sm font-semibold text-muted-foreground">404</p>
       <h1 className="mt-2 text-2xl font-bold tracking-tight md:text-3xl">
         {translate("Không tìm thấy trang này")}{" "}
@@ -19,19 +19,19 @@ export default function NotFound() {
         )}{" "}
       </p>
       <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-        <Link to="/">
-          <Button variant="outline">
+        <Button asChild variant="outline">
+          <Link to="/">
             <ArrowLeft className="h-4 w-4" /> {translate("Về trang chủ")}{" "}
-          </Button>
-        </Link>
-        {loggedIn && (
-          <Link to="/dashboard">
-            <Button>
-              <LayoutDashboard className="h-4 w-4" /> {translate("Mở dashboard")}{" "}
-            </Button>
           </Link>
+        </Button>
+        {loggedIn && (
+          <Button asChild>
+            <Link to="/dashboard">
+              <LayoutDashboard className="h-4 w-4" /> {translate("Mở dashboard")}{" "}
+            </Link>
+          </Button>
         )}
       </div>
-    </div>
+    </main>
   );
 }

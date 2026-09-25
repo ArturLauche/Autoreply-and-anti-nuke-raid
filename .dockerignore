@@ -1,0 +1,17 @@
+# Build context hygiene: never ship local credentials, bot runtime data, or VCS metadata.
+.git
+.gitignore
+.env
+.env.*
+bot/.env
+bot/.env.*
+bot/.bot-key
+*.pem
+*.key
+node_modules
+bot/node_modules
+.opencode/node_modules
+coverage
+.nyc_output
+*.log
+.DS_Store

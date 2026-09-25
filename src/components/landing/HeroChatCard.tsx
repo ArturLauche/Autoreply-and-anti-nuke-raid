@@ -28,7 +28,7 @@ export default function HeroChatCard() {
           <span className="h-3 w-3 rounded-full bg-white/25" />
           <span className="h-3 w-3 rounded-full bg-white/25" />
           <span className="h-3 w-3 rounded-full bg-white/25" />
-          <span className="ml-3 text-xs font-medium text-white/40">
+          <span className="ml-3 text-xs font-medium text-white/60">
             # general · Protogon Bot 🌸
           </span>
         </div>
@@ -41,7 +41,7 @@ export default function HeroChatCard() {
             <div className="max-w-[80%]">
               <p className="mb-1 text-xs font-semibold text-white">
                 huy_nguyen{" "}
-                <span className="ml-1 font-normal text-white/40">
+                <span className="ml-1 font-normal text-white/60">
                   {translate("Hôm nay chơi gì @protogon?")}
                 </span>
               </p>
@@ -57,13 +57,13 @@ export default function HeroChatCard() {
             </span>
             <div className="max-w-[80%]">
               <p className="mb-1 text-xs font-semibold text-white">
-                Protogon <span className="ml-1 font-normal text-white/40">BOT</span>
+                Protogon <span className="ml-1 font-normal text-white/60">BOT</span>
               </p>
               <div className="rounded-lg rounded-bl-none border border-white/30 bg-white/10 px-3 py-2 text-sm text-white/90">
                 {translate("Chào")} <span className="font-semibold text-white">Huy</span>
                 {translate("! Thử một trận Valorant 5v5 không? 🎮")}{" "}
               </div>
-              <div className="mt-1.5 flex items-center gap-1.5 text-xs text-white/40">
+              <div className="mt-1.5 flex items-center gap-1.5 text-xs text-white/60">
                 <Timer className="h-3 w-3" /> rule “game-night” · cooldown 30s
               </div>
             </div>
@@ -78,7 +78,7 @@ export default function HeroChatCard() {
             <div className="mt-2 flex items-center gap-2">
               <div className="flex-1">
                 <HeatBar value={55} color="bg-white" />
-                <div className="mt-1 flex justify-between text-[10px] text-white/40">
+                <div className="mt-1 flex justify-between text-[10px] text-white/60">
                   <span>warn 25</span>
                   <span>{translate("tạm khóa 40")}</span>
                   <span>kick 70</span>
@@ -112,7 +112,7 @@ export default function HeroChatCard() {
       <div className="absolute -right-3 -top-3 animate-float">
         <Badge
           variant="success"
-          className="gap-1.5 border border-white/20 bg-[#0a0a0a] px-3 py-1 shadow-md"
+          className="gap-1.5 border border-white/20 bg-[#0a0a0a] px-3 py-1 text-white shadow-md"
         >
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-60" />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import {
@@ -31,6 +31,7 @@ import { getSessionToken } from "../../lib/discord";
 
 import { translate } from "../../lib/i18n";
 const TOKEN = () => getSessionToken();
+const DEFAULT_WEBHOOK_EVENT_TYPES = ["antinuke", "mod", "join", "leave", "general"];
 
 export default function SettingsPanel({ data }: { data: GuildData }) {
   const updateSettings = useMutation(api.guilds.updateSettings);
@@ -53,16 +54,22 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
     guildId: data.guild.discordId,
   });
   const updateDefaultWebhook = useMutation(api.webhooks.updateDefaultWebhook);
-  const [webhookEventTypes, setWebhookEventTypes] = useState<string[]>([
-    "antinuke",
-    "mod",
-    "join",
-    "leave",
-    "general",
-  ]);
+  const [webhookEventTypes, setWebhookEventTypes] = useState<string[]>(DEFAULT_WEBHOOK_EVENT_TYPES);
   const [webhookColor, setWebhookColor] = useState<string>("");
   const [webhookTemplate, setWebhookTemplate] = useState<string>("");
   const [webhookSaving, setWebhookSaving] = useState(false);
+  const webhookHydrated = useRef(false);
+
+  useEffect(() => {
+    const current = webhookData?.[0];
+    if (!current || webhookHydrated.current) return;
+    webhookHydrated.current = true;
+    setWebhookEventTypes(current.eventTypes ?? DEFAULT_WEBHOOK_EVENT_TYPES);
+    setWebhookColor(
+      typeof current.color === "number" ? `#${current.color.toString(16).padStart(6, "0")}` : "",
+    );
+    setWebhookTemplate(current.contentTemplate ?? "");
+  }, [webhookData]);
 
   const textChannels = data.channels.filter((c) => c.type === 0 || c.type === 5);
   const roleOptions = data.roles
@@ -336,12 +343,23 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                   <div className="grid gap-1.5 sm:grid-cols-2">
                     <div className="grid gap-1.5">
                       <Label>{translate("Màu embed (hex, để trống = mặc định)")}</Label>
-                      <Input
-                        type="color"
-                        value={webhookColor || "#111111"}
-                        onChange={(e) => setWebhookColor(e.target.value)}
-                        className="h-9 w-16 cursor-pointer"
-                      />
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="webhook-color"
+                          aria-label={translate("Màu embed (hex, để trống = mặc định)")}
+                          type="color"
+                          value={webhookColor || "#111111"}
+                          onChange={(e) => setWebhookColor(e.target.value)}
+                          className="h-9 w-16 cursor-pointer"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setWebhookColor("")}
+                          className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {translate("Mặc định")}
+                        </button>
+                      </div>
                     </div>
                     <div className="grid gap-1.5">
                       <Label>{translate("Nội dung kèm (template)")}</Label>

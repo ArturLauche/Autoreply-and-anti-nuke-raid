@@ -23,6 +23,26 @@ import { requireBotKeyStrict } from "./botAuth";
  * (document chỉ chứa tối đa 1 MB).
  */
 const MAX_IMPORT_FILE_BYTES = 8_000_000;
+const BACKUP_CLAIM_TTL_MS = 600_000;
+
+function isClaimActive(claimedAt: number | undefined, leaseUntil?: number): boolean {
+  if (claimedAt === undefined) return false;
+  return leaseUntil !== undefined
+    ? leaseUntil > Date.now()
+    : Date.now() - claimedAt < BACKUP_CLAIM_TTL_MS;
+}
+
+function isAnyClaimActive(guild: {
+  backupClaimedAt?: number;
+  backupLeaseUntil?: number;
+  restoreClaimedAt?: number;
+  restoreLeaseUntil?: number;
+}): boolean {
+  return (
+    isClaimActive(guild.backupClaimedAt, guild.backupLeaseUntil) ||
+    isClaimActive(guild.restoreClaimedAt, guild.restoreLeaseUntil)
+  );
+}
 
 /** Liệt kê các backup mà người dùng có quyền truy cập (từ mọi server họ quản lý). */
 export const listMine = query({
@@ -149,11 +169,17 @@ export const requestBackup = mutation({
       throw new Error("Không có quyền quản lý server này");
     }
     if (!guild.botInGuild) throw new Error("Bot chưa có trong server này");
+    if (isAnyClaimActive(guild)) {
+      throw new Error(
+        "Bot đang xử lý yêu cầu backup/khôi phục trước; hãy đợi hoàn tất rồi thử lại",
+      );
+    }
     await ctx.db.patch(guild._id, {
       backupRequested: true,
       backupPushToGithub: !!pushToGithub,
       backupIncludeMessages: !!includeMessages,
       backupClaimedAt: undefined,
+      backupLeaseUntil: undefined,
       // Yêu cầu mới = lần thử lại → xóa lỗi lượt trước (nếu có).
       backupError: undefined,
       backupErrorAt: undefined,
@@ -184,6 +210,11 @@ export const requestRestore = mutation({
       throw new Error("Không có quyền quản lý server này");
     }
     if (!guild.botInGuild) throw new Error("Bot chưa có trong server này");
+    if (isAnyClaimActive(guild)) {
+      throw new Error(
+        "Bot đang xử lý yêu cầu backup/khôi phục trước; hãy đợi hoàn tất rồi thử lại",
+      );
+    }
     const backup = await ctx.db.get(backupId);
     if (!backup) throw new Error("Backup không tồn tại hoặc đã bị xóa");
     // Người khôi phục phải cũng là người quản lý server gốc đã tạo backup.
@@ -198,6 +229,7 @@ export const requestRestore = mutation({
       restoreRequested: true,
       restoreBackupId: backupId,
       restoreClaimedAt: undefined,
+      restoreLeaseUntil: undefined,
       restoreError: undefined,
       restoreErrorAt: undefined,
       updatedAt: Date.now(),
@@ -261,6 +293,9 @@ export const requestImportRestore = mutation({
         throw new Error("Không có quyền quản lý server này");
       }
       if (!guild.botInGuild) throw new Error("Bot chưa có trong server này");
+      if (isClaimActive(guild.restoreClaimedAt, guild.restoreLeaseUntil)) {
+        throw new Error("Bot đang xử lý yêu cầu khôi phục trước; hãy đợi hoàn tất rồi thử lại");
+      }
       const meta = await ctx.storage.getMetadata(storageId);
       if (!meta) {
         throw new Error("File không tồn tại hoặc đã bị xóa — hãy chọn lại file");
@@ -281,6 +316,7 @@ export const requestImportRestore = mutation({
         importError: undefined,
         importErrorAt: undefined,
         restoreClaimedAt: undefined,
+        restoreLeaseUntil: undefined,
         updatedAt: Date.now(),
       });
       return { ok: true };

@@ -6,10 +6,11 @@ import { LogoMark } from "../components/BotLogo";
 import { Button } from "../components/ui/button";
 import HaimiyaChat from "../components/HaimiyaChat";
 import { usePublicConfig } from "../lib/usePublicConfig";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "../components/ui/card";
 import {
   OAUTH_VERIFIER_KEY,
   OAUTH_STATE_KEY,
+  REMEMBER_LOGIN_KEY,
   buildAuthorizeUrl,
   generateChallenge,
   generateVerifier,
@@ -29,7 +30,9 @@ const DISCORD_LOGO = (
 export default function AuthPage() {
   const { clientId, loading: configLoading, error: configError } = usePublicConfig();
   const [loading, setLoading] = useState(false);
-  const [remember, setRemember] = useState(true);
+  const [remember, setRemember] = useState(
+    () => sessionStorage.getItem(REMEMBER_LOGIN_KEY) !== "0",
+  );
   const location = useLocation();
   const returnTo = new URLSearchParams(location.search).get("returnTo") ?? "/dashboard";
 
@@ -56,7 +59,10 @@ export default function AuthPage() {
       <HaimiyaChat position="dashboard" />
       <LangSwitch showIcon className="absolute right-4 top-4 z-20" />
 
-      <div className="relative grid w-full max-w-4xl gap-8 lg:grid-cols-2">
+      <main className="relative grid w-full max-w-4xl gap-8 lg:grid-cols-2">
+        <h1 className="mb-2 text-center font-display text-2xl font-bold tracking-tight lg:hidden">
+          {translate("Quản lý bot Discord của bạn từ một nơi")}{" "}
+        </h1>
         <motion.div
           initial={{ opacity: 0, x: -24 }}
           animate={{ opacity: 1, x: 0 }}
@@ -99,7 +105,9 @@ export default function AuthPage() {
         >
           <Card className="border-border/80 bg-card/95 shadow-lg backdrop-blur">
             <CardHeader className="text-center">
-              <CardTitle className="text-2xl">{translate("Đăng nhập vào Protogon")}</CardTitle>
+              <h2 className="font-display text-2xl font-semibold leading-tight tracking-tight">
+                {translate("Đăng nhập vào Protogon")}
+              </h2>
               <CardDescription>
                 {translate("Sử dụng tài khoản Discord để quản lý các server của bạn")}{" "}
               </CardDescription>
@@ -124,11 +132,12 @@ export default function AuthPage() {
                       ? translate("Đang chuyển tới Discord…")
                       : translate("Đăng nhập với Discord")}
                   </Button>
-                  <label className="flex cursor-pointer select-none items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <div className="flex select-none items-center justify-center gap-2 text-xs text-muted-foreground">
                     <button
                       type="button"
                       role="checkbox"
                       aria-checked={remember}
+                      aria-label={translate(remember ? "Không lưu đăng nhập" : "Lưu đăng nhập")}
                       onClick={() => setRemember((r) => !r)}
                       className={`relative h-5 w-9 rounded-full transition-colors ${
                         remember ? "bg-primary" : "bg-secondary"
@@ -152,7 +161,7 @@ export default function AuthPage() {
                         {translate("— đóng trình duyệt sẽ phải đăng nhập lại")}{" "}
                       </span>
                     )}
-                  </label>
+                  </div>
                 </>
               ) : configError ? (
                 <div className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-sm">
@@ -211,7 +220,11 @@ export default function AuthPage() {
               </p>
 
               <div className="flex items-center justify-between border-t border-border pt-4 text-xs">
-                <Link to="/" className="text-muted-foreground transition-colors hover:text-primary">
+                <Link
+                  to="/"
+                  aria-label={translate("← Về trang chủ")}
+                  className="text-muted-foreground transition-colors hover:text-primary"
+                >
                   {translate("← Về trang chủ")}{" "}
                 </Link>
                 <a
@@ -226,7 +239,7 @@ export default function AuthPage() {
             </CardContent>
           </Card>
         </motion.div>
-      </div>
+      </main>
     </div>
   );
 }

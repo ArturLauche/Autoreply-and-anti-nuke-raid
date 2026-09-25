@@ -225,7 +225,7 @@ export const getRecentJoins = query({
     const limit = Math.min(args.limit ?? 50, 100);
     const joins = await ctx.db
       .query("memberJoins")
-      .withIndex("by_guildId", (q) => q.eq("guildId", args.guildId))
+      .withIndex("by_guildId_joinedAt", (q) => q.eq("guildId", args.guildId).gte("joinedAt", 0))
       .order("desc")
       .take(limit);
     return joins.map((j) => ({
@@ -262,11 +262,13 @@ export const getAltStats = query({
     const dayMs = 86_400_000;
     const sevenDaysAgo = now - 7 * dayMs;
 
-    const joins = await ctx.db
+    const recentJoins = await ctx.db
       .query("memberJoins")
-      .withIndex("by_guildId", (q) => q.eq("guildId", args.guildId))
+      .withIndex("by_guildId_joinedAt", (q) =>
+        q.eq("guildId", args.guildId).gte("joinedAt", sevenDaysAgo),
+      )
+      .order("asc")
       .collect();
-    const recentJoins = joins.filter((j) => j.joinedAt > sevenDaysAgo);
 
     const highRisk = recentJoins.filter((j) => j.riskScore >= 70);
     const vpnUsers = recentJoins.filter((j) => j.isVPN);

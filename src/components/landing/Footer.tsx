@@ -56,18 +56,18 @@ export default function Footer({
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-2">
-            <a href={discordInvite} target="_blank" rel="noreferrer">
-              <Button variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm">
+              <a href={discordInvite} target="_blank" rel="noreferrer">
                 <MessageCircle className="h-4 w-4" />
                 Discord server
-              </Button>
-            </a>
-            <a href={facebookUrl} target="_blank" rel="noreferrer">
-              <Button variant="outline" size="sm">
+              </a>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <a href={facebookUrl} target="_blank" rel="noreferrer">
                 <Facebook className="h-4 w-4" />
                 Fanpage Facebook
-              </Button>
-            </a>
+              </a>
+            </Button>
           </div>
         </div>
         {/* Liên kết pháp lý: mọi trang (kể cả trang pháp lý khác) đều có đường
@@ -85,6 +85,11 @@ export default function Footer({
           </Link>
           <Link to="/data-deletion" className="transition-colors hover:text-foreground">
             {translate("Lưu trữ & xoá dữ liệu")}
+          </Link>
+          {/* Trạng thái hệ thống: công khai (không auth) — người dùng tự kiểm
+              bot/web có sống không mà không cần hỏi trong Discord. */}
+          <Link to="/status" className="transition-colors hover:text-foreground">
+            {translate("Trạng thái hệ thống")}
           </Link>
         </nav>
         <div className="mt-6 flex flex-col items-center justify-between gap-3 border-t border-border/60 pt-6 md:flex-row">

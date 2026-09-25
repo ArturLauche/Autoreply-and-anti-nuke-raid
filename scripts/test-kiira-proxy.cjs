@@ -29,6 +29,12 @@ const path = require("path");
 const fs = require("fs");
 
 const PROXY_SCRIPT = path.join(__dirname, "kiira-retry-proxy.mjs");
+const BUN_BIN =
+  process.env.BUN_BIN ||
+  ["/usr/local/bun/bin/bun", "/usr/local/bin/bun", "/usr/bin/bun"].find((candidate) =>
+    fs.existsSync(candidate),
+  ) ||
+  "bun";
 const PORT = 8791; // port test riêng, tránh đụng proxy thật (8787)
 
 let pass = 0;
@@ -147,7 +153,7 @@ function stopServer(server) {
 }
 
 function startProxy(upstream, extraEnv = {}) {
-  return spawn("bun", [PROXY_SCRIPT], {
+  return spawn(BUN_BIN, [PROXY_SCRIPT], {
     env: {
       PATH: process.env.PATH,
       HOME: process.env.HOME,

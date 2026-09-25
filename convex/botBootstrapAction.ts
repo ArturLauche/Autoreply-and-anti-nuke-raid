@@ -1,5 +1,9 @@
 "use node";
 
+declare const process: {
+  env: Record<string, string | undefined>;
+};
+
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
@@ -26,10 +30,18 @@ import { computeBotKey } from "./botAuth";
  * deployment — bot thật chỉ bootstrap khi mất key nên đủ dùng.
  */
 
+async function fetchDiscord(url: string, init: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  // Không clear timer ngay khi headers về: body JSON phải được abort cùng hạn.
+  const timer = setTimeout(() => controller.abort(), 8_000);
+  (timer as unknown as { unref?: () => void }).unref?.();
+  return fetch(url, { ...init, signal: controller.signal });
+}
+
 /** Xác minh Discord bot token — trả { id, username } hoặc null khi sai/mạng lỗi. */
 async function verifyDiscordBotToken(botToken: string) {
   try {
-    const res = await fetch("https://discord.com/api/v10/users/@me", {
+    const res = await fetchDiscord("https://discord.com/api/v10/users/@me", {
       headers: { Authorization: `Bot ${botToken.trim()}` },
     });
     if (!res.ok) return null;
@@ -41,8 +53,43 @@ async function verifyDiscordBotToken(botToken: string) {
   }
 }
 
+function assertExpectedBotApplication(
+  bot: { id: string },
+  storedApplicationId?: string | null,
+): string | null {
+  const expected = [
+    process.env.BOT_APPLICATION_ID,
+    process.env.EXPECTED_BOT_APPLICATION_ID,
+    process.env.DISCORD_CLIENT_ID,
+    storedApplicationId,
+  ]
+    .map((value) => value?.trim())
+    .find((value) => !!value && /^\d{15,21}$/.test(value));
+  if (!expected) {
+    return "Chưa cấu hình Application ID bot hợp lệ (BOT_APPLICATION_ID, EXPECTED_BOT_APPLICATION_ID hoặc DISCORD_CLIENT_ID)";
+  }
+  if (bot.id !== expected) {
+    return "Token bot không khớp Application ID của deployment — kiểm tra lại token bot và Application ID";
+  }
+  return null;
+}
+
 type BootstrapResult =
   { ok: true; botKey: string; applicationId: string } | { ok: false; error: string };
+
+const bootstrapCalls: number[] = [];
+const BOOTSTRAP_WINDOW_MS = 60_000;
+const BOOTSTRAP_MAX_PER_WINDOW = 30;
+
+function allowBootstrapCall(): boolean {
+  const now = Date.now();
+  while (bootstrapCalls[0] && now - bootstrapCalls[0] >= BOOTSTRAP_WINDOW_MS) {
+    bootstrapCalls.shift();
+  }
+  if (bootstrapCalls.length >= BOOTSTRAP_MAX_PER_WINDOW) return false;
+  bootstrapCalls.push(now);
+  return true;
+}
 
 /**
  * Hex ngẫu nhiên 32 bytes — dùng webcrypto global (có trong cả Node 18+ actions
@@ -60,14 +107,20 @@ function randomHex32(): string {
 export const requestBotKey = action({
   args: { botToken: v.string() },
   handler: async (ctx, { botToken }): Promise<BootstrapResult> => {
-    // Rate-limit TRƯỚC khi gọi Discord API — chặn dùng action làm relay spam.
-    const gate = await ctx.runMutation(internal.botBootstrap.markBootstrapAttempt);
-    if (!gate.ok) return gate;
-
+    if (!allowBootstrapCall()) {
+      return { ok: false, error: "Quá nhiều lượt bootstrap; thử lại sau ít phút" };
+    }
     const bot = await verifyDiscordBotToken(botToken);
     if (!bot) {
       return { ok: false as const, error: "Token bot không hợp lệ (Discord từ chối)" };
     }
+    const status = await ctx.runQuery(internal.botAuth.getBotKeyStatusInternal);
+    const applicationError = assertExpectedBotApplication(bot, status.botApplicationId);
+    if (applicationError) return { ok: false as const, error: applicationError };
+    // Chỉ ghi cooldown sau khi token + Application ID đã hợp lệ; caller random
+    // không thể khóa bot thật trong 10 phút chỉ bằng một request sai.
+    const gate = await ctx.runMutation(internal.botBootstrap.markBootstrapAttempt);
+    if (!gate.ok) return gate;
     const botKey = randomHex32();
     // computeBotKey = SHA-256("protogon-bot-key::" + key) — thuần TS, khớp protocol botAuth.
     const seed = computeBotKey(botKey);
@@ -87,15 +140,34 @@ export const requestBotKey = action({
 type KeyStatusResult =
   { ok: true; seeded: boolean; applicationId: string | null } | { ok: false; error: string };
 
+const keyStatusCalls: number[] = [];
+const KEY_STATUS_WINDOW_MS = 60_000;
+const KEY_STATUS_MAX_PER_WINDOW = 6;
+
+function allowKeyStatusCall(): boolean {
+  const now = Date.now();
+  while (keyStatusCalls[0] && now - keyStatusCalls[0] >= KEY_STATUS_WINDOW_MS) {
+    keyStatusCalls.shift();
+  }
+  if (keyStatusCalls.length >= KEY_STATUS_MAX_PER_WINDOW) return false;
+  keyStatusCalls.push(now);
+  return true;
+}
+
 /** Bot hỏi trạng thái seed trước khi bootstrap (tránh xoay key vô ích). */
 export const keyStatus = action({
   args: { botToken: v.string() },
   handler: async (ctx, { botToken }): Promise<KeyStatusResult> => {
+    if (!allowKeyStatusCall()) {
+      return { ok: false, error: "Quá nhiều lượt kiểm tra trạng thái; thử lại sau ít phút" };
+    }
     const bot = await verifyDiscordBotToken(botToken);
     if (!bot) {
       return { ok: false as const, error: "Token bot không hợp lệ (Discord từ chối)" };
     }
     const status = await ctx.runQuery(internal.botAuth.getBotKeyStatusInternal);
+    const applicationError = assertExpectedBotApplication(bot, status.botApplicationId);
+    if (applicationError) return { ok: false as const, error: applicationError };
     return { ok: true as const, seeded: status.seeded, applicationId: status.botApplicationId };
   },
 });

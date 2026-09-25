@@ -56,7 +56,8 @@ heat.states.set("g1:old-punished", {
   lastPunishedAt: NOW - 2000 * MIN,
 });
 heat.strikes.set("g1:fresh-strike", { count: 1, firstAt: NOW - 5 * MIN });
-heat.strikes.set("g1:old-strike", { count: 2, firstAt: NOW - 120 * MIN });
+heat.strikes.set("g1:max-window-strike", { count: 2, firstAt: NOW - 120 * MIN });
+heat.strikes.set("g1:old-strike", { count: 2, firstAt: NOW - 1441 * MIN });
 
 const removed = heat.sweepCold();
 check("xóa entry nguội", heat.states.get("g1:cold") === undefined);
@@ -67,7 +68,11 @@ check(
 );
 check("xóa entry bị phạt đã quá 24h", heat.states.get("g1:old-punished") === undefined);
 check("giữ strike còn trong cửa sổ", heat.strikes.get("g1:fresh-strike") !== undefined);
-check("xóa strike quá 60 phút", heat.strikes.get("g1:old-strike") === undefined);
+check(
+  "giữ strike trong cửa sổ cấu hình tối đa 24h",
+  heat.strikes.get("g1:max-window-strike") !== undefined,
+);
+check("xóa strike quá cửa sổ tối đa 24h", heat.strikes.get("g1:old-strike") === undefined);
 check("trả về đúng số entry đã dọn", removed === 3);
 
 // Idempotent: sweep lần 2 không xóa thêm gì

@@ -12,6 +12,42 @@ import { spawnSync } from "node:child_process";
 // (base64 "{\"v\":\"v2\",...}") → bundle mang giá trị rác → URL đăng nhập
 // Discord bị từ chối “Invalid Form Body” ngay trang Discord. Giá trị sai bị bỏ
 // qua để runtime fallback về Convex (botApplicationId) thay vì phá nút đăng nhập.
+const rawConvexUrl = process.env.CONVEX_URL || process.env.VITE_CONVEX_URL || "";
+const trimmedConvexUrl = rawConvexUrl.trim().replace(/\/+$/, "");
+if (rawConvexUrl) {
+  try {
+    const parsedConvexUrl = new URL(trimmedConvexUrl);
+    const isLocal = /^(?:localhost|127\.0\.0\.1)(?::\d+)?$/i.test(parsedConvexUrl.hostname);
+    const isConvexHost = /^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.convex\.cloud$/i.test(
+      parsedConvexUrl.hostname,
+    );
+    if (isLocal) {
+      throw new Error("production build không được dùng CONVEX_URL localhost");
+    } else if (parsedConvexUrl.protocol !== "https:" || !isConvexHost) {
+      throw new Error("production phải là HTTPS với host *.convex.cloud");
+    }
+    if (
+      parsedConvexUrl.username ||
+      parsedConvexUrl.password ||
+      parsedConvexUrl.search ||
+      parsedConvexUrl.hash ||
+      (parsedConvexUrl.pathname && parsedConvexUrl.pathname !== "/")
+    ) {
+      throw new Error("CONVEX_URL không được có path, query, hash hoặc credentials");
+    }
+  } catch (error) {
+    console.error(`[build] CONVEX_URL không hợp lệ: ${error.message}`);
+    process.exit(1);
+  }
+}
+if (!rawConvexUrl) {
+  console.error(
+    "[build] Thiếu CONVEX_URL/VITE_CONVEX_URL — production build phải trỏ tường minh tới deployment, không dùng fallback âm thầm.",
+  );
+  process.exit(1);
+}
+process.env.VITE_CONVEX_URL = trimmedConvexUrl;
+
 const rawClientId = process.env.VITE_DISCORD_CLIENT_ID || process.env.DISCORD_CLIENT_ID || "";
 const trimmedClientId = rawClientId.trim();
 if (rawClientId && !/^\d{15,21}$/.test(trimmedClientId)) {

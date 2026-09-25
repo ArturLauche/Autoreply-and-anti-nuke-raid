@@ -12,9 +12,11 @@ Trang chủ: https://protogon.freebuff.app
 
 - `/` — giới thiệu tính năng, cách hoạt động, trợ lý Haimiya
 - `/auth` — đăng nhập bằng Discord
+- `/monitor` — trạng thái hoạt động của bot
 - `/terms` — điều khoản sử dụng
 - `/privacy` — chính sách quyền riêng tư
 - `/data-deletion` — lưu trữ và xoá dữ liệu
+- `/status` — trạng thái hệ thống realtime (web/backend/bot, không cần đăng nhập)
 
 ## Trang cần đăng nhập (không thể xem khi chưa xác thực)
 

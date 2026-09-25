@@ -84,11 +84,12 @@ export default function StatsPage() {
   return (
     <div className="relative min-h-screen">
       <div className="relative z-10">
-        <header className="border-b border-border/60 bg-white/60 backdrop-blur">
+        <header className="border-b border-border/60 bg-background/70 backdrop-blur">
           <div className="container py-6">
             <div className="flex flex-wrap items-center gap-4">
               <Link
                 to="/dashboard"
+                aria-label={translate("← Về danh sách server")}
                 className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
                 <ArrowLeft className="h-4 w-4" />

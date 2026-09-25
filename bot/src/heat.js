@@ -12,6 +12,7 @@
  * Warn tích lũy (moderation): khi hình phạt là "warn", mỗi lần vi phạm đếm 1
  * strike; đủ warnStrikeLimit lần trong cửa sổ → tự tăng cấp thành warnStrikePunish.
  */
+const { UserFlags } = require("discord.js");
 const timeoutWatch = require("./timeoutWatch");
 // MISFIRE FEEDBACK (vòng 11): phạt tự động thành công → ghi chú chờ mod xét —
 // mod gỡ phạt sau đó = phạt nhầm đã xác nhận → AI tự soi khi phân tích lần sau.
@@ -21,6 +22,7 @@ const actionBudget = require("./actionBudget");
 const TIER_STRENGTH = { warn: 1, timeout: 2, kick: 3, ban: 4 };
 const HEAT_MAX = 100;
 const MIN_MS = 60_000;
+const MAX_WARN_STRIKE_WINDOW_MIN = 1440;
 
 /** Lấy cài đặt nhiệt độ + warn strike của guild (kèm giá trị mặc định). */
 function heatSettings(config) {
@@ -34,7 +36,10 @@ function heatSettings(config) {
     repeatMultiplier: Math.max(1, Math.min(10, config?.heatRepeatMultiplier ?? 2)),
     repeatWindowMin: Math.max(1, Math.min(1440, config?.heatRepeatWindowMin ?? 30)),
     warnStrikeLimit: Math.max(0, Math.min(20, config?.warnStrikeLimit ?? 3)),
-    warnStrikeWindowMin: Math.max(1, Math.min(1440, config?.warnStrikeWindowMin ?? 60)),
+    warnStrikeWindowMin: Math.max(
+      1,
+      Math.min(MAX_WARN_STRIKE_WINDOW_MIN, config?.warnStrikeWindowMin ?? 60),
+    ),
     warnStrikePunish: config?.warnStrikePunish ?? "timeout",
   };
 }
@@ -111,7 +116,7 @@ async function punishMember(guild, member, punishType, reason, timeoutSeconds = 
     const user = member?.user ?? member;
     const isBot = user?.bot === true;
     const verified =
-      typeof user?.flags?.has === "function" && user.flags.has(4); /* UserFlags.VerifiedBot */
+      typeof user?.flags?.has === "function" && user.flags.has(UserFlags.VerifiedBot);
     const joinedLong =
       typeof member?.joinedTimestamp === "number" &&
       Date.now() - member.joinedTimestamp >= 7 * 86_400_000;
@@ -224,9 +229,9 @@ class HeatTracker {
       this.warned.delete(key);
       removed++;
     }
-    // Strikes: hết cửa sổ 60 phút (mặc định) thì không còn ý nghĩa tích lũy.
+    // Strikes: chỉ dọn sau cửa sổ cấu hình dài nhất để không cắt tích lũy đang hiệu lực.
     for (const [key, st] of this.strikes) {
-      if (Date.now() - st.firstAt > 60 * MIN_MS) {
+      if (Date.now() - st.firstAt > MAX_WARN_STRIKE_WINDOW_MIN * MIN_MS) {
         this.strikes.delete(key);
         removed++;
       }

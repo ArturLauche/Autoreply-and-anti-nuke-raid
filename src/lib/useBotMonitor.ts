@@ -1,14 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBotStatus, type BotStatus } from "./useBotStatus";
 import { dateLocale } from "./i18n";
+import { convexPingUrl } from "./convexUrl";
 
-/** Điểm cuối Convex dùng để đo độ trễ thực (khớp URL backend chọn trong main.tsx). */
-const configuredUrl = import.meta.env.VITE_CONVEX_URL ?? "";
-const isLocalDevUrl = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredUrl);
-const PING_URL =
-  !configuredUrl || isLocalDevUrl
-    ? "https://accomplished-chipmunk-74.convex.cloud/api/query"
-    : `${configuredUrl.replace(/\/$/, "")}/api/query`;
+const PING_URL = convexPingUrl();
 
 export const LATENCY_FAST = 300;
 export const LATENCY_SLOW = 800;
@@ -52,6 +47,13 @@ async function pingBackend(): Promise<number> {
   return Math.round(performance.now() - t0);
 }
 
+/** Kết quả ping backend gần nhất — nguồn tin của thẻ "Backend (dữ liệu)". */
+export interface BackendPing {
+  state: "ok" | "down" | "checking";
+  /** Lần ping thành công gần nhất (ms epoch) — undefined khi chưa ping được lần nào. */
+  lastOkAt?: number;
+}
+
 export interface BotMonitor {
   status: BotStatus | null;
   latency: number | null;
@@ -61,6 +63,8 @@ export interface BotMonitor {
   lastUpdate: number | null;
   nextUpdate: number | null;
   refresh: () => void;
+  /** Kết quả ping HTTP gần nhất — KHÁC subscription: ping lỗi là backend thật sự không gọi được. */
+  backendPing: BackendPing;
 }
 
 /**
@@ -77,6 +81,7 @@ export function useBotMonitor(intervalMs = 5000): BotMonitor {
   const [latency, setLatency] = useState<number | null>(null);
   const [history, setHistory] = useState<number[]>([]);
   const [incidents, setIncidents] = useState<MonitorIncident[]>([]);
+  const [backendPing, setBackendPing] = useState<BackendPing>({ state: "checking" });
   const [nonce, setNonce] = useState(0);
   const timerRef = useRef<number>(0);
 
@@ -88,6 +93,7 @@ export function useBotMonitor(intervalMs = 5000): BotMonitor {
     try {
       const ms = await pingBackend();
       setLatency(ms);
+      setBackendPing({ state: "ok", lastOkAt: Date.now() });
       setHistory((h) => [...h.slice(-29), ms]);
       if (ms > INCIDENT_SLOW) {
         setIncidents((arr) =>
@@ -96,6 +102,7 @@ export function useBotMonitor(intervalMs = 5000): BotMonitor {
       }
     } catch {
       setLatency(null);
+      setBackendPing({ state: "down" });
       setIncidents((arr) =>
         [{ time: Date.now(), text: "Mất kết nối tới máy chủ" }, ...arr].slice(0, 10),
       );
@@ -130,5 +137,15 @@ export function useBotMonitor(intervalMs = 5000): BotMonitor {
   const lastUpdate = status?.lastHeartbeat ?? null;
   const nextUpdate = lastUpdate !== null ? lastUpdate + SYNC_INTERVAL_MS : null;
 
-  return { status, latency, history, avg, incidents, lastUpdate, nextUpdate, refresh };
+  return {
+    status,
+    latency,
+    history,
+    avg,
+    incidents,
+    lastUpdate,
+    nextUpdate,
+    refresh,
+    backendPing,
+  };
 }

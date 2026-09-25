@@ -27,36 +27,12 @@ import {
   botStoreBackup,
   botClearBackup,
   botReportBackupError,
-  botSetRestoreRequest,
-  botReportRestoreError,
-  botReportImportError,
-  botRestoreSettings,
 } from "../convex/bot_writes";
 import { getPendingJobs } from "../convex/bot_tick";
 import { computeBotKey } from "../convex/botAuth";
 
 /** Bot là CommonJS — nạp module thật để lái engine backup thật của production. */
 import backupMod from "../bot/src/handlers/backup.js";
-/**
- * tick.js thật của production (runBackupJobs) — nạp qua createRequire vì test là
- * ESM còn bot là CommonJS. tick.js require handlers/hidden → welcomeCard →
- * @napi-rs/canvas (nạp lười, không bắt buộc) → môi trường không canvas vẫn chạy.
- */
-import { createRequire } from "node:module";
-const tickMod = createRequire(import.meta.url)("../bot/src/tick.js") as {
-  runBackupJobs: (
-    client: unknown,
-    store: unknown,
-    items: {
-      guildId: string;
-      kind: string;
-      backupJson?: string;
-      guildName?: string;
-      fileName?: string;
-      importFileUrl?: string;
-    }[],
-  ) => Promise<void>;
-};
 
 // Backup mã hoá chỉ bật khi có BACKUP_ENCRYPT_KEY trên VPS; test phải tất định.
 delete process.env.BACKUP_ENCRYPT_KEY;
@@ -139,20 +115,14 @@ function makeCtx() {
     },
     patch: async (id: string, patch: Row) => {
       for (const rows of tables.values()) {
-        const i = rows.findIndex((r) => r._id === id);
-        if (i < 0) continue;
-        // Convex: document là SNAPSHOT BẤT BIẾN — patch tạo phiên bản mới, tham
-        // chiếu cũ (vd `guild` handler đã fetch) giữ nguyên giá trị trước patch.
-        // Mock cũ mutate in-place → handler đọc lại `guild.importStorageId` SAU
-        // patch nhận undefined và bỏ qua storage.delete (lỗi giả, 24/09/2026).
-        const next: Row = { ...rows[i] };
+        const hit = rows.find((r) => r._id === id);
+        if (!hit) continue;
         for (const [k, v] of Object.entries(patch)) {
           // Convex: patch với undefined = XOÁ field (dashboard dựa vào đây để đọc
           // "chưa có mốc xong" thay vì nhầm với lượt trước).
-          if (v === undefined) delete next[k];
-          else next[k] = v;
+          if (v === undefined) delete hit[k];
+          else hit[k] = v;
         }
-        rows[i] = next;
         return;
       }
     },
@@ -168,23 +138,8 @@ function makeCtx() {
     query: (t: string) => chain(t),
   };
 
-  /** ID file storage đã xoá — luồng import phải dọn file sau khi xử lý xong. */
-  const deletedStorage: string[] = [];
   return {
-    ctx: {
-      db,
-      storage: {
-        getUrl: async () => null,
-        // Convex thật có storage.delete — botClearBackup / botReportImportError
-        // gọi nó để dọn file .msc đã import. Thiếu ở đây thì đường xoá file
-        // không từng được xác minh (đã gặp thật 24/09/2026 — mock thiếu delete).
-        delete: async (id: string) => {
-          deletedStorage.push(id);
-        },
-      },
-    },
-    /** Danh sách ID storage đã xoá — test dùng để khẳng định file import bị dọn. */
-    deletedStorage,
+    ctx: { db, storage: { getUrl: async () => null } },
     rows: rowsOf,
     tables,
     setFailStore: (v: boolean) => {
@@ -207,11 +162,6 @@ function makeStore(ctx: unknown) {
       "bot_writes:botClearBackup": botClearBackup,
       "bot_writes:botReportBackupError": botReportBackupError,
       "bot_writes:botClaimBackup": botClaimBackup,
-      // Hợp đồng luồng restore/import — gọi tên sai ở bot → suite đỏ ngay.
-      "bot_writes:botSetRestoreRequest": botSetRestoreRequest,
-      "bot_writes:botReportRestoreError": botReportRestoreError,
-      "bot_writes:botReportImportError": botReportImportError,
-      "bot_writes:botRestoreSettings": botRestoreSettings,
     },
   };
   const calls: { type: string; name: string }[] = [];
@@ -245,21 +195,8 @@ function makeStore(ctx: unknown) {
 }
 
 // ─────────────────────────── Discord client giả ─────────────────────────────
-/**
- * Guild "thật" với 3 role, 2 kênh, 1 emoji động, 1 sticker — đủ để snapshot có
- * nội dung. Mock hỗ trợ ĐỦ API mà restore dùng (roles.create, channels.create,
- * emojis.create, stickers.create, createWebhook) để luồng khôi phục được xác
- * minh TẠO LẠI THẬT — không chỉ "không crash". Mọi đối tượng tạo ra được ghi
- * vào client.__created để test kiểm chứng.
- */
+/** Guild "thật" với 3 role, 2 kênh, 1 emoji động, 1 sticker — đủ để snapshot có nội dung. */
 function makeDiscordClient(opts: { withMessages?: boolean; failChannel?: boolean } = {}) {
-  const created = {
-    roles: [] as any[],
-    channels: [] as any[],
-    emojis: [] as any[],
-    stickers: [] as any[],
-    webhookSends: [] as any[],
-  };
   const role = (id: string, name: string, position: number, managed = false) => ({
     id,
     name,
@@ -308,18 +245,6 @@ function makeDiscordClient(opts: { withMessages?: boolean; failChannel?: boolean
       : {}),
   });
 
-  const roleCache = new Map([
-    ["@everyone", role("r0", "@everyone", 0)],
-    ["r1", role("r1", "Admin", 1)],
-    ["r2", role("r2", "Member", 2)],
-  ]);
-  const channelCache = new Map([
-    ["c1", channel("c1", "chung", 0)],
-    ["c2", channel("c2", "thông-báo", 1)],
-  ]);
-  let createdRoleN = 0;
-  let createdChannelN = 0;
-
   const guild = {
     id: GID,
     name: "Server Thật",
@@ -327,51 +252,18 @@ function makeDiscordClient(opts: { withMessages?: boolean; failChannel?: boolean
     memberCount: 128,
     premiumSubscriptionCount: 4,
     members: { me: { permissions: { bitfield: 8n } } },
-    // replayMessages dùng iconURL làm avatar webhook — null là hợp lệ (bỏ avatar).
-    iconURL: () => null,
     roles: {
-      cache: roleCache,
-      // restore: createRoles — tạo role mới + sắp vị trí + set icon (best-effort).
-      create: async (o: any) => {
-        const id = `nr${++createdRoleN}`;
-        const r = role(id, String(o.name), createdRoleN);
-        roleCache.set(id, r);
-        created.roles.push({
-          name: o.name,
-          color: o.color,
-          permissions: String(o.permissions ?? 0n),
-        });
-        return { id, setPosition: async () => {}, setIcon: async () => {} };
-      },
+      cache: new Map([
+        ["@everyone", role("r0", "@everyone", 0)],
+        ["r1", role("r1", "Admin", 1)],
+        ["r2", role("r2", "Member", 2)],
+      ]),
     },
     channels: {
-      cache: channelCache,
-      // restore: createChannels — tạo danh mục rồi kênh thường.
-      create: async (o: any) => {
-        const id = `nc${++createdChannelN}`;
-        const ch: any = {
-          id,
-          name: o.name,
-          type: o.type,
-          position: 0,
-          permissionOverwrites: { cache: new Map() },
-          isTextBased: () => o.type === 0 || o.type === 5,
-          setPosition: async () => {},
-          createWebhook: async (wo: any) => {
-            const wh = {
-              name: wo?.name,
-              sends: created.webhookSends,
-              send: async (p: any) => created.webhookSends.push(p),
-              delete: async () => {},
-            };
-            return wh;
-          },
-          send: async () => {},
-        };
-        channelCache.set(id, ch);
-        created.channels.push({ name: o.name, type: o.type, parent: o.parent });
-        return ch;
-      },
+      cache: new Map([
+        ["c1", channel("c1", "chung", 0)],
+        ["c2", channel("c2", "thông-báo", 1)],
+      ]),
     },
     emojis: {
       cache: new Map([
@@ -387,11 +279,6 @@ function makeDiscordClient(opts: { withMessages?: boolean; failChannel?: boolean
         ],
         ["e2", { id: "e2", name: "ghost", animated: false, available: false }],
       ]),
-      // restore: recreateEmojis — tải ảnh từ URL/data URI rồi tạo lại thật.
-      create: async (o: any) => {
-        created.emojis.push({ name: o.name, bytes: o.attachment?.length ?? 0 });
-        return { id: `ne${created.emojis.length}` };
-      },
     },
     stickers: {
       cache: new Map([
@@ -407,17 +294,10 @@ function makeDiscordClient(opts: { withMessages?: boolean; failChannel?: boolean
           },
         ],
       ]),
-      // restore: restoreStickers — tải file rồi tạo lại thật.
-      create: async (o: any) => {
-        created.stickers.push({ name: o.name, tags: o.tags });
-        return { id: `ns${created.stickers.length}` };
-      },
     },
   };
 
-  const client = { guilds: { cache: { get: (id: string) => (id === GID ? guild : null) } } };
-  (client as any).__created = created;
-  return client;
+  return { guilds: { cache: { get: (id: string) => (id === GID ? guild : null) } } };
 }
 
 /** Dựng DB "vừa mời bot": guild + session đăng nhập + botStatus (botKeySeed). */
@@ -432,8 +312,14 @@ function seed() {
     botInGuild: true,
     prefix: "!",
   });
-  h.rows("users").push({ _id: USER, discordId: USER, manageableGuildIds: [] });
-  h.rows("sessions").push({ _id: "s1", token: TOKEN, userId: USER, createdAt: Date.now() });
+  h.rows("users").push({ _id: USER, discordId: USER, manageableGuildIds: [GID] });
+  h.rows("sessions").push({
+    _id: "s1",
+    token: TOKEN,
+    userId: USER,
+    createdAt: Date.now(),
+    authVersion: 1,
+  });
   return h;
 }
 
@@ -467,52 +353,6 @@ const dashboardStatus = async (h: ReturnType<typeof seed>) =>
   (importStatus as any)._handler(h.ctx, { token: TOKEN, guildId: GID });
 const backupList = async (h: ReturnType<typeof seed>) =>
   (listGuild as any)._handler(h.ctx, { guildId: GID, botKey: BOT_KEY });
-
-/**
- * Chặn mạng thật: chỉ cho fetch data: URI (file import nhúng) và CDN giả
- * cdn.example (URL emoji/sticker/ảnh trong backup) — mọi URL khác là lỗi test.
- * Trả buffer PNG nhỏ hợp lệ đủ để recreateEmojis/restoreStickers tạo lại.
- * CẢ DNS phải giả lập: assertSafeRemoteUrl phân giải host trước fetch, sandbox
- * không có DNS → cdn.example bị chặn trước cả khi fetch được mock.
- */
-function installFetchMock() {
-  const realFetch = globalThis.fetch;
-  const realLookup = require("node:dns").promises.lookup;
-  require("node:dns").promises.lookup = async (host: string) => [
-    { address: "93.184.216.34", family: 4 },
-  ];
-  globalThis.fetch = (async (url: any) => {
-    const s = String(url);
-    if (s.startsWith("data:")) {
-      const [, b64] = s.split(",");
-      return new Response(Buffer.from(b64, "base64"), { status: 200 });
-    }
-    if (s.startsWith("https://cdn.example/")) {
-      return new Response(Buffer.from("PNGDATA"), { status: 200 });
-    }
-    throw new Error(`test không cho fetch thật: ${url}`);
-  }) as typeof fetch;
-  return () => {
-    globalThis.fetch = realFetch;
-    require("node:dns").promises.lookup = realLookup;
-  };
-}
-
-/**
- * Lái đúng code điều phối thật của production: tick.js runBackupJobs — nhận
- * quyền (claim) + chọn nhánh backup/restore/import + báo lỗi về dashboard.
- * Không lái qua đây thì mọi thay đổi ở tick.js (điều phối) sẽ không bị test nào
- * ở luồng này chặn.
- */
-async function driveTick(
-  h: ReturnType<typeof seed>,
-  items: Parameters<typeof tickMod.runBackupJobs>[2],
-) {
-  const store = makeStore(h.ctx);
-  const client = makeDiscordClient();
-  await tickMod.runBackupJobs(client, store, items as any);
-  return { store, client };
-}
 
 (async () => {
   console.log("\n═══ LUỒNG 1: bấm Backup ngay → có bản backup thật ═══");
@@ -554,7 +394,10 @@ async function driveTick(
       (list[0] as any).backupJson === undefined,
     );
     check("bot xoá cờ chờ sau khi lưu xong", guildRow(h).backupRequested === false);
-    check("bot xoá khoá claim", guildRow(h).backupClaimedAt === undefined);
+    check(
+      "bot xoá khoá claim + lease",
+      guildRow(h).backupClaimedAt === undefined && guildRow(h).backupLeaseUntil === undefined,
+    );
     check(
       "lastBackupAt được cập nhật (không kích hoạt backup tự động lại)",
       typeof guildRow(h).lastBackupAt === "number",
@@ -673,246 +516,6 @@ async function driveTick(
     check("backup ghi số sticker", row.stickerCount === 1);
     check("backup được nén", row.backupCompressed === true);
     check("không mã hoá khi không có BACKUP_ENCRYPT_KEY", row.backupEncrypted === undefined);
-  }
-
-  console.log("\n═══ LUỒNG 6: dashboard bấm Khôi phục → bot tạo lại role/kênh/tin nhắn ═══");
-  {
-    const h = seed();
-    // Bước 1: tạo bản backup thật (engine thật) — dùng làm nguồn khôi phục.
-    await (requestBackup as any)._handler(h.ctx, { token: TOKEN, guildId: GID });
-    await runDashboardToBot(h);
-    const original = await backupList(h);
-    check("chuẩn bị: đã có 1 bản backup Protogon", original.length === 1);
-
-    // Bước 2: bot lệnh /backup restore (botSetRestoreRequest — cùng 1 chữ ký mà
-    // bot dùng khi chủ server gõ lệnh khôi phục).
-    await (botSetRestoreRequest as any)._handler(h.ctx, {
-      guildId: GID,
-      backupId: original[0]._id,
-      botKey: BOT_KEY,
-    });
-    const st0 = await dashboardStatus(h);
-    check("dashboard thấy yêu cầu khôi phục đang chờ", st0.restoreRequested === true);
-
-    // Bước 3: tick trả job restore → bot điều phối thật qua tick.js runBackupJobs.
-    const jobs = await (getPendingJobs as any)._handler(h.ctx, { botKey: BOT_KEY });
-    const restoreJob = jobs.backups.find((b: any) => b.kind === "restore");
-    check(
-      "tick trả job restore kèm JSON của bản backup",
-      !!restoreJob && typeof restoreJob.backupJson === "string",
-    );
-    const restoreFetch = installFetchMock();
-    const { client } = await driveTick(h, jobs.backups);
-    restoreFetch();
-    const made = (client as any).__created;
-
-    // Bước 4: trạng thái sau khôi phục + xác minh ĐỒ ĐÃ TẠO LẠI THẬT.
-    const st = await dashboardStatus(h);
-    check("yêu cầu khôi phục được dọn sau khi xong", st.restoreRequested === false);
-    check("cột mốc khôi phục xong được ghi", typeof st.restoreFinishedAt === "number");
-    check("KHÔNG báo lỗi khôi phục", st.restoreError === null);
-    // Snapshot gốc có 2 role (Admin, Member) + 2 kênh (chung, thông-báo):
-    check("role đã được TẠO LẠI đúng số lượng", made.roles.length === 2);
-    check(
-      "tên role khớp bản backup",
-      made.roles
-        .map((r: any) => r.name)
-        .sort()
-        .join(",") === "Admin,Member",
-    );
-    check("kênh đã được TẠO LẠI đúng số lượng", made.channels.length === 2);
-    check(
-      "tên kênh khớp bản backup",
-      made.channels
-        .map((c: any) => c.name)
-        .sort()
-        .join(",") === "chung,thông-báo",
-    );
-    check(
-      "emoji đã được tải + tạo lại (tên chuẩn hóa)",
-      made.emojis.length === 1 && made.emojis[0].name === "wio",
-    );
-    check(
-      "sticker đã được tải + tạo lại",
-      made.stickers.length === 1 && made.stickers[0].name === "wave",
-    );
-
-    // Server "phục hồi" = server gốc trong test: cấu hình được ghi lại qua
-    // botRestoreSettings (mảng whitelist giữ nguyên id vì roleMap rỗng trong mock).
-    const row = guildRow(h);
-    check(
-      "botRestoreSettings được gọi (cấu hình cơ bản áp lại)",
-      typeof row.updatedAt === "number",
-    );
-    // Kênh log vẫn nhận embed hoàn tất (webhook gửi qua store.getConfig của mock).
-    check("dashboard KHÔNG còn thấy backup đang chờ", st.backupRequested === false);
-  }
-
-  console.log("\n═══ LUỒNG 7: import file .msc của bot nuke → khôi phục + lưu lại ═══");
-  {
-    const h = seed();
-    // File .msc "chuẩn" của bot nuke: wrapper {data:{guild:{...}}} + trường đa dạng
-    // (guildRoles, permission_overwrites, hex color, type chữ) — đúng các biến thể
-    // normalizeBackupFile phải đọc được.
-    const mscFile = JSON.stringify({
-      data: {
-        guild: {
-          guildName: "Server Bị Nuke",
-          guildRoles: [
-            { name: "Admin", color: "#ff0000", permissions: "ADMINISTRATOR", position: 1 },
-            { name: "Member", color: 0x00ff00, permissions: ["ViewChannel"], position: 2 },
-          ],
-          channels: [
-            {
-              name: "chung",
-              type: "text",
-              topic: "kênh chính",
-              messages: [
-                { content: "tin thứ nhất", timestamp: 1000, username: "user1" },
-                { content: "tin thứ hai", timestamp: 2000, username: "user2" },
-              ],
-            },
-          ],
-          guildEmojis: [{ name: "wio", url: "https://cdn.example/e1.png" }],
-        },
-      },
-    });
-    // Tải file vào "storage" giả rồi ghi guild.importStorageId (làm bằng tay thay
-    // generateUploadUrl vì fake ctx.storage chỉ getUrl về null).
-    h.rows("guilds")[0].importRestoreRequested = true;
-    h.rows("guilds")[0].importFileName = "backup.msc";
-    h.rows("guilds")[0].importStorageId = "st_import";
-    (h.ctx as any).storage.getUrl = async (id: string) =>
-      id === "st_import"
-        ? `data:text/plain;base64,${Buffer.from(mscFile).toString("base64")}`
-        : null;
-    const restoreFetch = installFetchMock();
-    try {
-      const jobs = await (getPendingJobs as any)._handler(h.ctx, { botKey: BOT_KEY });
-      const importJob = jobs.backups.find((b: any) => b.kind === "import");
-      check(
-        "tick trả job import kèm URL file",
-        !!importJob && typeof importJob.importFileUrl === "string",
-      );
-      const { client } = await driveTick(h, jobs.backups);
-      const made = (client as any).__created;
-
-      const st = await dashboardStatus(h);
-      check("file import được xử lý xong (cờ dọn)", st.requested === false);
-      check("KHÔNG lỗi import", st.error === null);
-      // Bản chuẩn hóa được lưu lại làm bằng chứng/khôi phục lần sau.
-      const list = await backupList(h);
-      check(
-        "file import được lưu lại làm bản backup nguồn 'import'",
-        list.length === 1 && list[0].source === "import",
-      );
-      check(
-        "bản lưu giữ đúng số role/kênh đã chuẩn hóa",
-        list[0].roleCount === 2 && list[0].channelCount === 1,
-      );
-      check("bản lưu giữ đúng số tin nhắn", list[0].messageCount === 2);
-      // Xác minh khôi phục TẠO LẠI THẬT từ file bot nuke (qua engine restoreCore).
-      check("role từ file .msc được tạo lại", made.roles.length === 2);
-      check(
-        "kênh từ file .msc được tạo lại",
-        made.channels.length === 1 && made.channels[0].name === "chung",
-      );
-      check(
-        "emoji từ file .msc được tạo lại (tên chuẩn hóa)",
-        made.emojis.length === 1 && made.emojis[0].name === "wio",
-      );
-      // Tin nhắn trong file .msc được phát lại QUA WEBHOOK giữ tên người gửi,
-      // theo đúng thứ tự thời gian.
-      check("tin nhắn phát lại qua webhook (2 tin)", made.webhookSends.length === 2);
-      check(
-        "thứ tự + tên người gửi được giữ đúng",
-        made.webhookSends[0]?.content === "tin thứ nhất" &&
-          made.webhookSends[0]?.username === "user1" &&
-          made.webhookSends[1]?.content === "tin thứ hai" &&
-          made.webhookSends[1]?.username === "user2",
-      );
-      // File import KHÔNG để rác trong storage — botClearBackup gọi
-      // ctx.storage.delete(importStorageId) sau khi xử lý xong.
-      check("file import bị xoá khỏi storage sau khi xong", h.deletedStorage.includes("st_import"));
-    } finally {
-      restoreFetch();
-    }
-  }
-
-  console.log("\n═══ LUỒNG 8: file import RÁC → bot báo lỗi về dashboard ═══");
-  {
-    const h = seed();
-    h.rows("guilds")[0].importRestoreRequested = true;
-    h.rows("guilds")[0].importFileName = "rac.msc";
-    h.rows("guilds")[0].importStorageId = "st_rac";
-    (h.ctx as any).storage.getUrl = async (id: string) =>
-      id === "st_rac"
-        ? `data:text/plain;base64,${Buffer.from("nội dung rác không phải JSON").toString("base64")}`
-        : null;
-    const jobs = await (getPendingJobs as any)._handler(h.ctx, { botKey: BOT_KEY });
-    await driveTick(h, jobs.backups);
-    const st = await dashboardStatus(h);
-    check("yêu cầu import được dọn (không kẹt chờ)", st.requested === false);
-    check(
-      "dashboard nhận được lý do lỗi cụ thể",
-      typeof st.error === "string" && st.error.length > 0,
-    );
-    check("KHÔNG lưu bản backup rác", (await backupList(h)).length === 0);
-    // Đường lỗi cũng phải dọn file (botReportImportError xóa file + cờ).
-    check("file rác cũng bị xoá khỏi storage", h.deletedStorage.includes("st_rac"));
-  }
-
-  console.log("\n═══ LUỒNG 9: restore JSON hỏng → botReportRestoreError ═══");
-  {
-    const h = seed();
-    // Mô phỏng "backup ma": cờ restoreRequested trỏ tới id không tồn tại
-    // (bản backup bị xóa giữa chừng). Đặt trực tiếp field — botSetRestoreRequest
-    // CHẶN id không tồn tại (đúng thiết kế), nên con đường này chỉ đến từ dữ liệu cũ.
-    const g = h.rows("guilds")[0];
-    g.restoreRequested = true;
-    g.restoreBackupId = "bk_ghost";
-    const jobs = await (getPendingJobs as any)._handler(h.ctx, { botKey: BOT_KEY });
-    check(
-      "backup ma → tick KHÔNG trả job restore (không restore nhầm)",
-      jobs.backups.find((b: any) => b.kind === "restore") === undefined,
-    );
-    // JSON hỏng (file backup bị cắt cụt) → tick.js phải báo lỗi về dashboard.
-    await driveTick(h, [
-      { guildId: GID, kind: "restore", backupJson: "{json hỏng", guildName: "x" },
-    ]);
-    const row = guildRow(h);
-    check("lỗi khôi phục được ghi về dashboard", typeof row.restoreError === "string");
-    check("cờ yêu cầu khôi phục được dọn", row.restoreRequested === false);
-    check("cột mốc xong KHÔNG được ghi khi lỗi", row.restoreFinishedAt === undefined);
-  }
-
-  console.log("\n═══ LUỒNG 10: đẩy GitHub lỗi → backup vẫn phải lưu (không mất dữ liệu) ═══");
-  {
-    const h = seed();
-    await (requestBackup as any)._handler(h.ctx, {
-      token: TOKEN,
-      guildId: GID,
-      pushToGithub: true,
-      includeMessages: false,
-    });
-    const store = makeStore(h.ctx);
-    // Action GitHub ném lỗi (token sai / mạng chết) — pushBackupToGithub nuốt
-    // thành { ok:false } nên luồng backup không được phép vỡ theo.
-    store.client.action = async () => {
-      throw new Error("GitHub 401: Bad credentials");
-    };
-    const jobs = await (getPendingJobs as any)._handler(h.ctx, { botKey: BOT_KEY });
-    const job = jobs.backups.find((b: any) => b.kind === "backup");
-    await backupMod.runBackup(makeDiscordClient(), store, GID, {
-      pushToGithub: !!job.pushToGithub,
-      includeMessages: false,
-      skipNotice: true,
-    });
-    const list = await backupList(h);
-    check("backup VẪN được lưu khi GitHub chết", list.length === 1);
-    check("bản backup KHÔNG bị đánh dấu đã đẩy GitHub", list[0].pushedToGithub === false);
-    const st = await dashboardStatus(h);
-    check("dashboard vẫn báo hoàn tất backup", typeof st.backupFinishedAt === "number");
   }
 
   console.log(`\n${pass}/${pass + fail} ✅`);

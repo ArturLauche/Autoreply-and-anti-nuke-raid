@@ -155,6 +155,40 @@ const check = (label, ok) => {
   const p2 = backup.normalizeBackupFile(plainJson);
   check("JSON thường vẫn đọc được", p2.guildName === "Plain");
 
+  // Import phải dừng ngay khi claim đã stale; không được restore side-effect trước.
+  {
+    const staleMutations = [];
+    const staleStore = {
+      client: {
+        mutation: async (name, args) => {
+          staleMutations.push({ name, args });
+          return { ok: false, reason: "stale_claim" };
+        },
+      },
+      getConfig: async () => null,
+    };
+    let staleError = null;
+    try {
+      await backup.runImportRestore(
+        { guilds: { cache: new Map() } },
+        staleStore,
+        "123456789012345678",
+        zContent,
+        "test.json",
+        { claimAt: 9876 },
+      );
+    } catch (e) {
+      staleError = e;
+    }
+    check(
+      "import claim stale → dừng trước restore",
+      staleError?.message === "stale backup claim" &&
+        staleMutations.some((m) => m.name === "bot_writes:botStoreBackup") &&
+        !staleMutations.some((m) => m.name === "bot_writes:botRestoreSettings") &&
+        !staleMutations.some((m) => m.name === "bot_writes:botClearBackup"),
+    );
+  }
+
   // ---- 4. Backup bị skip (checksum trùng) — chỉ thông báo khi người dùng chủ động ----
   // Mô phỏng runBackup với checksum trùng: cần guild giả đủ để snapshot chạy.
   // (runBackup gọi sendToLog → sendLog thật sẽ lỗi im lặng; dùng embed capture qua store.getConfig null + guild không có webhook → an toàn.)
@@ -165,11 +199,31 @@ const check = (label, ok) => {
   );
   check(
     "runBackup có tham số skipNotice",
-    /const \{\s*pushToGithub: pushToGithubOpt = false,\s*includeMessages = false,\s*skipNotice = false,?\s*\} = opts;/.test(
+    /const \{\s*pushToGithub: pushToGithubOpt = false,\s*includeMessages = false,\s*skipNotice = false,\s*claimAt,?\s*\} = opts;/.test(
       src,
     ),
   );
   check("skipNotice chỉ thông báo khi true (auto vẫn im lặng)", src.includes("if (skipNotice) {"));
+  const restoreBlock = src.slice(
+    src.indexOf("async function restoreCore"),
+    src.indexOf("async function runRestore"),
+  );
+  check(
+    "restore không báo xong nếu áp cấu hình/clear request thất bại",
+    restoreBlock.includes('mutation("bot_writes:botRestoreSettings"') &&
+      !/botRestoreSettings[\s\S]{0,500}\.catch\(/.test(restoreBlock) &&
+      !/botClearBackup[\s\S]{0,300}\.catch\(/.test(restoreBlock),
+  );
+  const pollBlock = src.slice(
+    src.indexOf("async function pollBackups"),
+    src.indexOf("async function autoBackupSweep"),
+  );
+  check(
+    "lỗi backup/restore đi qua mutation báo lỗi, không clear như thành công",
+    pollBlock.includes("botReportRestoreError") &&
+      pollBlock.includes("botReportBackupError") &&
+      !pollBlock.includes('.mutation("bot_writes:botClearBackup"'),
+  );
 
   // ---- 5. pushToGithub gửi bản ĐÃ NÉN (không còn backupJson: json thô) ----
   check(

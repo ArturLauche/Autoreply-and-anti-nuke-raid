@@ -11,7 +11,13 @@
 //   5. botClearBackup phải nói RÕ kết quả (backupFinishedAt + backupUnchanged) để
 //      dashboard báo "đã tạo xong" / "server không đổi" thay vì im lặng (bug 23/09).
 //   6. importStatus trả các mốc đó; requestBackup xóa mốc cũ của lượt trước.
-import { botStoreBackup, botClaimBackup, botClearBackup } from "../convex/bot_writes";
+import {
+  botStoreBackup,
+  botClaimBackup,
+  botClearBackup,
+  botRestoreSettings,
+  botRenewBackupClaim,
+} from "../convex/bot_writes";
 import { listGuild, botAuditBackups, importStatus, requestBackup } from "../convex/backup";
 import { computeBotKey } from "../convex/botAuth";
 
@@ -24,6 +30,8 @@ const BOT_KEY = "key-thô-32-bytes-của-bot"; // bot giữ trong .env BOT_KEY
 const storeHandler = (botStoreBackup as any)._handler;
 const claimHandler = (botClaimBackup as any)._handler;
 const clearHandler = (botClearBackup as any)._handler;
+const restoreSettingsHandler = (botRestoreSettings as any)._handler;
+const renewClaimHandler = (botRenewBackupClaim as any)._handler;
 const listGuildHandler = (listGuild as any)._handler;
 const auditHandler = (botAuditBackups as any)._handler;
 const importStatusHandler = (importStatus as any)._handler;
@@ -53,6 +61,7 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
   const allRows = () => ({
     guildBackups: backupRows,
     guilds: guildRows,
+    users: userRows,
     botStatus: statusRows,
   });
   const ctx = {
@@ -94,6 +103,11 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
           if (table === "sessions") {
             return {
               first: async () => sessionRows.find((s) => s.token === capture.token) ?? null,
+            };
+          }
+          if (table === "users") {
+            return {
+              first: async () => userRows.find((u) => u.discordId === capture.discordId) ?? null,
             };
           }
           const rows = table === "guilds" ? guildRows : backupRows;
@@ -211,14 +225,93 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
     const r1 = await claimHandler(ctx as any, args).catch((e: any) => ({ error: e.message }));
     check("lần 1 claim thành công", (r1 as any)?.ok === true);
     check("backupClaimedAt được đặt", typeof guildRows[0].backupClaimedAt === "number");
+    check("backup lease được đặt", typeof guildRows[0].backupLeaseUntil === "number");
     const r2 = await claimHandler(ctx as any, args).catch((e: any) => ({ error: e.message }));
     check("lần 2 trong 10 phút → in_flight", (r2 as any)?.reason === "in_flight");
     guildRows[0].backupClaimedAt = (guildRows[0].backupClaimedAt as number) - 601_000;
+    guildRows[0].backupLeaseUntil = Date.now() - 1;
     const r3 = await claimHandler(ctx as any, args).catch((e: any) => ({ error: e.message }));
     check("hết 10 phút → claim lại được", (r3 as any)?.ok === true);
     guildRows[0].backupRequested = false;
     const r4 = await claimHandler(ctx as any, args).catch((e: any) => ({ error: e.message }));
     check("không có yêu cầu → no_request", (r4 as any)?.reason === "no_request");
+    guildRows[0].backupClaimedAt = ((r3 as any)?.claimAt ?? Date.now()) + 1;
+    const staleClear = await clearHandler(ctx as any, {
+      guildId: "g1",
+      kind: "backup",
+      storeOk: true,
+      claimAt: (r1 as any)?.claimAt,
+      botKey: BOT_KEY,
+    });
+    check("worker cũ không xoá claim của worker mới", staleClear?.reason === "stale_claim");
+  }
+
+  console.log("\n── import/restore fencing: đúng lease + chặn worker cũ ──");
+  {
+    const { ctx, guildRows, backupRows } = makeCtx({ seed: BOT_KEY });
+    guildRows.push({
+      _id: "gld-import",
+      discordId: "g-import",
+      importRestoreRequested: true,
+      restoreRequested: false,
+      backupRequested: false,
+    });
+    const claimed = await claimHandler(ctx as any, {
+      guildId: "g-import",
+      kind: "import" as const,
+      botKey: BOT_KEY,
+    });
+    check("import claim trả claimAt", claimed?.ok === true && typeof claimed.claimAt === "number");
+    const claimStillValid = await renewClaimHandler(ctx as any, {
+      guildId: "g-import",
+      kind: "import" as const,
+      claimAt: claimed.claimAt,
+      botKey: BOT_KEY,
+    });
+    check(
+      "renew claim active → worker được phép tiếp tục và lease được gia hạn",
+      claimStillValid?.ok === true &&
+        typeof claimStillValid.leaseUntil === "number" &&
+        claimStillValid.leaseUntil >= (guildRows[0].restoreLeaseUntil ?? 0),
+    );
+    const stored = await storeHandler(ctx as any, {
+      guildId: "g-import",
+      guildName: "Imported",
+      backupJson: "z:imported",
+      roleCount: 0,
+      channelCount: 0,
+      source: "import",
+      claimAt: claimed.claimAt,
+      botKey: BOT_KEY,
+    });
+    check(
+      "botStoreBackup kiểm tra restore claim cho import",
+      stored?.ok === true && backupRows.length === 1,
+    );
+
+    guildRows[0].restoreClaimedAt = claimed.claimAt + 1;
+    const staleStore = await storeHandler(ctx as any, {
+      guildId: "g-import",
+      guildName: "Stale",
+      backupJson: "z:stale",
+      roleCount: 0,
+      channelCount: 0,
+      source: "import",
+      claimAt: claimed.claimAt,
+      botKey: BOT_KEY,
+    });
+    check("worker cũ không ghi bản import sau khi claim đổi", staleStore?.reason === "stale_claim");
+
+    const staleSettings = await restoreSettingsHandler(ctx as any, {
+      guildId: "g-import",
+      prefix: "!",
+      claimAt: claimed.claimAt,
+      botKey: BOT_KEY,
+    });
+    check(
+      "worker cũ không ghi cấu hình restore sau khi claim đổi",
+      staleSettings?.reason === "stale_claim",
+    );
   }
 
   console.log("\n── botClearBackup: reset cờ + lastBackupAt ──");
@@ -299,8 +392,44 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
       backupFinishedAt: 111,
       backupUnchanged: true,
     });
-    userRows.push({ _id: "u1", discordId: "u1", manageableGuildIds: [] });
-    sessionRows.push({ _id: "s1", token: "tok", userId: "u1", createdAt: Date.now() });
+    userRows.push({ _id: "u1", discordId: "u1", manageableGuildIds: [discordId] });
+    sessionRows.push({
+      _id: "s1",
+      token: "tok",
+      userId: "u1",
+      createdAt: Date.now(),
+      authVersion: 1,
+    });
+
+    guildRows[0].backupClaimedAt = Date.now();
+    let claimError = "";
+    try {
+      await requestBackupHandler(ctx as any, {
+        token: "tok",
+        guildId: discordId,
+        pushToGithub: false,
+      });
+    } catch (e: any) {
+      claimError = e?.message ?? "";
+    }
+    check(
+      "requestBackup không thay yêu cầu đang được bot xử lý",
+      claimError.includes("đang xử lý"),
+    );
+    guildRows[0].backupClaimedAt = undefined;
+    guildRows[0].restoreClaimedAt = Date.now();
+    let crossKindError = "";
+    try {
+      await requestBackupHandler(ctx as any, {
+        token: "tok",
+        guildId: discordId,
+        pushToGithub: false,
+      });
+    } catch (e: any) {
+      crossKindError = e?.message ?? "";
+    }
+    check("backup không chạy chung với restore đang claim", crossKindError.includes("đang xử lý"));
+    guildRows[0].restoreClaimedAt = undefined;
 
     const st = await importStatusHandler(ctx as any, { token: "tok", guildId: discordId });
     check(
