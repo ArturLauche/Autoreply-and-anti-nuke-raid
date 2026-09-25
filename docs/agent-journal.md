@@ -34,6 +34,15 @@
 
 ---
 
+## 2026-09-24 — Deploy production bot lên commit b1f70ba
+
+- Xong: pull fast-forward `cac6e0c` → `b1f70ba`; `bun.lock` không đổi; Convex production đã deploy; `protogon-bot` restart và ổn định.
+- File đụng: không có file mã nguồn cục bộ; chỉ cập nhật `docs/agent-journal.md`.
+- Kiểm chứng: `61/61` CJS · `11/11` TS · tsc/lint/format OK · Convex deploy OK · PM2 `online`, `↺ 15`, uptime 70s.
+- Tiếp theo: không có, chờ yêu cầu mới.
+
+---
+
 ## 2026-09-24 — Production live: dashboard tự host trên VPS qua Cloudflare Tunnel
 
 - ✅ Xong: dashboard Protogon LIVE tại `https://protogon.dpdns.org` (HTTP 200,
