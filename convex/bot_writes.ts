@@ -1,4 +1,4 @@
-import { mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { ANTI_NUKE_MODULES, isAntiNukeModule } from "./modules";
 import { requireBotKeyStrict } from "./botAuth";
@@ -1423,5 +1423,173 @@ export const botSetTicketChannel = mutation({
       openErrorAt: args.openError ? Date.now() : undefined,
     });
     return { ok: true, found: true };
+  },
+});
+
+/**
+ * Staff bấm "Nhận việc" — CHỈ 1 người nhận được.
+ *
+ * Vì sao phải chặn người sau: 3 mod cùng trả lời một khiếu nại là người mở
+ * phải đọc 3 câu trả lời mâu thuẫn, và staff tốn thời gian viết lại. Trả về
+ * `taken: true` + tên người đã nhận để bot báo lại cho người bấm sau.
+ */
+export const botClaimTicket = mutation({
+  args: {
+    guildId: v.string(),
+    ticketId: v.string(),
+    staffId: v.string(),
+    staffName: v.optional(v.string()),
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireBotKeyStrict(ctx, args.botKey);
+    const rows = await ctx.db
+      .query("tickets")
+      .withIndex("by_guildId", (q) => q.eq("guildId", args.guildId))
+      .collect();
+    const ticket = rows.find((t) => t._id === args.ticketId);
+    if (!ticket) return { ok: false, reason: "not_found" };
+    // Bấm lại nút của chính mình → idempotent, không báo "đã có người nhận".
+    if (ticket.claimedById === args.staffId) {
+      return { ok: true, taken: false, alreadyMine: true, byName: ticket.claimedByName ?? null };
+    }
+    if (ticket.claimedById) {
+      return { ok: false, reason: "taken", byName: ticket.claimedByName ?? null };
+    }
+    await ctx.db.patch(ticket._id, {
+      claimedById: args.staffId,
+      claimedByName: args.staffName ? args.staffName.slice(0, 80) : undefined,
+      claimedAt: Date.now(),
+    });
+    return { ok: true, taken: true, byName: args.staffName ?? null };
+  },
+});
+
+/** Bỏ nhận (staff đổi ý / ticket chuyển người) — giải phóng cho người khác nhận. */
+export const botUnclaimTicket = mutation({
+  args: {
+    guildId: v.string(),
+    ticketId: v.string(),
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireBotKeyStrict(ctx, args.botKey);
+    const rows = await ctx.db
+      .query("tickets")
+      .withIndex("by_guildId", (q) => q.eq("guildId", args.guildId))
+      .collect();
+    const ticket = rows.find((t) => t._id === args.ticketId);
+    if (!ticket) return { ok: true, found: false };
+    await ctx.db.patch(ticket._id, {
+      claimedById: undefined,
+      claimedByName: undefined,
+      claimedAt: undefined,
+    });
+    return { ok: true, found: true };
+  },
+});
+
+/**
+ * Có người chat trong kênh ticket → đẩy lùi đồng hồ tự đóng.
+ *
+ * Ghi theo lô (mảng userId) vì bot nhận event messageCreate cho TỪNG tin nhắn:
+ * gọi 1 mutation/tin nhắn là đốt operations vô ích. `lastActivityAt` chỉ đưa
+ * lùi, không bao giờ đi tới — nếu không, một tin nhắn cũ đọc lại từ backlog
+ * Discord sẽ giữ ticket mở mãi.
+ */
+export const botTouchTickets = mutation({
+  args: {
+    guildId: v.string(),
+    channelIds: v.array(v.string()),
+    at: v.optional(v.number()),
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireBotKeyStrict(ctx, args.botKey);
+    const now = args.at ?? Date.now();
+    const rows = await ctx.db
+      .query("tickets")
+      .withIndex("by_guildId", (q) => q.eq("guildId", args.guildId))
+      .collect();
+    // Map để tra O(1) thay vì .find() cho từng kênh.
+    const byChannel = new Map(rows.map((t) => [t.channelId, t]));
+    let touched = 0;
+    for (const channelId of args.channelIds) {
+      const t = byChannel.get(channelId);
+      if (!t || t.status !== "open") continue;
+      if ((t.lastActivityAt ?? t.createdAt) >= now) continue;
+      await ctx.db.patch(t._id, { lastActivityAt: now });
+      touched++;
+    }
+    return { touched };
+  },
+});
+
+/**
+ * Lưu transcript vào storage + đánh dấu đã lưu — BẮT BUỘC trước khi xoá kênh.
+ *
+ * Vì sao tách 2 bước: xoá kênh Discord là không hoàn tác được. Nếu gộp "lưu +
+ * xoá" thành 1 mutation mà storage ghi lỗi, bản ghi vẫn ghi `transcriptStorageId`
+ * thành công trong khi file không tồn tại → staff thấy "đã lưu" rồi mở ra thì
+ * 404. Tách ra, bot chỉ xoá kênh sau khi mutation này trả `ok: true`.
+ */
+export const botSaveTicketTranscript = mutation({
+  args: {
+    guildId: v.string(),
+    ticketId: v.string(),
+    storageId: v.string(),
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireBotKeyStrict(ctx, args.botKey);
+    const rows = await ctx.db
+      .query("tickets")
+      .withIndex("by_guildId", (q) => q.eq("guildId", args.guildId))
+      .collect();
+    const ticket = rows.find((t) => t._id === args.ticketId);
+    if (!ticket) return { ok: true, found: false };
+    await ctx.db.patch(ticket._id, {
+      transcriptStorageId: args.storageId,
+      transcriptAt: Date.now(),
+    });
+    return { ok: true, found: true };
+  },
+});
+
+/** Lưu ngôn ngữ người dùng chọn qua `/language`. */
+export const botSetUserLang = mutation({
+  args: {
+    userId: v.string(),
+    lang: v.string(),
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireBotKeyStrict(ctx, args.botKey);
+    // Chỉ nhận ngôn ngữ bot thực sự hỗ trợ — rác thì bỏ qua, không ghi.
+    if (!["vi", "en", "de"].includes(args.lang)) return { ok: false };
+    const row = await ctx.db
+      .query("userLangs")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .first();
+    const now = Date.now();
+    if (row) await ctx.db.patch(row._id, { lang: args.lang, updatedAt: now });
+    else await ctx.db.insert("userLangs", { userId: args.userId, lang: args.lang, updatedAt: now });
+    return { ok: true };
+  },
+});
+
+/** Đọc ngôn ngữ người dùng đã chọn; null = chưa chọn (bot tự nhận ra locale). */
+export const botGetUserLang = query({
+  args: {
+    userId: v.string(),
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireBotKeyStrict(ctx, args.botKey);
+    const row = await ctx.db
+      .query("userLangs")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .first();
+    return { lang: row?.lang ?? null };
   },
 });

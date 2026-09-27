@@ -53,6 +53,11 @@ const FLOORS = {
   "register-slash.js": 95,
   // research.js: pipeline threat-intel + digest tuan. Sàn 80 (do 82.7%).
   "research.js": 80,
+  // Job tu dong lam sach: XOA KENH Discord (khong hoan tac). Phai rat cao.
+  // Sàn 90 (sau khi có test-ticket-jobs bảo đệ thứ tự lưu + lưu trước để không xoá mất transcript).
+  "handlers/ticketJobs.js": 90,
+  // Nhừn việc + panel tuự biến: quyết định ai được xữ lý.
+  "handlers/ticketActivity.js": 90,
   // Thẻ ảnh chào: lỗi nguy hiểm nhất KHÔNG phải crash (đã bọc null) mà là
   // "vẽ ra ảnh trống" — font thiếu khiến fillText im lặng không vẽ gì.
   "handlers/welcomeCard.js": 80,

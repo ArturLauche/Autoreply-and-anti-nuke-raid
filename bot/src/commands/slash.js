@@ -496,6 +496,23 @@ const commands = applyLocalizations([
     ],
   },
   {
+    name: "language",
+    description: "Xem hoặc đổi ngôn ngữ bot nói với bạn",
+    options: [
+      {
+        name: "ngon_ngu",
+        description: "Ngôn ngữ muốn dùng — bỏ trống để xem ngôn ngữ hiện tại",
+        type: 3,
+        required: false,
+        choices: [
+          { name: "Tiếng Việt", value: "vi" },
+          { name: "English", value: "en" },
+          { name: "Deutsch", value: "de" },
+        ],
+      },
+    ],
+  },
+  {
     name: "setup",
     description: "Cấu hình nhanh bot cho server",
     options: [

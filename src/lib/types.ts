@@ -240,6 +240,14 @@ export interface GuildData {
     /** Loại ticket khi gọi `/ticket mo` không chọn: "support" | "appeal". */
     ticketDefaultKind: string;
     ticketCloseNote: string | null;
+    /** Không ai chat trong kênh ticket bấy nhiêu giờ thì bot tự đóng. 0 = tắt. */
+    ticketIdleHours: number;
+    /** Đóng đủ bấy nhiêu giờ thì bot lưu transcript rồi xoá kênh. */
+    ticketCloseGraceHours: number;
+    /** Nội dung panel tuỳ biến ({user} {number} {kind} {idle}); rỗng = mặc định. */
+    ticketPanelText: string | null;
+    /** Role được tag khi mở ticket (tối đa 3). */
+    ticketPingRoleIds: string[];
   };
   heatStates: HeatState[];
   autoReplies: AutoReply[];
@@ -280,6 +288,14 @@ export interface TicketRow {
   openError: string | null;
   createdAt: number;
   closedAt: number | null;
+  /** Staff đã nhận việc (nút "Nhận việc"). */
+  claimedById: string | null;
+  claimedByName: string | null;
+  /** Lần cuối có ai chat — cơ sở để tính "tự đóng sau bao lâu". */
+  lastActivityAt: number;
+  /** Transcript đã lưu vào storage (kênh sắp bị dọn). */
+  hasTranscript: boolean;
+  transcriptAt: number | null;
 }
 
 export interface ReactionRolePanel {

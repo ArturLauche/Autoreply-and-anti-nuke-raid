@@ -110,6 +110,76 @@ export const getPendingJobs = query({
       aiReview: !!status?.threatAiReviewRequested,
     };
 
-    return { hidden, verifyPanels, backups, settingsChanges, selfDiagnose, threatFlags };
+    // ── Job dọn ticket ──
+    // Hai việc, cùng một lượt tick để không tốn thêm vòng query:
+    //   1. autoClose: ticket `open` quá idleHours không ai chat → đóng.
+    //   2. purge: ticket `closed` quá closeGraceHours → lưu transcript rồi
+    //      xoá kênh. KHÔNG tự xoá khi chưa lưu transcript.
+    //
+    // Mỗi ticket gửi kèm idleHours/graceHours CỦA SERVER ĐÓ (vì mỗi chủ
+    // server tuỳ chỉnh khác nhau) — bot không cần gọi thêm getConfig.
+    const tickets: {
+      guildId: string;
+      ticketId: string;
+      channelId: string;
+      number: number;
+      kind: string;
+      openerId: string;
+      status: string;
+      idleHours: number;
+      closeGraceHours: number;
+      lastActivityAt: number;
+      closedAt: number;
+    }[] = [];
+    for (const g of guilds) {
+      if (!g.ticketEnabled) continue;
+      const idleHours = g.ticketIdleHours ?? 24;
+      const closeGraceHours = g.ticketCloseGraceHours ?? 24;
+      const rows = await ctx.db
+        .query("tickets")
+        .withIndex("by_guildId", (q) => q.eq("guildId", g.discordId))
+        .collect();
+      for (const t of rows) {
+        if (t.status === "open") {
+          if (idleHours <= 0) continue;
+          const last = t.lastActivityAt ?? t.createdAt;
+          if (nowMs - last < idleHours * 3_600_000) continue;
+          tickets.push({
+            guildId: g.discordId,
+            ticketId: t._id,
+            channelId: t.channelId,
+            number: t.number ?? 0,
+            kind: t.kind,
+            openerId: t.openerId,
+            status: "autoClose",
+            idleHours,
+            closeGraceHours,
+            lastActivityAt: last,
+            closedAt: 0,
+          });
+        } else if (t.status === "closed") {
+          // Chỉ xoá khi transcript ĐÃ lưu — xoá kênh mà mất transcript là
+          // mất bằng chứng, tệ hơn nhiều so với giữ kênh lâu hơn.
+          if (t.transcriptStorageId) continue;
+          const closed = t.closedAt ?? 0;
+          if (!closed || nowMs - closed < closeGraceHours * 3_600_000) continue;
+          tickets.push({
+            guildId: g.discordId,
+            ticketId: t._id,
+            channelId: t.channelId,
+            number: t.number ?? 0,
+            kind: t.kind,
+            openerId: t.openerId,
+            status: "purge",
+            idleHours,
+            closeGraceHours,
+            lastActivityAt: t.lastActivityAt ?? t.createdAt,
+            closedAt: closed,
+          });
+        }
+      }
+    }
+
+    return { hidden, verifyPanels, backups, settingsChanges, selfDiagnose, threatFlags, tickets };
   },
 });

@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { LifeBuoy, MessageSquareWarning, ShieldQuestion, Users, X } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
-import { Card, CardContent } from "../ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Switch } from "../ui/switch";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -322,6 +322,130 @@ export default function TicketPanel({ data }: { data: GuildData }) {
               </div>
             </CardContent>
           </Card>
+
+          {/* ═══ Tự đóng + panel + role tag ═══ */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{translate("Tự động dọn & phân công")}</CardTitle>
+              <CardDescription>
+                {translate(
+                  "Kênh ticket không ai trả lời sẽ tự đóng. Khi đóng đủ lâu, bot lưu toàn bộ nội dung rồi mới xoá kênh — không bao giờ xoá trước khi lưu.",
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-1.5 sm:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="ticket-idle-hours">
+                    {translate("Tự đóng sau (giờ không ai chat)")}
+                  </Label>
+                  <Input
+                    id="ticket-idle-hours"
+                    type="number"
+                    min={0}
+                    max={720}
+                    defaultValue={g.ticketIdleHours ?? 24}
+                    onBlur={(e) => {
+                      const n = Number(e.target.value);
+                      if (!Number.isFinite(n)) return;
+                      if ((g.ticketIdleHours ?? 24) === n) return;
+                      patch(
+                        { ticketIdleHours: Math.max(0, Math.min(720, Math.floor(n))) },
+                        n > 0 ? translate("Đã lưu thời gian tự đóng") : translate("Đã tắt tự đóng"),
+                      );
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {translate("0 = tắt. Tối đa 720 giờ (30 ngày). Mặc định 24 giờ.")}
+                  </p>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="ticket-grace-hours">
+                    {translate("Giữ kênh sau khi đóng (giờ)")}
+                  </Label>
+                  <Input
+                    id="ticket-grace-hours"
+                    type="number"
+                    min={1}
+                    max={720}
+                    defaultValue={g.ticketCloseGraceHours ?? 24}
+                    onBlur={(e) => {
+                      const n = Number(e.target.value);
+                      if (!Number.isFinite(n)) return;
+                      const v = Math.max(1, Math.min(720, Math.floor(n)));
+                      if ((g.ticketCloseGraceHours ?? 24) === v) return;
+                      patch({ ticketCloseGraceHours: v }, translate("Đã lưu thời gian giữ kênh"));
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {translate("Sau khoảng này bot lưu transcript rồi xoá kênh. Tối thiểu 1 giờ.")}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label htmlFor="ticket-panel-text">
+                  {translate("Nội dung panel trong kênh ticket (tuỳ chọn)")}
+                </Label>
+                <Textarea
+                  id="ticket-panel-text"
+                  rows={2}
+                  defaultValue={g.ticketPanelText ?? ""}
+                  placeholder={translate(
+                    "Chào {user}! Kênh này dành riêng cho bạn — staff sẽ phản hồi sớm.",
+                  )}
+                  onBlur={(e) => {
+                    const v = e.target.value;
+                    if ((g.ticketPanelText ?? "") !== v) {
+                      patch({ ticketPanelText: v }, translate("Đã lưu nội dung panel"));
+                    }
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {translate(
+                    "Có thể dùng: {user} tên người mở, {number} số ticket, {kind} loại, {idle} giờ tự đóng. Bỏ trống thì dùng mặc định.",
+                  )}
+                </p>
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label>{translate("Tag role khi mở ticket (tối đa 3)")}</Label>
+                <p className="text-xs text-muted-foreground">
+                  {translate(
+                    "Role này được nhắc mỗi khi có ticket mới. Để trống nếu không muốn ai bị tag.",
+                  )}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {staffRoles.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      {translate("Chưa có role nào trong server.")}
+                    </p>
+                  ) : (
+                    staffRoles.map((r) => {
+                      const picked = (g.ticketPingRoleIds ?? []).includes(r.roleId);
+                      return (
+                        <Button
+                          key={r.roleId}
+                          type="button"
+                          size="sm"
+                          variant={picked ? "default" : "outline"}
+                          onClick={() => {
+                            const cur = g.ticketPingRoleIds ?? [];
+                            const next = picked
+                              ? cur.filter((x: string) => x !== r.roleId)
+                              : [...cur, r.roleId].slice(0, 3);
+                            patch({ ticketPingRoleIds: next }, translate("Đã lưu role được tag"));
+                          }}
+                        >
+                          {r.name}
+                        </Button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </>
       )}
 
@@ -405,6 +529,22 @@ function TicketList({
                 <ShieldQuestion className="h-3 w-3" />
                 {translate(KIND_LABEL[t.kind] ?? t.kind)}
               </Badge>
+              {t.claimedByName ? (
+                <Badge className="gap-1">
+                  <Users className="h-3 w-3" />
+                  {translate("Đã có người nhận")} · {t.claimedByName}
+                </Badge>
+              ) : statusFilter === "open" ? (
+                <Badge variant="secondary" className="gap-1">
+                  <Users className="h-3 w-3" />
+                  {translate("Chờ nhận")}
+                </Badge>
+              ) : null}
+              {t.hasTranscript ? (
+                <Badge variant="outline" className="gap-1">
+                  {translate("Transcript đã lưu")}
+                </Badge>
+              ) : null}
               <span className="truncate text-sm font-medium">
                 {t.openerName} ·{" "}
                 <span className="text-xs text-muted-foreground">

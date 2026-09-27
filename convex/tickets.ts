@@ -15,6 +15,7 @@
  */
 
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { canManageGuild, getUserByToken } from "./auth";
 import { requireBotKeyStrict } from "./botAuth";
@@ -93,6 +94,11 @@ export const listTickets = query({
       openError: t.openError ?? null,
       createdAt: t.createdAt,
       closedAt: t.closedAt ?? null,
+      claimedById: t.claimedById ?? null,
+      claimedByName: t.claimedByName ?? null,
+      lastActivityAt: t.lastActivityAt ?? t.createdAt,
+      hasTranscript: !!t.transcriptStorageId,
+      transcriptAt: t.transcriptAt ?? null,
     }));
   },
 });
@@ -130,6 +136,11 @@ export const ticketSummary = query({
       maxOpen: guild.ticketMaxOpen ?? 20,
       cooldownHours: guild.ticketCooldownHours ?? 24,
       defaultKind: guild.ticketDefaultKind ?? "support",
+      /** 0 = tắt tự đóng. Panel hiển rõ đang nhắp ngưỗi chọn để tắt. */
+      idleHours: guild.ticketIdleHours ?? 24,
+      closeGraceHours: guild.ticketCloseGraceHours ?? 24,
+      panelText: guild.ticketPanelText ?? "",
+      pingRoleIds: guild.ticketPingRoleIds ?? [],
     };
   },
 });
@@ -266,5 +277,29 @@ export const botTicketById = query({
       kind: ticket.kind,
       status: ticket.status,
     };
+  },
+});
+
+/**
+ * Trả link tải transcript (nút "Xem transcript" trên panel).
+ *
+ * Trả `null` thay vì ném khi chưa lưu — panel gọi lúc render, ném ở đây sẽ
+ * làm hỏng cả panel chứ không chỉ ô transcript.
+ */
+export const ticketTranscriptUrl = query({
+  args: { token: v.string(), guildId: v.string(), ticketId: v.string() },
+  handler: async (ctx, { token, guildId, ticketId }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild))
+      throw new Error("Không có quyền quản lý server này");
+    const ticket = await ctx.db.get(ticketId as Id<"tickets">);
+    if (!ticket || ticket.guildId !== guildId) return { url: null, at: null };
+    if (!ticket.transcriptStorageId) return { url: null, at: ticket.transcriptAt ?? null };
+    const url = await ctx.storage.getUrl(ticket.transcriptStorageId).catch(() => null);
+    return { url, at: ticket.transcriptAt ?? null };
   },
 });

@@ -1178,4 +1178,37 @@ export const EN: Record<string, string> = {
   "Khiếu nại": "Appeal",
   "Hỗ trợ chung": "General support",
   "Ticket & Khiếu nại": "Tickets & appeals",
+
+  /* ==== ticket: tu dong lam sach, phan cong, /language ==== */
+  "Tự động dọn & phân công": "Automatic cleanup & assignment",
+  "Kênh ticket không ai trả lời sẽ tự đóng. Khi đóng đủ lâu, bot lưu toàn bộ nội dung rồi mới xoá kênh — không bao giờ xoá trước khi lưu.":
+    "A ticket channel with no replies closes itself. After it stays closed long enough, the bot saves the full conversation and only then deletes the channel — it never deletes before saving.",
+  "Tự đóng sau (giờ không ai chat)": "Auto-close after (hours without a reply)",
+  "0 = tắt. Tối đa 720 giờ (30 ngày). Mặc định 24 giờ.":
+    "0 = off. Max 720 hours (30 days). Default 24 hours.",
+  "Giữ kênh sau khi đóng (giờ)": "Keep the channel after closing (hours)",
+  "Sau khoảng này bot lưu transcript rồi xoá kênh. Tối thiểu 1 giờ.":
+    "After this, the bot saves the transcript and deletes the channel. Minimum 1 hour.",
+  "Đã lưu thời gian giữ kênh": "Channel keep time saved",
+  "Nội dung panel trong kênh ticket (tuỳ chọn)": "Panel text inside the ticket channel (optional)",
+  "Chào {user}! Kênh này dành riêng cho bạn — staff sẽ phản hồi sớm.":
+    "Hi {user}! This channel is just for you — staff will reply soon.",
+  "Đã lưu nội dung panel": "Panel text saved",
+  "Có thể dùng: {user} tên người mở, {number} số ticket, {kind} loại, {idle} giờ tự đóng. Bỏ trống thì dùng mặc định.":
+    "Available: {user} opener name, {number} ticket number, {kind} type, {idle} auto-close hours. Leave empty to use the default.",
+  "Tag role khi mở ticket (tối đa 3)": "Tag a role when a ticket opens (max 3)",
+  "Role này được nhắc mỗi khi có ticket mới. Để trống nếu không muốn ai bị tag.":
+    "This role gets pinged whenever a new ticket opens. Leave empty to ping nobody.",
+  "Chưa có role nào trong server.": "This server has no roles yet.",
+  "Đã lưu role được tag": "Ping roles saved",
+  "Đã lưu thời gian tự đóng": "Auto-close time saved",
+  "Đã tắt tự đóng": "Auto-close turned off",
+  "Đã có người nhận": "Claimed",
+  "Chờ nhận": "Unclaimed",
+  "Transcript đã lưu": "Transcript saved",
+  "Đổi ngôn ngữ của bạn": "Change your language",
+  "Ngôn ngữ của bạn đang được bot tự nhận ra khi chưa chọn.":
+    "Your language is auto-detected until you pick one.",
+  "Xem ngôn ngữ hiện tại của bạn (không chọn = chỉ xem).":
+    "See your current language (leave unset to only view it).",
 };

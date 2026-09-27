@@ -183,6 +183,31 @@ const TICKET_TEXT = {
     aiThinking: "🧠 AI đang đọc ticket…",
     aiEmpty: "Cần nội dung để AI đọc.",
     closedNotice: "🔒 Ticket đã đóng. Bạn không thể gửi tin nhắn nữa.",
+    btnCloseReason: "Đóng kèm lý do",
+    btnClaim: "Nhận việc",
+    btnUnclaim: "Bỏ nhận",
+    panelTitle: "Hỗ trợ #{n} · {user}",
+    panelPing: "Đã gọi {roles} — vui lòng phản hồi.",
+    panelIdle: "Kênh này tự đóng sau {h} giờ không ai trả lời.",
+    claimDone: "✅ {staff} đã nhận ticket này.",
+    claimTaken: "🔒 Ticket đã có {staff} nhận từ trước.",
+    claimMine: "✅ Bạn đã nhận ticket này.",
+    unclaimDone: "✅ Đã bỏ nhận — ai cũng có thể nhận lại.",
+    reasonModalTitle: "Đóng ticket kèm lý do",
+    reasonModalLabel: "Lý do đóng (staff và người mở đều thấy)",
+    reasonModalPlaceholder: "Ví dụ: đã gỡ ban, giải quyết xong.",
+    reasonRequired: "Bạn cần nhập lý do để đóng ticket.",
+    closedWithReason: "🔒 Đã đóng: {reason}",
+    notStaff: "Chỉ staff mới được dùng các nút này.",
+    autoClosedTitle: "Đã tự đóng",
+    autoClosedBody:
+      "Kênh không có hoạt động nào trong {h} giờ nên bot tự đóng. Kênh sẽ bị xoá sau {g} giờ — nội dung được lưu lại để staff tra cứu.",
+    deletedTitle: "Đã lưu và xoá kênh",
+    deletedBody: "Kênh đã bị xoá. Toàn bộ nội dung đã được lưu lại cho ban quản trị.",
+    langSet: "✅ Đã đặt ngôn ngữ sang **{name}**.",
+    langCurrent: "Ngôn ngữ hiện tại của bạn: **{name}**.",
+    langDetected: "(tự nhận ra: {name})",
+    langAutoNotice: "Mình chưa biết bạn dùng ngôn ngữ nào — nhập `/language` để chọn.",
   },
   en: {
     openedTitle: "Appeal #{n}",
@@ -231,6 +256,31 @@ const TICKET_TEXT = {
     aiThinking: "🧠 AI is reading the ticket…",
     aiEmpty: "Nothing for the AI to read.",
     closedNotice: "🔒 This ticket is closed. You can no longer send messages here.",
+    btnCloseReason: "Close with reason",
+    btnClaim: "Claim",
+    btnUnclaim: "Unclaim",
+    panelTitle: "Support #{n} · {user}",
+    panelPing: "{roles} has been notified — please respond.",
+    panelIdle: "This channel closes automatically after {h} hours without a reply.",
+    claimDone: "✅ {staff} claimed this ticket.",
+    claimTaken: "🔒 This ticket was already claimed by {staff}.",
+    claimMine: "✅ You claimed this ticket.",
+    unclaimDone: "✅ Unclaimed — anyone can claim it again.",
+    reasonModalTitle: "Close ticket with a reason",
+    reasonModalLabel: "Reason for closing (staff and the opener both see it)",
+    reasonModalPlaceholder: "Example: unbanned, everything resolved.",
+    reasonRequired: "You need a reason to close this ticket.",
+    closedWithReason: "🔒 Closed: {reason}",
+    notStaff: "Only staff can use these buttons.",
+    autoClosedTitle: "Closed automatically",
+    autoClosedBody:
+      "No activity for {h} hours, so the bot closed this channel. It will be deleted after {g} hours — the conversation is saved for staff.",
+    deletedTitle: "Saved and deleted",
+    deletedBody: "This channel was deleted. The full conversation is saved for the moderators.",
+    langSet: "✅ Language set to **{name}**.",
+    langCurrent: "Your current language: **{name}**.",
+    langDetected: "(detected: {name})",
+    langAutoNotice: "I don't know your language yet — type `/language` to pick one.",
   },
   de: {
     openedTitle: "Beschwerde #{n}",
@@ -282,6 +332,32 @@ const TICKET_TEXT = {
     aiThinking: "🧠 Die KI liest das Ticket…",
     aiEmpty: "Nichts für die KI zum Lesen.",
     closedNotice: "🔒 Dieses Ticket ist geschlossen. Du kannst hier keine Nachrichten mehr senden.",
+    btnCloseReason: "Mit Grund schließen",
+    btnClaim: "Übernehmen",
+    btnUnclaim: "Freigeben",
+    panelTitle: "Support #{n} · {user}",
+    panelPing: "{roles} wurde benachrichtigt — bitte antworte zeitnah.",
+    panelIdle: "Dieser Kanal schließt sich automatisch nach {h} Stunden ohne Antwort.",
+    claimDone: "✅ {staff} hat dieses Ticket übernommen.",
+    claimTaken: "🔒 Dieses Ticket wurde bereits von {staff} übernommen.",
+    claimMine: "✅ Du hast dieses Ticket übernommen.",
+    unclaimDone: "✅ Freigegeben — es kann wieder übernommen werden.",
+    reasonModalTitle: "Ticket mit Grund schließen",
+    reasonModalLabel: "Grund für das Schließen (für Team und Ersteller sichtbar)",
+    reasonModalPlaceholder: "Beispiel: entbannt, alles geklärt.",
+    reasonRequired: "Zum Schließen wird ein Grund benötigt.",
+    closedWithReason: "🔒 Geschlossen: {reason}",
+    notStaff: "Nur das Team darf diese Schaltflächen nutzen.",
+    autoClosedTitle: "Automatisch geschlossen",
+    autoClosedBody:
+      "{h} Stunden ohne Aktivität, deshalb hat der Bot den Kanal geschlossen. Er wird nach {g} Stunden gelöscht — das Gespräch bleibt für das Team gespeichert.",
+    deletedTitle: "Gesichert und gelöscht",
+    deletedBody:
+      "Dieser Kanal wurde gelöscht. Das gesamte Gespräch ist für die Moderation gespeichert.",
+    langSet: "✅ Sprache auf **{name}** gesetzt.",
+    langCurrent: "Deine aktuelle Sprache: **{name}**.",
+    langDetected: "(erkannt: {name})",
+    langAutoNotice: "Ich kenne deine Sprache noch nicht — tippe `/language`, um eine zu wählen.",
   },
 };
 
@@ -297,8 +373,92 @@ function ticketText(lang) {
   return TICKET_TEXT[lang] || TICKET_TEXT.en;
 }
 
+/**
+ * Tên ngôn ngữ hiển thị thếb cho `/language` và tin nhắn xác nhận.
+ * Tách riêng từ mã ngôn ngữ (ánh hành / từ đề quốc tế) để tránh
+ * nhãn đẻ không cửa đẻ dối với chương trình chèa.
+ */
+const LANG_NAMES = {
+  vi: "Tiếng Việt",
+  en: "English",
+  de: "Deutsch",
+};
+
+/** Tên ngôn ngữ (lạ → EN). */
+function langName(lang) {
+  return LANG_NAMES[lang] || LANG_NAMES.en;
+}
+
+/**
+ * Đọc ngôn ngữ người dùng ĐÃ CHỌN trước đó.
+ *
+ * Thứ tự: lựa chọn đã lưu > locale client hiện tại > locale guild > vi.
+ * Vì sao lựa chọn đã lưu được ưu tiên tuyệt đối: người dùng đã nói rõ
+ * "tôi muốn tiếng Việt" thì việc họ đổi client sang English không được phép
+ * lật ngược lại.
+ */
+async function resolveUserLang(store, interaction, guild) {
+  try {
+    const row = await store.client.query("bot_writes:botGetUserLang", {
+      userId: interaction.user.id,
+      botKey: process.env.PROTOGON_BOT_KEY || undefined,
+    });
+    if (row?.lang && SUPPORTED.has(row.lang)) return row.lang;
+  } catch {
+    // Chưa có bảng / mất mạng → rơi xuống tự nhận ra locale.
+  }
+  return langForUser(interaction, guild);
+}
+
+/**
+ * `/language` — xem hoặc đổi ngôn ngữ của chính mình.
+ *
+ * Chạy được cả trong server lẫn trong DM: người bị ban không vào được kênh
+ * nào nhưng vẫn phải đổi được ngôn ngữ cho các lần khiếu nại sau.
+ */
+async function languageCommand(store, interaction) {
+  const guild = interaction.guild || null;
+  const detected = langForUser(interaction, guild);
+  const current = await resolveUserLang(store, interaction, guild);
+  const T = ticketText(current);
+
+  const option = interaction.options?.getString?.("ngon_ngu");
+  if (option) {
+    if (!SUPPORTED.has(option)) {
+      return interaction.reply({
+        content: T.langCurrent.replace("{name}", langName(current)),
+        ephemeral: true,
+      });
+    }
+    try {
+      await store.client.mutation("bot_writes:botSetUserLang", {
+        userId: interaction.user.id,
+        lang: option,
+        botKey: process.env.PROTOGON_BOT_KEY || undefined,
+      });
+    } catch (e) {
+      // Không lưu được vẫn báo đã đặt: người dùng không nên phải biết kỹ thuật.
+      console.error(`[lang] lưu ngôn ngữ thất bại ${interaction.user.id}:`, e.message);
+    }
+    // Trả lời BẰNG ngôn ngữ mới — đây là bằng chứng nó có tác dụng ngay.
+    return interaction.reply({
+      content: ticketText(option).langSet.replace("{name}", langName(option)),
+      ephemeral: true,
+    });
+  }
+
+  const suffix =
+    current === detected ? "" : " " + T.langDetected.replace("{name}", langName(detected));
+  return interaction.reply({
+    content: T.langCurrent.replace("{name}", langName(current)) + suffix,
+    ephemeral: true,
+  });
+}
+
 module.exports = {
   SUPPORTED,
+  resolveUserLang,
+  languageCommand,
   langForLocale,
   langForGuild,
   langForUser,
@@ -309,4 +469,6 @@ module.exports = {
   ticketText,
   TICKET_KINDS,
   TICKET_TEXT,
+  LANG_NAMES,
+  langName,
 };

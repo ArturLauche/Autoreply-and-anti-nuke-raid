@@ -88,27 +88,6 @@ function langFor(interaction, guild) {
  * biết đây là ticket nào — không có state trong RAM, và người dùng có thể
  * dán lại embed vào kênh khác.
  */
-function actionRow(T, ticketId) {
-  const suffix = ticketId ? `${ID_SEP}${ticketId}` : "";
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`ticket_close${suffix}`)
-      .setLabel(T.btnClose)
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`ticket_unban${suffix}`)
-      .setLabel(T.btnUnban)
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId(`ticket_pin${suffix}`)
-      .setLabel(T.btnPin)
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`ticket_ai${suffix}`)
-      .setLabel(T.btnAi)
-      .setStyle(ButtonStyle.Primary),
-  );
-}
 
 /**
  * Lỗi Discord → câu báo tiếng Việt đọc được.
@@ -337,10 +316,29 @@ async function openTicket({
     .setFooter({ text: payload.footer })
     .setTimestamp();
 
+  // Panel điều khiển (nút đóng / đóng kèm lý do / nhận việc) + tag role staff
+  // tuỳ chọn của chủ server. Gửi thành 2 tin nhắn: tin đầu là nội dung khiếu
+  // nại (staff đọc), tin sau là panel thao tác. Gộp 1 tin sẽ mất footer và
+  // làm nội dung dài trôi khỏi màn hình.
   try {
-    await channel.send({ embeds: [embed], components: [actionRow(T, ticketId)] });
+    await channel.send({ embeds: [embed] });
   } catch (e) {
     console.error(`[tickets] gửi embed thất bại ${channel.id}:`, e.message);
+  }
+
+  const panel = buildPanel({
+    T,
+    ticketKindLabel: core.normalizeKind(kind),
+    openerName: core.escapeMentions(user.username || user.id),
+    number,
+    idleHours: config?.ticketIdleHours,
+    pingRoles: core.buildRoleMentions(config?.ticketPingRoleIds),
+    customText: config?.ticketPanelText,
+  });
+  try {
+    await channel.send({ ...panel, components: panelRows(T, ticketId) });
+  } catch (e) {
+    console.error(`[tickets] gửi panel thất bại ${channel.id}:`, e.message);
   }
 
   // Cập nhật channelId thật vào bản ghi.
@@ -463,6 +461,226 @@ function escapePayload(text) {
   return core.sanitizeBody(text, 800);
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   PANEL + NHẬN VIỆC + TỰ ĐÓNG (đợt nâng cấp)
+   ══════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Panel điều khiển ticket gửi vào kênh.
+ *
+ * Nội dung lấy từ cấu hình "ticketPanelText" của chủ server; rỗng thì dùng
+ * mặc định theo ngôn ngữ NGƯỜI MỞ. Hỗ trợ {user} {number} {kind} {idle}.
+ *
+ * ⚠️ Mọi nội dung đi qua core.fillPanelText — hàm đó escape mention. Đây là
+ * hàng rào chống ping cho nội dung do CHỦ SERVER soạn, không chỉ người dùng.
+ */
+function buildPanel({ T, ticketKindLabel, openerName, number, idleHours, pingRoles, customText }) {
+  const hours = core.normalizeIdleHours(idleHours);
+  const values = { user: openerName, number, kind: ticketKindLabel, idle: hours };
+  const text = core.fillPanelText(customText, values, T);
+  const embed = new EmbedBuilder().setColor(Colors.Blurple).setDescription(text).setTimestamp();
+
+  const notes = [];
+  if (pingRoles && pingRoles.length) {
+    notes.push(String(T.panelPing).replace("{roles}", pingRoles.join(" ")));
+  }
+  if (hours > 0) {
+    notes.push(String(T.panelIdle).replace("{h}", String(hours)));
+  }
+  if (notes.length) embed.addFields({ name: " ", value: notes.join("\n") });
+
+  return { embeds: [embed], components: panelRows(T, null) };
+}
+
+/**
+ * Hàng nút trong kênh ticket.
+ *
+ * ticketId = null → KHÔNG gắn customId, nút bấm không làm gì. Dùng cho hàng
+ * hiển thị trong embed mở ticket; hàng có nút thật thì gắn id để bấm được.
+ */
+function actionRow(T, ticketId) {
+  const suffix = ticketId ? ID_SEP + ticketId : "";
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("ticket_close" + suffix)
+      .setLabel(T.btnClose)
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId("ticket_close_reason" + suffix)
+      .setLabel(T.btnCloseReason)
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId("ticket_claim" + suffix)
+      .setLabel(T.btnClaim)
+      .setStyle(ButtonStyle.Primary),
+  );
+}
+
+/** Hàng nút phụ: gỡ ban / ghim / ghi chú AI (tách khỏi hàng chính). */
+function extraRow(T, ticketId) {
+  const suffix = ticketId ? ID_SEP + ticketId : "";
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("ticket_unban" + suffix)
+      .setLabel(T.btnUnban)
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId("ticket_pin" + suffix)
+      .setLabel(T.btnPin)
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId("ticket_ai" + suffix)
+      .setLabel(T.btnAi)
+      .setStyle(ButtonStyle.Secondary),
+  );
+}
+
+/**
+ * TOÀN BỘ nút của panel.
+ *
+ * ⚠️ Discord chỉ cho tối đa 5 nút mỗi hàng, nên 6 nút phải chia 2 hàng.
+ * Gom 6 nút vào 1 hàng sẽ khiến `send()` ném lỗi và panel KHÔNG hiện — mất
+ * luôn cả nút Gỡ ban (hành động phạt nặng).
+ */
+function panelRows(T, ticketId) {
+  return [actionRow(T, ticketId), extraRow(T, ticketId)];
+}
+
+/** Hàng nút cho người đã nhận (claim rồi) — cho nút "Bỏ nhận". */
+function claimedRow(T, ticketId) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("ticket_unclaim" + ID_SEP + ticketId)
+      .setLabel(T.btnUnclaim)
+      .setStyle(ButtonStyle.Secondary),
+  );
+}
+
+/** Modal "Đóng kèm lý do" — lý do bắt buộc vì staff và người mở đều thấy. */
+function closeReasonModal(T, ticketId) {
+  return new ModalBuilder()
+    .setCustomId("ticket_close_reason_submit:" + ticketId)
+    .setTitle(T.reasonModalTitle)
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId("ticket_close_reason_body")
+          .setLabel(T.reasonModalLabel)
+          .setStyle(TextInputStyle.Paragraph)
+          .setPlaceholder(T.reasonModalPlaceholder)
+          .setRequired(true)
+          .setMaxLength(core.CLOSE_REASON_MAX),
+      ),
+    );
+}
+
+/**
+ * Đóng ticket kèm lý do — dùng chung cho nút bấm tay và cho tự đóng.
+ *
+ * Không tự reply: hai đường gọi khác kiểu interaction (bấm tay vs job nền).
+ */
+async function closeTicketWithReason({
+  guild,
+  channel,
+  store,
+  ticketId,
+  closedById,
+  closedByName,
+  reason,
+  unbanned,
+  graceHours,
+  T,
+}) {
+  await closeTicketChannel({ guild, channel, openerId: null });
+  let closed = false;
+  try {
+    await store.client.mutation("bot_writes:botCloseTicket", {
+      guildId: guild.id,
+      ticketId,
+      status: "closed",
+      closedById,
+      closedByName,
+      closeReason: reason,
+      unbanned: !!unbanned,
+    });
+    closed = true;
+  } catch (e) {
+    console.error(`[tickets] ghi trạng thái đóng thất bại ${guild.id}:`, e.message);
+  }
+  const grace = core.normalizeGraceHours(graceHours);
+  const embed = new EmbedBuilder()
+    .setColor(Colors.Grey)
+    .setTitle(T.closedTitle)
+    .setDescription(
+      reason ? String(T.closedWithReason).replace("{reason}", reason) : String(T.closeNote || ""),
+    )
+    .addFields(
+      { name: T.closedBy, value: closedByName || "—", inline: true },
+      { name: " ", value: `⏳ ${grace}h`, inline: true },
+    )
+    .setTimestamp(Date.now());
+  try {
+    await channel.send({ embeds: [embed] });
+  } catch {
+    // Kênh vừa bị thu quyền người mở — staff vẫn gửi được.
+  }
+  return { closed, graceHours: grace };
+}
+
+/**
+ * Dựng transcript rồi lưu vào Convex storage.
+ *
+ * ⚠️ THỨ TỰ BẮT BUỘC: ghi file TRƯỚC, xác nhận thành công rồi mới cho phép
+ * xoá kênh. Xoá kênh Discord là không hoàn tác — mất transcript là mất
+ * bằng chứng khiếu nại, tệ hơn nhiều so với giữ kênh lâu hơn.
+ *
+ * Trả false khi KHÔNG lưu được — khi đó KHÔNG xoá kênh.
+ */
+async function saveTranscript({ store, guild, channel, ticketId, maxMessages }) {
+  let messages;
+  try {
+    messages = await channel.messages.fetch({ limit: maxMessages || 200 });
+  } catch (e) {
+    console.error(`[tickets] đọc transcript thất bại ${guild.id}:`, e.message);
+    return false;
+  }
+  const list = [...messages.values()]
+    .sort((a, b) => (a.createdTimestamp || 0) - (b.createdTimestamp || 0))
+    .map((m) => ({
+      id: m.id,
+      at: m.createdTimestamp || 0,
+      author: m.author?.username || m.author?.id || "?",
+      authorId: m.author?.id || "",
+      content: core.sanitizeBody(m.content || "", 1500),
+      attachments: (m.attachments || []).map((a) => a.url).slice(0, 5),
+      embeds: (m.embeds || []).length,
+    }));
+  const payload = {
+    guildId: guild.id,
+    guildName: guild.name,
+    channelId: channel.id,
+    channelName: channel.name,
+    ticketId,
+    savedAt: Date.now(),
+    messageCount: list.length,
+    messages: list,
+  };
+  try {
+    const storageId = await store.client.storage.store(
+      new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }),
+    );
+    await store.client.mutation("bot_writes:botSaveTicketTranscript", {
+      guildId: guild.id,
+      ticketId,
+      storageId,
+    });
+    return true;
+  } catch (e) {
+    console.error(`[tickets] lưu transcript thất bại ${guild.id}:`, e.message);
+    return false;
+  }
+}
+
 module.exports = {
   CHANNEL_NAME_MAX,
   DISCORD_MAX_CHANNELS,
@@ -480,4 +698,11 @@ module.exports = {
   aiModal,
   escapePayload,
   ID_SEP,
+  buildPanel,
+  extraRow,
+  panelRows,
+  claimedRow,
+  closeReasonModal,
+  closeTicketWithReason,
+  saveTranscript,
 };

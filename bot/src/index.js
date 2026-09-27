@@ -356,6 +356,15 @@ client.on("messageCreate", (m) => {
     console.error("[filters]", e.message),
   );
 });
+// Đẩy lùi đồng hồ tự đóng ticket: có người chat trong kênh ticket thì ticket
+// KHÔNG được tự đóng. Listener RIÊNG — dùng chung handler với filters sẽ khiến
+// lỗi Convex ở đây nuốt luôn nhánh filters phía trên.
+client.on("messageCreate", (m) => {
+  if (m.author?.bot) return;
+  require("./handlers/ticketActivity")
+    .noteActivity(m, store)
+    .catch((e) => console.error("[ticketActivity]", e.message));
+});
 client.on("interactionCreate", (i) =>
   onInteractionCreate(client, i, store, heat).catch((e) => {
     console.error("[interaction]", e?.message || e);

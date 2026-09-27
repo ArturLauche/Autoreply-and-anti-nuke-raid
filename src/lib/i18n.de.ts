@@ -1114,4 +1114,37 @@ export const DE: Record<string, string> = {
     "Funktionen \u2014 Protogon: Discord-Bot mit Auto-Antworten & Anti-Nuke",
   "To\u00e0n b\u1ed9 t\u00ednh n\u0103ng c\u1ee7a bot Discord Protogon: t\u1ef1 tr\u1ea3 l\u1eddi theo t\u1eeb kho\u00e1, h\u1ec7 th\u1ed1ng nhi\u1ec7t \u0111\u1ed9 4 giai \u0111o\u1ea1n, Join Gate, 32 module ch\u1ed1ng nuke/raid v\u00e0 backup server.":
     "Alle Funktionen des Protogon-Discord-Bots: Auto-Antworten nach Schl\u00fcsselw\u00f6rtern, vierstufiges Heat-System, Join Gate, 32 Anti-Nuke/Raid-Module und Server-Backup.",
+
+  /* ==== ticket: tu dong lam sach, phan cong, /language ==== */
+  "Tự động dọn & phân công": "Automatische Aufräumung & Zuweisung",
+  "Kênh ticket không ai trả lời sẽ tự đóng. Khi đóng đủ lâu, bot lưu toàn bộ nội dung rồi mới xoá kênh — không bao giờ xoá trước khi lưu.":
+    "Ein Ticket-Kanal ohne Antworten schließt sich selbst. Nach ausreichender Zeit speichert der Bot das gesamte Gespräch und löscht den Kanal erst danach — er löscht niemals vor dem Speichern.",
+  "Tự đóng sau (giờ không ai chat)": "Automatisch schließen nach (Stunden ohne Antwort)",
+  "0 = tắt. Tối đa 720 giờ (30 ngày). Mặc định 24 giờ.":
+    "0 = aus. Maximal 720 Stunden (30 Tage). Standard 24 Stunden.",
+  "Giữ kênh sau khi đóng (giờ)": "Kanal nach dem Schließen behalten (Stunden)",
+  "Sau khoảng này bot lưu transcript rồi xoá kênh. Tối thiểu 1 giờ.":
+    "Danach speichert der Bot das Transkript und löscht den Kanal. Mindestens 1 Stunde.",
+  "Đã lưu thời gian giữ kênh": "Kanal-Aufbewahrungszeit gespeichert",
+  "Nội dung panel trong kênh ticket (tuỳ chọn)": "Panel-Text im Ticket-Kanal (optional)",
+  "Chào {user}! Kênh này dành riêng cho bạn — staff sẽ phản hồi sớm.":
+    "Hallo {user}! Dieser Kanal ist nur für dich — das Team antwortet bald.",
+  "Đã lưu nội dung panel": "Panel-Text gespeichert",
+  "Có thể dùng: {user} tên người mở, {number} số ticket, {kind} loại, {idle} giờ tự đóng. Bỏ trống thì dùng mặc định.":
+    "Verfügbar: {user} Name des Erstellers, {number} Ticketnummer, {kind} Typ, {idle} Stunden bis Auto-Schließung. Leer lassen für die Standardausgabe.",
+  "Tag role khi mở ticket (tối đa 3)": "Rolle beim Öffnen eines Tickets markieren (max. 3)",
+  "Role này được nhắc mỗi khi có ticket mới. Để trống nếu không muốn ai bị tag.":
+    "Diese Rolle wird bei jedem neuen Ticket erwähnt. Leer lassen, um niemanden zu markieren.",
+  "Chưa có role nào trong server.": "Dieser Server hat noch keine Rollen.",
+  "Đã lưu role được tag": "Erwähnte Rollen gespeichert",
+  "Đã lưu thời gian tự đóng": "Auto-Schließzeit gespeichert",
+  "Đã tắt tự đóng": "Auto-Schließung deaktiviert",
+  "Đã có người nhận": "Übernommen",
+  "Chờ nhận": "Offen",
+  "Transcript đã lưu": "Transkript gespeichert",
+  "Đổi ngôn ngữ của bạn": "Sprache ändern",
+  "Ngôn ngữ của bạn đang được bot tự nhận ra khi chưa chọn.":
+    "Deine Sprache wird automatisch erkannt, bis du eine auswählst.",
+  "Xem ngôn ngữ hiện tại của bạn (không chọn = chỉ xem).":
+    "Aktuelle Sprache ansehen (leer lassen, um nur anzusehen).",
 };

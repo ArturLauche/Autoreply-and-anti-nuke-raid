@@ -199,6 +199,56 @@ async function ticketActionButton(client, store, interaction) {
     return interaction.showModal(tickets.aiModal(T));
   }
 
+  // ── Nhận việc / bỏ nhận ──
+  // CHỈ 1 người nhận: 3 mod trả lời cùng một khiếu nại là người mở phải đọc
+  // 3 câu mâu thuẫn. Người bấm sau bị từ chối kèm tên người đã nhận.
+  if (parsed.action === "ticket_claim" || parsed.action === "ticket_unclaim") {
+    if (!parsed.ticketId) return interaction.reply({ content: T.errNoStaff, ephemeral: true });
+    if (parsed.action === "ticket_unclaim") {
+      try {
+        await store.client.mutation("bot_writes:botUnclaimTicket", {
+          guildId: guild.id,
+          ticketId: parsed.ticketId,
+        });
+      } catch (e) {
+        console.error(`[tickets] bỏ nhận thất bại:`, e.message);
+        return interaction.reply({ content: T.errUnknown, ephemeral: true });
+      }
+      return interaction.reply({ content: T.unclaimDone, ephemeral: true });
+    }
+    let res;
+    try {
+      res = await store.client.mutation("bot_writes:botClaimTicket", {
+        guildId: guild.id,
+        ticketId: parsed.ticketId,
+        staffId: interaction.user.id,
+        staffName: interaction.user.username,
+      });
+    } catch (e) {
+      console.error(`[tickets] nhận việc thất bại:`, e.message);
+      return interaction.reply({ content: T.errUnknown, ephemeral: true });
+    }
+    if (res?.taken === false && res.alreadyMine) {
+      return interaction.reply({ content: T.claimMine, ephemeral: true });
+    }
+    if (!res?.ok) {
+      return interaction.reply({
+        content: String(T.claimTaken).replace("{staff}", res?.byName || "?"),
+        ephemeral: true,
+      });
+    }
+    return interaction.reply({
+      content: String(T.claimDone).replace("{staff}", interaction.user.username),
+      ephemeral: true,
+    });
+  }
+
+  // ── Đóng kèm lý do: mở modal, lý do bắt buộc ──
+  if (parsed.action === "ticket_close_reason") {
+    if (!parsed.ticketId) return interaction.reply({ content: T.errNoStaff, ephemeral: true });
+    return interaction.showModal(tickets.closeReasonModal(T, parsed.ticketId));
+  }
+
   // ── Đóng ticket / Gỡ ban: cần biết AI mở ticket ──
   // Đọc bản ghi thật thay vì suy từ tên kênh hay topic: đây là dữ liệu duy
   // nhất, và tên kênh có thể do staff đổi tay.
@@ -270,6 +320,57 @@ async function ticketActionButton(client, store, interaction) {
 }
 
 /** TICKET — modal ghi chú AI: gửi prompt cho model đọc tình hình ticket. */
+/**
+ * Modal "Đóng ticket kèm lý do".
+ *
+ * Lý do BẮT BUỘC (setRequired trong modal) vì nó hiện cho cả staff lẫn người
+ * mở — đóng im lặng khiến người bị khiếu nại không biết kết quả là gì, và
+ * chủ server mất dữ liệu để đánh giá người xử lý có đàng hoàng không.
+ */
+async function ticketCloseReasonModal(client, store, interaction) {
+  const ticketId = interaction.customId.slice("ticket_close_reason_submit:".length);
+  const guild = interaction.guild;
+  if (!guild || !ticketId) return;
+  const config = await store.getConfig(guild.id);
+  const T = lang.ticketText(tickets.langFor(interaction, guild));
+  if (!core_isStaff(interaction.member, tickets.staffRoleIds(config))) {
+    return interaction.reply({ content: T.notStaff, ephemeral: true });
+  }
+  const raw = interaction.fields.getTextInputValue("ticket_close_reason_body");
+  const reason = require("../ticketCore").sanitizeCloseReason(raw);
+  if (!reason) {
+    return interaction.reply({ content: T.reasonRequired, ephemeral: true });
+  }
+  let row;
+  try {
+    row = await client.query("tickets:botTicketById", {
+      guildId: guild.id,
+      ticketId,
+      botKey: process.env.PROTOGON_BOT_KEY || undefined,
+    });
+  } catch (e) {
+    console.error(`[tickets] đọc bản ghi thất bại:`, e.message);
+  }
+  if (!row || row.status !== "open") {
+    return interaction.reply({ content: T.errUnknown, ephemeral: true });
+  }
+  await interaction.deferReply({ ephemeral: true });
+  const res = await tickets.closeTicketWithReason({
+    guild,
+    channel: interaction.channel,
+    store,
+    ticketId,
+    closedById: interaction.user.id,
+    closedByName: interaction.user.username,
+    reason,
+    graceHours: config?.ticketCloseGraceHours,
+    T,
+  });
+  return interaction.editReply({
+    content: res.closed ? String(T.closedWithReason).replace("{reason}", reason) : T.errUnknown,
+  });
+}
+
 async function ticketAiModal(client, store, interaction) {
   const note = interaction.fields.getTextInputValue("ticket_ai_body");
   const guild = interaction.guild;
@@ -608,12 +709,23 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
   if (interaction.isModalSubmit() && interaction.customId === "ticket_ai_note") {
     return ticketAiModal(client, store, interaction);
   }
+  // ─── TICKET: modal đóng kèm lý do ───
+  if (
+    interaction.isModalSubmit() &&
+    interaction.customId.startsWith("ticket_close_reason_submit:")
+  ) {
+    return ticketCloseReasonModal(client, store, interaction);
+  }
 
   if (!interaction.isChatInputCommand()) return;
 
   const name = interaction.commandName;
   const guild = interaction.guild;
-  if (!guild) {
+
+  // `/language` là lệnh DUY NHẤT chạy được trong DM: người bị ban không vào
+  // được kênh nào của server, nhưng họ vẫn cần đổi ngôn ngữ cho các lần
+  // khiếu nại sau. Vì vậy nó được miễn qua chặn guild bên dưới.
+  if (!guild && name !== "language") {
     return interaction.reply({ content: "Lệnh này chỉ hoạt động trong server.", ephemeral: true });
   }
 
@@ -637,6 +749,11 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
     case "ping": {
       const ws = Math.round(client.ws.ping);
       return interaction.reply({ content: `🏓 Pong! **${ws}ms** (WebSocket)`, ephemeral: true });
+    }
+
+    // `/language` — miễn qua chặn guild ở trên nên chạy được cả trong DM.
+    case "language": {
+      return lang.languageCommand(store, interaction);
     }
 
     case "health": {

@@ -239,6 +239,145 @@ function cooldownMinutesLeft(lastOpenedAt, cooldownHours, now = Date.now()) {
   return Math.max(0, Math.ceil(total - elapsed));
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   TỰ ĐÓNG — phần thuần (đợt nâng cấp)
+   ══════════════════════════════════════════════════════════════════════ */
+
+/** Mặc định: không ai chat 24 giờ thì bot tự đóng. */
+const IDLE_HOURS_DEFAULT = 24;
+
+/** Trần 30 ngày — quá dài thì tiền điện kênh đến vô ích. */
+const IDLE_HOURS_MAX = 720;
+
+/** Sau khi đóng tay, giữ kênh 24h rồi mới lưu transcript + xoá. */
+const CLOSE_GRACE_DEFAULT = 24;
+
+/** Lý do đóng cắt tối đa 300 ký tự (khớp trần botCloseTicket bên Convex). */
+const CLOSE_REASON_MAX = 300;
+
+/**
+ * Chuẩn hoá `ticketIdleHours`. 0 = TẮT HẲN (không tự đóng).
+ *
+ * Vì sao 0 hợp lệ: có chủ server muốn ticket sống tới khi staff đóng tay —
+ * ép mọi server dùng tự đóng sẽ khiến họ tắt cả tính năng.
+ */
+function normalizeIdleHours(value) {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.min(IDLE_HOURS_MAX, n);
+}
+
+/** Chuẩn hoá `ticketCloseGraceHours`. Tối thiểu 1h — xoá ngay lập tức mất transcript. */
+function normalizeGraceHours(value) {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n) || n < 1) return CLOSE_GRACE_DEFAULT;
+  return Math.min(IDLE_HOURS_MAX, n);
+}
+
+/**
+ * Ticket có đã quá hạn chưa.
+ *
+ * @param {object} t     bản ghi ticket (cần lastActivityAt, createdAt, status)
+ * @param {number} idleHours  đã chuẩn hoá qua normalizeIdleHours
+ * @param {number} now   mốc thời gian (mặc định Date.now())
+ *
+ * idleHours = 0 → LUÔN false (đã tắt). Chưa từng có hoạt động nào thì tính
+ * từ createdAt — nếu không, ticket mở rồi không ai nói sẽ đóng ngay lập tức.
+ */
+function isIdleExpired(t, idleHours, now = Date.now()) {
+  if (!t || t.status !== "open") return false;
+  const hours = normalizeIdleHours(idleHours);
+  if (hours <= 0) return false;
+  const last = t.lastActivityAt || t.createdAt || 0;
+  if (!last) return false;
+  return now - last >= hours * 3_600_000;
+}
+
+/** Đã đủ giờ giữ kênh sau khi đóng để lưu transcript + xoá chưa. */
+function isPurgeDue(t, graceHours, now = Date.now()) {
+  if (!t || t.status !== "closed") return false;
+  if (t.transcriptStorageId) return false; // đã lưu rồi — không xoá 2 lần
+  const grace = normalizeGraceHours(graceHours);
+  const closed = t.closedAt || 0;
+  if (!closed) return false;
+  return now - closed >= grace * 3_600_000;
+}
+
+/** Số giờ còn lại trước khi bị dọn (hiển thị cho staff, 0 = không có hạn). */
+function purgeHoursLeft(t, graceHours, now = Date.now()) {
+  if (!t || t.status !== "closed" || t.transcriptStorageId) return 0;
+  const closed = t.closedAt || 0;
+  if (!closed) return 0;
+  const totalMin = normalizeGraceHours(graceHours) * 60;
+  const elapsedMin = (now - closed) / 60_000;
+  // Trả về GIỜ (đúng như tên hàm). Trước đây trả phút → panel hiện
+  // "1380 giờ" cho một khoảng 24 giờ. Tính tròn LÊN để không bao giờ
+  // hứa dọn sớm hơn thực tế.
+  return Math.max(0, Math.ceil((totalMin - elapsedMin) / 60));
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   PANEL TUỲ BIẾN
+   ══════════════════════════════════════════════════════════════════════ */
+
+/** Nội dung panel cắt tối đa 1000 ký tự (khớp trần validate ở Convex). */
+const PANEL_MAX = 1000;
+
+/**
+ * Thay placeholder trong nội dung tuỳ biến của chủ server.
+ *
+ * Placeholder hỗ trợ: {user} tên người mở, {number} số ticket, {kind} loại,
+ * {idle} số giờ tự đóng.
+ *
+ * ⚠️ BẮT BUỘC escape trước khi thay: nội dung này dán vào embed trong kênh
+ * ticket. Chủ server gõ `@everyone` trong ô tuỳ chỉnh sẽ ping cả server mỗi
+ * lần có người mở ticket — hàng rào chống ping áp cho cả chủ server.
+ */
+function fillPanelText(template, values, T = {}) {
+  const src = String(template ?? "").trim();
+  if (!src) return String(T.panelTitle || "").replace(/\{(\w+)\}/g, "");
+  const safe = {
+    user: escapeMentions(values?.user ?? ""),
+    number: escapeMentions(String(values?.number ?? "")),
+    kind: escapeMentions(String(values?.kind ?? "")),
+    idle: escapeMentions(String(values?.idle ?? "")),
+  };
+  return escapeMentions(src)
+    .slice(0, PANEL_MAX)
+    .replace(/\{(\w+)\}/g, (m, key) => (key in safe ? safe[key] : m));
+}
+
+/**
+ * Chuẩn hoá lý do đóng do staff gõ.
+ *
+ * Cắt 300 ký tự + escape mention: lý do này hiện trong embed VÀ được gửi DM
+ * cho người mở. Không escape thì staff (vô tình) gõ `<@&id>` là bot ping role
+ * đó trong tin nhắn riêng của người dùng.
+ */
+function sanitizeCloseReason(text) {
+  return clip(escapeMentions(String(text ?? "").trim()), CLOSE_REASON_MAX);
+}
+
+/**
+ * Danh sách mention role để tag khi mở ticket.
+ *
+ * Chỉ nhận snowflake hợp lệ, tối đa 3. Không cắt theo "tính hợp lệ" im lặng
+ * mà không nói — người gọi sẽ tưởng role đã được tag.
+ */
+function buildRoleMentions(roleIds) {
+  const out = [];
+  const seen = new Set();
+  for (const raw of Array.isArray(roleIds) ? roleIds : []) {
+    const id = String(raw ?? "").trim();
+    if (!/^\d{15,22}$/.test(id)) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push("<@&" + id + ">");
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+
 module.exports = {
   BODY_MAX,
   EVIDENCE_MAX,
@@ -257,4 +396,17 @@ module.exports = {
   isStaff,
   buildOpenPayload,
   cooldownMinutesLeft,
+  IDLE_HOURS_DEFAULT,
+  IDLE_HOURS_MAX,
+  CLOSE_GRACE_DEFAULT,
+  CLOSE_REASON_MAX,
+  PANEL_MAX,
+  normalizeIdleHours,
+  normalizeGraceHours,
+  isIdleExpired,
+  isPurgeDue,
+  purgeHoursLeft,
+  fillPanelText,
+  sanitizeCloseReason,
+  buildRoleMentions,
 };

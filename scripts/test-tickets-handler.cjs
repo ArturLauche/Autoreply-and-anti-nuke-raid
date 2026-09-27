@@ -146,21 +146,32 @@ check(
 // ═══ actionRow: nút mang ticketId + nhãn đúng ngôn ngữ ═══
 console.log("\n── actionRow ──");
 {
-  const row = tickets.actionRow(T, "TID123");
-  const ids = row.components.map((c) => c.customId);
-  check("4 nút thao tác", row.components.length === 4);
+  // Panel nay có 6 nút → BẮT BUỘC 2 hàng (Discord tối đa 5 nút/hàng).
+  // Gom 1 hàng là `send()` ném lỗi → mất cả nút Gỡ ban.
+  const rows = tickets.panelRows(T, "TID123");
+  const all = rows.flatMap((r) => r.components);
+  const ids = all.map((c) => c.customId);
+  check("panel chia 2 hàng", rows.length === 2);
+  check("6 nút thao tác", all.length === 6);
+  check(
+    "mọi hàng không vượt 5 nút (giới hạn Discord)",
+    rows.every((r) => r.components.length <= 5),
+    rows.map((r) => r.components.length).join(","),
+  );
   check(
     "mọi nút mang ticketId",
     ids.every((id) => id.endsWith(":TID123")),
     ids.join(","),
   );
-  check("nút Đóng", ids[0] === "ticket_close:TID123");
-  check("nút Gỡ ban", ids[1] === "ticket_unban:TID123");
-  check("nút Ghim", ids[2] === "ticket_pin:TID123");
-  check("nút AI", ids[3] === "ticket_ai:TID123");
-  check("nhãn theo ngôn ngữ VI", row.components[0].label === T.btnClose);
-  const rowEn = tickets.actionRow(lang.ticketText("en"), "T1");
-  check("nhãn đổi theo ngôn ngữ EN", rowEn.components[0].label === "Close");
+  check("nút Đóng", ids.includes("ticket_close:TID123"));
+  check("nút Đóng kèm lý do", ids.includes("ticket_close_reason:TID123"));
+  check("nút Nhận việc", ids.includes("ticket_claim:TID123"));
+  check("nút Gỡ ban", ids.includes("ticket_unban:TID123"));
+  check("nút Ghim", ids.includes("ticket_pin:TID123"));
+  check("nút AI", ids.includes("ticket_ai:TID123"));
+  check("nhãn theo ngôn ngữ VI", all[0].label === T.btnClose);
+  const rowsEn = tickets.panelRows(lang.ticketText("en"), "T1");
+  check("nhãn đổi theo ngôn ngữ EN", rowsEn[0].components[0].label === "Close");
   const noId = tickets.actionRow(T, null);
   check("không có id thì nút vẫn dựng được", noId.components[0].customId === "ticket_close");
 }
@@ -728,6 +739,263 @@ function makeGuild({ createThrows = null, overwritesFail = new Set() } = {}) {
         !openCall.args.body.includes("@everyone") &&
         openCall.args.body.includes(ZWSP),
     );
+  }
+
+  // ═══ Đợt nâng cấp: panel tuỳ chỉnh, claim, đóng kèm lý do, transcript ═══
+  console.log("\n── buildPanel (panel tuỳ chỉnh) ──");
+  {
+    const base = {
+      T,
+      ticketKindLabel: "khiếu nại",
+      openerName: "Minh",
+      number: 7,
+      idleHours: 24,
+    };
+    const def = tickets.buildPanel(base);
+    check("panel có 2 hàng nút", def.components.length === 2, String(def.components.length));
+    const desc = String(def.embeds[0].d.description || "");
+    check("rỗng → dùng panelTitle mặc định", desc.length > 0, desc);
+    const fields = JSON.stringify(def.embeds[0].d.fields || "");
+    check(
+      "báo số giờ tự đóng cho người mở thấy",
+      desc.includes("24") || fields.includes("24"),
+      desc + " | " + fields,
+    );
+    {
+      const custom = tickets.buildPanel({
+        ...base,
+        customText: "Chào {user} — ticket #{number}, loại {kind}",
+      });
+      const d2 = String(custom.embeds[0].d.description || "");
+      check(
+        "thay placeholder tuỳ chỉnh",
+        d2.includes("Minh") && d2.includes("#7") && d2.includes("khiếu nại"),
+        d2,
+      );
+    }
+    {
+      const ping = tickets.buildPanel({ ...base, pingRoles: ["<@&111>"] });
+      const d3 = JSON.stringify(ping.embeds[0].d.fields || "");
+      check("có tag role khi mở ticket", d3.includes("<@&111>"), d3);
+    }
+    const off = tickets.buildPanel({ ...base, idleHours: 0 });
+    check(
+      "tắt tự đóng (0) → KHÔNG hứa sẽ tự đóng",
+      !JSON.stringify(off.embeds[0].d.fields || "").includes("24"),
+      JSON.stringify(off.embeds[0].d.fields || ""),
+    );
+  }
+
+  console.log("\n── modal đóng kèm lý do ──");
+  {
+    const m = tickets.closeReasonModal(T, "TID1");
+    check("modal mang đúng customId", m.customId === "ticket_close_reason_submit:TID1", m.customId);
+    check("tiêu đề lấy từ bảng ngôn ngữ", m.title === T.reasonModalTitle, m.title);
+    const field = m.components[0].components[0];
+    check("1 ô nhập, bắt buộc có lý do", field.customId === "ticket_close_reason_body");
+    const mEn = tickets.closeReasonModal(lang.ticketText("de"), "T2");
+    check("modal đổi ngôn ngữ DE", mEn.title === lang.ticketText("de").reasonModalTitle, mEn.title);
+  }
+
+  console.log("\n── claimedRow ──");
+  {
+    const r = tickets.claimedRow(T, "TID9");
+    check(
+      "nút bỏ nhận mang ticketId",
+      r.components[0].customId === "ticket_unclaim:TID9",
+      r.components[0].customId,
+    );
+  }
+
+  console.log("\n── closeTicketWithReason ──");
+  {
+    const sent = [];
+    const mutations = [];
+    const channel = {
+      name: "ticket-1",
+      send: async (p) => sent.push(p),
+      setName: async () => {},
+      permissionOverwrites: { edit: async () => {} },
+    };
+    const guild = { id: "G", roles: { everyone: "E" } };
+    const store = {
+      client: {
+        mutation: async (n, a) => {
+          mutations.push({ n, a });
+          return {};
+        },
+      },
+    };
+    const res = await tickets.closeTicketWithReason({
+      guild,
+      channel,
+      store,
+      ticketId: "T1",
+      closedByName: "Mod",
+      reason: "Đã gỡ ban",
+      graceHours: 24,
+      T,
+    });
+    check("báo đã đóng", res.closed === true);
+    check(
+      "ghi closeReason xuống Convex",
+      mutations[0]?.a?.closeReason === "Đã gỡ ban",
+      JSON.stringify(mutations),
+    );
+    check("gửi embed kết quả trong kênh", sent.length === 1);
+    check("grace hours chuẩn hoá 24", res.graceHours === 24);
+  }
+  {
+    // Ghi trạng thái lỗi → báo KHÔNG đóng (ticket còn mở trong DB) nhưng vẫn
+    // thu quyền kênh — người dùng nhìn thấy kênh đã đóng, staff thì không.
+    const sent = [];
+    const channel = {
+      name: "ticket-2",
+      send: async (p) => sent.push(p),
+      setName: async () => {},
+      permissionOverwrites: { edit: async () => {} },
+    };
+    const store = {
+      client: {
+        mutation: async () => {
+          throw new Error("db down");
+        },
+      },
+    };
+    const res = await tickets.closeTicketWithReason({
+      guild: { id: "G", roles: { everyone: "E" } },
+      channel,
+      store,
+      ticketId: "T1",
+      reason: "x",
+      graceHours: 24,
+      T,
+    });
+    check("ghi lỗi → KHÔNG báo đã đóng", res.closed === false);
+  }
+  {
+    // Kênh không gửi được embed (đã bị thu quyền) → vẫn đóng được.
+    const channel = {
+      name: "ticket-3",
+      send: async () => {
+        throw new Error("Missing Access");
+      },
+      setName: async () => {},
+      permissionOverwrites: { edit: async () => {} },
+    };
+    const store = { client: { mutation: async () => ({}) } };
+    const res = await tickets.closeTicketWithReason({
+      guild: { id: "G", roles: { everyone: "E" } },
+      channel,
+      store,
+      ticketId: "T1",
+      reason: "x",
+      graceHours: 24,
+      T,
+    });
+    check("gửi embed hỏng → vẫn đóng thành công", res.closed === true);
+  }
+
+  console.log("\n── saveTranscript ──");
+  {
+    const mutations = [];
+    const channel = {
+      id: "CH",
+      name: "ticket-1",
+      messages: {
+        fetch: async () =>
+          new Map([
+            [
+              "m2",
+              {
+                id: "m2",
+                createdTimestamp: 2,
+                author: { username: "b", id: "u2" },
+                content: "@everyone hai",
+                attachments: [],
+                embeds: [],
+              },
+            ],
+            [
+              "m1",
+              {
+                id: "m1",
+                createdTimestamp: 1,
+                author: { username: "a", id: "u1" },
+                content: "một",
+                attachments: [{ url: "https://x/1.png" }],
+                embeds: [],
+              },
+            ],
+          ]),
+      },
+    };
+    const store = {
+      client: {
+        mutation: async (n, a) => {
+          mutations.push({ n, a });
+          return {};
+        },
+        storage: { store: async () => "SID" },
+      },
+    };
+    const okSave = await tickets.saveTranscript({
+      store,
+      guild: { id: "G", name: "Guild" },
+      channel,
+      ticketId: "T1",
+    });
+    check("lưu transcript thành công", okSave === true);
+    check(
+      "gửi storageId lên Convex",
+      mutations[0]?.a?.storageId === "SID",
+      JSON.stringify(mutations),
+    );
+  }
+  {
+    // Không đọc được tin nhắn → KHÔNG coi là lưu được (bot sẽ giữ kênh).
+    const channel = {
+      id: "CH",
+      name: "x",
+      messages: {
+        fetch: async () => {
+          throw new Error("Missing Access");
+        },
+      },
+    };
+    const store = { client: { mutation: async () => ({}), storage: { store: async () => "SID" } } };
+    const r = await tickets.saveTranscript({
+      store,
+      guild: { id: "G", name: "G" },
+      channel,
+      ticketId: "T1",
+    });
+    check("đọc tin nhắn lỗi → KHÔNG lưu (giữ kênh)", r === false);
+  }
+  {
+    // Storage lỗi → KHÔNG lưu.
+    const channel = {
+      id: "CH",
+      name: "x",
+      messages: { fetch: async () => new Map() },
+    };
+    const store = {
+      client: {
+        mutation: async () => ({}),
+        storage: {
+          store: async () => {
+            throw new Error("storage full");
+          },
+        },
+      },
+    };
+    const r = await tickets.saveTranscript({
+      store,
+      guild: { id: "G", name: "G" },
+      channel,
+      ticketId: "T1",
+    });
+    check("storage lỗi → KHÔNG lưu", r === false);
   }
 
   console.log(`\nKết quả tickets-handler: ${pass} PASS, ${fail} FAIL`);

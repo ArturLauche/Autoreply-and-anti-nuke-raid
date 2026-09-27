@@ -267,6 +267,10 @@ export const getGuild = query({
         ticketDmOnBan: guild.ticketDmOnBan ?? true,
         ticketDefaultKind: guild.ticketDefaultKind ?? "support",
         ticketCloseNote: guild.ticketCloseNote ?? null,
+        ticketIdleHours: guild.ticketIdleHours ?? 24,
+        ticketCloseGraceHours: guild.ticketCloseGraceHours ?? 24,
+        ticketPanelText: guild.ticketPanelText ?? "",
+        ticketPingRoleIds: guild.ticketPingRoleIds ?? [],
       },
       heatStates,
       modules: modules.map((m) => ({
@@ -531,6 +535,10 @@ export const getBotConfig = query({
       ticketDmOnBan: guild.ticketDmOnBan ?? true,
       ticketDefaultKind: guild.ticketDefaultKind ?? "support",
       ticketCloseNote: guild.ticketCloseNote ?? "",
+      ticketIdleHours: guild.ticketIdleHours ?? 24,
+      ticketCloseGraceHours: guild.ticketCloseGraceHours ?? 24,
+      ticketPanelText: guild.ticketPanelText ?? "",
+      ticketPingRoleIds: guild.ticketPingRoleIds ?? [],
       heatStates,
       autoReplies,
       giveaways: giveaways.map((g) => ({
@@ -651,6 +659,10 @@ export const updateSettings = mutation({
     ticketDmOnBan: v.optional(v.boolean()),
     ticketDefaultKind: v.optional(v.string()),
     ticketCloseNote: v.optional(v.string()),
+    ticketIdleHours: v.optional(v.number()),
+    ticketCloseGraceHours: v.optional(v.number()),
+    ticketPanelText: v.optional(v.string()),
+    ticketPingRoleIds: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const user = await getUserByToken(ctx, args.token);
@@ -779,9 +791,23 @@ export const updateSettings = mutation({
       patch.ticketDefaultKind = args.ticketDefaultKind === "appeal" ? "appeal" : "support";
     if (args.ticketCloseNote !== undefined)
       patch.ticketCloseNote = args.ticketCloseNote.trim().slice(0, 300) || undefined;
+    // 0 = tát hấn. Trần 720 giờ (30 ngày) — quá dài thì tửn để kênh đển vứ.
+    if (args.ticketIdleHours !== undefined)
+      patch.ticketIdleHours = Math.max(0, Math.min(720, Math.floor(args.ticketIdleHours) || 0));
+    if (args.ticketCloseGraceHours !== undefined)
+      patch.ticketCloseGraceHours = Math.max(
+        1,
+        Math.min(720, Math.floor(args.ticketCloseGraceHours) || 24),
+      );
+    if (args.ticketPanelText !== undefined)
+      patch.ticketPanelText = args.ticketPanelText.trim().slice(0, 1000) || undefined;
+    if (args.ticketPingRoleIds !== undefined)
+      // Tối đa 3 role: tag nhiều làm loạn kênh ticket khác.
+      patch.ticketPingRoleIds = (args.ticketPingRoleIds ?? [])
+        .filter((r) => /^\d{15,22}$/.test(String(r ?? "")))
+        .slice(0, 3);
     if (args.raidHuntBanSuspects !== undefined)
       patch.raidHuntBanSuspects = args.raidHuntBanSuspects;
-    if (args.rollbackEnabled !== undefined) patch.rollbackEnabled = !!args.rollbackEnabled;
     if (args.rollbackEnabled !== undefined) patch.rollbackEnabled = !!args.rollbackEnabled;
     if (args.prefix !== undefined) {
       if (!/^[!^$#&%]{1,3}$/.test(args.prefix)) {

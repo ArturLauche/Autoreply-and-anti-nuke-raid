@@ -409,6 +409,27 @@ const LOCALIZATIONS = {
       dong: { d: ["How to close a ticket", "Ticket schließen"] },
     },
   },
+  language: {
+    d: [
+      "See or change the language the bot speaks to you in",
+      "Anzeige oder ändere die Sprache, in der der Bot mit dir spricht",
+    ],
+    subs: {
+      ngon_ngu: {
+        d: [
+          "Language to use — leave empty to see your current language",
+          "Gewünschte Sprache — leer lassen, um die aktuelle zu sehen",
+        ],
+        // Tên ngôn ngữ: VI giữ nguyên (đúng tên riêng), EN/DE dịch.
+        // Discord CHẶN choice thiếu name_localizations khi đăng ký lệnh.
+        choices: {
+          vi: ["Tiếng Việt", "Tiếng Việt"],
+          en: ["English", "Englisch"],
+          de: ["Tiếng Việt", "Deutsch"],
+        },
+      },
+    },
+  },
   setup: {
     d: ["Quick bot setup for the server", "Schnelleinrichtung des Bots für den Server"],
     subs: {

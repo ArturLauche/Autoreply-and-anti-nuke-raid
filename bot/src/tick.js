@@ -214,6 +214,11 @@ async function runTickOnce(client, store) {
     } catch (e) {
       console.error("[tick:verify]", e?.message || e);
     }
+    try {
+      await require("./handlers/ticketJobs").processTicketJobs(client, store, jobs.tickets ?? []);
+    } catch (e) {
+      console.error("[tick:tickets]", e?.message || e);
+    }
     await runBackupJobs(client, store, jobs.backups ?? []);
     return;
   }

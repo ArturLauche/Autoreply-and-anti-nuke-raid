@@ -21,6 +21,21 @@ export default defineSchema({
     .index("by_token", ["token"])
     .index("by_userId", ["userId"]),
 
+  /**
+   * Ngôn ngữ được đểt bằng `/language`. Để được chưa dùng của mình
+   * (locale client Discord) thì Bot nhền ra được dùng gì.
+   *
+   * Không gối từ user đúng đển ố để quán lợ server (bảng users
+   * là tài khoản đã đăng nhập web) — bảng này là định danh sách
+   * Discord mà bot nhịiét.
+   */
+  userLangs: defineTable({
+    userId: v.string(),
+    /** "vi" | "en" | "de" — null/ở khi ngưỗi dùng lựa chọn để xoá. */
+    lang: v.string(),
+    updatedAt: v.number(),
+  }).index("by_userId", ["userId"]),
+
   guilds: defineTable({
     discordId: v.string(),
     name: v.string(),
@@ -281,6 +296,27 @@ export default defineSchema({
     ticketDefaultKind: v.optional(v.string()),
     /** Lời nhắc dán trong kênh ticket (chủ server tuỳ biến). */
     ticketCloseNote: v.optional(v.string()),
+    /**
+     * Giờ không ai chat trong kênh ticket thì bot tự đóng. Chủ server chọn;
+     * mặc định 24, trần 720 (30 ngày). 0 = tắt hẳn (không tự đóng).
+     */
+    ticketIdleHours: v.optional(v.number()),
+    /**
+     * Sau khi đóng tay, giữ kênh thêm bao nhiêu giờ rồi mới xoá.
+     * Mặc định 24. Transcript được lưu vào storage TRƯỚC khi xoá kênh.
+     */
+    ticketCloseGraceHours: v.optional(v.number()),
+    /**
+     * Nội dung panel gửi vào kênh ticket (chủ server tuỳ biến). Hỗ trợ
+     * placeholder {user}, {number}, {kind}. Rỗng → dùng bản mặc định theo
+     * ngôn ngữ của người mở.
+     */
+    ticketPanelText: v.optional(v.string()),
+    /**
+     * Role được tag trong panel khi mở ticket (rỗng = không tag ai).
+     * Danh sách id, tối đa 3 — tag nhiều làm loạn kênh khác.
+     */
+    ticketPingRoleIds: v.optional(v.array(v.string())),
     /**
      * Mốc LẦN CUỐI dashboard ghi cấu hình (updateSettings). Khác `updatedAt` —
      * `updatedAt` bị chính bot bump mỗi lượt sync/heartbeat nên không dùng làm tín
@@ -889,8 +925,28 @@ export default defineSchema({
     source: v.string(),
     /** open → closed (staff bấm Đóng) → locked (tự động, đợt sau). */
     status: v.union(v.literal("open"), v.literal("closed"), v.literal("locked")),
-    /** Staff đã nhận ticket (nút Ghim) — chưa dùng cho phân công tự động. */
+    /**
+     * Staff đã nhận ticket (nút "Nhận việc"). CHỈ 1 người: người sau bấm bị từ
+     * chối. Tránh 3 mod trả lời trùng nội dung.
+     */
     claimedById: v.optional(v.string()),
+    claimedByName: v.optional(v.string()),
+    claimedAt: v.optional(v.number()),
+    /**
+     * Lần cuối có ai chat trong kênh (mọi tin nhắn, kể cả của bot trừ chính
+     * nó). Bot tự đóng khi `now - lastActivityAt > idleHours`. null = chưa
+     * có hoạt động nào (mới mở → coi như vừa hoạt động ở createdAt).
+     */
+    lastActivityAt: v.optional(v.number()),
+    /** Số giờ còn lại được báo cho người mở khi ticket đóng tay. */
+    deleteAfter: v.optional(v.number()),
+    /**
+     * id file transcript trong Convex storage — bot lưu TRƯỚC khi xoá kênh.
+     * Không có id này thì không xoá (mất transcript là mất bằng chứng).
+     */
+    transcriptStorageId: v.optional(v.string()),
+    /** Transcript đã lưu thành công trước khi kênh bị xoá. */
+    transcriptAt: v.optional(v.number()),
     closedById: v.optional(v.string()),
     closedByName: v.optional(v.string()),
     closeReason: v.optional(v.string()),
