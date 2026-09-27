@@ -77,6 +77,8 @@ const { genCaptcha, setCode } = require("../captchaStore");
 const { analyzeNewMember, executePunishment, buildRiskEmbed } = require("../altDetection");
 const { reportInteractive } = require("./incidentReport");
 const researchHandlers = require("./researchCommands");
+const tickets = require("./tickets");
+const lang = require("./lang");
 
 // Rate limiting for verify attempts: Map<userId, { attempts: number, lastAttemptAt: number }>
 // Trạng thái rate-limit xác minh (3 lần / 10 phút cho mỗi user). Hiện chưa có
@@ -94,6 +96,288 @@ setInterval(
   },
   5 * 60 * 1000,
 );
+
+/**
+ * TICKET — nút "Mở khiếu nại" trong DM sau khi bị ban.
+ *
+ * Modal KHÔNG có `guild` (nút nằm trong DM) → phải tự tra guild qua
+ * `interaction.client.guilds.cache`. Đây là lý do hàm này không dùng
+ * `interaction.guild` như các nhánh còn lại.
+ */
+async function ticketOpenDmButton(client, store, interaction) {
+  // Cache có thể lỗi thời (bot vừa restart) → fetch tươi.
+  const guild = interaction.guild
+    ? interaction.guild
+    : await client.guilds
+        .fetch(interaction.channel?.guildId || interaction.guildId)
+        .catch(() => null);
+  // Nút này nằm trong DM → không có guild nào hợp lệ. Trả lời rõ thay vì
+  // crash im lặng.
+  if (!guild) {
+    return interaction.reply({ content: "❌ Không tìm thấy server.", ephemeral: true });
+  }
+  const T = lang.ticketText(tickets.langFor(interaction, guild));
+  const config = await store.getConfig(guild.id);
+  if (!config?.ticketEnabled) {
+    return interaction.reply({ content: T.errDisabled, ephemeral: true });
+  }
+  return interaction.showModal(tickets.appealModal(T));
+}
+
+/** TICKET — modal khiếu nại: ghi bản ghi + mở kênh staff-only. */
+async function ticketAppealModal(client, store, interaction) {
+  const body = interaction.fields.getTextInputValue("ticket_body");
+  const evidence = interaction.fields.getTextInputValue("ticket_evidence");
+  const guild = interaction.guild
+    ? interaction.guild
+    : await client.guilds
+        .fetch(interaction.channel?.guildId || interaction.guildId)
+        .catch(() => null);
+  if (!guild) {
+    return interaction.reply({ content: "❌ Không tìm thấy server.", ephemeral: true });
+  }
+  const T = lang.ticketText(tickets.langFor(interaction, guild));
+  if (!body || !body.trim()) {
+    return interaction.reply({ content: T.aiEmpty, ephemeral: true });
+  }
+  await interaction.deferReply({ ephemeral: true });
+
+  const res = await tickets.openTicket({
+    client,
+    store,
+    guild,
+    user: interaction.user,
+    kind: "appeal",
+    source: "dm",
+    body,
+    evidence,
+    T,
+    // Người bị ban không vào được kênh nào → kênh ticket chỉ mở cho staff.
+    openerOnly: false,
+  });
+  if (!res.ok) {
+    const msg = renderError(res, T);
+    await interaction.editReply({ content: `${msg}\n\n${T.dmFailed}` });
+    return;
+  }
+  await interaction.editReply({ content: T.okSent });
+}
+
+/** TICKET — các nút thao tác trong kênh ticket (chỉ staff). */
+async function ticketActionButton(client, store, interaction) {
+  const parsed = tickets.parseTicketId(interaction.customId);
+  if (!parsed) return;
+  const guild = interaction.guild;
+  if (!guild) return;
+  const config = await store.getConfig(guild.id);
+  const T = lang.ticketText(tickets.langFor(interaction, guild));
+
+  // Quyền staff: ưu tiên role ticket, không có thì modRoles — cùng nguồn với
+  // `canMod` đang dùng cho lệnh mod.
+  if (!core_isStaff(interaction.member, tickets.staffRoleIds(config))) {
+    return interaction.reply({ content: T.errNoStaff, ephemeral: true });
+  }
+
+  if (parsed.action === "ticket_pin") {
+    try {
+      const messages = await interaction.channel.messages.fetch({ limit: 50 });
+      const first = messages.last();
+      if (first) {
+        await first.pin();
+        return interaction.reply({ content: "📌 Đã ghim.", ephemeral: true });
+      }
+    } catch (e) {
+      console.error(`[tickets] ghim thất bại:`, e.message);
+    }
+    return interaction.reply({ content: "❌ Chưa có tin nhắn để ghim.", ephemeral: true });
+  }
+
+  // Mở modal ghi chú AI. THIẾU nhánh này thì nút "Ghi chú AI" rơi xuống
+  // nhánh cuối và báo "Ticket không còn trong hệ thống." — sai hoàn toàn, và
+  // cả pipeline ghi chú AI (modal + prompt + escape) thành code chết.
+  if (parsed.action === "ticket_ai") {
+    return interaction.showModal(tickets.aiModal(T));
+  }
+
+  // ── Đóng ticket / Gỡ ban: cần biết AI mở ticket ──
+  // Đọc bản ghi thật thay vì suy từ tên kênh hay topic: đây là dữ liệu duy
+  // nhất, và tên kênh có thể do staff đổi tay.
+  if (parsed.action === "ticket_close" || parsed.action === "ticket_unban") {
+    if (!parsed.ticketId) {
+      return interaction.reply({ content: T.errNoStaff, ephemeral: true });
+    }
+    let row;
+    try {
+      row = await client.query("tickets:botTicketById", {
+        guildId: guild.id,
+        ticketId: parsed.ticketId,
+        botKey: process.env.PROTOGON_BOT_KEY || undefined,
+      });
+    } catch (e) {
+      console.error(`[tickets] đọc bản ghi thất bại:`, e.message);
+    }
+    if (!row || row.status !== "open") {
+      return interaction.reply({ content: T.errNoStaff, ephemeral: true });
+    }
+
+    let unbanned = false;
+    if (parsed.action === "ticket_unban") {
+      try {
+        // GỌI `unbanMember`, KHÔNG gọi `guild.members.unban` trực tiếp: bên
+        // trong nó gọi `misfire.noteRepealed` → vòng đo phạt nhầm chỉ chạy khi
+        // đi đúng đường này.
+        await unbanMember({
+          guild,
+          userId: row.openerId,
+          executor: interaction.user,
+          reason: "Gỡ ban qua ticket",
+          guildConfig: config,
+          store,
+        });
+        unbanned = true;
+      } catch (e) {
+        return interaction.reply({
+          content: T.notBanned.replace("{user}", `<@${row.openerId}>`),
+          ephemeral: true,
+        });
+      }
+    }
+
+    await tickets.closeTicketChannel({
+      guild,
+      channel: interaction.channel,
+      openerId: row.openerId,
+    });
+    try {
+      await store.client.mutation("bot_writes:botCloseTicket", {
+        guildId: guild.id,
+        ticketId: parsed.ticketId,
+        status: "closed",
+        closedById: interaction.user.id,
+        closedByName: interaction.user.username,
+        unbanned,
+      });
+    } catch (e) {
+      console.error(`[tickets] ghi trạng thái thất bại:`, e.message);
+    }
+    return interaction.reply({
+      content: `🔒 ${T.closedTitle} — ${T.closedBy} ${interaction.user.username}.`,
+      ephemeral: true,
+    });
+  }
+
+  return interaction.reply({ content: "⚠️ Ticket không còn trong hệ thống.", ephemeral: true });
+}
+
+/** TICKET — modal ghi chú AI: gửi prompt cho model đọc tình hình ticket. */
+async function ticketAiModal(client, store, interaction) {
+  const note = interaction.fields.getTextInputValue("ticket_ai_body");
+  const guild = interaction.guild;
+  if (!guild) return;
+  const T = lang.ticketText(tickets.langFor(interaction, guild));
+  if (!note || !note.trim()) {
+    return interaction.reply({ content: T.aiEmpty, ephemeral: true });
+  }
+  await interaction.deferReply({ ephemeral: true });
+  try {
+    // Dùng lại đúng đường AI sẵn có (`researchChat` + `researchAvailable`) —
+    // không tạo client AI mới, không tự gọi provider. Cùng cơ chế giới hạn
+    // tần suất và fallback mà incidentReport đang dùng.
+    const ai = require("../ai");
+    if (!ai.researchAvailable()) {
+      return interaction.editReply({ content: "⚠️ AI chưa sẵn sàng." });
+    }
+    const answer = await ai.researchChat(
+      [
+        {
+          role: "system",
+          content:
+            "Bạn trợ lý cho mod Discord. Tóm tắt ngắn gọn tình huống trong ghi chú ticket dưới đây, nêu rõ cần hỏi lại họ điều gì. Trả lời đúng ngôn ngữ của ghi chú.",
+        },
+        { role: "user", content: tickets.escapePayload(note) },
+      ],
+      { maxTokens: 400, temperature: 0.2, timeoutMs: 30_000 },
+    );
+    return interaction.editReply({ content: answer || T.aiEmpty });
+  } catch (e) {
+    console.error(`[tickets] AI note lỗi:`, e.message);
+    return interaction.editReply({ content: "❌ AI lỗi: " + e.message });
+  }
+}
+
+/** Bọc `core.isStaff` — import lazy để tránh vòng require. */
+function core_isStaff(member, staffIds) {
+  return require("../ticketCore").isStaff(member, staffIds);
+}
+
+/**
+ * Lệnh `/ticket` — ĐIỂM VÀO B (thành viên đang ở trong server).
+ *
+ * Không mở được cho người đã bị ban: họ không vào được kênh nào của server, kể
+ * cả kênh ticket. Đường cho nhóm đó là nút trong DM mà bot gửi kèm khi ban —
+ * vì vậy thông báo ở đây trỏ thẳng về hướng đó thay vì chỉ chặn bằng ❌.
+ */
+async function ticketCommand(client, store, interaction, guild) {
+  const T = lang.ticketText(tickets.langFor(interaction, guild));
+  const config = await store.getConfig(guild.id);
+
+  // KHÔNG gọi `guild.bans.fetch()` ở đây: Discord đã chặn sẵn — người bị ban
+  // không gọi được slash command trong server, interaction không tới được bot.
+  // Hỏi ban tốn 1 HTTP call mỗi lượt gọi lệnh để rồi luôn nhận false.
+  if (interaction.user.bot) {
+    return interaction.reply({ content: T.errBotAccount, ephemeral: true });
+  }
+  if (!config?.ticketEnabled) {
+    return interaction.reply({ content: T.errDisabled, ephemeral: true });
+  }
+
+  const sub = interaction.options.getSubcommand();
+  if (sub === "close") {
+    return interaction.reply({
+      content:
+        "Đóng ticket bằng nút **Đóng** trong chính kênh ticket — nút đó còn thu quyền người mở và ghi log.",
+      ephemeral: true,
+    });
+  }
+
+  const kind =
+    sub === "appeal" ? "appeal" : config.ticketDefaultKind === "appeal" ? "appeal" : "support";
+  const res = await tickets.openTicket({
+    client,
+    store,
+    guild,
+    user: interaction.user,
+    kind,
+    source: "command",
+    body: interaction.options.getString("chude") || "",
+    T,
+    openerOnly: true,
+  });
+
+  if (!res.ok) {
+    return interaction.reply({ content: renderError(res, T), ephemeral: true });
+  }
+  return interaction.reply({
+    content: T.okOpened.replace("{ch}", `<#${res.channelId}>`),
+    ephemeral: true,
+  });
+}
+
+/** Dựng câu báo lỗi từ mã của `openTicket` + bảng chuỗi đã dịch. */
+function renderError(res, T) {
+  if (res.code === "errCooldown") return T.errCooldown.replace("{h}", String(res.waitHours ?? 1));
+  if (res.code === "errMaxOpen") {
+    return T.errMaxOpen
+      .replace("{n}", String(res.count ?? 0))
+      .replace("{max}", String(res.max ?? 0));
+  }
+  if (res.code === "errAlreadyOpen" && res.channelId) {
+    return T.errAlreadyOpen.replace("{ch}", `<#${res.channelId}>`);
+  }
+  if (res.code === "errHierarchy") return T.errHierarchy;
+  if (res.code === "MAX_CHANNELS") return T.errChannelsFull;
+  return T[res.code] || T.errNoPerm;
+}
 
 module.exports = async function onInteractionCreate(client, interaction, store, heat) {
   // Handle button interactions (verify_confirm + verify_request_captcha)
@@ -306,7 +590,23 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       }
       return;
     }
+    // ─── TICKET: nút mở khiếu nại trong DM sau ban ───
+    if (interaction.customId === "ticket_open_dm") {
+      return ticketOpenDmButton(client, store, interaction);
+    }
+    if (interaction.customId.startsWith("ticket_")) {
+      return ticketActionButton(client, store, interaction);
+    }
     return;
+  }
+
+  // ─── TICKET: modal khiếu nại (sau nút trong DM) ───
+  if (interaction.isModalSubmit() && interaction.customId === "ticket_appeal_dm") {
+    return ticketAppealModal(client, store, interaction);
+  }
+  // ─── TICKET: modal ghi chú AI (nút trong kênh ticket) ───
+  if (interaction.isModalSubmit() && interaction.customId === "ticket_ai_note") {
+    return ticketAiModal(client, store, interaction);
   }
 
   if (!interaction.isChatInputCommand()) return;
@@ -326,6 +626,12 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
 
     case "research": {
       return researchHandlers.handleResearch(client, store, interaction);
+    }
+
+    case "ticket": {
+      // Điểm vào B: thành viên đang ở trong server mở ticket (hỏi đáp / báo cáo
+      // chung, hoặc khiếu nại nếu chọn loại appeal).
+      return ticketCommand(client, store, interaction, guild);
     }
 
     case "ping": {

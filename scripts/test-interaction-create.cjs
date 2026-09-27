@@ -28,10 +28,25 @@ fs.writeFileSync(
 }
 class ActionRowBuilder { constructor() { this.components = []; } addComponents(...c) { this.components.push(...c.flat(Infinity)); return this; } }
 class ButtonBuilder { setCustomId(v){this.customId=v;return this;} setLabel(v){this.label=v;return this;} setStyle(v){this.style=v;return this;} }
+class ModalBuilder {
+  constructor() { this.components = []; }
+  setCustomId(v){this.customId=v;return this;} setTitle(v){this.title=v;return this;}
+  addComponents(...c){this.components.push(...c.flat(Infinity));return this;}
+}
+class TextInputBuilder {
+  setCustomId(v){this.customId=v;return this;} setLabel(v){this.label=v;return this;}
+  setStyle(v){this.style=v;return this;} setRequired(v){this.required=v;return this;}
+  setMaxLength(v){this.maxLength=v;return this;} setPlaceholder(v){this.placeholder=v;return this;}
+}
 module.exports = {
   Colors: new Proxy({}, { get: () => 0x000000 }),
-  EmbedBuilder, ActionRowBuilder, ButtonBuilder,
+  EmbedBuilder, ActionRowBuilder, ButtonBuilder, ModalBuilder, TextInputBuilder,
   ButtonStyle: { Primary: 1, Success: 2, Danger: 3, Secondary: 4 },
+  TextInputStyle: { Short: 1, Paragraph: 2 },
+  ChannelType: { GuildText: 0, GuildCategory: 4 },
+  PermissionFlagsBits: new Proxy({}, { get: () => 1n << 4n }),
+  Partials: {},
+  GatewayIntentBits: new Proxy({}, { get: () => 0 }),
 };
 `,
 );
@@ -180,15 +195,17 @@ Module._load = function (request, parent) {
     },
   };
   const heat = {};
-  const client = { ws: { ping: 42 } };
+  const client = { ws: { ping: 42 }, query: async () => ctl.queryResult ?? null };
 
   const replies = [];
+  const shownModals = [];
   function reset() {
     calls.mutations.length = 0;
     calls.queries.length = 0;
     calls.markLocked.length = 0;
     calls.captchaSet.length = 0;
     calls.dms.length = 0;
+    shownModals.length = 0;
     replies.length = 0;
     ctl.perms = { manage: true, admin: false, mod: true };
     ctl.isLocked = false;
@@ -237,11 +254,30 @@ Module._load = function (request, parent) {
       channel: opts.channel ?? { id: "c1", name: "chung", toString: () => "#chung" },
       isButton: () => !!opts.isButton,
       isChatInputCommand: () => !!opts.isChatInputCommand,
+      // discord.js luôn có đủ các predicate này trên Interaction; mock thiếu
+      // thì handler gọi tới sẽ ném TypeError và làm cả suite đỏ.
+      isModalSubmit: () => !!opts.isModalSubmit,
       customId: opts.customId,
       commandName: opts.commandName,
       replied: false,
       reply: async (payload) => {
         replies.push(payload);
+        interaction.replied = true;
+        return {};
+      },
+      // discord.js cho phép 1 interaction chỉ hồi đáp 1 lần. Mock các hàm còn
+      // lại để handler nào gọi tới cũng không ném TypeError (đã xảy ra).
+      deferReply: async (payload) => {
+        interaction.deferred = true;
+        if (payload) replies.push({ ...payload, deferred: true });
+        return {};
+      },
+      editReply: async (payload) => {
+        replies.push({ ...payload, edited: true });
+        return {};
+      },
+      showModal: async (modal) => {
+        shownModals.push(modal);
         interaction.replied = true;
         return {};
       },
@@ -1469,6 +1505,74 @@ Module._load = function (request, parent) {
       "alt vpn hợp lệ → mutation",
       calls.mutations.some((m) => m.name === "bot_writes:botUpdateSettings"),
     );
+  }
+
+  // ══════════════════ NÚT TICKET: hợp đồng nút ↔ handler ══════════════════
+  // Nút chết là kiểu chết âm thầm: handler nhận customId nhưng rơi xuống
+  // nhánh cuối và báo sai (đã xảy ra với nút "Ghi chú AI" — cả pipeline AI
+  // viết xong nhưng không nút nào mở được nó). Test này duyệt ĐÚNG danh sách
+  // nút mà bot gửi đi, nên nút mới thêm mà quên handler là test đỏ.
+  {
+    const tickets = require("../bot/src/handlers/tickets.js");
+    const lang = require("../bot/src/handlers/lang.js");
+    const T = lang.ticketText("vi");
+    const row = tickets.actionRow(T, "TID1");
+    const orphan = [];
+    for (const comp of row.components) {
+      reset();
+      configs.set("g1", { ticketStaffRoleId: "R_MOD", modRoles: ["R_MOD"] });
+      ctl.queryResult = { openerId: "U9", openerName: "nguoi-bi-ban", status: "open" };
+      await run({
+        isButton: true,
+        customId: comp.customId,
+        memberOverride: { roles: { cache: { has: (r) => r === "R_MOD" } } },
+        channel: {
+          id: "c1",
+          name: "ticket-x-1",
+          messages: {
+            // Collection thật của discord.js có `.last()`; Map thuần thì không.
+            // Handler ghim tin gọi `messages.last()` → mock thiếu là test đỏ
+            // giả (đã xảy ra).
+            fetch: async () => ({ values: () => [][Symbol.iterator](), last: () => null }),
+          },
+          permissionOverwrites: { edit: async () => {} },
+          setName: async () => {},
+        },
+      });
+      const texts = replies.map((r) => String(r.content || ""));
+      // Nhánh cuối của ticketActionButton = nút KHÔNG có handler.
+      if (texts.some((t) => t.includes("không còn trong hệ thống"))) orphan.push(comp.customId);
+    }
+    check(
+      `mọi ${row.components.length} nút ticket đều có handler (không nút chết)`,
+      orphan.length === 0,
+      orphan.join(", "),
+    );
+  }
+  {
+    reset();
+    configs.set("g1", { ticketStaffRoleId: "R_MOD", modRoles: ["R_MOD"] });
+    await run({
+      isButton: true,
+      customId: "ticket_ai:TID1",
+      memberOverride: { roles: { cache: { has: (r) => r === "R_MOD" } } },
+    });
+    check(
+      "nút Ghi chú AI mở modal (không phải báo ticket không còn)",
+      shownModals.length === 1 && shownModals[0].customId === "ticket_ai_note",
+      shownModals[0]?.customId,
+    );
+  }
+  {
+    // Nút AI vẫn phải qua kiểm tra quyền staff như mọi nút khác.
+    reset();
+    configs.set("g1", { ticketStaffRoleId: "R_MOD", modRoles: ["R_MOD"] });
+    await run({
+      isButton: true,
+      customId: "ticket_ai:TID1",
+      memberOverride: { roles: { cache: { has: () => false } } },
+    });
+    check("nút AI cũng chỉ staff được bấm", shownModals.length === 0);
   }
 
   fs.unlinkSync(path.join(__dirname, "..", "bot", "test-djs-mock.cjs"));

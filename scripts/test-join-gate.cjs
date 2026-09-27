@@ -435,6 +435,315 @@ module.exports = {
     check("member không guild → bỏ qua (không crash)", calls.kicks.length === 0);
   }
 
+  // ── 16. Rủi ro trung bình → CHỈ quan sát, tuyệt đối không phạt ──
+  // Đây là hàng rào chống phạt oan quan trọng nhất: riskScore từ 20 trở lên
+  // nhưng dưới ngưỡng cấu hình thì chỉ ghi log phân tích, không kick/ban/timeout.
+  {
+    clear();
+    // Hồ sơ giống case 8 (risk=30: acc <1 ngày + tên trùng 100%), nhưng ngưỡng
+    // đặt cao → action = "pass" → rơi vào nhánh "chỉ quan sát".
+    const origin = mkMember("o-watch", "vanghinhano", { avatar: "av-o" });
+    const g = mkGuild("g-watch", [origin]);
+    configs.set("g-watch", {
+      altDetectionEnabled: true,
+      altMaxRiskScore: 100,
+      altPunish: "kick",
+      logChannelId: null,
+    });
+    client.guilds.cache.set("g-watch", g);
+    const logs = [];
+    const realLog = console.log;
+    console.log = (...a) => logs.push(a.join(" "));
+    try {
+      await joinGate(
+        client,
+        g.addMember(mkMember("watch-1", "vanghinhano", { avatar: "av-a", createdDaysAgo: 0.5 })),
+        store,
+      );
+    } finally {
+      console.log = realLog;
+    }
+    check(
+      "rủi ro trung bình → không kick/ban/timeout",
+      calls.kicks.length === 0 && calls.bans.length === 0 && calls.timeouts.length === 0,
+    );
+    check(
+      "rủi ro trung bình → KHÔNG ghi markJoinPunished",
+      !calls.mutations.some((mm) => mm.name === "altDetection:markJoinPunished"),
+    );
+    check(
+      "rủi ro trung bình → có dòng log 'monitoring only'",
+      logs.some((l) => l.includes("monitoring only")),
+      JSON.stringify(logs.slice(0, 2)),
+    );
+  }
+
+  // ── 17. Lỗi ghi DB giữa chừng KHÔNG được làm hỏng phần còn lại ──
+  // markJoinPunished / botRecordAntinukeEvent là dữ liệu phụ (phục vụ đối chiếu
+  // rejoin + log). Mất nó không được phép làm mất luôn cả bằng chứng phạt.
+  {
+    clear();
+    const origin = mkMember("o-1", "vanghinhano", { avatar: "av-o" });
+    const g = mkGuild("g-db1", [origin]);
+    configs.set("g-db1", {
+      altDetectionEnabled: true,
+      altMaxRiskScore: 30,
+      altPunish: "kick",
+      logChannelId: null,
+    });
+    client.guilds.cache.set("g-db1", g);
+    const flakyStore = {
+      ...store,
+      client: {
+        ...store.client,
+        mutation: async (name, args) => {
+          calls.mutations.push({ name, args });
+          if (name === "altDetection:markJoinPunished") throw new Error("db down");
+          return {};
+        },
+      },
+    };
+    let threw1 = false;
+    try {
+      await joinGate(
+        client,
+        g.addMember(mkMember("alt-d1", "vanghinhano", { avatar: "av-a", createdDaysAgo: 0.5 })),
+        flakyStore,
+      );
+    } catch {
+      threw1 = true;
+    }
+    check(
+      "markJoinPunished lỗi → vẫn ghi event antinuke, không ném ra ngoài",
+      calls.mutations.some((m) => m.name === "bot_writes:botRecordAntinukeEvent") && !threw1,
+    );
+  }
+  {
+    clear();
+    const origin = mkMember("o-2", "vanghinhano2", { avatar: "av-o" });
+    const g = mkGuild("g-db2", [origin]);
+    configs.set("g-db2", {
+      altDetectionEnabled: true,
+      altMaxRiskScore: 30,
+      altPunish: "kick",
+      logChannelId: null,
+    });
+    client.guilds.cache.set("g-db2", g);
+    const flakyStore = {
+      ...store,
+      client: {
+        ...store.client,
+        mutation: async (name, args) => {
+          calls.mutations.push({ name, args });
+          if (name === "bot_writes:botRecordAntinukeEvent") throw new Error("db down");
+          return {};
+        },
+      },
+    };
+    let threw = false;
+    try {
+      await joinGate(
+        client,
+        g.addMember(mkMember("alt-d2", "vanghinhano2", { avatar: "av-a", createdDaysAgo: 0.5 })),
+        flakyStore,
+      );
+    } catch {
+      threw = true;
+    }
+    check(
+      "ghi event lỗi → vẫn đã kick, không ném ra ngoài",
+      calls.kicks.includes("alt-d2") && !threw,
+    );
+  }
+
+  // ── 18. Burst 5 acc rủi ro cao → AUTO-LOCKDOWN toàn server ──
+  // Đây là đường nguy hiểm nhất của Join Gate: burst KHÔNG chỉ phạt từng
+  // người mà còn khoá KÊNH của cả server. Trước đây không test nào chạm nhánh
+  // này nên một lỗi ở đây = bot khoá nhầm server người hàng xóm khi 5 acc
+  // bình thường vào cùng lúc.
+  {
+    clear();
+    const g = mkGuild("g-burst", [mkMember("burst-origin", "nguoi_that_ken", { avatar: "av-o" })]);
+    // channels.cache phải ITERABLE (Map) — code duyệt `for (const [, ch] of ...)`.
+    // Guild mặc định trong test dùng object nên sẽ ném TypeError, che mất phần
+    // đặt hạn mở khóa trên Convex.
+    const lockedChannels = [];
+    g.channels = {
+      cache: new Map([
+        [
+          "c1",
+          {
+            id: "c1",
+            isTextBased: () => true,
+            isThread: () => false,
+            permissionOverwrites: {
+              edit: async () => {
+                lockedChannels.push("c1");
+              },
+            },
+          },
+        ],
+        [
+          "c2",
+          {
+            id: "c2",
+            isTextBased: () => true,
+            isThread: () => false,
+            permissionOverwrites: {
+              edit: async () => {
+                lockedChannels.push("c2");
+              },
+            },
+          },
+        ],
+        [
+          "th",
+          {
+            id: "th",
+            isTextBased: () => true,
+            isThread: () => true,
+            permissionOverwrites: {
+              edit: async () => {
+                lockedChannels.push("th");
+              },
+            },
+          },
+        ],
+        [
+          "vc",
+          {
+            id: "vc",
+            isTextBased: () => false,
+            isThread: () => false,
+            permissionOverwrites: {
+              edit: async () => {
+                lockedChannels.push("vc");
+              },
+            },
+          },
+        ],
+      ]),
+    };
+    configs.set("g-burst", {
+      altDetectionEnabled: true,
+      altMaxRiskScore: 100, // không phạt từng người — chỉ muốn kiểm tra lockdown
+      altPunish: "kick",
+      logChannelId: null,
+      lockdownMinutes: 7,
+    });
+    client.guilds.cache.set("g-burst", g);
+
+    // 5 acc mới + tên trùng 100% với acc gốc → risk 55 mỗi acc (≥40 trung bình).
+    for (let i = 0; i < 5; i++) {
+      await joinGate(
+        client,
+        g.addMember(
+          mkMember(`burst-${i}`, "nguoi_that_ken", { avatar: "av-a", createdDaysAgo: 0.5 }),
+        ),
+        store,
+      );
+    }
+    check(
+      "burst đủ 5 acc rủi ro cao → khoá kênh text",
+      lockedChannels.includes("c1") && lockedChannels.includes("c2"),
+      JSON.stringify(lockedChannels),
+    );
+    check(
+      "burst KHÔNG khoá thread / kênh phiên nói",
+      !lockedChannels.includes("th") && !lockedChannels.includes("vc"),
+      JSON.stringify(lockedChannels),
+    );
+    const lockState = calls.mutations.find((m) => m.name === "bot_writes:botLockState");
+    check(
+      "đặt hạn mở khóa trên Convex (lockdownMinutes)",
+      !!lockState,
+      JSON.stringify(calls.mutations.map((m) => m.name)),
+    );
+    const wantUntil = Date.now() + 7 * 60_000;
+    check(
+      "hạn mở khóa = lockdownMinutes (7 phút)",
+      !!lockState && Math.abs(lockState.args.until - wantUntil) < 5_000,
+      String(lockState?.args.until),
+    );
+    check(
+      "bật cờ lockdown để tickUnlocks mở đúng hạn",
+      calls.mutations.some(
+        (m) => m.name === "bot_writes:botUpdateLockdown" && m.args.enabled === true,
+      ),
+    );
+    // Cooldown 15 phút: burst thứ 2 trong cửa sổ phải KHÔNG khoá lại.
+    lockedChannels.length = 0;
+    clear();
+    for (let i = 0; i < 5; i++) {
+      await joinGate(
+        client,
+        g.addMember(
+          mkMember(`burst2-${i}`, "nguoi_that_ken", { avatar: "av-a", createdDaysAgo: 0.5 }),
+        ),
+        store,
+      );
+    }
+    check(
+      "cooldown 15 phút → burst lần sau KHÔNG khoá lại",
+      lockedChannels.length === 0 &&
+        !calls.mutations.some((m) => m.name === "bot_writes:botLockState"),
+      JSON.stringify(lockedChannels),
+    );
+  }
+  {
+    // isLocked đã đúng: server đang khoá thì không khoá lần hai (tránh spam mutation).
+    clear();
+    const g = mkGuild("g-burst2", [mkMember("b2-origin", "nguoi_khong_rang", { avatar: "av-o" })]);
+    const locked = [];
+    g.channels = {
+      cache: new Map([
+        [
+          "c",
+          {
+            id: "c",
+            isTextBased: () => true,
+            isThread: () => false,
+            permissionOverwrites: { edit: async () => locked.push("c") },
+          },
+        ],
+      ]),
+    };
+    configs.set("g-burst2", {
+      altDetectionEnabled: true,
+      altMaxRiskScore: 100,
+      altPunish: "kick",
+      logChannelId: null,
+    });
+    client.guilds.cache.set("g-burst2", g);
+    for (let i = 0; i < 5; i++) {
+      await joinGate(
+        client,
+        g.addMember(
+          mkMember(`b2-${i}`, "nguoi_khong_rang", { avatar: "av-a", createdDaysAgo: 0.5 }),
+        ),
+        store,
+      );
+    }
+    const { markLocked } = require("../bot/src/lockdown");
+    markLocked("g-burst2"); // giả lập đã khoá từ lần trước
+    locked.length = 0;
+    clear();
+    for (let i = 0; i < 5; i++) {
+      await joinGate(
+        client,
+        g.addMember(
+          mkMember(`b2b-${i}`, "nguoi_khong_rang", { avatar: "av-a", createdDaysAgo: 0.5 }),
+        ),
+        store,
+      );
+    }
+    check(
+      "server đã khoá → không ghi đè permissionOverwrites",
+      locked.length === 0,
+      JSON.stringify(locked),
+    );
+  }
+
   console.log(`\nKết quả join gate: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail > 0 ? 1 : 0);
 })();

@@ -103,6 +103,15 @@ export default defineSchema({
     raidHuntEnabled: v.optional(v.boolean()),
     /** Raid Intel: tự ban tài khoản nghi là nguồn cơn raid khi đủ tín hiệu. */
     raidHuntBanSuspects: v.optional(v.boolean()),
+    /**
+     * Khôi phục role/kênh sau vụ nuke (nukeRollback). Mặc định BẬT.
+     *
+     * Vì sao cần cờ tắt: rollback dựa trên snapshot, nên sau khi chủ server
+     * đã dọn và tạo lại kênh có chủ đích, lượt rollback sau có thể hồi lại
+     * những thứ chủ không muốn. Không có đường tắt thì lỗi đó không sửa được
+     * ngoài cách gỡ bot.
+     */
+    rollbackEnabled: v.optional(v.boolean()),
     /** Whitelist toàn cục: user/role được miễn trừ khỏi moderation, anti-raid và nuke. */
     whitelistUsers: v.optional(v.array(v.string())),
     whitelistRoles: v.optional(v.array(v.string())),
@@ -247,6 +256,31 @@ export default defineSchema({
     altVpnMode: v.optional(v.union(v.literal("strict"), v.literal("warn"), v.literal("off"))),
     /** Chế độ an toàn: chỉ phạt khi có >= 2 bằng chứng độc lập (chống chặn nhầm). */
     altSafeMode: v.optional(v.boolean()),
+    /**
+     * ═══ TICKET / KHIẾU NẠI (27/09/2026) ═══
+     *
+     * Vì sao có: Protogon phạt TỰ ĐỘNG ở 7 nơi (heat, altDetection, joinGate,
+     * antinuke audit/externalApp/raidIntel, lệnh mod tay). Trước tính năng này
+     * người bị ban không có đường nào tiếp cận lệnh `/mod unban` đã tồn tại.
+     *
+     * Tất cả mặc định là TẮT / rỗng: server nào chưa bật thì hành vi y như cũ.
+     */
+    /** Bật tính năng ticket. Mặc định false — không đụng server đang chạy. */
+    ticketEnabled: v.optional(v.boolean()),
+    /** Category chứa kênh ticket (dùng chung cho cả 2 loại). */
+    ticketCategoryId: v.optional(v.string()),
+    /** Role được coi là staff xử lý ticket. Rỗng → lấy `modRoles`. */
+    ticketStaffRoleId: v.optional(v.string()),
+    /** Tối đa số ticket `open` cùng lúc (chống spam kênh). */
+    ticketMaxOpen: v.optional(v.number()),
+    /** Giữa 2 lần mở của cùng một người (giờ). */
+    ticketCooldownHours: v.optional(v.number()),
+    /** Gửi DM kèm nút "Mở khiếu nại" sau khi bot/ mod ban. */
+    ticketDmOnBan: v.optional(v.boolean()),
+    /** Loại ticket mặc định khi gọi `/ticket` không kèm lựa chọn: support | appeal. */
+    ticketDefaultKind: v.optional(v.string()),
+    /** Lời nhắc dán trong kênh ticket (chủ server tuỳ biến). */
+    ticketCloseNote: v.optional(v.string()),
     /**
      * Mốc LẦN CUỐI dashboard ghi cấu hình (updateSettings). Khác `updatedAt` —
      * `updatedAt` bị chính bot bump mỗi lượt sync/heartbeat nên không dùng làm tín
@@ -824,4 +858,59 @@ export default defineSchema({
     requestedBy: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_createdAt", ["createdAt"]),
+
+  /**
+   * ═══ TICKET / KHIẾU NẠI (27/09/2026) ═══
+   *
+   * Mỗi hàng = 1 kênh ticket Discord. Cả 2 loại (khiếu nại hình phạt và hỗ trợ
+   * chung) dùng chung bảng này, phân biệt bằng `kind`.
+   *
+   * ⚠️ KHÔNG lưu transcript tin nhắn ở MVP. Mỗi kênh có thể vài trăm tin,
+   * vài trăm ticket là vài MB không cần thiết; `bot/src/backupUtils.js` đã có
+   * kinh nghiệm xử lý khối tin lớn. Nếu sau này cần thì lưu vào storage
+   * (xem `guildBackups.importStorageId`).
+   */
+  tickets: defineTable({
+    guildId: v.string(),
+    /** Số thứ tự tăng dần của server (dùng chung bộ đếm với mod case). */
+    number: v.optional(v.number()),
+    /** Kênh ticket trên Discord — luôn có, kể cả khi mở từ điểm vào DM. */
+    channelId: v.string(),
+    /** "appeal" (khiếu nại hình phạt) | "support" (hỏi đáp / báo cáo chung). */
+    kind: v.string(),
+    openerId: v.string(),
+    /** Username tại lúc mở — hiển thị được sau khi người đó rời server. */
+    openerName: v.string(),
+    /** Nội dung người dùng viết (đã escape mention, đã cắt 1000 ký tự). */
+    body: v.optional(v.string()),
+    /** Bằng chứng / tên người bị cho là có (tùy chọn, đã cắt 500 ký tự). */
+    evidence: v.optional(v.string()),
+    /** "dm" (nút trong DM sau ban) | "command" (lệnh /ticket trong server). */
+    source: v.string(),
+    /** open → closed (staff bấm Đóng) → locked (tự động, đợt sau). */
+    status: v.union(v.literal("open"), v.literal("closed"), v.literal("locked")),
+    /** Staff đã nhận ticket (nút Ghim) — chưa dùng cho phân công tự động. */
+    claimedById: v.optional(v.string()),
+    closedById: v.optional(v.string()),
+    closedByName: v.optional(v.string()),
+    closeReason: v.optional(v.string()),
+    /**
+     * true nếu staff bấm "Gỡ ban" ngay trong ticket. Đây là đầu vào cho vòng
+     * đo phạt nhầm `bot/src/misfire.js` — hành động gỡ đi qua `unbanMember`
+     * nên vòng đo đã tự chạy; field này chỉ để dashboard thống kê.
+     */
+    unbanned: v.optional(v.boolean()),
+    /**
+     * Bot không gửi được DM khi mở ticket từ điểm vào DM (user tắt DM).
+     * Dashboard hiển thị để staff gọi tay qua panel DM.
+     */
+    openError: v.optional(v.string()),
+    openErrorAt: v.optional(v.number()),
+    createdAt: v.number(),
+    closedAt: v.optional(v.number()),
+  })
+    .index("by_guildId", ["guildId"])
+    .index("by_guildId_status", ["guildId", "status"])
+    .index("by_guildId_createdAt", ["guildId", "createdAt"])
+    .index("by_guildId_openerId", ["guildId", "openerId"]),
 });

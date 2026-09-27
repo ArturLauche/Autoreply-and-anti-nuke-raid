@@ -230,6 +230,29 @@ function drawAvatar(ctx, img, cx, cy, r, accent) {
 }
 
 /**
+ * Bồ ký tự điều khiển trước khi vẽ.
+ *
+ * ⚠️ Không phải chuyện hình thức: nickname và tên server do
+ * con người đặt, nên chứa được ký tự điều khiển
+ * (U+0000–U+001F, U+007F–U+009F). Khi đó `fillText` của
+ * @napi-rs/canvas ném `Convert String to CString failed` →
+ * `renderCard` trả null → **thành viên đó mất thẻ chào ảnh** vì
+ * tự đặt tên khó chịiu (đã bắt được bằng
+ * test-welcome-card-render).
+ *
+ * \n \t \r được đổi thành khoảng trắng (để nội dung nhiều
+ * dòng vẫn hiển thị được), phần còn lại bị xoá hẳn.
+ */
+// eslint-disable-next-line no-control-regex -- đích đến LÀ ký tự điều khiển: lọc chúng khỏi nickname/tên server trước khi vẽ (xem giải thích trên).
+const CONTROL_CHARS = /[\u0000-\u001F\u007F-\u009F]/g;
+
+function stripControl(text) {
+  return String(text ?? "")
+    .replace(/[\n\t\r]/g, " ")
+    .replace(CONTROL_CHARS, "");
+}
+
+/**
  * Vẽ thẻ chào/tạm biệt. Trả Buffer PNG, hoặc null khi không vẽ được
  * (thiếu thư viện/font, hoặc lỗi bất ngờ) — người gọi PHẢI chịu được null.
  *
@@ -292,15 +315,15 @@ async function renderCard(o = {}) {
 
     ctx.fillStyle = "rgba(255,255,255,0.72)";
     ctx.font = eyebrowFont;
-    ctx.fillText(fitText(eyebrowFont, o.eyebrow, maxTextWidth), textX, 104);
+    ctx.fillText(fitText(eyebrowFont, stripControl(o.eyebrow), maxTextWidth), textX, 104);
 
     ctx.fillStyle = "#ffffff";
     ctx.font = nameFont;
-    ctx.fillText(fitText(nameFont, o.name, maxTextWidth), textX, 172);
+    ctx.fillText(fitText(nameFont, stripControl(o.name), maxTextWidth), textX, 172);
 
     ctx.fillStyle = "rgba(255,255,255,0.78)";
     ctx.font = metaFont;
-    ctx.fillText(fitText(metaFont, o.meta, maxTextWidth), textX, 220);
+    ctx.fillText(fitText(metaFont, stripControl(o.meta), maxTextWidth), textX, 220);
 
     return canvas.toBuffer("image/png");
   } catch (e) {

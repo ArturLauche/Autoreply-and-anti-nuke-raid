@@ -280,6 +280,124 @@ mục 6 bản đồ):
 
 ---
 
+## 8. Tiếp tục setup sau khi phiên bị dừng (26/09)
+
+> Nguyên tắc của mục này: **kiểm tra trạng thái trước, chỉ làm phần còn thiếu.**
+> Lệnh nào idempotent thì chạy lại vô hại; lệnh nào phá huỷ dữ liệu thì tuyệt đối
+> không chạy lại mù. Mỗi bước có "Kỳ vọng" — sai kỳ vọng thì DỪNG, không làm bước
+> sau, ghi kết quả vào báo cáo rồi chẩn đoán tiếp.
+
+### Trạng thái đã verify 26/09 (từ ngoài VPS)
+
+| Đầu mốc                           | Kết quả                |
+| --------------------------------- | ---------------------- |
+| `https://protogon.freebuff.app`   | HTTP 200               |
+| `https://t3.protogon.dpdns.org`   | HTTP 200               |
+| `https://code.protogon.dpdns.org` | HTTP 302 (trang login) |
+
+→ Tunnel + 4 hostname còn nguyên. **Việc dở dang thật sự chỉ là phía trong
+devbox** (bước B2–B4 dưới), không phải hạ tầng ngoài.
+
+### B0 — Sàng lọc tình trạng (chạy 1 lần, đọc kết quả rồi mới làm tiếp)
+
+```bash
+# Trên HOST (vào bằng SSH/panel):
+mount | grep " / "                 # kỳ vọng: rw, KHÔNG có emergency_ro
+df -h /                            # kỳ vọng: dùng < 80%
+pm2 status | grep protogon-bot     # kỳ vọng: online
+docker ps --format '{{.Names}} {{.Status}}' | grep -E 'devbox|dokploy'
+
+# Trong devbox:
+docker exec $(docker ps -qf name=devbox) t3 connect status
+docker exec $(docker ps -qf name=devbox) hostname            # kỳ vọng: t3-devbox
+docker exec $(docker ps -qf name=devbox) ls /workspace/repos/
+docker exec $(docker ps -qf name=devbox) ssh vps 'pm2 status' # kỳ vọng: online
+```
+
+Bảng điền nhanh — mỗi dòng là 1 phép loại trừ, đừng làm cả loạt:
+
+| Kết quả B0                          | Suy ra                                   | Làm tiếp                                              |
+| ----------------------------------- | ---------------------------------------- | ----------------------------------------------------- |
+| `emergency_ro` còn                  | Đĩa chưa ổn định                         | **DỪNG**, reboot + fsck (mục 4), đừng deploy gì       |
+| `ssh vps` refused                   | IP gateway docker đổi                    | Sửa `HostName` trong `/workspace/.ssh/config` (mục 6) |
+| `hostname` ≠ `t3-devbox`            | Container đã bị redeploy, mất `hostname` | B2                                                    |
+| `t3 connect status` pending         | `t3 serve` chưa provision xong           | Đợi 1–2 phút, xem log (mục 3)                         |
+| `devbox` không có trong `docker ps` | Compose chưa chạy                        | B2                                                    |
+
+### B1 — Chụp compose `t3-code` vào repo (LÀM NGAY, không phụ thuộc VPS)
+
+⚠️ Đây là **tài sản không tồn tại ở đâu khác**: compose dán qua tab **Files** của
+Dokploy, không nằm trong git. Node mới/reinstall là mất sạch.
+
+🚫 **KHÔNG dán compose vào khung chat để agent gõ lại.** Đã thử 26/09 và hỏng:
+compose chứa nhiều khối `base64 -d` sinh script bootstrap, gõ tay bóp méo 11/33
+mục — script build được nhưng chết lúc chạy, giữa production. Khối base64 phải
+đi **đường byte**: copy trên máy → commit, không qua trung gian.
+
+Cách lấy (người dùng tự chạy trên HOST):
+
+```bash
+# 1. Tìm file compose gốc của Dokploy
+ls -la /etc/dokploy/compose/protogon/
+
+# 2. Copy thẳng vào repo đã clone (đường dẫn repo trên host, không phải devbox)
+cp /etc/dokploy/compose/protogon/<file>.yml <đường dẫn repo>/docs/t3-code-compose.yml
+
+# 3. Chạy cổng kiểm — phải báo OK, nếu FAIL thì đừng commit
+cd <đường dẫn repo> && node scripts/check-t3-compose.cjs
+```
+
+`check-t3-compose.cjs` decode TỪNG khối base64 rồi `bash -n` / `node --check` —
+bắt đúng lớp lỗi bóp méy mà YAML parser không thấy. Nếu file chưa có, cổng in
+hướng dẫn và exit 0 (không chặn). Commit bình thường khi cổng báo OK.
+
+### B2 — Redeploy `t3-code` + vá symlink SSH (chỉ khi B0 lộ `hostname` lệch)
+
+```bash
+# Redeploy từ panel Dokploy (KHÔNG chạy lúc fs còn emergency_ro)
+docker exec $(docker ps -qf name=devbox) bash -c \
+  'mkdir -p /root/.ssh && chmod 700 /root/.ssh && ln -sf /workspace/.ssh/config /root/.ssh/config'
+docker exec $(docker ps -qf name=devbox) ssh vps 'pm2 status'
+```
+
+`ln -sf` idempotent → chạy lại sau **mỗi** lần redeploy container đều được.
+
+### B3 — Agent CLI trong devbox (nối agent ↔ host)
+
+Devbox đã có sẵn kho agent CLI. Cần bảo đảm agent làm việc **đúng repo**:
+
+```bash
+docker exec -it $(docker ps -qf name=devbox) bash
+cd /workspace/repos/Autoreply-and-anti-nuke-raid
+git pull                                  # repo-sync clone 6h/lần → có thể tụt
+sh ./scripts/setup-vps-agent.sh           # Bun/Node + OpenCode + AGENTS.md
+cp opencode.json ~/.config/opencode/opencode.json   # giữ bộ luật 🟢/🟡/🔴
+```
+
+Bắt buộc: agent trong devbox phải tuân `AGENTS.md` + `opencode.json` **giống hệt**
+agent trên host. Hai bộ quyền khác nhau trên cùng repo production là đường vào
+`systemctl`/`pm2` ngoài kỷ luật.
+
+### B4 — Việc treo an toàn (xoay 2 key đã lộ trong screenshot 25/09)
+
+`CONVEX_DEPLOY_KEY` + `UNOROUTER_API_KEY` lộ trong screenshot 25/09, dòng 110–111
+`/root/.bashrc`. Xoay ở nơi phát sinh (Convex dashboard, provider UnoRouter), dán
+lại vào `bot/.env`, rồi sửa đường dẫn hỏng:
+
+```bash
+sed -i 's source \/root\.bashrc$//' /root/.bashrc
+```
+
+### Thứ tự an toàn (nếu chỉ làm được 1 việc)
+
+1. **B1** (chụp compose vào repo) — mất là dựng lại từ đầu, mọi cái khác đều
+   phụ thuộc nó.
+2. **B4** (xoay key lộ) — rủi ro bảo mật, không phụ thuộc VPS sống hay chết.
+3. **B2 → B3** (devbox + agent) — chỉ làm khi B0 xanh toàn bộ.
+4. Deploy bất cứ thứ gì nặng → **để sau vài boot ổn định** (mục 4b).
+
+---
+
 ### Việc gốc của mục 7 (trước cảnh báo reinstall)
 
 1. **`GH_TOKEN`**: đổi trong Dokploy → service `t3-code` → Environment sang PAT

@@ -1,5 +1,6 @@
 const { EmbedBuilder, Colors } = require("discord.js");
 const { sendModLog } = require("./util");
+const { escapeMentions } = require("./ticketCore");
 
 /** Các hành động có mức chi tiết cấu hình được trên web (phần Moderation). */
 const NOTICE_ACTIONS = ["ban", "timeout", "kick", "warn"];
@@ -136,7 +137,10 @@ async function sendCaseLog({
     EVENT_TYPE_OF[action] || "mod",
     {
       action: label,
-      reason: reason || "",
+      // Escape lý do: nó đi vào `content` của webhook — CHỈ content mới ping
+      // được. Embed thì không ping, nên phần trong embed giữ nguyên để staff
+      // đọc đúng những gì mod gõ.
+      reason: escapeMentions(reason || ""),
       user: offender?.username ?? "",
       mod: responsible,
     },

@@ -4,7 +4,7 @@
 
 Bot Discord tự động trả lời tin nhắn thành viên theo **từ khóa** hoặc khi bị **tag @mention** (nội dung do bạn tùy chỉnh), hỗ trợ đầy đủ **prefix (`!`) + slash commands**, kèm hệ thống **chống nuke/raid** bật tắt từng phần theo ý mod & owner — tất cả quản lý qua một **dashboard web** tùy chỉnh.
 
-> **Chất lượng**: 61 CJS + 9 TS test suites · coverage c8 (86.6% dòng / 93% hàm / 69% nhánh — toàn bộ engine chống nuke + alt detection được phủ test trực tiếp, **sàn coverage theo file** chặn engine bảo vệ tụt) · **mutation score 100%** (`bun run test:mutation`) · property-based + fuzz test · **memGuard sweeper bộ nhớ tập trung** · ESLint sạch · typecheck sạch · smoke test VPS · CI 4 job (lint + security + test → deploy): gitleaks chặn secret lộ, bun audit chặn CVE critical (`bun run test` để chạy local).
+> **Chất lượng**: 68 CJS + 16 TS test suites · coverage c8 (87.3% dòng / 93% hàm / 72% nhánh — toàn bộ engine chống nuke + alt detection được phủ test trực tiếp, **sàn coverage theo file** chặn engine bảo vệ tụt) · **mutation score 100%** (`bun run test:mutation`) · property-based + fuzz test · **memGuard sweeper bộ nhớ tập trung** · ESLint sạch · typecheck sạch · smoke test VPS · CI 4 job (lint + security + test → deploy): gitleaks chặn secret lộ, bun audit chặn CVE critical (`bun run test` để chạy local).
 >
 > **Hệ sinh thái**: threat relay liên server (chia sẻ signature raid ẩn danh, opt-in từng chiều) · preset bảo mật 1 chạm (server nhỏ / cộng đồng / rủi ro cao) — bật trên dashboard, tab Chống nuke.
 
@@ -71,6 +71,7 @@ Bot tự đăng ký slash commands và đồng bộ server/kênh/role lên Conve
 - Nhấn **Mời bot** trong dashboard (hoặc dùng link invite tạo từ `DISCORD_CLIENT_ID`).
 - Vào server → tab **Auto Reply**: tạo rule từ khóa / @mention với nội dung tùy chỉnh, cooldown, giới hạn kênh.
 - Tab **Anti Nuke**: bật tắt toàn bộ hoặc từng module, chỉnh ngưỡng & hình thức xử lý, role miễn trừ.
+- Tab **Ticket & Khiếu nại**: bật tính năng, chọn danh mục chứa kênh ticket + role xử lý, đặt hạn mức chống spam, và xem/dóng ticket.
 - Tab **Cài đặt**: prefix, kênh log, role Mod/Admin.
 - Tab **Backup server**: bấm **Backup ngay** hoặc bật **tự động backup định kỳ** (2–30 ngày) — bot đẩy backup lên GitHub của chủ bot, chỉ giữ 3 bản mới nhất trong bot.
 - Hoặc quản lý trực tiếp trong Discord bằng `!autoreply`, `!antinuke`, `!backup`, `/setup`…
@@ -80,21 +81,22 @@ Bot tự đăng ký slash commands và đồng bộ server/kênh/role lên Conve
 - 🤖 **Auto reply**: kích hoạt bằng từ khóa hoặc tag bot; placeholder `{user}` (tag người nhắn), `{username}`; cooldown chống spam; giới hạn theo kênh.
 - 🛡️ **Chống nuke/raid**: **24 module chống nuke + 8 module auto-mod = 32 module** (ban/kick/join/channel/role/message/spam + biến thể: xóa thread, đổi tên/quyền kênh, sửa role, tự cấp quyền quản trị, gán role/biệt danh hàng loạt, emoji/sticker, bot add, tạo invite, đổi cấu hình server, bot hit-and-run…), phát hiện qua audit log, xử lý cảnh báo → tạm khóa → kick → ban, **tự động khóa kênh khi raid**, cảnh báo real-time tới kênh log, role Mod/Admin + whitelist được miễn trừ. Kèm **báo cáo hoạt động chống nuke hàng ngày** gửi vào kênh log.
 - 🧰 **Auto-moderation — 8 module**: spam, mass message, blank noise, mention, badword, attachment, invite, malware — lọc nội dung độc hại theo nhiệt độ vi phạm (warn → timeout → kick → ban).
+- 🎫 **Ticket & Khiếu nại (Kênh riêng cho từng người)**: mỗi lượt mở tạo **một kênh riêng** thay vì nhắn ở kênh chung — `@everyone` bị chặn ngay từ đầu, chỉ người mở + role staff nhìn thấy. Có **2 điểm vào**: nút _Mở khiếu nại_ trong **DM gửi kèo sau khi ban** (dành cho người bị ban — họ không gõ được lệnh trong server), và lệnh `/ticket` cho thành viên đang ở trong server. Trong kênh có 4 nút: **Đóng** (thu quyền, đổi tên `closed-*`, **không xoá kênh** để giữ transcript), **Gỡ ban** (đi qua `unbanMember` nên vòng đo phạt nhầm tự chạy), **Ghim**, **Ghi chú AI**. Hàng rào chống spam: trần số ticket đang mở, thời gian chờ giữa 2 lượt, và giới hạn 500 kênh của Discord. Chủ server đặt hạn mức, role xử lý, danh mục chứa ticket, loại mặc định và ghi chú khi đóng ở dashboard → tab **Ticket & Khiếu nại**; danh sách ticket (đang mở / đã đóng) cũng nằm trong tab đó.
 - 🧠 **Threat Intel — bot tự học**: tải tin an ninh công khai (Reddit security, CISA KEV) **mỗi giờ** (0 token), học từ khóa scam mới dùng miễn phí trong bộ lọc link độc hại; AI tổng hợp ≤ 1 lần/tuần. Theo dõi + học thủ công qua `/research status|learn|history` và `!research`, xem tiến độ trên dashboard → Admin.
 - 🎓 **AI chống raid được rèn luyện đa lớp** (không cần fine-tune): nạp **bằng chứng engine** (trùng lặp nội dung, link rút gọn/@everyone, tuổi acc, avatar, tên app giả mạo) vào prompt để AI đối chiếu dữ liệu thật thay vì đoán chay · parse JSON cứng hoá (fence/phẩy thừa/lời bình đều đọc được) · **hiệu chỉnh tin cậy** khi khớp mẫu scam đã học (0 token) · **chống lái prompt** (sanitize mẫu tin giả dạng chỉ dẫn) · **verdict cache 90s** + rate guard 30 lượt/phút bảo vệ hạn mức · timeout đồng bộ 6.5s giữa fallback chain và tầng race · **test hermetic 19 case** khoá toàn bộ hành vi.
 - 🚨 **Báo cáo khẩn `/report` + `!report`**: khi có raid/nuke hoặc bot phạt nhầm thành viên, AI (Mimu v2.5) dò hàng trăm tin nhắn gần nhất + dữ liệu phạt để hiểu tình huống và công bố báo cáo rõ ràng cho cả server; mod ghi chú thêm bối cảnh; dashboard có nút bật/tắt cảnh báo khẩn + ping @everyone.
 - 🎯 **Raid Intel — thu thập dữ liệu + săn nguồn cơn raid**: bot tự ghi **mẫu dữ liệu huấn luyện** cho mỗi vụ raid/nuke (module, cụm tài khoản, AI verdict); bot + AI phân tích cụm (acc chủ mưu, avatar/username trùng nhau, người tạo invite, kẻ phá hoại trong audit log) để tìm **kẻ đứng sau raid rồi tự ban** — bật/tắt từng phần trên dashboard → Chống nuke/raid → Raid Intel.
 - 📱 **Chống raid bằng ứng dụng ngoài (External App Guard)**: phát hiện tấn công bằng **external app / integration** thay vì bot thành viên — đội quân sockpuppet cài app ồ ạt, app giả mạo app nổi tiếng / tên chứa từ khóa scam (nitro/giveaway/boost/free...), app spam @everyone + link mời/link rút gọn/lừa đảo, lặp nội dung giống hệt hoặc **gần giống** (đổi số/emoji/URL để né filter), webhook spam. **AI học hỏi cách raid này và chặn cả biến thể tương tự**: raid → xóa tin/webhook + ban + khóa kênh; còn lại → kick theo cấu hình. Xem danh sách vụ bị chặn (ai, app gì, lúc nào) trên dashboard → Chống nuke/raid → Raid bằng ứng dụng ngoài.
 - 📒 **Log kiểu Carl-bot, gộp 2 luồng** (Cài đặt → Kênh log): 🛡️ **Anti nuke/raid** → kênh log chung · ⚙️ **Auto-mod + lệnh thủ công của mod/owner** (ban/timeout/kick/warn/gỡ hình phạt/purge/xóa tin) → **gộp chung 1 kênh log hành động mod** (chưa đặt → kênh log chung), mỗi embed hiển thị `Offender` / `Reason` / `Responsible moderator` + `case N` tăng dần: bot tự động để tên bot, mod dùng lệnh để tên mod, lý do trống ghi **“không có lý do”**.
-- ⌨️ **Prefix + slash**: `!help !ping !prefix !autoreply !antinuke !heat !badword !setlog !backup !report !research` và tương đương `/…` (kèm `/backup now|list|restore|auto` để tạo/liệt kê/khôi phục + tự động backup định kỳ server ngay trong Discord).
+- ⌨️ **Prefix + slash**: `!help !ping !prefix !autoreply !antinuke !heat !badword !setlog !backup !report !research`, `/ticket mo|khieunai|dong` và tương đương `/…` (kèm `/backup now|list|restore|auto` để tạo/liệt kê/khôi phục + tự động backup định kỳ server ngay trong Discord).
 - ♻️ **Tùy chỉnh khôi phục (Backup server → Tùy chỉnh khôi phục)**: bật/tắt từng phần **role** và **emoji/sticker** khi bot khôi phục — đồng bộ bot ↔ web, áp dụng cho **cả backup Protogon lẫn file backup của bot nuke** (.msc/.json tải lên). Phần tắt sẽ được bỏ qua khi restore; kênh, tin nhắn + media vẫn xử lý bình thường.
 - 🖥️ **Dashboard**: server list, tổng quan, quản lý rule, chống nuke, cài đặt — áp dụng tự động sau ~1 phút.
 
 ## Kiểm thử & Coverage
 
 ```bash
-bun run test            # chạy 61 suite CJS (~52s, thoát khác 0 nếu fail)
-bun run test:ts         # chạy 9 suite TypeScript
+bun run test            # chạy 68 suite CJS (~54s, thoát khác 0 nếu fail)
+bun run test:ts         # chạy 16 suite TypeScript
 bun run test:coverage   # chạy test + đo coverage (báo cáo HTML tại coverage/)
 bun run smoke:vps       # smoke test VPS (env + module + Convex + Discord login)
 ```
@@ -103,15 +105,17 @@ Coverage được đo bằng [`c8`](https://github.com/bcoe/c8) (V8 native, khô
 
 | Chỉ số          | Giá trị | Ý nghĩa                                                    |
 | --------------- | ------- | ---------------------------------------------------------- |
-| Dòng            | 86.6%   | ~14,100/16,300 dòng bot được test chạm tới                 |
+| Dòng            | 87.3%   | phần lớn dòng `bot/src` được test chạm tới                 |
 | Hàm             | 93.1%   | 93% hàm được **gọi thật** (không chỉ import)               |
-| Nhánh (if/else) | 69.1%   | cả hai phía true/false của phần lớn điều kiện đã được kiểm |
+| Nhánh (if/else) | 71.7%   | cả hai phía true/false của phần lớn điều kiện đã được kiểm |
 
 **Bản đồ nhiệt theo file** (phần quan trọng nhất):
 
-- ✅ **≥ 80%**: `antinuke/shared` (99%), `caseLog` (100%), `flaggedMessages` (97%), `antinuke/raidIntel` (96%), `externalAppGuard` (96%), `antinuke/state` (95%), `antinuke/messages` (93%), `filters` (93%), `antinuke/members` (94%), `antinuke/audit` (88%), `antinuke/externalApp` (89%), `threatEngine` (89%), `selfDiagnose` (89%), `vandalBudget` (88%), `altDetection` (80%), `research` (80%) — **toàn bộ engine chống nuke + alt detection được phủ test trực tiếp**, đúng chỗ xử lý mọi vụ nuke thật.
-- ⚠️ **60–79%**: `joinGate` (74%), `backup` (80%), `heat` (76%), `moduleActions` (76%), `util` (75%), `enforce` (73%), `hidden` (82%), `backupUtils` (66%) — luồng chính có test nhưng còn nhánh hiếm gặp chưa phủ.
-- 🔴 **< 20%**: các file entry-point cần Discord runtime thật (`antinuke/index`, `interactionCreate`, `messageCreate`, `register-slash`) — wiring Discord gateway, phủ qua smoke test VPS (`bun run smoke:vps`) thay vì unit test.
+- ✅ **≥ 80%** (đủ cả sàn theo file trong `scripts/check-coverage-floor.cjs`): `caseLog` (100%), `misfire`, `lang`, `dailyReport` (100%), `antinuke/shared` (99%), `ticketCore` (99,6%), `backupUtils` (97%), `messageCreate` (97%), `handlers/welcomeCard` (89,5%), `antinuke/raidIntel` (95%), `handlers/tickets` (98,6%), `moduleActions` (94,9%), `antiNuke/*` (82–96%), `threatEngine` (89%), `selfDiagnose` (89%), `altDetection` (80%) — **toàn bộ engine chống nuke + alt detection + ticket được phủ test trực tiếp**, đúng chỗ xử lý mọi vụ nuke thật.
+- ⚠️ **70–80%**: `joinGate` (72,9%), `heat` (76,4%), `register-slash` (72,3%), `localSnapshot` (83,4%) — luồng chính có test nhưng còn nhánh hiếm gặp chưa phủ.
+- 🔴 **< 20%**: `antinuke/index` (13,9%) — entry-point nối cổng gateway Discord, phủ bằng `bun run smoke:vps` trên VPS thay vì unit test.
+
+> **Giới hạn cần biết**: c8 chỉ đo được code chạy dưới V8 — 16 suite `.ts` chạy bằng **Bun** nên **không** xuất hiện trong báo cáo (đó là giới hạn ĐO, không phải giới hạn TEST; ví dụ `test-welcome-card.ts` vẫn kiểm thẻ ảnh rất kỹ, và `test-welcome-card-render.cjs` chạy dưới node để c8 thấy). Dashboard `src/` và `convex/` hiện **chưa** được đo — đó là hạn chế của chuỗi c8+Bun, chưa phải lỗi cấu hình.
 
 **Chống regress bằng ngưỡng**: `.c8rc.json` đặt ngưỡng tối thiểu (lines 58 / functions 65 / branches 50) — nếu code mới làm rớt coverage xuống dưới ngưỡng, `bun run test:coverage` thất bại, chặn regress trước khi commit.
 
@@ -132,7 +136,7 @@ bun run format:check    # CI dùng lệnh này để chặn code chưa format
 
 **Dependabot** (`.github/dependabot.yml`) quét weekly: root `bun`, `bot/` (discord.js, convex) và `github-actions` — tự tạo PR cập nhật, group các bump minor/patch thành 1 PR. Bot bảo mật không được để deps cũ.
 
-**Thứ tự gate trong CI**: `lint` (ESLint + Prettier + check repo-map/hợp đồng bot⇄Convex/đa ngôn ngữ) → `test` (61 CJS + 9 TS suites + coverage + typecheck) → `deploy` Convex production. Job sau chỉ chạy khi job trước pass.
+**Thứ tự gate trong CI**: `lint` (ESLint + Prettier + check repo-map/hợp đồng bot⇄Convex/đa ngôn ngữ) → `test` (68 CJS + 16 TS suites + coverage + typecheck) → `deploy` Convex production. Job sau chỉ chạy khi job trước pass.
 
 ## Phát triển
 

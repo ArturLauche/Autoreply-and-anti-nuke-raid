@@ -473,5 +473,74 @@ check(
     /translate\(step\)/.test(featuresPageSrc),
 );
 
+// ─── 10. TicketPanel: số liệu + link + cấu hình phải thật sự có tác dụng ───
+// Cả 3 lỗi dưới đây đều từng xảy ra và đều im lặng — không crash, không log:
+//   1. `openCount` đếm trên `tickets`, mà `tickets` chỉ chứa đúng tab đang xem
+//      → bấm tab "Đã đóng" là badge báo "0 đang mở" dù server đang có.
+//   2. Link kênh `/channels/@me/<id>` không có guildId → bấm ra trang trắng.
+//   3. `ticketCloseNote` (ghi chú khi đóng ticket) được lưu vào DB và không
+//      dùng ở bất kỳ đâu → chủ server gõ xong không thấy tác dụng.
+const ticketPanel = files.get("components/dashboard/TicketPanel.tsx") ?? "";
+check(
+  "số ticket đang mở lấy từ ticketSummary (không đếm trên tab đang xem)",
+  /useQuery\(\s*api\.tickets\.ticketSummary/.test(ticketPanel) &&
+    /const openCount = summary\?\.openCount/.test(ticketPanel) &&
+    !/tickets\?\.filter\(/.test(ticketPanel),
+);
+check(
+  "link mở kênh có guildId, không dùng dạng @me",
+  /discord\.com\/channels\/\$\{guildId\}\/\$\{t\.channelId\}/.test(ticketPanel) &&
+    !/channels\/@me\//.test(ticketPanel),
+);
+check(
+  "đóng ticket từ web dùng ghi chú đã cấu hình làm lý do",
+  /reason: g\.ticketCloseNote/.test(ticketPanel),
+);
+const guildsSrc = fs.readFileSync(path.join(ROOT, "convex", "guilds.ts"), "utf8");
+// Cắt từ `getBotConfig` tới export kế tiếp — `handler: async` nằm ở ngay sau
+// args nên regex non-greedy sẽ cắt cụt, không chứa được phần field trả về.
+const gi = guildsSrc.indexOf("export const getBotConfig");
+const gNext = guildsSrc.indexOf("export const", gi + 10);
+const botConfig = gi < 0 ? "" : guildsSrc.slice(gi, gNext > 0 ? gNext : undefined);
+check(
+  "bundle bot (getBotConfig) có ticketCloseNote — bot dựng topic từ đó",
+  /ticketCloseNote: guild\.ticketCloseNote/.test(botConfig),
+);
+const ticketsHandler = fs.readFileSync(
+  path.join(ROOT, "bot", "src", "handlers", "tickets.js"),
+  "utf8",
+);
+check(
+  "tạo kênh ticket dùng closeNote làm topic",
+  // Prettier có thể tách chuỗi .trim().slice() ra nhiều dòng → bỏ khoảng trắng
+  // và newline trước khi so khớp, nếu không test này sẽ đỏ vì lý do hình thức.
+  /topic:\s*String\(closeNote\s*\|\|\s*""\)\s*\.trim\(\)\s*\.slice\(0,\s*1024\)/.test(
+    ticketsHandler,
+  ),
+);
+
+// ─── 11. Cờ cấu hình bot đọc thì phải có thật (schema + bundle + UI) ──────────
+// `nukeRollback` đọc `config.rollbackEnabled === false` để cho phép chủ server
+// tắt, nhưng field KHÔNG tồn tại ở đâu cả → nhánh "tắt" không bao giờ chạy và
+// không ai có đường tắt. Lớp lỗi "hứa có, không có", chặn bằng cách bắt buộc
+// đủ 3 tầng mỗi khi thêm cờ mới.
+const antiNuke = files.get("components/dashboard/AntiNukePanel.tsx") ?? "";
+const guildsSrc2 = fs.readFileSync(path.join(ROOT, "convex", "guilds.ts"), "utf8");
+const schemaSrc = fs.readFileSync(path.join(ROOT, "convex", "schema.ts"), "utf8");
+const gi2 = guildsSrc2.indexOf("export const getBotConfig");
+const gn2 = guildsSrc2.indexOf("export const", gi2 + 10);
+const botConfig2 = guildsSrc2.slice(gi2, gn2 > 0 ? gn2 : undefined);
+for (const flag of ["rollbackEnabled"]) {
+  check(
+    `cờ ${flag} có trong schema`,
+    new RegExp(`${flag}: v\\.optional\\(v\\.boolean\\(\\)\\)`).test(schemaSrc),
+  );
+  check(
+    `cờ ${flag} có trong bundle bot (getBotConfig)`,
+    new RegExp(`${flag}: guild\\.${flag}`).test(botConfig2),
+  );
+  check(`UI có nút bật/tắt cho ${flag}`, new RegExp(`${flag}`).test(antiNuke));
+}
+
 console.log(`\nKết quả web contracts: ${pass} PASS, ${fail} FAIL`);
 process.exit(fail === 0 ? 0 : 1);

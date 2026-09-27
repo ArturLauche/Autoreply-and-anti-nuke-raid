@@ -1,6 +1,8 @@
-import { lazy, Suspense, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
+import { motion } from "framer-motion";
+import { useProductMotion } from "../lib/motion";
 import {
   AppWindow,
   ArrowLeft,
@@ -10,6 +12,7 @@ import {
   ExternalLink,
   Gavel,
   LayoutDashboard,
+  LifeBuoy,
   Lock,
   Megaphone,
   PartyPopper,
@@ -35,6 +38,12 @@ import { isHeartbeatFresh, timeAgo } from "../lib/utils";
 import type { GuildData } from "../lib/types";
 import OverviewPanel from "../components/dashboard/OverviewPanel";
 import OnboardingChecklist from "../components/dashboard/OnboardingChecklist";
+import CommandPalette, {
+  useCommandPaletteShortcut,
+  type CommandItem,
+} from "../components/CommandPalette";
+import { confirmLeave } from "../lib/useUnsavedChanges";
+import { syncState } from "../lib/syncState";
 
 import LangSwitch from "../components/LangSwitch";
 
@@ -55,6 +64,7 @@ const VerifyPanel = lazy(() => import("../components/dashboard/VerifyPanel"));
 const AltDetectionPanel = lazy(() => import("../components/dashboard/AltDetectionPanel"));
 const WebhookPanel = lazy(() => import("../components/dashboard/WebhookPanel"));
 const HiddenPanel = lazy(() => import("../components/dashboard/HiddenPanel"));
+const TicketPanel = lazy(() => import("../components/dashboard/TicketPanel"));
 
 type SectionKey =
   | "overview"
@@ -70,6 +80,7 @@ type SectionKey =
   | "punishments"
   | "verify"
   | "webhooks"
+  | "tickets"
   | "hidden"
   | "settings";
 
@@ -87,8 +98,35 @@ const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof LayoutDashboard 
   { key: "punishments", label: "Hình phạt", icon: Gavel },
   { key: "verify", label: "Xác minh (Verify)", icon: UserCheck },
   { key: "webhooks", label: "Webhook & Log", icon: WebhookIcon },
+  { key: "tickets", label: "Ticket & Khiếu nại", icon: LifeBuoy },
   { key: "hidden", label: "Tính năng ẩn 🔒", icon: Lock },
   { key: "settings", label: "Cài đặt", icon: Settings },
+];
+
+/**
+ * Gom 15 mục thành 4 nhóm.
+ *
+ * Vì sao: trước đây là 15 nút dọc phẳng, dài và không có mốc nào cho người
+ * dùng đoán "mục này thuộc chuyện gì". 15 mục không phải con số nhỏ — mắt
+ * người quét ~5–7 mục rồi bắt đầu dò la. Nhóm + tiêu đề rút gọn scan xuống
+ * còn 4 lần "tìm trong nhóm", phần còn lại là quét trong một khối ngắn.
+ *
+ * Mobile KHÔNG dùng nhóm: ở đó nav là hàng cuộn ngang, tiêu đề nhóm sẽ
+ * chen ngang làm rối. Vì vậy tiêu đề `hidden lg:block` và nhóm bọc `contents`
+ * (thẻ biến mất khỏi layout, con vẫn xếp trực tiếp trong nav cha).
+ */
+const NAV_GROUPS: { key: string; label: string; items: SectionKey[] }[] = [
+  {
+    key: "protect",
+    label: "Bảo vệ",
+    items: ["automod", "moderation", "joingate", "altdetect", "antinuke", "externalapp"],
+  },
+  { key: "content", label: "Nội dung & phạt", items: ["welcome", "punishments", "verify"] },
+  {
+    key: "ops",
+    label: "Vận hành",
+    items: ["whitelist", "backup", "webhooks", "tickets", "settings", "hidden"],
+  },
 ];
 
 /** Loader nhỏ giữ bố cục khi chunk panel đang tải (lần đầu mở tab). */
@@ -96,15 +134,108 @@ function PanelFallback() {
   return <PanelSkeleton />;
 }
 
+/**
+ * Nhớ panel đang mở, RIÊNG theo từng server.
+ *
+ * Vì sao: trước đây `section` luôn khởi tạo `"overview"` → quay lại server
+ * thứ hai là mất chỗ đang làm việc. Người dùng quản nhiều server hay đi
+ * qua lại, mỗi lần phải bấm lại menu là một lần thất lạc thông tin.
+ */
+function sectionMemoryKey(guildId: string) {
+  return `protogon:section:${guildId}`;
+}
+
+function readRememberedSection(guildId: string): SectionKey {
+  if (!guildId) return "overview";
+  const saved = sessionStorage.getItem(sectionMemoryKey(guildId));
+  return (NAV_ITEMS.some((i) => i.key === saved) ? saved : "overview") as SectionKey;
+}
+
 export default function GuildPage() {
   const { guildId = "" } = useParams();
-  const [section, setSection] = useState<SectionKey>("overview");
+  const navigate = useNavigate();
+  const [section, setSection] = useState<SectionKey>(() => readRememberedSection(guildId));
+  const motionSet = useProductMotion();
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [hiddenUnlocked, setHiddenUnlocked] = useState(
     () => sessionStorage.getItem(hiddenUnlockKey()) === "1",
   );
   const token = getSessionToken();
   const data = useQuery(api.guilds.getGuild, { token, guildId }) as GuildData | null | undefined;
   const { clientId } = usePublicConfig();
+
+  /**
+   * Đổi panel: hỏi trước nếu đang có thay đổi chưa lưu.
+   *
+   * Vì sao phải hỏi ở ĐÂY chứ không chỉ `beforeunload`: bấm nhầm tab là hành
+   * vi xảy ra hằng ngày, còn đóng trình duyệt thì hiếm. Không có bước hỏi này
+   * thì người dùng mất sạch cấu hình không hiểu vì sao.
+   */
+  const goToSection = useCallback((key: SectionKey) => {
+    if (!confirmLeave()) return;
+    setSection(key);
+    // Mobile: cuộn lên đầu nội dung khi đổi panel — người dùng luôn thấy đầu
+    // panel mới thay vì đứng ở vị trí cuộn cũ.
+    if (window.innerWidth < 1024) window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  // Ghi lại panel đang mở. Đồng thời nạp lại khi đổi server: `useState` chỉ
+  // khởi tạo MỘT lần nên điều hướng /dashboard/A → /dashboard/B sẽ mang theo
+  // section của server A — sai.
+  const lastGuildId = useRef(guildId);
+  useEffect(() => {
+    if (lastGuildId.current === guildId) return;
+    lastGuildId.current = guildId;
+    setSection(readRememberedSection(guildId));
+  }, [guildId]);
+  useEffect(() => {
+    if (!guildId) return;
+    sessionStorage.setItem(sectionMemoryKey(guildId), section);
+  }, [guildId, section]);
+
+  useCommandPaletteShortcut(useCallback(() => setPaletteOpen(true), []));
+
+  // Palette: 15 panel + vài lối tắt tới trang khác.
+  const commands = useMemo<CommandItem[]>(() => {
+    const nav = NAV_ITEMS.map((item) => ({
+      id: `nav:${item.key}`,
+      label: item.label,
+      group: "Điều hướng",
+      keywords: item.key,
+      run: () => goToSection(item.key),
+    }));
+    const pages: CommandItem[] = [
+      {
+        id: "page:history",
+        label: "Lịch sử chống nuke",
+        group: "Trang khác",
+        keywords: "history log su kien",
+        run: () => navigate(`/dashboard/${guildId}/history`),
+      },
+      {
+        id: "page:incidents",
+        label: "Sự cố",
+        group: "Trang khác",
+        keywords: "incident su co",
+        run: () => navigate(`/dashboard/${guildId}/incidents`),
+      },
+      {
+        id: "page:servers",
+        label: "Danh sách server",
+        group: "Trang khác",
+        keywords: "dashboard servers",
+        run: () => navigate("/dashboard"),
+      },
+      {
+        id: "page:monitor",
+        label: "Giám sát bot",
+        group: "Trang khác",
+        keywords: "monitor status trang thai",
+        run: () => navigate("/monitor"),
+      },
+    ];
+    return [...nav, ...pages];
+  }, [goToSection, navigate, guildId]);
 
   if (data === undefined) {
     return (
@@ -132,6 +263,11 @@ export default function GuildPage() {
 
   const icon = discordGuildIconUrl({ id: data.guild.discordId, icon: data.guild.icon });
   const online = data.guild.botInGuild && isHeartbeatFresh(data.guild.lastHeartbeat);
+  const sync = syncState({
+    settingsChangedAt: data.guild.settingsChangedAt,
+    botOnline: online,
+    lastHeartbeat: data.guild.lastHeartbeat,
+  });
 
   // Badge trạng thái server — khai báo 1 lần, dùng lại ở hàng desktop (dưới
   // tên) và dải cuộn ngang ở mobile, tránh 2 bản JSX lệch nhau.
@@ -153,6 +289,24 @@ export default function GuildPage() {
         />
         Bot {online ? "online" : "offline"} · {timeAgo(data.guild.lastHeartbeat)}
       </Badge>
+      {/* Trạng thái đồng bộ: web đã lưu ≠ bot đang chạy. Xem lib/syncState.ts
+          — chỉ nói điều CHỨNG MINH ĐƯỢC, không báo "đã áp dụng" khi chưa có
+          tín hiệu xác nhận từ bot. */}
+      {sync !== "in-sync" ? (
+        <Badge
+          variant={sync === "bot-offline" ? "danger" : "outline"}
+          className="shrink-0"
+          title={translate(
+            "Dashboard và bot dùng chung cấu hình nhưng cập nhật không cùng lúc. Lúc này bot có thể vẫn chạy cấu hình cũ.",
+          )}
+        >
+          {sync === "just-saved"
+            ? translate("Đang gửi cấu hình cho bot…")
+            : sync === "sent"
+              ? translate("Đã gửi cấu hình cho bot")
+              : translate("Bot offline — cấu hình chưa được áp dụng")}
+        </Badge>
+      ) : null}
     </>
   );
 
@@ -166,6 +320,7 @@ export default function GuildPage() {
   return (
     <div className="relative min-h-screen overflow-x-clip" style={themeVars}>
       <HaimiyaChat position="dashboard" />
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} items={commands} />
       <div className="relative z-10">
         <header className="border-b border-border/60 bg-background/70 backdrop-blur">
           {/* Header 2 hàng cho điện thoại: hàng 1 là điều hướng + nhận diện
@@ -244,33 +399,56 @@ export default function GuildPage() {
                 className="flex min-w-0 gap-1 overflow-x-auto rounded-xl border border-border bg-card/50 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-lg:-mx-3 max-lg:rounded-none max-lg:border-x-0 max-lg:border-t-0 max-lg:bg-background/95 max-lg:px-3 max-lg:pr-4 max-lg:backdrop-blur lg:flex-col lg:overflow-visible lg:px-1.5"
                 aria-label={translate("Điều hướng bảng điều khiển")}
               >
-                {NAV_ITEMS.map((item) => {
-                  const Icon = item.icon;
-                  const active = section === item.key;
+                {(() => {
+                  const renderItem = (item: (typeof NAV_ITEMS)[number]) => {
+                    const Icon = item.icon;
+                    const active = section === item.key;
+                    return (
+                      <button
+                        key={item.key}
+                        onClick={() => goToSection(item.key)}
+                        aria-current={active ? "page" : undefined}
+                        className={cn(
+                          "group relative flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                          // Touch target ≥ 44px trên mobile (max-sm:py-2.5).
+                          "max-sm:gap-1.5 max-sm:px-2.5 max-sm:py-2",
+                          active
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                        )}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        {translate(item.label)}
+                      </button>
+                    );
+                  };
+                  const overview = NAV_ITEMS.filter((i) => i.key === "overview");
+                  const byKey = new Map(NAV_ITEMS.map((i) => [i.key, i]));
                   return (
-                    <button
-                      key={item.key}
-                      onClick={() => {
-                        setSection(item.key);
-                        // Mobile: cuộn lên đầu nội dung khi đổi panel — người dùng
-                        // luôn thấy đầu panel mới thay vì đứng ở vị trí cuộn cũ.
-                        if (window.innerWidth < 1024)
-                          window.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
-                      className={cn(
-                        "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                        // Touch target ≥ 44px trên mobile (max-sm:py-2.5).
-                        "max-sm:gap-1.5 max-sm:px-2.5 max-sm:py-2",
-                        active
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                      )}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      {translate(item.label)}
-                    </button>
+                    <>
+                      {overview.map(renderItem)}
+                      {NAV_GROUPS.map((group) => (
+                        <div
+                          key={group.key}
+                          // `contents`: ở mobile nhóm biến mất khỏi layout nên
+                          // các nút vẫn xếp liền nhau trong hàng cuộn ngang;
+                          // ở desktop trở lại thành khối dọc có tiêu đề.
+                          className="contents lg:mt-4 lg:block"
+                        >
+                          <p className="hidden px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground lg:block">
+                            {translate(group.label)}
+                          </p>
+                          <div className="contents lg:flex lg:flex-col lg:gap-0.5">
+                            {group.items.map((key) => {
+                              const item = byKey.get(key);
+                              return item ? renderItem(item) : null;
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </>
                   );
-                })}
+                })()}
               </nav>
               <div className="mt-4 hidden rounded-xl border border-border bg-secondary/50 p-4 text-xs text-muted-foreground lg:block">
                 <p className="mb-2 font-medium text-foreground">{translate("Haimiya gợi ý")}</p>
@@ -334,41 +512,53 @@ export default function GuildPage() {
               )}
               <PanelErrorBoundary key={`${section}:${data.guild.discordId}`}>
                 <Suspense fallback={<PanelFallback />}>
-                  {section === "overview" && <OverviewPanel data={data} />}
-                  {section === "automod" && <AutoModPanel data={data} />}
-                  {section === "moderation" && <ModerationPanel data={data} />}
-                  {section === "joingate" && <JoinGatePanel data={data} />}
-                  {section === "welcome" && <WelcomePanel data={data} />}
-                  {section === "altdetect" && <AltDetectionPanel data={data} />}
-                  {section === "antinuke" && <AntiNukePanel data={data} />}
-                  {section === "externalapp" && <ExternalAppRaidsPanel data={data} />}
-                  {section === "whitelist" && <WhitelistPanel data={data} />}
-                  {section === "backup" && <BackupPanel data={data} />}
-                  {section === "punishments" && <ModActionsPanel data={data} />}
-                  {section === "verify" && <VerifyPanel data={data} />}
-                  {section === "webhooks" && <WebhookPanel data={data} />}
-                  {section === "settings" && <SettingsPanel data={data} />}
-                  {section === "hidden" &&
-                    (!data.guild.isBotOwner || (data.guild.hiddenPasswordSet && !hiddenUnlocked) ? (
-                      <UnlockPanel data={data} onUnlocked={() => setHiddenUnlocked(true)} />
-                    ) : (
-                      <>
-                        {data.guild.hiddenPasswordSet && (
-                          <div className="mb-4 flex justify-end">
-                            <button
-                              onClick={() => {
-                                sessionStorage.removeItem(hiddenUnlockKey());
-                                setHiddenUnlocked(false);
-                              }}
-                              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                            >
-                              <Lock className="h-3.5 w-3.5" /> {translate("Khóa lại")}{" "}
-                            </button>
-                          </div>
-                        )}
-                        <HiddenPanel data={data} />
-                      </>
-                    ))}
+                  {/* key theo section: đổi panel = phần tử mới, AnimatePresence
+                      nhận ra là chuyển cảnh thật. Chỉ trượt 8px + mờ trong
+                      0.2s — đủ để mắt bám theo, không đủ để cảm như chờ. */}
+                  <motion.div
+                    key={section}
+                    variants={motionSet.panel}
+                    initial="hidden"
+                    animate="show"
+                  >
+                    {section === "overview" && <OverviewPanel data={data} />}
+                    {section === "automod" && <AutoModPanel data={data} />}
+                    {section === "moderation" && <ModerationPanel data={data} />}
+                    {section === "joingate" && <JoinGatePanel data={data} />}
+                    {section === "welcome" && <WelcomePanel data={data} />}
+                    {section === "altdetect" && <AltDetectionPanel data={data} />}
+                    {section === "antinuke" && <AntiNukePanel data={data} />}
+                    {section === "externalapp" && <ExternalAppRaidsPanel data={data} />}
+                    {section === "whitelist" && <WhitelistPanel data={data} />}
+                    {section === "backup" && <BackupPanel data={data} />}
+                    {section === "punishments" && <ModActionsPanel data={data} />}
+                    {section === "verify" && <VerifyPanel data={data} />}
+                    {section === "webhooks" && <WebhookPanel data={data} />}
+                    {section === "tickets" && <TicketPanel data={data} />}
+                    {section === "settings" && <SettingsPanel data={data} />}
+                    {section === "hidden" &&
+                      (!data.guild.isBotOwner ||
+                      (data.guild.hiddenPasswordSet && !hiddenUnlocked) ? (
+                        <UnlockPanel data={data} onUnlocked={() => setHiddenUnlocked(true)} />
+                      ) : (
+                        <>
+                          {data.guild.hiddenPasswordSet && (
+                            <div className="mb-4 flex justify-end">
+                              <button
+                                onClick={() => {
+                                  sessionStorage.removeItem(hiddenUnlockKey());
+                                  setHiddenUnlocked(false);
+                                }}
+                                className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                              >
+                                <Lock className="h-3.5 w-3.5" /> {translate("Khóa lại")}{" "}
+                              </button>
+                            </div>
+                          )}
+                          <HiddenPanel data={data} />
+                        </>
+                      ))}
+                  </motion.div>
                 </Suspense>
               </PanelErrorBoundary>
 

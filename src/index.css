@@ -29,6 +29,12 @@
     --input: 0 0% 87%;
     --ring: 0 0% 9%;
     --radius: 0.625rem;
+    /* Ngoại lệ CÓ CHỦ ĐÍCH so với quy tắc "không màu trang trí" phía trên:
+       xanh ThreeUI cho toggle bật/tắt. Giữ đúng sắc #2f6bff / #1f5cf0 mà
+       component gốc dùng, nhưng gom về đây để chỉ có MỘT nơi định nghĩa —
+       toggle là control duy nhất được phép màu. */
+    --toggle-accent: 223 100% 59%;
+    --toggle-accent-mark: 222 100% 53%;
     /* Bóng trung tính — nhẹ, chỉ để tách lớp, không màu. */
     --shadow-color: 0 0% 0%;
   }
@@ -81,6 +87,10 @@
     --border: 0 0% 18%;
     --input: 0 0% 22%;
     --ring: 0 0% 85%;
+    /* Nền tối: track sáng hơn (#3b7bff) để nổi trên nền #22262f, nhưng dấu
+       check vẫn là #1f5cf0 vì nó vẽ trên núm trắng. */
+    --toggle-accent: 220 100% 62%;
+    --toggle-accent-mark: 222 100% 53%;
   }
 
   * {

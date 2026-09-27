@@ -21,6 +21,8 @@ import type * as botBootstrapAction from "../botBootstrapAction.js";
 import type * as botFunc from "../botFunc.js";
 import type * as bot_tick from "../bot_tick.js";
 import type * as bot_writes from "../bot_writes.js";
+import type * as guildConfig from "../guildConfig.js";
+import type * as guildStats from "../guildStats.js";
 import type * as guilds from "../guilds.js";
 import type * as haimiya from "../haimiya.js";
 import type * as hidden from "../hidden.js";
@@ -39,6 +41,7 @@ import type * as sessions from "../sessions.js";
 import type * as sha256 from "../sha256.js";
 import type * as status from "../status.js";
 import type * as threatIntel from "../threatIntel.js";
+import type * as tickets from "../tickets.js";
 import type * as webhooks from "../webhooks.js";
 
 import type {
@@ -61,6 +64,8 @@ declare const fullApi: ApiFromModules<{
   botFunc: typeof botFunc;
   bot_tick: typeof bot_tick;
   bot_writes: typeof bot_writes;
+  guildConfig: typeof guildConfig;
+  guildStats: typeof guildStats;
   guilds: typeof guilds;
   haimiya: typeof haimiya;
   hidden: typeof hidden;
@@ -79,6 +84,7 @@ declare const fullApi: ApiFromModules<{
   sha256: typeof sha256;
   status: typeof status;
   threatIntel: typeof threatIntel;
+  tickets: typeof tickets;
   webhooks: typeof webhooks;
 }>;
 

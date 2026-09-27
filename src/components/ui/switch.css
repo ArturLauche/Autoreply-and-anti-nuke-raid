@@ -1,0 +1,119 @@
+/* ===========================================================================
+   ThreeUI — SkeuomorphicToggleCollection (variant "modern") ở chế độ inline.
+   ---------------------------------------------------------------------------
+   Component gốc là một "stage" trình diễn: chiếm 100%×100%, có nền gradient,
+   một vũng sáng (halo) và caption. Trong dashboard ta cần một control nằm
+   gọn trong hàng cấu hình, nên file này thu stage lại về đúng cỡ shadcn
+   Switch cũ (36×20) mà KHÔNG sửa gì trong file nguồn — toàn bộ source giữ
+   nguyên SHA-256.
+
+   Phần chuyển động nằm ở JS (spring damping 19.5, squash/lean theo vận tốc,
+   dấu check↔dash) nên được giữ nguyên hoàn toàn. Ở đây chỉ chỉnh:
+     1. hình học của stage cho vừa ô form,
+     2. màu → gom về token --toggle-accent của dashboard,
+     3. chuỗi "On"/"Off" hardcode trong JSX → tiếng Việt bằng CSS.
+   =========================================================================== */
+
+/* 1. Kích thước. Giữ đúng tỉ lệ gốc 44:25 (36 × 25/44 = 20.45px) để mọi
+      tỉ lệ bên trong — vị trí núm 4.6cqw, đường kính 47.6cqw — giữ đúng
+      như lúc tác giả dựng. `container-type: size` PHẢI còn: đó là thứ làm
+      cho cqw/cqh của bản gốc còn resolve được. */
+.threeui-switch {
+  display: inline-block;
+  width: 36px;
+  height: 20.5px;
+  min-width: 36px;
+  min-height: 20.5px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.threeui-switch > .modern-toggle {
+  border-radius: 999px;
+  /* Bỏ nền stage: control này nằm trong card, không phải poster. */
+  background: none;
+  /* Focus ring là box-shadow loang ra ngoài track; overflow:hidden của bản gốc
+     sẽ cắt mất nó. */
+  overflow: visible;
+}
+
+/* Vũng sáng cần một nền poster để đẹp; trong ô form nó chỉ là vệt mờ. */
+.threeui-switch .modern-toggle__halo {
+  display: none;
+}
+
+.threeui-switch .modern-toggle__stack {
+  gap: 0;
+}
+
+/* clamp(104px, min(18cqw, 33cqh), 330px) là sàn cứng của bản gốc — giữ nó
+   thì switch luôn ≥104px và không vừa ô form. Đặt lại 100%: switch vẫn giữ
+   aspect-ratio 44/25 nên hình học bên trong không đổi tỉ lệ nào. */
+.threeui-switch .modern-toggle__switch {
+  width: 100%;
+}
+
+/* Hàng cấu hình đã có nhãn của riêng nó; caption của toggle chỉ lặp lại nhãn
+   đó. Muốn bật lại thì thêm class `threeui-switch--captioned`. */
+.threeui-switch .modern-toggle__caption {
+  display: none;
+}
+
+.threeui-switch--captioned {
+  height: auto;
+  width: clamp(180px, 40vw, 320px);
+}
+
+.threeui-switch--captioned > .modern-toggle {
+  padding: 20px 0;
+}
+
+.threeui-switch--captioned .modern-toggle__caption {
+  display: flex;
+}
+
+/* 2. Màu. Bản gốc hardcode #2f6bff (sáng) và #3b7bff (tối); ta trỏ về token
+      của dashboard để không khai báo màu ở hai nơi. Selector ghi rõ cả hai
+      mode và đều nặng hơn rule của bản gốc, nên thắng bất kể CSS nào được
+      nhét vào trang trước — ModernToggle lazy-load nên thứ tự nhét không
+      đáng tin.
+
+      CHỈ ghi đè màu xanh. `--modern-toggle-track` (xám) và
+      `--modern-toggle-thumb` (trắng) để nguyên bản gốc: chúng đã đúng cho
+      cả hai nền, nhất là núm trắng trên track màu ở dark mode — nếu ta ép
+      thumb thành --background (gần đen) thì núm sẽ chìm hẳn.
+
+      Không đụng filter hue-rotate của bản gốc: cấu hình truyền vào là
+      hue=0/saturation=1/brightness=1 nên nó trung tính, giữ nguyên để không
+      phá vỡ API. */
+.threeui-switch > .modern-toggle,
+.threeui-switch > .modern-toggle[data-mode="dark"] {
+  --modern-toggle-track-on: hsl(var(--toggle-accent));
+  --modern-toggle-mark: hsl(var(--toggle-accent-mark));
+}
+
+/* 3. Tiếng Việt. "On"/"Off" nằm thẳng trong JSX nên không dịch được bằng prop
+      (mà sửa ModernToggle.tsx là phá SHA-256). Thay bằng ::after theo
+      data-state mà file nguồn đã set sẵn. */
+.modern-toggle__caption b {
+  font-size: 0;
+}
+
+.modern-toggle[data-state="on"] .modern-toggle__caption b::after {
+  content: "Bật";
+  font-size: clamp(11px, 0.85cqw, 16px);
+}
+
+.modern-toggle[data-state="off"] .modern-toggle__caption b::after {
+  content: "Tắt";
+  font-size: clamp(11px, 0.85cqw, 16px);
+}
+
+/* 4. Trạng thái khoá. Component gốc không có prop `disabled`, nên ta khoá ở
+      cả ba lớp: chặn pointer ở đây, chặn onChange trong switch.tsx, và set
+      button.disabled thật trong effect của switch.tsx. */
+.threeui-switch--disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  pointer-events: none;
+}

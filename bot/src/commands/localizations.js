@@ -383,6 +383,32 @@ const LOCALIZATIONS = {
       },
     },
   },
+  ticket: {
+    d: [
+      "Open a ticket with the moderators — ask a question, report something, or appeal a punishment",
+      "Ein Ticket an das Moderationsteam eröffnen — Frage stellen, etwas melden oder eine Strafe anfechten",
+    ],
+    subs: {
+      mo: {
+        d: ["Open a ticket (topic optional)", "Ticket eröffnen (Thema optional)"],
+        opts: {
+          chude: { d: ["Short topic — helps staff prepare", "Kurzes Thema — hilft dem Team"] },
+        },
+      },
+      khieunai: {
+        d: [
+          "Appeal a punishment (bot ban/kick/timeout)",
+          "Strafe anfechten (Bot-Ban/Kick/Timeout)",
+        ],
+        opts: {
+          chude: {
+            d: ["Why you think it was a mistake", "Warum es Ihrer Meinung nach ein Fehler war"],
+          },
+        },
+      },
+      dong: { d: ["How to close a ticket", "Ticket schließen"] },
+    },
+  },
   setup: {
     d: ["Quick bot setup for the server", "Schnelleinrichtung des Bots für den Server"],
     subs: {

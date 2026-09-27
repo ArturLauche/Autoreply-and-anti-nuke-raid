@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Activity, AlertTriangle, ArrowLeft, Gauge, Server, Users, Wifi } from "lucide-react";
 import UpdateWindow from "../components/UpdateWindow";
+import PageReveal from "../components/PageReveal";
 import {
   INCIDENT_SLOW,
   LATENCY_SLOW,
@@ -225,7 +226,7 @@ export default function Monitor() {
           </div>
         </header>
 
-        <main className="container space-y-4 py-6">
+        <PageReveal className="container space-y-4 py-6">
           {status?.hostHealth && status.hostHealth !== "ok" ? (
             <HostHealthBanner level={status.hostHealth} />
           ) : null}
@@ -407,7 +408,7 @@ export default function Monitor() {
               </div>
             </div>
           </div>
-        </main>
+        </PageReveal>
       </div>
     </div>
   );

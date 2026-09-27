@@ -33,17 +33,29 @@ async function purgeChannelMessages(channel, userId, limit = 100, skipUserIds = 
     if (!channel || !channel.isTextBased || !channel.isTextBased() || channel.isDMBased?.())
       return 0;
     const fetched = await channel.messages.fetch({ limit });
+    // ⚠️ `skipUserIds` KHÔNG phải "danh sách tin bot cần giữ". Tham số này chỉ
+    // ăn khi `userId` (kẻ vi phạm) trùng một id trong danh sách — tức là khi
+    // chính bot là nguồn vi phạm (bot spam/lỗi). Caller antinuke truyền
+    // `[client.user.id]` đúng cho việc đó. Tin của bot vẫn an toàn trong mọi
+    // trường hợp khác vì đã lọc `author === userId` từ đầu.
     const skip = new Set(skipUserIds);
     const targets = [...fetched.values()].filter(
       (m) => m.author?.id === userId && !skip.has(m.author.id) && m.deletable,
     );
     if (targets.length === 0) return 0;
+    // ⚠️ KHÔNG nuốt lỗi rồi báo số như đã xoá. Số này đi vào mô tả case log
+    // ("purge 100 tin liên quan") — thiếu quyền ManageMessages là hệ thống sẽ
+    // ghi vào log là đã dọn 100 tin trong khi 0 tin nào bị xoá. Đếm theo kết
+    // quả THẬT (`bulkDelete` trả về collection tin đã xoá).
     if (targets.length === 1) {
-      await targets[0].delete().catch(() => {});
-      return 1;
+      const ok = await targets[0]
+        .delete()
+        .then(() => true)
+        .catch(() => false);
+      return ok ? 1 : 0;
     }
-    await channel.bulkDelete(targets, true).catch(() => {});
-    return targets.length;
+    const deleted = await channel.bulkDelete(targets, true).catch(() => null);
+    return deleted?.size ?? 0;
   } catch {
     return 0;
   }

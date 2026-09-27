@@ -719,4 +719,70 @@ export const DE_PANELS: Record<string, string> = {
   "Bot dựng lại cấu trúc theo backup (kênh đúng thứ tự, kèm role và emoji/sticker nếu backup có) rồi phục hồi tin nhắn cùng media (ảnh/video…), theo đúng Tùy chỉnh khôi phục bên dưới. Các role/kênh đang có của server này được giữ nguyên.":
     "Der Bot baut die Struktur aus dem Backup neu auf (Kanäle in der richtigen Reihenfolge, dazu Rollen und Emoji/Sticker, wenn das Backup sie enthält) und stellt danach Nachrichten samt Medien (Bilder/Videos…) wieder her — gemäß den Wiederherstellungs-Optionen unten. Bereits vorhandene Rollen und Kanäle dieses Servers bleiben unangetastet.",
   "Tùy chỉnh đang áp dụng: {p0}.": "Aktive Optionen: {p0}.",
+  /* ==== Ticket / Beschwerden (27/09/2026) ==== */
+  "Ticket — kênh riêng cho thành viên và ban quản trị":
+    "Tickets — ein eigener Kanal für Mitglied und Moderation",
+  "Mỗi lượt mở tạo một kênh riêng để thành viên hỏi đáp, báo cáo chuyện gì, hoặc khiếu nại khi bị phạt oan.":
+    "Jedes eröffnete Ticket bekommt einen eigenen Kanal — für Fragen, Meldungen oder Einsprachen gegen Strafen.",
+  "Đang bật · {p0} đang mở": "Aktiv · {p0} offen",
+  "Bật tính năng ticket": "Tickets aktivieren",
+  "Thành viên dùng lệnh /ticket trong server, hoặc bấm nút trong tin nhắn riêng nếu đã bị ban. Bot cần quyền Quản lý kênh.":
+    "Mitglieder nutzen /ticket im Server oder drücken den Knopf in der DM, falls sie gesperrt wurden. Der Bot braucht die Berechtigung „Kanäle verwalten“.",
+  "Đã bật ticket": "Tickets aktiviert",
+  "Đã tắt ticket": "Tickets deaktiviert",
+  "⚠️ Chưa chọn danh mục chứa ticket — thành viên sẽ không mở được ticket cho tới khi bạn chọn bên dưới.":
+    "⚠️ Keine Ticket-Kategorie gewählt — Mitglieder können erst Tickets eröffnen, wenn du unten eine auswählst.",
+  "Danh mục chứa kênh ticket": "Kategorie für Ticket-Kanäle",
+  "Đã cập nhật danh mục ticket": "Ticket-Kategorie aktualisiert",
+  "Chọn danh mục…": "Kategorie wählen…",
+  "— Chưa chọn —": "— Nicht gewählt —",
+  "Server chưa có danh mục nào — tạo một danh mục trong Discord trước.":
+    "Dieser Server hat noch keine Kategorie — erstelle zuerst eine in Discord.",
+  "Kênh ticket sẽ được tạo tự động bên trong danh mục này.":
+    "Ticket-Kanäle werden automatisch in dieser Kategorie erstellt.",
+  "Role xử lý ticket": "Rolle für Ticket-Bearbeitung",
+  "Đã cập nhật role xử lý ticket": "Ticket-Rolle aktualisiert",
+  "— Dùng role mod —": "— Mod-Rolle verwenden —",
+  "Hiện tại: {p0}": "Aktuell: {p0}",
+  "Chưa chọn — bot dùng role mod của server ({p0}). Chọn riêng khi người xử lý ticket khác người làm mod.":
+    "Nicht gewählt — der Bot nutzt die Mod-Rolle des Servers ({p0}). Wähle eine eigene, wenn Ticket-Bearbeitung ≠ Moderation.",
+  "chưa có role mod nào": "keine Mod-Rolle gesetzt",
+  "Loại ticket mặc định": "Standard-Tickettyp",
+  "Đã đổi loại ticket mặc định": "Standard-Tickettyp geändert",
+  "Hỗ trợ chung — hỏi đáp, báo cáo bất kỳ chuyện gì":
+    "Allgemeiner Support — Frage stellen, alles melden",
+  "Khiếu nại — dành cho người bị phạt oan":
+    "Beschwerde — für Mitglieder, die eine Strafe für falsch halten",
+  "Thành viên vẫn chọn được loại khác khi gõ lệnh. Loại này chỉ là mặc định khi họ không chọn.":
+    "Mitglieder können beim Befehl weiterhin einen anderen Typ wählen. Das hier ist nur der Standard, wenn sie nichts wählen.",
+  "Giới hạn chống spam": "Spam-Limits",
+  "Không có giới hạn thì 1 người có thể spam hàng trăm kênh trong một đêm và làm chạm trần 500 kênh của Discord.":
+    "Ohne Limits kann eine Person nachts Hunderte Kanäle zuspammen und Discord's Limit von 500 Kanälen erreichen.",
+  "Tối đa ticket đang mở ({p0})": "Max. offene Tickets ({p0})",
+  "Đã cập nhật giới hạn": "Limit aktualisiert",
+  "Chờ giữa 2 lượt mở ({p0} giờ)": "Abklingzeit zwischen Eröffnungen ({p0} Std.)",
+  "Đã cập nhật thời gian chờ": "Abklingzeit aktualisiert",
+  "Gửi tin nhắn riêng cho người bị ban": "Gesperrte Mitglieder per DM anschreiben",
+  "Kèm lý do ban và nút mở khiếu nại. Không có bước này, người bị ban không biết bot có lệnh gỡ ban.":
+    "Sendet den Sperrgrund plus einen Knopf zum Einsprachen. Ohne das wissen Gesperrte nicht, dass es einen Entbann-Befehl gibt.",
+  "Sẽ gửi DM sau khi ban": "Sendet DM nach einer Sperre",
+  "Không gửi DM sau khi ban": "Sendet keine DM nach einer Sperre",
+  "Ghi chú khi đóng ticket (tuỳ chọn)": "Abschlussnotiz (optional)",
+  "VD: Ticket đã được xử lý, cảm ơn bạn đã liên hệ.":
+    "z. B. Ticket bearbeitet — danke für deine Nachricht.",
+  "Đã lưu ghi chú": "Notiz gespeichert",
+  "Đang mở": "Offen",
+  "Đã đóng": "Geschlossen",
+  "Đã đóng ticket #{p0}": "Ticket #{p0} geschlossen",
+  "Đóng ticket thất bại": "Ticket konnte nicht geschlossen werden",
+  "Không có ticket nào đang mở.": "Keine offenen Tickets.",
+  "Chưa có ticket nào đã đóng.": "Noch keine geschlossenen Tickets.",
+  "Lỗi mở kênh: {p0}": "Kanal konnte nicht erstellt werden: {p0}",
+  "Đóng bởi {p0}": "Geschlossen von {p0}",
+  " · đã gỡ ban": " · entbannt",
+  "Mở kênh": "Kanal öffnen",
+  Đóng: "Schließen",
+  "Khiếu nại": "Beschwerde",
+  "Hỗ trợ chung": "Allgemeiner Support",
+  "Ticket & Khiếu nại": "Tickets & Beschwerden",
 };

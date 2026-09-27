@@ -23,6 +23,11 @@ export default tseslint.config(
       "convex/_generated/**", // do `bun convex codegen` sinh ra — không sửa tay
       "bot/test-djs-mock.cjs", // mock tạm sinh khi chạy test
       "scripts/_*.cjs", // script trợ giúp tạm thời (tiền tố _)
+      // Mã nguồn bên thứ ba vendored nguyên văn (ThreeUI). File phải giữ đúng
+      // SHA-256 nên không sửa được — kể cả để dập một biến chết. Vì vậy nó
+      // không chịu policy lint của ta; cùng lý do tsconfig.app.json tắt
+      // noUnusedLocals (ESLint vẫn giữ no-unused-vars cho phần còn lại của src/).
+      "src/shaders/**",
     ],
   },
 

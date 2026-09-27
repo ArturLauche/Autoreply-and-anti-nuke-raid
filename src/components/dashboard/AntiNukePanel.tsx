@@ -168,7 +168,11 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
     }
   }
 
-  async function setRaidHunt(patch: { raidHuntEnabled?: boolean; raidHuntBanSuspects?: boolean }) {
+  async function setRaidHunt(patch: {
+    raidHuntEnabled?: boolean;
+    raidHuntBanSuspects?: boolean;
+    rollbackEnabled?: boolean;
+  }) {
     try {
       await updateSettings({ token: TOKEN(), guildId: data.guild.discordId, ...patch });
       toast.success(translate("Đã lưu cài đặt Raid Intel — bot áp dụng trong khoảng 3 phút"));
@@ -464,6 +468,25 @@ export default function AntiNukePanel({ data }: { data: GuildData }) {
                 <Switch
                   checked={g.raidHuntBanSuspects}
                   onCheckedChange={(v) => setRaidHunt({ raidHuntBanSuspects: v })}
+                />
+              </div>
+              {/* Cờ tắt rollback: trước đây bot đọc field không tồn tại nên luôn
+                  bật — chủ server không có đường tắt khi rollback hồi lại kênh
+                  họ đã dọn có chủ đích. */}
+              <div className="flex items-center justify-between gap-3 rounded-lg bg-secondary/40 p-3">
+                <div>
+                  <p className="text-sm font-semibold">
+                    {translate("Khôi phục kênh và role sau khi bị nuke")}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {translate(
+                      "Tự khôi phục theo ảnh chụp gần nhất. Tắt nếu bạn tự dọn và tạo lại kênh — snapshot cũ có thể hồi lại những thứ bạn đã bỏ.",
+                    )}{" "}
+                  </p>
+                </div>
+                <Switch
+                  checked={g.rollbackEnabled}
+                  onCheckedChange={(v) => setRaidHunt({ rollbackEnabled: v })}
                 />
               </div>
             </div>

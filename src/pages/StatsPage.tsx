@@ -1,7 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "convex/react";
-import { ArrowLeft, Flame, Loader2, ShieldAlert, Trophy } from "lucide-react";
+import PageReveal from "../components/PageReveal";
+import {
+  ArrowLeft,
+  Flame,
+  Loader2,
+  ShieldAlert,
+  Trophy,
+  Users,
+  UserX,
+  ShieldCheck,
+  Ban,
+  type LucideIcon,
+} from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
@@ -15,6 +27,7 @@ import {
 import { HEAT_DEFAULTS, HEAT_TIER_LABEL } from "../lib/constants";
 import { effectiveHeat, tierOf } from "../components/dashboard/HeatBar";
 import { discordGuildIconUrl, getSessionToken } from "../lib/discord";
+import { explainRiskFactor } from "../lib/riskExplain";
 import { timeAgo } from "../lib/utils";
 import type { MeData } from "../lib/types";
 
@@ -28,6 +41,47 @@ interface HeatRow {
   heat: number;
   warnStrikes: number | null;
   updatedAt: number;
+}
+
+/** 1 dòng số liệu từ convex/guildStats.ts (todaySummary). */
+interface Summary {
+  events: number;
+  blocked: number;
+  joins: number;
+  punished: number;
+  suspectedFalsePositives: number;
+  threatsBlocked: number;
+  topRiskFactors: [string, number][];
+  dayStart: number;
+}
+
+/** Ô số: nhãn + giá trị + ghi chú nhỏ. Màu chỉ ở trường `danger`. */
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+  hint,
+  danger,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string | number;
+  hint?: string;
+  danger?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" /> {label}
+      </p>
+      <p
+        className={`mt-1.5 font-display text-2xl font-bold tabular-nums ${danger ? "text-danger" : "text-foreground"}`}
+      >
+        {value}
+      </p>
+      {hint ? <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p> : null}
+    </div>
+  );
 }
 
 /* Tier nhiệt theo bảng đen trắng: mức càng nặng → nền càng đậm. */
@@ -59,6 +113,11 @@ export default function StatsPage() {
       ? ({ token, guildId, limit: 10 } as { token: string; guildId: string; limit: number })
       : "skip",
   ) as HeatRow[] | null | undefined;
+
+  const summary = useQuery(
+    api.guildStats.todaySummary,
+    token && guildId ? ({ token, guildId } as { token: string; guildId: string }) : "skip",
+  ) as Summary | null | undefined;
 
   const selected = managed.find((g) => g.discordId === guildId);
 
@@ -107,7 +166,7 @@ export default function StatsPage() {
           </div>
         </header>
 
-        <main className="container py-8">
+        <PageReveal className="container py-8">
           <div className="grid gap-1.5 sm:max-w-xs">
             <p className="text-xs text-muted-foreground">{translate("Chọn server")}</p>
             <Select value={guildId} onValueChange={setGuildId}>
@@ -123,6 +182,69 @@ export default function StatsPage() {
               </SelectContent>
             </Select>
           </div>
+
+          {summary && (
+            <section className="mt-6">
+              <h2 className="font-display text-base font-bold">{translate("Tình hình hôm nay")}</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {translate("Tính từ 00:00 hôm nay theo giờ Việt Nam.")}
+              </p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <StatTile
+                  icon={ShieldCheck}
+                  label={translate("Đe doạ đã chặn")}
+                  value={summary.threatsBlocked}
+                  hint={`${summary.events} ${translate("sự kiện")} · ${summary.blocked} ${translate("lượt")}`}
+                />
+                <StatTile icon={Users} label={translate("Người mới vào")} value={summary.joins} />
+                <StatTile
+                  icon={UserX}
+                  label={translate("Tài khoản bị xử lý")}
+                  value={summary.punished}
+                />
+                <StatTile
+                  icon={Ban}
+                  label={translate("Nghi phạm phạt nhầm")}
+                  value={summary.suspectedFalsePositives}
+                  hint={translate("Điểm rủi ro dưới ngưỡng nhưng vẫn bị xử lý")}
+                  danger={summary.suspectedFalsePositives > 0}
+                />
+              </div>
+
+              {summary.topRiskFactors.length > 0 && (
+                <Card className="mt-3">
+                  <CardContent className="p-4 sm:p-5">
+                    <h3 className="font-semibold text-foreground">
+                      {translate("Yếu tố rủi ro hôm nay")}
+                    </h3>
+                    <div className="mt-3 space-y-2">
+                      {summary.topRiskFactors.map(([factor, count]) => {
+                        const info = explainRiskFactor(factor);
+                        return (
+                          <div key={factor} className="flex items-center gap-3">
+                            <span className="min-w-[200px] text-sm text-foreground">
+                              {translate(info.label, info.vars)}
+                            </span>
+                            <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                              <div
+                                className="h-full rounded-full bg-primary transition-all"
+                                style={{
+                                  width: `${Math.min(100, (count / Math.max(1, summary.joins)) * 100)}%`,
+                                }}
+                              />
+                            </div>
+                            <span className="w-8 text-right text-xs tabular-nums text-muted-foreground">
+                              {count}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </section>
+          )}
 
           {managed.length === 0 && (
             <Card className="mt-4 border-dashed">
@@ -256,7 +378,7 @@ export default function StatsPage() {
               </CardContent>
             </Card>
           )}
-        </main>
+        </PageReveal>
       </div>
     </div>
   );

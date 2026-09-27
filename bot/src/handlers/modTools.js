@@ -147,7 +147,42 @@ async function banMember({ guild, member, executor, reason, deleteDays, guildCon
     },
     store,
   );
+  // Đường thoát cho người bị ban: DM kèm nút "Mở khiếu nại". Không có bước này
+  // thì họ không có cách nào biết tồn tại lệnh `/mod unban`.
+  // TUYỆT ĐỐI không để lỗi ở đây làm hỏng lệnh ban: ban đã xong rồi, người dùng
+  // đã bị ban — ném lỗi ra chỉ khiến mod tưởng ban thất bại.
+  await sendBanNoticeDm(guild, member.user, reason, guildConfig);
   return `Đã ban **${member.user.tag}**${reason ? ` — Lý do: ${reason}` : ""}`;
+}
+
+/**
+ * Gửi DM cho người vừa bị ban, kèm nút mở khiếu nại.
+ *
+ * Tự bật/tắt theo `ticketDmOnBan` (mặc định BẬT) — chủ server không muốn thì
+ * tắt được mà không phải sửa code.
+ *
+ * Ngôn ngữ theo NGƯỜI BỊ BAN (`user.locale`), không theo server: người bị ban
+ * thường ở nước khác, nói tiếng khác cộng đồng. Không dùng IP — Discord không
+ * cấp IP cho bot (xem `handlers/lang.js`).
+ */
+async function sendBanNoticeDm(guild, user, reason, guildConfig) {
+  try {
+    if (guildConfig?.ticketEnabled !== true) return false;
+    if (guildConfig?.ticketDmOnBan === false) return false;
+    const tickets = require("./tickets");
+    const lang = require("./lang");
+    // Ưu tiên locale tài khoản Discord của họ; không có thì rơi về locale server.
+    const L = lang.langForUser({ user }, guild);
+    const T = lang.ticketText(L);
+    await user.send({
+      embeds: [tickets.banNoticeEmbed({ guild, reason, T })],
+      components: [tickets.dmButtonRow(T)],
+    });
+    return true;
+  } catch {
+    // User tắt DM / chặn bot → im lặng, đây là trường hợp phổ biến nhất.
+    return false;
+  }
 }
 
 async function untimeoutMember({ guild, member, executor, reason, guildConfig, store }) {
@@ -175,8 +210,14 @@ async function untimeoutMember({ guild, member, executor, reason, guildConfig, s
 }
 
 async function unbanMember({ guild, userId, executor, reason, guildConfig, store }) {
-  // Kiểm tra member có đang bị ban không
-  const ban = await guild.members.fetchBan(userId).catch(() => null);
+  // Kiểm tra member có đang bị ban không.
+  //
+  // ⚠️ BUG THẬT ĐÃ SỬA (27/09/2026): gọi `guild.members.fetchBan(...)` — hàm này
+  // KHÔNG tồn tại trong discord.js v14 (đã bị gỡ từ v14). Nó ném TypeError
+  // ĐỒNG BỘ, nên `.catch()` không bắt được → mọi lượt `/mod unban` đều chết
+  // với "Không thể gỡ ban: guild.members.fetchBan is not a function". Đúng API
+  // là `guild.bans.fetch(userId)` (trả Promise, từ chối nếu không bị ban).
+  const ban = await guild.bans.fetch(userId).catch(() => null);
   if (!ban) {
     throw new Error(`**<@${userId}>** hiện không bị ban trong server này.`);
   }

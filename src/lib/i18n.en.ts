@@ -7,6 +7,94 @@
  * (src/lib/i18n.tsx import "./i18n.en").
  */
 export const EN: Record<string, string> = {
+  /* ==== Gom menu server thành nhóm (27/09/2026) ==== */
+  "Bảo vệ": "Protection",
+  "Nội dung & phạt": "Content & punishments",
+  "Vận hành": "Operations",
+  /* ==== Xuất / nhập cấu hình server (27/09/2026) ==== Tab trong Cài đặt,
+     giữ cấu hình để không mất khi đổi VPS. */
+  "Cấu hình server": "Server config",
+  "Xuất & nhập cấu hình": "Export & import config",
+  "Tải toàn bộ cấu hình bảo vệ của server ra file .json để lưu lại, hoặc nạp file đã lưu.":
+    "Download all of this server's protection settings to a .json file, or load a file you saved earlier.",
+  "Chỉ dùng được cho cùng một server: kênh, vai trò và thành viên trong file là ID của server cũ, mang sang server khác sẽ không khớp.":
+    "Only valid for the same server: the channels, roles and members in the file are IDs from the original server, so they won't match on a different one.",
+  "Xuất cấu hình": "Export config",
+  "Nạp cấu hình": "Import config",
+  "Đã tải cấu hình về máy": "Config downloaded",
+  "Đã nạp {p0} mục cấu hình": "Imported {p0} config entries",
+  "Đã bỏ {p0} mục không phải cấu hình": "Skipped {p0} entries that aren't config",
+  "Bỏ {p0} mục vì giá trị không hợp lệ": "Skipped {p0} entries with invalid values",
+  "File không chứa cấu hình nào hợp lệ": "File contains no valid config",
+  "File không phải JSON hợp lệ": "File is not valid JSON",
+  "Nạp thất bại": "Import failed",
+  /* ==== ThreeUI toggle (27/09/2026) ==== Nhãn truy cập dự phòng cho
+     <Switch> khi hàng cấu hình không truyền aria-label. "Tắt" đã có sẵn ở
+     đợt web UX — đừng khai lại (tsc chặn trùng key). Prettier bỏ dấu nháy
+     ở các key là identifier hợp lệ (Bật/Tắt đều là), nên nhìn không có
+     nháy là BÌNH THƯỜNG, không phải dấu nháy bị nuốt. */
+  Bật: "On",
+  /* ==== web UX 1+2+3+4 (27/09/2026) ==== Cảnh báo chưa lưu · command palette
+     · bật chống nuke hàng loạt · badge trạng thái đồng bộ. */
+  "Tìm kiếm nhanh": "Quick search",
+  "Gõ để tìm panel, sau đó Enter để mở.": "Type to search panels, then press Enter to open.",
+  "Tìm panel hoặc hành động…": "Search panels or actions…",
+  "Tìm panel hoặc hành động": "Search panels or actions",
+  "Không có kết quả nào.": "No results.",
+  /* "Điều hướng" · "Lịch sử chống nuke" · "Sự cố" · "Giám sát bot" đã có sẵn
+     ở cuối từ điển — đừng khai lại (tsc chặn trùng key). */
+  "Trang khác": "Other pages",
+  "Danh sách server": "Server list",
+  "Đang gửi cấu hình cho bot…": "Sending settings to the bot…",
+  "Đã gửi cấu hình cho bot": "Settings sent to the bot",
+  "Bot offline — cấu hình chưa được áp dụng": "Bot offline — settings not applied yet",
+  "Dashboard và bot dùng chung cấu hình nhưng cập nhật không cùng lúc. Lúc này bot có thể vẫn chạy cấu hình cũ.":
+    "The dashboard and the bot share settings but do not update at the same time. The bot may still be running the previous settings.",
+  "Chọn server để bật/tắt chống nuke hàng loạt": "Select servers to toggle anti-nuke in bulk",
+  "Chọn server {p0}": "Select server {p0}",
+  "server đã chọn": "servers selected",
+  "Bật chống nuke": "Enable anti-nuke",
+  Tắt: "Disable",
+  "Đã bật chống nuke cho {p0} server": "Enabled anti-nuke for {p0} servers",
+  "Đã tắt chống nuke ở {p0} server": "Disabled anti-nuke on {p0} servers",
+  "{p0} server bị bỏ qua — bạn không có quyền quản lý":
+    "{p0} servers were skipped — you don't have permission to manage them",
+  "Thất bại": "Failed",
+
+  /* ==== risk explain + guild stats (27/09/2026) ==== Nhãn yếu tố rủi ro Alt
+     Detection + bảng "Tình hình hôm nay". Placeholder {p0} giữ nguyên. */
+  "Tài khoản mới tạo dưới 1 ngày": "Account created less than 1 day ago",
+  "Tài khoản mới tạo dưới 3 ngày": "Account created less than 3 days ago",
+  "Tài khoản mới tạo dưới {p0} ngày": "Account created less than {p0} days ago",
+  "Tài khoản đã trên 30 ngày": "Account older than 30 days",
+  "Tài khoản đã trên 6 tháng": "Account older than 6 months",
+  "Tài khoản đã trên 1 năm": "Account older than 1 year",
+  "Có huy hiệu HypeSquad": "Has the HypeSquad badge",
+  "Có huy hiệu Early Verified Bot Developer": "Has the Early Verified Bot Developer badge",
+  "Có huy hiệu Early Supporter": "Has the Early Supporter badge",
+  "Tài khoản được Discord gắn nhãn bot": "Account is flagged as a bot by Discord",
+  "Tên giống tài khoản đã gặp {p0}%": "Name is {p0}% similar to a seen account",
+  "Tên tài khoản giống mẫu tạo hàng loạt, nhưng tài khoản đã cũ":
+    "Name looks mass-generated, but the account is old",
+  "Trùng với tài khoản trước đó đã bị phạt": "Matches a previously punished account",
+  "Dùng chung avatar với tài khoản vừa vào": "Shares an avatar with a recent account",
+  "Cùng lúc {p0} người rủi ro cao vào server": "{p0} high-risk accounts joined at once",
+  "Giống người dùng đã bị ban {p0}%": "{p0}% similar to a banned user",
+  "chưa đủ bằng chứng để phạt": "not enough evidence to punish",
+  "Chỉ theo dõi — chưa đủ bằng chứng để phạt": "Monitor only — not enough evidence to punish",
+  "Cảnh cáo": "Warn",
+  "Yêu cầu xác minh": "Verification required",
+  "Không xử lý": "No action",
+  "điểm rủi ro tích luỹ cao": "accumulated risk score is high",
+  "Tình hình hôm nay": "Today at a glance",
+  "Tính từ 00:00 hôm nay theo giờ Việt Nam.": "Counted from 00:00 today, Vietnam time.",
+  "Đe doạ đã chặn": "Threats blocked",
+  "Người mới vào": "New members",
+  "Tài khoản bị xử lý": "Accounts actioned",
+  "Nghi phạm phạt nhầm": "Suspected false positives",
+  "Điểm rủi ro dưới ngưỡng nhưng vẫn bị xử lý": "Risk score below threshold but still actioned",
+  "Yếu tố rủi ro hôm nay": "Risk factors today",
+
   /* ==== host-health + incidents (27/09/2026) ==== Cảnh báo sức khoẻ máy chủ
      + trang Sự cố gom cụm. Chèn ở ĐẦU file theo thói quen của từ điển này. */
   "Sức khoẻ máy chủ": "Server health",
@@ -52,6 +140,7 @@ export const EN: Record<string, string> = {
   "Backend (dữ liệu)": "Backend (data)",
   "Không phản hồi": "No response",
   "Không gọi được API dữ liệu.": "Data API unreachable.",
+  "Khôi phục kênh và role sau khi bị nuke": "Restore channels and roles after a nuke",
   "Phản hồi:": "Response:",
   "Đồng bộ lần cuối:": "Last sync:",
   "Heartbeat cuối:": "Last heartbeat:",
@@ -664,6 +753,8 @@ export const EN: Record<string, string> = {
   "Tự ban nghi phạm nguồn cơn": "Auto-ban the source suspect",
   "Tự ban tài khoản đủ điểm nghi vấn (chủ mưu, trùng avatar…).":
     "Auto-bans accounts scoring high enough (mastermind, matching avatars…).",
+  "Tự khôi phục theo ảnh chụp gần nhất. Tắt nếu bạn tự dọn và tạo lại kênh — snapshot cũ có thể hồi lại những thứ bạn đã bỏ.":
+    "Restores from the latest snapshot. Turn this off if you clean up and recreate channels yourself — an old snapshot can bring back things you removed.",
   "Tự động backup định kỳ": "Automatic scheduled backups",
   "Tự động:": "Automatic:",
   "URL khi nhấn tên": "URL when the name is clicked",
@@ -1023,4 +1114,68 @@ export const EN: Record<string, string> = {
     "Features \u2014 Protogon: Discord auto-reply & anti-nuke bot",
   "To\u00e0n b\u1ed9 t\u00ednh n\u0103ng c\u1ee7a bot Discord Protogon: t\u1ef1 tr\u1ea3 l\u1eddi theo t\u1eeb kho\u00e1, h\u1ec7 th\u1ed1ng nhi\u1ec7t \u0111\u1ed9 4 giai \u0111o\u1ea1n, Join Gate, 32 module ch\u1ed1ng nuke/raid v\u00e0 backup server.":
     "Every Protogon Discord bot feature: keyword auto-replies, a four-stage heat system, Join Gate, 32 anti-nuke/raid modules, and full server backup & restore.",
+  /* ==== Ticket / khiếu nại (27/09/2026) ==== */
+  "Ticket — kênh riêng cho thành viên và ban quản trị":
+    "Tickets — a private channel per member and moderator",
+  "Mỗi lượt mở tạo một kênh riêng để thành viên hỏi đáp, báo cáo chuyện gì, hoặc khiếu nại khi bị phạt oan.":
+    "Each open ticket creates its own channel so members can ask a question, report something, or appeal a punishment.",
+  "Đang bật · {p0} đang mở": "Enabled · {p0} open",
+  "Bật tính năng ticket": "Enable tickets",
+  "Thành viên dùng lệnh /ticket trong server, hoặc bấm nút trong tin nhắn riêng nếu đã bị ban. Bot cần quyền Quản lý kênh.":
+    "Members use /ticket in the server, or press the button in the DM they received if they are banned. The bot needs Manage Channels.",
+  "Đã bật ticket": "Tickets enabled",
+  "Đã tắt ticket": "Tickets disabled",
+  "⚠️ Chưa chọn danh mục chứa ticket — thành viên sẽ không mở được ticket cho tới khi bạn chọn bên dưới.":
+    "⚠️ No ticket category selected — members cannot open tickets until you pick one below.",
+  "Danh mục chứa kênh ticket": "Category for ticket channels",
+  "Đã cập nhật danh mục ticket": "Ticket category updated",
+  "Chọn danh mục…": "Choose a category…",
+  "— Chưa chọn —": "— Not selected —",
+  "Server chưa có danh mục nào — tạo một danh mục trong Discord trước.":
+    "This server has no category yet — create one in Discord first.",
+  "Kênh ticket sẽ được tạo tự động bên trong danh mục này.":
+    "Ticket channels are created automatically inside this category.",
+  "Role xử lý ticket": "Role that handles tickets",
+  "Đã cập nhật role xử lý ticket": "Ticket role updated",
+  "— Dùng role mod —": "— Use the mod role —",
+  "Hiện tại: {p0}": "Currently: {p0}",
+  "Chưa chọn — bot dùng role mod của server ({p0}). Chọn riêng khi người xử lý ticket khác người làm mod.":
+    "Not selected — the bot uses the server's mod role ({p0}). Pick a separate one when ticket handlers differ from moderators.",
+  "chưa có role mod nào": "no mod role set",
+  "Loại ticket mặc định": "Default ticket type",
+  "Đã đổi loại ticket mặc định": "Default ticket type changed",
+  "Hỗ trợ chung — hỏi đáp, báo cáo bất kỳ chuyện gì":
+    "General support — ask a question, report anything",
+  "Khiếu nại — dành cho người bị phạt oan": "Appeal — for members who think a punishment was wrong",
+  "Thành viên vẫn chọn được loại khác khi gõ lệnh. Loại này chỉ là mặc định khi họ không chọn.":
+    "Members can still pick another type when using the command. This is only the default when they don't choose.",
+  "Giới hạn chống spam": "Spam limits",
+  "Không có giới hạn thì 1 người có thể spam hàng trăm kênh trong một đêm và làm chạm trần 500 kênh của Discord.":
+    "Without limits, one person can spam hundreds of channels in a night and hit Discord's 500 channel cap.",
+  "Tối đa ticket đang mở ({p0})": "Max open tickets ({p0})",
+  "Đã cập nhật giới hạn": "Limit updated",
+  "Chờ giữa 2 lượt mở ({p0} giờ)": "Cooldown between openings ({p0} h)",
+  "Đã cập nhật thời gian chờ": "Cooldown updated",
+  "Gửi tin nhắn riêng cho người bị ban": "DM banned members",
+  "Kèm lý do ban và nút mở khiếu nại. Không có bước này, người bị ban không biết bot có lệnh gỡ ban.":
+    "Sends the ban reason plus an appeal button. Without this, banned members don't know an unban command exists.",
+  "Sẽ gửi DM sau khi ban": "Will DM after a ban",
+  "Không gửi DM sau khi ban": "No DM after a ban",
+  "Ghi chú khi đóng ticket (tuỳ chọn)": "Closing note (optional)",
+  "VD: Ticket đã được xử lý, cảm ơn bạn đã liên hệ.":
+    "e.g. Ticket handled — thanks for reaching out.",
+  "Đã lưu ghi chú": "Note saved",
+  "Đang mở": "Open",
+  "Đã đóng": "Closed",
+  "Đã đóng ticket #{p0}": "Ticket #{p0} closed",
+  "Đóng ticket thất bại": "Could not close the ticket",
+  "Không có ticket nào đang mở.": "No open tickets.",
+  "Chưa có ticket nào đã đóng.": "No closed tickets yet.",
+  "Lỗi mở kênh: {p0}": "Could not create the channel: {p0}",
+  "Đóng bởi {p0}": "Closed by {p0}",
+  " · đã gỡ ban": " · unbanned",
+  "Mở kênh": "Open channel",
+  "Khiếu nại": "Appeal",
+  "Hỗ trợ chung": "General support",
+  "Ticket & Khiếu nại": "Tickets & appeals",
 };

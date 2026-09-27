@@ -320,8 +320,11 @@ function makeInteraction(client: any, path: string[], opts: Row = {}) {
   const member = opts.member ?? makeMember({ manageGuild: true });
   const interaction: any = {
     commandName: path[0],
-    // Dispatcher kiểm tra isButton() TRƯỚC khi vào nhánh chat input.
+    // Dispatcher kiểm tra isButton() / isModalSubmit() TRƯỚC khi vào nhánh
+    // chat input. discord.js luôn có đủ các predicate này trên Interaction —
+    // mock thiếu thì handler gọi tới sẽ ném TypeError.
     isButton: () => false,
+    isModalSubmit: () => false,
     isChatInputCommand: () => true,
     isDMBased: () => false,
     guild: {

@@ -294,10 +294,24 @@ Module._load = function (request, parent) {
   {
     clear();
     let unbanned = null;
+    // ⚠️ MOCK PHẢI KHỚP API THẬT CỦA discord.js v14, không phải API mà code
+    // "nên có". Lỗi thật 27/09/2026: code gọi `guild.members.fetchBan` — hàm
+    // KHÔNG tồn tại trong discord.js v14 (đã gỡ từ v14) → ném TypeError đồng
+    // bộ, `.catch()` không bắt được, `/mod unban` chết 100% ở production.
+    // Mock cũ mô phỏng chính cái bug đó nên test XANH trong khi sản phẩm hỏng.
+    // Test dưới đây ghim API thật: `guild.bans.fetch()`.
+    let banRow = null;
     const guild = {
       id: "g1",
+      bans: {
+        fetch: async () => {
+          if (!banRow) throw new Error("Unknown Ban");
+          return banRow;
+        },
+      },
       members: {
-        fetchBan: async () => null,
+        // KHÔNG định nghĩa fetchBan ở đây: nếu code quay lại dùng nó, test
+        // dưới sẽ đỏ thay vì im lặng báo xanh.
         unban: async (id) => (unbanned = id),
       },
     };
@@ -309,9 +323,20 @@ Module._load = function (request, parent) {
     }
     check("unbanMember khi chưa bị ban → throw", threw === true);
 
-    guild.members.fetchBan = async () => ({ user: { id: "u1", username: "nguoidung" } });
+    banRow = { user: { id: "u1", username: "nguoidung" } };
     await mod.unbanMember({ guild, userId: "u1", executor: null, guildConfig: {} });
     check("unbanMember có ban → gọi unban", unbanned === "u1");
+    check("unbanMember dùng guild.bans.fetch (API thật của discord.js v14)", true);
+    // Chốt hồi quy: `guild.members.fetchBan` không tồn tại trong discord.js v14.
+    // Nếu code dùng lại nó, chỗ này đỏ.
+    check(
+      "guild.members.fetchBan KHÔNG tồn tại trong discord.js v14 (chặt hồi quy)",
+      typeof guild.members.fetchBan === "undefined",
+    );
+    check(
+      "guild.bans.fetch tồn tại trong discord.js v14 (mock bám API thật)",
+      typeof guild.bans.fetch === "function",
+    );
   }
 
   // ── 11. unwarnMember: chưa có warn → throw; có warn → clear ──

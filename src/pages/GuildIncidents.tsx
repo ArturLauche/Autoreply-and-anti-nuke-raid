@@ -14,6 +14,7 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import { ArrowLeft, Check, CircleDot, Loader2, ShieldAlert, Undo2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
+import PageReveal from "../components/PageReveal";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -123,13 +124,12 @@ export default function GuildIncidents() {
         </div>
       </header>
 
-      <main className="container py-8">
+      <PageReveal className="container py-8">
         <p className="mb-4 text-xs text-muted-foreground">
           {translate(
             "Các sự kiện cùng loại của cùng một người trong 15 phút được gom thành một sự cố.",
           )}{" "}
         </p>
-
         {incidents === undefined ? (
           <div className="flex justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -229,8 +229,8 @@ export default function GuildIncidents() {
               ))}
             </CardContent>
           </Card>
-        )}
-      </main>
+        )}{" "}
+      </PageReveal>
     </div>
   );
 }

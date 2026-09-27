@@ -459,6 +459,43 @@ const commands = applyLocalizations([
     ],
   },
   {
+    name: "ticket",
+    description: "Mở ticket với ban quản trị — hỏi đáp, báo cáo chung, hoặc khiếu nại hình phạt",
+    options: [
+      {
+        name: "mo",
+        description: "Mở ticket (chủ đề tuỳ chọn)",
+        type: 1,
+        options: [
+          {
+            name: "chude",
+            description: "Mô tả ngắn vấn đề — staff đọc để chuẩn bị trước",
+            type: 3,
+            required: false,
+          },
+        ],
+      },
+      {
+        name: "khieunai",
+        description: "Mở ticket khiếu nại hình phạt (ban/kick/timeout của bot)",
+        type: 1,
+        options: [
+          {
+            name: "chude",
+            description: "Lý do bạn cho rằng mình bị phạt oan",
+            type: 3,
+            required: false,
+          },
+        ],
+      },
+      {
+        name: "dong",
+        description: "Hướng dẫn đóng ticket",
+        type: 1,
+      },
+    ],
+  },
+  {
     name: "setup",
     description: "Cấu hình nhanh bot cho server",
     options: [
@@ -585,7 +622,7 @@ const commands = applyLocalizations([
               { name: "Kick", value: "kick" },
               { name: "Ban", value: "ban" },
               { name: "Timeout", value: "timeout" },
-              { name: "Verify (gán lại role chưa xác minh)", value: "verify" },
+              { name: "Verify (gán lại role)", value: "verify" },
             ],
           },
         ],

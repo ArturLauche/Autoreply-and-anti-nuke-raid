@@ -1,4 +1,5 @@
 const { WebhookClient, EmbedBuilder } = require("discord.js");
+const { escapeMentions } = require("./ticketCore");
 
 /**
  * Webhook Hub — gửi log qua webhook MẶC ĐỊNH của bot (Protogon Log).
@@ -77,7 +78,18 @@ function fillTemplate(tpl, { guildName, action, reason, user, mod }) {
 function buildPayload(whInfo, embed, meta = {}) {
   const payload = { embeds: [embed] };
   const content = fillTemplate(whInfo.contentTemplate, meta);
-  if (content) payload.content = content.slice(0, 1900);
+  if (content) payload.content = escapeMentions(content).slice(0, 1900);
+  // ⚠️ Chặn ping ở đúng chỗ sinh ping. `content` là phần DUY NHẤT Discord
+  // render thành mention — embed thì không ping ai dù có ghi `<@&id>`. Trước đây
+  // `content` lấy thẳng từ `{reason}` (lý do do mod gõ) và chưa kèm
+  // `allowed_mentions`, nên dán `<@everyone` vào lý do là ping cả server ở
+  // kênh log.
+  //
+  // Không mất tính năng gì: `fillTemplate` chỉ có 6 placeholder
+  // ({server} {time} {action} {reason} {user} {mod}) và không placeholder nào
+  // cố tình ping. Chủ server muốn ping thì dùng webhook riêng, không dùng
+  // khu vực log hình phạt.
+  payload.allowed_mentions = { parse: [] };
   if (whInfo.color !== null && whInfo.color !== undefined) {
     payload.embeds = [new EmbedBuilder(embed.data).setColor(whInfo.color)];
   }

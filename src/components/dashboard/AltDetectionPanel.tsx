@@ -18,6 +18,7 @@ import { Badge } from "../ui/badge";
 import { Switch } from "../ui/switch";
 import type { GuildData } from "../../lib/types";
 import { getSessionToken } from "../../lib/discord";
+import { explainPunishment, explainRiskFactor } from "../../lib/riskExplain";
 
 import { translate } from "../../lib/i18n";
 const TOKEN = () => getSessionToken();
@@ -68,6 +69,28 @@ function formatAge(createdAt: number) {
 type AltConfigData = Record<string, any>;
 type AltJoinData = Record<string, any>;
 type AltStatsData = Record<string, any>;
+
+/**
+ * Lý do cụ thể vì sao bot xử lý tài khoản này.
+ *
+ * Trước đây cột "Xử lý" chỉ hiện mã hình phạt (`kick`, `ban`) — chủ server
+ * không có cách nào biết vì sao người đó bị kick, nên chỉ còn cách tắt cả
+ * module Alt Detection. Dữ liệu để giải thích thì bot đã ghi đủ
+ * (`riskFactors`, `riskScore`), chỉ chưa ai hiện ra.
+ */
+function PunishmentReason({ join }: { join: AltJoinData }) {
+  const reason = explainPunishment({
+    action: join.action,
+    riskScore: join.riskScore,
+    riskFactors: join.riskFactors,
+  });
+  if (!reason) return null;
+  return (
+    <p className="max-w-[22rem] text-left text-[11px] leading-snug text-muted-foreground">
+      {translate(reason)}
+    </p>
+  );
+}
 
 export default function AltDetectionPanel({ data }: { data: GuildData }) {
   const token = TOKEN();
@@ -369,12 +392,15 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
                         </td>
                         <td className="py-2.5 pr-4 text-center">
                           {j.action && j.action !== "pass" ? (
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] text-danger border-danger/30"
-                            >
-                              {j.action}
-                            </Badge>
+                            <div className="space-y-1">
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] text-danger border-danger/30"
+                              >
+                                {j.action}
+                              </Badge>
+                              <PunishmentReason join={j} />
+                            </div>
                           ) : (
                             <span className="text-xs text-muted-foreground">--</span>
                           )}
@@ -396,15 +422,34 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
                         </td>
                         <td className="py-2.5">
                           <div className="flex flex-wrap gap-1">
-                            {(j.riskFactors ?? []).map((f: string, i: number) => (
-                              <Badge
-                                key={i}
-                                variant="outline"
-                                className="text-[10px] text-muted-foreground"
-                              >
-                                {f}
-                              </Badge>
-                            ))}
+                            {(j.riskFactors ?? []).map((f: string, i: number) => {
+                              // Dịch mã thô (`❌ account_age_1day`) sang tiếng
+                              // Việt đọc được — xem lib/riskExplain.ts. Giữ luôn
+                              // mức mạnh/ yếu vì "2 bằng chứng mạnh" mới đủ để
+                              // bot phạt: người đọc phải thấy được, không tự đếm.
+                              const info = explainRiskFactor(f);
+                              return (
+                                <Badge
+                                  key={i}
+                                  variant="outline"
+                                  title={info.code}
+                                  className={`text-[10px] ${
+                                    info.strength === "strong"
+                                      ? "border-danger/30 text-danger"
+                                      : info.strength === "weak"
+                                        ? "border-border text-muted-foreground"
+                                        : "border-border text-foreground"
+                                  }`}
+                                >
+                                  {info.strength === "positive"
+                                    ? "✓ "
+                                    : info.strength === "weak"
+                                      ? "⚠ "
+                                      : ""}
+                                  {translate(info.label, info.vars)}
+                                </Badge>
+                              );
+                            })}
                           </div>
                         </td>
                       </tr>

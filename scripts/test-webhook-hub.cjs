@@ -361,6 +361,40 @@ function fakeEmbed(color = 0xff0000) {
     );
   }
 
+  // ── 6b. BẢO MẬT: webhook KHÔNG BAO GIỜ được ping ──────────────────────────
+  // `content` là phần DUY NHẤT Discord render thành mention (embed thì không
+  // ping). `{reason}` lấy thẳng lý do do mod gõ → dán `<@everyone` vào lý do là
+  // ping cả server ở kênh log. Không mất tính năng: 6 placeholder trong
+  // fillTemplate không cái nào cố tình ping.
+  {
+    const store = makeStore({});
+    hub.init({}, store);
+    await hub.send(
+      {
+        webhookId: "w-ping",
+        token: "t",
+        contentTemplate: "Lý do: {reason}",
+      },
+      fakeEmbed(),
+      { reason: "<@&123456789012345678> <@everyone> spam" },
+    );
+    const payload = whClients[whClients.length - 1].sent[0];
+    const ZWSP = String.fromCharCode(0x200b);
+    check(
+      "payload kèm allowed_mentions rỗng (chặn ping tuyệt đối)",
+      JSON.stringify(payload.allowed_mentions) === JSON.stringify({ parse: [] }),
+    );
+    check(
+      "lý do trong content được escape (không còn <@&…> nguyên vẹn)",
+      !payload.content.includes("<@&123456789012345678>"),
+    );
+    check(
+      "escape bằng ký tự vô hình — nội dung gần như giữ nguyên",
+      payload.content.includes(ZWSP),
+    );
+    check("vẫn đọc được phần chữ của lý do", payload.content.includes("spam"));
+  }
+
   // ── 7. util.sendLog/sendModLog: định tuyến ĐÚNG kênh, không gửi trùng ─────
   // Gốc rễ từng gặp: case log moderation (ban/kick) đi qua webhook mặc định
   // nằm ở kênh log chung thay vì kênh hình phạt đã cấu hình (sai kênh); log
@@ -458,6 +492,47 @@ function fakeEmbed(color = 0xff0000) {
     check(
       "Join Gate → join",
       util.inferEventType({ data: { title: "🚪 Join Gate: đã chặn thành viên" } }) === "join",
+    );
+  }
+
+  // ── 8. caseLog: lý do do mod gõ phải escape trước khi vào content ────────
+  // `meta.reason` là duy nhất trong số 6 placeholder chứa text NGUỒI THÔ từ
+  // người dùng. Không escape thì `{reason}` trong template là đường ping.
+  {
+    const sent = [];
+    const origLoad = Module._load;
+    Module._load = function (request, parent, ...rest) {
+      if (request === "./util" && parent && /caseLog\.js$/.test(parent.filename || "")) {
+        return {
+          sendModLog: async (_g, _c, _e, _ch, _t, meta) => {
+            sent.push(meta);
+            return true;
+          },
+        };
+      }
+      return origLoad.call(this, request, parent, ...rest);
+    };
+    delete require.cache[require.resolve("../bot/src/caseLog.js")];
+    const caseLog = require("../bot/src/caseLog.js");
+    Module._load = origLoad;
+
+    const ZWSP = String.fromCharCode(0x200b);
+    await caseLog.sendCaseLog({
+      guild: { client: { user: { username: "Protogon" } } },
+      guildConfig: { modLogChannelId: "ch" },
+      action: "ban",
+      offender: { id: "111", username: "kẻ xấu" },
+      reason: "<@&123456789012345678> spam",
+      color: 0xff0000,
+    });
+    const meta = sent[sent.length - 1];
+    check(
+      "caseLog truyền lý do đã escape cho webhook",
+      meta && !meta.reason.includes("<@&123456789012345678>"),
+    );
+    check(
+      "escape giữ nguyên phần chữ đọc được",
+      meta && meta.reason.includes(ZWSP) && meta.reason.includes("spam"),
     );
   }
 

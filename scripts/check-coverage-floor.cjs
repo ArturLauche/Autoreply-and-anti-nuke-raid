@@ -25,9 +25,40 @@ const FLOORS = {
   "handlers/antinuke/externalApp.js": 85,
   "handlers/antinuke/state.js": 85,
   "handlers/antinuke/raidIntel.js": 80,
-  "heat.js": 65,
+  // Bo do nhiet: quyet dinh ai bi timeout/kick/ban. Phan ghi xuong Convex
+  // (flushGuild/flushAll/resetGuild) truoc day gan nhu khong duoc test.
+  // Sàn 90 (do duoc 92.6%): phan chua phu la nhanh loi hiem.
+  "heat.js": 90,
+  // Join Gate: cong vao server + auto-lockdown khi burst acc. Khoa nham
+  // ca server la tai hai lon nhat cua file nay. Sàn 92 (do 95.8%).
+  "handlers/joinGate.js": 92,
   "threatEngine.js": 85,
   "handlers/filters.js": 90,
+  // Ticket/khiếu nại: file này gán QUYỀN kênh. Gán sai là lộ khiếu nại ra
+  // công khai, nên nó cũng phải có sàn chứ không để trôi về 0% âm thầm.
+  // Sàn 95% (đo được 98.6% sau khi có test-tickets-handler): phần chưa phủ là
+  // các nhánh lỗi Discord hiếm, không phải đường chính.
+  "handlers/tickets.js": 95,
+  // Chọn hình phạt + dọn tin nhắn. Trước đây KHÔNG có test nào; hồi quy nguy
+  // hiểm là "báo đã xoá N tin" khi xoá hỏng (nuốt lỗi rồi trả số mong muốn).
+  "moduleActions.js": 80,
+  // Case log hình phạt: quyết định báo cáo gì cho staff.
+  "caseLog.js": 90,
+  // Hàm thuần của ticket — phải gần như tuyệt đối, không có I/O để bào lỗi.
+  "ticketCore.js": 95,
+  // Đăng ký slash command: PUT là THAY THẾ TOÀN BỘ, nên một lệnh sai shape
+  // khiến bot mất trần lệnh mà không có lỗi log cục bộ nào.
+  // register-slash: PUT la THAY THE TOAN BO nen mot clientId rac = mat tran
+  // lenh. Da phu ca duong REST tu env va nhanh CLI. Sàn 95 (do 100%).
+  "register-slash.js": 95,
+  // research.js: pipeline threat-intel + digest tuan. Sàn 80 (do 82.7%).
+  "research.js": 80,
+  // Thẻ ảnh chào: lỗi nguy hiểm nhất KHÔNG phải crash (đã bọc null) mà là
+  // "vẽ ra ảnh trống" — font thiếu khiến fillText im lặng không vẽ gì.
+  "handlers/welcomeCard.js": 80,
+  // Snapshot cục bộ + log theo ngày: chạy mỗi giờ, là nguồn khôi phục khi
+  // Convex chết. Lỗi ở đây = mất dữ liệu im lặng.
+  "localSnapshot.js": 70,
 };
 
 const summaryPath = path.join(process.cwd(), "coverage", "coverage-summary.json");

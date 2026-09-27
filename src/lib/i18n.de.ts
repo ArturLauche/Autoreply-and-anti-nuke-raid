@@ -4,6 +4,91 @@
  * vẫn thiếu nữa mới rơi về VI. Giữ nguyên placeholder {p0}, {p1}…
  */
 export const DE: Record<string, string> = {
+  /* ==== Gom menu server thành nhóm (27/09/2026) ==== Xem i18n.en.ts. */
+  "Bảo vệ": "Schutz",
+  "Nội dung & phạt": "Inhalte & Strafen",
+  "Vận hành": "Betrieb",
+  /* ==== Xuất / nhập cấu hình server (27/09/2026) ==== Xem i18n.en.ts. */
+  "Cấu hình server": "Server-Konfiguration",
+  "Xuất & nhập cấu hình": "Konfiguration exportieren & importieren",
+  "Tải toàn bộ cấu hình bảo vệ của server ra file .json để lưu lại, hoặc nạp file đã lưu.":
+    "Lade alle Schutz-Einstellungen dieses Servers als .json-Datei herunter oder lade eine gespeicherte Datei.",
+  "Chỉ dùng được cho cùng một server: kênh, vai trò và thành viên trong file là ID của server cũ, mang sang server khác sẽ không khớp.":
+    "Gilt nur für denselben Server: Kanäle, Rollen und Mitglieder in der Datei sind IDs des ursprünglichen Servers und passen auf einem anderen nicht.",
+  "Xuất cấu hình": "Konfiguration exportieren",
+  "Nạp cấu hình": "Konfiguration importieren",
+  "Đã tải cấu hình về máy": "Konfiguration heruntergeladen",
+  "Đã nạp {p0} mục cấu hình": "{p0} Konfigurationseinträge importiert",
+  "Đã bỏ {p0} mục không phải cấu hình": "{p0} Einträge übersprungen, die keine Konfiguration sind",
+  "Bỏ {p0} mục vì giá trị không hợp lệ": "{p0} Einträge wegen ungültiger Werte übersprungen",
+  "File không chứa cấu hình nào hợp lệ": "Datei enthält keine gültige Konfiguration",
+  "File không phải JSON hợp lệ": "Datei ist kein gültiges JSON",
+  "Nạp thất bại": "Import fehlgeschlagen",
+  /* ==== ThreeUI toggle (27/09/2026) ==== Nhãn truy cập dự phòng cho <Switch>.
+     "Tắt" đã có sẵn — xem chú thích tương ứng trong i18n.en.ts. */
+  Bật: "Ein",
+  /* ==== web UX 1+2+3+4 (27/09/2026) ==== */
+  "Tìm kiếm nhanh": "Schnellsuche",
+  "Gõ để tìm panel, sau đó Enter để mở.": "Tippen, um Panels zu suchen, dann Enter zum Öffnen.",
+  "Tìm panel hoặc hành động…": "Panels oder Aktionen suchen…",
+  "Tìm panel hoặc hành động": "Panels oder Aktionen suchen",
+  "Không có kết quả nào.": "Keine Ergebnisse.",
+  /* Xem chú thích tương ứng trong i18n.en.ts: các key này đã có sẵn ở cuối. */
+  "Trang khác": "Weitere Seiten",
+  "Danh sách server": "Serverliste",
+  "Đang gửi cấu hình cho bot…": "Einstellungen werden an den Bot gesendet…",
+  "Đã gửi cấu hình cho bot": "Einstellungen an den Bot gesendet",
+  "Bot offline — cấu hình chưa được áp dụng": "Bot offline — Einstellungen noch nicht übernommen",
+  "Dashboard và bot dùng chung cấu hình nhưng cập nhật không cùng lúc. Lúc này bot có thể vẫn chạy cấu hình cũ.":
+    "Dashboard und Bot teilen sich die Einstellungen, aktualisieren aber nicht gleichzeitig. Der Bot nutzt möglicherweise noch die vorherigen Einstellungen.",
+  "Chọn server để bật/tắt chống nuke hàng loạt":
+    "Server auswählen, um Anti-Nuke gesammelt umzuschalten",
+  "Chọn server {p0}": "Server {p0} auswählen",
+  "server đã chọn": "Server ausgewählt",
+  "Bật chống nuke": "Anti-Nuke aktivieren",
+  Tắt: "Deaktivieren",
+  "Đã bật chống nuke cho {p0} server": "Anti-Nuke für {p0} Server aktiviert",
+  "Đã tắt chống nuke ở {p0} server": "Anti-Nuke auf {p0} Servern deaktiviert",
+  "{p0} server bị bỏ qua — bạn không có quyền quản lý":
+    "{p0} Server übersprungen — dir fehlt die Berechtigung",
+  "Thất bại": "Fehlgeschlagen",
+
+  /* ==== risk explain + guild stats (27/09/2026) ==== */
+  "Tài khoản mới tạo dưới 1 ngày": "Konto weniger als 1 Tag alt",
+  "Tài khoản mới tạo dưới 3 ngày": "Konto weniger als 3 Tage alt",
+  "Tài khoản mới tạo dưới {p0} ngày": "Konto weniger als {p0} Tage alt",
+  "Tài khoản đã trên 30 ngày": "Konto älter als 30 Tage",
+  "Tài khoản đã trên 6 tháng": "Konto älter als 6 Monate",
+  "Tài khoản đã trên 1 năm": "Konto älter als 1 Jahr",
+  "Có huy hiệu HypeSquad": "Hat das HypeSquad-Abzeichen",
+  "Có huy hiệu Early Verified Bot Developer": "Hat das Early-Verified-Bot-Developer-Abzeichen",
+  "Có huy hiệu Early Supporter": "Hat das Early-Supporter-Abzeichen",
+  "Tài khoản được Discord gắn nhãn bot": "Von Discord als Bot markiertes Konto",
+  "Tên giống tài khoản đã gặp {p0}%": "Name ist zu {p0}% ähnlich zu einem bekannten Konto",
+  "Tên tài khoản giống mẫu tạo hàng loạt, nhưng tài khoản đã cũ":
+    "Name wirkt massenhaft generiert, aber das Konto ist alt",
+  "Trùng với tài khoản trước đó đã bị phạt": "Entspricht einem previously bestraften Konto",
+  "Dùng chung avatar với tài khoản vừa vào":
+    "Teilt den Avatar mit einem kürzlich beigetretenen Konto",
+  "Cùng lúc {p0} người rủi ro cao vào server": "{p0} risikoreiche Konten gleichzeitig beigetreten",
+  "Giống người dùng đã bị ban {p0}%": "Zu {p0}% ähnlich zu einem gesperrten Nutzer",
+  "chưa đủ bằng chứng để phạt": "nicht genug Beweise für eine Bestrafung",
+  "Chỉ theo dõi — chưa đủ bằng chứng để phạt":
+    "Nur beobachten — nicht genug Beweise für eine Bestrafung",
+  "Cảnh cáo": "Verwarnung",
+  "Yêu cầu xác minh": "Verifikation erforderlich",
+  "Không xử lý": "Keine Maßnahme",
+  "điểm rủi ro tích luỹ cao": "akkumulierter Risikowert ist hoch",
+  "Tình hình hôm nay": "Heute im Überblick",
+  "Tính từ 00:00 hôm nay theo giờ Việt Nam.": "Gezählt ab 00:00 heute (Vietnam-Zeit).",
+  "Đe doạ đã chặn": "Blockierte Bedrohungen",
+  "Người mới vào": "Neue Mitglieder",
+  "Tài khoản bị xử lý": "Maßnahmen gegen Konten",
+  "Nghi phạm phạt nhầm": "Verdacht auf Fehlbestrafung",
+  "Điểm rủi ro dưới ngưỡng nhưng vẫn bị xử lý":
+    "Risikowert unter dem Grenzwert, dennoch wurde gehandelt",
+  "Yếu tố rủi ro hôm nay": "Risikofaktoren heute",
+
   /* ==== host-health + incidents (27/09/2026) ==== */
   "Sức khoẻ máy chủ": "Serverzustand",
   "Bot đo mỗi 5 phút · chỉ chủ bot nhìn thấy": "Alle 5 Minuten gemessen · nur für den Bot-Besitzer",
@@ -657,6 +742,9 @@ export const DE: Record<string, string> = {
   "Tự ban nghi phạm nguồn cơn": "Quell-Verdächtigen automatisch bannen",
   "Tự ban tài khoản đủ điểm nghi vấn (chủ mưu, trùng avatar…).":
     "Bant Konten mit ausreichend Verdachtspunkten (Haupttäter, gleiche Avatare…) automatisch.",
+  "Khôi phục kênh và role sau khi bị nuke": "Kanäle und Rollen nach einem Nuke wiederherstellen",
+  "Tự khôi phục theo ảnh chụp gần nhất. Tắt nếu bạn tự dọn và tạo lại kênh — snapshot cũ có thể hồi lại những thứ bạn đã bỏ.":
+    "Stellt aus dem neuesten Snapshot wieder her. Ausschalten, wenn du Kanäle selbst aufräumst und neu anlegst — ein alter Snapshot kann Entferntes zurückbringen.",
   "Tự động backup định kỳ": "Automatische geplante Backups",
   "Tự động:": "Automatisch:",
   "URL khi nhấn tên": "URL beim Klick auf den Namen",

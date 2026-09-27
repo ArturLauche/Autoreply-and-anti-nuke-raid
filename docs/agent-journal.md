@@ -89,6 +89,105 @@
 
 ---
 
+## 2026-09-27c — UX web: chưa lưu · ⌘K · bật hàng loạt · badge đồng bộ
+
+1. **Cảnh báo chưa lưu** (`src/lib/useUnsavedChanges.ts`): kho dùng chung ở tầng
+   module + `beforeunload` + `confirmLeave()` do `GuildPage` gọi khi đổi panel.
+   Vì sao kho chứ không phải state trong panel: điều hướng nằm ở `GuildPage`,
+   panel không biết trang cha sắp đổi tab. `beforeunload` một mình là KHÔNG
+   đủ — bấm nhầm tab mới là hành vi hằng ngày, đóng tab thì hiếm.
+2. **Command palette ⌘K** (`src/components/CommandPalette.tsx`): dùng
+   `@radix-ui/react-dialog` ĐÃ CÓ sẵn, **không** thêm `@radix-ui/react-command`
+   (AGENTS.md cấm cài dependency khi chưa hỏi). Lọc bằng chấm điểm + bỏ dấu
+   tiếng Việt để gõ "gac hieu" vẫn ra "Gác hiệu".
+3. **Bật chống nuke hàng loạt**: `guilds.setAntinukeGlobalBatch` + ô chọn trên
+   Dashboard. Quyền kiểm cho TỪNG guild trong cùng lượt — không tin danh sách
+   client gửi lên (client luôn tự bịa được `guildId`). Có trần 50 server.
+4. **Badge trạng thái đồng bộ** (`src/lib/syncState.ts`): web đã lưu ≠ bot
+   đang chạy. Chỉ nói điều CHỨNG MINH ĐƯỢC.
+
+### Quyết định đáng ghi: KHÔNG báo "bot đã áp dụng"
+
+Phía bot **không** ghi mốc "đã áp dụng" — nó chỉ xoá cache. Nên ta KHÔNG có
+tín hiệu đó, và **không được bịa**. Badge chỉ nói: vừa lưu (< 3 phút) → "đang
+gửi"; quá 3 phút → "đã gửi"; bot offline → "chưa áp dụng". Nói "đã áp dụng" khi
+không có bằng chứng chính là tự tạo lại ảo giác mà tính năng này sinh ra để
+xoá. Nếu sau này muốn nói "đã áp dụng" thật thì phải cho bot ghi mốc ngược
+(`settingsAppliedAt`) — việc riêng, chưa làm.
+
+### Sai lầm trong phiên này (đều là test sai, code đúng)
+
+1. Regex bỏ dấu lúc đầu tôi gõ **ký tự tổ hợp thô** (U+0300–U+036F) — rất dễ
+   bị trình soạn thảo/Prettier nuốt mà không báo lỗi. Sửa bằng `\p{Diacritic}`
+   - cờ `u`. Cùng kiểu này đã xảy ra với `⚠️` (2 codepoint) ở phiên trước.
+2. Test tôi kỳ vọng `foldDiacritics` trả về chữ thường, nhưng hàm cố ý KHÔNG đổi
+   hoa/thường (việc của người gọi). Test sai, code đúng.
+3. Test biên heartbeat đặt `now` bằng `settingsChangedAt` → nhánh "just-saved"
+   chạy trước nên không tới được nhánh stale. Sửa test, không sửa code.
+4. `confirmLeave()` dùng `window.confirm` → crash khi test chạy ngoài trình duyệt.
+   Sửa thành `globalThis.confirm` (cũng an toàn hơn khi render phía server).
+
+### Kiểm chứng
+
+`bun run test` **62/62** · `bun run test:ts` **14/14** (thêm
+`test-web-ux-upgrades.ts`, 32 assertion) · `tsc -b` sạch · `lint` sạch ·
+`format:check` sạch · `check-repo-map` OK · `check-i18n` 0 FAIL ·
+`check-convex-contract` OK · `check-settings-signal` OK.
+
+**Số suite TS đổi 13 → 14** → đã sửa `AGENTS.md`. `CONTRACT_SUITES` (chỉ đếm
+suite CJS) **không** đổi.
+
+---
+
+## 2026-09-27b — #1 Hồ sơ thành viên · #3 Tình hình server
+
+- **#1 Hồ sơ thành viên**: bot lưu `riskFactors` dạng MÃ THÔ (`❌ account_age_1day`)
+  và dashboard in thẳng mã đó cho chủ server — họ không hiểu nên không biết vì
+  sao người bị kick, chỉ còn cách tắt cả module. `src/lib/riskExplain.ts` (mới)
+  dịch mã + tách mức mạnh/yếu/tốt + `explainPunishment()` sinh câu "Vì sao bị
+  phạt" 1 dòng. Chỉ đọc, KHÔNG đụng schema.
+- **#3 Tình hình server**: `convex/guildStats.ts` (mới) gom `antinukeEvents` +
+  `memberJoins` thành 4 chỉ số chủ server THẬT SỰ quan tâm: đe doạ đã chặn,
+  người mới vào, tài khoản bị xử lý, **nghi phạm phạt nhầm** (bị xử lý mà điểm
+  rủi ro dưới ngưỡng). Chỉ số cuối là thứ quyết định giữ hay bỏ bot.
+  Ngưỡng lấy theo `guild.altMaxRiskScore` của từng server, không cứng 70.
+
+### Bug thật bắt được nhờ test (đáng ghi)
+
+`⚠️` gồm **HAI codepoint** (U+26A0 + U+FE0F). Regex `[❌⚠️✅]` chỉ bóc 1
+codepoint → còn lại U+FE0F dính vào mã → tra bảng dịch **trượt**, MỌI tín
+hiệu yếu rơi vào nhánh "mã lạ" và hiện nguyên mã không dịch. `❌`/`✅` là 1
+codepoint nên không lộ — chỉ `⚠️` hỏng. Sửa bằng `\ufe0f?` + so sánh theo
+`codePointAt(0)`, và có test khoá lại (kiểm mã không còn ký tự vô hình).
+Đây đúng loại lỗi "chạy không lỗi gì nhưng người dùng đọc không hiểu".
+
+### Quyết định thiết kế đáng nhớ
+
+Template động (`account_age_under_5d`) dùng placeholder `{p0}` kiểu gettext +
+`formatLabel()`, **không** nội suy số thẳng vào chuỗi. Nội suy trực tiếp thì
+mỗi giá trị là một key từ điển riêng → không dịch được và từ điển phình vô hạn.
+
+### Sai lầm lặp lại trong phiên này
+
+- Lần vá đầu tôi tạo biến trùng (`actionName`, `score` khai 2 lần) — bun báo
+  lỗi ngay, đã gộp lại. Nên chạy test sớm sau mỗi vá thay vì gộp nhiều
+  thay đổi rồi mới chạy.
+- `formatLabel` import ở 2 file UI nhưng không dùng (UI gọi `translate(label, vars)`
+  đã tự thay biến) → `tsc` bắt bằng TS6133.
+
+### Kiểm chứng
+
+`bun run test` **62/62** · `bun run test:ts` **13/13** (thêm `test-guild-stats.ts`,
+52 assertion) · `tsc -b` sạch · `lint` sạch · `format:check` sạch ·
+`check-repo-map` OK (13 trang, 34 convex) · `check-i18n` 0 FAIL ·
+`check-convex-contract` OK · `check-settings-signal` OK.
+Convex codegen chạy trước typecheck.
+
+**Số suite TS đổi 12 → 13** → đã sửa dòng kiểm chứng trong `AGENTS.md`.
+(`CONTRACT_SUITES` trong `guardrails.js` chỉ đếm suite CJS nên **không** đổi.)
+
+---
+
 ## 2026-09-27 — A: canh sức khoẻ máy chủ · B: trang Sự cố (gom cụm)
 
 **Bối cảnh:** VPS Ấn Độ mới (NexoraCloud, India 1, 14 vCPU / 128 GB / 100 GB,

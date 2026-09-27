@@ -1,0 +1,454 @@
+import { useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
+import { LifeBuoy, MessageSquareWarning, ShieldQuestion, Users, X } from "lucide-react";
+import { api } from "../../../convex/_generated/api";
+import { Card, CardContent } from "../ui/card";
+import { Switch } from "../ui/switch";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import { Textarea } from "../ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import type { GuildData, TicketRow } from "../../lib/types";
+import { getSessionToken } from "../../lib/discord";
+import { dateLocale, translate } from "../../lib/i18n";
+
+const TOKEN = () => getSessionToken();
+
+/** Loại ticket — nhãn đi qua translate() nên không hardcode ở JSX. */
+const KIND_LABEL: Record<string, string> = {
+  appeal: "Khiếu nại",
+  support: "Hỗ trợ chung",
+};
+
+export default function TicketPanel({ data }: { data: GuildData }) {
+  const updateSettings = useMutation(api.guilds.updateSettings);
+  const closeTicket = useMutation(api.tickets.closeTicket);
+  const g = data.guild;
+
+  const [tab, setTab] = useState<"open" | "closed">("open");
+  const tickets = useQuery(api.tickets.listTickets, {
+    token: TOKEN(),
+    guildId: g.discordId,
+    status: tab,
+  });
+  // Số ticket đang mở phải lấy từ query TÓM TẮT, không đếm trên `tickets`:
+  // `tickets` chỉ chứa đúng tab đang xem, nên đổi sang tab "Đã đóng" sẽ ra 0
+  // ticket đang mở dù server đang có (đã từng hiện sai như vậy).
+  const summary = useQuery(api.tickets.ticketSummary, {
+    token: TOKEN(),
+    guildId: g.discordId,
+  });
+
+  // Category: Discord type 4 = danh mục. Chỉ danh mục mới chứa được kênh con.
+  const categories = data.channels.filter((c) => c.type === 4);
+  const staffRoles = data.roles.filter((r) => r.name !== "@everyone");
+  const modRoleNames = g.modRoles
+    .map((id) => data.roles.find((r) => r.roleId === id)?.name)
+    .filter(Boolean)
+    .join(", ");
+
+  const staffRoleName = g.ticketStaffRoleId
+    ? (data.roles.find((r) => r.roleId === g.ticketStaffRoleId)?.name ?? "?")
+    : null;
+
+  async function patch(p: Record<string, unknown>, msg?: string) {
+    try {
+      await updateSettings({ token: TOKEN(), guildId: g.discordId, ...p });
+      if (msg) toast.success(msg);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
+    }
+  }
+
+  const openCount = summary?.openCount ?? 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-display text-lg font-semibold">
+            {translate("Ticket — kênh riêng cho thành viên và ban quản trị")}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {translate(
+              "Mỗi lượt mở tạo một kênh riêng để thành viên hỏi đáp, báo cáo chuyện gì, hoặc khiếu nại khi bị phạt oan.",
+            )}{" "}
+          </p>
+        </div>
+        <Badge variant={g.ticketEnabled ? "default" : "secondary"} className="gap-1.5 px-3 py-1.5">
+          <ShieldQuestion className="h-3.5 w-3.5" />
+          {g.ticketEnabled
+            ? translate("Đang bật · {p0} đang mở", { p0: openCount })
+            : translate("Đang tắt")}
+        </Badge>
+      </div>
+
+      <Card className={g.ticketEnabled ? "border-primary/30 bg-primary/5" : ""}>
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+              <LifeBuoy className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="font-display font-semibold">{translate("Bật tính năng ticket")}</p>
+              <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+                {translate(
+                  "Thành viên dùng lệnh /ticket trong server, hoặc bấm nút trong tin nhắn riêng nếu đã bị ban. Bot cần quyền Quản lý kênh.",
+                )}{" "}
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={g.ticketEnabled}
+            onCheckedChange={(v) =>
+              patch({ ticketEnabled: v }, translate(v ? "Đã bật ticket" : "Đã tắt ticket"))
+            }
+          />
+        </CardContent>
+      </Card>
+
+      {g.ticketEnabled && !g.ticketCategoryId && (
+        <div className="rounded-xl border border-border bg-secondary px-4 py-3 text-sm text-foreground">
+          {translate(
+            "⚠️ Chưa chọn danh mục chứa ticket — thành viên sẽ không mở được ticket cho tới khi bạn chọn bên dưới.",
+          )}{" "}
+        </div>
+      )}
+
+      {g.ticketEnabled && (
+        <>
+          <Card>
+            <CardContent className="grid gap-4 p-4 sm:p-5">
+              <div className="grid gap-1.5">
+                <Label>{translate("Danh mục chứa kênh ticket")}</Label>
+                <Select
+                  value={g.ticketCategoryId ?? "none"}
+                  onValueChange={(v) =>
+                    patch(
+                      { ticketCategoryId: v === "none" ? "" : v },
+                      translate("Đã cập nhật danh mục ticket"),
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={translate("Chọn danh mục…")}
+                      className="text-foreground"
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{translate("— Chưa chọn —")}</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c.channelId} value={c.channelId}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  {categories.length === 0
+                    ? translate(
+                        "Server chưa có danh mục nào — tạo một danh mục trong Discord trước.",
+                      )
+                    : translate("Kênh ticket sẽ được tạo tự động bên trong danh mục này.")}
+                </p>
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label className="flex items-center gap-1.5">
+                  <Users className="h-4 w-4 text-primary" />
+                  {translate("Role xử lý ticket")}
+                </Label>
+                <Select
+                  value={g.ticketStaffRoleId ?? "none"}
+                  onValueChange={(v) =>
+                    patch(
+                      { ticketStaffRoleId: v === "none" ? "" : v },
+                      translate("Đã cập nhật role xử lý ticket"),
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={translate("Chọn role…")}
+                      className="text-foreground"
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{translate("— Dùng role mod —")}</SelectItem>
+                    {staffRoles.map((r) => (
+                      <SelectItem key={r.roleId} value={r.roleId}>
+                        {r.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  {staffRoleName
+                    ? translate("Hiện tại: {p0}", { p0: staffRoleName })
+                    : translate(
+                        "Chưa chọn — bot dùng role mod của server ({p0}). Chọn riêng khi người xử lý ticket khác người làm mod.",
+                        { p0: modRoleNames || translate("chưa có role mod nào") },
+                      )}
+                </p>
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label>{translate("Loại ticket mặc định")}</Label>
+                <Select
+                  value={g.ticketDefaultKind === "appeal" ? "appeal" : "support"}
+                  onValueChange={(v) =>
+                    patch({ ticketDefaultKind: v }, translate("Đã đổi loại ticket mặc định"))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue className="text-foreground" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="support">
+                      {translate("Hỗ trợ chung — hỏi đáp, báo cáo bất kỳ chuyện gì")}
+                    </SelectItem>
+                    <SelectItem value="appeal">
+                      {translate("Khiếu nại — dành cho người bị phạt oan")}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  {translate(
+                    "Thành viên vẫn chọn được loại khác khi gõ lệnh. Loại này chỉ là mặc định khi họ không chọn.",
+                  )}{" "}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="grid gap-4 p-4 sm:p-5">
+              <p className="font-display text-sm font-semibold">
+                {translate("Giới hạn chống spam")}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {translate(
+                  "Không có giới hạn thì 1 người có thể spam hàng trăm kênh trong một đêm và làm chạm trần 500 kênh của Discord.",
+                )}{" "}
+              </p>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="ticket-max-open">
+                    {translate("Tối đa ticket đang mở ({p0})", { p0: g.ticketMaxOpen })}
+                  </Label>
+                  <Input
+                    id="ticket-max-open"
+                    type="number"
+                    min={1}
+                    max={100}
+                    defaultValue={g.ticketMaxOpen}
+                    onBlur={(e) => {
+                      const n = Number(e.target.value);
+                      if (!Number.isNaN(n) && n >= 1 && n <= 100 && n !== g.ticketMaxOpen) {
+                        patch({ ticketMaxOpen: n }, translate("Đã cập nhật giới hạn"));
+                      }
+                    }}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="ticket-cooldown">
+                    {translate("Chờ giữa 2 lượt mở ({p0} giờ)", { p0: g.ticketCooldownHours })}
+                  </Label>
+                  <Input
+                    id="ticket-cooldown"
+                    type="number"
+                    min={0}
+                    max={720}
+                    defaultValue={g.ticketCooldownHours}
+                    onBlur={(e) => {
+                      const n = Number(e.target.value);
+                      if (!Number.isNaN(n) && n >= 0 && n <= 720 && n !== g.ticketCooldownHours) {
+                        patch({ ticketCooldownHours: n }, translate("Đã cập nhật thời gian chờ"));
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-secondary/50 px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <MessageSquareWarning className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold">
+                      {translate("Gửi tin nhắn riêng cho người bị ban")}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {translate(
+                        "Kèm lý do ban và nút mở khiếu nại. Không có bước này, người bị ban không biết bot có lệnh gỡ ban.",
+                      )}{" "}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={g.ticketDmOnBan}
+                  onCheckedChange={(v) =>
+                    patch(
+                      { ticketDmOnBan: v },
+                      translate(v ? "Sẽ gửi DM sau khi ban" : "Không gửi DM sau khi ban"),
+                    )
+                  }
+                />
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label htmlFor="ticket-close-note">
+                  {translate("Ghi chú khi đóng ticket (tuỳ chọn)")}
+                </Label>
+                <Textarea
+                  id="ticket-close-note"
+                  rows={2}
+                  defaultValue={g.ticketCloseNote ?? ""}
+                  placeholder={translate("VD: Ticket đã được xử lý, cảm ơn bạn đã liên hệ.")}
+                  onBlur={(e) => {
+                    const v = e.target.value;
+                    if ((g.ticketCloseNote ?? "") !== v) {
+                      patch({ ticketCloseNote: v }, translate("Đã lưu ghi chú"));
+                    }
+                  }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      <Card>
+        <CardContent className="p-4 sm:p-5">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as "open" | "closed")}>
+            <TabsList>
+              <TabsTrigger value="open">{translate("Đang mở")}</TabsTrigger>
+              <TabsTrigger value="closed">{translate("Đã đóng")}</TabsTrigger>
+            </TabsList>
+
+            {(["open", "closed"] as const).map((t) => (
+              <TabsContent key={t} value={t} className="mt-4">
+                <TicketList
+                  rows={tickets}
+                  statusFilter={t}
+                  guildId={g.discordId}
+                  onClose={async (row) => {
+                    try {
+                      await closeTicket({
+                        token: TOKEN(),
+                        guildId: g.discordId,
+                        ticketId: row.id as never,
+                        // Ghi chú "khi đóng ticket" đã cấu hình ở trên — dùng làm
+                        // lý do mặc định. Không có nó thì cấu hình đó chỉ là
+                        // một ô text lưu vào DB rồi không ai đọc.
+                        reason: g.ticketCloseNote || undefined,
+                      });
+                      toast.success(translate("Đã đóng ticket #{p0}", { p0: row.number }));
+                    } catch (e) {
+                      toast.error(
+                        e instanceof Error ? e.message : translate("Đóng ticket thất bại"),
+                      );
+                    }
+                  }}
+                />
+              </TabsContent>
+            ))}
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/** Danh sách ticket + nút đóng từ web. */
+function TicketList({
+  rows,
+  statusFilter,
+  guildId,
+  onClose,
+}: {
+  rows: TicketRow[] | undefined;
+  statusFilter: "open" | "closed";
+  guildId: string;
+  onClose: (row: TicketRow) => void;
+}) {
+  if (rows === undefined) {
+    return (
+      <p className="py-6 text-center text-sm text-muted-foreground">{translate("Đang tải…")}</p>
+    );
+  }
+  const list = rows.filter((r) => r.status === statusFilter);
+  if (list.length === 0) {
+    return (
+      <p className="py-6 text-center text-sm text-muted-foreground">
+        {statusFilter === "open"
+          ? translate("Không có ticket nào đang mở.")
+          : translate("Chưa có ticket nào đã đóng.")}
+      </p>
+    );
+  }
+  return (
+    <ul className="divide-y divide-border">
+      {list.map((t) => (
+        <li key={t.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-xs text-muted-foreground">#{t.number}</span>
+              <Badge variant="outline" className="gap-1">
+                <ShieldQuestion className="h-3 w-3" />
+                {translate(KIND_LABEL[t.kind] ?? t.kind)}
+              </Badge>
+              <span className="truncate text-sm font-medium">
+                {t.openerName} ·{" "}
+                <span className="text-xs text-muted-foreground">
+                  {new Date(t.createdAt).toLocaleString(dateLocale())}
+                </span>
+              </span>
+            </div>
+            {t.body && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{t.body}</p>}
+            {t.openError && (
+              <p className="mt-1 text-xs text-destructive">
+                {translate("Lỗi mở kênh: {p0}", { p0: t.openError })}
+              </p>
+            )}
+            {t.closedByName && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {translate("Đóng bởi {p0}", { p0: t.closedByName })}
+                {t.unbanned ? translate(" · đã gỡ ban") : ""}
+              </p>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {t.channelId !== "pending" && (
+              <Button asChild variant="outline" size="sm">
+                {/* Link phải kèm guildId. Dạng link dùng `@me` chỉ dành cho
+                    lúc không biết server nào; ở đây biết rõ → bấm ra trang
+                    trắng. (test-web-contracts chặn hồi quy dạng link cũ) */}
+                <a
+                  href={`https://discord.com/channels/${guildId}/${t.channelId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {translate("Mở kênh")}
+                </a>
+              </Button>
+            )}
+            {t.status === "open" && (
+              <Button variant="ghost" size="sm" onClick={() => onClose(t)}>
+                <X className="h-3.5 w-3.5" />
+                {translate("Đóng")}
+              </Button>
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}

@@ -1,26 +1,124 @@
 import * as React from "react";
-import * as SwitchPrimitives from "@radix-ui/react-switch";
-import { cn } from "../../lib/utils";
 
-const Switch = React.forwardRef<
-  React.ElementRef<typeof SwitchPrimitives.Root>,
-  React.ComponentPropsWithoutRef<typeof SwitchPrimitives.Root>
->(({ className, ...props }, ref) => (
-  <SwitchPrimitives.Root
-    className={cn(
-      "peer touch-target relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input",
-      className,
-    )}
-    {...props}
-    ref={ref}
-  >
-    <SwitchPrimitives.Thumb
-      className={cn(
-        "pointer-events-none block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0",
-      )}
-    />
-  </SwitchPrimitives.Root>
-));
-Switch.displayName = SwitchPrimitives.Root.displayName;
+import { cn } from "../../lib/utils";
+import { translate } from "../../lib/i18n";
+import { SkeuomorphicToggleCollection } from "../../shaders/skeuomorphic-toggle/SkeuomorphicToggleCollection";
+import "./switch.css";
+
+/**
+ * Switch — bật/tắt, dựng lại trên `SkeuomorphicToggleCollection` (variant
+ * "modern") của ThreeUI: track hairline, núm co giãn theo hướng đi, dấu
+ * check↔dash, một vũng sáng mềm.
+ *
+ * Giữ NGUYÊN tên export và hợp đồng cũ (`checked`, `onCheckedChange`,
+ * `disabled`, `id`, `aria-label`, `className`) nên 34 chỗ dùng trong các
+ * panel không phải sửa dòng nào.
+ *
+ * Ba chỗ component gốc không khớp hợp đồng đó — xử lý ở đây, không sửa một
+ * byte nào trong `src/shaders/**` (file nguồn phải giữ đúng SHA-256):
+ *
+ *  1. KHÔNG CONTROLLED. `SkeuomorphicToggleCollection` chỉ có `defaultOn` +
+ *     `onChange`; state nằm trong `ModernToggle`. Trong dashboard state nằm ở
+ *     Convex nên phải điều khiển từ ngoài. Nối bằng cách CHỈ remount khi giá
+ *     trị đổi từ bên ngoài (mốc `emitted` bên dưới).
+ *
+ *     Đây là chỗ dễ làm mất animation nhất: nếu remount mỗi lần bấm thì
+ *     `ModernToggle` sinh ra với `defaultOn` đã đúng ngay từ đầu, effect
+ *     spring thấy value == target và KHÔNG chạy — mất sạch cú động nở của núm.
+ *
+ *  2. KHÔNG CÓ `disabled`. Khoá ở cả ba lớp: `pointer-events` trong CSS,
+ *     chặn `onChange` ở đây, và `button.disabled` thật trong effect để focus
+ *     không nhảy vào nút đang khoá.
+ *
+ *  3. KHÔNG CÓ `id`. Component tự render `<button>` riêng, không forward ref.
+ *     Một chỗ dùng `<Label htmlFor="test-mention">` nên phải gắn id vào nút
+ *     bên trong bằng effect.
+ */
+export type SwitchProps = Omit<
+  React.ComponentPropsWithoutRef<"span">,
+  "onChange" | "defaultValue"
+> & {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  disabled?: boolean;
+  /** Gắn vào nút bên trong để `<Label htmlFor>` còn trỏ đúng. */
+  id?: string;
+  /** Nhãn truy cập. Hàng cấu hình đã có nhãn nhìn thấy được nên thường bỏ trống. */
+  label?: string;
+};
+
+const Switch = React.forwardRef<HTMLSpanElement, SwitchProps>(
+  (
+    { checked, onCheckedChange, disabled, id, label, className, "aria-label": ariaLabel, ...rest },
+    forwardedRef,
+  ) => {
+    const rootRef = React.useRef<HTMLSpanElement | null>(null);
+
+    const setRoot = React.useCallback(
+      (node: HTMLSpanElement | null) => {
+        rootRef.current = node;
+        if (typeof forwardedRef === "function") forwardedRef(node);
+        else if (forwardedRef) forwardedRef.current = node;
+      },
+      [forwardedRef],
+    );
+
+    /* Giá trị chính ta vừa phát ra từ click. Giữ nó để phân biệt "vừa bấm"
+       với "server vừa đẩy giá trị mới về" — chỉ trường hợp sau mới remount. */
+    const emitted = React.useRef(checked);
+    const [revision, setRevision] = React.useState(0);
+
+    React.useEffect(() => {
+      if (emitted.current === checked) return;
+      emitted.current = checked;
+      setRevision((value) => value + 1);
+    }, [checked]);
+
+    /* id + disabled lên nút bên trong. Chạy lại khi `id`/`disabled` đổi và
+       sau mỗi lần remount (nút mới không còn id cũ). */
+    React.useEffect(() => {
+      const button = rootRef.current?.querySelector<HTMLButtonElement>(".modern-toggle__switch");
+      if (!button) return;
+      if (id) button.id = id;
+      else button.removeAttribute("id");
+      button.disabled = Boolean(disabled);
+    }, [id, disabled, revision]);
+
+    const handleChange = React.useCallback(
+      (next: boolean) => {
+        if (disabled) return;
+        /* Đánh dấu TRƯỚC khi gọi lên trên: `ModernToggle` đã tự áp dụng giá
+           trị rồi, nên lần effect sau phải thấy khớp và im lặng. */
+        emitted.current = next;
+        onCheckedChange(next);
+      },
+      [disabled, onCheckedChange],
+    );
+
+    return (
+      <span
+        ref={setRoot}
+        aria-disabled={disabled || undefined}
+        className={cn("threeui-switch", disabled && "threeui-switch--disabled", className)}
+        {...rest}
+      >
+        <SkeuomorphicToggleCollection
+          key={revision}
+          variant="modern"
+          mode="auto"
+          size={1}
+          opacity={1}
+          hue={0}
+          saturation={1}
+          brightness={1}
+          defaultOn={checked}
+          label={label ?? ariaLabel ?? translate("Bật")}
+          onChange={handleChange}
+        />
+      </span>
+    );
+  },
+);
+Switch.displayName = "Switch";
 
 export { Switch };

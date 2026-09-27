@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useUnsavedChanges } from "../../lib/useUnsavedChanges";
+import { useMutation, useQuery, useConvex } from "convex/react";
 import { toast } from "sonner";
 import {
   BarChart3,
   BellRing,
   Command,
+  Download,
+  FileJson,
   Hash,
   KeyRound,
   Palette,
@@ -13,6 +16,7 @@ import {
   ShieldHalf,
   Siren,
   Trash2,
+  Upload,
   Users,
   Webhook,
 } from "lucide-react";
@@ -36,6 +40,12 @@ const DEFAULT_WEBHOOK_EVENT_TYPES = ["antinuke", "mod", "join", "leave", "genera
 export default function SettingsPanel({ data }: { data: GuildData }) {
   const updateSettings = useMutation(api.guilds.updateSettings);
   const setHiddenPassword = useMutation(api.hidden.setHiddenPassword);
+  // `useQuery` sẽ gọi export ngay khi mở panel — không muốn. `useConvex` là
+  // cách gọi 1 lần theo yêu cầu (bấm nút mới chạy), đúng nghĩa "tải file".
+  const convex = useConvex();
+  const importGuildConfig = useMutation(api.guilds.importGuildConfig);
+  const configFileRef = useRef<HTMLInputElement>(null);
+  const [configBusy, setConfigBusy] = useState(false);
   const [hiddenPassword, setHiddenPasswordInput] = useState("");
   const [hiddenSaving, setHiddenSaving] = useState(false);
 
@@ -117,6 +127,19 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
     }
   }
 
+  /**
+   * Form này có nút "Lưu" nên thay đổi chưa lưu là thay đổi SẼ MẤT. Đánh dấu
+   * bẩn để `GuildPage` hỏi trước khi người dùng bấm sang panel khác, và
+   * `beforeunload` chặn đóng tab (xem lib/useUnsavedChanges.ts).
+   */
+  const dirty =
+    prefix !== data.guild.prefix ||
+    logChannelId !== (data.guild.logChannelId ?? "none") ||
+    modLogChannelId !== (data.guild.modLogChannelId ?? "none") ||
+    JSON.stringify(modRoles) !== JSON.stringify(data.guild.modRoles) ||
+    JSON.stringify(adminRoles) !== JSON.stringify(data.guild.adminRoles);
+  useUnsavedChanges("settings", dirty);
+
   async function handleSave() {
     if (!/^[!^$#&%]{1,3}$/.test(prefix)) {
       return toast.error(translate("Prefix gồm 1–3 ký tự đặc biệt, ví dụ: !, ^, !!"));
@@ -141,6 +164,65 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
     }
   }
 
+  const handleExportConfig = async () => {
+    setConfigBusy(true);
+    try {
+      const payload = await convex.query(api.guilds.exportGuildConfig, {
+        token: TOKEN(),
+        guildId: data.guild.discordId,
+      });
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      // Tên server Discord có thể chứa emoji và dấu cách → chỉ giữ chữ/số/dấu
+      // gạch nối, \p{L} giữ được cả tiếng Việt có dấu.
+      const safeName = payload.guild.name.replace(/[^\p{L}\p{N}-]+/gu, "-");
+      a.download = `protogon-${safeName}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(translate("Đã tải cấu hình về máy"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : translate("Nạp thất bại"));
+    } finally {
+      setConfigBusy(false);
+    }
+  };
+
+  const handleImportConfig = async (file: File) => {
+    setConfigBusy(true);
+    try {
+      const parsed = JSON.parse(await file.text());
+      // Chấp nhận cả file đầy đủ (có vỏ {version, guild, config}) lẫn object
+      // cấu hình trần — người dùng hay tự bỏ vỏ đi trước khi nạp lại.
+      const config =
+        parsed && typeof parsed === "object" && !Array.isArray(parsed) && "config" in parsed
+          ? (parsed as { config: Record<string, unknown> }).config
+          : parsed;
+      const r = await importGuildConfig({
+        token: TOKEN(),
+        guildId: data.guild.discordId,
+        config: config as Record<string, unknown>,
+      });
+      if (r.applied.length === 0) {
+        toast.error(translate("File không chứa cấu hình nào hợp lệ"));
+      } else {
+        toast.success(translate("Đã nạp {p0} mục cấu hình", { p0: r.applied.length }));
+      }
+      // Báo rõ từng nhóm bị bỏ, thay vì im lặng — người dùng cần biết vì sao
+      // file của họ không được áp hết.
+      if (r.ignored.length > 0)
+        toast.info(translate("Đã bỏ {p0} mục không phải cấu hình", { p0: r.ignored.length }));
+      if (r.invalid.length > 0)
+        toast.warning(translate("Bỏ {p0} mục vì giá trị không hợp lệ", { p0: r.invalid.length }));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : translate("File không phải JSON hợp lệ"));
+    } finally {
+      setConfigBusy(false);
+      if (configFileRef.current) configFileRef.current.value = "";
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -163,6 +245,9 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
           </TabsTrigger>
           <TabsTrigger value="appearance">
             <Palette className="h-4 w-4" /> {translate("Giao diện")}{" "}
+          </TabsTrigger>
+          <TabsTrigger value="config">
+            <FileJson className="h-4 w-4" /> {translate("Cấu hình server")}{" "}
           </TabsTrigger>
         </TabsList>
 
@@ -633,6 +718,57 @@ export default function SettingsPanel({ data }: { data: GuildData }) {
                 >
                   <Palette className="h-4 w-4" /> {translate(themeSaving ? "Đang lưu…" : "Áp dụng")}
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Cấu hình server: xuất / nhập để KHÔNG MẤT khi đổi host ───── */}
+        <TabsContent value="config">
+          <Card>
+            <CardContent className="space-y-4 p-4 sm:p-5">
+              <div>
+                <p className="text-sm font-medium">{translate("Xuất & nhập cấu hình")}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {translate(
+                    "Tải toàn bộ cấu hình bảo vệ của server ra file .json để lưu lại, hoặc nạp file đã lưu.",
+                  )}
+                </p>
+              </div>
+
+              <p className="rounded-lg border border-border/60 bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+                {translate(
+                  "Chỉ dùng được cho cùng một server: kênh, vai trò và thành viên trong file là ID của server cũ, mang sang server khác sẽ không khớp.",
+                )}
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleExportConfig}
+                  disabled={configBusy}
+                >
+                  <Download className="h-4 w-4" /> {translate("Xuất cấu hình")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => configFileRef.current?.click()}
+                  disabled={configBusy}
+                >
+                  <Upload className="h-4 w-4" /> {translate("Nạp cấu hình")}
+                </Button>
+                <input
+                  ref={configFileRef}
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleImportConfig(file);
+                  }}
+                />
               </div>
             </CardContent>
           </Card>

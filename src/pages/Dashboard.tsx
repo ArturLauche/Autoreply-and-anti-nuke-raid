@@ -1,7 +1,20 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
-import { Bot, LogOut, Plus, RefreshCw, Server, ShieldAlert, Users } from "lucide-react";
+import { motion } from "framer-motion";
+import { useProductMotion } from "../lib/motion";
+import CountUp from "../components/CountUp";
+import {
+  Bot,
+  LogOut,
+  Plus,
+  RefreshCw,
+  Server,
+  ShieldAlert,
+  Users,
+  ShieldCheck,
+  Loader2,
+} from "lucide-react";
 import PageSplash from "../components/PageSplash";
 import { LogoMark } from "../components/BotLogo";
 import { api } from "../../convex/_generated/api";
@@ -34,12 +47,51 @@ import { dateLocale, translate } from "../lib/i18n";
 import { isHeartbeatFresh } from "../lib/utils";
 export default function Dashboard() {
   const navigate = useNavigate();
+  const motionSet = useProductMotion();
   const token = getSessionToken();
   const me = useQuery(api.sessions.me, token ? ({ token } as { token: string }) : "skip") as
     MeData | null | undefined;
   const logout = useMutation(api.sessions.logout);
   const { clientId } = usePublicConfig();
   const [refreshing, setRefreshing] = useState(false);
+  /**
+   * Chọn nhiều server để bật/tắt chống nuke một lượt (xem
+   * `guilds.setAntinukeGlobalBatch`). Người quản trị nhiều server bật cố ý để
+   * tránh cấu hình lệch nhau giữa các server.
+   */
+  const [selected, setSelected] = useState<string[]>([]);
+  const [batchBusy, setBatchBusy] = useState(false);
+  const setAntinukeBatch = useMutation(api.guilds.setAntinukeGlobalBatch);
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  async function applyBatch(enabled: boolean) {
+    if (selected.length === 0) return;
+    setBatchBusy(true);
+    try {
+      const res = await setAntinukeBatch({ token, guildIds: selected, enabled });
+      const done = res?.done ?? 0;
+      const skipped = res?.skipped ?? 0;
+      toast.success(
+        enabled
+          ? translate("Đã bật chống nuke cho {p0} server", { p0: done })
+          : translate("Đã tắt chống nuke ở {p0} server", { p0: done }),
+      );
+      // Nói rõ phần bị bỏ qua: im lặng làm người dùng tưởng đã xong hết.
+      if (skipped > 0) {
+        toast.error(
+          translate("{p0} server bị bỏ qua — bạn không có quyền quản lý", { p0: skipped }),
+        );
+      }
+      setSelected([]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : translate("Thất bại"));
+    } finally {
+      setBatchBusy(false);
+    }
+  }
 
   /**
    * Làm mới im lặng qua authorization code mới (prompt=none). Convex trao đổi
@@ -169,47 +221,61 @@ export default function Dashboard() {
             </p>
           </div>
 
-          <div className="mb-8 grid gap-4 sm:grid-cols-3">
-            <Card className="card-hover">
-              <CardContent className="flex items-center gap-4 p-4 sm:p-5">
-                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/15 text-primary">
-                  <Server className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-2xl font-bold font-display">{managed.length}</p>
-                  <p className="text-xs text-muted-foreground">{translate("Server quản lý")}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="card-hover">
-              <CardContent className="flex items-center gap-4 p-4 sm:p-5">
-                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-secondary text-foreground">
-                  <Bot className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-2xl font-bold font-display">
-                    {onlineCount}/{managed.length}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {translate("Bot đang trực tuyến")}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="card-hover">
-              <CardContent className="flex items-center gap-4 p-4 sm:p-5">
-                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-secondary text-foreground">
-                  <Users className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-2xl font-bold font-display">
-                    {totalMembers.toLocaleString(dateLocale())}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{translate("Tổng thành viên")}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <motion.div
+            className="mb-8 grid gap-4 sm:grid-cols-3"
+            variants={motionSet.list}
+            initial="hidden"
+            animate="show"
+          >
+            <motion.div variants={motionSet.item}>
+              <Card className="card-hover h-full">
+                <CardContent className="flex items-center gap-4 p-4 sm:p-5">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                    <Server className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-2xl font-bold font-display">{managed.length}</p>
+                    <p className="text-xs text-muted-foreground">{translate("Server quản lý")}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+            <motion.div variants={motionSet.item}>
+              <Card className="card-hover h-full">
+                <CardContent className="flex items-center gap-4 p-4 sm:p-5">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-secondary text-foreground">
+                    <Bot className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-2xl font-bold font-display">
+                      {onlineCount}/{managed.length}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {translate("Bot đang trực tuyến")}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+            <motion.div variants={motionSet.item}>
+              <Card className="card-hover h-full">
+                <CardContent className="flex items-center gap-4 p-4 sm:p-5">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-secondary text-foreground">
+                    <Users className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-2xl font-bold font-display">
+                      <CountUp
+                        value={totalMembers}
+                        format={(n) => n.toLocaleString(dateLocale())}
+                      />
+                    </p>
+                    <p className="text-xs text-muted-foreground">{translate("Tổng thành viên")}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
 
           {managed.length === 0 ? (
             <Card className="border-dashed">
@@ -243,6 +309,34 @@ export default function Dashboard() {
                   {translate("Server của bạn")}
                 </h2>
                 <div className="flex items-center gap-2">
+                  {selected.length > 0 && (
+                    <>
+                      <Badge variant="outline" className="shrink-0">
+                        {selected.length} {translate("server đã chọn")}
+                      </Badge>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={batchBusy}
+                        onClick={() => void applyBatch(true)}
+                      >
+                        {batchBusy ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <ShieldCheck className="h-4 w-4" />
+                        )}
+                        {translate("Bật chống nuke")}{" "}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={batchBusy}
+                        onClick={() => void applyBatch(false)}
+                      >
+                        {translate("Tắt")}
+                      </Button>
+                    </>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -262,70 +356,97 @@ export default function Dashboard() {
                   )}
                 </div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <motion.div
+                className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                variants={motionSet.list}
+                initial="hidden"
+                animate="show"
+              >
                 {managed.map((guild) => {
                   const icon = discordGuildIconUrl({ id: guild.discordId, icon: guild.icon });
                   const online = guild.botInGuild && isHeartbeatFresh(guild.lastHeartbeat);
                   return (
-                    <Card key={guild.discordId} className="card-hover overflow-hidden">
-                      <div className="h-1 w-full bg-foreground/80" />
-                      <CardContent className="p-4 sm:p-5">
-                        <div className="flex items-start gap-3">
-                          {icon ? (
-                            <img src={icon} alt="" className="h-12 w-12 rounded-xl" />
-                          ) : (
-                            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary font-display text-lg font-bold text-muted-foreground">
-                              {guild.name.slice(0, 2).toUpperCase()}
-                            </span>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate font-display font-semibold">{guild.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {guild.memberCount?.toLocaleString(dateLocale()) ?? "?"}{" "}
-                              {translate("thành viên · prefix")}{" "}
-                              <code className="font-mono text-primary">{guild.prefix}</code>
-                            </p>
-                          </div>
-                        </div>
-                        <div className="mt-4 flex flex-wrap items-center gap-2">
-                          {guild.botInGuild ? (
-                            <Badge variant={online ? "success" : "secondary"}>
-                              <span
-                                className={`h-1.5 w-1.5 rounded-full ${online ? "bg-foreground" : "bg-muted-foreground"}`}
+                    <motion.div
+                      key={guild.discordId}
+                      variants={motionSet.item}
+                      // h-full: trong grid, ô cao bằng ô cao nhất — không có nó
+                      // thì phần tử motion co lại và card méo.
+                      className="h-full"
+                    >
+                      <Card className="card-hover h-full overflow-hidden">
+                        <div className="h-1 w-full bg-foreground/80" />
+                        <CardContent className="p-4 sm:p-5">
+                          <div className="flex items-start gap-3">
+                            <label
+                              className="mt-1 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center"
+                              title={translate("Chọn server để bật/tắt chống nuke hàng loạt")}
+                            >
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 accent-current"
+                                checked={selected.includes(guild.discordId)}
+                                onChange={() => toggleSelect(guild.discordId)}
+                                aria-label={translate("Chọn server {p0}", { p0: guild.name })}
                               />
-                              Bot {online ? "online" : "offline"}
+                            </label>
+                            {icon ? (
+                              <img src={icon} alt="" className="h-12 w-12 rounded-xl" />
+                            ) : (
+                              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary font-display text-lg font-bold text-muted-foreground">
+                                {guild.name.slice(0, 2).toUpperCase()}
+                              </span>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-display font-semibold">{guild.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {guild.memberCount?.toLocaleString(dateLocale()) ?? "?"}{" "}
+                                {translate("thành viên · prefix")}{" "}
+                                <code className="font-mono text-primary">{guild.prefix}</code>
+                              </p>
+                            </div>
+                          </div>
+                          <div className="mt-4 flex flex-wrap items-center gap-2">
+                            {guild.botInGuild ? (
+                              <Badge variant={online ? "success" : "secondary"}>
+                                <span
+                                  className={`h-1.5 w-1.5 rounded-full ${online ? "bg-foreground" : "bg-muted-foreground"}`}
+                                />
+                                Bot {online ? "online" : "offline"}
+                              </Badge>
+                            ) : (
+                              <Badge variant="danger">{translate("Chưa thêm bot")}</Badge>
+                            )}
+                            <Badge variant={guild.antinukeEnabled ? "default" : "secondary"}>
+                              <ShieldAlert className="h-3 w-3" />
+                              {translate(
+                                guild.antinukeEnabled ? "Chống nuke bật" : "Chống nuke tắt",
+                              )}
                             </Badge>
-                          ) : (
-                            <Badge variant="danger">{translate("Chưa thêm bot")}</Badge>
-                          )}
-                          <Badge variant={guild.antinukeEnabled ? "default" : "secondary"}>
-                            <ShieldAlert className="h-3 w-3" />
-                            {translate(guild.antinukeEnabled ? "Chống nuke bật" : "Chống nuke tắt")}
-                          </Badge>
-                        </div>
-                        <div className="mt-4">
-                          <Button
-                            className="w-full"
-                            variant={guild.botInGuild ? "default" : "secondary"}
-                            onClick={() => {
-                              if (!guild.botInGuild && clientId) {
-                                toast(translate("Mời bot vào server trước khi quản lý"), {
-                                  description: translate("Bạn sẽ được chuyển tới trang mời bot."),
-                                });
-                                window.open(buildBotInviteUrl(clientId), "_blank");
-                                return;
-                              }
-                              navigate(`/dashboard/${guild.discordId}`);
-                            }}
-                          >
-                            {translate(guild.botInGuild ? "Quản lý" : "Mời bot")}
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
+                          </div>
+                          <div className="mt-4">
+                            <Button
+                              className="w-full"
+                              variant={guild.botInGuild ? "default" : "secondary"}
+                              onClick={() => {
+                                if (!guild.botInGuild && clientId) {
+                                  toast(translate("Mời bot vào server trước khi quản lý"), {
+                                    description: translate("Bạn sẽ được chuyển tới trang mời bot."),
+                                  });
+                                  window.open(buildBotInviteUrl(clientId), "_blank");
+                                  return;
+                                }
+                                navigate(`/dashboard/${guild.discordId}`);
+                              }}
+                            >
+                              {translate(guild.botInGuild ? "Quản lý" : "Mời bot")}
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
                   );
                 })}
-              </div>
+              </motion.div>
             </>
           )}
         </main>

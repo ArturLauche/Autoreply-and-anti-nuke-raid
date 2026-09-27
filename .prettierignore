@@ -11,6 +11,11 @@ node_modules/
 scripts/_*.cjs
 convex/_generated/
 
+# Mã nguồn bên thứ ba vendored nguyên văn (ThreeUI). Prettier sửa file này là
+# đổi SHA-256, mà SHA-256 là thứ duy nhất chứng minh nguồn còn nguyên vẹn —
+# nên loại ra, giống convex/_generated/.
+src/shaders/
+
 # File sinh tạm khi chạy test
 bot/test-djs-mock.cjs
 Dockerfile.web

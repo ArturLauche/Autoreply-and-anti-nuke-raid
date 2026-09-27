@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
+import PageReveal from "../components/PageReveal";
 import { useState } from "react";
 import {
   Activity,
@@ -95,7 +96,7 @@ function AdminContent() {
           </div>
         </header>
 
-        <main className="container space-y-4 py-6">
+        <PageReveal className="container space-y-4 py-6">
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-danger/25 bg-danger/5 p-4">
               <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -301,7 +302,7 @@ function AdminContent() {
               </div>
             </div>
           </div>
-        </main>
+        </PageReveal>
       </div>
     </div>
   );

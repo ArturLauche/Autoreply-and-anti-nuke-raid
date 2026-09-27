@@ -125,6 +125,8 @@ export interface GuildData {
     antinukeEnabled: boolean;
     botInGuild: boolean;
     lastHeartbeat: number | null;
+    /** Lúc dashboard ghi cấu hình — dùng cho badge trạng thái đồng bộ (lib/syncState.ts). */
+    settingsChangedAt: number | null;
     lockdownEnabled: boolean;
     lockdownMinutes: number;
     lockdownUntil: number | null;
@@ -207,6 +209,8 @@ export interface GuildData {
     raidHuntEnabled: boolean;
     /** Raid Intel: tự ban tài khoản nghi là nguồn cơn raid khi đủ tín hiệu. */
     raidHuntBanSuspects: boolean;
+    /** Khôi phục role/kênh sau vụ nuke. Mặc định bật. */
+    rollbackEnabled: boolean;
     /** Verify system: bật xác minh thành viên khi vào server. */
     verifyEnabled: boolean;
     verifyMethod: "button" | "captcha";
@@ -225,6 +229,17 @@ export interface GuildData {
     /** Lỗi gửi DM trực tiếp gần nhất (bot báo lại — hiển thị thay vì im lặng). */
     dmError: string | null;
     dmErrorAt: number | null;
+    // ═══ TICKET / KHIẾU NẠI ═══
+    ticketEnabled: boolean;
+    ticketCategoryId: string | null;
+    /** Rỗng = dùng `modRoles` làm staff. */
+    ticketStaffRoleId: string | null;
+    ticketMaxOpen: number;
+    ticketCooldownHours: number;
+    ticketDmOnBan: boolean;
+    /** Loại ticket khi gọi `/ticket mo` không chọn: "support" | "appeal". */
+    ticketDefaultKind: string;
+    ticketCloseNote: string | null;
   };
   heatStates: HeatState[];
   autoReplies: AutoReply[];
@@ -243,6 +258,28 @@ export interface GuildData {
   panels: ReactionRolePanel[];
   giveaways: Giveaway[];
   modActions: ModAction[];
+}
+
+/** 1 ticket trong bảng `tickets` (mảng trả về từ `convex/tickets.ts`). */
+export interface TicketRow {
+  id: string;
+  number: number;
+  channelId: string;
+  /** "appeal" (khiếu nại hình phạt) | "support" (hỗ trợ chung). */
+  kind: string;
+  openerId: string;
+  openerName: string;
+  body: string;
+  evidence: string;
+  /** "dm" (nút trong DM sau ban) | "command" (lệnh /ticket). */
+  source: string;
+  status: "open" | "closed" | "locked";
+  closedByName: string | null;
+  closeReason: string | null;
+  unbanned: boolean;
+  openError: string | null;
+  createdAt: number;
+  closedAt: number | null;
 }
 
 export interface ReactionRolePanel {

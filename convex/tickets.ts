@@ -1,0 +1,270 @@
+/**
+ * convex/tickets.ts — DỮ LIỆU PHÍA WEB cho tính năng ticket / khiếu nại.
+ *
+ * Phạm vi file này CHỈ là phía dashboard (đọc danh sách + đóng ticket từ web).
+ * Phía bot tạo kênh / bấm nút nằm ở `bot/src/handlers/tickets.js` và ghi qua
+ * `bot_writes:botOpenTicket` / `bot_writes:botCloseTicket`.
+ *
+ * Vì sao tách khỏi `guilds.ts`: `guilds.ts` đã 1800+ dòng và là file cấu
+ * hình. Ticket có vòng đời riêng, cần index riêng, tách ra để không làm file
+ * cấu hình phình thêm.
+ *
+ * ⚠️ Luật chung của mọi mutation ở đây: `canManageGuild` + ghi
+ * `settingsChangedAt` khi đụng cấu hình. Cổng `check-settings-signal.cjs` và
+ * `check-convex-contract.cjs` canh hai chỗ này.
+ */
+
+import { v } from "convex/values";
+import { mutation, query } from "./_generated/server";
+import { canManageGuild, getUserByToken } from "./auth";
+import { requireBotKeyStrict } from "./botAuth";
+
+/** Số ticket tối đa trả về cho dashboard (đủ dùng, không kéo hết DB). */
+const LIST_LIMIT = 100;
+
+/** Trạng thái ticket hợp lệ. Mọi giá trị khác coi như "không lọc". */
+const STATUSES = new Set(["open", "closed", "locked"]);
+
+/**
+ * Sắp theo `createdAt` GIẢM DẦN.
+ *
+ * ⚠️ Không dựa vào `order("desc")` của Convex: `order` chỉ đảo thứ tự theo
+ * field CUỐI của index. Index `by_guildId_status` có field cuối là `status` —
+ * sau khi `eq("status", ...)` thì field đó CỐ ĐỊNH cho mọi bản ghi trong kết
+ * quả, nên `order("desc")` là lời hứa rỗng: trả về đúng thứ tự scan thẳng.
+ * Hậu quả đã thấy trong test: danh sách dashboard lệch thứ tự, cooldown tính
+ * nhầm (phạt oan), và "bạn đã có ticket mở" bị bypass. Sắp ở đây thì đúng với
+ * mọi index, kể cả khi sau này đổi index.
+ */
+function newestFirst<T extends { createdAt?: number }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+}
+
+/**
+ * Danh sách ticket của 1 server, mới nhất trước.
+ *
+ * `status` lọc tuỳ chọn: bỏ trống = tất cả (dashboard hiện cả 2 tab
+ * "đang mở" và "đã đóng"). Chỉ "open" thì dùng index `by_guildId_status` —
+ * không quét toàn bảng.
+ */
+export const listTickets = query({
+  args: {
+    token: v.string(),
+    guildId: v.string(),
+    /** "open" | "closed" | "locked" — bỏ trống lấy tất cả. */
+    status: v.optional(v.string()),
+  },
+  handler: async (ctx, { token, guildId, status }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild))
+      throw new Error("Không có quyền quản lý server này");
+
+    // `status` lạ (bộ lọc cũ còn sót, gõ tay) → coi như không lọc. Trả rỗng
+    // sẽ khiến dashboard hiện "không có ticket nào" một cách sai lệch.
+    const filter = status && STATUSES.has(status) ? (status as "open" | "closed" | "locked") : null;
+    const rows = filter
+      ? await ctx.db
+          .query("tickets")
+          .withIndex("by_guildId_status", (q) => q.eq("guildId", guildId).eq("status", filter))
+          .take(LIST_LIMIT)
+      : await ctx.db
+          .query("tickets")
+          .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId))
+          .take(LIST_LIMIT);
+
+    return newestFirst(rows).map((t) => ({
+      id: t._id,
+      number: t.number ?? 0,
+      channelId: t.channelId,
+      kind: t.kind,
+      openerId: t.openerId,
+      openerName: t.openerName,
+      body: t.body ?? "",
+      evidence: t.evidence ?? "",
+      source: t.source,
+      status: t.status,
+      closedByName: t.closedByName ?? null,
+      closeReason: t.closeReason ?? null,
+      unbanned: t.unbanned ?? false,
+      openError: t.openError ?? null,
+      createdAt: t.createdAt,
+      closedAt: t.closedAt ?? null,
+    }));
+  },
+});
+
+/**
+ * Số liệu tóm tắt cho badge trên menu.
+ *
+ * Tách khỏi `listTickets` vì menu gọi nó mỗi lần render còn danh sách chỉ gọi
+ * khi mở panel. Trả luôn `ticketsCategoryId` + `ticketsMissingPerm` để menu
+ * không phải gọi thêm 1 query chỉ để biết cấu hình còn thiếu gì.
+ */
+export const ticketSummary = query({
+  args: { token: v.string(), guildId: v.string() },
+  handler: async (ctx, { token, guildId }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild))
+      throw new Error("Không có quyền quản lý server này");
+
+    const open = await ctx.db
+      .query("tickets")
+      .withIndex("by_guildId_status", (q) => q.eq("guildId", guildId).eq("status", "open"))
+      .take(1_000);
+    return {
+      openCount: open.length,
+      enabled: guild.ticketEnabled ?? false,
+      /** Category chưa chọn → panel báo rõ thay vì bấm mới thấy lỗi. */
+      missingCategory: !guild.ticketCategoryId,
+      /** Role staff chưa chọn (rỗng thì bot lấy `modRoles` — vẫn chạy được). */
+      staffRoleId: guild.ticketStaffRoleId ?? null,
+      dmOnBan: guild.ticketDmOnBan ?? true,
+      maxOpen: guild.ticketMaxOpen ?? 20,
+      cooldownHours: guild.ticketCooldownHours ?? 24,
+      defaultKind: guild.ticketDefaultKind ?? "support",
+    };
+  },
+});
+
+/**
+ * Đóng ticket TỪ DASHBOARD.
+ *
+ * Vì sao cần: staff không phải lúc nào cũng ở trong Discord. Đóng ở đây chỉ
+ * đổi trạng thái trong DB và ghi mod log; thu quyền trên kênh Discord thì bot
+ * lo ở lượt tick kế tiếp (đợt sau) — vì bot không có kênh sự kiện để biết
+ * web vừa đóng.
+ *
+ * Không sửa nội dung ticket. Không gỡ ban ở đây (việc đó cần quyền Discord,
+ * chỉ bot làm được) — bảo đảm nút Gỡ ban trong kênh ticket vẫn là đường duy
+ * nhất để gỡ ban, và nó đi qua `unbanMember` nên vòng đo phạt nhầm vẫn chạy.
+ */
+export const closeTicket = mutation({
+  args: {
+    token: v.string(),
+    guildId: v.string(),
+    ticketId: v.id("tickets"),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, { token, guildId, ticketId, reason }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    // `canManageGuild` đã trả false khi user null, nhưng TypeScript không suy ra
+    // được — nên kiểm riêng cho chắc trước khi đọc `user.discordId` bên dưới.
+    if (!user || !guild || !canManageGuild(user, guild))
+      throw new Error("Không có quyền quản lý server này");
+
+    const ticket = await ctx.db.get(ticketId);
+    if (!ticket || ticket.guildId !== guildId) throw new Error("Không tìm thấy ticket");
+    if (ticket.status !== "open") return { ok: true, alreadyClosed: true };
+
+    const now = Date.now();
+    await ctx.db.patch(ticketId, {
+      status: "closed",
+      closedById: user.discordId,
+      closedByName: user.username,
+      closeReason: reason ? reason.slice(0, 300) : undefined,
+      closedAt: now,
+    });
+    return { ok: true, alreadyClosed: false };
+  },
+});
+
+/**
+ * BOT đọc trạng thái ticket trước khi quyết định cho phép mở.
+ *
+ * Vì sao cần query riêng thay vì để bot tự đếm: `ticketCore.decideOpen` là
+ * HÀM THUẦN (test hermetic, không I/O), nên nó chỉ nhận số liệu đã đếm sẵn.
+ * Việc đếm đặt ở đây → hai bên kiểm chứng độc lập: quyết định "có cho mở
+ * không" test được, và số đếm thật do index lo.
+ *
+ * Trả về:
+ *   - `openCount` — số ticket đang mở (hàng rào `ticketMaxOpen`).
+ *   - `lastOpenedAt` — lần mở gần nhất CỦA CHÍNH người này (hàng rào cooldown).
+ *   - `openChannelId` — ticket đang mở của họ, để báo "bạn đã có ticket".
+ *
+ * ⚠️ Không đọc qua `getBotConfig`: đây không phải CẤU HÌNH, mà là trạng thái
+ * đổi mỗi giây. Nếu nhét vào bundle cache 30 phút thì hàng rào chống spam
+ * sẽ đếm trên dữ liệu cũ — tức là vô hiệu. Query riêng luôn đọc tươi.
+ */
+export const botTicketState = query({
+  args: {
+    guildId: v.string(),
+    userId: v.string(),
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { guildId, userId, botKey }) => {
+    await requireBotKeyStrict(ctx, botKey);
+    const open = await ctx.db
+      .query("tickets")
+      .withIndex("by_guildId_status", (q) => q.eq("guildId", guildId).eq("status", "open"))
+      .collect();
+    // ⚠️ KHÔNG dùng `order("desc").take(1)` ở đây: index
+    // `by_guildId_openerId` có field cuối `openerId`, mà sau `eq` thì field
+    // đó cố định → thứ tự trả về là thứ tự scan, KHÔNG phải mới nhất. Lấy
+    // nhầm bản ghi cũ thì cooldown tính sai và vòng "đã có ticket mở" bị
+    // bypass (người dùng mở được 2 ticket cùng lúc).
+    const mine = newestFirst(
+      await ctx.db
+        .query("tickets")
+        .withIndex("by_guildId_openerId", (q) => q.eq("guildId", guildId).eq("openerId", userId))
+        .collect(),
+    );
+    const last = mine[0];
+    // Ticket ĐANG MỞ của riêng người này. Tách khỏi `last`: dữ liệu cũ có thể
+    // có nhiều ticket mở, và bản ghi mới nhất đã đóng trong khi bản ghi cũ
+    // vẫn mở — lúc đó vẫn phải trả kênh cũ.
+    const openTicket = mine.find((t) => t.status === "open");
+    return {
+      openCount: open.length,
+      lastOpenedAt: last?.createdAt ?? null,
+      /** Ticket `open` của riêng người này (nếu có) — để báo trả lại kênh cũ. */
+      openChannelId: openTicket?.channelId ?? null,
+      openTicketId: openTicket?._id ?? null,
+    };
+  },
+});
+
+/**
+ * Bot đọc 1 bản ghi ticket theo id (dùng khi staff bấm nút trong kênh).
+ *
+ * Vì sao cần, và vì sao không suy ra từ kênh: kênh Discord không giữ id người
+ * mở ticket, tên kênh thì staff có thể đổi tay, còn nút có thể bị dán lại vào
+ * kênh khác. Bản ghi DB là nguồn duy nhất đáng tin — đặc biệt với nút
+ * "Gỡ ban", nơi đọc nhầm người là hành động phạt nặng.
+ *
+ * Chỉ trả về đúng những trường nút cần — không trả `body` vì không có chỗ nào
+ * dùng và nội dung khiếu nại không cần thiết phải đọc lại mỗi lượt bấm.
+ */
+export const botTicketById = query({
+  args: {
+    guildId: v.string(),
+    ticketId: v.string(),
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { guildId, ticketId, botKey }) => {
+    await requireBotKeyStrict(ctx, botKey);
+    const rows = await ctx.db
+      .query("tickets")
+      .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
+      .collect();
+    const ticket = rows.find((t) => t._id === ticketId);
+    if (!ticket) return null;
+    return {
+      openerId: ticket.openerId,
+      openerName: ticket.openerName,
+      kind: ticket.kind,
+      status: ticket.status,
+    };
+  },
+});

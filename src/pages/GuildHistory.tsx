@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { usePaginatedQuery, useQuery } from "convex/react";
+import PageReveal from "../components/PageReveal";
 import {
   ArrowLeft,
   CalendarDays,
@@ -154,7 +155,7 @@ export default function GuildHistory() {
         </div>
       </header>
 
-      <main className="container py-8">
+      <PageReveal className="container py-8">
         <div className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="grid gap-1.5">
             <Label className="text-xs text-muted-foreground">Module</Label>
@@ -195,7 +196,6 @@ export default function GuildHistory() {
             </div>
           </div>
         </div>
-
         {hasActiveFilter && (
           <div className="mt-3 flex items-center justify-between">
             <Badge variant="secondary" className="gap-1">
@@ -206,7 +206,6 @@ export default function GuildHistory() {
             </Button>
           </div>
         )}
-
         {results.length === 0 && status !== "LoadingFirstPage" ? (
           <Card className="mt-4 border-dashed">
             <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
@@ -263,7 +262,6 @@ export default function GuildHistory() {
             </CardContent>
           </Card>
         )}
-
         <div className="mt-6 flex flex-col items-center gap-3">
           {status === "CanLoadMore" && (
             <Button variant="secondary" onClick={() => loadMore(20)} disabled={loading}>
@@ -280,8 +278,8 @@ export default function GuildHistory() {
               {translate("— Đã hiển thị toàn bộ")} {results.length} {translate("sự kiện")} —
             </p>
           )}
-        </div>
-      </main>
+        </div>{" "}
+      </PageReveal>
     </div>
   );
 }

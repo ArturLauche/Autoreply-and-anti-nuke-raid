@@ -1280,3 +1280,148 @@ export const botRecordRaidSample = mutation({
     return { ok: true };
   },
 });
+
+/**
+ * ═══ TICKET / KHIẾU NẠI (27/09/2026) ═══
+ *
+ * Hai mutation dưới đây là đường GHI duy nhất của ticket từ phía bot. Cùng
+ * loại với `botRecordModAction`: cần `requireBotKeyStrict` (chỉ bot có
+ * OWNER_SEED mới gọi được) và cắt mọi chuỗi theo giới hạn Discord.
+ *
+ * ⚠️ KHÔNG thêm `settingsChangedAt` ở đây: hai mutation này KHÔNG ghi field
+ * cấu hình mà bot đọc (chúng ghi bảng `tickets`), nên không phải xoá cache
+ * config. Cổng `check-settings-signal.cjs` miễn luật A cho mọi mutation
+ * trong file này (luật B phủ) — thêm `settingsChangedAt` thừa sẽ chỉ làm
+ * cache bị xoá vô nghĩa.
+ */
+
+/** Bot ghi bản ghi ticket lúc mở (điểm vào DM hoặc lệnh /ticket). */
+export const botOpenTicket = mutation({
+  args: {
+    guildId: v.string(),
+    channelId: v.string(),
+    /** "appeal" | "support" — bot đã chuẩn hoá qua ticketCore.normalizeKind. */
+    kind: v.string(),
+    openerId: v.string(),
+    openerName: v.string(),
+    body: v.optional(v.string()),
+    evidence: v.optional(v.string()),
+    /** "dm" | "command" */
+    source: v.string(),
+    /** Lỗi mở kênh (thiếu quyền, chạm trần 500 kênh…) — dashboard hiển thị. */
+    openError: v.optional(v.string()),
+    /** Chìa khóa bot (botAuth). */
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireBotKeyStrict(ctx, args.botKey);
+    const now = Date.now();
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", args.guildId))
+      .first();
+    // Số thứ tự dùng CHUNG bộ đếm với mod case: một dãy số duy nhất trong
+    // kênh log của server, đọc dễ hơn 2 dãy số lệch nhau.
+    const number = (guild?.modCaseCounter ?? 0) + 1;
+    if (guild) {
+      await ctx.db.patch(guild._id, { modCaseCounter: number, updatedAt: now });
+    }
+    const id = await ctx.db.insert("tickets", {
+      guildId: args.guildId,
+      number,
+      channelId: args.channelId,
+      kind: args.kind,
+      openerId: args.openerId,
+      openerName: args.openerName.slice(0, 80),
+      body: args.body ? args.body.slice(0, 1000) : undefined,
+      evidence: args.evidence ? args.evidence.slice(0, 500) : undefined,
+      source: args.source,
+      status: "open",
+      openError: args.openError ? args.openError.slice(0, 200) : undefined,
+      openErrorAt: args.openError ? now : undefined,
+      createdAt: now,
+    });
+    return { ok: true, ticketId: id, number };
+  },
+});
+
+/**
+ * Bot ghi trạng thái cuối của ticket khi staff bấm nút trong kênh.
+ *
+ * `status: "closed"` khi staff đóng; `"locked"` dành cho lượt tự dọn kênh ở
+ * đợt sau (chưa dùng, nhưng đã khai trong schema để không phải migrate).
+ */
+export const botCloseTicket = mutation({
+  args: {
+    guildId: v.string(),
+    /** id bản ghi lấy từ customId của nút (mã hoá sẵn). */
+    ticketId: v.string(),
+    /** "closed" | "locked" */
+    status: v.string(),
+    closedById: v.optional(v.string()),
+    closedByName: v.optional(v.string()),
+    closeReason: v.optional(v.string()),
+    /** Staff bấm "Gỡ ban" trong ticket (thống kê dashboard; vòng đo đã chạy ở bot). */
+    unbanned: v.optional(v.boolean()),
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireBotKeyStrict(ctx, args.botKey);
+    const row = await ctx.db
+      .query("tickets")
+      .withIndex("by_guildId", (q) => q.eq("guildId", args.guildId))
+      .collect();
+    const ticket = row.find((t) => t._id === args.ticketId);
+    // Không tìm thấy = ticket đã bị dọn khỏi DB (giới hạn 200 bản/server).
+    // Trả ok thay vì ném: người dùng bấm nút trên kênh cũ vẫn không nên thấy lỗi.
+    if (!ticket) return { ok: true, found: false };
+    const now = Date.now();
+    await ctx.db.patch(ticket._id, {
+      status: args.status === "locked" ? "locked" : "closed",
+      closedById: args.closedById,
+      closedByName: args.closedByName ? args.closedByName.slice(0, 80) : undefined,
+      closeReason: args.closeReason ? args.closeReason.slice(0, 300) : undefined,
+      unbanned: args.unbanned ?? ticket.unbanned,
+      closedAt: now,
+    });
+    return { ok: true, found: true };
+  },
+});
+
+/**
+ * Bot ghi channelId thật + lỗi mở kênh vào bản ghi ticket.
+ *
+ * Vì sao tách khỏi `botOpenTicket`: số thứ tự ticket lấy từ bộ đếm chung với
+ * mod case nên phải ghi bản ghi TRƯỚC khi tạo kênh (để lấy số đặt tên kênh).
+ * Nhưng lúc đó chưa có channelId. Thay vì ghi 2 lần trong 1 mutation, tách
+ * mutation này ra: `botOpenTicket` ghi với `channelId: "pending"`, xong tạo
+ * kênh thì gọi `botSetTicketChannel` để điền lại.
+ *
+ * Nếu tiện thì có thể gộp — nhưng gộp sẽ mất thông tin "ticket đã mở nhưng
+ * tạo kênh hỏng", vốn đúng thứ dashboard cần hiện cho staff.
+ */
+export const botSetTicketChannel = mutation({
+  args: {
+    guildId: v.string(),
+    ticketId: v.string(),
+    channelId: v.string(),
+    /** Lỗi tạo kênh (thiếu quyền, chạm trần 500 kênh…) — dashboard hiển thị. */
+    openError: v.optional(v.string()),
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireBotKeyStrict(ctx, args.botKey);
+    const rows = await ctx.db
+      .query("tickets")
+      .withIndex("by_guildId", (q) => q.eq("guildId", args.guildId))
+      .collect();
+    const ticket = rows.find((t) => t._id === args.ticketId);
+    if (!ticket) return { ok: true, found: false };
+    await ctx.db.patch(ticket._id, {
+      channelId: args.channelId,
+      openError: args.openError ? args.openError.slice(0, 200) : undefined,
+      openErrorAt: args.openError ? Date.now() : undefined,
+    });
+    return { ok: true, found: true };
+  },
+});

@@ -146,6 +146,175 @@ const research = require("../bot/src/research.js");
   console.log("[result2]", JSON.stringify(res2));
   check("lượt 2: ít từ khóa mới hơn (không lặp)", res2.newKeywords <= res.newKeywords);
 
+  // ── Digest tuần (buildWeeklyDigest + postDigestToLog) ──
+  // Trước đây phần này không có test: suite cũ xoá sạch key AI nên
+  // researchAvailable() luôn false → digest luôn null, hai hàm cuối file chỉ
+  // nằm trên giấy. Rủi ro: digest là thứ admin ĐỌC để biết xu hướng tuần, hỏng
+  // im lặng = admin tin nhầm là server yên ổn.
+  {
+    const aiPath = require.resolve("../bot/src/ai.js");
+    const utilPath = require.resolve("../bot/src/util.js");
+    const realAi = require.cache[aiPath];
+    const realUtil = require.cache[utilPath];
+    const digestCalls = [];
+    const sent = [];
+    // Nạp sẵn vào require.cache: research.js require("./ai") LÚC CHẠY nên
+    // cache sẵn được dùng đúng, không cần sửa code production.
+    require.cache[aiPath] = {
+      id: aiPath,
+      filename: aiPath,
+      loaded: true,
+      exports: {
+        researchAvailable: () => true,
+        researchChat: async (messages) => {
+          // researchChat dùng chung cho cả aiSynthesize VÀ digest → chỉ tính
+          // lời gọi nào thực sự là digest (prompt chứa "DIGEST").
+          const isDigest = JSON.stringify(messages).includes("DIGEST");
+          if (isDigest) digestCalls.push(messages);
+          return isDigest ? "  Xu hướng tuần: raid giả mạo captcha Discord tăng mạnh.  " : "";
+        },
+        extractJson: () => ({}),
+        aiAvailable: () => true,
+        classifyViolation: async () => ({ ok: true }),
+        analyzeRaid: async () => ({ ok: true }),
+        analyzeExternalApp: async () => ({ ok: true }),
+        chatForResearch: async () => "",
+        aiStats: () => ({}),
+      },
+    };
+    require.cache[utilPath] = {
+      id: utilPath,
+      filename: utilPath,
+      loaded: true,
+      exports: {
+        Colors: new Proxy({}, { get: () => 0x000000 }),
+        logEmbed: (o) => o,
+        sendLog: async (guild, cfg, embed) => {
+          sent.push({ guildId: guild.id, embed });
+        },
+      },
+    };
+
+    // Buộc digest ĐẾN HẠN: __protogonLastDigest là mốc process-wide, đặt về 0.
+    globalThis.__protogonLastDigest = 0;
+    mutations.length = 0;
+    const digestStore = {
+      client: {
+        query: async (name) => {
+          if (name === "threatIntel:botGetIntel") {
+            return {
+              researchEnabled: true,
+              aiWeeklyEnabled: true,
+              nextRunAt: 0,
+              lastRunAt: 0,
+              keywords: ["captcha-scam"],
+              notifyEnabled: true,
+            };
+          }
+          return [];
+        },
+        mutation: async (name, args) => {
+          mutations.push({ name, args });
+          return { ok: true };
+        },
+      },
+      getConfig: async (guildId) => (guildId === "g-bad" ? null : { logChannelId: "L" }),
+    };
+    const mkClient = (n) => ({
+      guilds: {
+        cache: new Map(
+          Array.from({ length: n }, (_, i) => [`g${i}`, { id: `g${i}`, name: `G${i}` }]),
+        ),
+      },
+    });
+    mkClient.gBad = null;
+    const client = mkClient(5);
+    client.guilds.cache.set("g-bad", { id: "g-bad", name: "GBad" });
+    research.setupResearch(client, digestStore);
+    await research.runResearch(digestStore);
+
+    check("digest gọi AI đúng 1 lần", digestCalls.length === 1, String(digestCalls.length));
+    const meta = mutations.find((m) => m.name === "threatIntel:botSetResearchMeta");
+    check("digest được lưu lên Convex", !!meta, JSON.stringify(mutations.map((m) => m.name)));
+    check(
+      "digest cắt khoảng trắng thừa",
+      meta?.args.digest === "Xu hướng tuần: raid giả mạo captcha Discord tăng mạnh.",
+      JSON.stringify(meta?.args.digest),
+    );
+    check(
+      "digest tôn trọng giới hạn 3 server (KHÔNG spam mọi server)",
+      sent.length === 3,
+      String(sent.length),
+    );
+    check(
+      "digest bỏ qua guild không có cấu hình log",
+      !sent.some((s2) => s2.guildId === "g-bad") && sent.every((s2) => s2.guildId.startsWith("g")),
+      JSON.stringify(sent.map((s2) => s2.guildId)),
+    );
+    check(
+      "mốc digest được ghi lại (không gửi lại trong 7 ngày)",
+      globalThis.__protogonLastDigest > 0,
+    );
+
+    // Lượt sau: digest KHÔNG đến hạn → không gọi AI, không gửi log lần nữa.
+    mutations.length = 0;
+    sent.length = 0;
+    digestCalls.length = 0;
+    await research.runResearch(digestStore);
+    check(
+      "digest chưa đến hạn → không gọi lại AI",
+      digestCalls.length === 0 &&
+        !mutations.some((m) => m.name === "threatIntel:botSetResearchMeta"),
+      `ai=${digestCalls.length}`,
+    );
+
+    // Không client Discord (bot chưa online / chưa setupResearch) → không ném.
+    const savedClient = research.runResearch._client;
+    research.runResearch._client = null;
+    globalThis.__protogonLastDigest = 0;
+    let threw = false;
+    try {
+      await research.runResearch(digestStore);
+    } catch {
+      threw = true;
+    }
+    check("digest không có client Discord → không ném ra ngoài", !threw);
+    research.runResearch._client = savedClient;
+
+    // Bỏ cờ notify → digest vẫn lưu Convex nhưng KHÔNG đăng kênh log.
+    mutations.length = 0;
+    sent.length = 0;
+    globalThis.__protogonLastDigest = 0;
+    const quietStore = {
+      ...digestStore,
+      client: {
+        ...digestStore.client,
+        query: async (name) =>
+          name === "threatIntel:botGetIntel"
+            ? {
+                researchEnabled: true,
+                aiWeeklyEnabled: true,
+                nextRunAt: 0,
+                keywords: ["x"],
+                notifyEnabled: false,
+              }
+            : [],
+      },
+    };
+    research.setupResearch(client, quietStore);
+    await research.runResearch(quietStore);
+    check(
+      "tắt cờ thông báo → digest lưu Convex nhưng KHÔNG đăng kênh log",
+      mutations.some((m) => m.name === "threatIntel:botSetResearchMeta") && sent.length === 0,
+      `sent=${sent.length}`,
+    );
+
+    if (realUtil) require.cache[utilPath] = realUtil;
+    else delete require.cache[utilPath];
+    if (realAi) require.cache[aiPath] = realAi;
+    else delete require.cache[aiPath];
+  }
+
   globalThis.fetch = realFetch;
   process.exit(fail === 0 ? 0 : 1);
 })().catch((e) => {

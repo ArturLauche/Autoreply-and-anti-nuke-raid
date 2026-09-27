@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild, guildAccessibleBy } from "./auth";
+import { buildGuildConfigExport, sanitizeImportedConfig } from "./guildConfig";
 import { requireBotKeyStrict } from "./botAuth";
 import { getBotStatus, hiddenPasswordIsSet, isBotOwnerUser } from "./hidden";
 import {
@@ -168,11 +169,16 @@ export const getGuild = query({
         restoreEmojisEnabled: guild.restoreEmojisEnabled ?? true,
         raidHuntEnabled: guild.raidHuntEnabled ?? true,
         raidHuntBanSuspects: guild.raidHuntBanSuspects ?? true,
+        rollbackEnabled: guild.rollbackEnabled ?? true,
         modRoles: guild.modRoles,
         adminRoles: guild.adminRoles,
         antinukeEnabled: guild.antinukeEnabled,
         botInGuild: guild.botInGuild,
         lastHeartbeat: guild.lastHeartbeat ?? null,
+        // Lúc dashboard ghi cấu hình — web dùng để báo "đang gửi/đã gửi cho
+        // bot" thay vì im lặng (xem src/lib/syncState.ts). Không phải mốc bot
+        // đã áp dụng: phía bot chưa ghi tín hiệu ngược lại.
+        settingsChangedAt: guild.settingsChangedAt ?? null,
         lockdownEnabled: guild.lockdownEnabled ?? true,
         lockdownMinutes: guild.lockdownMinutes ?? 5,
         lockdownUntil: guild.lockdownUntil ?? null,
@@ -252,6 +258,15 @@ export const getGuild = query({
         /** Lỗi gửi DM trực tiếp gần nhất (bot báo lại — web hiển thị thay vì im lặng). */
         dmError: guild.dmError ?? null,
         dmErrorAt: guild.dmErrorAt ?? null,
+        // ═══ TICKET / KHIẾU NẠI ═══ (panel TicketPanel đọc 8 field này)
+        ticketEnabled: guild.ticketEnabled ?? false,
+        ticketCategoryId: guild.ticketCategoryId ?? null,
+        ticketStaffRoleId: guild.ticketStaffRoleId ?? null,
+        ticketMaxOpen: guild.ticketMaxOpen ?? 20,
+        ticketCooldownHours: guild.ticketCooldownHours ?? 24,
+        ticketDmOnBan: guild.ticketDmOnBan ?? true,
+        ticketDefaultKind: guild.ticketDefaultKind ?? "support",
+        ticketCloseNote: guild.ticketCloseNote ?? null,
       },
       heatStates,
       modules: modules.map((m) => ({
@@ -453,6 +468,7 @@ export const getBotConfig = query({
       lastReportAt: guild.lastReportAt ?? null,
       raidHuntEnabled: guild.raidHuntEnabled ?? true,
       raidHuntBanSuspects: guild.raidHuntBanSuspects ?? true,
+      rollbackEnabled: guild.rollbackEnabled ?? true,
       badWords: guild.badWords ?? [],
       // Trần punish tự động/phút — actionBudget.js đọc field này; preset ghi vào
       // DB nhưng nếu query không trả về thì bot luôn dùng mặc định (20).
@@ -506,6 +522,15 @@ export const getBotConfig = query({
       altJoinWindowMinutes: guild.altJoinWindowMinutes ?? 5,
       altVpnMode: guild.altVpnMode ?? "off",
       altSafeMode: guild.altSafeMode ?? true,
+      // ═══ TICKET ═══ (bot đọc từ bundle cache → bắt buộc có đường tín hiệu)
+      ticketEnabled: guild.ticketEnabled ?? false,
+      ticketCategoryId: guild.ticketCategoryId ?? null,
+      ticketStaffRoleId: guild.ticketStaffRoleId ?? null,
+      ticketMaxOpen: guild.ticketMaxOpen ?? 20,
+      ticketCooldownHours: guild.ticketCooldownHours ?? 24,
+      ticketDmOnBan: guild.ticketDmOnBan ?? true,
+      ticketDefaultKind: guild.ticketDefaultKind ?? "support",
+      ticketCloseNote: guild.ticketCloseNote ?? "",
       heatStates,
       autoReplies,
       giveaways: giveaways.map((g) => ({
@@ -605,6 +630,7 @@ export const updateSettings = mutation({
     ),
     raidHuntEnabled: v.optional(v.boolean()),
     raidHuntBanSuspects: v.optional(v.boolean()),
+    rollbackEnabled: v.optional(v.boolean()),
     theme: v.optional(v.string()),
     verifyEnabled: v.optional(v.boolean()),
     verifyMethod: v.optional(v.union(v.literal("button"), v.literal("captcha"))),
@@ -616,6 +642,15 @@ export const updateSettings = mutation({
     verifyWelcomeDescription: v.optional(v.union(v.string(), v.null())),
     verifyWelcomeColor: v.optional(v.union(v.string(), v.null())),
     verifySendPanel: v.optional(v.boolean()),
+    // ═══ TICKET / KHIẾU NẠI ═══
+    ticketEnabled: v.optional(v.boolean()),
+    ticketCategoryId: v.optional(v.string()),
+    ticketStaffRoleId: v.optional(v.string()),
+    ticketMaxOpen: v.optional(v.number()),
+    ticketCooldownHours: v.optional(v.number()),
+    ticketDmOnBan: v.optional(v.boolean()),
+    ticketDefaultKind: v.optional(v.string()),
+    ticketCloseNote: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await getUserByToken(ctx, args.token);
@@ -719,8 +754,35 @@ export const updateSettings = mutation({
         ? cleanGreetingField("goodbyeCardBackground", args.goodbyeCardBackground)
         : undefined;
     if (args.raidHuntEnabled !== undefined) patch.raidHuntEnabled = args.raidHuntEnabled;
+    // ═══ TICKET ═══
+    // Số cấu hình bị KẸP khoảng ở đây (giống luật của các ô số khác): giá trị
+    // rác từ client không được ghi thẳng xuống DB rồi làm decideOpen rơi vào
+    // NaN. `ticketCore.normalizeLimit` là lá chắn thứ hai phía bot.
+    if (args.ticketEnabled !== undefined) patch.ticketEnabled = args.ticketEnabled;
+    if (args.ticketCategoryId !== undefined)
+      patch.ticketCategoryId = /^\d{15,20}$/.test(args.ticketCategoryId)
+        ? args.ticketCategoryId
+        : undefined;
+    if (args.ticketStaffRoleId !== undefined)
+      patch.ticketStaffRoleId = /^\d{15,20}$/.test(args.ticketStaffRoleId)
+        ? args.ticketStaffRoleId
+        : undefined;
+    if (args.ticketMaxOpen !== undefined)
+      patch.ticketMaxOpen = Math.max(1, Math.min(100, Math.floor(args.ticketMaxOpen || 0) || 20));
+    if (args.ticketCooldownHours !== undefined)
+      patch.ticketCooldownHours = Math.max(
+        0,
+        Math.min(720, Math.floor(args.ticketCooldownHours || 0) || 0),
+      );
+    if (args.ticketDmOnBan !== undefined) patch.ticketDmOnBan = args.ticketDmOnBan;
+    if (args.ticketDefaultKind !== undefined)
+      patch.ticketDefaultKind = args.ticketDefaultKind === "appeal" ? "appeal" : "support";
+    if (args.ticketCloseNote !== undefined)
+      patch.ticketCloseNote = args.ticketCloseNote.trim().slice(0, 300) || undefined;
     if (args.raidHuntBanSuspects !== undefined)
       patch.raidHuntBanSuspects = args.raidHuntBanSuspects;
+    if (args.rollbackEnabled !== undefined) patch.rollbackEnabled = !!args.rollbackEnabled;
+    if (args.rollbackEnabled !== undefined) patch.rollbackEnabled = !!args.rollbackEnabled;
     if (args.prefix !== undefined) {
       if (!/^[!^$#&%]{1,3}$/.test(args.prefix)) {
         throw new Error("Prefix phải là 1-3 ký tự đặc biệt (ví dụ: !, ^, !! )");
@@ -884,6 +946,73 @@ export const updateSettings = mutation({
     }
     await ctx.db.patch(guild._id, patch);
     return { ok: true };
+  },
+});
+
+/**
+ * Xuất cấu hình server ra JSON (để lưu ở nơi khác / dán lại sau khi đổi host).
+ *
+ * CHỈ trả cấu hình — `convex/backup.ts` đã lo phần nội dung Discord (role,
+ * kênh, quyền). Danh sách field lấy từ allowlist `PORTABLE_CONFIG_FIELDS`, nên
+ * `ownerId` / `lastHeartbeat` / cờ backup-restore KHÔNG bao giờ lọt ra file.
+ */
+export const exportGuildConfig = query({
+  args: { token: v.string(), guildId: v.string() },
+  handler: async (ctx, { token, guildId }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild))
+      throw new Error("Không có quyền quản lý server này");
+    return buildGuildConfigExport(guild);
+  },
+});
+
+/**
+ * Nạp cấu hình từ JSON xuất ra (kèm nút tải lên trên dashboard).
+ *
+ * Ba điều bắt buộc ở đây, đừng bỏ khi sửa:
+ *   1. `canManageGuild` — nạp cấu hình là quyền quản trị server, không phải
+ *      ai có token phiên cũng nạp được.
+ *   2. `settingsChangedAt` — bot đọc field này để biết "cấu hình vừa đổi".
+ *      Thiếu nó thì thay đổi phải chờ hết TTL cache 30 phút (đúng lớp lỗi
+ *      23/09, cổng `check-settings-signal.cjs` canh chỗ này).
+ *   3. `sanitizeImportedConfig` lọc allowlist + chuẩn hoá TRƯỚC khi patch —
+ *      không tin file client gửi lên.
+ */
+export const importGuildConfig = mutation({
+  args: {
+    token: v.string(),
+    guildId: v.string(),
+    config: v.record(v.string(), v.any()),
+  },
+  handler: async (ctx, { token, guildId, config }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild))
+      throw new Error("Không có quyền quản lý server này");
+
+    const result = sanitizeImportedConfig(config, guild);
+    // Không có gì để ghi — trả về số liệu để UI báo, đừng patch rỗng rồi báo
+    // "thành công" là gây hiểu nhầm.
+    if (result.applied.length === 0) {
+      return { ok: false, applied: [], ignored: result.ignored, invalid: result.invalid };
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(guild._id, {
+      ...result.patch,
+      updatedAt: now,
+      settingsChangedAt: now,
+    });
+    // KHÔNG trả `patch` về client: chỉ cần số liệu để báo, đỡ kéo cả cấu hình
+    // (có thể vài chục KB) qua dây. Cấu hình đã ghi thì Convex tự đẩy về.
+    return { ok: true, applied: result.applied, ignored: result.ignored, invalid: result.invalid };
   },
 });
 
@@ -1167,6 +1296,64 @@ export const setAntinukeGlobal = mutation({
       }
     }
     return { ok: true };
+  },
+});
+
+/**
+ * Bật/tắt chống nuke cho NHIỀU server cùng lúc.
+ *
+ * Vì sao cần: người quản trị 5–10 server phải mở từng server, bật từng module.
+ * Mỗi lần bot thêm tính năng mới là thêm hàng giờ nhấp tay — nên họ bỏ luôn.
+ *
+ * Vì sao có mutation riêng thay vì gọi `setAntinukeGlobal` N lần từ web: mỗi
+ * lần gọi là 1 round-trip + 1 kiểm tra quyền riêng; chủn 20 server là 20 vòng
+ * chờ. Ở đây quyền được kiểm cho TỪNG guild trong cùng lượt (không tin bừa
+ * danh sách client gửi lên — client luôn có thể tự bịa guildId).
+ *
+ * `settingsChangedAt` được set cho từng guild để bot nhận ngay qua
+ * `bot_tick:getPendingJobs` (xem bot/src/tick.js) — thiếu nó thì đổi cấu
+ * hình sẽ chờ tới hết TTL cache 30 phút, đúng lớp lỗi 23/09.
+ */
+export const setAntinukeGlobalBatch = mutation({
+  args: {
+    token: v.string(),
+    guildIds: v.array(v.string()),
+    enabled: v.boolean(),
+  },
+  handler: async (ctx, { token, guildIds, enabled }) => {
+    const user = await getUserByToken(ctx, token);
+    if (!user) return { ok: false, done: 0, skipped: guildIds.length };
+    // Chặn 1 lệnh bấm sai là khóa/xoá cấu hình cả 50 server: giới hạn trần.
+    const ids = [...new Set(guildIds)].slice(0, 50);
+    const now = Date.now();
+    let done = 0;
+    let skipped = 0;
+    for (const guildId of ids) {
+      const guild = await ctx.db
+        .query("guilds")
+        .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+        .first();
+      if (!guild || !canManageGuild(user, guild)) {
+        skipped++;
+        continue;
+      }
+      await ctx.db.patch(guild._id, {
+        antinukeEnabled: enabled,
+        updatedAt: now,
+        settingsChangedAt: now,
+      });
+      if (enabled) {
+        const mods = await ctx.db
+          .query("antinukeModules")
+          .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
+          .collect();
+        for (const m of mods) {
+          if (!m.enabled) await ctx.db.patch(m._id, { enabled: true, updatedAt: now });
+        }
+      }
+      done++;
+    }
+    return { ok: true, done, skipped };
   },
 });
 

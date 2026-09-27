@@ -34,7 +34,7 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 
 | Component nhóm               | Vai trò                                                                                              |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `components/dashboard/`      | Các panel cấu hình: Overview, Webhook, Verify, JoinGate, Settings (theme xám), Branding…             |
+| `components/dashboard/`      | Các panel cấu hình: Overview, Webhook, Verify, JoinGate, Ticket, Settings (theme xám), Branding…     |
 | `components/landing/`        | Nav, Footer, sections trang chủ                                                                      |
 | `components/ui/`             | shadcn/ui nền tảng (button border-first, card mono)                                                  |
 | `components/Taskbar.tsx`     | Pill dọc trái + panel điều hướng nhanh (Escape/click-outside)                                        |
@@ -62,6 +62,7 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 | `moduleActions.js`, `tick.js`, `timeoutWatch.js`, `misfire.js` | Điều phối module + chu kỳ + theo dõi timeout + misfire AI (vòng 11) |
 | `caseLog.js`, `register-slash.js`, `loadenv.js`                | Log case + đăng ký slash + nạp env                                  |
 | `research.js`                                                  | Tra cứu/threat research hỗ trợ AI                                   |
+| `ticketCore.js`                                                | Hàm thuần ticket: tên kênh, hàng rào chống spam, escape mention     |
 | `ai.js`                                                        | Client AI trực tiếp từ VPS (Kira gateway + fallback Groq/NVIDIA)    |
 | `util.js`                                                      | Tiện ích dùng chung: quyền, định dạng, helper                       |
 | `logDedupe.js`                                                 | Chống gửi trùng log (cùng embed + cùng kênh trong 3s)               |
@@ -81,8 +82,12 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 | `modules.ts`, `presets.ts`                                        | Bật/tắt module + bộ preset an toàn                                                       |
 | `botFunc.ts`, `bot_tick.ts`, `bot_writes.ts`                      | Function bot gọi: tick chu kỳ, ghi dữ liệu                                               |
 | `botBootstrap.ts`, `botBootstrapAction.ts`                        | Bootstrap bot lần đầu (lấy botKey)                                                       |
-| `webhooks.ts`                                                     |
-| `incidents.ts`                                                    | Gom antinukeEvents + modActions thành sự cố 15 phút; dấu "đã xử lý" (bảng incidentMarks) | , `relay.ts` | Webhook + relay log sự kiện |
+| `webhooks.ts`                                                     | Cấu hình webhook ngoài                                                                   |
+| `incidents.ts`                                                    | Gom antinukeEvents + modActions thành sự cố 15 phút; dấu "đã xử lý" (bảng incidentMarks) |
+| `guildConfig.ts`                                                  | Allowlist + hàm thuần xuất/nhập cấu hình server (mang cấu hình sang host khác)           |
+| `guildStats.ts`                                                   | Số liệu "Tình hình server" hôm nay: đe doạ đã chặn, người mới vào, nghi phạm phạt nhầm   |
+| `tickets.ts`                                                      | Ticket/khiếu nại: web đọc danh sách + đóng từ dashboard; `botTicketState` cho bot        |
+| `relay.ts`                                                        | Webhook + relay log sự kiện                                                              |
 | `backup_github.ts`                                                | Backup lên GitHub (kèm `backup.ts`)                                                      |
 | `rateGuard.ts`                                                    | Giới hạn tần suất gọi API từ bot                                                         |
 | `public.ts`, `hidden.ts`                                          | API công khai landing + endpoint ẩn                                                      |
