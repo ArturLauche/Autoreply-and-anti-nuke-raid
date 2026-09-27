@@ -138,8 +138,16 @@ export default function GuildHistory() {
               <p className="text-sm text-muted-foreground">{guild.guild.name}</p>
             </div>
             <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-              <CalendarDays className="h-4 w-4" />
-              {results.length} {translate("sự kiện đã hiển thị")}
+              <Link
+                to={`/dashboard/${guild.guild.discordId}/incidents`}
+                className="rounded-full border border-border px-2.5 py-1 hover:bg-accent"
+              >
+                {translate("Xem theo sự cố")}
+              </Link>
+              <span className="flex items-center gap-1.5">
+                <CalendarDays className="h-4 w-4" />
+                {results.length} {translate("sự kiện đã hiển thị")}
+              </span>
             </div>
             <LangSwitch />
           </div>

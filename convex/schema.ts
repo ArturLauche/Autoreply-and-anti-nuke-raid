@@ -580,6 +580,23 @@ export default defineSchema({
      * `undefined` = bot chưa báo (bản cũ) — dashboard KHÔNG được coi là hỏng.
      */
     cardReady: v.optional(v.boolean()),
+    /**
+     * Canh sức khoẻ MÁY CHỦ bot (đĩa/bộ nhớ) — bot tự đo mỗi 5 phút.
+     * Vì sao có: sự cố 25/09/2026 đĩa đầu làm hệ thống file rơi
+     * `emergency_ro`, bot chết cả buổi mà KHÔNG có tín hiệu nào trước đó.
+     * `undefined` = bot bản cũ chưa báo — KHÔNG được coi là hỏng.
+     */
+    hostHealth: v.optional(
+      v.object({
+        level: v.union(v.literal("ok"), v.literal("warn"), v.literal("critical")),
+        /** % đĩa đã dùng; undefined = không đo được (đừng coi là 0). */
+        diskUsedPct: v.optional(v.number()),
+        diskFreeGb: v.optional(v.number()),
+        rssMb: v.number(),
+        uptimeHours: v.number(),
+        reportedAt: v.number(),
+      }),
+    ),
     cardUnavailableReason: v.optional(v.string()),
     /** Threat Intel: bật hệ thống tự nghiên cứu raid/nuke từ nguồn mở (owner bật/tắt). */
     threatResearchEnabled: v.optional(v.boolean()),
@@ -673,6 +690,22 @@ export default defineSchema({
       }),
     ),
   }).index("by_kind", ["kind"]),
+
+  /**
+   * Dấu "đã xử lý" cho 1 sự cố (gom từ antinukeEvents + modActions).
+   * KHÔNG lưu bản ghi sự kiện ở đây — nguồn sự thật vẫn là 2 bảng đó; bảng này
+   * chỉ giữ khoá tất định của cụm + ai đã xử lý, nên bấm hai lần vẫn một dòng.
+   */
+  incidentMarks: defineTable({
+    guildId: v.string(),
+    /** `${kind}:${module}:${firstAt}` — xem convex/incidents.ts (groupIntoIncidents). */
+    incidentKey: v.string(),
+    resolvedAt: v.number(),
+    executorId: v.optional(v.string()),
+    executorName: v.optional(v.string()),
+  })
+    .index("by_guildId", ["guildId"])
+    .index("by_guildId_key", ["guildId", "incidentKey"]),
 
   /** Audit log — ghi lại mọi thay đổi settings trên web. */
   auditLog: defineTable({

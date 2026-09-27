@@ -118,6 +118,26 @@ export const reportCardCapability = mutation({
  * CHỈ owner bot đọc được: cửa sổ Admin là khu vực riêng tư, người dùng thường
  * không được thấy provider/model/đếm verdict (tránh lộ hạ tầng AI cho kẻ xấu).
  */
+/**
+ * Sức khoẻ máy chủ — CHỈ chủ bot xem được (cửa sổ Admin), vì đây là số liệu
+ * hạ tầng: % đĩa, GB trống, RAM. Trang Monitor công khai chỉ nhận MỨC.
+ */
+export const getHostHealth = query({
+  args: { token: v.string() },
+  handler: async (ctx, { token }) => {
+    const user = await getUserByToken(ctx, token);
+    if (!user) return null;
+    const status = await ctx.db
+      .query("botStatus")
+      .withIndex("by_kind", (q) => q.eq("kind", "status"))
+      .first();
+    if (!isBotOwnerUser(user, status)) return null;
+    const health = status?.hostHealth;
+    if (!health) return null;
+    return { stale: Date.now() - health.reportedAt >= 1_800_000, ...health };
+  },
+});
+
 export const getAiHealth = query({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
@@ -133,6 +153,63 @@ export const getAiHealth = query({
     // Bot ngừng sync quá 3 phút → số liệu cũ coi như mất kết nối (không hiển thị).
     if (Date.now() - status.lastHeartbeat > 180_000) return { stale: true, ...ai };
     return { stale: false, ...ai };
+  },
+});
+
+/**
+ * Bot báo sức khoẻ MÁY CHỦ (đĩa/bộ nhớ) — `bot/src/handlers/healthWatch.js`
+ * đo mỗi 5 phút rồi gọi mutation này.
+ *
+ * Vì sao đường riêng chứ không nhờ botSyncGuilds: đây là dữ liệu TOÀN CỤC
+ * của một tiến trình, không theo nhịp guild; và nó phải ghi được cả khi bot
+ * đang không còn sync guild (đúng lúc máy chủ yếu nhất).
+ */
+export const reportHealth = mutation({
+  args: {
+    level: v.union(v.literal("ok"), v.literal("warn"), v.literal("critical")),
+    diskUsedPct: v.optional(v.number()),
+    diskFreeGb: v.optional(v.number()),
+    rssMb: v.number(),
+    uptimeHours: v.number(),
+    reportedAt: v.number(),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    { botKey, level, diskUsedPct, diskFreeGb, rssMb, uptimeHours, reportedAt },
+  ) => {
+    await requireBotKeyStrict(ctx, botKey);
+    const health = {
+      level,
+      // undefined = không đo được → bỏ trường, KHÔNG ép về 0 (0% là "còn rất
+      // nhiều dung lượng", con số sai nguy hiểm hơn thiếu số).
+      ...(typeof diskUsedPct === "number" ? { diskUsedPct } : {}),
+      ...(typeof diskFreeGb === "number" ? { diskFreeGb } : {}),
+      rssMb,
+      uptimeHours,
+      reportedAt: reportedAt || Date.now(),
+    };
+    const status = await ctx.db
+      .query("botStatus")
+      .withIndex("by_kind", (q) => q.eq("kind", "status"))
+      .first();
+    if (status) {
+      await ctx.db.patch(status._id, { hostHealth: health });
+    } else {
+      const now = Date.now();
+      await ctx.db.insert("botStatus", {
+        kind: "status" as const,
+        online: false,
+        guildCount: 0,
+        memberCount: 0,
+        lastHeartbeat: now,
+        startedAt: now,
+        version: "",
+        hostHealth: health,
+      });
+    }
+    return { ok: true, level };
   },
 });
 
@@ -153,6 +230,7 @@ export const botStatus = query({
         lastHeartbeat: null,
         ownerName: null,
         ownerAvatarUrl: null,
+        hostHealth: null,
       };
     }
     return {
@@ -164,6 +242,14 @@ export const botStatus = query({
       ownerAvatarUrl: status.ownerAvatarUrl ?? null,
       // Bot bản mới báo khả năng vẽ thẻ chào; null = bot chưa báo (đừng kết luận là hỏng).
       cardReady: status.cardReady ?? null,
+      // Sức khoẻ máy chủ: chỉ MỨC, không lộ số liệu hạ tầng công khai.
+      // null = bot chưa báo (bản cũ) — đừng kết luận là hỏng.
+      // Quá 30 phút không báo lại (bot treo/restart) → null, KHÔNG khoe
+      // "critical" cũ: cảnh báo cũ còn treo là cảnh báo sai.
+      hostHealth:
+        status.hostHealth && Date.now() - status.hostHealth.reportedAt < 1_800_000
+          ? status.hostHealth.level
+          : null,
     };
   },
 });

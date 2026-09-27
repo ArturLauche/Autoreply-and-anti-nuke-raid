@@ -199,6 +199,7 @@ function AdminContent() {
                 diag={diag}
                 onToggle={(enabled) => setDiag({ token, enabled }).catch(() => {})}
               />
+              <HostHealthCard />
               <AiHealthCard />
               <ThreatIntelCard
                 threat={threat}
@@ -324,6 +325,92 @@ export default function Admin() {
  * Query status:getAiHealth tự guard owner — trả null cho người dùng thường,
  * nên card chỉ hiện khi đúng chủ bot mở cửa sổ Admin.
  */
+/**
+ * Sức khoẻ MÁY CHỦ — % đĩa, dung lượng trống, RAM, uptime (chỉ chủ bot xem
+ * được: status:getHostHealth tự guard owner). Đây là số liệu bắt được sự cố
+ * 25/09 (đĩa đầu → emergency_ro) TRƯỚC khi nó xảy ra.
+ */
+function HostHealthCard() {
+  const token = getSessionToken();
+  const health = useQuery(api.status.getHostHealth, token ? { token } : "skip");
+
+  if (health === undefined || health === null) return null;
+
+  const level = health.stale ? "unknown" : health.level;
+  const cls =
+    level === "critical"
+      ? "bg-danger/15 text-danger"
+      : level === "warn"
+        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+        : level === "ok"
+          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+          : "bg-muted text-muted-foreground";
+  const diskCls =
+    level === "critical"
+      ? "text-danger"
+      : level === "warn"
+        ? "text-amber-600 dark:text-amber-400"
+        : undefined;
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
+            <Server className="h-4 w-4" />
+          </span>
+          <div>
+            <h3 className="font-display text-sm font-bold">{translate("Sức khoẻ máy chủ")}</h3>
+            <p className="text-[11px] text-muted-foreground">
+              {translate("Bot đo mỗi 5 phút · chỉ chủ bot nhìn thấy")}{" "}
+            </p>
+          </div>
+        </div>
+        <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-bold", cls)}>
+          {level === "unknown"
+            ? translate("chưa có dữ liệu")
+            : level === "critical"
+              ? translate("Nghiêm trọng")
+              : level === "warn"
+                ? translate("Cần chú ý")
+                : translate("Bình thường")}
+        </span>
+      </div>
+
+      {health.stale ? (
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          {translate(
+            "Bot đang offline hoặc mất kết nối Convex — số liệu máy chủ tạm dừng cập nhật.",
+          )}{" "}
+        </p>
+      ) : (
+        <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+          <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
+            <span className="text-muted-foreground">{translate("Đĩa đã dùng:")}</span>{" "}
+            <b className={cn("tabular-nums", diskCls)}>
+              {typeof health.diskUsedPct === "number" ? `${health.diskUsedPct}%` : "—"}
+            </b>
+          </div>
+          <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
+            <span className="text-muted-foreground">{translate("Còn trống:")}</span>{" "}
+            <b className="tabular-nums">
+              {typeof health.diskFreeGb === "number" ? `${health.diskFreeGb} GB` : "—"}
+            </b>
+          </div>
+          <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
+            <span className="text-muted-foreground">{translate("RAM bot:")}</span>{" "}
+            <b className="tabular-nums">{health.rssMb} MB</b>
+          </div>
+          <div className="rounded-lg bg-secondary/40 px-2.5 py-1.5">
+            <span className="text-muted-foreground">{translate("Đã chạy:")}</span>{" "}
+            <b className="tabular-nums">{health.uptimeHours} h</b>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AiHealthCard() {
   const token = getSessionToken();
   const ai = useQuery(api.status.getAiHealth, token ? { token } : "skip");

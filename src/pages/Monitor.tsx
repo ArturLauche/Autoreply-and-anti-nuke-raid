@@ -124,6 +124,49 @@ function backendDetail(backendPing: BackendPing, latency: number | null): string
   return undefined;
 }
 
+/**
+ * Cảnh báo sức khoẻ MÁY CHỦ (đĩa/bộ nhớ). Chỉ hiện khi mức warn/critical —
+ * null hoặc "ok" thì không hiện gì (trang trạng thái phải yên tĩnh khi ổn).
+ *
+ * Vì sao để trang công khai: sự cố 25/09 (đĩa đầu → emergency_ro → bot chết
+ * cả buổi) là người dùng phải tự phát hiện. Ở đây chỉ nói MỨC, không lộ số
+ * liệu hạ tầng; số liệu chi tiết thuộc cửa sổ Admin.
+ */
+function HostHealthBanner({ level }: { level: "warn" | "critical" }) {
+  const critical = level === "critical";
+  return (
+    <div
+      role="status"
+      className={cn(
+        "flex items-start gap-2.5 rounded-xl border p-3.5",
+        critical ? "border-danger/40 bg-danger/10" : "border-amber-500/40 bg-amber-500/10",
+      )}
+    >
+      <AlertTriangle
+        className={cn(
+          "mt-0.5 h-4 w-4 shrink-0",
+          critical ? "text-danger" : "text-amber-600 dark:text-amber-400",
+        )}
+      />
+      <div>
+        <p
+          className={cn(
+            "text-sm font-semibold",
+            critical ? "text-danger" : "text-amber-600 dark:text-amber-400",
+          )}
+        >
+          {critical
+            ? translate("Máy chủ bot đang chịu tải nặng — có thể gián đoạn.")
+            : translate("Máy chủ bot sắp đầy dung lượng.")}
+        </p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {translate("Đội ngũ đang xử lý. Có thể phản hồi chậm hoặc mất kết nối trong lúc này.")}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /** Chi tiết thẻ bot: mốc đồng bộ/heartbeat gần nhất theo giờ Việt Nam. */
 function botDetail(
   status: { online: boolean; lastHeartbeat: number | null } | null,
@@ -183,6 +226,9 @@ export default function Monitor() {
         </header>
 
         <main className="container space-y-4 py-6">
+          {status?.hostHealth && status.hostHealth !== "ok" ? (
+            <HostHealthBanner level={status.hostHealth} />
+          ) : null}
           {/* Trạng thái hệ thống: 3 thẻ trả lời câu hỏi đầu tiên của ai mở trang
               này — "hệ có sống không?". Web sống theo định nghĩa (đang hiển thị);
               backend đo bằng ping HTTP định kỳ của hook (không phải subscription —

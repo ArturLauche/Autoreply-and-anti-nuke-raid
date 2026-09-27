@@ -7,6 +7,40 @@
  * (src/lib/i18n.tsx import "./i18n.en").
  */
 export const EN: Record<string, string> = {
+  /* ==== host-health + incidents (27/09/2026) ==== Cảnh báo sức khoẻ máy chủ
+     + trang Sự cố gom cụm. Chèn ở ĐẦU file theo thói quen của từ điển này. */
+  "Sức khoẻ máy chủ": "Server health",
+  "Bot đo mỗi 5 phút · chỉ chủ bot nhìn thấy": "Measured every 5 minutes · owner only",
+  "chưa có dữ liệu": "no data yet",
+  "Nghiêm trọng": "Critical",
+  "Cần chú ý": "Warning",
+  "Bình thường": "Healthy",
+  "Đĩa đã dùng:": "Disk used:",
+  "Còn trống:": "Free:",
+  "RAM bot:": "Bot RAM:",
+  "Đã chạy:": "Uptime:",
+  "Bot đang offline hoặc mất kết nối Convex — số liệu máy chủ tạm dừng cập nhật.":
+    "The bot is offline or lost its Convex connection — server readings are paused.",
+  "Máy chủ bot đang chịu tải nặng — có thể gián đoạn.":
+    "The bot's server is under heavy load — interruptions are possible.",
+  "Máy chủ bot sắp đầy dung lượng.": "The bot's server is running out of disk space.",
+  "Đội ngũ đang xử lý. Có thể phản hồi chậm hoặc mất kết nối trong lúc này.":
+    "Our team is on it. Responses may be slow or connections may drop meanwhile.",
+  /* "Sự cố" đã có sẵn ở cuối từ điển — đừng khai lại (tsc chặn trùng key). */
+  "Xem theo sự cố": "View by incident",
+  "Xem lịch sử thô": "View raw log",
+  "chưa xử lý": "unresolved",
+  "Hành động kiểm duyệt": "Moderation action",
+  chặn: "blocked",
+  "đối tượng bị tác động": "affected targets",
+  "Đã xử lý": "Resolved",
+  "Mở lại": "Reopen",
+  "Các sự kiện cùng loại của cùng một người trong 15 phút được gom thành một sự cố.":
+    "Matching events by the same person within 15 minutes are grouped into one incident.",
+  "Chưa có sự cố nào trong 14 ngày gần nhất — server đang yên ổn.":
+    "No incidents in the last 14 days — the server is calm.",
+  "sự kiện": "events",
+
   /* ==== status-page ==== Thẻ trạng thái hệ thống (trang /monitor + /status).
      Chèn ở ĐẦU file theo bài học journal: str_replace không chạm được vùng
      cuối file từ điển lớn; alphabet chỉ là thói quen đọc, cổng i18n không đòi. */

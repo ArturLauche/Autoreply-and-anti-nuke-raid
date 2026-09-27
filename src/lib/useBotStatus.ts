@@ -10,6 +10,11 @@ export interface BotStatus {
   lastHeartbeat: number | null;
   ownerName: string | null;
   ownerAvatarUrl: string | null;
+  /**
+   * Mức sức khoẻ MÁY CHỦ bot (null = chưa có dữ liệu / quá 30 phút không báo).
+   * Chủ bot xem số liệu chi tiết ở cửa sổ Admin (status:getHostHealth).
+   */
+  hostHealth: "ok" | "warn" | "critical" | null;
 }
 
 /** Trạng thái bot tổng thể + thông tin chủ bot (bot tự đồng bộ 24/7 từ Discord). */
@@ -30,5 +35,6 @@ export function useBotStatus(): BotStatus | null {
     lastHeartbeat: data.lastHeartbeat ?? null,
     ownerName: data.ownerName ?? null,
     ownerAvatarUrl: data.ownerAvatarUrl ?? null,
+    hostHealth: data.hostHealth ?? null,
   };
 }

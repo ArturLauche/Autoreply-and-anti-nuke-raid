@@ -134,6 +134,27 @@ client.once("clientReady", async () => {
     console.error("⚠️ localSnapshot không khởi động được:", e?.message || e);
   }
 
+  // Canh sức khoẻ máy chủ (đĩa/bộ nhớ) — sự cố 25/09 đĩa đầu làm bot chết
+  // cả buổi mà không ai được báo trước. Bot đo 5 phút/lần, ghi lên dashboard;
+  // mức nặng hơn lần trước thì DM chủ bot (chống lặp trong healthWatch).
+  try {
+    const healthWatch = require("./handlers/healthWatch");
+    healthWatch.startHealthWatch({
+      store,
+      sendAlert: async (text) => {
+        const app = await client.application.fetch();
+        const ownerId = app?.owner?.id ?? app?.owner?.ownerId;
+        if (!ownerId) return;
+        const owner = await client.users.fetch(ownerId).catch(() => null);
+        if (!owner) return;
+        await owner.send(text.slice(0, 1900));
+      },
+    });
+    console.log("[health] đã bật canh sức khoẻ máy chủ (5 phút/lần)");
+  } catch (e) {
+    console.error("⚠️ healthWatch không khởi động được:", e?.message || e);
+  }
+
   // D1 — preload config mọi guild lúc online: làm ấm cache trước khi có sự kiện
   // → antinuke/lockdown phản hồi tức thì; TTL 30 phút cắt ~2/3 reads getConfig.
   try {

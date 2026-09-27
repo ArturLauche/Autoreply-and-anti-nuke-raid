@@ -4,6 +4,39 @@
  * vẫn thiếu nữa mới rơi về VI. Giữ nguyên placeholder {p0}, {p1}…
  */
 export const DE: Record<string, string> = {
+  /* ==== host-health + incidents (27/09/2026) ==== */
+  "Sức khoẻ máy chủ": "Serverzustand",
+  "Bot đo mỗi 5 phút · chỉ chủ bot nhìn thấy": "Alle 5 Minuten gemessen · nur für den Bot-Besitzer",
+  "chưa có dữ liệu": "noch keine Daten",
+  "Nghiêm trọng": "Kritisch",
+  "Cần chú ý": "Warnung",
+  "Bình thường": "Normal",
+  "Đĩa đã dùng:": "Belegter Speicher:",
+  "Còn trống:": "Frei:",
+  "RAM bot:": "Bot-RAM:",
+  "Đã chạy:": "Laufzeit:",
+  "Bot đang offline hoặc mất kết nối Convex — số liệu máy chủ tạm dừng cập nhật.":
+    "Der Bot ist offline oder hat die Convex-Verbindung verloren — die Serverwerte sind pausiert.",
+  "Máy chủ bot đang chịu tải nặng — có thể gián đoạn.":
+    "Der Bot-Server ist stark ausgelastet — Unterbrechungen sind möglich.",
+  "Máy chủ bot sắp đầy dung lượng.": "Dem Bot-Server geht der Speicher aus.",
+  "Đội ngũ đang xử lý. Có thể phản hồi chậm hoặc mất kết nối trong lúc này.":
+    "Unser Team kümmert sich darum. Antworten können währenddessen langsam sein oder ausfallen.",
+  /* "Sự cố" đã có sẵn ở cuối từ điển — đừng khai lại (tsc chặn trùng key). */
+  "Xem theo sự cố": "Nach Vorfall ansehen",
+  "Xem lịch sử thô": "Rohes Protokoll ansehen",
+  "chưa xử lý": "offen",
+  "Hành động kiểm duyệt": "Moderationsaktion",
+  chặn: "blockiert",
+  "đối tượng bị tác động": "betroffene Ziele",
+  "Đã xử lý": "Erledigt",
+  "Mở lại": "Wieder öffnen",
+  "Các sự kiện cùng loại của cùng một người trong 15 phút được gom thành một sự cố.":
+    "Gleichartige Ereignisse derselben Person innerhalb von 15 Minuten werden zu einem Vorfall zusammengefasst.",
+  "Chưa có sự cố nào trong 14 ngày gần nhất — server đang yên ổn.":
+    "Keine Vorfälle in den letzten 14 Tagen — der Server ist ruhig.",
+  "sự kiện": "Ereignisse",
+
   /* ==== status-page ==== Song song với EN (xem chú thích ở i18n.en.ts). */
   "Trạng thái hệ thống": "Systemstatus",
   "Trạng thái hệ thống — Protogon": "Systemstatus — Protogon",

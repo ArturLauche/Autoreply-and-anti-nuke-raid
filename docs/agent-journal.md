@@ -6,6 +6,14 @@
 
 ## Đang dở
 
+- 🔴 **Bot production OFFLINE từ 26/09 13:23 UTC (11h lúc phát hiện 27/09)** —
+  `status:botStatus` trả `online: false`, `guildCount: 9`, heartbeat cũ. Nghi do
+  VPS mất kết nốn/mất mạng (host Meowlix đã từng rơi `emergency_ro` 2 lần 25/09).
+  User báo "VPS đang lỗi mất kết nối, sẽ sớm fix". **Khi VPS sống lại, chạy ngay:**
+  `pm2 status` · `pm2 logs protogon-bot --lines 30 --nostream` · `df -h /` ·
+  `free -h` — rồi xác nhận heartbeat mới qua lại gọi `status:botStatus` (online
+  phải về `true`, `lastHeartbeat` < 3 phút). `reboot` thuộc vùng 🔴: user tự gõ.
+
 - ✅ **GIẢI TRỪ reinstall (25/09 20:15)**: staff Bhadoria420 xác nhận VM 205
   KHÔNG nằm trên India node sắp reinstall ("The vps are not on india node"),
   chưa mua node mới ("Not now"), reinstall node khác sẽ giải phóng đĩa host
@@ -78,6 +86,117 @@
      Thay vì mò cách vá đuôi file, gom việc đó về **một điểm chặn duy nhất ở file nhỏ**
      (`bot/src/convex.js`: proxy tự xoá cache sau mọi lượt ghi cấu hình của bot) → vừa vá được
      cả 7 chỗ cùng lúc, vừa không bao giờ phải chạm đuôi file lớn nữa.
+
+---
+
+## 2026-09-27 — A: canh sức khoẻ máy chủ · B: trang Sự cố (gom cụm)
+
+**Bối cảnh:** VPS Ấn Độ mới (NexoraCloud, India 1, 14 vCPU / 128 GB / 100 GB,
+Ubuntu 24.04) đang chờ gán public IP; trong lúc chờ, user chọn làm 2 nâng cấp
+thay vì đứng yên. Cả hai đều chạy được trên node hiện tại.
+
+### A — Cảnh báo sức khoẻ máy chủ (chống tái diễn sự cố 25/09)
+
+- **Gốc rễ sự cố 25/09**: host storage đầu → đĩa rơi `ext4 emergency_ro` → bot
+  chết cả buổi, và **không có tín hiệu nào trước đó** — mọi cảnh báo cũ (RAM)
+  chỉ in ra console rồi tan vào `pm2 logs`, lúc 3h sáng không ai đọc.
+- `bot/src/handlers/healthWatch.js` (mới): đo đĩa bằng `fs.statfsSync` (có sẵn
+  từ Node 18.15, **không thêm dependency**) + RSS + uptime; ngưỡng 85%/92% và
+  700/1000 MB. Không đo được → KHÔNG báo (thiếu số liệu ≠ máy chết).
+- DM chủ bot **chỉ khi mức NẶNG HƠN lần trước**, tối đa 1 lần/6h cho cùng mức
+  — đĩa đầy kéo cả ngày không được spam 288 tin.
+- `checkOnce()` tách khỏi `setInterval` để test gọi thẳng nhiều lượt liên tiếp;
+  `startHealthWatch()` chỉ lo việc lặp thời gian.
+- Convex: `status:reportHealth` (yêu cầu botKey) ghi `botStatus.hostHealth`;
+  `status:getHostHealth` chỉ owner xem được số liệu thật. Query công khai
+  `botStatus` chỉ trả **MỨC** (ok/warn/critical) — không lộ % đĩa/GB trống ra
+  trang chủ. Quá 30 phút không báo lại → `null` (cảnh báo cũ treo là cảnh báo sai).
+- Web: `Monitor.tsx` hiện banner đỏ/amber khi mức ≠ ok; `Admin.tsx` thêm card
+  chi tiết (đĩa %, GB trống, RAM, uptime) — chỉ chủ bot.
+
+### B — Sự cố gom cụm (thay lịch sử thô)
+
+- `convex/incidents.ts` (mới): `groupIntoIncidents()` là **hàm thuần** (không
+  Convex/DB/mạng) gom `antinukeEvents` + `modActions` thành cụm 15 phút.
+- Cửa sổ tính từ sự kiện **trước**, không chia đều theo giờ → một đợt raid kéo
+  40 phút vẫn là MỘT sự cố (chia đều theo giờ sẽ tách nó thành 3 sự cố vô nghĩa).
+- Sự kiện không có `executorId` **không gom** — gom mọi thứ vô danh tạo ra "sự
+  cố" mà không ai chịu trách nhiệm. 3 người khác nhau trong cùng 1 phút vẫn là 3
+  sự cố (gom rộng = quy trách oan cho người không liên quan).
+- Khoá tất định `kind:module:firstAt` → bấm "Đã xử lý" hai lần vẫn một dòng;
+  2 sự cố khác nhau KHÔNG được trùng khoá (test khoá lại chính xác điều này).
+- Bảng mới `incidentMarks` chỉ lưu dấu "đã xử lý" — nguồn sự thật vẫn là 2 bảng
+  sự kiện, không nhân bản dữ liệu.
+- Web: trang `/dashboard/:guildId/incidents` + link 2 chiều từ `GuildHistory`.
+
+### Sai lầm đã mắc phải trong phiên này
+
+1. **Test viết sai, không phải code sai**: ban đầu test khoảng cách sự kiện từ
+   `firstAt` của cụm, trong khi thiết kế cố ý đo từ sự kiện trước. Đọc lại
+   thiết kế thấy code đúng → sửa test, không sửa code. Ghi lại vì dễ ngược lại.
+2. **`read_files` tool hỏng với object `{path, offset, limit}`** — chỉ nhận
+   chuỗi. Chuyển sang `sed -n` qua terminal cho phần đọc file.
+3. Key `"Sự cố"` đã tồn tại ở cuối `i18n.en.ts` → khai trùng làm `tsc` đỏ
+   (TS1117). Cổng i18n KHÔNG bắt được (thiếu EN = đỏ, trùng key = im lặng).
+
+### Kiểm chứng
+
+`bun run test` **62/62** (49.3s) · `bun run test:ts` **12/12** · `tsc -b` sạch ·
+`lint` sạch · `format:check` sạch · `check-repo-map` OK (13 trang, 33 convex,
+27 module bot) · `check-i18n` 0 FAIL · `check-convex-contract` OK (82 call) ·
+`check-settings-signal` OK. Convex codegen chạy trước typecheck (bảng mới
+`incidentMarks` + field `hostHealth`).
+
+⚠️ **Số suite đã đổi: 61 → 62 CJS, 11 → 12 TS.** Đã sửa **CẢ HAI** chỗ theo
+đúng luật AGENTS.md: `CONTRACT_SUITES` trong `.opencode/plugins/guardrails.js` và
+dòng kiểm chứng trong `AGENTS.md`.
+
+### Việc chưa làm
+
+- `docs/t3-devbox.md` mục 8 (B1 chụp compose) + B0.5 vẫn treo, chờ user chạy
+  trên VPS. **KHÔNG** dán nội dung compose vào chat để agent gõ lại (bài học
+  26/09: làm hỏng 11/33 mục).
+- VPS Ấn Độ chưa có public IP → chưa SSH được, chưa quyết vai trò (devbox
+  dự phòng / bot failover). Số đo ping/disk chờ chạy.
+
+---
+
+## 2026-09-26 — Runbook tiếp tục setup T3 (phiên trước bị dừng giữa chừng)
+
+- Bối cảnh: phiên 25/09 dừng đột ngột ở giữa checklist mục 4b (`docs/t3-devbox.md`)
+  sau khi sự cố đĩa emergency_ro tái diễn lần 2. Không rõ đã làm tới bước nào →
+  viết lại thành **mục 8 `docs/t3-devbox.md`**: B0 sàng lọc trạng thái (bảng điền
+  loại trừ, chỉ làm phần còn thiếu), B1 chụp compose `t3-code` vào repo, B2
+  redeploy + symlink SSH, B3 agent CLI trong devbox, B4 xoay 2 key đã lộ.
+- 🔍 Xác minh từ ngoài VPS: dashboard 200 · `t3.protogon` 200 · `code.protogon` 302
+  → tunnel + 4 hostname còn nguyên, việc dở dang **chỉ là phía trong devbox**.
+- 🧠 Quyết định: "kiểm tra trạng thái trước, chỉ làm phần còn thiếu" — lệnh
+  idempotent chạy lại vô hại, lệnh phá dữ liệu tuyệt đối không chạy lại mù; mỗi
+  bước có dòng "Kỳ vọng" để dừng đúng chỗ.
+- ✅ **B0 chạy xong (user tự chạy trên VPS)**: `mount /` = `rw,relatime,stripe=16`
+  **không** `emergency_ro` · `df /` 24G/79G = 32% · `pm2 protogon-bot` online ↺4
+  uptime 9h · `dokploy.1` healthy · `devbox` Up 26h · `ssh vps` từ devbox ra host
+  **thông** (thấy pm2 online) · `t3 connect status` provisioned + relay. Còn 2
+  lệch: `hostname` in ra container ID (đã deploy từ compose bản cũ chưa có
+  `hostname: t3-devbox`) và `/workspace/repos/` mới chỉ tới `wiothemilo-lang`.
+- 🐛 **Bài học 26/09: KHÔNG gõ lại base64 qua khung chat.** B1 ban đầu bảo user
+  dán compose `t3-code` vào đây để agent gõ vào repo → tôi gõ lại và **11/33 mục
+  FAIL**: 8 khối base64 decode ra byte rác (U+FFFD), 3 khối script sai cú pháp
+  (`bash -n` fail). Nguy hiểm vì YAML vẫn hợp lệ, compose vẫn build được — chỉ
+  chết lúc script bootstrap chạy, giữa production. Sửa: xoá file hỏng, thêm cổng
+  `scripts/check-t3-compose.cjs` (decode + `bash -n`/`node --check` từng khối),
+  và B1 giờ bắt **copy thẳng trên VPS** qua đường byte, không qua trung gian.
+- 📌 Ưu tiên khi chỉ làm được 1 việc: **B1 chụp compose vào repo** (tài sản hiện
+  chỉ nằm ở tab Files của Dokploy, mất là dựng lại từ đầu) → B4 xoay key lộ →
+  B2/B3.
+- 📁 File đụng: `docs/t3-devbox.md` (mục 8), `docs/agent-journal.md`,
+  `scripts/check-t3-compose.cjs` (mới)
+- 🧪 Kiểm chứng: `check-t3-compose.cjs` OK (skip khi chưa có file) · lint OK ·
+  `format:check` OK · `bun run test` **61/61 suites** (chạy lại sau khi lint sửa
+  1 biến không dùng)
+- ▶️ Tiếp theo: user chạy B1 (cp compose gốc từ `/etc/dokploy/compose/protogon/`
+  vào repo + `node scripts/check-t3-compose.cjs`) và B0.5 (repo + agent trong
+  devbox), rồi B2 redeploy để lấy `hostname: t3-devbox`.
 
 ---
 

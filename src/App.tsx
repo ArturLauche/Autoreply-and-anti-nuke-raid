@@ -17,6 +17,7 @@ const DiscordCallback = lazy(() => import("./pages/DiscordCallback"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const GuildPage = lazy(() => import("./pages/GuildPage"));
 const GuildHistory = lazy(() => import("./pages/GuildHistory"));
+const GuildIncidents = lazy(() => import("./pages/GuildIncidents"));
 const Monitor = lazy(() => import("./pages/Monitor"));
 const FeaturesPage = lazy(() => import("./pages/FeaturesPage"));
 const Admin = lazy(() => import("./pages/Admin"));
@@ -120,6 +121,14 @@ export default function App() {
               element={
                 <RequireAuth>
                   <GuildHistory />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/dashboard/:guildId/incidents"
+              element={
+                <RequireAuth>
+                  <GuildIncidents />
                 </RequireAuth>
               }
             />
