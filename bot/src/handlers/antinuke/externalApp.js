@@ -11,7 +11,7 @@ const { sendCaseLog, CASE_LABEL } = require("../../caseLog");
 const { isLocked } = require("../../lockdown");
 const { cleanupMessages } = require("../../moduleActions");
 const { emergencyRaidAlert } = require("../incidentReport");
-const { alertOwner } = require("./ownerAlert");
+const { alertOwner, createPrivilegedAlert } = require("./ownerAlert");
 // Threat intel đã học (đợt 7): mẫu scam mạng bot tự ghi nhận — nạp cho AI xác
 // định app raid đối chiếu mẫu đã xác nhận thay vì chỉ đoán trên tín hiệu lẻ.
 const { getLearnedThreats } = require("../filters");
@@ -61,6 +61,7 @@ module.exports = function createAntiNukeLayer({ client, store, state, core, ai, 
     buttonRaidHandledAt,
   } = state.state;
   const { punishWithHeat, maybeLockdown } = core;
+  const alertPrivilegedExecutor = createPrivilegedAlert({ client, store, state });
   const { aiAnalyzeExternalApp, raidNote } = ai;
   const { huntRaidSource, recordRaidSample } = raidIntel;
 
@@ -84,7 +85,14 @@ module.exports = function createAntiNukeLayer({ client, store, state, core, ai, 
       if (executor.id === client.user.id) return;
       const em = await guild.members.fetch(executor.id).catch(() => null);
       if (em) {
-        if (isExempt(em, moduleCfg, config)) return;
+        if (isExempt(em, moduleCfg, config)) {
+          // Mod/owner nối loạt app: bot không phạt (tránh phạt oan) nhưng KHÔNG
+          // được im lặng — externalAppRaid là vector nuke không cần mời bot, và
+          // kẻ có quyền xoá được cả kênh log lẫn tự gỡ app. Cùng nguyên tắc với
+          // handleAuditEntry/handleAttributeEvent.
+          await alertPrivilegedExecutor(guild, config, executor, "externalAppRaid", moduleCfg);
+          return;
+        }
         // Acc mới < 7 ngày kết nối app = sockpuppet nghi vấn cao (đội quân cài app).
         if (em.user?.createdTimestamp && Date.now() - em.user.createdTimestamp < 7 * 86_400_000) {
           executorFresh = true;

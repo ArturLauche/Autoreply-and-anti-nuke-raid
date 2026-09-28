@@ -9,7 +9,7 @@ const { sendCaseLog } = require("../../caseLog");
 const { isLocked, markLocked, unlockGuild } = require("../../lockdown");
 const { actionsOf, cleanupMessages } = require("../../moduleActions");
 const { emergencyRaidAlert } = require("../incidentReport");
-const { alertOwner } = require("./ownerAlert");
+const { alertOwner, createPrivilegedAlert } = require("./ownerAlert");
 const {
   MODULE_LABELS,
   isKnownLoggingBot,
@@ -52,39 +52,10 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
       console.error(`[antinuke:hooks:${module}]`, e.message);
     }
   }
-  const { recordEvent, record, recordExempt, markHandled, wasHandled, auditExecutor } = state;
-
-  /**
-   * Owner/whitelist/admin vượt ngưỡng: bot cố ý KHÔNG phạt nhóm này (tránh
-   * phạt oan chủ server/mod hợp pháp) nhưng hành vi nuke vẫn phải báo owner —
-   * kẻ có quyền quản lý phá server là tình huống sống còn, và owner là người
-   * duy nhất gỡ được quyền/whitelist.
-   *
-   * Dùng `recordExempt` (bucket riêng theo executor) chứ không `record()`:
-   * bucket của record() gộp mọi executor theo `guildId:module`, nên hành vi
-   * của người được miễn sẽ vô tình đẩy ngưỡng phạt của người khác lên.
-   */
-  async function alertPrivilegedExecutor(guild, config, executor, module, moduleCfg) {
-    if (!executor || executor.id === client.user.id) return;
-    const count = recordExempt(guild.id, module, moduleCfg, executor.id);
-    const em = await guild.members.fetch(executor.id).catch(() => null);
-    const privileged =
-      executor.id === guild.ownerId ||
-      (config?.whitelistUsers || []).includes(executor.id) ||
-      (em &&
-        (em.permissions?.has?.(PermissionFlagsBits.Administrator) ||
-          (config?.adminRoles || []).some((id) => em.roles?.cache.has(id))));
-    if (privileged && count >= moduleCfg.threshold) {
-      void alertOwner(client, store, {
-        guild,
-        module,
-        summary: MODULE_LABELS[module] + " — " + count + " lượt (nhóm miễn trừ)",
-        executorId: executor.id,
-        executorName: executor.username,
-        privileged: true,
-      });
-    }
-  }
+  const { recordEvent, record, markHandled, wasHandled, auditExecutor } = state;
+  // Báo owner khi thủ phạm bị miễn (owner/whitelist/admin) — helper dùng chung
+  // với các lớp khác để không lệch nhau. Xem ownerAlert.createPrivilegedAlert.
+  const alertPrivilegedExecutor = createPrivilegedAlert({ client, store, state });
   const { joiners, lastConfigs, staleUnlockSwept } = state.state;
   const { punishWithHeat, maybeLockdown } = core;
   const { clusterStats } = ai;

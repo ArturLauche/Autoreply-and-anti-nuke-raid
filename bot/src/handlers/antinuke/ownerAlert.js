@@ -23,8 +23,9 @@
  *     "dậy ngay", nội dung chi tiết đã ở kênh log + /report.
  */
 
-const { Colors } = require("discord.js");
+const { Colors, PermissionFlagsBits } = require("discord.js");
 const { logEmbed, sendLog } = require("../../util");
+const { MODULE_LABELS } = require("./shared");
 
 /** Chờ giữa 2 DM khẩn cùng guild — một vụ raid kích nhiều module chỉ DM 1 lần. */
 const COOLDOWN_MS = 5 * 60_000;
@@ -119,4 +120,47 @@ async function alertOwner(client, store, opts = {}) {
   }
 }
 
-module.exports = { alertOwner, pruneCache, COOLDOWN_MS, _ownerAlertForTest };
+/**
+ * Cảnh báo owner cho hành vi nuke của người ĐƯỢC MIỄN (owner/whitelist/admin).
+ *
+ * Vì sao cần: bot cố ý không phạt nhóm này để tránh phạt oan chủ server/mod
+ * hợp pháp — nhưng im lặng thì chủ server mất toàn bộ tín hiệu, mà kẻ có quyền
+ * quản lý thì xoá được cả kênh log. Tách thành helper dùng chung để MỌI lớp
+ * gặp "thủ phạm bị miễn" đều báo giống nhau, không tùy từng handler tự nhớ.
+ *
+ * Dùng `recordExempt` (bucket riêng theo executor) chứ không `record()`: bucket
+ * của record() gộp mọi executor theo `guildId:module`, nên hành vi của người
+ * được miễn sẽ vô tình đẩy ngưỡng phạt của người khác lên.
+ */
+function createPrivilegedAlert({ client, store, state }) {
+  const { recordExempt } = state;
+  return async function alertPrivilegedExecutor(guild, config, executor, module, moduleCfg) {
+    if (!guild || !executor || executor.id === client.user.id) return;
+    const count = recordExempt(guild.id, module, moduleCfg, executor.id);
+    const em = await guild.members.fetch(executor.id).catch(() => null);
+    const privileged =
+      executor.id === guild.ownerId ||
+      (config?.whitelistUsers || []).includes(executor.id) ||
+      (em &&
+        (em.permissions?.has?.(PermissionFlagsBits.Administrator) ||
+          (config?.adminRoles || []).some((id) => em.roles?.cache.has(id))));
+    if (privileged && count >= moduleCfg.threshold) {
+      void alertOwner(client, store, {
+        guild,
+        module,
+        summary: MODULE_LABELS[module] + " — " + count + " lượt (nhóm miễn trừ)",
+        executorId: executor.id,
+        executorName: executor.username,
+        privileged: true,
+      });
+    }
+  };
+}
+
+module.exports = {
+  alertOwner,
+  createPrivilegedAlert,
+  pruneCache,
+  COOLDOWN_MS,
+  _ownerAlertForTest,
+};

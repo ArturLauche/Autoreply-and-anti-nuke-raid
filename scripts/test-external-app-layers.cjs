@@ -68,6 +68,7 @@ for (const k of [
     lockdown: [],
     webhookDeleted: [],
     msgDeleted: [],
+    ownerDms: [],
   };
   const mutatedEvents = () => calls.recordEvent;
 
@@ -131,8 +132,15 @@ for (const k of [
       guilds: { cache: new Map() },
       on: () => {},
       users: {
-        fetch: async () => {
-          throw new Error("unknown user");
+        // Owner: alertOwner DM được (kênh không xoá được từ trong server).
+        // Mọi user khác vẫn throw để nhánh VerifiedBot giữ nguyên hành vi cũ.
+        fetch: async (id) => {
+          if (id !== "owner-1") throw new Error("unknown user");
+          return {
+            send: async (opts) => {
+              calls.ownerDms.push(opts);
+            },
+          };
         },
       },
     };
@@ -183,6 +191,7 @@ for (const k of [
     calls.lockdown.length = 0;
     calls.webhookDeleted.length = 0;
     calls.msgDeleted.length = 0;
+    calls.ownerDms.length = 0;
   };
 
   // ---- Mock member/guild ----
@@ -221,13 +230,13 @@ for (const k of [
     };
   }
 
-  function makeGuild({ membersMap = {}, ownerId = "owner-1" } = {}) {
+  function makeGuild({ membersMap = {}, ownerId = "owner-1", id = "g1" } = {}) {
     const members = {
       fetch: async (id) => membersMap[id] ?? null,
       cache: new Map(Object.entries(membersMap)),
     };
     const guild = {
-      id: "g1",
+      id,
       name: "Test Guild",
       available: true,
       ownerId,
@@ -461,6 +470,61 @@ for (const k of [
     check(
       !evt || evt.punish === "none",
       "T3: minigame đông người bấm — AI offline → không phạt/khóa kênh oan",
+    );
+  }
+
+  // ==== TẦNG 1b: người có quyền nối loạt app → KHÔNG được im lặng ====
+  // Trước đây `isExempt(em) → return` im lặng tuyệt đối: mod có quyền nối 20 app
+  // trong cửa sổ thì không sự kiện, không log, không DM owner. Đây là vector nuke
+  // không cần mời bot, và kẻ có quyền xoá được cả kênh log lẫn tự gỡ app —
+  // owner chỉ có thể biết qua DM.
+  {
+    resetCalls();
+    const { _ownerAlertForTest } = require("../bot/src/handlers/antinuke/ownerAlert");
+    _ownerAlertForTest();
+    const mod = makeMember("mod-1", { admin: true });
+    // Guild RIÊNG: bucket đếm nhóm miễn trừ và cooldown DM đều khoá theo guildId.
+    const guild = makeGuild({ membersMap: { "mod-1": mod }, id: "g-dm-alert" });
+    // executor từ audit log là User thô (có .username), không phải GuildMember.
+    const exec = { id: "mod-1", bot: false, username: "mod-name" };
+    for (let i = 0; i < 3; i++) {
+      await handleExternalApp(
+        { executor: exec, target: { type: "discord", id: "app-" + i, name: "App " + i } },
+        guild,
+      );
+    }
+    await new Promise((r) => setImmediate(r));
+    check(
+      calls.kick.length + calls.ban.length + calls.timeout.length === 0,
+      "T1b: mod được miễn — bot không phạt (không phạt oan chủ/mod hợp pháp)",
+    );
+    check(
+      calls.ownerDms.length === 1,
+      `T1b: mod nối loạt app vượt ngưỡng → DM owner (ownerDms=${calls.ownerDms.length})`,
+    );
+    const dmText = calls.ownerDms[0]?.embeds?.[0]?.d?.description ?? "";
+    check(
+      dmText.includes("mod-1") && dmText.includes("không phạt"),
+      `T1b: DM ghi rõ thủ phạm + nói bot không phạt — ${JSON.stringify(dmText)}`,
+    );
+  }
+
+  // Dưới ngưỡng thì chưa DM — tránh spam owner khi mod dùng app bình thường.
+  {
+    resetCalls();
+    const { _ownerAlertForTest } = require("../bot/src/handlers/antinuke/ownerAlert");
+    _ownerAlertForTest();
+    const mod = makeMember("mod-1", { admin: true });
+    const guild = makeGuild({ membersMap: { "mod-1": mod }, id: "g-dm-below" });
+    const exec = { id: "mod-1", bot: false, username: "mod-name" };
+    await handleExternalApp(
+      { executor: exec, target: { type: "discord", id: "app-1", name: "App 1" } },
+      guild,
+    );
+    await new Promise((r) => setImmediate(r));
+    check(
+      calls.ownerDms.length === 0,
+      `T1b: dưới ngưỡng → không DM owner (ownerDms=${calls.ownerDms.length})`,
     );
   }
 
