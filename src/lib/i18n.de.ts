@@ -168,6 +168,15 @@ export const DE: Record<string, string> = {
   "Yếu tố rủi ro phổ biến": "Häufigste Risikofaktoren",
   "Đã bật Alt Detection": "Alt-Erkennung aktiviert",
   "Đã tắt Alt Detection": "Alt-Erkennung deaktiviert",
+  /* ==== Chuỗi render thẳng + default prop của MultiSelect — 28/09/2026 ==== */
+  "Phát hiện và chặn alt account, VPN/Proxy khi thành viên mới tham gia server.":
+    "Erkennt und blockiert Alt-Accounts sowie VPN/Proxy, wenn neue Mitglieder beitreten.",
+  "Ngưỡng rủi ro:": "Risikoschwelle:",
+  "Tài khoản mới": "Neue Konten",
+  "10 (nghiêm ngặt)": "10 (streng)",
+  "100 (lỏng lẻo)": "100 (locker)",
+  "Chọn…": "Auswählen…",
+  "Không có lựa chọn": "Keine Auswahl",
   ẨN: "VERSTECKT",
   "trên thiết bị này": "auf diesem Gerät",
   "Đang chuyển tới Discord…": "Weiterleitung zu Discord…",

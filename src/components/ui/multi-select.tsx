@@ -32,8 +32,11 @@ export function MultiSelect({
   options,
   value,
   onChange,
-  placeholder = "Chọn…",
-  emptyLabel = "Không có lựa chọn",
+  // Default PHẢI dịch: nơi gọi có thể quên truyền prop → nếu để chuỗi VI
+  // thặt, người dùng EN/DE thấy tiếng Việt. (Đánh dấu dịch lúc render, không
+  // dịch ở cấp module vì default param tính mỗi lần render.)
+  placeholder = translate("Chọn…"),
+  emptyLabel = translate("Không có lựa chọn"),
   searchPlaceholder,
   className,
 }: MultiSelectProps) {

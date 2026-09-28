@@ -704,6 +704,65 @@ check(
     (files.get("lib/seo.ts") ?? "").includes("og-image.png"),
 );
 
+// ─── Chuỗi tiếng Việt render thẳng ra UI ────────────────────────────────────
+// check-i18n.cjs chỉ canh key ĐÃ bọc translate() có bản EN/DE. Chuỗi viết thẳng
+// trong JSX (quên bọc) thì người chọn EN/DE vẫn thấy tiếng Việt — đã xảy ra ở
+// panel Alt Detection (28/09/2026): 5 dòng nguyên văn. Luật này bắt cả chuỗi
+// CÓ dấu lẫn KHÔNG dấu ("Nguong rui ro"), bỏ qua dòng đánh dấu `i18n-ok`.
+const VI_DIACRITIC = /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđĐ]/;
+// Từ tiếng Việt hay viết không dấu trong UI; cả danh sách đều KHÔNG trùng từ
+// tiếng Anh nên báo động sai gần như bằng 0.
+const VI_NO_DIACRITIC = ["nguong", "nghiem", "ngat", "chua", "khong", "duoc", "hien"];
+const DISPLAY_ATTR = /\b(alt|placeholder|title|aria-label)\s*=\s*"([^"]{2,})"/g;
+
+/** Dòng có nguyên văn tiếng Việt lọt ra UI (text node hoặc thuộc tính hiển thị). */
+function rawVietnameseLines(src) {
+  // Xoá span nhưng GIỆN SỐ DÒNG (đổi mọi ký tự trong span thành khoảng trắng).
+  const blank = (m) => m.replace(/[^\n]/g, " ");
+  const stripped = src
+    .replace(/(?:translate|\bt)\([\s\S]*?\)/g, blank)
+    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, blank)
+    .replace(/\/\*[\s\S]*?\*\//g, blank)
+    .replace(/^\s*\/\/.*$/gm, blank)
+    .replace(/\s\/\/.*$/gm, blank);
+  const srcLines = src.split("\n");
+  const hits = [];
+  stripped.split("\n").forEach((line, i) => {
+    const original = srcLines[i] ?? "";
+    if (/^\s*(\*|\/\/|\/\*)/.test(original) || /i18n-ok/.test(original)) return;
+    const check = (value) => {
+      const v = value.trim();
+      if (!v) return;
+      const words = v
+        .toLowerCase()
+        .split(/[^a-zà-ỹ]+/)
+        .filter(Boolean);
+      if (VI_DIACRITIC.test(v) || words.some((w) => VI_NO_DIACRITIC.includes(w))) {
+        hits.push(`dòng ${i + 1}: "${v.slice(0, 60)}"`);
+      }
+    };
+    for (const m of line.matchAll(DISPLAY_ATTR)) check(m[2]);
+    // text node trần: bỏ thẻ + biểu thức, còn lại mới là chữ người dùng thấy.
+    const residue = line
+      .replace(/<[^>]*>/g, " ")
+      .replace(/[{}]/g, " ")
+      .trim();
+    if (/^[A-Za-zÀ-ỹ0-9][A-Za-zÀ-ỹ0-9 ,.'!?:%()/–—-]*$/.test(residue)) check(residue);
+  });
+  return hits;
+}
+
+const untranslatedUi = [];
+for (const [rel, content] of files) {
+  if (!rel.endsWith(".tsx")) continue;
+  for (const hit of rawVietnameseLines(content)) untranslatedUi.push(`${rel} ${hit}`);
+}
+check(
+  "JSX không render thẳng chuỗi tiếng Việt (marker `i18n-ok` để miễn trừ)",
+  untranslatedUi.length === 0,
+  untranslatedUi.slice(0, 6).join(" | "),
+);
+
 // Ảnh thương hiệu đầu trang chủ: bản KHỔ RỘNG (cá voi + sóng + vệt nước), khác
 // hẳn logo vuông 256. Bị kéo méo hoặc dùng nhầm bản vuông là tranh hỏng — chặn
 // bằng chính tỉ lệ + kích thước khai báo trong markup (không dịch layout).

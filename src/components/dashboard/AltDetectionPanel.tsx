@@ -195,7 +195,9 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
             Alt Account + VPN Detection
           </h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Phat hien va chan alt account, VPN/Proxy khi thanh vien moi tham gia server.
+            {translate(
+              "Phát hiện và chặn alt account, VPN/Proxy khi thành viên mới tham gia server.",
+            )}
           </p>
         </div>
         <Switch checked={enabled} onCheckedChange={toggleEnabled} disabled={saving} />
@@ -231,7 +233,8 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3 text-muted-foreground" /> Tai khoan moi
+                <AlertTriangle className="h-3 w-3 text-muted-foreground" />{" "}
+                {translate("Tài khoản mới")}
               </p>
               <p className="text-2xl font-bold mt-1">{altStats.newAccountCount ?? 0}</p>
             </CardContent>
@@ -269,7 +272,8 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
           {/* Threshold */}
           <div>
             <label className="text-sm font-medium text-foreground mb-2 block">
-              Nguong rui ro: <span className="text-primary font-bold">{maxRisk}/100</span>
+              {translate("Ngưỡng rủi ro:")} {""}
+              <span className="text-primary font-bold">{maxRisk}/100</span>
             </label>
             <input
               type="range"
@@ -281,8 +285,8 @@ export default function AltDetectionPanel({ data }: { data: GuildData }) {
               disabled={saving}
             />
             <div className="flex justify-between text-xs text-muted-foreground mt-1">
-              <span>10 (nghiem ngat)</span>
-              <span>100 (long le)</span>
+              <span>{translate("10 (nghiêm ngặt)")}</span>
+              <span>{translate("100 (lỏng lẻo)")}</span>
             </div>
           </div>
 
