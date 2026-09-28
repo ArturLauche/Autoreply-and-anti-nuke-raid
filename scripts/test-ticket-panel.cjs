@@ -675,6 +675,29 @@ module.exports = {
     /key=\{`hex-\$\{g\.ticketOpenPanelColor \?\? "none"\}`\}/.test(panelSrc),
   );
 
+  // ═════════ TRANSCRIPT PHẢI CÓ NƠI XEM ═════════
+  // Bot lưu transcript vào storage rồi xoá kênh. Trước 28/09/2026 query
+  // `ticketTranscriptUrl` tồn tại mà KHÔNG nơi nào gọi → staff thấy badge
+  // "Transcript đã lưu" rồi không làm được gì, và bản ghi `locked` không có
+  // tab nào liệt kê nên transcript biến mất khỏi dashboard.
+  check(
+    "panel có nút mở transcript (dùng action tải nội dung)",
+    /onClick=\{\(\) => onViewTranscript\(t\)\}/.test(panelSrc) &&
+      /api\.tickets\.ticketTranscript/.test(panelSrc),
+  );
+  check(
+    "panel có tab `locked` (ticket đã lưu trữ)",
+    /value="locked"/.test(panelSrc) && /\["open", "closed", "locked"\]/.test(panelSrc),
+  );
+  check(
+    "panel tải link tải file JSON (dùng được ticketTranscriptUrl)",
+    /api\.tickets\.ticketTranscriptUrl/.test(panelSrc),
+  );
+  check(
+    "khung transcript chỉ gọi query khi ĐANG MỞ (id rác sẽ ném validator)",
+    /\{ticket && <TranscriptBody/.test(panelSrc) && !/skip: !ticket/.test(panelSrc),
+  );
+
   fs.unlinkSync(path.join(__dirname, "..", "bot", "test-djs-mock.cjs"));
   console.log(`\nKết quả ticket panel: ${pass} pass, ${fail} fail`);
   process.exit(fail > 0 ? 1 : 0);

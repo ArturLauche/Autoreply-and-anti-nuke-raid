@@ -1,8 +1,17 @@
-import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useEffect, useState } from "react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
-import { LifeBuoy, MessageSquareWarning, Send, ShieldQuestion, Users, X } from "lucide-react";
+import {
+  FileText,
+  LifeBuoy,
+  MessageSquareWarning,
+  Send,
+  ShieldQuestion,
+  Users,
+  X,
+} from "lucide-react";
 import { api } from "../../../convex/_generated/api";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Switch } from "../ui/switch";
 import { Input } from "../ui/input";
@@ -24,12 +33,32 @@ const KIND_LABEL: Record<string, string> = {
   support: "Hỗ trợ chung",
 };
 
+/**
+ * 3 tab: `open` (đang mở) · `closed` (đã đóng) · `locked` (đã lưu trữ).
+ *
+ * ⚠️ Thiếu tab `locked` thì transcript lưu xong là BIẾN MẤT khỏi dashboard:
+ * bot lưu file rồi xoá kênh, bản ghi chuyển `locked` mà không nơi nào liệt kê
+ * → staff mất đúng thứ họ cần đọc lại (28/09/2026).
+ */
+type Tab = "open" | "closed" | "locked";
+
+/** Nội dung 1 transcript sau khi action đã tải + parse. */
+type TranscriptData = {
+  channelName: string;
+  savedAt: number;
+  messageCount: number;
+  messages: { at: number; author: string; content: string; attachments: string[] }[];
+};
+
 export default function TicketPanel({ data }: { data: GuildData }) {
   const updateSettings = useMutation(api.guilds.updateSettings);
   const closeTicket = useMutation(api.tickets.closeTicket);
   const g = data.guild;
 
-  const [tab, setTab] = useState<"open" | "closed">("open");
+  const [tab, setTab] = useState<Tab>("open");
+  // Ticket đang mở khung transcript (null = đóng). Chỉ chọn MỘT cái: transcript
+  // có tới 200 tin, tải cả danh sách sẽ nhét vào RAM dashboard.
+  const [transcriptOf, setTranscriptOf] = useState<TicketRow | null>(null);
   const tickets = useQuery(api.tickets.listTickets, {
     token: TOKEN(),
     guildId: g.discordId,
@@ -710,18 +739,20 @@ export default function TicketPanel({ data }: { data: GuildData }) {
 
       <Card>
         <CardContent className="p-4 sm:p-5">
-          <Tabs value={tab} onValueChange={(v) => setTab(v as "open" | "closed")}>
+          <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
             <TabsList>
               <TabsTrigger value="open">{translate("Đang mở")}</TabsTrigger>
               <TabsTrigger value="closed">{translate("Đã đóng")}</TabsTrigger>
+              <TabsTrigger value="locked">{translate("Đã lưu trữ")}</TabsTrigger>
             </TabsList>
 
-            {(["open", "closed"] as const).map((t) => (
+            {(["open", "closed", "locked"] as const).map((t) => (
               <TabsContent key={t} value={t} className="mt-4">
                 <TicketList
                   rows={tickets}
                   statusFilter={t}
                   guildId={g.discordId}
+                  onViewTranscript={setTranscriptOf}
                   onClose={async (row) => {
                     try {
                       await closeTicket({
@@ -746,7 +777,112 @@ export default function TicketPanel({ data }: { data: GuildData }) {
           </Tabs>
         </CardContent>
       </Card>
+
+      <TranscriptDialog
+        ticket={transcriptOf}
+        guildId={g.discordId}
+        onClose={() => setTranscriptOf(null)}
+      />
     </div>
+  );
+}
+
+/**
+ * Khung xem transcript — nơi DUY NHẤT đọc lại được nội dung ticket sau khi bot
+ * đã lưu rồi xoá kênh.
+ *
+ * Query CHỈ chạy khi đang mở khung (con bên trong được mount có điều kiện):
+ * truyền `ticketId: ""` sẽ ném lỗi validator của Convex và làm hỏng cả
+ * panel, chứ không chỉ khung này.
+ */
+function TranscriptDialog({
+  ticket,
+  guildId,
+  onClose,
+}: {
+  ticket: TicketRow | null;
+  guildId: string;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open={!!ticket} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[85vh] max-w-2xl overflow-hidden">
+        <DialogHeader>
+          <DialogTitle>
+            {translate("Transcript ticket #{p0}", { p0: ticket?.number ?? 0 })}
+          </DialogTitle>
+        </DialogHeader>
+        {ticket && <TranscriptBody ticket={ticket} guildId={guildId} />}
+        <DialogFooter>
+          <Button variant="secondary" onClick={onClose}>
+            {translate("Đóng")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Nội dung khung: tải transcript (action) + nút tải file JSON gốc. */
+function TranscriptBody({ ticket, guildId }: { ticket: TicketRow; guildId: string }) {
+  const runTranscript = useAction(api.tickets.ticketTranscript);
+  const runLink = useQuery(api.tickets.ticketTranscriptUrl, {
+    token: TOKEN(),
+    guildId,
+    ticketId: ticket.id,
+  });
+  const [transcript, setTranscript] = useState<TranscriptData | null | undefined>(undefined);
+  useEffect(() => {
+    const alive = { current: true };
+    setTranscript(undefined);
+    runTranscript({ token: TOKEN(), guildId, ticketId: ticket.id })
+      .then((r) => {
+        if (alive.current) setTranscript(r);
+      })
+      .catch((e) => {
+        if (alive.current) {
+          toast.error(e instanceof Error ? e.message : translate("Không đọc được transcript"));
+          setTranscript(null);
+        }
+      });
+  }, [ticket.id, guildId]);
+  return (
+    <>
+      <div className="max-h-[65vh] space-y-2 overflow-y-auto pr-1">
+        {transcript === undefined ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            {translate("Đang tải transcript…")}
+          </p>
+        ) : transcript === null ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            {translate("Chưa có transcript cho ticket này.")}
+          </p>
+        ) : transcript.messages.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            {translate("Transcript rỗng — kênh không có tin nhắn nào.")}
+          </p>
+        ) : (
+          transcript.messages.map((m, i) => (
+            <div key={i} className="rounded-lg border border-border bg-secondary/40 p-2">
+              <p className="text-[11px] text-muted-foreground">
+                {m.author} · {new Date(m.at).toLocaleString(dateLocale())}
+                {m.attachments.length > 0
+                  ? ` · ${translate("{p0} tệp đính kèm", { p0: m.attachments.length })}`
+                  : ""}
+              </p>
+              <p className="mt-0.5 whitespace-pre-wrap break-words text-sm">{m.content || "—"}</p>
+            </div>
+          ))
+        )}
+      </div>
+      {runLink?.url && (
+        <Button asChild variant="outline" size="sm" className="self-end">
+          <a href={runLink.url} target="_blank" rel="noreferrer">
+            {translate("Tải file JSON")}
+          </a>
+        </Button>
+      )}
+    </>
   );
 }
 
@@ -756,11 +892,13 @@ function TicketList({
   statusFilter,
   guildId,
   onClose,
+  onViewTranscript,
 }: {
   rows: TicketRow[] | undefined;
-  statusFilter: "open" | "closed";
+  statusFilter: Tab;
   guildId: string;
   onClose: (row: TicketRow) => void;
+  onViewTranscript: (row: TicketRow) => void;
 }) {
   if (rows === undefined) {
     return (
@@ -773,7 +911,9 @@ function TicketList({
       <p className="py-6 text-center text-sm text-muted-foreground">
         {statusFilter === "open"
           ? translate("Không có ticket nào đang mở.")
-          : translate("Chưa có ticket nào đã đóng.")}
+          : statusFilter === "closed"
+            ? translate("Chưa có ticket nào đã đóng.")
+            : translate("Chưa có ticket nào đã lưu trữ.")}
       </p>
     );
   }
@@ -800,9 +940,16 @@ function TicketList({
                 </Badge>
               ) : null}
               {t.hasTranscript ? (
-                <Badge variant="outline" className="gap-1">
-                  {translate("Transcript đã lưu")}
-                </Badge>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 px-2 text-xs"
+                  onClick={() => onViewTranscript(t)}
+                >
+                  <FileText className="h-3 w-3" />
+                  {translate("Xem transcript")}
+                </Button>
               ) : null}
               <span className="truncate text-sm font-medium">
                 {t.openerName} ·{" "}

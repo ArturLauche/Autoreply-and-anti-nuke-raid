@@ -16,6 +16,8 @@ import {
   closeTicket,
   botTicketState,
   botTicketById,
+  ticketTranscript,
+  ticketTranscriptUrl,
 } from "../convex/tickets";
 import {
   botOpenTicket,
@@ -35,6 +37,8 @@ const openH = (botOpenTicket as any)._handler;
 const botCloseH = (botCloseTicket as any)._handler;
 const setChannelH = (botSetTicketChannel as any)._handler;
 const claimH = (botClaimTicket as any)._handler;
+const transcriptH = (ticketTranscript as any)._handler;
+const transcriptUrlH = (ticketTranscriptUrl as any)._handler;
 const updateH = (updateSettings as any)._handler;
 
 let pass = 0;
@@ -855,6 +859,97 @@ const throws = async (fn: () => Promise<unknown>) => {
       p.ticketSendPanel === true && p.ticketPanelChannelId === "111111111111111111",
       JSON.stringify(p),
     );
+  }
+
+  // ═══ XEM TRANSCRIPT — trước đây bot LƯU file xong không ai xem được ═══
+  // `ticketTranscriptUrl` tồn tại từ lâu nhưng KHÔNG có nơi nào gọi: staff
+  // thấy badge "Transcript đã lưu" rồi không làm được gì (lỗi 28/09/2026).
+  console.log("\n── ticketTranscript / ticketTranscriptUrl ──");
+  {
+    const e = env();
+    e.tickets.push(ticket("t1", { channelId: "CH-1" }));
+    (e.ctx as any).storage = { getUrl: async () => "https://storage.example/f" };
+    const noTranscript = await transcriptUrlH(e.ctx as any, {
+      token: "tok",
+      guildId: "g1",
+      ticketId: "t1",
+    });
+    check(
+      "ticket chưa lưu transcript → url null (không ném)",
+      noTranscript.url === null,
+      JSON.stringify(noTranscript),
+    );
+
+    e.tickets[0].transcriptStorageId = "f1";
+    e.tickets[0].transcriptAt = 123;
+    const withTranscript = await transcriptUrlH(e.ctx as any, {
+      token: "tok",
+      guildId: "g1",
+      ticketId: "t1",
+    });
+    check(
+      "ticket đã lưu → trả link + mốc thời gian",
+      withTranscript.url === "https://storage.example/f" && withTranscript.at === 123,
+      JSON.stringify(withTranscript),
+    );
+    // Không có quyền thì ném: transcript là dữ liệu khiếu nại của người khác.
+    const other = env({ manageable: false });
+    other.tickets.push(ticket("t1", { transcriptStorageId: "f1" }));
+    (other.ctx as any).storage = { getUrl: async () => "https://storage.example/f" };
+    check(
+      "không có quyền → từ chối, không lộ link transcript",
+      await throws(async () =>
+        transcriptUrlH(other.ctx as any, { token: "tok", guildId: "g1", ticketId: "t1" }),
+      ),
+    );
+  }
+  {
+    // Action tải file qua link rồi parse. `ctx.storage.get` CHỈ có trong
+    // mutation → bắt buộc đi đường action; test sẽ hỏng nếu ai đó đổi lại.
+    const realFetch = globalThis.fetch;
+    let asked = "";
+    globalThis.fetch = (async (url: string) => {
+      asked = String(url);
+      return {
+        ok: true,
+        json: async () => ({
+          channelName: "ticket-7",
+          savedAt: 999,
+          messageCount: 2,
+          messages: [
+            { at: 1, author: "minh", content: "chào", attachments: ["u1"] },
+            { at: 2, author: "mod" },
+          ],
+        }),
+      };
+    }) as unknown as typeof fetch;
+    try {
+      const out: any = await transcriptH(
+        { runQuery: async () => ({ url: "https://storage.example/f", at: 999 }) } as any,
+        { token: "t", guildId: "g1", ticketId: "t1" },
+      );
+      check("action tải đúng link của storage", asked === "https://storage.example/f", asked);
+      check(
+        "action chuẩn hoá tin thiếu field (không lỗi)",
+        out.messages.length === 2 &&
+          out.messages[0].attachments.length === 1 &&
+          out.messages[1].content === "" &&
+          out.messages[1].attachments.length === 0,
+        JSON.stringify(out?.messages),
+      );
+      check(
+        "action giữ tên kênh + số tin",
+        out.channelName === "ticket-7" && out.messageCount === 2,
+      );
+      const noUrl = await transcriptH({ runQuery: async () => ({ url: null, at: null }) } as any, {
+        token: "t",
+        guildId: "g1",
+        ticketId: "t1",
+      });
+      check("chưa có transcript → action trả null", noUrl === null, JSON.stringify(noUrl));
+    } finally {
+      globalThis.fetch = realFetch;
+    }
   }
 
   console.log(`\nKết quả tickets-convex: ${pass} PASS, ${fail} FAIL`);

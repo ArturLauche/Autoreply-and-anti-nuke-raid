@@ -16,7 +16,8 @@
 
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import { action, mutation, query } from "./_generated/server";
+import { api } from "./_generated/api";
 import { canManageGuild, getUserByToken } from "./auth";
 import { requireBotKeyStrict } from "./botAuth";
 
@@ -312,7 +313,53 @@ export const botTicketById = query({
 });
 
 /**
- * Trả link tải transcript (nút "Xem transcript" trên panel).
+ * NỘI DUNG transcript để hiển thị ngay trong panel.
+ *
+ * ⚠️ Phải là ACTION chứ không phải query: `ctx.storage.get` chỉ có trong
+ * mutation; query chỉ lấy được link có hạn. Action gọi lại chính
+ * `ticketTranscriptUrl` (nơi kiểm quyền) để lấy link rồi tải về parse.
+ *
+ * Không cắt bớt ở đây: bot đã cắt 1500 ký tự/tin lúc lưu. Cắt thêm lần hai
+ * thì panel hiện khác với file tải về, staff đối chiếu lại sẽ bối rồi.
+ */
+export const ticketTranscript = action({
+  args: { token: v.string(), guildId: v.string(), ticketId: v.string() },
+  handler: async (ctx, args) => {
+    // Chính query này kiểm quyền (canManageGuild) + trả link có hạn.
+    const meta = (await ctx.runQuery(api.tickets.ticketTranscriptUrl, args)) as {
+      url: string | null;
+      at: number | null;
+    } | null;
+    if (!meta?.url) return null;
+    const res = await fetch(meta.url);
+    if (!res.ok) return null;
+    const parsed = (await res.json()) as {
+      channelName?: string;
+      savedAt?: number;
+      messageCount?: number;
+      messages?: {
+        at: number;
+        author: string;
+        content: string;
+        attachments?: string[];
+      }[];
+    };
+    return {
+      channelName: parsed.channelName ?? "",
+      savedAt: parsed.savedAt ?? meta.at ?? 0,
+      messageCount: parsed.messageCount ?? parsed.messages?.length ?? 0,
+      messages: (parsed.messages ?? []).map((m) => ({
+        at: m.at ?? 0,
+        author: m.author ?? "?",
+        content: m.content ?? "",
+        attachments: m.attachments ?? [],
+      })),
+    };
+  },
+});
+
+/**
+ * Trả link tải transcript (nút "Tải transcript" trên panel).
  *
  * Trả `null` thay vì ném khi chưa lưu — panel gọi lúc render, ném ở đây sẽ
  * làm hỏng cả panel chứ không chỉ ô transcript.

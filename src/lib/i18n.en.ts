@@ -1269,4 +1269,17 @@ export const EN: Record<string, string> = {
   "Đã lưu màu panel": "Panel color saved",
   "Mã hex 6 chữ số, ví dụ #5865f2. Ô trống = màu mặc định của bot.":
     "A 6-digit hex code, e.g. #5865f2. Leave empty to use the bot's default color.",
+  // ── Xem transcript (tab "Đã lưu trữ") — 28/09/2026 ──
+  "Đã lưu trữ": "Archived",
+  "Chưa có ticket nào đã lưu trữ.": "No archived tickets yet.",
+  "Xem transcript": "View transcript",
+  "Transcript ticket #{p0}": "Ticket #{p0} transcript",
+  "Đang tải transcript…": "Loading transcript…",
+  "Chưa có transcript cho ticket này.": "This ticket has no transcript yet.",
+  "Transcript rỗng — kênh không có tin nhắn nào.":
+    "Empty transcript — the channel had no messages.",
+  "Tải file JSON": "Download JSON",
+  "{p0} tệp đính kèm": "{p0} attachments",
+
+  "Không đọc được transcript": "Could not read the transcript",
 };
