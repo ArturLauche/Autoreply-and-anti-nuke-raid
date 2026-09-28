@@ -83,6 +83,17 @@ function makeTargetGuild() {
   });
 
   const mkChannel = (opts) => {
+    // Discord TỪ CHỐI tin không có gì để gửi (content/embeds/components/files
+    // đều rỗng) — "Cannot send an empty message". Mock phải giống thật, nếu không
+    // lỗi "gửi payload rỗng" của bot sẽ không bao giờ lộ ra trong test.
+    const discordSend = async (p) => {
+      const hasBody =
+        (typeof p?.content === "string" && p.content.trim() !== "") ||
+        (Array.isArray(p?.files) && p.files.length > 0) ||
+        (Array.isArray(p?.embeds) && p.embeds.length > 0);
+      if (!hasBody) throw new Error("Cannot send an empty message");
+      messagesSent.push(p);
+    };
     const ch = {
       id: `new-ch-${channelsCreated.length + 1}`,
       name: opts.name,
@@ -90,16 +101,15 @@ function makeTargetGuild() {
       opts, // giữ opts gốc để test assert overwrite/bitrate/userLimit
       setPosition: async () => {},
       isTextBased: () => opts.type === 0 || opts.type === 5,
+      // Bot thiếu quyền Manage Webhooks là tình huống rất phổ biến →
+      // replayMessages phải lùi về channel.send.
       createWebhook: async (o) => {
-        const wh = {
-          name: o.name,
-          send: async (p) => messagesSent.push(p),
-          delete: async () => {},
-        };
+        if (guild._noWebhook) throw new Error("Missing Permissions");
+        const wh = { name: o.name, send: discordSend, delete: async () => {} };
         webhooksCreated.push(wh);
         return wh;
       },
-      send: async (p) => messagesSent.push(p),
+      send: discordSend,
     };
     channelsCreated.push(ch);
     return ch;
@@ -513,6 +523,45 @@ function sourceSnapshot() {
   }
   check("settings sai kiểu không làm hỏng restore", threw3 === "", threw3);
   check("settings sai kiểu vẫn tạo role/kênh", guildChOff._created.rolesCreated.length > 0);
+
+  /* ── 6. Bot thiếu quyền Manage Webhooks + tin chỉ có khoảng trắng ──
+   * Đường dự phòng channel.send chưa suite nào chạm. Nội dung toàn khoảng
+   * trắng là payload RỖNG mà Discord từ chối → tin bị nuốt im lặng, không ai
+   * báo, số "đã phục hồi" lệch. */
+  {
+    const blankSnap = JSON.parse(JSON.stringify(snap));
+    const srcCh = blankSnap.channels.find((c) => Array.isArray(c.messages));
+    blankSnap.channels = [srcCh];
+    srcCh.messages = [
+      { id: "b1", authorName: "dave", timestamp: 1000, content: "   \n  ", attachments: [] },
+      { id: "b2", authorName: "erin", timestamp: 2000, content: "tin thường", attachments: [] },
+    ];
+    const g4 = makeTargetGuild();
+    g4._noWebhook = true; // thiếu Manage Webhooks → createWebhook ném lỗi
+    const st4 = makeStore(g4);
+    await backup.runRestore(
+      { guilds: { cache: new Map([["999888777666555444", g4]]) } },
+      st4,
+      "999888777666555444",
+      utils.compressAndEncryptBackup(blankSnap).backupJson,
+      "Server Gốc Bị Nuke",
+    );
+    const sent4 = g4._created.messagesSent;
+    check(
+      "thiếu quyền webhook → lùi về channel.send",
+      g4._created.webhooksCreated.length === 0 && sent4.length === 2,
+      `webhook=${g4._created.webhooksCreated.length} sent=${sent4.length}`,
+    );
+    check(
+      "tin toàn khoảng trắng vẫn được phục hồi (không bị nuốt)",
+      sent4.some((p) => String(p?.content ?? "").includes("dave")),
+      JSON.stringify(sent4.map((p) => p?.content)),
+    );
+    check(
+      "tin thường không bị ảnh hưởng",
+      sent4.some((p) => String(p?.content ?? "").includes("tin thường")),
+    );
+  }
 
   console.log(`\nKết quả restore e2e: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail > 0 ? 1 : 0);

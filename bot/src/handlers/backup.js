@@ -904,7 +904,13 @@ async function replayMessages(guild, backup, channelMap, onProgress) {
       }
       const attachLine = failedLines.map((u) => `\n📎 ${u}`).join("");
       const content = m.content || "";
-      const body = content
+      // Nội dung CHỈ KHOẢNG TRẮNG cũng phải coi như rỗng: Discord từ chối tin
+      // không có gì để gửi ("Cannot send an empty message"), nên đẩy payload rỗng
+      // là tin bị nuốt im lặng — số "đã phục hồi" lệch mà không có cảnh báo.
+      // Trước đây chỉ kiểm content falsy nên tin toàn khoảng trắng rơi thẳng
+      // vào payload {}. Nhờ vậy payload luôn có content hoặc files.
+      const hasText = !!content.trim();
+      const body = hasText
         ? `${content}${attachLine}`
         : attachLine || (files.length > 0 ? "" : "(tin không có nội dung)");
       try {
