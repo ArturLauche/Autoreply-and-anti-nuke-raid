@@ -609,5 +609,30 @@ check(
   /Math\.min\(100, Math\.round\(p \/ 8\) \* 8\)/.test(html),
 );
 
+// Ba thứ "làm đẹp" của preloader (logo, thanh mảnh, vệt sáng) là chủ đích của
+// thiết kế 28/09/2026 — không có luật thì lần sau ai gỡ mất cũng không ai biết.
+const bootTrackRule = (html.match(/\.boot-track \{[^}]*\}/) || [""])[0].replace(
+  /\/\*[\s\S]*?\*\//g,
+  "",
+);
+const bootTrackHeightPx = Number((bootTrackRule.match(/height:\s*(\d+(?:\.\d+)?)px/) || [])[1]);
+check(
+  "preloader: thanh tiến trình mảnh (≤ 4px, không phình lại)",
+  Number.isFinite(bootTrackHeightPx) && bootTrackHeightPx > 0 && bootTrackHeightPx <= 4,
+  `height=${Number.isFinite(bootTrackHeightPx) ? bootTrackHeightPx : "?"}px`,
+);
+check(
+  "preloader có logo thương hiệu (khối bo góc + mặt robot dạng SVG)",
+  /class="boot-logo"/.test(html) && /<svg[\s\S]*?<rect[\s\S]*?rx="20"/.test(html),
+);
+check(
+  "preloader có vệt ánh sáng chạy trên thanh (animation CSS)",
+  /\.boot-fill::after\s*\{/.test(html) && /@keyframes boot-sheen/.test(html),
+);
+check(
+  "preloader tắt vệt sáng khi bật giảm chuyển động",
+  /@media \(prefers-reduced-motion: reduce\)[\s\S]{0,600}animation:\s*none/.test(html),
+);
+
 console.log(`\nKết quả web contracts: ${pass} PASS, ${fail} FAIL`);
 process.exit(fail === 0 ? 0 : 1);

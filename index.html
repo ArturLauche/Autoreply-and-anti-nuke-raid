@@ -68,9 +68,10 @@
       Script tự fade khi window.__bootDone() được gọi (xem BootSignal trong App.tsx).
 
       Nhân vật pixel chạy trên thanh đã BỎ (28/09/2026). Ở cỡ vẽ được trên
-      thanh (66×132px) nó không đọc ra hình người, chỉ tốn 60 lần dựng lại lưới
-      mỗi giây để nhấp nháy — rối mắt mà không nói thêm gì. Preloader chỉ cần
-      trả lời "web đang tải", thanh + % là đủ. ĐỪNG dựng lại.
+      thanh nó không đọc ra hình người, chỉ tốn 60 lần dựng lại lưới mỗi giây
+      để nhấp nháy — rối mắt mà không nói thêm gì. Thay vào đó: LOGO thương
+      hiệu (khối bo góc + mặt robot, cùng phong cách og-image.svg), thanh MẢNH
+      (4px) và một VỆT SÁNG chạy dọc thanh thuần CSS. ĐỪNG dựng lại nhân vật.
     -->
     <style>
       #boot {
@@ -81,6 +82,11 @@
         place-items: center;
         background: #ffffff;
         color: #111111;
+        /* Biến thương hiệu cho logo + vệt sáng; đổi giá trị theo chủ đề ở rule
+           [data-boot="dark"] ngay bên dưới. */
+        --boot-mark-bg: #111111;
+        --boot-mark-fg: #f5f5f5;
+        --boot-sheen: rgba(255, 255, 255, 0.9);
         font-family:
           Inter,
           system-ui,
@@ -93,11 +99,30 @@
       #boot[data-boot="dark"] {
         background: #0a0a0a;
         color: #ededed;
+        /* Đảo khối logo (nền sáng, robot tối — đúng og-image) và cho vệt sáng
+           trắng đặc để còn đọc ra trên thanh xám. */
+        --boot-mark-bg: #f5f5f5;
+        --boot-mark-fg: #111111;
+        --boot-sheen: #ffffff;
       }
       #boot.is-done {
         opacity: 0;
         visibility: hidden;
         pointer-events: none;
+      }
+      .boot-logo {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 18px;
+      }
+      .boot-logo svg {
+        display: block;
+        width: 56px;
+        height: 56px;
+        filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.22));
+      }
+      #boot[data-boot="dark"] .boot-logo svg {
+        filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.6));
       }
       .boot-in {
         /* Không còn canvas nhân vật nên không phải chừa nửa thân mỗi bên:
@@ -113,10 +138,10 @@
       }
       .boot-track {
         position: relative;
-        height: 6px;
-        /* Khe dưới chữ "Protogon.". Trước đây là 142px để chừa chỗ cho canvas
-           nhân vật đứng trên thanh; không còn nhân vật nên về lại một khe thường. */
-        margin-top: 28px;
+        /* Mảnh hơn (6px → 4px): thanh mỏng đọc ra tinh tế hơn hẳn thanh dày,
+           và vệt sáng chạy trong lòng nó trông gọn mắt hơn. */
+        height: 4px;
+        margin-top: 22px;
         border-radius: 999px;
         background: rgba(17, 17, 17, 0.14);
       }
@@ -129,9 +154,38 @@
         width: 0%;
         border-radius: 999px;
         background: currentColor;
+        /* overflow hidden để vệt sáng (::after) bị cắt đúng trong lòng thanh,
+           không tràn ra ngoài đầu thanh. */
+        overflow: hidden;
         /* KHÔNG transition width ở đây: JS đã easing và đặt % mỗi frame, thêm
            một bộ easing của CSS nữa là đầu thanh trễ ~150ms so với số % bên
            dưới — hai thứ trượt lệch nhau. */
+      }
+      /* #ededed gần trắng nên vệt sáng trắng chạy trên nó gần như vô hình:
+         hạ nền thanh chủ đề tối xuống xám để vệt sáng còn đọc ra. */
+      #boot[data-boot="dark"] .boot-fill {
+        background: #c8c8c8;
+      }
+      /* Vệt ánh sáng chạy dọc thanh: dải gradient trắng trượt từ trái sang phải
+         rồi lặp. Thuần trang trí — không đụng tới % tiến trình. */
+      .boot-fill::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: -40%;
+        width: 40%;
+        background: linear-gradient(90deg, transparent, var(--boot-sheen), transparent);
+        transform: translateX(-100%);
+        animation: boot-sheen 1.4s ease-in-out infinite;
+      }
+      @keyframes boot-sheen {
+        from {
+          transform: translateX(-100%);
+        }
+        to {
+          transform: translateX(350%);
+        }
       }
       .boot-pct {
         margin: 14px 0 0;
@@ -143,6 +197,11 @@
       @media (prefers-reduced-motion: reduce) {
         #boot {
           transition: none;
+        }
+        /* Giảm chuyển động → tắt hẳn vệt sáng chạy (không chỉ chạy chậm). */
+        .boot-fill::after {
+          animation: none;
+          display: none;
         }
       }
     </style>
@@ -169,6 +228,18 @@
       aria-valuenow="0"
     >
       <div class="boot-in">
+        <span class="boot-logo" aria-hidden="true">
+          <svg viewBox="0 0 86 86" focusable="false">
+            <rect width="86" height="86" rx="20" fill="var(--boot-mark-bg)" />
+            <path
+              d="M27 13C16 13 9 21 9 32v25c0 5 4 9 9 9h5l3 8h17l3-8h5c5 0 9-4 9-9V32c0-11-7-19-18-19Z"
+              fill="var(--boot-mark-fg)"
+            />
+            <circle cx="29" cy="38" r="6" fill="var(--boot-mark-bg)" />
+            <circle cx="55" cy="38" r="6" fill="var(--boot-mark-bg)" />
+            <rect x="37" y="49" width="10" height="5" rx="2.5" fill="var(--boot-mark-bg)" />
+          </svg>
+        </span>
         <p class="boot-mark">Protogon.</p>
         <div class="boot-track">
           <div class="boot-fill" id="boot-fill"></div>
