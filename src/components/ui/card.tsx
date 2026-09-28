@@ -6,8 +6,10 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
     <div
       ref={ref}
       className={cn(
-        /* Vercel: card = viền phẳng, không bóng — tách lớp bằng contrast viền. */
-        "rounded-lg border border-border bg-card text-card-foreground transition-colors duration-150",
+        /* Vercel: card = viền phẳng, không bóng — tách lớp bằng contrast viền.
+           Bo góc 12px (rounded-xl) — đúng mốc "card" của thang bo góc dùng
+           chung (xem tailwind.config.ts), khớp card trang chủ. */
+        "rounded-xl border border-border bg-card text-card-foreground transition-colors duration-150",
         className,
       )}
       {...props}

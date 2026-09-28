@@ -30,6 +30,7 @@ import { ANTINUKE_MODULE_META, ANTINUKE_ORDER, PUNISH_LABEL } from "../lib/const
 import type { GuildData } from "../lib/types";
 
 import LangSwitch from "../components/LangSwitch";
+import SkipLink from "../components/SkipLink";
 
 import { dateLocale, translate } from "../lib/i18n";
 function formatDateTime(ts: number): string {
@@ -115,6 +116,7 @@ export default function GuildHistory() {
 
   return (
     <div className="min-h-screen">
+      <SkipLink />
       <header className="border-b border-border/60 bg-background/70 backdrop-blur">
         <div className="container py-6">
           <div className="flex flex-wrap items-center gap-4">
@@ -155,7 +157,7 @@ export default function GuildHistory() {
         </div>
       </header>
 
-      <PageReveal className="container py-8">
+      <PageReveal id="main" className="container py-8">
         <div className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="grid gap-1.5">
             <Label className="text-xs text-muted-foreground">Module</Label>

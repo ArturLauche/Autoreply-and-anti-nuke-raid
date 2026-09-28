@@ -5,6 +5,7 @@ import { ExternalLink, KeyRound, ShieldCheck, Loader2 } from "lucide-react";
 import { LogoMark } from "../components/BotLogo";
 import { Button } from "../components/ui/button";
 import HaimiyaChat from "../components/HaimiyaChat";
+import SkipLink from "../components/SkipLink";
 import { usePublicConfig } from "../lib/usePublicConfig";
 import { Card, CardContent, CardDescription, CardHeader } from "../components/ui/card";
 import {
@@ -56,29 +57,33 @@ export default function AuthPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
+      <SkipLink />
       <HaimiyaChat position="dashboard" />
       <LangSwitch showIcon className="absolute right-4 top-4 z-20" />
 
-      <main className="relative grid w-full max-w-4xl gap-8 lg:grid-cols-2">
-        <h1 className="mb-2 text-center font-display text-2xl font-bold tracking-tight lg:hidden">
-          {translate("Quản lý bot Discord của bạn từ một nơi")}{" "}
-        </h1>
+      <main id="main" className="relative grid w-full max-w-4xl gap-8 lg:grid-cols-2">
+        {/* MỘT khối trái duy nhất: logo + H1 + danh sách. Mobile chỉ hiện H1
+            (logo + danh sách ẩn bằng lg:*) và nhờ order để khối nằm DƯỚI card;
+            desktop trở lại cột trái. TRƯỚC ĐÂY H1 bị NHÂN ĐÔI trong DOM — bản
+            mobile `lg:hidden` + bản desktop trong cột trái — CSS hỏng là lòi
+            cả hai H1; công cụ tìm kiếm và trình đọc màn hình cũng đọc nhầm
+            cấu trúc heading của trang. */}
         <motion.div
           initial={{ opacity: 0, x: -24 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
-          className="hidden flex-col justify-center lg:flex"
+          className="order-2 flex flex-col justify-center lg:order-1"
         >
-          <Link to="/" className="mb-8 flex items-center gap-2.5">
+          <Link to="/" className="mb-8 hidden items-center gap-2.5 lg:flex">
             <LogoMark className="h-10 w-10" />
             <span className="font-display text-xl font-bold">
               Protogon<span className="text-primary">.</span>
             </span>
           </Link>
-          <h1 className="font-display text-4xl font-bold leading-tight tracking-tight">
+          <h1 className="text-center font-display text-2xl font-bold tracking-tight lg:text-left lg:text-4xl lg:leading-tight">
             {translate("Quản lý bot Discord của bạn từ một nơi")}{" "}
           </h1>
-          <ul className="mt-8 space-y-4">
+          <ul className="mt-8 hidden space-y-4 lg:block">
             {[
               // i18n-ok: nhãn được dịch lúc render bằng translate(t)
               "Hệ thống nhiệt độ 4 giai đoạn + warn tích lũy",
@@ -102,6 +107,7 @@ export default function AuthPage() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
+          className="order-1 lg:order-2"
         >
           <Card className="border-border/80 bg-card/95 shadow-lg backdrop-blur">
             <CardHeader className="text-center">

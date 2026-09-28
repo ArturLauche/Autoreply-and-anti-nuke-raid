@@ -186,7 +186,7 @@ function routeKind(pathname: string): RouteKind {
   if (path === "/terms") return "terms";
   if (path === "/privacy") return "privacy";
   if (path === "/data-deletion") return "data-deletion";
-  if (path === "/monitor") return "monitor";
+  if (path === "/monitor" || path === "/status") return "monitor";
   if (path === "/auth") return "auth";
   if (path === "/discord/callback") return "callback";
   if (path === "/dashboard" || path.startsWith("/dashboard/")) return "dashboard";
@@ -194,6 +194,21 @@ function routeKind(pathname: string): RouteKind {
   if (path === "/admin") return "admin";
   return "not-found";
 }
+
+/**
+ * Các route ĐƯỢC PHÉP index — MỘT nguồn duy nhất cho cả meta robots,
+ * canonical và JSON-LD theo route. Thêm route public mới PHẢI thêm vào đây,
+ * nếu không trang đó bị gắn noindex dù đang nằm trong sitemap (bug lớp:
+ * meta và sitemap mâu thuẫn, công cụ tìm kiếm bỏ qua trang im lặng).
+ */
+const INDEXED_KINDS: RouteKind[] = [
+  "home",
+  "features",
+  "terms",
+  "privacy",
+  "data-deletion",
+  "monitor",
+];
 
 function setMeta(attribute: "name" | "property", key: string, content: string): void {
   let element = document.head.querySelector<HTMLMetaElement>(`meta[${attribute}="${key}"]`);
@@ -219,13 +234,72 @@ function setCanonical(href: string | null): void {
   element.href = href;
 }
 
+/**
+ * Dữ liệu có cấu trúc THEO ROUTE (WebPage + BreadcrumbList), gắn vào <head>
+ * sau hydration. index.html đã có 2 khối tĩnh (Organization + SoftwareApplication)
+ * — khối này bổ sung phần chỉ route cụ thể mới biết được (URL nào, thuộc trang
+ * gì, nằm ở đâu trong cây điều hướng). Chỉ chạy cho JSONLD_KINDS (tập con của
+ * INDEXED_KINDS, bỏ "home" — trang chủ đã có JSON-LD tĩnh và không cần
+ * breadcrumb một mức). Route KHÔNG được index (/auth, /dashboard, 404…):
+ * GỠ hẳn — để dữ liệu có cấu trúc của trang noindex là tự mâu thuẫn với chính
+ * meta robots của nó.
+ */
+const JSONLD_KINDS = ["features", "terms", "privacy", "data-deletion", "monitor"] as const;
+type JsonLdKind = (typeof JSONLD_KINDS)[number];
+
+function syncRouteJsonLd(pathname: string, kind: RouteKind, lang: Lang): void {
+  const ID = "route-jsonld";
+  const existing = document.getElementById(ID);
+  if (!(JSONLD_KINDS as readonly string[]).includes(kind)) {
+    existing?.remove();
+    return;
+  }
+  const jsonLdKind = kind as JsonLdKind;
+  const siteUrl = activeSiteUrl();
+  const normalized = pathname !== "/" ? pathname.replace(/\/+$/, "") || "/" : "/";
+  const url = `${siteUrl}${normalized}`;
+  const copy = COPY[lang][jsonLdKind];
+  const data = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebPage",
+        "@id": `${url}#webpage`,
+        url,
+        name: copy.title,
+        description: copy.description,
+        inLanguage: lang,
+        isPartOf: {
+          "@id": `${siteUrl}/#website`,
+          "@type": "WebSite",
+          name: "Protogon",
+          url: siteUrl,
+        },
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Protogon", item: siteUrl },
+          { "@type": "ListItem", position: 2, name: copy.title, item: url },
+        ],
+      },
+    ],
+  };
+  let element = document.getElementById(ID) as HTMLScriptElement | null;
+  if (!element) {
+    element = document.createElement("script");
+    element.type = "application/ld+json";
+    element.id = ID;
+    document.head.appendChild(element);
+  }
+  element.textContent = JSON.stringify(data);
+}
+
 /** Đồng bộ metadata sau hydration; static index vẫn có fallback cho crawler. */
 export function syncRouteMetadata(pathname: string, lang: Lang): void {
   const kind = routeKind(pathname);
   const copy = kind === "not-found" ? COPY[lang].home : COPY[lang][kind];
-  const indexed = ["home", "features", "terms", "privacy", "data-deletion", "monitor"].includes(
-    kind,
-  );
+  const indexed = INDEXED_KINDS.includes(kind);
   const normalized = pathname !== "/" ? pathname.replace(/\/+$/, "") || "/" : "/";
   const siteUrl = activeSiteUrl();
   const ogImage = `${siteUrl}/og-image.png`;
@@ -243,4 +317,5 @@ export function syncRouteMetadata(pathname: string, lang: Lang): void {
   setMeta("name", "twitter:image:alt", "Protogon — Discord server protection");
   setMeta("name", "robots", indexed ? "index,follow" : "noindex,nofollow");
   setCanonical(indexed ? `${siteUrl}${normalized}` : null);
+  syncRouteJsonLd(pathname, kind, lang);
 }

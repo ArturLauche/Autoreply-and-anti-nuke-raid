@@ -60,6 +60,15 @@ const config: Config = {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        /* Thang bo góc dùng chung — mọi chỗ phải chọn ĐÚNG một mốc, không tự
+           đặt số riêng (lệch mốc là dấu hiệu UI "dựng vội" rõ nhất):
+             sm/md (4/8px)  · nút, input, switch — control nhỏ
+             lg (10px)      · mốc token gốc, giữ cho thành phần cũ đang dùng
+             xl (12px)      · CARD — card tính năng, bảng, hàng danh sách
+             2xl (16px)     · panel lớn / khối nổi bật một mình
+             3xl (24px)     · CHỈ ảnh thương hiệu hero (brand-whale)
+             full           · pill, badge, avatar
+           Đổi một mốc ở đây = đổi đồng loạt mọi nơi đang dùng đúng mốc. */
       },
       boxShadow: {
         /* Scale bóng 3 cấp — mọi card/nút dùng đúng 1 trong 3, hết bóng tùy tiện. */

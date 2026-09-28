@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Activity, AlertTriangle, ArrowLeft, Gauge, Server, Users, Wifi } from "lucide-react";
 import UpdateWindow from "../components/UpdateWindow";
 import PageReveal from "../components/PageReveal";
+import SkipLink from "../components/SkipLink";
 import {
   INCIDENT_SLOW,
   LATENCY_SLOW,
@@ -199,6 +200,7 @@ export default function Monitor() {
 
   return (
     <div className="relative min-h-screen">
+      <SkipLink />
       <div className="relative z-10">
         <header className="border-b border-border/60 bg-background/70 backdrop-blur">
           <div className="container flex items-center gap-3 py-5">
@@ -226,7 +228,7 @@ export default function Monitor() {
           </div>
         </header>
 
-        <PageReveal className="container space-y-4 py-6">
+        <PageReveal id="main" className="container space-y-4 py-6">
           {status?.hostHealth && status.hostHealth !== "ok" ? (
             <HostHealthBanner level={status.hostHealth} />
           ) : null}

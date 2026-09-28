@@ -16,13 +16,22 @@ import { useProductMotion } from "../lib/motion";
 export default function PageReveal({
   children,
   className,
+  id,
 }: {
   children: ReactNode;
   className?: string;
+  /** id để SkipLink nhảy tới (id="main"). */
+  id?: string;
 }) {
   const motionSet = useProductMotion();
   return (
-    <motion.main className={className} variants={motionSet.panel} initial="hidden" animate="show">
+    <motion.main
+      id={id}
+      className={className}
+      variants={motionSet.panel}
+      initial="hidden"
+      animate="show"
+    >
       {children}
     </motion.main>
   );

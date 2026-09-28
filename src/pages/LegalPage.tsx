@@ -6,6 +6,7 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import Footer from "../components/landing/Footer";
 import LangSwitch from "../components/LangSwitch";
+import SkipLink from "../components/SkipLink";
 import { usePublicConfig } from "../lib/usePublicConfig";
 import { legalDoc, legalDocs, type LegalSlug } from "../lib/legalContent";
 import { translate, useT } from "../lib/i18n";
@@ -60,6 +61,7 @@ export default function LegalPage({ slug }: { slug: LegalSlug }) {
 
   return (
     <div className="relative min-h-screen bg-background text-foreground">
+      <SkipLink />
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between gap-3">
           <Link to="/" className="flex items-center gap-2.5">
@@ -82,7 +84,7 @@ export default function LegalPage({ slug }: { slug: LegalSlug }) {
         </div>
       </header>
 
-      <main className="container max-w-6xl py-10 md:py-14">
+      <main id="main" className="container max-w-6xl py-10 md:py-14">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_17rem] lg:gap-14">
           <article className="min-w-0">
             <Badge variant="secondary" className="border border-primary/30">

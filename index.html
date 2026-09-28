@@ -11,8 +11,12 @@
       content="Protogon bảo vệ server Discord với auto-reply, nhiệt độ 4 giai đoạn, Join Gate chống selfbot, chặn link độc hại và 32 module chống nuke/raid."
     />
     <link rel="canonical" href="https://protogon.freebuff.app/" />
+    <!-- Icon: PNG hiện đại + ICO dự phòng (trình duyệt tự hỏi /favicon.ico) +
+         apple-touch-icon cho iOS. Sinh bằng scripts/build-pwa-icons.cjs. -->
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
@@ -50,7 +54,27 @@
         "description": "Bot Discord tự trả lời theo từ khóa, hệ thống nhiệt độ vi phạm 4 giai đoạn, Join Gate chống selfbot, chặn link độc hại và 32 module chống nuke/raid — kèm trợ lý ảo Haimiya.",
         "inLanguage": "vi",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "VND" },
-        "url": "https://protogon.freebuff.app/"
+        "url": "https://protogon.freebuff.app/",
+        "publisher": { "@id": "https://protogon.freebuff.app/#organization" }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "@id": "https://protogon.freebuff.app/#organization",
+        "name": "Protogon",
+        "url": "https://protogon.freebuff.app/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://protogon.freebuff.app/icon-512.png",
+          "width": 512,
+          "height": 512
+        },
+        "sameAs": [
+          "https://discord.gg/rftv",
+          "https://www.facebook.com/profile.php?id=61592820547312"
+        ]
       }
     </script>
 
@@ -63,9 +87,11 @@
 
     <!--
       Preloader — thanh tiến trình + số %.
-      CSS + script INLINE có chủ đích: file ngoài tạo thêm vòng mạng và để lộ
-      màn trắng. Chạy ngay khi HTML tới, trước khi bundle React kịp tải/parse.
-      Script tự fade khi window.__bootDone() được gọi (xem BootSignal trong App.tsx).
+      CSS INLINE có chủ đích (file ngoài để lộ màn trắng trước khi CSS tới).
+      Script thì FILE NGOÀI /boot.js — CSP production đặt `script-src 'self'`,
+      inline script bị chắn im lặng và preloader phủ kín app mãi mãi (bug đo
+      bằng trình duyệt thật 28/09/2026). Script tự fade khi window.__bootDone()
+      được gọi (xem BootSignal trong App.tsx).
 
       Nhân vật pixel chạy trên thanh đã BỎ (28/09/2026). Ở cỡ vẽ được trên
       thanh nó không đọc ra hình người, chỉ tốn 60 lần dựng lại lưới mỗi giây
@@ -240,82 +266,13 @@
         <p class="boot-pct" id="boot-pct">0%</p>
       </div>
     </div>
-    <script>
-      (function () {
-        var boot = document.getElementById("boot");
-        if (!boot) return;
-        var fill = document.getElementById("boot-fill");
-        var pctEl = document.getElementById("boot-pct");
-        var reduce = false;
-        try {
-          reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        } catch (e) {}
-
-        // Nền preloader bám đúng chủ đề app đang dùng: Taskbar lưu
-        // "protogon-theme"; chưa có thì theo prefers-color-scheme — cùng quy
-        // tắc mặc định, nên không lóe trắng trên máy người dùng chủ đề tối.
-        var theme = "";
-        try {
-          theme = localStorage.getItem("protogon-theme") || "";
-        } catch (e) {}
-        if (theme !== "light" && theme !== "dark") {
-          theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-        }
-        boot.setAttribute("data-boot", theme);
-
-        // ── Vòng tiến trình ─────────────────────────────────────────────
-        // Tiến trình tự trườn tới ~90% (không giả vờ số % thật) rồi đứng yên
-        // chờ app báo xong. Lỗi JS → chốt 100% sau 7s để không kẹt preloader.
-        // Bắt đầu từ 0 chứ không phải 10: trước đây mốc 10% là để nhân vật
-        // khỏi bị cắt ở mép thanh, nhân vật bỏ rồi thì nhảy phát lên 10% chỉ
-        // là nói dối người dùng.
-        var start = performance.now();
-        var shown = 0;
-        var done = false;
-        var ended = false;
-        function paint(p) {
-          // Bật giảm chuyển động → bước 8%. PHẢI chặn trên 100: làm tròn
-          // 100 lên 104 là thanh tràn quá cuối (bug tìm ra khi audit).
-          var v = reduce ? Math.min(100, Math.round(p / 8) * 8) : p;
-          fill.style.width = v + "%";
-          pctEl.textContent = Math.round(v) + "%";
-          boot.setAttribute("aria-valuenow", String(Math.round(v)));
-        }
-        function end() {
-          if (ended) return;
-          ended = true;
-          boot.className = boot.className + " is-done";
-          setTimeout(function () {
-            if (boot.parentNode) boot.parentNode.removeChild(boot);
-          }, 700);
-        }
-        function frame(now) {
-          var el = now - start;
-          // Đuổi tiệm cận 90% rồi đứng chờ app báo xong. Hằng số 520ms (trước
-          // là 700) → tới ~78% sau 1s, nhanh hơn "một chút" mà vẫn còn đủ
-          // đường để trườn tiếp, không kịch trần ngay giây đầu.
-          var target = done ? 100 : Math.min(90, 10 + 80 * (1 - Math.exp(-el / 520)));
-          shown += (target - shown) * (done ? 0.3 : 0.14);
-          // Ngưỡng chốt 100 phải SÁT 100: nhảy từ 99,4 lên 100 là một cú giật
-          // ~2,5px trên thanh 420px đúng lúc mắt đang nhìn vào nó.
-          if (done && shown > 99.8) shown = 100;
-          paint(shown);
-          if (shown >= 100) {
-            end();
-            return;
-          }
-          requestAnimationFrame(frame);
-        }
-        window.__bootDone = function () {
-          done = true;
-        };
-        setTimeout(function () {
-          done = true;
-        }, 7000);
-        paint(shown);
-        requestAnimationFrame(frame);
-      })();
-    </script>
+    <!--
+      Preloader: markup ở trên, script ở FILE NGOÀI /boot.js (CÙNG ORIGIN,
+      cache được). Script chạy ngay khi parser tới đây — đúng vai trò inline
+      trước đây, nhưng không vi phạm CSP script-src 'self'. Xem public/boot.js
+      để biết vì sao KHÔNG được inline lại (bug production 28/09/2026).
+    -->
+    <script src="/boot.js"></script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

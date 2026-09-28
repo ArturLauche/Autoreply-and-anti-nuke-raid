@@ -59,15 +59,20 @@ RUN printf '%s\n' \
   "  root /usr/share/nginx/html;" \
   "  index index.html;" \
   "  include /etc/nginx/security-headers.conf;" \
-  "  location ~ ^/(auth|discord/callback|admin|stats|status|monitor|terms|privacy|data-deletion)/?$ {" \
+  "  # Route RIÊNG TƯ (cần đăng nhập): SPA fallback + noindex." \
+  "  location ~ ^/(auth|discord/callback|admin|stats|dashboard)(/.*)?/?$ {" \
   "    try_files /index.html =404;" \
   "    include /etc/nginx/security-headers.conf;" \
   "    add_header X-Robots-Tag \"noindex, nofollow\" always;" \
   "  }" \
-  "  location ~ ^/dashboard(?:/.+)?/?$ {" \
+  "  # Route CÔNG KHAI (indexable): SPA fallback, KHÔNG noindex." \
+  "  # Mọi trang công khai đều phải nằm ở đây — thiếu một URL là trang đó 404" \
+  "  # khi mở trực tiếp/tải lại (bug thật 28/09: /features chỉ có route React," \
+  "  # không có ở vercel.json lẫn nginx). Nhớ kiểm tra bằng trình duyệt sau khi" \
+  "  # thêm trang công khai mới (xem scripts/test-web-contracts.cjs)." \
+  "  location ~ ^/(features|monitor|status|terms|privacy|data-deletion)/?$ {" \
   "    try_files /index.html =404;" \
   "    include /etc/nginx/security-headers.conf;" \
-  "    add_header X-Robots-Tag \"noindex, nofollow\" always;" \
   "  }" \
   "  location / { try_files \$uri \$uri/ =404; }" \
   "  error_page 404 /404.html;" \
