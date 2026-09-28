@@ -1,0 +1,12 @@
+# Chính sách báo lỗi bảo mật của Protogon (security.txt — RFC 9116).
+# Sản phẩm là bot bảo vệ server nên kênh báo lỗi phải rõ ràng, công khai.
+Contact: https://discord.gg/rftv
+Contact: https://www.facebook.com/profile.php?id=61592820547312
+Expires: 2027-09-28T00:00:00.000Z
+Preferred-Languages: vi, en, de
+Canonical: https://protogon.freebuff.app/.well-known/security.txt
+Policy: https://protogon.freebuff.app/terms
+
+# Ghi chú vận hành: dòng `Expires` phải được GIA HẠN trước ngày ghi trên —
+# security.txt hết hạn thì công cụ quét bỏ qua toàn bộ tệp (im lặng, không lỗi).
+# Nhớ gia hạn mỗi lần sửa tệp này.

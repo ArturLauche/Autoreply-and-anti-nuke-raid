@@ -1,46 +1,55 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!--
+    Chỉ liệt kê trang CÔNG KHAI, CHO INDEX.
+    /auth CÓ Ý ĐÍCH KHÔNG nằm ở đây: nó bị robots.txt Disallow + noindex
+    (trang đăng nhập không có giá trị với công cụ tìm kiếm) — URL bị chặn
+    mà đăng ký sitemap là mâu thuẫn bị Google Search Console báo lỗi.
+  -->
   <url>
     <loc>https://protogon.freebuff.app/</loc>
+    <lastmod>2026-09-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <!-- Trang tính năng: nội dung EN/DE cho người tìm kiếm quốc tế. -->
   <url>
     <loc>https://protogon.freebuff.app/features</loc>
+    <lastmod>2026-09-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://protogon.freebuff.app/auth</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
   </url>
   <!-- Monitor: trang công khai, dữ liệu realtime theo heartbeat bot. -->
   <url>
     <loc>https://protogon.freebuff.app/monitor</loc>
+    <lastmod>2026-09-28</lastmod>
     <changefreq>hourly</changefreq>
     <priority>0.6</priority>
   </url>
   <!-- Văn bản pháp lý: URL riêng, công khai — Discord dùng để xác minh bot. -->
   <url>
     <loc>https://protogon.freebuff.app/terms</loc>
+    <lastmod>2026-09-28</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://protogon.freebuff.app/privacy</loc>
+    <lastmod>2026-09-28</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://protogon.freebuff.app/data-deletion</loc>
+    <lastmod>2026-09-28</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>
-  <!-- Trạng thái hệ thống: công khai, cập nhật realtime theo dữ liệu bot. -->
+  <!-- Trạng thái hệ thống: công khai, cập nhật realtime theo dữ liệu bot
+       (alias của /monitor — cùng component, URL riêng để dễ nhớ). -->
   <url>
     <loc>https://protogon.freebuff.app/status</loc>
+    <lastmod>2026-09-28</lastmod>
     <changefreq>hourly</changefreq>
     <priority>0.6</priority>
   </url>

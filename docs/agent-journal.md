@@ -4,6 +4,40 @@
 > tối đa ~30 entry. Mục "Đang dở" là danh sách việc chưa xong — đọc đầu tiên
 > mỗi phiên.
 
+## 28/09/2026 — Đợt "cửa trước production + desloppify" (session polish)
+
+- 🔴 **BUG THẢM HOẠ ĐÃ SỬA (đo bằng trình duyệt thật)**: CSP production cả
+  `vercel.json` lẫn `Dockerfile.web` đặt `script-src 'self'` NHƯNG preloader
+  script viết inline trong `index.html` → bị chặn im lặng → `#boot` không bao
+  giờ nhận `is-done` → **lớp phủ preloader phủ kín app ở MỌI trang, kẹt 0%
+  vĩnh viễn** (app render bình thường phía dưới, không ai thấy). Sửa: tách
+  script sang `public/boot.js` (external, cùng origin — vừa chạy vừa KHÔNG
+  nới lỏng CSP). Ảnh chụp trước/sau + contract test chặn inline script.
+- 🟠 Sửa bug production routing/SEO: `/features` **404 khi mở trực tiếp** ở cả
+  Vercel (thiếu rewrite) lẫn nginx Docker (thiếu location SPA); nginx phát
+  `X-Robots-Tag: noindex` lên đúng `/terms /privacy /data-deletion /monitor
+/status` — 5 trang đang cần index; `seo.ts` coi `/status` là `not-found`
+  (title "404 — …" + noindex trên trang CÔNG KHAI); sitemap đăng ký `/auth`
+  (mâu thuẫn robots.txt Disallow + noindex); llms.txt thiếu `/features`.
+- 🟡 Perf (đo bằng build): chunk entry **531→459KB raw (171→151KB gzip)** —
+  `manualChunks` dạng object chỉ bắt module gốc, subpath `convex/*` rơi vào
+  chunk entry; đổi sang function form + gom `three` một chỗ (trước nằm nhân
+  bản trong 2 chunk WebGL chết ~830KB). Idle-prefetch chunk `/auth`, hero
+  `fetchPriority="high"`, ticker `now` dùng chung cho useBotStatus (trước mỗi
+  consumer một interval 15s, chạy cả khi tab ẩn).
+- 🟢 A11y/hoàn thiện: SkipLink "Bỏ qua tới nội dung" + `<main id="main">` toàn
+  bộ trang; AuthPage gộp 2 H1 (mobile/desktop) về một; Taskbar nhận alias
+  `/status`; thang bo góc chuẩn hoá (card 12px, control 8px, panel 16px — ghi
+  trong tailwind.config.ts); bỏ container thừa ở dải điểm nổi bật landing.
+- 🟢 Thiếu còn thiếu: favicon.ico, icon PWA 192/512, site.webmanifest,
+  `.well-known/security.txt`, JSON-LD Organization + WebPage/BreadcrumbList
+  theo route, `<lastmod>` sitemap — đều đã thêm kèm contract test
+  (test-web-contracts: 134→161 check).
+- ✅ Kiểm chứng: 79/79 CJS + 17/17 TS + tsc + lint + format + repo-map +
+  convex-contract + i18n + settings-signal + coverage floor + mutation 12/12
+  XANH; browser thật (Chromium headless, CSP production) 0 console error mọi
+  route, preloader tắt đúng, JSON-LD parse được, Tab-1 focus đúng skip link.
+
 ## Đang dở
 
 - 🔴 **Bot production OFFLINE từ 26/09 13:23 UTC (11h lúc phát hiện 27/09)** —

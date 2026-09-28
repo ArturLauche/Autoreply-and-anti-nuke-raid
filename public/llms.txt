@@ -11,6 +11,7 @@ Trang chủ: https://protogon.freebuff.app
 ## Trang công khai
 
 - `/` — giới thiệu tính năng, cách hoạt động, trợ lý Haimiya
+- `/features` — mô tả đầy đủ tính năng bằng VI/EN/DE (trang dành cho tìm kiếm)
 - `/auth` — đăng nhập bằng Discord
 - `/monitor` — trạng thái hoạt động của bot
 - `/terms` — điều khoản sử dụng
@@ -24,7 +25,6 @@ Trang chủ: https://protogon.freebuff.app
 - `/dashboard/:guildId` — cấu hình từng server (auto reply, nhiệt độ, module)
 - `/dashboard/:guildId/history` — lịch sử vi phạm
 - `/stats` — bảng xếp hạng thành viên có nhiệt độ vi phạm cao nhất
-- `/monitor` — trạng thái hoạt động của bot
 - `/admin` — khu vực dành riêng cho chủ sở hữu bot
 
 ## Cách hoạt động tóm tắt

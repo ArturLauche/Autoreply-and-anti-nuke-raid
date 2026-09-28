@@ -373,11 +373,38 @@ check(
   /for \(const name of CONVEX_URL_VARS\)/.test(buildShim) &&
     /CONVEX_URL_VARS\s*=\s*\["CONVEX_URL", "VITE_CONVEX_URL"/.test(buildShim),
 );
+// Hai nhãn location phải TÁCH CRÔI: private (có X-Robots-Tag noindex) và
+// public (SPA fallback, KHÔNG noindex). Bug thật 28/09/2026: cả hai dùng chung
+// MỘT location → nginx phát noindex lên đúng /terms /privacy /data-deletion
+// /monitor /status — năm trang đang nằm trong sitemap và cần index. Lỗi im
+// lặng: không crash, không log, chỉ mất khả năng xếp hạng tìm kiếm.
+// Cách kiểm: cắt nội dung từng block rồi bắt điều kiện trên ĐÚNG block đó, không
+// đoán bằng substring trên cả file (thứ tự liệt kê khác đi là test cũ vượt ải).
+function nginxBlock(source, marker) {
+  const at = source.indexOf(marker);
+  if (at === -1) return "";
+  const next = source.indexOf("location", at + marker.length);
+  return next === -1 ? source.slice(at) : source.slice(at, next);
+}
+const dockerPrivateBlock = nginxBlock(dockerfile, "auth|discord/callback|admin|stats|dashboard");
+const dockerPublicBlock = nginxBlock(
+  dockerfile,
+  "features|monitor|status|terms|privacy|data-deletion",
+);
 check(
-  "Docker noindex chỉ áp route private và có branded 404",
-  /auth\|discord\/callback\|admin\|stats/.test(dockerfile) &&
-    !/terms\|privacy\|data-deletion\|monitor/.test(dockerfile) &&
-    /error_page 404 \/404\.html/.test(dockerfile),
+  "Docker: route private có noindex + SPA fallback",
+  dockerPrivateBlock.length > 0 &&
+    /X-Robots-Tag \\?"noindex, nofollow\\?"/.test(dockerPrivateBlock) &&
+    /try_files \/index\.html =404/.test(dockerPrivateBlock),
+  "block private phải có X-Robots-Tag + try_files /index.html",
+);
+check(
+  "Docker: route công khai (gồm /features) có SPA fallback VÀ KHÔNG bị noindex",
+  dockerPublicBlock.length > 0 &&
+    /try_files \/index\.html =404/.test(dockerPublicBlock) &&
+    !/X-Robots-Tag/.test(dockerPublicBlock) &&
+    /features\|monitor\|status/.test(dockerPublicBlock),
+  "block public thiếu /features hoặc đang bị gắn noindex",
 );
 const notFoundPage = fs.readFileSync(path.join(ROOT, "public", "404.html"), "utf8");
 const notFoundScript = fs.readFileSync(path.join(ROOT, "public", "404.js"), "utf8");
@@ -398,9 +425,15 @@ check(
   "online status dùng chung heartbeat freshness helper",
   /isHeartbeatFresh/.test(utils) && /isHeartbeatFresh/.test(overviewPanel),
 );
+const useBotStatusSrc = files.get("lib/useBotStatus.ts") ?? "";
 check(
-  "useBotStatus tự tạo lại trạng thái khi heartbeat cũ",
-  /setInterval[\s\S]{0,180}setNow/.test(files.get("lib/useBotStatus.ts") ?? ""),
+  "useBotStatus có đồng hồ cập nhật + đồng bộ lại ngay khi tab hiện (heartbeat có thể vừa hết hạn lúc tab ẩn)",
+  /setInterval[\s\S]{0,220}broadcastNow/.test(useBotStatusSrc) &&
+    /visibilitychange[\s\S]{0,220}broadcastNow/.test(useBotStatusSrc),
+);
+check(
+  "useBotStatus dùng CHUNG một ticker cho mọi consumer (Footer + Taskbar cùng mount trên Landing — không mỗi đứa một interval, tab ẩn thì im)",
+  /nowListeners/.test(useBotStatusSrc) && /document\.hidden/.test(useBotStatusSrc),
 );
 
 // ─── N. IP-detect ngôn ngữ ban đầu (không persist) ─────────────────────────
@@ -496,6 +529,66 @@ check(
   /translate\(doc\.hero\.title\)/.test(featuresPageSrc) &&
     /translate\(block\.description\)/.test(featuresPageSrc) &&
     /translate\(step\)/.test(featuresPageSrc),
+);
+
+// ─── O2. Cửa trước production: SPA fallback phủ MỌI route công khai ─────────
+// Bug thật 28/09/2026: /features có route React nhưng KHÔNG có trong
+// vercel.json rewrites lẫn nginx SPA fallback → mở trực tiếp/tải lại trang bị
+// 404 ở production trong khi dev chạy ngon. Nguyên tắc: mỗi route công khai
+// trong App.tsx phải có rewrite (Vercel) VÀ location SPA (nginx) — kiểm ở đây.
+const PUBLIC_SPA_ROUTES = ["features", "monitor", "status", "terms", "privacy", "data-deletion"];
+const vercelJson = JSON.parse(fs.readFileSync(path.join(ROOT, "vercel.json"), "utf8"));
+const vercelRewrites = vercelJson.rewrites ?? [];
+for (const route of PUBLIC_SPA_ROUTES) {
+  check(
+    `vercel.json rewrites phủ /${route} (mở trực tiếp không bị 404)`,
+    vercelRewrites.some((r) => r.source === `/${route}`),
+  );
+}
+// robots.txt chỉ được chặn route riêng tư; chặn nhầm trang public = tự tắt SEO.
+const robotsTxt = fs.readFileSync(path.join(ROOT, "public", "robots.txt"), "utf8");
+for (const route of PUBLIC_SPA_ROUTES) {
+  check(
+    `robots.txt KHÔNG chặn /${route} (trang public cần index)`,
+    !robotsTxt.includes(`/${route}`),
+  );
+}
+// Sitemap chỉ chứa URL cho index — trang đăng nhập bị noindex + Disallow mà
+// đăng ký sitemap là mâu thuẫn bị Google Search Console báo lỗi.
+// So khớp trên <loc> (không soi comment): đo đúng URL đăng ký, không bắt lỗi
+// vì chú thích nhắc tên đường dẫn.
+const sitemapSrc = fs.readFileSync(path.join(ROOT, "public", "sitemap.xml"), "utf8");
+const sitemapLocs = [...sitemapSrc.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+check(
+  "sitemap.xml KHÔNG chứa /auth (URL noindex trong sitemap = lỗi Search Console)",
+  !sitemapLocs.some((loc) => loc.endsWith("/auth")),
+);
+for (const route of PUBLIC_SPA_ROUTES) {
+  check(
+    `sitemap.xml có /${route} (mọi trang public đều được mời index)`,
+    sitemapLocs.some((loc) => loc.endsWith(`/${route}`)),
+  );
+}
+// /status là alias của /monitor (cùng component Monitor) — phải mang BỘ META
+// MONITOR (index, canonical), không được rơi vào nhánh "not-found" sẽ set
+// title "404 — …" + noindex trên một trang đang nằm trong sitemap.
+check(
+  "seo.ts coi /status giống /monitor (kind monitor → index, không phải not-found)",
+  /path === "\/monitor" \|\| path === "\/status"\) return "monitor"/.test(seo),
+);
+// Dữ liệu có cấu trúc theo route: WebPage + BreadcrumbList tiêm sau hydration
+// cho route công khai; route riêng tư phải GỠ hẳm chứ không để rác.
+check(
+  "seo.ts tiêm JSON-LD theo route (WebPage + BreadcrumbList), route ẩn thì gỡ",
+  /WebPage/.test(seo) &&
+    /BreadcrumbList/.test(seo) &&
+    /itemListElement/.test(seo) &&
+    /existing\?\.remove\(\)/.test(seo) &&
+    /syncRouteJsonLd\(pathname, kind, lang\)/.test(seo),
+);
+check(
+  "llms.txt niêm yết /features (trang public SEO quốc tế)",
+  fs.readFileSync(path.join(ROOT, "public", "llms.txt"), "utf8").includes("/features"),
 );
 
 // ─── 10. TicketPanel: số liệu + link + cấu hình phải thật sự có tác dụng ───
@@ -596,7 +689,8 @@ for (const flag of ["rollbackEnabled"]) {
 }
 
 // ─── 12. Preloader: không bao giờ kẹt người dùng ở màn loading ────────────────
-// Preloader nằm inline trong index.html (chạy trước bundle React) và tự fade
+// Preloader: CSS inline trong index.html (chống màn trắng) + script ở FILE
+// NGOÀI public/boot.js (CSP script-src 'self' chặn inline — xem 12d). Tự fade
 // khi window.__bootDone() được gọi. Ba đường kẹt người dùng đều phải chặn:
 //   1. Không có JS → không ai gọi __bootDone → kẹt vĩnh viễn (phải có noscript).
 //   2. Bundle lỗi / app crash → phải có chốt an toàn theo thời gian.
@@ -604,6 +698,137 @@ for (const flag of ["rollbackEnabled"]) {
 //      nếu không người dùng thấy loading mãi dù app đã có màn báo lỗi.
 const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 const bootAppSrc = files.get("App.tsx") ?? "";
+const bootJs = fs.readFileSync(path.join(ROOT, "public", "boot.js"), "utf8");
+
+// ─── 12b. Cửa trước HTML: manifest, icon, dữ liệu có cấu trúc ────────────────
+// Web app thiếu manifest = không cài được lên màn hình chính, thiếu
+// favicon.ico = trình duyệt tự hỏi và ăn 404 vào log mỗi lượt tải trang.
+check(
+  "index.html khai báo manifest + favicon.ico dự phòng",
+  /rel="manifest" href="\/site\.webmanifest"/.test(html) &&
+    /rel="icon"[^>]*favicon\.ico/.test(html),
+);
+check(
+  "public/site.webmanifest tồn tại, parse được, đủ icon 192/512 + start_url",
+  (() => {
+    try {
+      const manifest = JSON.parse(
+        fs.readFileSync(path.join(ROOT, "public", "site.webmanifest"), "utf8"),
+      );
+      const sizes = (manifest.icons ?? []).map((i) => i.sizes);
+      return (
+        typeof manifest.name === "string" &&
+        manifest.name.length > 0 &&
+        typeof manifest.start_url === "string" &&
+        typeof manifest.display === "string" &&
+        sizes.includes("192x192") &&
+        sizes.includes("512x512")
+      );
+    } catch {
+      return false;
+    }
+  })(),
+);
+check(
+  "favicon.ico tồn tại và là ICO chứa PNG (magic bytes)",
+  (() => {
+    try {
+      const ico = fs.readFileSync(path.join(ROOT, "public", "favicon.ico"));
+      return (
+        ico.readUInt16LE(2) === 1 && ico.readUInt16LE(4) >= 1 && ico.readUInt32BE(22) === 0x89504e47 // PNG magic ngay sau ICONDIR+ENTRY
+      );
+    } catch {
+      return false;
+    }
+  })(),
+);
+// Dữ liệu có cấu trúc: SoftwareApplication PHẢI gắn publisher vào Organization
+// qua @id — hai khối rời rạc không liên kết thì Google chỉ hiểu nửa.
+check(
+  "index.html có JSON-LD SoftwareApplication + Organization liên kết qua @id",
+  /"@type": "SoftwareApplication"/.test(html) &&
+    /"@type": "Organization"/.test(html) &&
+    /"@id": "https:\/\/protogon\.freebuff\.app\/#organization"/.test(html) &&
+    /publisher/.test(html),
+);
+check(
+  "theme-color nhất quán giữa index.html và 404.html (tab không đổi màu khi lạc trang)",
+  /theme-color" content="#171717"/.test(html) &&
+    /theme-color" content="#171717"/.test(
+      fs.readFileSync(path.join(ROOT, "public", "404.html"), "utf8"),
+    ),
+);
+// security.txt (RFC 9116): sản phẩm bảo mật phải có kênh báo lỗi công khai.
+// Expires quá hạn = công cụ quét BỎ QUA im lặng toàn bộ tệp — phải chặn.
+check(
+  "security.txt hợp lệ: có Contact + Expires chưa quá hạn",
+  (() => {
+    try {
+      const txt = fs.readFileSync(path.join(ROOT, "public", ".well-known", "security.txt"), "utf8");
+      const expires = txt.match(/^Expires:\s*(.+)$/m)?.[1];
+      const contacts = [...txt.matchAll(/^Contact:\s*(.+)$/gm)];
+      return (
+        contacts.length > 0 &&
+        contacts.every((c) => /^https?:\/\//.test(c[1].trim())) &&
+        !!expires &&
+        Number.isFinite(Date.parse(expires)) &&
+        Date.parse(expires) > Date.now()
+      );
+    } catch {
+      return false;
+    }
+  })(),
+);
+
+// ─── 12d. CSP: KHÔNG có inline <script> trong index.html ─────────────────────
+// Bug thảm hoạng, đo bằng trình duyệt thật 28/09/2026: CSP production
+// (vercel.json + Dockerfile.web) đặt `script-src 'self'` — inline script
+// KHÔNG có nonce/hash bị chặn IM LẶNG. Script preloader lúc đó nằm inline →
+// không chạy → #boot không bao giờ nhận class `is-done` → lớp phủ preloader
+// phủ kín TOÀN BỘ app ở MỌI trang, kẹt ở 0% vĩnh viễn. App render bình
+// thường phía dưới, không ai thấy được.
+// Cách chống: mọi script phải là file ngoài cùng origin; kiểm ở đây để không
+// ai thêm lại inline script (hoặc đổi boot.js về inline) mà không thấy.
+const inlineExecutableScripts = [
+  ...html.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/g),
+].filter((m) => !/application\/ld\+json/.test(m[1]) && m[2].trim().length > 0);
+check(
+  "index.html KHÔNG có inline <script> thực thi (CSP script-src 'self' chặn → preloader kẹt)",
+  inlineExecutableScripts.length === 0,
+  `đang có ${inlineExecutableScripts.length} script inline — chuyển sang file ngoài cùng origin`,
+);
+check(
+  "index.html nạp preloader từ /boot.js (file ngoài)",
+  /<script src="\/boot\.js"><\/script>/.test(html),
+);
+check(
+  "boot.js là file ngoài hợp lệ: __bootDone + chốt 7s + requestAnimationFrame",
+  /window\.__bootDone/.test(bootJs) &&
+    /7_?000\s*\)/.test(bootJs) &&
+    /requestAnimationFrame/.test(bootJs),
+);
+
+// ─── 12c. Skip-to-content: mọi trang có một nút "Bỏ qua tới nội dung" ─────────
+// WCAG 2.4.1: header cố định + điều hướng dài buộc người dùng bàn phím phải
+// Tab qua toàn bộ chrome mỗi lần mở trang. Trang thiếu SkipLink hoặc thiếu
+// <main id="main"> là nút bấm chết (nhảy không tới đâu).
+const SKIP_LINK_PAGES = [
+  "Landing.tsx",
+  "FeaturesPage.tsx",
+  "LegalPage.tsx",
+  "Monitor.tsx",
+  "AuthPage.tsx",
+  "NotFound.tsx",
+  "Dashboard.tsx",
+  "GuildPage.tsx",
+];
+for (const page of SKIP_LINK_PAGES) {
+  const src = files.get(`pages/${page}`) ?? "";
+  check(
+    `${page} có SkipLink + <main id="main"> làm đích nhảy`,
+    /<SkipLink/.test(src) && /(id="main")/.test(src),
+  );
+}
 const bootBoundary = files.get("components/RootErrorBoundary.tsx") ?? "";
 check(
   "preloader có markup + role progressbar",
@@ -615,12 +840,12 @@ check(
 );
 check(
   "preloader có chốt an toàn theo thời gian",
-  /setTimeout\(function \(\) \{\s*done = true;/.test(html),
+  /setTimeout\(function \(\) \{\s*done = true;/.test(bootJs),
 );
 check("preloader tôn trọng prefers-reduced-motion", /prefers-reduced-motion: reduce/.test(html));
 check(
   "preloader bám chủ đề app (không lóe trắng trên máy chủ đề tối)",
-  /protogon-theme/.test(html) && /prefers-color-scheme: dark/.test(html),
+  /protogon-theme/.test(bootJs) && /prefers-color-scheme: dark/.test(bootJs),
 );
 check("App gọi __bootDone khi đã vẽ xong", /window\.__bootDone/.test(bootAppSrc));
 check(
@@ -650,7 +875,7 @@ check(
 );
 check(
   "preloader chỉ còn MỘT nguồn đặt tiến trình (paint), không còn run.style.left",
-  /fill\.style\.width = v \+ "%";/.test(html) && !/run\.style\.left/.test(html),
+  /fill\.style\.width = v \+ "%";/.test(bootJs) && !/run\.style\.left/.test(bootJs),
 );
 check(
   "KHÔNG transition width trên .boot-fill (JS đã easing — transition làm lệch)",
@@ -659,7 +884,7 @@ check(
 );
 check(
   "Bật giảm chuyển động: giá trị % chặn trên 100 (làm tròn bậc 8 → 104 là tràn thanh)",
-  /Math\.min\(100, Math\.round\(p \/ 8\) \* 8\)/.test(html),
+  /Math\.min\(100, Math\.round\(p \/ 8\) \* 8\)/.test(bootJs),
 );
 
 // Ba thứ "làm đẹp" của preloader (logo, thanh mảnh, vệt sáng) là chủ đích của

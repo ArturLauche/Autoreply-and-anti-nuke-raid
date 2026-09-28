@@ -4,6 +4,8 @@
  * vẫn thiếu nữa mới rơi về VI. Giữ nguyên placeholder {p0}, {p1}…
  */
 export const DE: Record<string, string> = {
+  /* ==== Khả năng truy cập (28/09/2026) ==== Xem i18n.en.ts. */
+  "Bỏ qua tới nội dung": "Zum Inhalt springen",
   /* ==== Gom menu server thành nhóm (27/09/2026) ==== Xem i18n.en.ts. */
   "Bảo vệ": "Schutz",
   "Nội dung & phạt": "Inhalte & Strafen",

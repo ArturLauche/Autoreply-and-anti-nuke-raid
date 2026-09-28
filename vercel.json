@@ -27,6 +27,7 @@
     }
   ],
   "rewrites": [
+    { "source": "/features", "destination": "/index.html" },
     { "source": "/auth", "destination": "/index.html" },
     { "source": "/discord/callback", "destination": "/index.html" },
     { "source": "/terms", "destination": "/index.html" },

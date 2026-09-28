@@ -76,7 +76,10 @@ export default function Taskbar() {
   const ownerName = status?.ownerName ?? "wiothemilo";
   const ownerAvatar = status?.ownerAvatarUrl ?? null;
   const online = status?.online ?? false;
-  const onMonitorPage = location.pathname.startsWith("/monitor");
+  // /status là alias của /monitor (cùng component) — trạng thái "đang ở trang
+  // giám sát" phải nhận cả hai đường dẫn, không chỉ /monitor.
+  const onMonitorPage =
+    location.pathname.startsWith("/monitor") || location.pathname.startsWith("/status");
   const onAdminPage = location.pathname.startsWith("/admin");
 
   return (
