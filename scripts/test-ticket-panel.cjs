@@ -656,6 +656,25 @@ module.exports = {
     check("DM mở: không fetch được user → false, KHÔNG ném", ok === false);
   }
 
+  // ═════════ Ô CHỌN MÀU PHẢI PHẢN ÁNH TRẠNG THÁI ĐÃ LƯU ═════════
+  // Ô màu + ô hex dùng defaultValue (đúng quy ước của file, tránh spam
+  // mutation mỗi bước kéo chuột) — nhưng defaultValue KHÔNG tự cập nhật khi
+  // giá trị đã lưu thay đổi. Không có `key` gắn với giá trị thì bấm "Mặc định"
+  // hay gõ hex sai bị từ chối: DB đã xoá màu, màn hình vẫn hiện màu/mã cũ →
+  // người dùng tưởng thay đổi chưa có hiệu lực rồi bấm lại.
+  const panelSrc = fs.readFileSync(
+    path.join(__dirname, "..", "src", "components", "dashboard", "TicketPanel.tsx"),
+    "utf8",
+  );
+  check(
+    "ô chọn màu có key theo giá trị đang lưu (remount khi đổi màu)",
+    /key=\{`swatch-\$\{g\.ticketOpenPanelColor \?\? "none"\}`\}/.test(panelSrc),
+  );
+  check(
+    "ô hex có key theo giá trị đang lưu",
+    /key=\{`hex-\$\{g\.ticketOpenPanelColor \?\? "none"\}`\}/.test(panelSrc),
+  );
+
   fs.unlinkSync(path.join(__dirname, "..", "bot", "test-djs-mock.cjs"));
   console.log(`\nKết quả ticket panel: ${pass} pass, ${fail} fail`);
   process.exit(fail > 0 ? 1 : 0);

@@ -451,6 +451,11 @@ export default function TicketPanel({ data }: { data: GuildData }) {
                     <input
                       type="color"
                       aria-label={translate("Chọn màu panel")}
+                      // `key` = giá trị đang lưu: ô này dùng defaultValue (không
+                      // phản ánh state), nên bấm "Mặc định" hay gõ hex sai bị
+                      // từ chối sẽ để màn hình vẫn hiện màu/mã CŨ → người dùng
+                      // tưởng chưa đổi. Đổi key = remount = hiện đúng trạng thái.
+                      key={`swatch-${g.ticketOpenPanelColor ?? "none"}`}
                       className="h-9 w-9 shrink-0 cursor-pointer rounded-md border border-border bg-transparent p-1"
                       defaultValue={
                         validColor(g.ticketOpenPanelColor) ? g.ticketOpenPanelColor! : "#5865f2"
@@ -459,6 +464,7 @@ export default function TicketPanel({ data }: { data: GuildData }) {
                     />
                     <Input
                       id="ticket-open-panel-color"
+                      key={`hex-${g.ticketOpenPanelColor ?? "none"}`}
                       className="w-28 font-mono text-xs uppercase"
                       maxLength={7}
                       defaultValue={g.ticketOpenPanelColor ?? ""}

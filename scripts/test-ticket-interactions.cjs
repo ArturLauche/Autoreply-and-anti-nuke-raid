@@ -955,16 +955,46 @@ Module._load = function (request, parent) {
     );
   }
   {
-    // Bản ghi đã đóng / không còn → phải nói đúng nguyên nhân. Dùng
-    // `errNoStaff` ở đây là báo "chủ server chưa cấu hình role staff" cho
-    // người vừa bấm nút của chính mình — hoàn toàn không liên quan.
+    // Dashboard đóng ticket chỉ đổi trạng thái trong DB — kênh Discord vẫn
+    // còn tên cũ và quyền cũ. Chặn nút ở kênh lúc này là NGÕ CỤT: staff đóng
+    // từ web rồi không bao giờ khoá được kênh, cũng không gỡ ban được.
     reset();
     configs.set("g1", { ticketEnabled: true, ticketStaffRoleId: "r-staff" });
     ctl.ticketRow = { status: "closed", openerId: "u-staff" };
     await run({ isButton: true, customId: "ticket_close:t1" });
     check(
-      "nút Đóng: ticket đã đóng → báo đúng, không đổ lỗi quyền",
+      "nút Đóng: ticket đã đóng từ DASHBOARD vẫn khoá được kênh",
+      callsTo("closeTicketChannel").length === 1,
+      String(lastReply()),
+    );
+    check(
+      "bấm lại trên ticket đã đóng KHÔNG ghi đè closedAt (không đẩy lùi dọn kênh)",
+      !mutationNamed("bot_writes:botCloseTicket"),
+    );
+  }
+  {
+    // Ngược lại: ticket đã bị dọn (kênh xoá sau khi lưu transcript) thì mọi
+    // nút phải chết hẳn — bấm tiếp chỉ đổi vỏ quả.
+    reset();
+    configs.set("g1", { ticketEnabled: true, ticketStaffRoleId: "r-staff" });
+    ctl.ticketRow = { status: "locked", openerId: "u-staff" };
+    await run({ isButton: true, customId: "ticket_close:t1" });
+    check(
+      "nút Đóng: ticket đã bị dọn (locked) → từ chối, báo đúng nguyên nhân",
       lastReply() === T.errTicketGone && callsTo("closeTicketChannel").length === 0,
+      String(lastReply()),
+    );
+  }
+  {
+    // Lỗi thật 28/09: staff đóng ticket khiếu nại từ dashboard rồi muốn gỡ
+    // ban qua nút trong kênh — trước đây bị chặn vì bản ghi không còn `open`.
+    reset();
+    configs.set("g1", { ticketEnabled: true, ticketStaffRoleId: "r-staff" });
+    ctl.ticketRow = { status: "closed", openerId: "u-opener" };
+    await run({ isButton: true, customId: "ticket_unban:t1" });
+    check(
+      "nút Gỡ ban: ticket đã đóng từ dashboard vẫn gỡ ban được",
+      callsTo("unbanMember").length === 1,
       String(lastReply()),
     );
   }

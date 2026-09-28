@@ -573,12 +573,20 @@ async function ticketActionButton(client, store, interaction) {
     } catch (e) {
       console.error(`[tickets] đọc bản ghi thất bại:`, e.message);
     }
-    if (!row || row.status !== "open") {
+    if (!row || row.status === "locked") {
       // KHÔNG dùng `errNoStaff` ở đây: đó là câu "chủ server chưa cấu hình
       // role staff" — hoàn toàn không liên quan tới việc bản ghi đã đóng,
       // và người mở bấm "Tôi tự đóng" cũng dính câu này.
       return interaction.reply({ content: T.errTicketGone, ephemeral: true });
     }
+    //
+    // ⚠️ `status: "closed"` VẪN cho thao tác. Lý do: dashboard đóng ticket chỉ
+    // đổi trạng thái trong DB — kênh Discord giữ nguyên tên và quyền, chưa ai
+    // thu quyền, chưa đổi tên. Nếu chặn ở đây thì staff đóng từ web rồi không
+    // bao giờ khoá được kênh, không gỡ ban được qua nút "Gỡ ban" của ticket —
+    // ngõ cụt do chính dashboard tạo ra (lỗi thật 28/09/2026).
+    // `locked` = đã lưu transcript + xoá kênh → mọi nút chết hẳn, chặn.
+    const wasOpen = row.status === "open";
 
     // Nút "Tôi tự đóng": chỉ CHÍNH người mở được bấm. Không kiểm tra thì bất
     // kỳ ai đọc được link kênh (staff paste vào kênh khác…) cũng đóng được
@@ -615,17 +623,24 @@ async function ticketActionButton(client, store, interaction) {
       channel: interaction.channel,
       openerId: row.openerId,
     });
-    try {
-      await store.client.mutation("bot_writes:botCloseTicket", {
-        guildId: guild.id,
-        ticketId: parsed.ticketId,
-        status: "closed",
-        closedById: interaction.user.id,
-        closedByName: interaction.user.username,
-        unbanned,
-      });
-    } catch (e) {
-      console.error(`[tickets] ghi trạng thái thất bại:`, e.message);
+    // CHỈ ghi lại khi ticket vốn còn `open`. Bấm Đóng lần nữa trên ticket đã
+    // đóng (kể cả ticket dashboard đóng trước) sẽ ghi đè `closedAt` → đẩy lùi
+    // thêm `closeGraceHours` lượt dọn kênh; bấm vài lần là kênh ticket không
+    // bao giờ được dọn. Thao tác trên kênh (thu quyền + đổi tên) vẫn chạy, nó
+    // idempotent và không phụ thuộc mốc thời gian.
+    if (wasOpen) {
+      try {
+        await store.client.mutation("bot_writes:botCloseTicket", {
+          guildId: guild.id,
+          ticketId: parsed.ticketId,
+          status: "closed",
+          closedById: interaction.user.id,
+          closedByName: interaction.user.username,
+          unbanned,
+        });
+      } catch (e) {
+        console.error(`[tickets] ghi trạng thái thất bại:`, e.message);
+      }
     }
     return interaction.reply({
       content:

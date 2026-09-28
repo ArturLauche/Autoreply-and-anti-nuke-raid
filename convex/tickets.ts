@@ -149,9 +149,11 @@ export const ticketSummary = query({
  * Đóng ticket TỪ DASHBOARD.
  *
  * Vì sao cần: staff không phải lúc nào cũng ở trong Discord. Đóng ở đây chỉ
- * đổi trạng thái trong DB và ghi mod log; thu quyền trên kênh Discord thì bot
- * lo ở lượt tick kế tiếp (đợt sau) — vì bot không có kênh sự kiện để biết
- * web vừa đóng.
+ * đổi trạng thái trong DB; bot KHÔNG tự thu quyền kênh Discord (không có
+ * sự kiện để biết web vừa đóng, và job tick chỉ XOÁ kênh ở lượt dọn sau
+ * closeGraceHours). Hệ quả: sau khi đóng ở đây, kênh vẫn giữ tên cũ và quyền
+ * cũ cho tới lúc bị dọn. Muốn khoá ngay thì bấm nút trong kênh ticket —
+ * handler cho phép thao tác cả khi bản ghi đã `closed`.
  *
  * Không sửa nội dung ticket. Không gỡ ban ở đây (việc đó cần quyền Discord,
  * chỉ bot làm được) — bảo đảm nút Gỡ ban trong kênh ticket vẫn là đường duy
