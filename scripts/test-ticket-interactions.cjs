@@ -56,6 +56,9 @@ const T = {
   errDisabled: "TICKET_DISABLED",
   errNoStaff: "ERR_NO_STAFF",
   errBotAccount: "ERR_BOT_ACCOUNT",
+  myTicket: "MY_TICKET {ch} {link}",
+  myTicketNone: "MY_TICKET_NONE",
+  myTicketGone: "MY_TICKET_GONE",
   errUnknown: "ERR_UNKNOWN",
   errNoPerm: "ERR_NO_PERM",
   errHierarchy: "ERR_HIERARCHY",
@@ -241,14 +244,21 @@ Module._load = function (request, parent) {
           throw new Error("close fail");
         return ctl.claimResult;
       },
-      query: async () => null,
+      query: async (name, args) => {
+        ctl.calls.push({ fn: "query", name, args });
+        if (name === "tickets:botTicketState") {
+          if (ctl.stateThrows) throw new Error("Convex down");
+          return ctl.myTicketState;
+        }
+        return null;
+      },
     },
   };
   const heat = {};
 
   const replies = [];
   const shownModals = [];
-  const guild = { id: "g1", name: "Server" };
+  const guild = { id: "g1", name: "Server", channels: { cache: new Map() } };
 
   const client = {
     ws: { ping: 42.4 },
@@ -279,6 +289,8 @@ Module._load = function (request, parent) {
     ctl.closeMutThrows = false;
     ctl.unbanThrows = false;
     ctl.queryThrows = false;
+    ctl.stateThrows = false;
+    ctl.myTicketState = null;
     ctl.ticketRow = { status: "open", openerId: "u-opener" };
     ctl.aiAvailable = true;
     ctl.aiAnswer = "Tóm tắt ticket";
@@ -1060,6 +1072,76 @@ Module._load = function (request, parent) {
     check(
       "/ticket close: hướng dẫn dùng nút Đóng trong kênh (để giữ quyền + log)",
       lastReply().includes("nút **Đóng**"),
+    );
+  }
+  {
+    // Bug thật 28/09/2026: slash.js đăng ký subcommand `dong`/`khieunai` (VI)
+    // nhưng handler so với `close`/`appeal` (EN) → `/ticket dong` rơi xuống
+    // nhánh mở ticket và MỞ NHẦM một ticket thật.
+    reset();
+    configs.set("g1", { ticketEnabled: true });
+    await run({ isChatInputCommand: true, commandName: "ticket", subcommand: "dong" });
+    check(
+      "/ticket dong: hướng dẫn đóng, KHÔNG mở nhầm ticket",
+      lastReply().includes("nút **Đóng**") && callsTo("openTicket").length === 0,
+      JSON.stringify(callsTo("openTicket").length),
+    );
+  }
+  {
+    reset();
+    configs.set("g1", { ticketEnabled: true });
+    await run({ isChatInputCommand: true, commandName: "ticket", subcommand: "khieunai" });
+    check(
+      "/ticket khieunai: mở loại khiếu nại, không phải hỗ trợ",
+      callsTo("openTicket")[0]?.args?.kind === "appeal",
+      JSON.stringify(callsTo("openTicket")[0]?.args?.kind),
+    );
+  }
+  {
+    // `/ticket cua-toi` — đường quay lại khi DM tắt.
+    reset();
+    configs.set("g1", { ticketEnabled: true });
+    ctl.myTicketState = { openChannelId: "ch-77" };
+    guild.channels.cache.set("ch-77", { id: "ch-77" });
+    await run({ isChatInputCommand: true, commandName: "ticket", subcommand: "cua-toi" });
+    check(
+      "/ticket cua-toi: trả kênh đang mở kèm link",
+      lastReply() === "MY_TICKET <#ch-77> https://discord.com/channels/g1/ch-77",
+      lastReply(),
+    );
+    check(
+      "/ticket cua-toi: hỏi đúng người gọi, không mở ticket",
+      callsTo("query")[0]?.args?.userId === "u-staff" && callsTo("openTicket").length === 0,
+    );
+  }
+  {
+    reset();
+    configs.set("g1", { ticketEnabled: true });
+    ctl.myTicketState = null;
+    await run({ isChatInputCommand: true, commandName: "ticket", subcommand: "cua-toi" });
+    check("/ticket cua-toi: không có ticket → báo mở mới", lastReply() === T.myTicketNone);
+  }
+  {
+    // Bản ghi còn `open` nhưng kênh đã bị xoá tay — link chết mở ra trang trắng.
+    reset();
+    configs.set("g1", { ticketEnabled: true });
+    ctl.myTicketState = { openChannelId: "ch-gone" };
+    await run({ isChatInputCommand: true, commandName: "ticket", subcommand: "cua-toi" });
+    check(
+      "/ticket cua-toi: kênh đã xoá → báo rõ, không đưa link chết",
+      lastReply() === T.myTicketGone,
+      lastReply(),
+    );
+  }
+  {
+    reset();
+    configs.set("g1", { ticketEnabled: true });
+    ctl.stateThrows = true;
+    await run({ isChatInputCommand: true, commandName: "ticket", subcommand: "cua-toi" });
+    check(
+      "/ticket cua-toi: Convex lỗi → báo chung, không crash",
+      lastReply() === T.errUnknown,
+      lastReply(),
     );
   }
   {

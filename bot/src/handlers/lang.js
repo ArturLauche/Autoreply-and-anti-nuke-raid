@@ -173,6 +173,10 @@ const TICKET_TEXT = {
     errLocked: "🔒 Server đang bị khoá do raid — không thể mở ticket lúc này.",
     errUnknown: "❌ Không mở được ticket — chủ server hãy kiểm tra lại cấu hình.",
     okOpened: "✅ Đã mở ticket: {ch}",
+    myTicket: "🎫 Ticket của bạn đang mở: {ch}\\n[Mở kênh ticket]({link})",
+    myTicketNone: "ℹ️ Bạn không có ticket nào đang mở. Dùng `/ticket mo` để mở mới.",
+    myTicketGone:
+      "⚠️ Hệ thống còn ticket đang mở của bạn nhưng kênh đã bị xoá. Hãy dùng `/ticket mo` để mở ticket mới.",
     okSent: "✅ Đã gửi khiếu nại. Ban quản trị sẽ xem và phản hồi.",
     dmFailed: "⚠️ Không gửi được DM (bạn có thể đã tắt tin nhắn riêng từ server).",
     closedTitle: "Đã đóng",
@@ -270,6 +274,10 @@ const TICKET_TEXT = {
     errLocked: "🔒 The server is locked during a raid — tickets cannot be opened right now.",
     errUnknown: "❌ Could not open a ticket — the server owner should double-check the settings.",
     okOpened: "✅ Ticket opened: {ch}",
+    myTicket: "🎫 Your open ticket: {ch}\\n[Open the ticket channel]({link})",
+    myTicketNone: "ℹ️ You have no open ticket. Use `/ticket mo` to open one.",
+    myTicketGone:
+      "⚠️ Your ticket is still marked open but its channel was deleted. Use `/ticket mo` to open a new one.",
     okSent: "✅ Appeal sent. The moderators will review and reply.",
     dmFailed: "⚠️ Could not send a DM (you may have server DMs turned off).",
     closedTitle: "Closed",
@@ -370,6 +378,10 @@ const TICKET_TEXT = {
     errLocked:
       "🔒 Der Server ist wegen eines Raids gesperrt — Tickets können gerade nicht eröffnet werden.",
     okOpened: "✅ Ticket eröffnet: {ch}",
+    myTicket: "🎫 Dein offenes Ticket: {ch}\\n[Ticket-Kanal öffnen]({link})",
+    myTicketNone: "ℹ️ Du hast kein offenes Ticket. Nutze `/ticket mo` um eines zu eröffnen.",
+    myTicketGone:
+      "⚠️ Dein Ticket ist noch als offen markiert, der Kanal wurde aber gelöscht. Nutze `/ticket mo` für ein neues Ticket.",
     okSent: "✅ Beschwerde gesendet. Die Moderation prüft sie und antwortet.",
     dmFailed: "⚠️ DM konnte nicht gesendet werden (Server-DMs sind evtl. deaktiviert).",
     closedTitle: "Geschlossen",

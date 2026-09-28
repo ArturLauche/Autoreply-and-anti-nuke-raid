@@ -479,6 +479,9 @@ const LOCALIZATIONS = {
         },
       },
       dong: { d: ["How to close a ticket", "Ticket schließen"] },
+      "cua-toi": {
+        d: ["See the ticket you currently have open", "Dein derzeit offenes Ticket ansehen"],
+      },
     },
   },
   language: {

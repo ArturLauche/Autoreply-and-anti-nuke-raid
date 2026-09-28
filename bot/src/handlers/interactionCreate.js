@@ -813,16 +813,28 @@ async function ticketCommand(client, store, interaction, guild) {
   }
 
   const sub = interaction.options.getSubcommand();
-  if (sub === "close") {
+  // Tên subcommand đăng ký trong slash.js là tiếng Việt không dấu: `dong`,
+  // `khieunai`, `cua-toi`. Trước đây handler so với `close`/`appeal` (tên EN)
+  // → `/ticket dong` rơi xuống nhánh mở ticket và MỞ NHẦM một ticket thật,
+  // còn `/ticket khieunai` mở ticket hỗ trợ thay vì khiếu nại (28/09/2026).
+  // Nhận cả hai bộ tên để không vỡ nếu server đã đăng ký bản cũ.
+  if (sub === "dong" || sub === "close") {
     return interaction.reply({
       content:
         "Đóng ticket bằng nút **Đóng** trong chính kênh ticket — nút đó còn thu quyền người mở và ghi log.",
       ephemeral: true,
     });
   }
+  if (sub === "cua-toi") {
+    return myTicketReply(store, interaction, guild);
+  }
 
   const kind =
-    sub === "appeal" ? "appeal" : config.ticketDefaultKind === "appeal" ? "appeal" : "support";
+    sub === "khieunai" || sub === "appeal"
+      ? "appeal"
+      : config.ticketDefaultKind === "appeal"
+        ? "appeal"
+        : "support";
   const res = await tickets.openTicket({
     client,
     store,
@@ -840,6 +852,48 @@ async function ticketCommand(client, store, interaction, guild) {
   }
   return interaction.reply({
     content: T.okOpened.replace("{ch}", `<#${res.channelId}>`),
+    ephemeral: true,
+  });
+}
+
+/**
+ * `/ticket cua-toi` — trả lại ticket đang mở của chính người gọi.
+ *
+ * Vì sao cần: lệnh `/ticket mo` gửi link kênh qua DM. Người dùng tắt DM
+ * (rất phổ biến) hoặc xoá tin nhắn là mất đường quay lại kênh của mình —
+ * không có lệnh nào chỉ ra kênh đó (28/09/2026). Nay `/ticket cua-toi` hỏi
+ * thẳng DB nên không phụ thuộc DM.
+ *
+ * Trả về kênh + link. Cố tình ephemeral: người gọi tự thấy kênh của mình,
+ * không cần quyền xem kênh người khác.
+ */
+async function myTicketReply(store, interaction, guild) {
+  const T = lang.ticketText(tickets.langFor(interaction, guild));
+  let state;
+  try {
+    state = await store.client.query("tickets:botTicketState", {
+      guildId: guild.id,
+      userId: interaction.user.id,
+      botKey: process.env.PROTOGON_BOT_KEY || undefined,
+    });
+  } catch (e) {
+    console.error("[tickets] xem ticket của mình lỗi:", e.message);
+    return interaction.reply({ content: T.errUnknown, ephemeral: true });
+  }
+  const channelId = state?.openChannelId;
+  if (!channelId) {
+    return interaction.reply({ content: T.myTicketNone, ephemeral: true });
+  }
+  // Bản ghi còn `open` nhưng kênh đã bị xoá tay: báo đúng sự thật thay vì đưa
+  // link chết (link tới kênh không tồn tại mở ra trang trắng).
+  const ch = guild.channels?.cache?.get(channelId);
+  if (!ch) {
+    return interaction.reply({ content: T.myTicketGone, ephemeral: true });
+  }
+  return interaction.reply({
+    content: T.myTicket
+      .replace("{ch}", `<#${channelId}>`)
+      .replace("{link}", `https://discord.com/channels/${guild.id}/${channelId}`),
     ephemeral: true,
   });
 }

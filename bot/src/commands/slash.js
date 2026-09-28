@@ -568,6 +568,13 @@ const commands = applyLocalizations([
         description: "Hướng dẫn đóng ticket",
         type: 1,
       },
+      {
+        // Vá lỗ hổng mất đường quay lại: DM tắt thì người dùng không còn cách
+        // nào tìm ticket của mình sau khi quên kênh / rời server.
+        name: "cua-toi",
+        description: "Xem ticket của bạn đang mở",
+        type: 1,
+      },
     ],
   },
   {
