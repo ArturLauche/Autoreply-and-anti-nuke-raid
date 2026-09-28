@@ -10,9 +10,18 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 
-/** Cache đáp án geo: quốc gia ít đổi → 1 ngày; lỗi/trống → 60s để tự phục hồi. */
-const CACHE_OK = "public, max-age=86400";
-const CACHE_MISS = "public, max-age=60";
+/**
+ * Cache đáp án geo — PHẢI là `private`.
+ *
+ * Đáp án này theo IP của TỪNG người gọi (x-forwarded-for), nên `public` là
+ * sai: bất kỳ cache dùng chung nào (CDN trước .convex.site, proxy của công
+ * ty, cache dùng chung của trình duyệt) đều được phép lưu theo URL rồi đưa
+ * đáp án của người A cho người B trong 24h — web tự đổi ngôn ngữ theo IP của
+ * người lạ. `private` chỉ cho cache riêng của chính người gọi dùng lại.
+ * Lỗi/rống thì 60s để tự phục hồi.
+ */
+const CACHE_OK = "private, max-age=3600";
+const CACHE_MISS = "private, max-age=60";
 
 // Endpoint công khai, không nhạy cảm (chỉ mã quốc gia) → CORS mở cho mọi origin;
 // dashboard web gọi từ origin khác *.convex.cloud nên không có header này là bị

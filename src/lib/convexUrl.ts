@@ -1,6 +1,7 @@
 export const DEFAULT_CONVEX_URL = "http://127.0.0.1:3210";
 
 const CONVEX_HOST_RE = /^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.convex\.cloud$/i;
+const CONVEX_SITE_HOST_RE = /^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.convex\.site$/i;
 const LOCAL_CONVEX_HOST_RE = /^(?:localhost|127\.0\.0\.1)(?::\d+)?$/i;
 
 /** Chuẩn hóa URL Convex và từ chối origin ngoài allowlist của hosting. */
@@ -48,15 +49,39 @@ export function convexPingUrl(raw?: string | null): string {
   return `${resolveConvexUrl(raw)}/api/query`;
 }
 
+/** Chuẩn hóa origin phục vụ HTTP actions: https + *.convex.site (hoặc localhost). */
+function normalizeConvexSiteUrl(raw: string | null | undefined): string | null {
+  const value = String(raw ?? "").trim();
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    const isLocal = LOCAL_CONVEX_HOST_RE.test(url.host);
+    if (isLocal) {
+      if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    } else if (url.protocol !== "https:" || !CONVEX_SITE_HOST_RE.test(url.hostname)) {
+      return null;
+    }
+    if (url.username || url.password || url.search || url.hash) return null;
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * URL gốc của HTTP actions (httpRouter). LƯU Ý BẮT LỖI: Convex phục vụ HTTP
  * actions (routes trong convex/http.ts) ở domain `.convex.site`, KHÔNG phải
  * `.convex.cloud` — domain đó chỉ phục vụ query/mutation/action API (paths
  * `/api/*`). Bug thật 26/09: web fetch `${cloud}/geo_lang` → 404 âm thầm
  * (catch → null) → geo-detect chết hoàn toàn dù endpoint sống và test xanh.
- * localhost (convex dev) phục vụ CẢ API và HTTP actions trên cùng cổng nên
- * giữ nguyên, chỉ đổi suffix `.convex.cloud` → `.convex.site` ở production.
+ *
+ * Ưu tiên VITE_CONVEX_SITE_URL khi môi trường có khai báo: đổi hậu tố chỉ đúng
+ * khi API và HTTP actions cùng một host. `convex dev` tách cổng (API 3210,
+ * site 3211) nên nếu chỉ đổi hậu tố thì fetch vẫn 404 — đúng lỗi 26/09 ở dạng
+ * khác, và im lặng vì catch → null. Thiếu biến thì mới lùi về cách đổi hậu tố.
  */
 export function convexSiteUrl(raw: string | null | undefined = resolveConvexUrl()): string {
+  const explicit = normalizeConvexSiteUrl(import.meta.env.VITE_CONVEX_SITE_URL);
+  if (explicit) return explicit;
   return resolveConvexUrl(raw).replace(/\.convex\.cloud$/i, ".convex.site");
 }

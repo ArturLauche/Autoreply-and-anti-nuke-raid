@@ -339,6 +339,22 @@ check(
 );
 // Convex phục vụ HTTP actions (httpRouter) ở .convex.site — helper đổi suffix
 // đúng chỗ, không đụng URL API .convex.cloud của ConvexReactClient.
+// convex dev tách cổng (API 3210 / site 3211) nên chỉ đổi hậu tố là chưa đủ:
+// fetch vẫn 404 rồi catch → null, geo chết âm thầm (28/09/2026). Phải ưu tiên
+// origin khai báo sẵn trong môi trường, và origin đó chỉ được nhận đúng
+// https *.convex.site hoặc localhost — không mở vô điều kiện.
+check(
+  "convexSiteUrl ưu tiên VITE_CONVEX_SITE_URL (convex dev tách cổng 3210/3211)",
+  /VITE_CONVEX_SITE_URL/.test(convexUrl) &&
+    /CONVEX_SITE_HOST_RE/.test(convexUrl) &&
+    /if \(explicit\) return explicit;/.test(convexUrl),
+);
+check(
+  "origin HTTP actions chỉ nhận https *.convex.site hoặc localhost",
+  convexUrl.includes("https:") &&
+    convexUrl.includes("convex.site") &&
+    convexUrl.includes("LOCAL_CONVEX_HOST_RE"),
+);
 check(
   "convexSiteUrl đổi suffix .convex.cloud → .convex.site cho HTTP actions",
   /replace\(\/\\.convex\\.cloud\$\/i, ".convex.site"\)/.test(convexUrl),
@@ -433,6 +449,15 @@ check(
   !/ctx\.db/.test(httpSrc) &&
     /access-control-allow-origin/.test(httpSrc) &&
     /cache-control/.test(httpSrc),
+);
+// Bug thật 28/09/2026: đáp án theo IP từng người gọi nhưng gửi kèm
+// `Cache-Control: public, max-age=86400` — cache dùng chung (CDN/proxy) được
+// phép đưa đáp án của người A cho người B. Phải `private`.
+check(
+  "cache /geo_lang là PRIVATE (đáp án theo IP từng người, không cho cache dùng chung)",
+  /const CACHE_OK = "private, max-age=/.test(httpSrc) &&
+    /const CACHE_MISS = "private, max-age=/.test(httpSrc) &&
+    !/cache-control[^"]*public|public, max-age/.test(httpSrc),
 );
 // Route phải được đăng ký đúng method — codegenConvex không chặn việc quên route.
 check(
