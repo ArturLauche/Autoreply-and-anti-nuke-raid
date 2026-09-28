@@ -55,6 +55,19 @@ const DECIDE_CODE = {
   no_staff: "errNoStaff",
 };
 
+/**
+ * Lỗi khi TẠO KÊNH → mã chuỗi đã dịch. Cùng lý do với `DECIDE_CODE`:
+ * mã lạ rơi về `errUnknown` ("chủ server kiểm tra lại cấu hình") chứ KHÔNG
+ * rơi về `errNoPerm` — báo nhầm "bot thiếu quyền" khi thực ra category đã bị
+ * xoá (10003) là thông tin sai dẫn chủ server tìm sai chỗ.
+ */
+const CHANNEL_ERR_CODE = {
+  MAX_CHANNELS: "errChannelsFull",
+  NO_CATEGORY: "errNoCategory",
+  MISSING_PERM: "errNoPerm",
+  UNKNOWN: "errUnknown",
+};
+
 function parseTicketId(customId) {
   const i = customId.indexOf(ID_SEP);
   if (i < 0) return null;
@@ -219,18 +232,32 @@ async function openTicket({
     cooldownHours: config?.ticketCooldownHours,
   });
   if (!decision.ok) {
-    if (decision.reason === "cooldown") {
-      return { ok: false, code: "errCooldown", waitHours: decision.waitHours };
+    // Lỗi CẤU HÌNH (chưa bật / chưa chọn category / chưa chọn role staff) phải
+    // báo trước lỗi phía người dùng — giữ đúng thứ tự cố ý của decideOpen.
+    if (decision.reason !== "cooldown" && decision.reason !== "max_open") {
+      return { ok: false, code: DECIDE_CODE[decision.reason] || "errUnknown" };
     }
-    if (decision.reason === "max_open") {
-      return { ok: false, code: "errMaxOpen", max: decision.max, count: state.openCount };
-    }
-    return { ok: false, code: DECIDE_CODE[decision.reason] || "errUnknown" };
   }
 
   // Đã có ticket mở → trả về kênh cũ thay vì tạo kênh thứ hai.
-  if (state.openChannelId) {
+  //
+  // ⚠️ PHẢI kiểm TRƯỚC hàng rào cooldown/max_open: vừa mở xong là cooldown lập
+  // tức (mặc định 24h), nên nếu kiểm sau thì người dùng bấm nút lần hai chỉ
+  // nhận "hãy chờ 24 giờ" mà không thấy kênh của chính mình — nhánh
+  // errAlreadyOpen không bao giờ chạy được (lỗi thật 28/09/2026).
+  //
+  // Bỏ qua `channelId: "pending"`: đó là bản ghi của ticket mở nhưng tạo
+  // kênh hỏng (thiếu quyền / trần 500 kênh) — chưa có kênh thật nên
+  // `<#pending>` là link chết hiện ra cho người dùng.
+  if (state.openChannelId && state.openChannelId !== "pending") {
     return { ok: false, code: "errAlreadyOpen", channelId: state.openChannelId };
+  }
+
+  if (!decision.ok) {
+    if (decision.reason === "cooldown") {
+      return { ok: false, code: "errCooldown", waitHours: decision.waitHours };
+    }
+    return { ok: false, code: "errMaxOpen", max: decision.max, count: state.openCount };
   }
 
   if (!guild.members.me?.permissions.has(PermissionFlagsBits.ManageChannels)) {
@@ -297,7 +324,7 @@ async function openTicket({
     } catch {
       // không ghi được nữa thì bỏ — console đã có dòng lỗi ở trên
     }
-    return { ok: false, code: kindErr === "MAX_CHANNELS" ? "errChannelsFull" : "errNoPerm" };
+    return { ok: false, code: CHANNEL_ERR_CODE[kindErr] || "errUnknown" };
   }
 
   // Lời dặn của chủ server dán ở ĐẦU kênh, TRÊN nội dung khiếu nại: staff

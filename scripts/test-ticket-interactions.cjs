@@ -79,6 +79,8 @@ const T = {
   okOpened: "OK_OPENED_{ch}",
   closeOwnDone: "CLOSE_OWN_DONE",
   closeOwnDenied: "CLOSE_OWN_DENIED",
+  claimClosed: "CLAIM_CLOSED",
+  errTicketGone: "ERR_TICKET_GONE",
 };
 
 const ctl = {
@@ -283,10 +285,10 @@ Module._load = function (request, parent) {
     ctl.pinThrows = false;
   }
 
-  function mkMember({ staff = true } = {}) {
+  function mkMember({ staff = true, id = "u-staff" } = {}) {
     const roles = new Map();
     if (staff) roles.set("r-staff", {});
-    return { id: "u-staff", user: { id: "u-staff", username: "mod" }, roles: { cache: roles } };
+    return { id, user: { id, username: "mod" }, roles: { cache: roles } };
   }
 
   function mkInteraction(opts = {}) {
@@ -529,6 +531,16 @@ Module._load = function (request, parent) {
     check("nút nhận việc: mutation lỗi → báo lỗi chung", lastReply() === T.errUnknown);
   }
   {
+    // Ticket ĐÃ ĐÓNG: panel vẫn còn nút "Nhận việc" trong kênh `closed-*`.
+    // Không có nhánh này thì bot rơi xuống claimTaken với byName=null →
+    // "đã có ? nhận từ trước" — vừa sai vừa rối.
+    reset();
+    configs.set("g1", { ticketEnabled: true, ticketStaffRoleId: "r-staff" });
+    ctl.claimResult = { ok: false, reason: "closed" };
+    await run({ isButton: true, customId: "ticket_claim:t1" });
+    check("nút nhận việc: ticket đã đóng → báo riêng", lastReply() === T.claimClosed);
+  }
+  {
     reset();
     configs.set("g1", { ticketEnabled: true, ticketStaffRoleId: "r-staff" });
     await run({ isButton: true, customId: "ticket_unclaim:t1" });
@@ -588,7 +600,7 @@ Module._load = function (request, parent) {
     await run({ isButton: true, customId: "ticket_close:t1" });
     check(
       "nút đóng: bản ghi không còn → từ chối, KHÔNG đóng kênh",
-      lastReply() === T.errNoStaff && callsTo("closeTicketChannel").length === 0,
+      lastReply() === T.errTicketGone && callsTo("closeTicketChannel").length === 0,
     );
   }
   {
@@ -598,7 +610,7 @@ Module._load = function (request, parent) {
     await run({ isButton: true, customId: "ticket_close:t1" });
     check(
       "nút đóng: Convex lỗi → từ chối an toàn, không đóng kênh",
-      lastReply() === T.errNoStaff && callsTo("closeTicketChannel").length === 0,
+      lastReply() === T.errTicketGone && callsTo("closeTicketChannel").length === 0,
     );
   }
   {
@@ -889,13 +901,71 @@ Module._load = function (request, parent) {
     check("tự đóng: báo cảm ơn", lastReply() === T.closeOwnDone);
   }
   {
+    // Lỗi thật 28/09/2026: cổng staff đứng TRƯỚC mọi hành động nên thành viên
+    // (đối tượng duy nhất của nút này) bấm "Tôi tự đóng" chỉ nhận được
+    // "chủ server chưa cấu hình role staff" — tính năng chết im lặng.
+    reset();
+    configs.set("g1", { ticketEnabled: true, ticketStaffRoleId: "r-staff" });
+    ctl.ticketRow = { status: "open", openerId: "u-thanhvien" };
+    await run({
+      isButton: true,
+      customId: "ticket_close_own:t1",
+      member: mkMember({ staff: false, id: "u-thanhvien" }),
+      user: { id: "u-thanhvien", username: "minh", bot: false },
+    });
+    check(
+      "tự đóng: THÀNH VIÊN mở ticket tự đóng được (không bị cổng staff chặn)",
+      callsTo("closeTicketChannel").length === 1 && lastReply() === T.closeOwnDone,
+      String(lastReply()),
+    );
+  }
+  {
+    // ...nhưng người KHÔNG phải staff và KHÔNG phải người mở vẫn bị chặn đúng.
     reset();
     configs.set("g1", { ticketEnabled: true, ticketStaffRoleId: "r-staff" });
     ctl.ticketRow = { status: "open", openerId: "u-KHAC" };
-    await run({ isButton: true, customId: "ticket_close_own:t1" });
+    await run({
+      isButton: true,
+      customId: "ticket_close_own:t1",
+      member: mkMember({ staff: false, id: "u-thanhvien" }),
+      user: { id: "u-thanhvien", username: "minh", bot: false },
+    });
     check(
-      "tự đóng: NGƯỜI KHÁC bấm → từ chối, KHÔNG đóng ticket của họ",
+      "tự đóng: thành viên bấm nút của ticket NGƯỜI KHÁC → từ chối",
       lastReply() === T.closeOwnDenied && callsTo("closeTicketChannel").length === 0,
+      String(lastReply()),
+    );
+  }
+  {
+    // Các nút staff KHÁC vẫn phải bị cổng chặn — nếu lỡ nới quá rộng thì đây
+    // là chỗ bắt (đóng/gỡ ban/nhận việc tuyệt đối không dành cho thành viên).
+    reset();
+    configs.set("g1", { ticketEnabled: true, ticketStaffRoleId: "r-staff" });
+    ctl.ticketRow = { status: "open", openerId: "u-KHAC" };
+    await run({
+      isButton: true,
+      customId: "ticket_close:t1",
+      member: mkMember({ staff: false, id: "u-thanhvien" }),
+      user: { id: "u-thanhvien", username: "minh", bot: false },
+    });
+    check(
+      "nút Đóng của staff: thành viên bấm vẫn bị chặn",
+      lastReply() === T.errNoStaff && callsTo("closeTicketChannel").length === 0,
+      String(lastReply()),
+    );
+  }
+  {
+    // Bản ghi đã đóng / không còn → phải nói đúng nguyên nhân. Dùng
+    // `errNoStaff` ở đây là báo "chủ server chưa cấu hình role staff" cho
+    // người vừa bấm nút của chính mình — hoàn toàn không liên quan.
+    reset();
+    configs.set("g1", { ticketEnabled: true, ticketStaffRoleId: "r-staff" });
+    ctl.ticketRow = { status: "closed", openerId: "u-staff" };
+    await run({ isButton: true, customId: "ticket_close:t1" });
+    check(
+      "nút Đóng: ticket đã đóng → báo đúng, không đổ lỗi quyền",
+      lastReply() === T.errTicketGone && callsTo("closeTicketChannel").length === 0,
+      String(lastReply()),
     );
   }
 

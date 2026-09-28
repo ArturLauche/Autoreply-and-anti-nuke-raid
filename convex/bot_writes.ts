@@ -1449,6 +1449,12 @@ export const botClaimTicket = mutation({
       .collect();
     const ticket = rows.find((t) => t._id === args.ticketId);
     if (!ticket) return { ok: false, reason: "not_found" };
+
+    // Chặn ticket ĐÃ ĐÓNG: nút "Nhận việc" vẫn còn trong panel của kênh
+    // `closed-*` (bot đóng bằng cách thu quyền + đổi tên, KHÔNG xoá panel)
+    // nên staff bấm "Nhận việc" trên ticket đã xong sẽ ghi nhận việc lên
+    // kênh chết, và dashboard hiện người nhận cho ticket đã đóng.
+    if (ticket.status !== "open") return { ok: false, reason: "closed" };
     // Bấm lại nút của chính mình → idempotent, không báo "đã có người nhận".
     if (ticket.claimedById === args.staffId) {
       return { ok: true, taken: false, alreadyMine: true, byName: ticket.claimedByName ?? null };

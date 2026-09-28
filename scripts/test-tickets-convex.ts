@@ -17,7 +17,12 @@ import {
   botTicketState,
   botTicketById,
 } from "../convex/tickets";
-import { botOpenTicket, botCloseTicket, botSetTicketChannel } from "../convex/bot_writes";
+import {
+  botOpenTicket,
+  botCloseTicket,
+  botSetTicketChannel,
+  botClaimTicket,
+} from "../convex/bot_writes";
 import { updateSettings } from "../convex/guilds";
 import { computeBotKey } from "../convex/botAuth";
 
@@ -29,6 +34,7 @@ const byIdH = (botTicketById as any)._handler;
 const openH = (botOpenTicket as any)._handler;
 const botCloseH = (botCloseTicket as any)._handler;
 const setChannelH = (botSetTicketChannel as any)._handler;
+const claimH = (botClaimTicket as any)._handler;
 const updateH = (updateSettings as any)._handler;
 
 let pass = 0;
@@ -538,6 +544,58 @@ const throws = async (fn: () => Promise<unknown>) => {
       "status lạ → đóng (không ghi giá trị rác)",
       e.tickets[0].status === "closed",
       e.tickets[0].status,
+    );
+  }
+  {
+    // Nút "Nhận việc" VẪN còn trong panel của kênh `closed-*` (bot đóng bằng
+    // cách thu quyền + đổi tên, không xoá panel) → nếu không chặn status,
+    // staff nhận việc cho ticket đã xong và dashboard hiện người nhận sai.
+    const e = env();
+    e.tickets.push(ticket("t1", { status: "closed" }));
+    const r = await claimH(e.ctx, {
+      guildId: "g1",
+      ticketId: "t1",
+      staffId: "M1",
+      staffName: "mod",
+      botKey: BOT_KEY,
+    });
+    check(
+      "nhận việc ticket đã đóng → từ chối",
+      r.ok === false && r.reason === "closed",
+      JSON.stringify(r),
+    );
+    check(
+      "từ chối thì KHÔNG ghi người nhận",
+      e.tickets[0].claimedById === undefined,
+      String(e.tickets[0].claimedById),
+    );
+    const e2 = env();
+    e2.tickets.push(ticket("t1", { status: "open" }));
+    const okRes = await claimH(e2.ctx, {
+      guildId: "g1",
+      ticketId: "t1",
+      staffId: "M1",
+      staffName: "mod",
+      botKey: BOT_KEY,
+    });
+    check(
+      "ticket đang mở → nhận được",
+      okRes.ok === true && e2.tickets[0].claimedById === "M1",
+      JSON.stringify(okRes),
+    );
+    const e3 = env();
+    e3.tickets.push(ticket("t1", { status: "open", claimedById: "M1", claimedByName: "mod" }));
+    const again = await claimH(e3.ctx, {
+      guildId: "g1",
+      ticketId: "t1",
+      staffId: "M1",
+      staffName: "mod",
+      botKey: BOT_KEY,
+    });
+    check(
+      "bấm lại nút của chính mình → idempotent",
+      again.ok === true && again.alreadyMine === true,
+      JSON.stringify(again),
     );
   }
   {

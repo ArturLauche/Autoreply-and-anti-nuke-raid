@@ -725,6 +725,52 @@ function makeGuild({ createThrows = null, overwritesFail = new Set() } = {}) {
     );
   }
   {
+    // Lỗi thật 28/09/2026: vừa mở ticket xong là cooldown lập tức (mặc định
+    // 24h). Kiểm cooldown trước thì lần bấm thứ hai của người dùng chỉ nhận
+    // "hãy chờ 24 giờ" — không thấy kênh của chính mình, nhánh errAlreadyOpen
+    // không bao giờ chạy được.
+    const r = await run(
+      openEnv({
+        state: { openCount: 1, lastOpenedAt: Date.now() - 60_000, openChannelId: "CH-OLD" },
+      }),
+    );
+    check(
+      "đã có ticket mở + đang trong cooldown → trả kênh cũ (không báo chờ)",
+      r.code === "errAlreadyOpen" && r.channelId === "CH-OLD",
+      JSON.stringify(r),
+    );
+  }
+  {
+    // Bản ghi mở nhưng tạo kênh hỏng có channelId "pending" — chưa có kênh
+    // thật, nên trả `<#pending>` ra là link chết cho người dùng.
+    const r = await run(
+      openEnv({
+        state: { openCount: 1, lastOpenedAt: Date.now() - 60_000, openChannelId: "pending" },
+      }),
+    );
+    check(
+      'ticket mở nhưng kênh "pending" → KHÔNG trả link chết',
+      r.code !== "errAlreadyOpen",
+      JSON.stringify(r),
+    );
+  }
+  {
+    // Category bị xoá giữa lúc đang mở (10003) → phải báo đúng nguyên nhân,
+    // không báo nhầm "bot thiếu quyền" (đã từng rơi vào errNoPerm).
+    const r = await run(
+      openEnv({ createThrows: Object.assign(new Error("Unknown Channel"), { code: 10003 }) }),
+    );
+    check("tạo kênh lỗi 10003 → errNoCategory", r.code === "errNoCategory", JSON.stringify(r));
+  }
+  {
+    const r = await run(openEnv({ createThrows: new Error("lỗi lạ không lường trước") }));
+    check(
+      "tạo kênh lỗi lạ → errUnknown (không đoán bừa)",
+      r.code === "errUnknown",
+      JSON.stringify(r),
+    );
+  }
+  {
     const env = openEnv({ canManage: false });
     const r = await run(env);
     check("bot thiếu quyền Quản lý kênh → errNoPerm", r.code === "errNoPerm");

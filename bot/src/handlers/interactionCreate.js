@@ -462,7 +462,17 @@ async function ticketActionButton(client, store, interaction) {
 
   // Quyền staff: ưu tiên role ticket, không có thì modRoles — cùng nguồn với
   // `canMod` đang dùng cho lệnh mod.
-  if (!core_isStaff(interaction.member, tickets.staffRoleIds(config))) {
+  //
+  // ⚠️ NGOẠI LỆ: `ticket_close_own` là nút dành cho CHÍNH người mở ticket, và
+  // phần lớn ticket hỗ trợ do thành viên (không phải staff) mở. Chặn staff ở
+  // đây thì tính năng này chết với đúng đối tượng nó phục vụ, và họ nhận câu
+  // "chủ server chưa cấu hình role staff" — hoàn toàn không liên quan (lỗi
+  // thật 28/09/2026). Quyền của nút này do `row.openerId` quyết định, kiểm ở
+  // nhánh đóng bên dưới.
+  if (
+    parsed.action !== "ticket_close_own" &&
+    !core_isStaff(interaction.member, tickets.staffRoleIds(config))
+  ) {
     return interaction.reply({ content: T.errNoStaff, ephemeral: true });
   }
 
@@ -519,6 +529,11 @@ async function ticketActionButton(client, store, interaction) {
     if (res?.taken === false && res.alreadyMine) {
       return interaction.reply({ content: T.claimMine, ephemeral: true });
     }
+    // Ticket đã đóng → nói đúng nguyên nhân. Rơi xuống nhánh dưới sẽ báo
+    // "đã có {staff} nhận từ trước" với byName = null → "…có ? nhận…".
+    if (res?.reason === "closed") {
+      return interaction.reply({ content: T.claimClosed, ephemeral: true });
+    }
     if (!res?.ok) {
       return interaction.reply({
         content: String(T.claimTaken).replace("{staff}", res?.byName || "?"),
@@ -559,7 +574,10 @@ async function ticketActionButton(client, store, interaction) {
       console.error(`[tickets] đọc bản ghi thất bại:`, e.message);
     }
     if (!row || row.status !== "open") {
-      return interaction.reply({ content: T.errNoStaff, ephemeral: true });
+      // KHÔNG dùng `errNoStaff` ở đây: đó là câu "chủ server chưa cấu hình
+      // role staff" — hoàn toàn không liên quan tới việc bản ghi đã đóng,
+      // và người mở bấm "Tôi tự đóng" cũng dính câu này.
+      return interaction.reply({ content: T.errTicketGone, ephemeral: true });
     }
 
     // Nút "Tôi tự đóng": chỉ CHÍNH người mở được bấm. Không kiểm tra thì bất

@@ -168,6 +168,8 @@ const TICKET_TEXT = {
     errHierarchy: "❌ Bot cần role cao hơn bạn để cấp quyền xem kênh ticket.",
     errChannelsFull: "❌ Server đã đạt giới hạn 500 kênh của Discord — không thể tạo ticket mới.",
     errNoStaff: "❌ Chủ server chưa cấu hình role staff xử lý ticket.",
+    /** Bản ghi không còn / đã đóng — KHÔNG phải lỗi quyền. */
+    errTicketGone: "⚠️ Ticket này không còn mở (đã đóng hoặc không còn trong hệ thống).",
     errLocked: "🔒 Server đang bị khoá do raid — không thể mở ticket lúc này.",
     errUnknown: "❌ Không mở được ticket — chủ server hãy kiểm tra lại cấu hình.",
     okOpened: "✅ Đã mở ticket: {ch}",
@@ -192,6 +194,7 @@ const TICKET_TEXT = {
     claimDone: "✅ {staff} đã nhận ticket này.",
     claimTaken: "🔒 Ticket đã có {staff} nhận từ trước.",
     claimMine: "✅ Bạn đã nhận ticket này.",
+    claimClosed: "🔒 Ticket này đã đóng — không cần nhận việc nữa.",
     unclaimDone: "✅ Đã bỏ nhận — ai cũng có thể nhận lại.",
     reasonModalTitle: "Đóng ticket kèm lý do",
     reasonModalLabel: "Lý do đóng (staff và người mở đều thấy)",
@@ -263,6 +266,7 @@ const TICKET_TEXT = {
     errHierarchy: "❌ The bot needs a higher role than you to grant channel access.",
     errChannelsFull: "❌ This server hit Discord's 500 channel limit — cannot create a ticket.",
     errNoStaff: "❌ The server owner has not set a staff role for tickets.",
+    errTicketGone: "⚠️ This ticket is no longer open (already closed or no longer tracked).",
     errLocked: "🔒 The server is locked during a raid — tickets cannot be opened right now.",
     errUnknown: "❌ Could not open a ticket — the server owner should double-check the settings.",
     okOpened: "✅ Ticket opened: {ch}",
@@ -287,6 +291,7 @@ const TICKET_TEXT = {
     claimDone: "✅ {staff} claimed this ticket.",
     claimTaken: "🔒 This ticket was already claimed by {staff}.",
     claimMine: "✅ You claimed this ticket.",
+    claimClosed: "🔒 This ticket is already closed — nothing left to claim.",
     unclaimDone: "✅ Unclaimed — anyone can claim it again.",
     reasonModalTitle: "Close ticket with a reason",
     reasonModalLabel: "Reason for closing (staff and the opener both see it)",
@@ -358,6 +363,8 @@ const TICKET_TEXT = {
     errHierarchy: "❌ Der Bot braucht eine höhere Rolle als du, um Kanalzugriff zu geben.",
     errChannelsFull: "❌ Dieser Server hat das Discord-Limit von 500 Kanälen erreicht.",
     errNoStaff: "❌ Der Serverbesitzer hat noch keine Staff-Rolle für Tickets festgelegt.",
+    errTicketGone:
+      "⚠️ Dieses Ticket ist nicht mehr offen (bereits geschlossen oder nicht mehr erfasst).",
     errUnknown:
       "❌ Ticket konnte nicht eröffnet werden — der Serverbesitzer sollte die Einstellungen prüfen.",
     errLocked:
@@ -384,6 +391,7 @@ const TICKET_TEXT = {
     claimDone: "✅ {staff} hat dieses Ticket übernommen.",
     claimTaken: "🔒 Dieses Ticket wurde bereits von {staff} übernommen.",
     claimMine: "✅ Du hast dieses Ticket übernommen.",
+    claimClosed: "🔒 Dieses Ticket ist bereits geschlossen — nichts mehr zu übernehmen.",
     unclaimDone: "✅ Freigegeben — es kann wieder übernommen werden.",
     reasonModalTitle: "Ticket mit Grund schließen",
     reasonModalLabel: "Grund für das Schließen (für Team und Ersteller sichtbar)",

@@ -1,5 +1,4 @@
 const { Colors, EmbedBuilder } = require("discord.js");
-const core = require("../ticketCore");
 const tickets = require("./tickets");
 const lang = require("./lang");
 
@@ -154,7 +153,6 @@ async function processTicketJobs(client, store, jobs) {
   if (closed || purged) {
     console.log(`[tickets:job] tự đóng ${closed}, dọn kênh ${purged}`);
   }
-  void core;
   return { closed, purged };
 }
 
