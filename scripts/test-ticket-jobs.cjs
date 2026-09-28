@@ -233,6 +233,85 @@ const job = {
     check("dọn lần đầu ok", ok === true);
   }
 
+  // ═══ 2b. Khoá kênh của ticket đóng từ DASHBOARD ═══
+  // Trước job này: dashboard đóng ticket chỉ đổi trạng thái DB, kênh giữ
+  // nguyên tên + quyền tới tận lượt purge sau 24h (lỗi thật 28/09/2026).
+  section("runCloseChannel — khoá kênh đóng từ dashboard");
+  {
+    const w = mkWorld();
+    const ok = await jobs.runCloseChannel(
+      w.client,
+      w.store,
+      { ...job, status: "closeChannel", closeReason: "Đã giải quyết" },
+      T,
+    );
+    check("khoá kênh thành công", ok === true);
+    check(
+      "thu quyền + đổi tên kênh (KHÔNG xoá kênh)",
+      w.log.includes("setName") && !w.log.includes("DELETE"),
+      w.log.join(","),
+    );
+    check(
+      "đánh dấu channelClosedAt để tick không lặp",
+      w.mutations.some((m) => m.name === "bot_writes:botMarkTicketChannelClosed"),
+      w.mutations.map((m) => m.name).join(","),
+    );
+    check(
+      "KHÔNG ghi lại closedAt (không đẩy lùi lượt dọn kênh)",
+      !w.mutations.some((m) => m.name === "bot_writes:botCloseTicket"),
+      w.mutations.map((m) => m.name).join(","),
+    );
+    check(
+      "có gửi embed kèm lý do đóng",
+      w.sent.some((s) => s.embeds?.[0]?.d?.description?.includes("Đã giải quyết")),
+      JSON.stringify(w.sent.map((s) => s.embeds?.[0]?.d?.description)),
+    );
+  }
+  {
+    // Kênh đã bị xoá tay → vẫn đánh dấu, nếu không tick lặp mãi.
+    const w = mkWorld();
+    const ok = await jobs.runCloseChannel(
+      w.client,
+      w.store,
+      { ...job, channelId: "KHONG_CO", status: "closeChannel" },
+      T,
+    );
+    check("kênh không còn → đánh dấu đã khoá, không ném", ok === true);
+    check(
+      "vẫn ghi mốc channelClosedAt",
+      w.mutations.some((m) => m.name === "bot_writes:botMarkTicketChannelClosed"),
+    );
+  }
+  {
+    // Bot không có trong server → không đánh dấu (lượt tick sau thử lại được).
+    const w = mkWorld();
+    const ok = await jobs.runCloseChannel(
+      { guilds: { cache: new Map() } },
+      w.store,
+      { ...job, status: "closeChannel" },
+      T,
+    );
+    check("bot không còn trong server → trả false, không ghi mốc", ok === false);
+    check(
+      "không ghi mốc khi chưa xử lý được",
+      w.mutations.length === 0,
+      w.mutations.map((m) => m.name).join(","),
+    );
+  }
+  {
+    // Lượt batch nhận cả 3 loại job.
+    const w = mkWorld();
+    const res = await jobs.processTicketJobs(w.client, w.store, [
+      { ...job, status: "closeChannel" },
+    ]);
+    check(
+      "processTicketJobs nhận job closeChannel",
+      res.closed === 1 &&
+        w.mutations.some((m) => m.name === "bot_writes:botMarkTicketChannelClosed"),
+      JSON.stringify(res),
+    );
+  }
+
   // ═══ 3. Batch: lỗi 1 job không làm hỏng job khác ═══
   section("processTicketJobs — lỗi cô lập");
   {

@@ -116,9 +116,11 @@ export const getPendingJobs = query({
     };
 
     // ── Job dọn ticket ──
-    // Hai việc, cùng một lượt tick để không tốn thêm vòng query:
-    //   1. autoClose: ticket `open` quá idleHours không ai chat → đóng.
-    //   2. purge: ticket `closed` quá closeGraceHours → lưu transcript rồi
+    // Ba việc, cùng một lượt tick để không tốn thêm vòng query:
+    //   1. closeChannel: ticket `closed` mà kênh CHƯA thu quyền (đóng từ
+    //      dashboard) → thu quyền + đổi tên ngay, không chờ 24h.
+    //   2. autoClose: ticket `open` quá idleHours không ai chat → đóng.
+    //   3. purge: ticket `closed` quá closeGraceHours → lưu transcript rồi
     //      xoá kênh. KHÔNG tự xoá khi chưa lưu transcript.
     //
     // Mỗi ticket gửi kèm idleHours/graceHours CỦA SERVER ĐÓ (vì mỗi chủ
@@ -135,6 +137,7 @@ export const getPendingJobs = query({
       closeGraceHours: number;
       lastActivityAt: number;
       closedAt: number;
+      closeReason?: string;
     }[] = [];
     for (const g of guilds) {
       if (!g.ticketEnabled) continue;
@@ -166,6 +169,27 @@ export const getPendingJobs = query({
           // Chỉ xoá khi transcript ĐÃ lưu — xoá kênh mà mất transcript là
           // mất bằng chứng, tệ hơn nhiều so với giữ kênh lâu hơn.
           if (t.transcriptStorageId) continue;
+          // Kênh CHƯA được thu quyền → khoá ngay ở lượt tick này. Trước
+          // đây nhánh closed chỉ chờ tới lượt purge sau closeGraceHours,
+          // tức dashboard đóng ticket xong thì kênh vẫn còn tên cũ + quyền cũ
+          // tới 24h (lỗi thật 28/09/2026).
+          if (!t.channelClosedAt && t.channelId && t.channelId !== "pending") {
+            tickets.push({
+              guildId: g.discordId,
+              ticketId: t._id,
+              channelId: t.channelId,
+              number: t.number ?? 0,
+              kind: t.kind,
+              openerId: t.openerId,
+              status: "closeChannel",
+              idleHours,
+              closeGraceHours,
+              lastActivityAt: t.lastActivityAt ?? t.createdAt,
+              closedAt: t.closedAt ?? 0,
+              closeReason: t.closeReason ?? undefined,
+            });
+            continue;
+          }
           const closed = t.closedAt ?? 0;
           if (!closed || nowMs - closed < closeGraceHours * 3_600_000) continue;
           tickets.push({

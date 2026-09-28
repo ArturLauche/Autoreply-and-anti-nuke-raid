@@ -24,6 +24,7 @@ import {
   botCloseTicket,
   botSetTicketChannel,
   botClaimTicket,
+  botMarkTicketChannelClosed,
 } from "../convex/bot_writes";
 import { updateSettings } from "../convex/guilds";
 import { computeBotKey } from "../convex/botAuth";
@@ -39,6 +40,7 @@ const setChannelH = (botSetTicketChannel as any)._handler;
 const claimH = (botClaimTicket as any)._handler;
 const transcriptH = (ticketTranscript as any)._handler;
 const transcriptUrlH = (ticketTranscriptUrl as any)._handler;
+const markClosedH = (botMarkTicketChannelClosed as any)._handler;
 const updateH = (updateSettings as any)._handler;
 
 let pass = 0;
@@ -858,6 +860,67 @@ const throws = async (fn: () => Promise<unknown>) => {
       "đổi kênh dán panel → vẫn tự dán (hành vi có sẵn, không hồi quy)",
       p.ticketSendPanel === true && p.ticketPanelChannelId === "111111111111111111",
       JSON.stringify(p),
+    );
+  }
+
+  // ═══ MỐC channelClosedAt — phân biệt "đã khoá kênh" với "chỉ đóng ở DB" ═══
+  // Dashboard đóng ticket KHÔNG đụng kênh Discord. Job `closeChannel` trong
+  // getPendingJobs thu quyền rồi ghi mốc này; bot đóng trong kênh thì ghi
+  // luôn cùng lúc. Không có mốc thì tick không biết kênh nào còn cần khoá
+  // (lỗi thật 28/09/2026: kênh còn mở tới 24h sau khi staff đóng ở web).
+  console.log("\n── channelClosedAt ──");
+  {
+    const e = env();
+    e.tickets.push(ticket("t1"));
+    await botCloseH(e.ctx, {
+      guildId: "g1",
+      ticketId: "t1",
+      status: "closed",
+      closedById: "M1",
+      closedByName: "mod",
+      botKey: BOT_KEY,
+    });
+    check(
+      "bot đóng trong kênh → ghi channelClosedAt ngay",
+      typeof e.tickets[0].channelClosedAt === "number",
+      String(e.tickets[0].channelClosedAt),
+    );
+  }
+  {
+    const e = env();
+    e.tickets.push(ticket("t1"));
+    await markClosedH(e.ctx, { guildId: "g1", ticketId: "t1", botKey: BOT_KEY });
+    check(
+      "job closeChannel đánh dấu được",
+      typeof e.tickets[0].channelClosedAt === "number",
+      String(e.tickets[0].channelClosedAt),
+    );
+    check(
+      "đánh dấu KHÔNG đụng closedAt (không đẩy lùi lượt dọn kênh)",
+      e.tickets[0].closedAt === undefined,
+      String(e.tickets[0].closedAt),
+    );
+    check(
+      "ticket không tồn tại → ok thay vì ném",
+      (await markClosedH(e.ctx, { guildId: "g1", ticketId: "no", botKey: BOT_KEY })).found ===
+        false,
+    );
+    check(
+      "botKey sai → từ chối",
+      await throws(async () =>
+        markClosedH(e.ctx, { guildId: "g1", ticketId: "t1", botKey: "sai" }),
+      ),
+    );
+  }
+  {
+    // Purge (kênh đã bị xoá) không được ghi mốc — nằm ở trạng thái locked.
+    const e = env();
+    e.tickets.push(ticket("t1"));
+    await botCloseH(e.ctx, { guildId: "g1", ticketId: "t1", status: "locked", botKey: BOT_KEY });
+    check(
+      "purge (locked) → không ghi channelClosedAt",
+      e.tickets[0].channelClosedAt === undefined,
+      String(e.tickets[0].channelClosedAt),
     );
   }
 

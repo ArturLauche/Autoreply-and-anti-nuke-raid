@@ -72,6 +72,59 @@ async function runAutoClose(client, store, job, T) {
 }
 
 /**
+ * Xử lý 1 job closeChannel: ticket đã đóng ở DASHBOARD nhưng kênh Discord
+ * chưa được thu quyền.
+ *
+ * Vì sao cần: `closeTicket` phía web chỉ đổi trạng thái trong DB. Không có
+ * job này thì kênh giữ nguyên tên `ticket-…` và quyền cũ tới tận lượt purge
+ * sau `closeGraceHours` (mặc định 24h) — staff đóng ticket xong, nhìn kênh
+ * thấy vẫn mở, người mở vẫn nhắn được (lỗi thật 28/09/2026).
+ *
+ * KHÔNG đụng `closedAt`: chạm vào nó là đẩy lùi thêm một vòng dọn kênh.
+ * Mốc duy nhất được ghi là `channelClosedAt`.
+ */
+async function runCloseChannel(client, store, job, T) {
+  const guild = client.guilds.cache.get(job.guildId);
+  if (!guild) return false;
+  const channel = guild.channels.cache.get(job.channelId);
+  if (!channel) {
+    // Kênh đã bị xoá tay → coi như đã thu quyền, đánh dấu để tick không lặp.
+    await markChannelClosed(store, job);
+    return true;
+  }
+  const embed = new EmbedBuilder()
+    .setColor(Colors.Grey)
+    .setTitle(T.closedTitle)
+    .setDescription(
+      job.closeReason
+        ? String(T.closedWithReason).replace("{reason}", String(job.closeReason))
+        : String(T.closeNote || ""),
+    )
+    .setTimestamp(Date.now());
+  try {
+    await channel.send({ embeds: [embed] });
+  } catch {
+    // Kênh đã bị thu quyền không gửi được — vẫn thu quyền tiếp.
+  }
+  await tickets.closeTicketChannel({ guild, channel, openerId: job.openerId });
+  await markChannelClosed(store, job);
+  console.log(`[tickets:close] ${job.guildId}: đã khoá kênh #${job.number} (đóng từ dashboard)`);
+  return true;
+}
+
+/** Ghi mốc `channelClosedAt` — lỗi ghi thì lượt tick sau thử lại (idempotent). */
+async function markChannelClosed(store, job) {
+  try {
+    await store.client.mutation("bot_writes:botMarkTicketChannelClosed", {
+      guildId: job.guildId,
+      ticketId: job.ticketId,
+    });
+  } catch (e) {
+    console.error(`[tickets:close] ghi mốc thất bại ${job.guildId}:`, e.message);
+  }
+}
+
+/**
  * Xử lý 1 job purge: đã đóng đủ hạn → lưu transcript rồi xoá kênh.
  * KHÔNG xoá khi lưu transcript thất bại.
  */
@@ -141,7 +194,9 @@ async function processTicketJobs(client, store, jobs) {
       // Ngôn ngữ cho thông báo tự đóng: theo server (ticket do người khác mở,
       // không có interaction để đọc locale của người mở).
       const T = lang.ticketText(guild ? lang.langForGuild(guild) : "en");
-      if (job.status === "autoClose") {
+      if (job.status === "closeChannel") {
+        if (await runCloseChannel(client, store, job, T)) closed++;
+      } else if (job.status === "autoClose") {
         if (await runAutoClose(client, store, job, T)) closed++;
       } else if (job.status === "purge") {
         if (await runPurge(client, store, job)) purged++;
@@ -156,4 +211,10 @@ async function processTicketJobs(client, store, jobs) {
   return { closed, purged };
 }
 
-module.exports = { processTicketJobs, runAutoClose, runPurge, TRANSCRIPT_LIMIT };
+module.exports = {
+  processTicketJobs,
+  runAutoClose,
+  runCloseChannel,
+  runPurge,
+  TRANSCRIPT_LIMIT,
+};

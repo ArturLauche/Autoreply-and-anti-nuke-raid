@@ -1035,6 +1035,16 @@ export default defineSchema({
      */
     unbanned: v.optional(v.boolean()),
     /**
+     * Đã THU QUYỀN kênh Discord (thu quyền người mở + đổi tên `closed-*`).
+     *
+     * Vì sao cần: ticket đóng từ DASHBOARD chỉ đổi trạng thái trong DB, kênh
+     * Discord vẫn còn tên cũ và quyền cũ. Không có mốc này thì bot không
+     * biết kênh nào còn cần khoá, và job dọn (purge) chỉ chạy sau
+     * closeGraceHours (mặc định 24h) rồi XOÁ thẳng — staff 24 giờ mới thấy
+     * hệ quả. undefined = chưa thu quyền.
+     */
+    channelClosedAt: v.optional(v.number()),
+    /**
      * Bot không gửi được DM khi mở ticket từ điểm vào DM (user tắt DM).
      * Dashboard hiển thị để staff gọi tay qua panel DM.
      */

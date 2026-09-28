@@ -1383,6 +1383,10 @@ export const botCloseTicket = mutation({
       closeReason: args.closeReason ? args.closeReason.slice(0, 300) : undefined,
       unbanned: args.unbanned ?? ticket.unbanned,
       closedAt: now,
+      // Bot gọi mutation này NGAY SAU khi đã thu quyền + đổi tên kênh →
+      // đánh dấu để job tick không thu quyền lần hai. Job "closeChannel" chỉ
+      // dành cho ticket đóng từ DASHBOARD (nơi chưa ai đụng kênh).
+      ...(args.status === "locked" ? {} : { channelClosedAt: now }),
     });
     return { ok: true, found: true };
   },
@@ -1491,6 +1495,35 @@ export const botUnclaimTicket = mutation({
       claimedByName: undefined,
       claimedAt: undefined,
     });
+    return { ok: true, found: true };
+  },
+});
+
+/**
+ * Bot đã thu quyền + đổi tên kênh cho ticket đóng từ DASHBOARD.
+ *
+ * Job `closeChannel` trong `getPendingJobs` gọi mutation này sau khi
+ * `closeTicketChannel` chạy xong. Không có mốc đó thì mỗi lượt tick lại
+ * thu quyền một lần nữa (vô hại nhưng spam API Discord mỗi vòng).
+ *
+ * KHÔNG đụng `closedAt`: chạm vào nó là đẩy lùi thêm `closeGraceHours`
+ * lượt dọn kênh, vài lượt là kênh ticket không bao giờ được dọn.
+ */
+export const botMarkTicketChannelClosed = mutation({
+  args: {
+    guildId: v.string(),
+    ticketId: v.string(),
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireBotKeyStrict(ctx, args.botKey);
+    const rows = await ctx.db
+      .query("tickets")
+      .withIndex("by_guildId", (q) => q.eq("guildId", args.guildId))
+      .collect();
+    const ticket = rows.find((t) => t._id === args.ticketId);
+    if (!ticket) return { ok: true, found: false };
+    await ctx.db.patch(ticket._id, { channelClosedAt: Date.now() });
     return { ok: true, found: true };
   },
 });
