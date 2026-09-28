@@ -11,7 +11,7 @@ export interface PageSplashProps {
 
 /**
  * Màn hình tải trang / route thống nhất:
- * - Logo cá voi vector mới (nền rounded-square đen, tương phản đen/trắng cao).
+ * - Logo cá voi (ảnh public/logo-mark.png: khối bo góc đen + cá voi trắng).
  * - Thanh tiến trình mảnh với chu kỳ 1.1s (≤ 1.2s).
  * - Không layout shift: kích thước cố định.
  * - Tôn trọng @media (prefers-reduced-motion: reduce): tắt animation.

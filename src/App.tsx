@@ -84,7 +84,7 @@ function RouteFallback() {
         role="status"
         aria-live="polite"
       >
-        <img src="/favicon.svg" alt="" className="h-10 w-10 animate-pulse-fade" />
+        <img src="/logo-mark.png" alt="" className="h-10 w-10 animate-pulse-fade" />
         <p className="text-xs tracking-wide text-muted-foreground">{translate("Đang tải…")}</p>
       </div>
     </main>

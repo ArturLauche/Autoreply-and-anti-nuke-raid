@@ -63,7 +63,7 @@ export default function LegalPage({ slug }: { slug: LegalSlug }) {
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between gap-3">
           <Link to="/" className="flex items-center gap-2.5">
-            <img src="/favicon.svg" alt="" className="h-8 w-8" />
+            <img src="/logo-mark.png" alt="" className="h-8 w-8" />
             <span className="font-display text-lg font-bold tracking-tight">
               Protogon<span className="text-primary">.</span>
             </span>

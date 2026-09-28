@@ -11,7 +11,7 @@
       content="Protogon bảo vệ server Discord với auto-reply, nhiệt độ 4 giai đoạn, Join Gate chống selfbot, chặn link độc hại và 32 module chống nuke/raid."
     />
     <link rel="canonical" href="https://protogon.freebuff.app/" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 
     <!-- Open Graph -->
@@ -70,7 +70,7 @@
       Nhân vật pixel chạy trên thanh đã BỎ (28/09/2026). Ở cỡ vẽ được trên
       thanh nó không đọc ra hình người, chỉ tốn 60 lần dựng lại lưới mỗi giây
       để nhấp nháy — rối mắt mà không nói thêm gì. Thay vào đó: LOGO CÁ VOI
-      trắng/đen tương phản rõ nét (cùng hình với favicon.svg + BotLogo.tsx),
+      (ảnh public/logo-mark.png, dùng CHUNG với BotLogo.tsx + favicon.png),
       thanh MẢNH (4px) và một VỆT SÁNG chạy dọc thanh thuần CSS. ĐỪNG dựng lại
       nhân vật.
     -->
@@ -83,10 +83,9 @@
         place-items: center;
         background: #ffffff;
         color: #111111;
-        /* Biến thương hiệu cho logo + vệt sáng; đổi giá trị theo chủ đề ở rule
-           [data-boot="dark"] ngay bên dưới. */
-        --boot-mark-bg: #111111;
-        --boot-mark-fg: #f5f5f5;
+        /* Vệt sáng chạy trên thanh — đổi giá trị theo chủ đề ở rule
+           [data-boot="dark"] ngay bên dưới. Màu logo do chính ảnh
+           public/logo-mark.png quyết định nên không còn biến cho logo. */
         --boot-sheen: rgba(255, 255, 255, 0.9);
         font-family:
           Inter,
@@ -100,10 +99,8 @@
       #boot[data-boot="dark"] {
         background: #0a0a0a;
         color: #ededed;
-        /* Đảo khối logo (nền sáng, cá voi tối) và cho vệt sáng trắng đặc để
-           còn đọc ra trên thanh xám. */
-        --boot-mark-bg: #f5f5f5;
-        --boot-mark-fg: #111111;
+        /* Vệt sáng trắng đặc để còn đọc ra trên thanh xám. (Logo đảo màu bằng
+           filter: invert(1) ở rule .boot-logo img bên dưới.) */
         --boot-sheen: #ffffff;
       }
       #boot.is-done {
@@ -116,14 +113,18 @@
         justify-content: center;
         margin-bottom: 18px;
       }
-      .boot-logo svg {
+      /* Logo là ẢNH cá voi (khối bo góc tối + cá voi trắng) — giữ nguyên tỉ lệ
+         ảnh, không bóp méo. */
+      .boot-logo img {
         display: block;
         width: 56px;
         height: 56px;
         filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.22));
       }
-      #boot[data-boot="dark"] .boot-logo svg {
-        filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.6));
+      /* Chế độ tối: ảnh chỉ có trắng + alpha nên invert(1) cho đúng cặp màu
+         thương hiệu (nền sáng, cá voi tối). */
+      #boot[data-boot="dark"] .boot-logo img {
+        filter: invert(1) drop-shadow(0 8px 20px rgba(0, 0, 0, 0.6));
       }
       .boot-in {
         /* Không còn canvas nhân vật nên không phải chừa nửa thân mỗi bên:
@@ -230,21 +231,7 @@
     >
       <div class="boot-in">
         <span class="boot-logo" aria-hidden="true">
-          <svg viewBox="0 0 64 64" focusable="false">
-            <rect width="64" height="64" rx="16" fill="var(--boot-mark-bg)" />
-            <path
-              d="M59 11 C55 12 52 13 49 14 C45 14.5 39 13 33 13 C40 17 46 19 49 20 C48.5 25 48 28 47 30 C43 28 40 26 36 25 C31 23 26 21 22 21 C15 21 9 26 7 33 C5 40 18 53 36 53 C42 53 46 51 48 49 C51 39 53 29 55 20 C56 17 58 13 59 11 Z"
-              fill="var(--boot-mark-fg)"
-            />
-            <circle cx="15.4" cy="31.9" r="2.2" fill="var(--boot-mark-bg)" />
-            <path
-              d="M10 40 C14 43.5 19 44.5 25 43.5"
-              stroke="var(--boot-mark-bg)"
-              stroke-width="2"
-              fill="none"
-              stroke-linecap="round"
-            />
-          </svg>
+          <img src="/logo-mark.png" alt="" width="56" height="56" />
         </span>
         <p class="boot-mark">Protogon.</p>
         <div class="boot-track">

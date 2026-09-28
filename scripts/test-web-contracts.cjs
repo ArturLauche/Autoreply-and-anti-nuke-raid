@@ -621,20 +621,64 @@ check(
   Number.isFinite(bootTrackHeightPx) && bootTrackHeightPx > 0 && bootTrackHeightPx <= 4,
   `height=${Number.isFinite(bootTrackHeightPx) ? bootTrackHeightPx : "?"}px`,
 );
-// Logo cá voi: MỘT hình, BA nơi (favicon.svg + component web + preloader).
-// Comment ở BotLogo.tsx đã từng cảnh báo đúng cái bẫy "nhiều bản chép lệch
-// nhau" — khoá bằng chính path thân cá voi, lệch một chỗ là đỏ ngay.
-const WHALE_BODY =
-  "M59 11 C55 12 52 13 49 14 C45 14.5 39 13 33 13 C40 17 46 19 49 20 C48.5 25 48 28 47 30 C43 28 40 26 36 25 C31 23 26 21 22 21 C15 21 9 26 7 33 C5 40 18 53 36 53 C42 53 46 51 48 49 C51 39 53 29 55 20 C56 17 58 13 59 11 Z";
-const faviconSrc = fs.readFileSync(path.join(ROOT, "public", "favicon.svg"), "utf8");
+// Logo cá voi: MỘT ảnh (public/logo-mark.png) dùng chung ở MỌI chỗ. Logo cũ
+// vẽ tay bằng path SVG đã bỏ (28/09/2026) vì hình không đọc ra cá voi — luật
+// này chốt cả sự tồn tại/kích thước ảnh lẫn việc không ai vẽ lại path cũ, kèm
+// chiều ngược lại: không sót tham chiếu tới asset đã xoá.
+function pngInfo(rel) {
+  const file = path.join(ROOT, rel);
+  if (!fs.existsSync(file)) return null;
+  const buf = fs.readFileSync(file);
+  const isPng = buf
+    .slice(0, 8)
+    .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  return { buf, isPng, w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+}
+const logoMark = pngInfo("public/logo-mark.png");
+const faviconPng = pngInfo("public/favicon.png");
+const touchPng = pngInfo("public/apple-touch-icon.png");
 const botLogoSrc = files.get("components/BotLogo.tsx") ?? "";
+const legalSrc = files.get("pages/LegalPage.tsx") ?? "";
 check(
-  "preloader có logo thương hiệu (khối bo góc + SVG)",
-  /class="boot-logo"/.test(html) && /<svg[\s\S]*?<rect[\s\S]*?rx="16"/.test(html),
+  "logo mark là PNG vuông 256×256 (nguồn duy nhất cho mọi chỗ)",
+  !!logoMark && logoMark.isPng && logoMark.w === 256 && logoMark.h === 256,
+  logoMark ? `${logoMark.w}×${logoMark.h}` : "thiếu public/logo-mark.png",
 );
-check("logo cá voi có trong favicon.svg", faviconSrc.includes(WHALE_BODY));
-check("logo cá voi có trong BotLogo.tsx (web)", botLogoSrc.includes(WHALE_BODY));
-check("logo cá voi có trong preloader (index.html)", html.includes(WHALE_BODY));
+check(
+  "logo mark có nội dung thật (không phải file rỗng hay ký tự lạc)",
+  !!logoMark && logoMark.buf.length > 4096,
+  logoMark ? `${(logoMark.buf.length / 1024).toFixed(1)}KB` : "thiếu file",
+);
+check(
+  "favicon.png + apple-touch-icon.png là PNG vuông đúng cỡ",
+  !!faviconPng &&
+    faviconPng.isPng &&
+    faviconPng.w === 64 &&
+    faviconPng.h === 64 &&
+    !!touchPng &&
+    touchPng.isPng &&
+    touchPng.w === 180 &&
+    touchPng.h === 180,
+);
+check(
+  "preloader dùng ảnh logo (/logo-mark.png) thay SVG vẽ tay",
+  /class="boot-logo"/.test(html) && /logo-mark\.png/.test(html),
+);
+check("logo cá voi có trong BotLogo.tsx (web)", botLogoSrc.includes("/logo-mark.png"));
+check("logo cá voi có trong RouteFallback (App.tsx)", appSrc.includes("/logo-mark.png"));
+check(
+  "KHÔNG còn path cá voi vẽ tay và không còn public/favicon.svg",
+  !/M59 11 C55 12/.test(`${html}${botLogoSrc}`) &&
+    !fs.existsSync(path.join(ROOT, "public", "favicon.svg")),
+);
+check(
+  "KHÔNG sót tham chiếu /favicon.svg (asset đã xoá)",
+  !/favicon\.svg/.test(`${html}${botLogoSrc}${appSrc}${legalSrc}`),
+);
+check(
+  "preloader đảo màu logo ở chủ đề tối (ảnh chỉ có trắng + alpha)",
+  /#boot\[data-boot="dark"\]\s*\.boot-logo[^{]*\{[^}]*invert\(1\)/.test(html),
+);
 check(
   "preloader có vệt ánh sáng chạy trên thanh (animation CSS)",
   /\.boot-fill::after\s*\{/.test(html) && /@keyframes boot-sheen/.test(html),
