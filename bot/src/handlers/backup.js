@@ -1251,6 +1251,15 @@ function parsePermissions(raw) {
   if (/^\d+$/.test(s)) return s;
   let bits = 0n;
   for (const part of s.split(/[,\s|]+/)) {
+    // Mỗi phần có thể là TÊN quyền ("manage_messages") HOẶC giá trị bitfield
+    // dạng số ("8", 8192). Trước đây chỉ tra TÊN nên mọi dạng danh sách số
+    // (["8","8192"], "8,8192", 8|8192) rơi hết về 0 — role và permission
+    // overwrite được khôi phục MẤT SẠCH quyền, không có cảnh báo nào.
+    // BigInt giữ nguyên độ chính xác kể cả bitfield vượt 2^53.
+    if (/^\d+$/.test(part)) {
+      bits |= BigInt(part);
+      continue;
+    }
     const v = permFlagValue(part);
     if (v !== undefined && v !== null) bits |= BigInt(v);
   }

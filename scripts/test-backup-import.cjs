@@ -481,6 +481,76 @@ check(
   b.channels[0].overwrites[0].allow,
 );
 
+console.log(
+  "\n18b) Quyền lưu theo BITFIELD dạng danh sách/số (administrator=8, manage_messages=8192):",
+);
+// Hợp đồng của normalizeRole/normalizeOverwrite ghi rõ "permissions có thể là
+// số/chuỗi số, hoặc danh sách tên quyền" — nhưng biến thể DANH SÁCH SỐ
+// (["8","8192"], "8,8192", 8|8192) bị rơi hết về "0": role/overwrite được dựng
+// lại MẤT SẠCH quyền mà báo cáo vẫn ghi "Role đã tạo: N" như thành công.
+const permList = (permissions) =>
+  normalizeBackupFile(
+    JSON.stringify({
+      guildName: "Server P",
+      roles: [{ name: "Mod", permissions }],
+      channels: [
+        {
+          name: "general",
+          type: 0,
+          overwrites: [{ id: "r1", type: 0, allow: permissions, deny: 0 }],
+        },
+      ],
+    }),
+  );
+const p1 = permList(["8", "8192"]);
+check(
+  "mảng số → bitfield 8200 (mất sạch quyền nếu hỏng)",
+  p1.roles[0].permissions === "8200",
+  p1.roles[0].permissions,
+);
+check(
+  "overwrite allow dạng mảng số → 8200",
+  p1.channels[0].overwrites[0].allow === "8200",
+  p1.channels[0].overwrites[0].allow,
+);
+const p2 = permList([8, 8192]);
+check("mảng số dạng number → 8200", p2.roles[0].permissions === "8200", p2.roles[0].permissions);
+const p3 = permList("8,8192");
+check(
+  "chuỗi số phân tách dấu phẩy → 8200",
+  p3.roles[0].permissions === "8200",
+  p3.roles[0].permissions,
+);
+const p4 = permList("8 8192");
+check(
+  "chuỗi số cách nhau dấu cách → 8200",
+  p4.roles[0].permissions === "8200",
+  p4.roles[0].permissions,
+);
+const p5 = permList("Administrator,8192");
+check(
+  "trộn TÊN + số → 8200 (không rơi mất phần số)",
+  p5.roles[0].permissions === "8200",
+  p5.roles[0].permissions,
+);
+const p6 = permList("administrator,manage_messages");
+check(
+  "trộn TÊN + số theo tên → 8200 (không hồi quy)",
+  p6.roles[0].permissions === "8200",
+  p6.roles[0].permissions,
+);
+const p7 = permList("9007199254740993,8"); // > 2^53: phải giữ chính xác, không mất độ chính xác float
+check(
+  "bitfield > 2^53 giữ nguyên độ chính xác",
+  p7.roles[0].permissions === "9007199254741001",
+  p7.roles[0].permissions,
+);
+check(
+  "quyền không tồn tại / rỗng vẫn về 0 (không nổ quyền)",
+  permList("khong_ton_tai").roles[0].permissions === "0",
+  permList("khong_ton_tai").roles[0].permissions,
+);
+
 console.log("\n19) Wrapper sâu 5 lớp + wrapper chứa chuỗi JSON/base64 nhúng:");
 b = normalizeBackupFile(
   JSON.stringify({
