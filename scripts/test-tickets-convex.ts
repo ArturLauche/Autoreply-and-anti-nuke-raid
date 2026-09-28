@@ -13,6 +13,7 @@
 import {
   listTickets,
   ticketSummary,
+  ticketStats,
   closeTicket,
   botTicketState,
   botTicketById,
@@ -31,6 +32,7 @@ import { computeBotKey } from "../convex/botAuth";
 
 const listH = (listTickets as any)._handler;
 const summaryH = (ticketSummary as any)._handler;
+const statsH = (ticketStats as any)._handler;
 const closeH = (closeTicket as any)._handler;
 const stateH = (botTicketState as any)._handler;
 const byIdH = (botTicketById as any)._handler;
@@ -88,11 +90,21 @@ function makeCtx(opts: { seed?: string | null } = {}) {
       query: (table: string) => ({
         withIndex: (_name: string, bound: (q: any) => any) => {
           const capture: Record<string, string> = {};
-          const q: any = { eq: (f: string, v: string) => ((capture[f] = v), q) };
+          // Cận dưới (`gte`) tách riêng khỏi `eq` — cùng một field có thể vừa
+          // bằng vừa lớn hơn một mốc (ticketStats quét createdAt >= since).
+          const lower: Record<string, number> = {};
+          const q: any = {
+            eq: (f: string, v: string) => ((capture[f] = v), q),
+            gte: (f: string, v: number) => ((lower[f] = v), q),
+          };
           bound(q);
           const rows = tables[table] ?? [];
-          // Chỉ lọc theo field đã eq — mô phỏng đúng index range.
-          const matched = rows.filter((r) => Object.entries(capture).every(([f, v]) => r[f] === v));
+          // Chỉ lọc theo field đã ràng buộc — mô phỏng đúng index range.
+          const matched = rows.filter(
+            (r) =>
+              Object.entries(capture).every(([f, v]) => r[f] === v) &&
+              Object.entries(lower).every(([f, v]) => r[f] >= v),
+          );
           // `order(dir)` chỉ đảo theo field CUỐI trong capture (field cuối của
           // index). Field đó cố định ở mọi index dùng ở đây → thứ tự giữ nguyên
           // như scan thẳng. Đây chính là hành vi khiến "mới nhất trước" là
@@ -271,6 +283,88 @@ const throws = async (fn: () => Promise<unknown>) => {
     check(
       "đã cấu hình → missingCategory=false, enabled=true",
       s.missingCategory === false && s.enabled === true,
+    );
+  }
+
+  // ═══ ticketStats (SLA) ═══
+  // Mốc thời gian thật: query dùng Date.now() nên bản ghi phải đặt quanh
+  // "hiện tại" thì mới nằm trong cửa sổ.
+  console.log("\n── ticketStats ──");
+  {
+    const NOW = Date.now();
+    const H = 3_600_000;
+    const e = env();
+    e.tickets.push(
+      // staff nhận sau 30 phút, đóng sau 3 giờ
+      ticket("t1", {
+        createdAt: NOW - 4 * H,
+        status: "closed",
+        claimedAt: NOW - 3.5 * H,
+        closedAt: NOW - H,
+      }),
+      // không ai nhận nhưng vẫn đóng → đánh dấu dịch vụ kém
+      ticket("t2", { createdAt: NOW - 2 * H, status: "closed", closedAt: NOW - 0.5 * H }),
+      // nhận sau 2 giờ, vẫn đang mở
+      ticket("t3", { createdAt: NOW - 3 * H, claimedAt: NOW - H }),
+      // ngoài cửa sổ 30 ngày
+      ticket("t4", { createdAt: NOW - 60 * 24 * H }),
+    );
+    const s = await statsH(e.ctx, { token: "tok", guildId: "g1" });
+    check("chỉ tính ticket trong cửa sổ", s.total === 3, JSON.stringify(s));
+    check("đếm đúng trạng thái", s.open === 1 && s.closed === 2, JSON.stringify(s));
+    check(
+      "trung bình phản hồi đầu = (30 phút + 2 giờ) / 2",
+      s.avgFirstResponseMs === Math.round((0.5 * H + 2 * H) / 2),
+      String(s.avgFirstResponseMs),
+    );
+    check(
+      "trung bình thời gian xử lý chỉ tính ticket đã đóng",
+      s.avgResolutionMs === Math.round((3 * H + 1.5 * H) / 2),
+      String(s.avgResolutionMs),
+    );
+    check("đếm ticket đóng mà không ai nhận", s.unclaimedClosed === 1, String(s.unclaimedClosed));
+  }
+  {
+    // Mẫu bằng 0 → null, KHÔNG phải 0 phút (đọc lên là "phản hồi tức thì").
+    const e = env();
+    const s = await statsH(e.ctx, { token: "tok", guildId: "g1" });
+    check(
+      "server chưa có ticket → trung bình null, unbanRate null",
+      s.avgFirstResponseMs === null && s.avgResolutionMs === null && s.unbanRate === null,
+      JSON.stringify(s),
+    );
+  }
+  {
+    const NOW = Date.now();
+    const e = env();
+    e.tickets.push(
+      ticket("a1", { kind: "appeal", unbanned: true }),
+      ticket("a2", { kind: "appeal", unbanned: false }),
+      ticket("a3", { kind: "appeal" }),
+      ticket("s1", { kind: "support", unbanned: true }),
+    );
+    for (const t of e.tickets) t.createdAt = NOW - 1000;
+    const s = await statsH(e.ctx, { token: "tok", guildId: "g1" });
+    check(
+      "tỉ lệ gỡ ban chỉ tính trên khiếu nại, không lẫn ticket hỗ trợ",
+      s.appeals === 3 && s.appealsUnbanned === 1 && s.unbanRate === 1 / 3,
+      JSON.stringify(s),
+    );
+  }
+  {
+    // days rác (0, âm, quá lớn) phải bị kẹp về 1..90, không quét cả lịch sử.
+    const e = env();
+    const s0 = await statsH(e.ctx, { token: "tok", guildId: "g1", days: 0 });
+    const sN = await statsH(e.ctx, { token: "tok", guildId: "g1", days: -5 });
+    const sBig = await statsH(e.ctx, { token: "tok", guildId: "g1", days: 9999 });
+    check(
+      "days ngoài khoảng bị kẹp về 1..90",
+      s0.days === 1 && sN.days === 1 && sBig.days === 90,
+      `${s0.days}/${sN.days}/${sBig.days}`,
+    );
+    check(
+      "sai token → từ chối (không đọc được số liệu của server khác)",
+      await throws(() => statsH(e.ctx, { token: "sai", guildId: "g1" })),
     );
   }
 

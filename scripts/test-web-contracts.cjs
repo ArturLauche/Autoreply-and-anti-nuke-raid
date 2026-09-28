@@ -521,6 +521,34 @@ check(
   "đóng ticket từ web dùng ghi chú đã cấu hình làm lý do",
   /reason: g\.ticketCloseNote/.test(ticketPanel),
 );
+// Số liệu SLA phải đến từ query riêng `ticketStats`, KHÔNG tính lại trên
+// `tickets`: `tickets` chỉ chứa đúng tab đang xem và bị cắt còn 100 bản ghi
+// → mọi trung bình tính từ đó là số bịa, mà lúc nào cũng hiện ra rất thuyết phục.
+const ticketsSrc = fs.readFileSync(path.join(ROOT, "convex", "tickets.ts"), "utf8");
+check(
+  "số liệu SLA lấy từ query ticketStats (không tính lại trên tab đang xem)",
+  /useQuery\(\s*api\.tickets\.ticketStats/.test(ticketPanel) &&
+    /days: statsDays/.test(ticketPanel) &&
+    !/tickets\?\.filter\(/.test(ticketPanel),
+);
+check(
+  "ticketStats quét theo cửa sổ thời gian + trần bản ghi (không kéo cả lịch sử)",
+  /by_guildId_createdAt", \(q\) => q\.eq\("guildId", guildId\)\.gte\("createdAt", since\)/.test(
+    ticketsSrc,
+  ) && /const STAT_LIMIT/.test(ticketsSrc),
+);
+check(
+  "trung bình rỗng trả null, không trả 0 (0 phút đọc ra là 'phản hồi tức thì')",
+  /xs\.length \? Math\.round/.test(ticketsSrc) && /: null;/.test(ticketsSrc),
+);
+check(
+  "ticketStats cùng cổng quyền như phần còn lại của panel",
+  /const statsH = \(ticketStats as any\)\._handler/.test(
+    fs.readFileSync(path.join(ROOT, "scripts", "test-tickets-convex.ts"), "utf8"),
+  ) &&
+    /getUserByToken\(ctx, token\)/.test(ticketsSrc) &&
+    /canManageGuild\(user, guild\)\)/.test(ticketsSrc),
+);
 const guildsSrc = fs.readFileSync(path.join(ROOT, "convex", "guilds.ts"), "utf8");
 // Cắt từ `getBotConfig` tới export kế tiếp — `handler: async` nằm ở ngay sau
 // args nên regex non-greedy sẽ cắt cụt, không chứa được phần field trả về.

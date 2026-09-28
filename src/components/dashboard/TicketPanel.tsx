@@ -71,6 +71,15 @@ export default function TicketPanel({ data }: { data: GuildData }) {
     token: TOKEN(),
     guildId: g.discordId,
   });
+  // Số liệu SLA — cửa sổ do người dùng chọn (7/30 ngày). Query riêng chứ
+  // không tính lại từ `tickets`: `tickets` chỉ chứa đúng tab đang xem và bị
+  // cắt còn LIST_LIMIT bản ghi → mọi trung bình tính từ đó là bịa.
+  const [statsDays, setStatsDays] = useState(30);
+  const stats = useQuery(api.tickets.ticketStats, {
+    token: TOKEN(),
+    guildId: g.discordId,
+    days: statsDays,
+  });
 
   // Category: Discord type 4 = danh mục. Chỉ danh mục mới chứa được kênh con.
   const categories = data.channels.filter((c) => c.type === 4);
@@ -737,6 +746,8 @@ export default function TicketPanel({ data }: { data: GuildData }) {
         </>
       )}
 
+      <TicketStatsCard stats={stats} days={statsDays} onDays={setStatsDays} />
+
       <Card>
         <CardContent className="p-4 sm:p-5">
           <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
@@ -784,6 +795,119 @@ export default function TicketPanel({ data }: { data: GuildData }) {
         onClose={() => setTranscriptOf(null)}
       />
     </div>
+  );
+}
+
+/** Dữ liệu `ticketStats` trả về (null = query chưa xong). */
+type TicketStats =
+  | {
+      days: number;
+      total: number;
+      open: number;
+      closed: number;
+      avgFirstResponseMs: number | null;
+      firstResponseCount: number;
+      avgResolutionMs: number | null;
+      resolutionCount: number;
+      unclaimedClosed: number;
+      appeals: number;
+      appealsUnbanned: number;
+      unbanRate: number | null;
+    }
+  | null
+  | undefined;
+
+/** ms → câu chữ ngắn nhất đọc được (≤ 1 phút vẫn hiện phút, tránh "0 giờ"). */
+function formatDuration(ms: number): string {
+  const minutes = Math.max(1, Math.round(ms / 60_000));
+  if (minutes < 60) return translate("{p0} phút", { p0: minutes });
+  const hours = Math.round(minutes / 6) / 10;
+  return translate("{p0} giờ", { p0: hours });
+}
+
+/**
+ * Số liệu SLA — câu trả lời cho "nhân viên có phản hồi kịp không?".
+ *
+ * Trước đây panel chỉ liệt kê từng ticket, chủ server phải tự đếm tay và
+ * không ai phát hiện được việc ticket đóng mà không ai nhận (28/09/2026).
+ *
+ * Mẫu bằng 0 hiện "chưa đủ dữ liệu" chứ không phải 0 phút: trung bình của
+ * không có mẫu là 0 phút theo quy ước toán, nhưng đọc lên là "phản hồi ngay
+ * lập tức" — một lời nói dối.
+ */
+function TicketStatsCard({
+  stats,
+  days,
+  onDays,
+}: {
+  stats: TicketStats;
+  days: number;
+  onDays: (d: number) => void;
+}) {
+  const tiles: { label: string; value: string }[] = [
+    { label: "Ticket trong kỳ", value: stats ? String(stats.total) : "—" },
+    { label: "Đang mở", value: stats ? String(stats.open) : "—" },
+    {
+      label: "Chờ phản hồi đầu",
+      value: stats?.avgFirstResponseMs != null ? formatDuration(stats.avgFirstResponseMs) : "—",
+    },
+    {
+      label: "Thời gian xử lý",
+      value: stats?.avgResolutionMs != null ? formatDuration(stats.avgResolutionMs) : "—",
+    },
+    {
+      label: "Đóng mà không ai nhận",
+      value: stats ? String(stats.unclaimedClosed) : "—",
+    },
+    {
+      label: "Khiếu nại được gỡ ban",
+      value:
+        stats?.unbanRate != null
+          ? translate("{p0}%", { p0: Math.round(stats.unbanRate * 100) })
+          : "—",
+    },
+  ];
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+        <div>
+          <CardTitle className="text-base">{translate("Số liệu xử lý ticket")}</CardTitle>
+          <CardDescription>
+            {translate(
+              "Chỉ tính ticket đã có người nhận hoặc đã đóng. Phản hồi đầu tính từ lúc mở tới lúc staff bấm “Nhận việc”.",
+            )}
+          </CardDescription>
+        </div>
+        <Select value={String(days)} onValueChange={(v) => onDays(Number(v))}>
+          <SelectTrigger className="w-[130px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7">{translate("7 ngày")}</SelectItem>
+            <SelectItem value="30">{translate("30 ngày")}</SelectItem>
+            <SelectItem value="90">{translate("90 ngày")}</SelectItem>
+          </SelectContent>
+        </Select>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {tiles.map((t) => (
+            <div key={t.label} className="rounded-xl border border-border px-3 py-2">
+              <p className="truncate text-xs text-muted-foreground">{translate(t.label)}</p>
+              <p className="font-display text-lg font-semibold">{t.value}</p>
+            </div>
+          ))}
+        </div>
+        {stats && stats.total > 0 && stats.closed > 0 && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            {translate("{p0} khiếu nại trong kỳ, {p1} kết thúc bằng gỡ ban.", {
+              p0: stats.appeals,
+              p1: stats.appealsUnbanned,
+            })}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

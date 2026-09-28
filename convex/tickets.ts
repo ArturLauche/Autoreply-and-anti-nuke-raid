@@ -24,6 +24,9 @@ import { requireBotKeyStrict } from "./botAuth";
 /** Số ticket tối đa trả về cho dashboard (đủ dùng, không kéo hết DB). */
 const LIST_LIMIT = 100;
 
+/** Trần số bản ghi quét cho số liệu SLA (một cửa sổ 90 ngày đã là rất nhiều). */
+const STAT_LIMIT = 5_000;
+
 /** Trạng thái ticket hợp lệ. Mọi giá trị khác coi như "không lọc". */
 const STATUSES = new Set(["open", "closed", "locked"]);
 
@@ -142,6 +145,91 @@ export const ticketSummary = query({
       closeGraceHours: guild.ticketCloseGraceHours ?? 24,
       panelText: guild.ticketPanelText ?? "",
       pingRoleIds: guild.ticketPingRoleIds ?? [],
+    };
+  },
+});
+
+/**
+ * SỐ LIỆU SLA trong khoảng `days` ngày gần nhất.
+ *
+ * Vì sao cần: trước đây dashboard chỉ cho xem TỪNG ticket, không trả lời
+ * được câu hỏi duy nhất chủ server quan tâm — "nhân viên có phản hồi kịp
+ * không?" Tín hiệu để biết khi nào phải thúc hoặc thêm người.
+ *
+ * Mốc đo (đều lấy từ field đã có sẵn trong bản ghi, không thêm schema):
+ *   - `firstResponseMs` = `claimedAt - createdAt`: staff bấm "Nhận việc".
+ *     Đây là phản hồi đầu TIÊN chắc chắn có người nhận trách nhiệm, đo được
+ *     ngay cả khi ticket bị auto-close.
+ *   - `resolutionMs` = `closedAt - createdAt`: thời gian tới khi đóng.
+ *   - `unclaimedClosed` = ticket đã đóng mà KHÔNG ai bấm nhận — tỉ lệ này
+ *     mới chỉ ra chất lượng phục vụ, không phải số lượng.
+ *   - `unbanRate` = tỉ lệ khiếu nại kết thúc bằng việc gỡ ban, tính trên
+ *     RIÊNG nhóm khiếu nại (ticket hỗ trợ gỡ ban là chuyện khác).
+ *
+ * Mọi trung bình trả `null` khi mẫu bằng 0 — dashboard hiện "chưa đủ dữ liệu"
+ * thay vì số 0 phút (0 phút là một lời nói dối).
+ */
+export const ticketStats = query({
+  args: {
+    token: v.string(),
+    guildId: v.string(),
+    /** Cửa sổ thống kê. Chặn 1..90 để không quét cả lịch sử server. */
+    days: v.optional(v.number()),
+  },
+  handler: async (ctx, { token, guildId, days }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!user || !guild || !canManageGuild(user, guild))
+      throw new Error("Không có quyền quản lý server này");
+
+    const windowDays = Math.min(Math.max(Math.floor(days ?? 30), 1), 90);
+    const since = Date.now() - windowDays * 86_400_000;
+    // Index `by_guildId_createdAt` tạo range theo createdAt → chỉ quét ticket
+    // trong cửa sổ, không kéo cả lịch sử của server.
+    const rows = await ctx.db
+      .query("tickets")
+      .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId).gte("createdAt", since))
+      .take(STAT_LIMIT);
+
+    let open = 0;
+    let closed = 0;
+    let unclaimedClosed = 0;
+    let appeals = 0;
+    let appealsUnbanned = 0;
+    const firstResponse: number[] = [];
+    const resolution: number[] = [];
+    for (const t of rows) {
+      if (t.status === "open") open++;
+      else closed++;
+      if (t.claimedAt && t.claimedAt > t.createdAt) firstResponse.push(t.claimedAt - t.createdAt);
+      if (t.closedAt && t.closedAt > t.createdAt) resolution.push(t.closedAt - t.createdAt);
+      if (t.status !== "open" && !t.claimedAt) unclaimedClosed++;
+      if (t.kind === "appeal") {
+        appeals++;
+        if (t.unbanned) appealsUnbanned++;
+      }
+    }
+    const avg = (xs: number[]) =>
+      xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null;
+    return {
+      days: windowDays,
+      since,
+      total: rows.length,
+      open,
+      closed,
+      /** Trả về đủ mẫu thì mới có trung bình — UI tự hiện "chưa đủ dữ liệu". */
+      avgFirstResponseMs: avg(firstResponse),
+      firstResponseCount: firstResponse.length,
+      avgResolutionMs: avg(resolution),
+      resolutionCount: resolution.length,
+      unclaimedClosed,
+      appeals,
+      appealsUnbanned,
+      /** 0..1, null khi không có khiếu nại nào trong kỳ. */
+      unbanRate: appeals ? appealsUnbanned / appeals : null,
     };
   },
 });

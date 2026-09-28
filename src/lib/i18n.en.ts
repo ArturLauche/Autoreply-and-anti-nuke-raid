@@ -1279,6 +1279,23 @@ export const EN: Record<string, string> = {
   "Transcript rỗng — kênh không có tin nhắn nào.":
     "Empty transcript — the channel had no messages.",
   "Tải file JSON": "Download JSON",
+  // ── Số liệu SLA (28/09/2026) ──
+  "Số liệu xử lý ticket": "Ticket handling stats",
+  "Chỉ tính ticket đã có người nhận hoặc đã đóng. Phản hồi đầu tính từ lúc mở tới lúc staff bấm “Nhận việc”.":
+    "Only counts tickets that were claimed or closed. First response is measured from when the ticket opened until staff pressed “Claim”.",
+  "Ticket trong kỳ": "Tickets in period",
+  "Chờ phản hồi đầu": "First response",
+  "Thời gian xử lý": "Time to resolve",
+  "Đóng mà không ai nhận": "Closed unclaimed",
+  "Khiếu nại được gỡ ban": "Appeals unbanned",
+  "{p0} phút": "{p0} min",
+  "{p0} giờ": "{p0} h",
+  "{p0}%": "{p0}%",
+  "7 ngày": "7 days",
+  "30 ngày": "30 days",
+  "90 ngày": "90 days",
+  "{p0} khiếu nại trong kỳ, {p1} kết thúc bằng gỡ ban.":
+    "{p0} appeal(s) in this period, {p1} ended in an unban.",
   "{p0} tệp đính kèm": "{p0} attachments",
 
   "Không đọc được transcript": "Could not read the transcript",

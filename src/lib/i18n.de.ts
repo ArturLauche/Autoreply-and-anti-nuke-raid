@@ -1213,6 +1213,23 @@ export const DE: Record<string, string> = {
   "Transcript rỗng — kênh không có tin nhắn nào.":
     "Leeres Transkript — der Kanal enthielt keine Nachrichten.",
   "Tải file JSON": "JSON-Datei laden",
+  // ── Số liệu SLA (28/09/2026) ──
+  "Số liệu xử lý ticket": "Ticket-Statistik",
+  "Chỉ tính ticket đã có người nhận hoặc đã đóng. Phản hồi đầu tính từ lúc mở tới lúc staff bấm “Nhận việc”.":
+    "Zählt nur Tickets, die übernommen oder geschlossen wurden. Die erste Reaktion wird vom Eröffnen bis zum Klick auf „Übernehmen“ gemessen.",
+  "Ticket trong kỳ": "Tickets im Zeitraum",
+  "Chờ phản hồi đầu": "Erste Reaktion",
+  "Thời gian xử lý": "Bearbeitungsdauer",
+  "Đóng mà không ai nhận": "Ohne Übernahme geschlossen",
+  "Khiếu nại được gỡ ban": "Beschwerden entsperrt",
+  "{p0} phút": "{p0} Min.",
+  "{p0} giờ": "{p0} Std.",
+  "{p0}%": "{p0} %",
+  "7 ngày": "7 Tage",
+  "30 ngày": "30 Tage",
+  "90 ngày": "90 Tage",
+  "{p0} khiếu nại trong kỳ, {p1} kết thúc bằng gỡ ban.":
+    "{p0} Beschwerde(n) im Zeitraum, {p1} endeten mit einer Sperr aufhebung.",
   "{p0} tệp đính kèm": "{p0} Anhänge",
 
   "Không đọc được transcript": "Transkript konnte nicht gelesen werden",
