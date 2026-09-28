@@ -259,9 +259,16 @@ const LONG_MSG_LEN = 300;
 const BUCKET_MAX = 200;
 
 /**
- * Cấu hình mặc định cho các module MỚI — server cũ chưa có dòng antinukeModules
- * (chưa được seed) vẫn bật module với ngưỡng mặc định, giống hành vi web
- * (AntiNukePanel configFor fallback). Khi mod lưu từ dashboard, dòng sẽ được tạo.
+ * Ngưỡng mặc định cho các module MỚI — server cũ chưa có dòng antinukeModules
+ * (chưa được seed) thì bot KHÔNG tự phạt ai: `moduleCfgOf` trả về
+ * `enabled: false` đúng như `botEnsureModules` vừa ghi vào DB, và đúng nguyên tắc
+ * "update không đổi setup cũ" (chủ server tự bật từng module trên web).
+ *
+ * Vì sao KHÔNG mặc định bật (đã từng là `enabled: true` — bug 28/09/2026): cache
+ * config của bot giữ 30 phút, seed chạy muộn hơn, và nếu `botEnsureModules` lỗi
+ * thì dòng module vĩnh viễn thiếu — lúc đó module chưa bật sẽ phạt thật (mặc định
+ * `ban`) đúng người vô tội. Hướng lỗi nguy hiểm; thiếu cấu hình thì phải im.
+ * Ngưỡng vẫn trả về để web hiển thị/đề xuất; chỉ `enabled` là TẮT.
  */
 const DEFAULT_MODULE_CFG = {
   massThreadDelete: { threshold: 3, windowSeconds: 10, punish: "ban", timeoutSeconds: 600 },
@@ -280,13 +287,13 @@ const DEFAULT_MODULE_CFG = {
   guildTamper: { threshold: 2, windowSeconds: 10, punish: "ban", timeoutSeconds: 600 },
 };
 
-/** Lấy cấu hình module (đã seed) hoặc mặc định cho module mới chưa được seed. */
+/** Lấy cấu hình module (đã seed) hoặc mặc định TẮT cho module mới chưa được seed. */
 function moduleCfgOf(config, module) {
   const found = (config?.modules || []).find((m) => m.module === module);
   if (found) return found;
   const d = DEFAULT_MODULE_CFG[module];
   if (!d) return null;
-  return { module, enabled: true, ...d, whitelistRoles: [], actions: [d.punish] };
+  return { module, enabled: false, ...d, whitelistRoles: [], actions: [d.punish] };
 }
 
 /**

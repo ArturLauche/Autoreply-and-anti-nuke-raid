@@ -87,8 +87,12 @@ function makeGuild(id, name, { withChannels = false } = {}) {
 
 function makeStore({ failNames = [] } = {}) {
   const mutations = [];
+  const invalidated = [];
   return {
     _mutations: mutations,
+    _invalidated: invalidated,
+    /** Bot tự ghi DB thì phải xoá cache config (TTL 30 phút) — xem ensureModules. */
+    invalidate: (guildId) => invalidated.push(guildId),
     client: {
       mutation: async (name, args) => {
         if (failNames.includes(name)) throw new Error(`lỗi ${name}`);
@@ -268,6 +272,14 @@ function makeClient(guilds) {
     await gs.ensureModules(client, store);
     const ensures = store._mutations.filter((m) => m.name === "bot_writes:botEnsureModules");
     check("ensureModules gọi cho từng guild", ensures.length === 2);
+    // Regression 28/09/2026: seed thêm dòng module vào DB nhưng cache config vẫn
+    // giữ payload cũ 30 phút → moduleCfgOf rơi vào fallback. Phải invalidate.
+    check(
+      "ensureModules xoá cache config từng guild sau khi seed",
+      store._invalidated.length === 2 &&
+        store._invalidated.includes("g1") &&
+        store._invalidated.includes("g2"),
+    );
 
     const storeFail = makeStore({ failNames: ["bot_writes:botEnsureModules"] });
     let ok = true;
@@ -277,6 +289,10 @@ function makeClient(guilds) {
       ok = false;
     }
     check("ensureModules lỗi 1 guild → tiếp tục, không ném", ok);
+    check(
+      "ensureModules lỗi → KHÔNG invalidate (cache cũ vẫn hợp lệ)",
+      storeFail._invalidated.length === 0,
+    );
   }
 
   // ── 7. isSyncHealthy: sync lỗi gần nhất → false ───────────────────────────

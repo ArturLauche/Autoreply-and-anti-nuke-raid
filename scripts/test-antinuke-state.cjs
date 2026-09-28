@@ -313,6 +313,42 @@ fs.writeFileSync(
     check(`buckets vượt ${BUCKET_MAX} → cắt về sàn`, S.buckets.size === BUCKET_MAX);
   }
 
+  // ── 11. moduleCfgOf: module CHƯA có dòng → TẮT (fail-open) ───────────────
+  // Bug 28/09/2026: fallback từng trả `enabled: true` + punish mặc định (ban).
+  // Cache config giữ 30 phút và seed chạy muộn/lỗi → module chưa bật phạt thật
+  // người vô tội. Thiếu cấu hình thì phải im; ngưỡng vẫn trả về cho web hiển thị.
+  {
+    const { moduleCfgOf } = require("../bot/src/handlers/antinuke/shared");
+    const missing = moduleCfgOf({ modules: [] }, "massRoleEdit");
+    check(
+      "module chưa có dòng antinukeModules → enabled=false (không tự phạt)",
+      !!missing && missing.enabled === false,
+    );
+    check(
+      "vẫn trả ngưỡng mặc định để web hiển thị/đề xuất",
+      !!missing &&
+        missing.threshold === 3 &&
+        missing.windowSeconds === 10 &&
+        missing.punish === "ban",
+    );
+    const seeded = moduleCfgOf(
+      { modules: [{ module: "massRoleEdit", enabled: true, threshold: 7, windowSeconds: 30 }] },
+      "massRoleEdit",
+    );
+    check(
+      "đã có dòng → trả nguyên cấu hình của chủ (không ghi đè)",
+      !!seeded && seeded.enabled === true && seeded.threshold === 7 && seeded.windowSeconds === 30,
+    );
+    check(
+      "module cố ý không có fallback (botHitAndRun) → null, handler tự bỏ qua",
+      moduleCfgOf({ modules: [] }, "botHitAndRun") === null,
+    );
+    check(
+      "config rỗng / không có mảng modules → vẫn fail-open, không ném lỗi",
+      moduleCfgOf({}, "externalAppRaid")?.enabled === false,
+    );
+  }
+
   fs.unlinkSync(path.join(__dirname, "..", "bot", "test-djs-mock.cjs"));
   console.log(`\nKết quả antinuke state: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail > 0 ? 1 : 0);

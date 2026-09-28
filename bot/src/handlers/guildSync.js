@@ -245,6 +245,11 @@ async function ensureModules(client, store) {
   for (const g of client.guilds.cache.values()) {
     try {
       await store.client.mutation("bot_writes:botEnsureModules", { guildId: g.id });
+      // Mutation vừa THÊM dòng module vào DB, nhưng cache config của bot đang giữ
+      // payload cũ tới 30 phút (CONFIG_TTL_MS) — bot sẽ tiếp tục rơi vào fallback
+      // moduleCfgOf cho module chưa có dòng. Xoá cache ngay để lần đọc kế tiếp lấy
+      // cấu hình thật (đúng contract "invalidate sau khi bot tự ghi" của convex.js).
+      store.invalidate(g.id);
     } catch (err) {
       console.error(`[sync:ensure] ${g.id}:`, err.message);
     }
