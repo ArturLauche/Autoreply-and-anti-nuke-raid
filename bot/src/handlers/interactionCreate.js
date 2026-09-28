@@ -5,7 +5,7 @@ const {
   ButtonBuilder,
   ButtonStyle,
 } = require("discord.js");
-const { canManageGuild, isAdmin, canManageWithConfig, sendLog } = require("../util");
+const { canManageGuild, isAdmin, canManageWithConfig, sendLog, sendModLog } = require("../util");
 const { isLocked, markLocked, unlockGuild } = require("../lockdown");
 const channelLock = require("../channelLock");
 const { emojiKeyOf } = require("./hidden");
@@ -512,6 +512,11 @@ async function ticketActionButton(client, store, interaction) {
         console.error(`[tickets] bỏ nhận thất bại:`, e.message);
         return interaction.reply({ content: T.errUnknown, ephemeral: true });
       }
+      await logTicketAction(guild, config, {
+        title: "🎫 Bỏ nhận ticket",
+        description: `${interaction.user.username} bỏ nhận ticket trong kênh này.`,
+        color: Colors.Grey,
+      });
       return interaction.reply({ content: T.unclaimDone, ephemeral: true });
     }
     let res;
@@ -540,6 +545,11 @@ async function ticketActionButton(client, store, interaction) {
         ephemeral: true,
       });
     }
+    await logTicketAction(guild, config, {
+      title: "🎫 Nhận ticket",
+      description: `${interaction.user.username} nhận xử lý ticket trong kênh này.`,
+      color: Colors.Green,
+    });
     return interaction.reply({
       content: String(T.claimDone).replace("{staff}", interaction.user.username),
       ephemeral: true,
@@ -629,6 +639,17 @@ async function ticketActionButton(client, store, interaction) {
     // bao giờ được dọn. Thao tác trên kênh (thu quyền + đổi tên) vẫn chạy, nó
     // idempotent và không phụ thuộc mốc thời gian.
     if (wasOpen) {
+      await logTicketAction(guild, config, {
+        title: "🔒 Đóng ticket",
+        description: [
+          `Đóng bởi: ${interaction.user.username}`,
+          row.openerName ? `Người mở: ${row.openerName} (${row.openerId})` : "",
+          unbanned ? "✅ Đã gỡ ban cho người mở" : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        color: Colors.Grey,
+      });
       try {
         await store.client.mutation("bot_writes:botCloseTicket", {
           guildId: guild.id,
@@ -652,6 +673,30 @@ async function ticketActionButton(client, store, interaction) {
   }
 
   return interaction.reply({ content: "⚠️ Ticket không còn trong hệ thống.", ephemeral: true });
+}
+
+/**
+ * Ghi mod log cho hành động trên ticket.
+ *
+ * Vì sao cần: hành động ticket trước đây KHÔNG để lại dấu vết ngoài bản ghi
+ * Convex — riêng "Gỡ ban" có log vì nó đi qua `unbanMember`. Khiếu nại bị bỏ
+ * quên thì không có cách trả lời "ai đã đóng, đóng vì lý do gì" (28/09/2026).
+ *
+ * Nuốt lỗi: mod log là thông tin phụ, không được làm hỏng việc đóng ticket.
+ */
+async function logTicketAction(guild, config, { title, description, color }) {
+  if (!guild || !config) return;
+  try {
+    await sendModLog(
+      guild,
+      config,
+      new EmbedBuilder().setColor(color).setTitle(title).setDescription(description).setTimestamp(),
+      undefined,
+      "mod",
+    );
+  } catch (e) {
+    console.error("[tickets] ghi mod log thất bại:", e.message);
+  }
 }
 
 /** TICKET — modal ghi chú AI: gửi prompt cho model đọc tình hình ticket. */

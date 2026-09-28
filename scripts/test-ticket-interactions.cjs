@@ -84,6 +84,7 @@ const T = {
 };
 
 const ctl = {
+  modLogs: [],
   staff: true,
   manage: true,
   openResult: { ok: true, channelId: "ch-new" },
@@ -167,7 +168,9 @@ const utilMock = {
   isAdmin: () => false,
   canManageWithConfig: () => ctl.manage,
   async sendLog() {},
-  async sendModLog() {},
+  async sendModLog(guild, config, embed) {
+    ctl.modLogs.push(embed);
+  },
 };
 
 const origLoad = Module._load;
@@ -261,6 +264,7 @@ Module._load = function (request, parent) {
   };
 
   function reset() {
+    ctl.modLogs.length = 0;
     ctl.calls.length = 0;
     replies.length = 0;
     shownModals.length = 0;
@@ -505,6 +509,13 @@ Module._load = function (request, parent) {
       m && m.args.staffId === "u-staff" && m.args.staffName === "mod",
     );
     check("nút nhận việc: thành công → báo tên mình", lastReply() === "CLAIM_DONE_mod");
+    // Trước đây nhận việc không để lại dấu vết nào ngoài DB → không trả lời
+    // được "ai đã nhận khiếu nại này" (28/09/2026).
+    check(
+      "nút nhận việc: ghi mod log",
+      ctl.modLogs.length === 1 && String(ctl.modLogs[0].d?.title).includes("Nhận ticket"),
+      JSON.stringify(ctl.modLogs.map((e) => e.d?.title)),
+    );
   }
   {
     reset();
@@ -996,6 +1007,32 @@ Module._load = function (request, parent) {
       "nút Gỡ ban: ticket đã đóng từ dashboard vẫn gỡ ban được",
       callsTo("unbanMember").length === 1,
       String(lastReply()),
+    );
+  }
+  {
+    // Mod log: đóng / nhận / bỏ nhận — hành động ticket phải để lại dấu vết
+    // trong kênh log mod, không chỉ nằm trong DB.
+    reset();
+    configs.set("g1", { ticketEnabled: true, ticketStaffRoleId: "r-staff" });
+    ctl.ticketRow = { status: "open", openerId: "u-opener", openerName: "minh" };
+    await run({ isButton: true, customId: "ticket_close:t1" });
+    check(
+      "nút Đóng: ghi mod log kèm người đóng + người mở",
+      ctl.modLogs.length === 1 &&
+        String(ctl.modLogs[0].d?.description).includes("mod") &&
+        String(ctl.modLogs[0].d?.description).includes("u-opener"),
+      JSON.stringify(ctl.modLogs.map((e) => e.d?.description)),
+    );
+  }
+  {
+    reset();
+    configs.set("g1", { ticketEnabled: true, ticketStaffRoleId: "r-staff" });
+    ctl.ticketRow = { status: "open", openerId: "u-opener" };
+    await run({ isButton: true, customId: "ticket_unclaim:t1" });
+    check(
+      "nút Bỏ nhận: ghi mod log",
+      ctl.modLogs.length === 1 && String(ctl.modLogs[0].d?.title).includes("Bỏ nhận"),
+      JSON.stringify(ctl.modLogs.map((e) => e.d?.title)),
     );
   }
 
