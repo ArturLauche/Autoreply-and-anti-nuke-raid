@@ -576,18 +576,28 @@ check(
 );
 check("App lỗi toàn trang cũng mở preloader", /__bootDone/.test(bootBoundary));
 check("App khai báo kiểu __bootDone cho TypeScript", /__bootDone\?: \(\) => void/.test(bootAppSrc));
-// Đồng bộ thanh ↔ nhân vật: hai thứ PHẢI lấy cùng một giá trị %. Nếu thanh có
-// transition width của CSS mà nhân vật đặt left tức thì, đầu thanh trễ ~150ms
-// so với nhân vật → nhìn như nhân vật chạy trước thanh (bug thấy 27/09/2026).
+// Đừng thêm transition width cho thanh: JS đã easing và đặt % mỗi frame, bộ
+// easing thứ hai của CSS làm đầu thanh trễ ~150ms so với số % bên dưới — hai
+// thứ trượt lệch nhau.
 // Bỏ comment CSS trước khi kiểm — rule .boot-fill có giải thích bằng chữ
 // "transition" ngay trong đó, đọc thẳng sẽ ra kết quả sai.
 const bootFillRule = (html.match(/\.boot-fill \{[^}]*\}/) || [""])[0].replace(
   /\/\*[\s\S]*?\*\//g,
   "",
 );
+// Nhân vật pixel chạy trên thanh đã BỎ hẳn (28/09/2026): ở cỡ vẽ được trên
+// thanh nó không đọc ra hình người, chỉ tốn 60 lần dựng lại lưới mỗi giây để
+// nhấp nháy. Luật này giữ cho nó không bị dựng lại.
 check(
-  "Thanh + nhân vật dùng CHUNG một giá trị % (paint)",
-  /fill\.style\.width = v \+ "%";[\s\S]{0,160}?run\.style\.left = v \+ "%";/.test(html),
+  "preloader KHÔNG còn canvas/nhân vật (chỉ thanh + %, không vẽ gì mỗi frame)",
+  !/boot-run/.test(html) &&
+    !/drawRunner/.test(html) &&
+    !/getContext\("2d"\)/.test(html) &&
+    !/<canvas/.test(html),
+);
+check(
+  "preloader chỉ còn MỘT nguồn đặt tiến trình (paint), không còn run.style.left",
+  /fill\.style\.width = v \+ "%";/.test(html) && !/run\.style\.left/.test(html),
 );
 check(
   "KHÔNG transition width trên .boot-fill (JS đã easing — transition làm lệch)",
@@ -595,322 +605,9 @@ check(
   bootFillRule.replace(/\s+/g, " ").slice(0, 90),
 );
 check(
-  "Nhân vật canh giữa bằng translateX(-50%) để khớp đầu thanh",
-  /\.boot-run \{[^}]*translateX\(-50%\)/.test(html),
-);
-// `bone()` quét theo trục chính và LUÔN vẽ bước cuối. Kiểu Bresenham "dừng
-// khi x==x1 && y==y1" với toạ độ số thực không bao giờ đúng → vòng lặp chạy
-// trọn và vẽ vệt dài tràn ra ngoài canvas.
-check(
-  "Nét chi/thân có dừng ở bước cuối (Bresenham với số thực là vệt tràn canvas)",
-  /function bone\(x0, y0, x1, y1, w, c\)/.test(html) &&
-    /var t = i \/ steps;/.test(html) &&
-    !/if \(x === x1 && y === y1\) break;/.test(html),
-);
-check(
   "Bật giảm chuyển động: giá trị % chặn trên 100 (làm tròn bậc 8 → 104 là tràn thanh)",
   /Math\.min\(100, Math\.round\(p \/ 8\) \* 8\)/.test(html),
 );
-// Nhân vật được dựng vào MỘT lưới ô rời rạc rồi suy viền từ chính lưới đó
-// (thay cho cách "phình từng mảnh rồi bù trừ" — cách cũ để lọt nét viền lạnh
-// vào giữa hình và hay lệch một bên).
-check(
-  "Nhân vật dựng vào lưới ô + suy viền từ lưới (không phình từng mảnh)",
-  /function flush\(\)/.test(html) &&
-    /if \(grid\[y\]\[x\]\) continue;/.test(html) &&
-    /x > 0 && grid\[y\]\[x - 1\]/.test(html) &&
-    /function mark\(x, y, c\)/.test(html),
-);
-check(
-  "Bitmap nhân vật vẽ theo devicePixelRatio (màn 2× không bị nhoè)",
-  /devicePixelRatio/.test(html) && /run\.width = LW \* S \* dpr/.test(html),
-);
-check(
-  "KHÔNG còn nhịp thân kiểu xung vuông (sin > 0 ? 0 : 1 → giật 1px mỗi nhịp)",
-  !/Math\.sin\(t \* 2\) > 0 \? 0 : 1/.test(html),
-);
-check(
-  "Nhịp chạy CỐ ĐỊNH (không tăng tốc đột ngột khi app báo xong)",
-  /var CYCLE = \d+/.test(html) && /\/ CYCLE\) % 1/.test(html),
-);
-check(
-  "Nội suy khung dùng smoothstep (tuyến tính để lại gãy tốc độ ở mỗi mốc)",
-  /function ease\(u\)/.test(html) && /u \* u \* \(3 - 2 \* u\)/.test(html),
-);
-check(
-  "Chi dựng bằng IK 2 khúc (bàn chân đặt đâu chạm đất đúng đó, không trượt)",
-  /function ik\(hx, hy, ex, ey, l1, l2, forward\)/.test(html) &&
-    /function leg\(ph, thigh, boot\)/.test(html),
-);
-// Đùi và cẳng chân phải là HAI vật liệu khác nhau: video gốc có vùng da ấm
-// (56-68% điểm ảnh ấm) ở hàng 32-37 rồi vùng tối ngay dưới (0-2% ấm) — tức
-// đùi hở + giày cao tới gối, không phải quần dài một màu. Gộp lại là mất nét
-// nhận dạng rõ nhất ở nửa dưới nhân vật.
-// Đùi dày 3 ô chứ không phải 2: gấu áo rộng 6-7 ô, đùi 2 ô để hở hai khe viền
-// 2 ô mỗi bên ngay dưới gấu — nhìn như thân bị khoét thủng.
-check(
-  "Đùi hở và ống giày cao là hai vật liệu riêng (đúng hai dải màu của video)",
-  /bone\(CX, hy, k\[0\], k\[1\], 3, thigh\)/.test(html) &&
-    /bone\(k\[0\], k\[1\], ax, ay, 2, boot\)/.test(html),
-);
-// Thân + đầu PHẢI nhún theo nhịp hông. Nếu thân đứng yên còn chân quét qua
-// lại thì mắt đọc ra con rối cắm trên hai cái càng — đúng lỗi "slop" cũ.
-check(
-  "Thân + đầu nhún theo nhịp hông (không phải thân đứng yên chỉ chân chạy)",
-  /function bobOf\(ph\)/.test(html) &&
-    /torso\(bob\)/.test(html) &&
-    /head\(bob\)/.test(html) &&
-    /arm\(f, PAL\.coatL, bob\)/.test(html),
-);
-// Đáy nhún phải là HẰNG SỐ suy từ chính bảng HIPY, và biên độ HIPY phải ≤
-// 1,49 hàng. Nếu ai đó chỉnh HIPY mà quên đáy: bob = 2 → đỉnh đầu vượt mép
-// canvas (bị cắt), bob = -1 → hở một hàng trống trên đầu. Kiểm bằng SỐ chứ
-// không so chuỗi, để phép đo luôn đúng sau mọi lần chỉnh bảng.
-const hipySrc = (html.match(/var HIPY = \[([^\]]+)\]/) || ["", ""])[1];
-const hipyVals = hipySrc
-  .split(",")
-  .map((v) => Number(v.trim()))
-  .filter((v) => !Number.isNaN(v));
-const hipyMin = Math.min(...hipyVals);
-const hipySpan = Math.max(...hipyVals) - hipyMin;
-const hipyMinSrc = (html.match(/var HIPY_MIN = ([\d.]+);/) || ["", ""])[1];
-check(
-  "Nhún thân KHÔNG bao giờ âm: đáy nhún lấy từ hằng HIPY_MIN = min(HIPY)",
-  /var bob = bobOf\(f\);/.test(html) &&
-    /Math\.round\(at\(HIPY, ph\) - HIPY_MIN\)/.test(html) &&
-    Number(hipyMinSrc) === hipyMin,
-  `HIPY_MIN=${hipyMinSrc} nhưng min(HIPY)=${hipyMin}`,
-);
-check(
-  "biên độ HIPY ≤ 1,49 hàng → bob chỉ nhận {0,1} (2 = tràn mép trên, -1 = cắt đầu)",
-  hipySpan > 0.5 && hipySpan <= 1.49,
-  `max-min = ${hipySpan.toFixed(2)} hàng`,
-);
-
-// ─── 13. Nhân vật preloader: tỉ lệ + hình dáng phải theo VIDEO tham chiếu ────
-// Lần trước nhân vật bị dựng 26×24 ô (w/h = 1,08) trong khi khung nhân vật
-// trong video "haimiya pixel animation" đo được 268×578 px (w/h = 0,46) → ra
-// chibi bè ngang, người dùng báo "không một nét nào giống". Bốn luật dưới đây
-// chốt lại tỉ lệ và các nét nhận dạng, để không bị bành ra lần nữa.
-const lwSrc = Number((html.match(/var LW = (\d+)/) || ["", 0])[1]);
-const lhSrc = Number((html.match(/var LH = (\d+)/) || ["", 0])[1]);
-const sSrc = Number((html.match(/var S = (\d+)/) || ["", 0])[1]);
-check(
-  "khung nhân vật cao gầy đúng tỉ lệ video (LH/LW ≈ 2,0 — không phải chibi bè ngang)",
-  lhSrc / lwSrc > 1.85 && lhSrc / lwSrc < 2.15,
-  `LH/LW = ${(lhSrc / lwSrc).toFixed(2)} (video: 578/268 = 2,16)`,
-);
-check(
-  "CSS chừa đúng chiều cao canvas mới (LH×S + 10px khe, không lệch)",
-  new RegExp(`margin-top: ${lhSrc * sSrc + 10}px`).test(html),
-  `cần margin-top: ${lhSrc * sSrc + 10}px cho canvas ${lwSrc * sSrc}×${lhSrc * sSrc}px`,
-);
-check(
-  "canvas khai báo đúng kích thước lưới (nếu không sẽ nháy sai cỡ trước frame đầu)",
-  new RegExp(`id="boot-run"\\s*width="${lwSrc * sSrc}"\\s*height="${lhSrc * sSrc}"`).test(html),
-);
-// Lọn tóc DÀI hai bên + mái chéo + mặt nhỏ: ba nét nhận dạng của nhân vật gốc.
-check(
-  "có bảng lọn tóc dài hai bên và được vẽ (tóc dài là nét nhận dạng rõ nhất)",
-  /var STRAND = \[/.test(html) &&
-    /function strands\(dy\)/.test(html) &&
-    /strands\(bob\);/.test(html),
-);
-check(
-  "tóc dài chạy qua hông (hàng cuối của STRAND ≥ 30) chứ không phải tóc ngắn",
-  Math.max(
-    ...[...html.matchAll(/^\s*\[(\d+), \d+, \d+, \d+, \d+\],$/gm)].map((m) => Number(m[1])),
-  ) >= 30,
-);
-check(
-  "mặt NHỎ hơn khối đầu (mặt ≤ 6 ô ngang, đầu ≥ 14 ô — video: da ~90px / đầu 174px)",
-  /span\(10, 14, 1[0-3] \+ dy, PAL\.skin\)/.test(html) && /\[8, 3, 18\],/.test(html),
-);
-// Kiểm bằng HÌNH HỌC chứ không so chuỗi: phải tồn tại một span tóc ở CÙNG
-// HÀNG với một span da và chồng lên nó — tức mái chéo phủ lên trán. Nếu ai đó
-// xoá mái đi, mặt thành khối chữ nhật bo tròn và mất chất anime.
-const headSrc = (html.match(/function head\(dy\) \{[\s\S]*?\n {8}\}/) || [""])[0];
-const spanOf = (re, kind) =>
-  [...headSrc.matchAll(re)].map((m) => ({ x0: +m[1], x1: +m[2], y: +m[3], kind }));
-const skinSpans = spanOf(/span\((\d+), (\d+), (\d+) \+ dy, PAL\.skin\)/g, "skin");
-const headHairSpans = spanOf(/span\((\d+), (\d+), (\d+) \+ dy, PAL\.hair\)/g, "hair");
-check(
-  "mái tóc phủ chéo trước trán (mặt không được là khối chữ nhật tròn trịa)",
-  headHairSpans.some((h) => skinSpans.some((s) => s.y === h.y && h.x0 <= s.x1 && h.x1 >= s.x0)),
-  "cần span PAL.hair cùng hàng và chồng lên span PAL.skin",
-);
-// Bảng màu phải có đủ sắc độ cho từng vật liệu ở CẢ HAI theme — thiếu sắc độ
-// thì nhân vật thành khối phẳng, đúng lỗi "slop" cần tránh.
-for (const key of [
-  "hair",
-  "hairL",
-  "hairW",
-  "hairD",
-  "coat",
-  "coatL",
-  "coatD",
-  "skin",
-  "skinD",
-  "thigh",
-  "thighD",
-  "boot",
-  "bootL",
-]) {
-  const hits = (html.match(new RegExp(`\\b${key}: "#[0-9a-f]{6}"`, "g")) || []).length;
-  check(`bảng màu có ${key} ở cả 2 theme`, hits === 2, `đang có ${hits}/2`);
-}
-check(
-  "màu áo lấy từ đo video (#4c4e57) chứ không phải màu tự chọn",
-  html.includes('coat: "#4c4e57"'),
-);
-
-// ─── 14. Vẽ THẬT 8 khung nhân vật bằng DOM giả — kiểm bằng SỐ ───────────────
-// Ba loại lỗi hình không thể thấy bằng regex trên source:
-//   1. LỖ KÍN — khoang trống không thông ra nền nằm lọt giữa thân thì mắt nhìn
-//      XUYÊN QUA nhân vật thấy nền. Đã xảy ra thật ở khung 1 và 5 (khoang kẹt
-//      giữa lọn tóc dài và đùi), source vẫn "đúng" nên regex mù hoàn toàn.
-//   2. Ô vẽ TRÀN ra ngoài lưới LW×LH → canvas cắt cụt một mảng của hình.
-//   3. KHÔNG có pha bay — khung nào cũng còn một bàn chân chạm đất → mắt đọc
-//      ra đi bộ/ngồi xổm chứ không ra chạy.
-// Nên: chạy chính script preloader trong vm với DOM giả, thu mọi fillRect,
-// dựng lại lưới ô rồi đo. Hermetic: không cần browser, không cần bundler.
-const vm = require("vm");
-
-function renderRunnerFrames() {
-  const lw = Number((html.match(/var LW = (\d+)/) || ["", 0])[1]);
-  const lh = Number((html.match(/var LH = (\d+)/) || ["", 0])[1]);
-  const s = Number((html.match(/var S = (\d+)/) || ["", 0])[1]);
-  // Viền LUÔN phủ thêm 1 ô quanh silhouette, nên "hàng thấp nhất có vẽ" không
-  // phải hàng bàn chân. Đo pha bay/chạm đất phải bỏ ô màu viền ra.
-  const outColors = new Set(
-    (html.match(/out: "#[0-9a-f]{6}"/gi) || []).map((s) => s.slice(6, -1).toLowerCase()),
-  );
-  const rects = [];
-  const ctxStub = {
-    fillStyle: "",
-    fillRect(x, y, w, h) {
-      rects.push([x, y, w, h, String(this.fillStyle).toLowerCase()]);
-    },
-    clearRect() {
-      rects.length = 0;
-    },
-  };
-  const makeEl = () => ({
-    style: {},
-    width: 0,
-    height: 0,
-    className: "",
-    textContent: "",
-    attrs: {},
-    getContext: () => ctxStub,
-    setAttribute(k, v) {
-      this.attrs[k] = v;
-    },
-    getAttribute(k) {
-      return this.attrs[k];
-    },
-    removeChild() {},
-  });
-  const els = { boot: makeEl(), "boot-fill": makeEl(), "boot-pct": makeEl(), "boot-run": makeEl() };
-  let rafCb = null;
-  let now = 0;
-  const sandbox = {
-    console: { log() {}, warn() {}, error() {} },
-    document: { getElementById: (id) => els[id] || null },
-    window: {
-      devicePixelRatio: 1,
-      matchMedia: () => ({ matches: false }),
-      localStorage: { getItem: () => "light" },
-      __bootDone: null,
-    },
-    localStorage: { getItem: () => "light" },
-    performance: { now: () => now },
-    requestAnimationFrame: (cb) => {
-      rafCb = cb;
-      return 1;
-    },
-    setTimeout: () => 0,
-  };
-  sandbox.window.window = sandbox.window;
-  const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
-    .map((m) => m[1])
-    .find((body) => body.includes("drawRunner"));
-  if (!src) return null;
-  vm.createContext(sandbox);
-  vm.runInContext(src, sandbox);
-  const frames = [];
-  for (let k = 0; k < 8; k++) {
-    now = (k / 8) * 400; // CYCLE = 400ms cho 8 khung
-    const cb = rafCb;
-    rafCb = null;
-    if (!cb) return null;
-    cb(now + 1);
-    const grid = Array.from({ length: lh }, () => new Array(lw).fill(0));
-    const solid = Array.from({ length: lh }, () => new Array(lw).fill(0));
-    let off = 0;
-    for (const [x, y, , , c] of rects) {
-      const cx = Math.round(x / s);
-      const cy = Math.round(y / s);
-      if (cx < 0 || cy < 0 || cx >= lw || cy >= lh) {
-        off++;
-        continue;
-      }
-      grid[cy][cx] = 1;
-      if (!outColors.has(c)) solid[cy][cx] = 1;
-    }
-    // lỗ kín: ô chưa vẽ mà không loang được từ mép lưới
-    const seen = new Set();
-    const stack = [];
-    for (let x = 0; x < lw; x++) stack.push(x, (lh - 1) * lw + x);
-    for (let y = 0; y < lh; y++) stack.push(y * lw, y * lw + lw - 1);
-    while (stack.length) {
-      const p = stack.pop();
-      const px = p % lw;
-      const py = (p - px) / lw;
-      if (px < 0 || py < 0 || px >= lw || py >= lh) continue;
-      if (grid[py][px] || seen.has(p)) continue;
-      seen.add(p);
-      stack.push(p - 1, p + 1, p - lw, p + lw);
-    }
-    let holes = 0;
-    let bottom = -1;
-    for (let y = 0; y < lh; y++)
-      for (let x = 0; x < lw; x++) {
-        if (!grid[y][x] && !seen.has(y * lw + x)) holes++;
-        if (solid[y][x] && y > bottom) bottom = y;
-      }
-    frames.push({ off, holes, bottom, air: lh - 1 - bottom });
-  }
-  return frames;
-}
-
-const shot = renderRunnerFrames();
-check(
-  "dựng được 8 khung nhân vật từ chính script trong index.html (dom giả, không cần browser)",
-  shot !== null,
-);
-if (shot) {
-  check(
-    "không ô nào vẽ tràn ra ngoài lưới LW×LH (ô ngoài lưới bị canvas cắt cụt)",
-    shot.every((f) => f.off === 0),
-    `ô ngoài lưới theo khung: ${shot.map((f) => f.off).join(",")}`,
-  );
-  check(
-    "không khung nào có LỖ KÍN (ô không vẽ mà không thông ra nền = lỗ thủng giữa thân)",
-    shot.every((f) => f.holes === 0),
-    `lỗ kín theo khung: ${shot.map((f) => f.holes).join(",")}`,
-  );
-  check(
-    "có pha BAY thật: ít nhất 1 khung cả hai bàn chân rời đất ≥2 hàng",
-    shot.some((f) => f.air >= 2),
-    `số hàng không có chân theo khung: ${shot.map((f) => f.air).join(",")} | đáy theo khung: ${shot.map((f) => f.bottom).join(",")}`,
-  );
-  check(
-    "có khung CHẠM đất: đáy giày trùng hàng cuối canvas (không lơ lửng trên thanh)",
-    shot.filter((f) => f.air === 0).length >= 2,
-    `số khung chạm đất: ${shot.filter((f) => f.air === 0).length}/8`,
-  );
-}
 
 console.log(`\nKết quả web contracts: ${pass} PASS, ${fail} FAIL`);
 process.exit(fail === 0 ? 0 : 1);

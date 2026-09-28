@@ -62,10 +62,15 @@
     />
 
     <!--
-      Preloader — thanh tiến trình + nhân vật 2D pixel chạy song song.
+      Preloader — thanh tiến trình + số %.
       CSS + script INLINE có chủ đích: file ngoài tạo thêm vòng mạng và để lộ
       màn trắng. Chạy ngay khi HTML tới, trước khi bundle React kịp tải/parse.
       Script tự fade khi window.__bootDone() được gọi (xem BootSignal trong App.tsx).
+
+      Nhân vật pixel chạy trên thanh đã BỎ (28/09/2026). Ở cỡ vẽ được trên
+      thanh (66×132px) nó không đọc ra hình người, chỉ tốn 60 lần dựng lại lưới
+      mỗi giây để nhấp nháy — rối mắt mà không nói thêm gì. Preloader chỉ cần
+      trả lời "web đang tải", thanh + % là đủ. ĐỪNG dựng lại.
     -->
     <style>
       #boot {
@@ -95,11 +100,9 @@
         pointer-events: none;
       }
       .boot-in {
-        /* Bề rộng phải chừa đủ NỬA canvas mỗi bên: nhân vật canh GIỮA ở mép
-           thanh, nên mép trái (lúc 10%) và mép phải (lúc 100%) đều thò ra
-           ngoài thanh nửa thân. Canvas hiện tại 66px → cần 33px mỗi bên;
-           `100vw - 116px` chừa 58px ở mọi bề rộng, vẫn giữ 420px desktop. */
-        width: min(420px, calc(100vw - 116px));
+        /* Không còn canvas nhân vật nên không phải chừa nửa thân mỗi bên:
+           lề 32px mỗi phía là đủ để thanh không chạm mép trên máy hẹp. */
+        width: min(420px, calc(100vw - 64px));
         text-align: center;
       }
       .boot-mark {
@@ -111,10 +114,9 @@
       .boot-track {
         position: relative;
         height: 6px;
-        /* Chừa chỗ cho nhân vật đứng TRÊN thanh (canvas 132px + 10px khe).
-           Số này PHẢI khớp LH*S của canvas trong script, nếu không nhân vật
-           đè lên dòng "Protogon." hoặc chừa một khoảng trống dưới chân. */
-        margin-top: 142px;
+        /* Khe dưới chữ "Protogon.". Trước đây là 142px để chừa chỗ cho canvas
+           nhân vật đứng trên thanh; không còn nhân vật nên về lại một khe thường. */
+        margin-top: 28px;
         border-radius: 999px;
         background: rgba(17, 17, 17, 0.14);
       }
@@ -127,19 +129,9 @@
         width: 0%;
         border-radius: 999px;
         background: currentColor;
-        /* KHÔNG transition width ở đây: thanh và nhân vật phải dùng CHUNG
-           một giá trị % do JS đặt mỗi frame. Transition CSS làm đầu thanh
-           trễ ~150ms so với nhân vật (vốn đặt tức thì) → hai thứ trượt
-           lệch nhau. JS đã easing ở 60fps, mượt hơn transition. */
-      }
-      .boot-run {
-        position: absolute;
-        left: 0;
-        /* bottom:100% = đáy canvas trùng mép trên của thanh → nhân vật đứng
-           vừa trên thanh, chân chạm thanh, không lơ lửng. */
-        bottom: 100%;
-        transform: translateX(-50%);
-        image-rendering: pixelated;
+        /* KHÔNG transition width ở đây: JS đã easing và đặt % mỗi frame, thêm
+           một bộ easing của CSS nữa là đầu thanh trễ ~150ms so với số % bên
+           dưới — hai thứ trượt lệch nhau. */
       }
       .boot-pct {
         margin: 14px 0 0;
@@ -165,10 +157,8 @@
   </head>
   <body>
     <!--
-      Preloader: markup + script inline (chạy trước module bundle). Nhân vật 2D
-      pixel vẽ bằng bàn chải ô vuông + Bresenham — KHÔNG rotate/transform nên
-      mọi cạnh luôn sắc đúng chất pixel-art ở mọi mức DPR. Script tự báo xong:
-      có `force` (bọc timeout) để lỗi JS không kẹt người dùng ở preloader.
+      Preloader: markup + script inline (chạy trước module bundle). Script tự
+      báo xong; có chốt timeout để lỗi JS không kẹt người dùng ở preloader.
     -->
     <div
       id="boot"
@@ -182,13 +172,6 @@
         <p class="boot-mark">Protogon.</p>
         <div class="boot-track">
           <div class="boot-fill" id="boot-fill"></div>
-          <canvas
-            class="boot-run"
-            id="boot-run"
-            width="66"
-            height="132"
-            aria-hidden="true"
-          ></canvas>
         </div>
         <p class="boot-pct" id="boot-pct">0%</p>
       </div>
@@ -199,8 +182,6 @@
         if (!boot) return;
         var fill = document.getElementById("boot-fill");
         var pctEl = document.getElementById("boot-pct");
-        var run = document.getElementById("boot-run");
-        var ctx = run.getContext("2d");
         var reduce = false;
         try {
           reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -218,518 +199,14 @@
         }
         boot.setAttribute("data-boot", theme);
 
-        // Màu lấy MẪU TRỰC TIẾP từ video tham chiếu, KHÔNG phỏng đoán: dựng
-        // mặt nạ nhân vật bằng "nền trung vị theo thời gian" (chữ + thanh bar +
-        // gradient nền đứng yên, chỉ nhân vật động) rồi k-means 7 cụm trên
-        // 45.175 điểm ảnh của khung giữa. Kết quả đo được:
-        //   áo xám-xanh #4c4e57 (24,7%) · viền gần đen #2e2d32 (23,2%)
-        //   tóc sáng #f2f0ef..#d1cdcb (23,4%) · tóc xám #989ba1 (12,6%)
-        //   tóc/bóng tối #75757c (11,2%) · da ấm #d7b2a7 (4,8%)
-        // Từng vùng đo riêng: đùi hở nâu nhạt #a58b81 → #a2837a (ấm 56-68%),
-        // giày cao tối #44454f / #40424c (ấm 0-2%).
-        // Mỗi vật liệu giữ 3-4 sắc độ (tối / gốc / sáng): ở cỡ ~44 hàng, mắt
-        // chỉ đọc được khối khi có đủ tương phản sáng-tối, không phải khi có
-        // nhiều màu.
-        // Nền tối thì đảo viền sang SÁNG — viền đen trên nền #0a0a0a là mất hình.
-        var dark = theme === "dark";
-        var PAL = dark
-          ? {
-              out: "#dfe3ea",
-              hair: "#a3a8b1",
-              hairL: "#e4e7ec",
-              hairW: "#fafbfc",
-              hairD: "#7b7f88",
-              skin: "#e7c6b4",
-              skinD: "#b1887a",
-              coat: "#565a66",
-              coatL: "#7a8090",
-              coatD: "#3a3d47",
-              thigh: "#b08a75",
-              thighD: "#8a6757",
-              boot: "#494c57",
-              bootL: "#656975",
-              eye: "#15171c",
-              blush: "#c98d84",
-            }
-          : {
-              out: "#1e1f24",
-              hair: "#9a9ea6",
-              hairL: "#d9dadb",
-              hairW: "#f4f3f1",
-              hairD: "#6f7379",
-              skin: "#e9c9b8",
-              skinD: "#bb9080",
-              coat: "#4c4e57",
-              coatL: "#676c79",
-              coatD: "#31333b",
-              thigh: "#a8836f",
-              thighD: "#836253",
-              boot: "#3a3c45",
-              bootL: "#555965",
-              eye: "#1e1f24",
-              blush: "#c98d84",
-            };
-
-        // ── Nhân vật pixel ──────────────────────────────────────────────
-        // Tỉ lệ LẤY TỪ VIDEO, không tự nghĩ. Khung nhân vật đo được trên mặt
-        // nạ: 268×578 px → w/h = 0,46 — CAO GẦY. Bản trước dựng 26×24 ô
-        // (w/h 1,08) nên ra chibi bè ngang, không giống một nét nào.
-        // Chia theo tỉ lệ đo được (đầu+tóc 34% · áo 37% · đùi hở 12% · giày
-        // cao 16%) → ở lưới 44 hàng: tóc 16 hàng (1..16), áo 15 hàng (17..31),
-        // đùi hở 6 hàng (32..37), giày cao 6 hàng (38..43).
-        //
-        // Runner nhìn NGHIÊNG PHẢI (hướng chạy). Video gốc nghiêng nhẹ; khi
-        // chạy thì mặt phải hướng theo chiều tiến.
-        //
-        // Cách dựng: mọi mảnh (chân, tay, áo, đầu) ghi vào MỘT lưới ô rời rạc
-        // LW×LH; mảnh ghi sau đè mảnh ghi trước nên che khuất luôn đúng. Sau
-        // đó mới suy ra VIỀN 1 ô quanh toàn bộ silhouette. Nhờ vậy không bao
-        // giờ có nét viền lạnh lọt vào giữa hình (đúng lỗi của cách "phình
-        // từng mảnh rồi bù trừ"), và viền luôn liền một nét.
-        var LW = 22; // rộng lưới logic
-        var LH = 44; // cao lưới logic
-        var CX = 11; // cột thân = LW/2 → translateX(-50%) canh giữa tuyệt đối
-        var SHY = 18.2; // vai (hàng)
-        var L1 = 5.2,
-          L2 = 5.6; // đùi / cẳng chân (ống giày cao tới gối)
-        var A1 = 3.4,
-          A2 = 3.4; // cánh tay trên / cẳng tay
-
-        // Bitmap vẽ ĐÚNG độ phân giải thiết bị: canvas 66×132 CSS px nhưng
-        // bitmap gấp dpr → trên màn HiDPI mỗi ô vẫn là một khối vuông đặc,
-        // không bị nội suy thành vệt mờ (lỗi cũ: bitmap cố định 1× nên mọi
-        // máy 2× đều thấy nhân vật nhoè).
-        var S = 3; // 1 ô logic = 3 CSS px
-        // Làm tròn dpr về bội số 0,5: dpr lẻ kiểu 1,25 cho ô 5px... nhưng
-        // 1,1 cho ô 4,4px → fillRect nằm trên nửa pixel, mép ô bị nội suy mờ
-        // (đúng thứ image-rendering:pixelated sinh ra để tránh).
-        var dpr = 1;
-        try {
-          var raw = window.devicePixelRatio || 1;
-          dpr = Math.min(2, Math.max(1, Math.round(raw * 2) / 2));
-        } catch (e) {}
-        var P = S * dpr; // px bitmap mỗi ô logic
-        run.width = LW * S * dpr;
-        run.height = LH * S * dpr;
-        run.style.width = LW * S + "px";
-        run.style.height = LH * S + "px";
-
-        // Bàn chân theo 8 khung: [dx so với hông, y tuyệt đối]. Khung 0-1 chạm
-        // đất rồi nhấc dần tới đỉnh ở khung 4, khung 5-7 hạ xuống bắt nhịp
-        // sau. Nếu khung nào cũng có chân chạm đất thì đó là đi bộ, nhìn ra
-        // ngay.
-        // Đáy giày = hàng y0..y0+1 với y0 = round(ay). Chạm đất là y0 = 42
-        // (hai hàng giày 42-43, mép dưới trùng mép trên thanh). Vì vậy pha bay
-        // thật đòi hỏi ay ≤ 40,4 ở CẢ HAI chân — trước đây chỉ một chân nhấc
-        // 1 hàng nên mắt đọc ra đi bộ, người dùng gọi là "ngồi xổm".
-        var FOOTP = [
-          [2.8, 42.0],
-          [0.6, 41.6],
-          [-2.2, 39.4],
-          [-4.0, 37.6],
-          [-3.2, 36.8],
-          [-0.6, 38.6],
-          [1.8, 39.4],
-          [3.0, 41.6],
-        ];
-        // Cao độ hông: chu kỳ 4 khung (2 nhịp lên-xuống mỗi sải) nên hai chân
-        // lệch nhau 4 khung dùng CHUNG đường cong là khớp pha.
-        // Mặt đất = hàng 42: bàn giày cao 2 hàng (42..43) nên đáy canvas
-        // trùng đúng mép trên thanh, không hụt cũng không lơ lửng.
-        var HIPY = [31.9, 32.5, 32.1, 31.5, 31.9, 32.5, 32.1, 31.5];
-        // Đáy nhún tách thành HẰNG SỐ, không chép tay vào bobOf: bobOf() phải
-        // luôn trả 0 hoặc 1. Biên độ HIPY max-min = 1,0 ≤ 1,49 nên vòng() chỉ
-        // ra {0,1} — lệch một ly là đỉnh đầu vượt mép canvas (bob 2) hoặc bị
-        // cắt (bob -1), đúng loại lỗi đã có test chặn.
-        var HIPY_MIN = 31.5;
-        // Bàn tay: [dx, dy so với vai] — đối pha với chân cùng phía.
-        // Tay đung đưa như con lắc: tay trước thì CAO, tay sau thì THẤP —
-        // nếu cả hai tay cùng cao thì trông như vẫy chứ không phải chạy.
-        var HANDP = [
-          [3.4, 2.0],
-          [3.2, 3.2],
-          [1.4, 4.6],
-          [-0.8, 4.6],
-          [-3.4, 3.2],
-          [-3.2, 2.0],
-          [-1.0, 1.2],
-          [1.8, 1.2],
-        ];
-
-        var grid = [];
-        for (var gi = 0; gi < LH; gi++) grid.push(new Array(LW).fill(0));
-        // Hai lưới phụ của flush(), cấp phát MỘT lần cho cả vòng đời (60 lần/giây
-        // mà cấp phát lại thì vứt rác cho GC đúng lúc đang cần mượt).
-        var outline = [];
-        var reach = [];
-        for (var oi = 0; oi < LH; oi++) {
-          outline.push(new Array(LW).fill(0));
-          reach.push(new Array(LW).fill(0));
-        }
-
-        function px(x, y, c) {
-          ctx.fillStyle = c;
-          ctx.fillRect(x * P, y * P, P, P);
-        }
-        function mark(x, y, c) {
-          x = Math.round(x);
-          y = Math.round(y);
-          if (x >= 0 && x < LW && y >= 0 && y < LH) grid[y][x] = c;
-        }
-        function span(x0, x1, y, c) {
-          for (var x = Math.round(x0); x <= Math.round(x1); x++) mark(x, y, c);
-        }
-        function box(x, y, w, h, c) {
-          for (var j = 0; j < h; j++) span(x, x + w - 1, y + j, c);
-        }
-        // Nét dày w ô, canh giữa đường đi để hình không lệch một bên.
-        function bone(x0, y0, x1, y1, w, c) {
-          var o = Math.floor((w - 1) / 2);
-          var steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
-          for (var i = 0; i <= steps; i++) {
-            var t = i / steps;
-            var bcx = x0 + (x1 - x0) * t;
-            var bcy = y0 + (y1 - y0) * t;
-            for (var a = 0; a < w; a++) {
-              for (var b = 0; b < w; b++) mark(bcx - o + a, bcy - o + b, c);
-            }
-          }
-        }
-        function lerp(a, b, u) {
-          return a + (b - a) * u;
-        }
-        function ease(u) {
-          return u * u * (3 - 2 * u);
-        }
-        // Nội suy giữa 8 khung bằng smoothstep: nội suy TUYẾN TÍNH để lại "gãy
-        // tốc độ" ở mỗi mốc — đó chính là cảm giác khựng khi xem.
-        function at(tbl, f) {
-          var n = tbl.length;
-          var i = Math.floor(f);
-          var u = ease(f - i);
-          var a = tbl[((i % n) + n) % n];
-          var b = tbl[(((i + 1) % n) + n) % n];
-          if (typeof a === "number") return lerp(a, b, u);
-          var r = [];
-          for (var k = 0; k < a.length; k++) r.push(lerp(a[k], b[k], u));
-          return r;
-        }
-        // IK 2 khúc: cho trước hông và bàn chân, tự suy ra khớp giữa. Nhờ vậy
-        // bàn chân đặt đâu là chạm đất đúng đó (không trượt) và không khớp nào
-        // bị duỗi quá tầm. forward=true → khớp ngả về phía MẶT (gối người chạy
-        // luôn gập ra trước); false → ngả về sau (khuỷu tay).
-        function ik(hx, hy, ex, ey, l1, l2, forward) {
-          var dx = ex - hx,
-            dy = ey - hy;
-          var d = Math.sqrt(dx * dx + dy * dy) || 0.001;
-          var c = Math.min(Math.max(d, Math.abs(l1 - l2) + 0.02), l1 + l2 - 0.02);
-          var a = (l1 * l1 - l2 * l2 + c * c) / (2 * c);
-          var hh = Math.sqrt(Math.max(0, l1 * l1 - a * a));
-          var ux = dx / d,
-            uy = dy / d;
-          var p1x = hx + ux * a - uy * hh,
-            p1y = hy + uy * a + ux * hh;
-          var p2x = hx + ux * a + uy * hh,
-            p2y = hy + uy * a - ux * hh;
-          var pick = forward ? p1x > p2x : p1x < p2x;
-          return pick ? [p1x, p1y] : [p2x, p2y];
-        }
-
-        // Nhún THÂN theo nhịp hông: hông hạ ở nhịp chân chạm đất (mid-stance)
-        // và nâng lên lúc bay. Trước đây chỉ khớp hông nhích lên xuống còn
-        // thân + đầu đứng yên tuyệt đối → xem ra như con rối cắm trên hai
-        // cái càng, mắt đọc ngay ra là "chưa tới".
-        //
-        // bob chỉ nhận 0 hoặc 1 (KHÔNG âm): bản vẽ gốc là tư thế CAO nhất, có
-        // bob âm là đỉnh đầu vượt mép canvas và bị cắt.
-        // ── Bảng hình dáng (số lấy từ đo video, không phải vẽ tuỳ hứng) ────
-        // Khối đầu + tóc: video có khối rộng 174px × cao 200px ≈ 14 × 15 ô ở
-        // tỉ lệ lưới này → dựng 16 hàng, hàng rộng nhất 16 ô (3..18).
-        var HAIR = [
-          [1, 8, 13],
-          [2, 7, 14],
-          [3, 6, 15],
-          [4, 5, 16],
-          [5, 5, 16],
-          [6, 4, 17],
-          [7, 4, 17],
-          [8, 3, 18],
-          [9, 3, 18],
-          [10, 3, 18],
-          [11, 3, 18],
-          [12, 3, 18],
-          [13, 4, 17],
-          [14, 4, 17],
-          [15, 5, 16],
-          [16, 6, 15],
-        ];
-        // Lọn tóc DÀI hai bên: [hàng, tráiX0, tráiX1, phảiX0, phảiX1]. Đây là
-        // nét nhận dạng rõ nhất — trong video, mảng SÁNG của tóc còn kéo tới
-        // y=500 (≈ hàng 33) ở CẢ hai bên thân, ngang hông.
-        var STRAND = [
-          [13, 4, 6, 15, 17],
-          [14, 3, 6, 15, 18],
-          [15, 3, 6, 15, 18],
-          [16, 2, 6, 15, 19],
-          [17, 2, 6, 15, 19],
-          [18, 2, 6, 15, 19],
-          [19, 2, 6, 15, 19],
-          [20, 2, 6, 15, 19],
-          [21, 2, 6, 15, 19],
-          [22, 2, 6, 15, 19],
-          [23, 2, 6, 15, 19],
-          [24, 2, 6, 15, 19],
-          [25, 3, 6, 15, 19],
-          [26, 3, 6, 15, 19],
-          [27, 3, 7, 15, 19],
-          [28, 3, 7, 15, 19],
-          [29, 4, 7, 15, 19],
-          [30, 4, 7, 15, 18],
-          [31, 4, 8, 15, 18],
-          [32, 5, 8, 15, 18],
-          [33, 5, 8, 15, 17],
-          [34, 6, 8, 15, 17],
-        ];
-        // Áo: [hàng, x0, x1]. Thân rộng 10 ô (6..15), gấu thắt dần còn 6 ô.
-        var COAT = [
-          [17, 7, 14],
-          [18, 6, 15],
-          [19, 6, 15],
-          [20, 6, 15],
-          [21, 6, 15],
-          [22, 6, 15],
-          [23, 6, 15],
-          [24, 6, 15],
-          [25, 6, 15],
-          [26, 6, 15],
-          [27, 6, 15],
-          [28, 7, 15],
-          [29, 7, 14],
-          [30, 8, 14],
-          [31, 8, 13],
-        ];
-
-        function bobOf(ph) {
-          return Math.round(at(HIPY, ph) - HIPY_MIN);
-        }
-        function leg(ph, thigh, boot) {
-          var fp = at(FOOTP, ph);
-          var ax = CX + fp[0];
-          var ay = fp[1];
-          var hy = at(HIPY, ph);
-          var k = ik(CX, hy, ax, ay, L1, L2, true);
-          // Đùi HỞ (nâu nhạt) rồi ống giày CAO tới gối: video gốc có đúng hai
-          // dải này — vùng ấm 56-68% ở y=485..556 (đùi), rồi vùng tối ấm 0-2%
-          // ngay dưới (ống giày) — chứ không phải quần dài một màu.
-          // Đùi dày 3 ô (không phải 2): gấu áo rộng 6-7 ô, đùi 2 ô để hở
-          // hai khe viền 2 ô mỗi bên ngay dưới gấu — nhìn như thân bị khoét.
-          bone(CX, hy, k[0], k[1], 3, thigh);
-          bone(k[0], k[1], ax, ay, 2, boot);
-          var x0 = Math.round(ax) - 1;
-          var y0 = Math.round(ay);
-          box(x0, y0, 3, 2, boot);
-          box(x0, y0, 3, 1, PAL.bootL); // má giày sáng hơn → đọc ra khối
-          if (ay < 41.6) {
-            // Nhấc chân: gót nhô lên + mũi chúi xuống → mắt đọc ra lực đẩy.
-            // Hai ô này KỀ CẠNH giày (không rời) — ô rời sẽ thành chấm lạc
-            // lõng giữa nền khi viền bao quanh nó.
-            box(x0 + 2, y0 - 1, 1, 1, boot);
-            box(x0, y0 + 2, 1, 1, boot);
-          }
-        }
-        function arm(ph, suit, dy) {
-          var hp = at(HANDP, ph);
-          var sx = CX + 0.3;
-          var sy = SHY + dy;
-          var ex = sx + hp[0];
-          var ey = sy + hp[1];
-          var e = ik(sx, sy, ex, ey, A1, A2, false);
-          bone(sx, sy, e[0], e[1], 2, suit);
-          bone(e[0], e[1], ex, ey, 2, suit);
-          box(Math.round(ex) - 1, Math.round(ey) - 1, 2, 2, PAL.skin);
-        }
-        function torso(dy) {
-          var i, r, y;
-          for (i = 0; i < COAT.length; i++) {
-            r = COAT[i];
-            y = r[0] + dy;
-            span(r[1], r[2], y, PAL.coat);
-            span(r[1], r[1] + 1, y, PAL.coatD); // tối phía sau (lưng)
-            span(r[2], r[2], y, PAL.coatL); // viền sáng ở mép ngực
-          }
-          // Cổ áo: dải sáng ở vai rồi nét tối ngăn cách bên dưới → đọc ra
-          // cổ chữ V thay vì một khối xám phẳng.
-          span(10, 13, 17 + dy, PAL.coatL);
-          span(9, 11, 18 + dy, PAL.coatD);
-          // Thắt lưng nâu + khoá: video có mảng nâu ấm (thigh) ngay trên hông.
-          span(7, 14, 26 + dy, PAL.coatD);
-          span(7, 14, 27 + dy, PAL.coatD);
-          span(10, 11, 26 + dy, PAL.thigh);
-          span(10, 11, 27 + dy, PAL.thigh);
-          // Gấu áo tối hơn phần thân (video: #404350 ở gấu áo).
-          span(8, 13, 31 + dy, PAL.coatD);
-        }
-        function head(dy) {
-          var i, r;
-          for (i = 0; i < HAIR.length; i++) {
-            r = HAIR[i];
-            span(r[1], r[2], r[0] + dy, PAL.hair);
-          }
-          // Khối sáng trên đỉnh: video cho nửa trên tóc là #f2f0ef → #d1cdcb,
-          // tối dần xuống #989ba1 rồi #75757c.
-          // Video: mảng tóc SÁNG (#f2f0ef + #d1cdcb) chiếm ~23% số điểm ảnh
-          // nhân vật, tức nửa trên khối tóc — không phải chỉ vài đốm highlight.
-          span(7, 12, 1 + dy, PAL.hairW);
-          span(7, 12, 2 + dy, PAL.hairW);
-          span(6, 14, 3 + dy, PAL.hairW);
-          span(5, 15, 4 + dy, PAL.hairL);
-          span(5, 16, 5 + dy, PAL.hairL);
-          span(4, 6, 6 + dy, PAL.hairL);
-          span(5, 17, 6 + dy, PAL.hairL);
-          span(3, 6, 8 + dy, PAL.hairL);
-          span(3, 5, 9 + dy, PAL.hairL);
-          span(16, 18, 9 + dy, PAL.hairD);
-          span(15, 18, 12 + dy, PAL.hairD);
-          span(5, 16, 15 + dy, PAL.hairD); // tối dưới vành tóc / gáy
-          span(6, 15, 16 + dy, PAL.hairD);
-          // Mặt: NHỎ và lệch về phía mặt (phải) — video cho thấy vùng da chỉ
-          // ~90px ngang trên khối đầu 174px, tức khoảng 5 ô, không phải cả đầu.
-          span(11, 14, 9 + dy, PAL.skin);
-          span(10, 14, 10 + dy, PAL.skin);
-          span(10, 14, 11 + dy, PAL.skin);
-          span(10, 14, 12 + dy, PAL.skin);
-          span(10, 14, 13 + dy, PAL.skin);
-          span(11, 13, 14 + dy, PAL.skin);
-          // Mái tóc phủ CHÉO trước trán (che góc trên-trái của mặt). Để mặt
-          // thành một khối chữ nhật tròn trịa là mất hẳn chất anime.
-          span(9, 11, 9 + dy, PAL.hair);
-          mark(9, 10 + dy, PAL.hair);
-          mark(11, 10 + dy, PAL.eye);
-          mark(13, 10 + dy, PAL.eye);
-          mark(10, 12 + dy, PAL.blush);
-          mark(14, 11 + dy, PAL.skinD); // bóng sống mũi
-          mark(12, 13 + dy, PAL.skinD); // miệng
-          span(11, 12, 15 + dy, PAL.skinD); // cổ
-          span(11, 12, 16 + dy, PAL.skinD);
-        }
-        // Lọn tóc dài hai bên thân: sợi NGOÀI sáng (đúng mảng sáng trong video),
-        // sợi TRONG tối để tách khỏi thân áo — hai vật liệu cùng tông xám, nếu
-        // không tách sẽ dính thành một khối.
-        function strands(dy) {
-          for (var i = 0; i < STRAND.length; i++) {
-            var r = STRAND[i];
-            var y = r[0] + dy;
-            span(r[1], r[2], y, PAL.hair);
-            span(r[3], r[4], y, PAL.hair);
-            span(r[1], r[1], y, PAL.hairL);
-            span(r[2], r[2], y, PAL.hairD);
-            span(r[3], r[3], y, PAL.hairD);
-            span(r[4], r[4], y, PAL.hairL);
-          }
-        }
-        // Suy viền từ CHÍNH lưới đã vẽ: ô trống nào kề 4 hướng với ô có màu
-        // thì thành viền. Viền vì thế luôn liền một nét quanh silhouette.
-        function flush() {
-          var x, y;
-          // 1) Viền ngoài: ô trống nào kề 4 hướng với ô có màu thì thành viền.
-          // Đánh dấu vào lưới phụ rồi tô ở bước cuối, để màu không bị viền đè
-          // lên và để bước 2 biết đâu là tường.
-          for (y = 0; y < LH; y++) {
-            for (x = 0; x < LW; x++) {
-              outline[y][x] = 0;
-              reach[y][x] = 0;
-              if (grid[y][x]) continue;
-              if (
-                (x > 0 && grid[y][x - 1]) ||
-                (x < LW - 1 && grid[y][x + 1]) ||
-                (y > 0 && grid[y - 1][x]) ||
-                (y < LH - 1 && grid[y + 1][x])
-              ) {
-                outline[y][x] = 1;
-              }
-            }
-          }
-          // 2) Bịt LỖ KÍN. Khoang trống không thông ra nền (kẹt giữa lọn tóc
-          //    và đùi, giữa hai chân lúc gần nhau) mà để nguyên thì mắt thấy
-          //    XUYÊN QUA thân nhân vật ra nền — lỗ thủng, không phải khe tối.
-          //    Loang từ MÉP lưới qua ô trống không-phải-viền; ô nào không tới
-          //    được chính là lỗ kín → tô đúng màu viền.
-          var q = [];
-          for (x = 0; x < LW; x++) {
-            q.push(x);
-            q.push((LH - 1) * LW + x);
-          }
-          for (y = 0; y < LH; y++) {
-            q.push(y * LW);
-            q.push(y * LW + LW - 1);
-          }
-          while (q.length) {
-            var p = q.pop();
-            var qx = p % LW;
-            var qy = (p - qx) / LW;
-            if (grid[qy][qx] || outline[qy][qx] || reach[qy][qx]) continue;
-            reach[qy][qx] = 1;
-            if (qx > 0) q.push(p - 1);
-            if (qx < LW - 1) q.push(p + 1);
-            if (qy > 0) q.push(p - LW);
-            if (qy < LH - 1) q.push(p + LW);
-          }
-          for (y = 0; y < LH; y++) {
-            for (x = 0; x < LW; x++) {
-              if (grid[y][x] || outline[y][x] || reach[y][x]) continue;
-              outline[y][x] = 1;
-            }
-          }
-          for (y = 0; y < LH; y++) {
-            for (x = 0; x < LW; x++) {
-              if (outline[y][x]) {
-                px(x, y, PAL.out);
-                continue;
-              }
-              if (grid[y][x]) px(x, y, grid[y][x]);
-            }
-          }
-        }
-        function drawRunner(ph) {
-          ph = ((ph % 1) + 1) % 1;
-          ctx.clearRect(0, 0, run.width, run.height);
-          var f = ph * 8;
-          var i;
-          for (i = 0; i < LH; i++) grid[i].fill(0);
-
-          // ── Bộ chi ────────────────────────────────────────────────────
-          // Chân XA vẽ trước, rồi chân GẦN; sau đó mới tới áo để GẤU ÁO che
-          // phần trên của cả hai đùi (đúng như video: đùi chỉ hở từ gấu áo
-          // xuống). Lọn tóc dài vẽ SAU áo để tóc nằm trước vai, nhưng TRƯỚC
-          // đầu để chân tóc chui dưới khối đầu.
-          // Tay gần dùng sắc SÁNG của áo: tay nằm TRÊN nền áo cùng tông, nếu
-          // cùng một màu thì nó biến mất (viền chỉ bao quanh silhouette ngoài,
-          // không có nét ngăn bên trong) → nhân vật trông như cụt tay.
-          var bob = bobOf(f);
-          leg(f + 4, PAL.thighD, PAL.coatD);
-          leg(f, PAL.thigh, PAL.boot);
-          torso(bob);
-          // Tay XA vẽ SAU áo (không phải trước): thân áo rộng 10 ô nên cánh tay
-          // vẽ trước bị áo che kín, chỉ còn cái bóng cùng tông — tay biến mất.
-          arm(f + 4, PAL.coatD, bob);
-          strands(bob);
-          head(bob);
-          // Tay gần dùng sắc SÁNG NHẤT của áo: nó nằm đè lên lưng áo (tối) nên
-          // đọc ra ngay; phần thò ra ngoài thân đã có viền bao.
-          arm(f, PAL.coatL, bob);
-          flush();
-        }
-
-        // ── Vòng chạy ───────────────────────────────────────────────────
+        // ── Vòng tiến trình ─────────────────────────────────────────────
         // Tiến trình tự trườn tới ~90% (không giả vờ số % thật) rồi đứng yên
         // chờ app báo xong. Lỗi JS → chốt 100% sau 7s để không kẹt preloader.
-        // Nhịp chạy CỐ ĐỊNH (không đổi khi app báo xong): đổi tốc độ giữa
-        // chừng chính là một cú giật nhìn thấy được.
-        var CYCLE = 400; // ms cho một sải chạy (8 khung)
+        // Bắt đầu từ 0 chứ không phải 10: trước đây mốc 10% là để nhân vật
+        // khỏi bị cắt ở mép thanh, nhân vật bỏ rồi thì nhảy phát lên 10% chỉ
+        // là nói dối người dùng.
         var start = performance.now();
-        // Khởi đầu ngay tại 10%: nếu trườn từ 0, nhân vật (canh giữa tại mép
-        // thanh) sẽ bị cắt nửa ra ngoài khung trong ~0.5s đầu.
-        var shown = 10;
+        var shown = 0;
         var done = false;
         var ended = false;
         function paint(p) {
@@ -737,7 +214,6 @@
           // 100 lên 104 là thanh tràn quá cuối (bug tìm ra khi audit).
           var v = reduce ? Math.min(100, Math.round(p / 8) * 8) : p;
           fill.style.width = v + "%";
-          run.style.left = v + "%";
           pctEl.textContent = Math.round(v) + "%";
           boot.setAttribute("aria-valuenow", String(Math.round(v)));
         }
@@ -760,7 +236,6 @@
           // ~2,5px trên thanh 420px đúng lúc mắt đang nhìn vào nó.
           if (done && shown > 99.8) shown = 100;
           paint(shown);
-          if (!reduce) drawRunner(((now - start) / CYCLE) % 1);
           if (shown >= 100) {
             end();
             return;
@@ -773,7 +248,7 @@
         setTimeout(function () {
           done = true;
         }, 7000);
-        drawRunner(reduce ? 0.12 : 0);
+        paint(shown);
         requestAnimationFrame(frame);
       })();
     </script>
