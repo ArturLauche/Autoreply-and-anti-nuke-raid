@@ -5,8 +5,9 @@ const {
   ButtonBuilder,
   ButtonStyle,
 } = require("discord.js");
-const { canManageGuild, isAdmin, canManageWithConfig } = require("../util");
+const { canManageGuild, isAdmin, canManageWithConfig, sendLog } = require("../util");
 const { isLocked, markLocked, unlockGuild } = require("../lockdown");
+const channelLock = require("../channelLock");
 const { emojiKeyOf } = require("./hidden");
 const {
   parseDuration,
@@ -96,6 +97,293 @@ setInterval(
   },
   5 * 60 * 1000,
 );
+
+/**
+ * `/lock` — khoá chat của chủ server (một kênh, tất cả, theo role, tự mở hạn).
+ *
+ * Lý do tách khỏi `lockdown.js`: đó là khoá TOÀN SERVER khi raid, chỉ
+ * @everyone, do bot tự quyết. Lệnh này là thao tác chủ động của người quản
+ * trị, nhận role và thời lượng — và phải KHÔI PHỤC ĐÚNG quyền cũ (xem
+ * `channelLock.js`).
+ */
+async function lockCommand(client, store, interaction) {
+  const guild = interaction.guild;
+  if (!guild)
+    return interaction.reply({ content: "Lệnh này chỉ hoạt động trong server.", ephemeral: true });
+  if (!canManageGuild(interaction.member) && !isAdmin(interaction.member))
+    return needPerm(interaction);
+  if (!channelLock.botCanManageChannels(guild)) {
+    return interaction.reply({
+      content:
+        "⚠️ Bot thiếu quyền **Quản lý kênh** (Manage Channels) nên không khoá/mở khoá được. Hãy cấp quyền cho bot.",
+      ephemeral: true,
+    });
+  }
+
+  const sub = interaction.options.getSubcommand();
+  const config = await store.getConfig(guild.id);
+  const botKey = process.env.PROTOGON_BOT_KEY || undefined;
+  const target = channelLock.resolveTargetRole(guild, interaction.options.getRole("role", false));
+  if (!target.ok) return interaction.reply({ content: `❌ ${target.error}`, ephemeral: true });
+  const who = `${interaction.user.username}`;
+
+  // ── /lock list ──
+  if (sub === "list") {
+    const rows = await store.client
+      .query("channelLocks:botChannelLocks", { guildId: guild.id, botKey })
+      .catch(() => []);
+    if (!rows || rows.length === 0) {
+      return interaction.reply({
+        content: "✅ Không có kênh nào đang bị Protogon khoá.",
+        ephemeral: true,
+      });
+    }
+    const lines = rows.slice(0, 20).map((r) => {
+      const ch = guild.channels.cache.get(r.channelId);
+      const dur =
+        r.until === null || r.until === undefined
+          ? "vô hạn"
+          : channelLock.formatLockDuration(Math.max(1, Math.round((r.until - Date.now()) / 60000)));
+      return `🔒 ${channelLock.channelLabel(ch)} — ${channelLock.roleLabel(guild, r.roleId)} · ${dur}`;
+    });
+    if (rows.length > 20) lines.push(`… và ${rows.length - 20} kênh nữa.`);
+    return interaction.reply({
+      content: lines.join("\n").slice(0, 1900),
+      ephemeral: true,
+    });
+  }
+
+  // ── Thời lượng: rỗng = VÔ HẠN ──
+  let minutes = null;
+  if (sub === "add" || sub === "all") {
+    const parsed = channelLock.parseLockMinutes(interaction.options.getString("phut", false));
+    if (!parsed.ok) return interaction.reply({ content: `❌ ${parsed.error}`, ephemeral: true });
+    minutes = parsed.minutes;
+  }
+
+  // ── Mở khoá ──
+  if (sub === "remove" || sub === "unlock-all") {
+    const existing =
+      (await store.client
+        .query("channelLocks:botChannelLocks", { guildId: guild.id, botKey })
+        .catch(() => [])) || [];
+    const wanted = new Set(
+      existing.filter((r) => r.roleId === target.roleId).map((r) => r.channelId),
+    );
+    if (sub === "remove") {
+      const channel = interaction.options.getChannel("kenh", true);
+      // ⚠️ Chỉ mở khoá kênh MÌNH CÓ bản ghi khoá. Thêm vô điều kiện sẽ khiến
+      // nhánh "không do Protogon khoá" bên dưới chết cụt — và đó chính là
+      // chỗ ngăn bot xoá cấu hình riêng của chủ server.
+      wanted.clear();
+      if (existing.some((r) => r.channelId === channel.id && r.roleId === target.roleId)) {
+        wanted.add(channel.id);
+      }
+    }
+    if (wanted.size === 0) {
+      return interaction.reply({
+        content: `Kênh này không do Protogon khoá — mình KHÔNG tự mở quyền để tránh xoá nhầm cấu hình của bạn. Hãy mở trực tiếp trong Discord.`,
+        ephemeral: true,
+      });
+    }
+    const records = existing.filter((r) => wanted.has(r.channelId) && r.roleId === target.roleId);
+    const out = await channelLock.releaseLocks({
+      client,
+      guild,
+      records,
+      store,
+      botKey,
+    });
+    if (out.failed.length) {
+      return interaction.reply({
+        content: `⚠️ Mở được ${out.restored.length} kênh nhưng có lỗi: ${out.failed.join(" | ").slice(0, 800)}`,
+        ephemeral: true,
+      });
+    }
+    await sendLog(
+      guild,
+      config,
+      channelLock.lockLogEmbed({
+        action: "unlock",
+        channelNames: out.restored,
+        roleLabel: target.everyone ? "@everyone" : channelLock.roleLabel(guild, target.roleId),
+        duration: null,
+        actor: who,
+      }),
+    );
+    return interaction.reply({
+      content:
+        `🔓 Đã mở khoá ${out.restored.length} kênh.` +
+        (out.missing.length ? ` ${out.missing.length} kênh không còn tồn tại (đã dọn).` : ""),
+      ephemeral: true,
+    });
+  }
+
+  // ── Khoá ──
+  const existing =
+    (await store.client
+      .query("channelLocks:botChannelLocks", { guildId: guild.id, botKey })
+      .catch(() => [])) || [];
+  const alreadyLocked = new Set(
+    existing.filter((r) => r.roleId === target.roleId).map((r) => r.channelId),
+  );
+  const reason = (interaction.options.getString("lydo", false) || "").slice(0, 200);
+  const until = minutes === null ? undefined : Date.now() + minutes * 60_000;
+
+  const targets =
+    sub === "add"
+      ? (() => {
+          const channel = interaction.options.getChannel("kenh", true);
+          const kind = channelLock.channelLockKind(channel);
+          return kind ? [{ channel, kind }] : [];
+        })()
+      : channelLock.collectChatChannels(guild);
+
+  if (targets.length === 0) {
+    return interaction.reply({
+      content:
+        sub === "add"
+          ? "❌ Không khoá được kênh này (danh mục, thread, hoặc kênh bot không có quyền sửa)."
+          : "❌ Server không có kênh chat nào để khoá.",
+      ephemeral: true,
+    });
+  }
+
+  const done = [];
+  const skipped = [];
+  const failed = [];
+  for (const { channel, kind } of targets) {
+    if (alreadyLocked.has(channel.id)) {
+      skipped.push(channelLock.channelLabel(channel));
+      continue;
+    }
+    const r = await channelLock.lockChannel({ channel, roleId: target.roleId, kind });
+    if (!r.ok) {
+      failed.push(`${channelLock.channelLabel(channel)}: ${r.error}`);
+      continue;
+    }
+    // Chỉ ghi bản ghi SAU khi ghi quyền thành công — bản ghi mà không khoá
+    // được thì lúc mở sẽ "khôi phục" một thứ chưa từng bị đổi.
+    //
+    // ⚠️ Ngược lại, ghi bản ghi HỎNG sau khi đã ghi quyền thì kênh bị khoá mà
+    // không có dấu vết nào để mở lại — chủ server phải tự vào Discord gỡ tay.
+    // Nên hoàn tác quyền ngay khi lưu thất bại, đừng để lệ ở trạng thái nửa vời.
+    try {
+      await store.client.mutation("channelLocks:botSaveChannelLock", {
+        botKey,
+        guildId: guild.id,
+        channelId: channel.id,
+        roleId: target.roleId,
+        kind,
+        prev: r.prev ?? null,
+        until,
+        reason: reason || undefined,
+        lockedBy: interaction.user.id,
+      });
+    } catch (e) {
+      await channelLock
+        .unlockChannel({ channel, roleId: target.roleId, kind, prev: r.prev })
+        .catch(() => {});
+      failed.push(
+        `${channelLock.channelLabel(channel)}: lưu thất bại, đã trả lại quyền (${e?.message || e})`,
+      );
+      continue;
+    }
+    done.push(channelLock.channelLabel(channel));
+  }
+
+  if (done.length === 0) {
+    return interaction.reply({
+      content:
+        (skipped.length ? `Các kênh này đã bị khoá rồi: ${skipped.join(", ")}. ` : "") +
+        (failed.length ? `Lỗi: ${failed.join(" | ").slice(0, 800)}` : ""),
+      ephemeral: true,
+    });
+  }
+  if (done.length) {
+    await sendLog(
+      guild,
+      config,
+      channelLock.lockLogEmbed({
+        action: "lock",
+        channelNames: done.slice(0, 20),
+        roleLabel: target.everyone ? "@everyone" : channelLock.roleLabel(guild, target.roleId),
+        duration: minutes,
+        reason,
+        actor: who,
+      }),
+    );
+  }
+  const notes = [];
+  if (skipped.length) notes.push(`${skipped.length} kênh đã khoá sẵn (bỏ qua).`);
+  if (failed.length) notes.push(`${failed.length} kênh lỗi: ${failed.join(" | ").slice(0, 600)}`);
+  return interaction.reply({
+    content:
+      `🔒 Đã khoá ${done.length} kênh` +
+      ` (${channelLock.formatLockDuration(minutes)}, ${target.everyone ? "@everyone" : channelLock.roleLabel(guild, target.roleId)}).` +
+      (notes.length ? `\n` + notes.join("\n") : ""),
+    ephemeral: true,
+  });
+}
+
+/**
+ * TICKET — nút MỞ trên panel dán ở kênh công khai.
+ *
+ * Bấm nút chỉ mở modal hỏi, KHÔNG tạo kênh ngay: tạo kênh rồi mới nhắn nội
+ * dung nghĩa là staff phải chờ, còn thành viên thấy một kênh trống rỗng.
+ * (Cùng cách Ticket Tool V2 làm, nhưng ở đây modal hỏi sẵn nên không cần chủ
+ * server tự tạo câu hỏi.)
+ */
+async function ticketOpenButton(client, store, interaction) {
+  const kind =
+    interaction.customId.slice("ticket_open:".length) === "appeal" ? "appeal" : "support";
+  const guild = interaction.guild;
+  if (!guild)
+    return interaction.reply({ content: "Lệnh này chỉ hoạt động trong server.", ephemeral: true });
+  const config = await store.getConfig(guild.id);
+  const T = lang.ticketText(tickets.langFor(interaction, guild));
+  if (!config?.ticketEnabled) {
+    return interaction.reply({ content: T.errDisabled, ephemeral: true });
+  }
+  if (interaction.user.bot) {
+    return interaction.reply({ content: T.errBotAccount, ephemeral: true });
+  }
+  return interaction.showModal(tickets.openModal(T, kind));
+}
+
+/** TICKET — modal nội dung sau khi bấm nút trên panel: mở ticket cho thành viên. */
+async function ticketOpenSubmitModal(client, store, interaction) {
+  const kind =
+    interaction.customId.slice("ticket_open_submit:".length) === "appeal" ? "appeal" : "support";
+  const guild = interaction.guild;
+  if (!guild)
+    return interaction.reply({ content: "Lệnh này chỉ hoạt động trong server.", ephemeral: true });
+  const body = interaction.fields.getTextInputValue("ticket_body");
+  const evidence = interaction.fields.getTextInputValue("ticket_evidence");
+  const T = lang.ticketText(tickets.langFor(interaction, guild));
+  if (!body || !body.trim()) {
+    return interaction.reply({ content: T.aiEmpty, ephemeral: true });
+  }
+  await interaction.deferReply({ ephemeral: true });
+  const res = await tickets.openTicket({
+    client,
+    store,
+    guild,
+    user: interaction.user,
+    kind,
+    source: "panel",
+    body,
+    evidence,
+    T,
+    // Mở từ trong server → người mở CẦN vào được kênh ticket của mình để đọc
+    // trả lời. Khác điểm vào DM (người bị ban) vốn không vào được kênh nào.
+    openerOnly: true,
+  });
+  if (!res.ok) {
+    return interaction.editReply({ content: renderError(res, T) });
+  }
+  return interaction.editReply({ content: T.okOpened.replace("{ch}", `<#${res.channelId}>`) });
+}
 
 /**
  * TICKET — nút "Mở khiếu nại" trong DM sau khi bị ban.
@@ -249,10 +537,14 @@ async function ticketActionButton(client, store, interaction) {
     return interaction.showModal(tickets.closeReasonModal(T, parsed.ticketId));
   }
 
-  // ── Đóng ticket / Gỡ ban: cần biết AI mở ticket ──
+  // ── Đóng ticket / Gỡ ban / Tự đóng: cần biết AI mở ticket ──
   // Đọc bản ghi thật thay vì suy từ tên kênh hay topic: đây là dữ liệu duy
   // nhất, và tên kênh có thể do staff đổi tay.
-  if (parsed.action === "ticket_close" || parsed.action === "ticket_unban") {
+  if (
+    parsed.action === "ticket_close" ||
+    parsed.action === "ticket_unban" ||
+    parsed.action === "ticket_close_own"
+  ) {
     if (!parsed.ticketId) {
       return interaction.reply({ content: T.errNoStaff, ephemeral: true });
     }
@@ -268,6 +560,13 @@ async function ticketActionButton(client, store, interaction) {
     }
     if (!row || row.status !== "open") {
       return interaction.reply({ content: T.errNoStaff, ephemeral: true });
+    }
+
+    // Nút "Tôi tự đóng": chỉ CHÍNH người mở được bấm. Không kiểm tra thì bất
+    // kỳ ai đọc được link kênh (staff paste vào kênh khác…) cũng đóng được
+    // ticket của người khác — mất khiếu nại đang chờ trả lời.
+    if (parsed.action === "ticket_close_own" && row.openerId !== interaction.user.id) {
+      return interaction.reply({ content: T.closeOwnDenied, ephemeral: true });
     }
 
     let unbanned = false;
@@ -311,7 +610,10 @@ async function ticketActionButton(client, store, interaction) {
       console.error(`[tickets] ghi trạng thái thất bại:`, e.message);
     }
     return interaction.reply({
-      content: `🔒 ${T.closedTitle} — ${T.closedBy} ${interaction.user.username}.`,
+      content:
+        parsed.action === "ticket_close_own"
+          ? T.closeOwnDone
+          : `🔒 ${T.closedTitle} — ${T.closedBy} ${interaction.user.username}.`,
       ephemeral: true,
     });
   }
@@ -692,6 +994,9 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       return;
     }
     // ─── TICKET: nút mở khiếu nại trong DM sau ban ───
+    if (interaction.customId.startsWith("ticket_open:")) {
+      return ticketOpenButton(client, store, interaction);
+    }
     if (interaction.customId === "ticket_open_dm") {
       return ticketOpenDmButton(client, store, interaction);
     }
@@ -701,6 +1006,10 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
     return;
   }
 
+  // ─── TICKET: modal mở ticket từ panel kênh công khai ───
+  if (interaction.isModalSubmit() && interaction.customId.startsWith("ticket_open_submit:")) {
+    return ticketOpenSubmitModal(client, store, interaction);
+  }
   // ─── TICKET: modal khiếu nại (sau nút trong DM) ───
   if (interaction.isModalSubmit() && interaction.customId === "ticket_appeal_dm") {
     return ticketAppealModal(client, store, interaction);
@@ -817,6 +1126,7 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
             "**Auto Reply** — `/autoreply add` tạo rule từ khóa hoặc @mention, `/autoreply list`, `/autoreply remove`",
             "**Chống nuke** — `/antinuke status`, `/antinuke on|off`, `/antinuke module`, `/antinuke unlock`, `/antinuke lockdown`",
             "**Lọc nội dung** — module `badword`, `invite`, `attachment`, `mention` (bật tắt trong `/antinuke module`) · `/badword add|remove|list` · `/heat status`",
+            "**Khoá kênh** — `/lock add #kênh [role] [30m|2h|1d]`, `/lock all [role] [thời lượng]`, `/lock remove #kênh`, `/lock unlock-all`, `/lock list` (bỏ trống thời lượng = khoá vô hạn, tự mở tay; có thời lượng thì tự mở)",
             "**Mod tools** — `/mod timeout @user 10m [lý do]`, `/mod untimeout`, `/mod kick`, `/mod ban`, `/mod unban`, `/mod unwarn`, `/mod purge` (ghi log lý do + người thực hiện)",
             "**Giveaway** — `/giveaway start <tên> <giải thưởng> <thời lượng>`, `/giveaway list`, `/giveaway end`",
             "**Reaction Role** — `/reactionrole create <kênh> <tên> <cặp emoji:role>`, `/reactionrole add`, `/reactionrole edit`, `/reactionrole remove`, `/reactionrole delete`",
@@ -1093,6 +1403,9 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
+    case "lock": {
+      return lockCommand(client, store, interaction);
+    }
     case "antinuke": {
       const sub = interaction.options.getSubcommand();
 

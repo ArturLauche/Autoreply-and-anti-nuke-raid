@@ -208,6 +208,28 @@ const TICKET_TEXT = {
     langCurrent: "Ngôn ngữ hiện tại của bạn: **{name}**.",
     langDetected: "(tự nhận ra: {name})",
     langAutoNotice: "Mình chưa biết bạn dùng ngôn ngữ nào — nhập `/language` để chọn.",
+    // ── Panel MỞ ticket (nút trong kênh công khai) ──
+    openPanelTitle: "Cần trợ giúp?",
+    openPanelBody:
+      "Bấm nút bên dưới, kể lại vấn đề của bạn — bot sẽ mở một **kênh riêng** chỉ bạn và ban quản trị nhìn thấy.\n\n• Cần hỏi hoặc báo cáo chuyện gì → **Hỗ trợ**\n• Bạn bị phạt oan → **Khiếu nại**\n\nBạn chỉ mở được **1 ticket mở tại một thời điểm**; cần thêm thì cứ hỏi tiếp trong kênh đó nhé.",
+    openSupport: "💬 Hỗ trợ chung",
+    openAppeal: "⚖️ Khiếu nại hình phạt",
+    openModalTitleSupport: "Mở ticket hỗ trợ",
+    openModalTitleAppeal: "Mở ticket khiếu nại",
+    openBodyLabelSupport: "Bạn cần hỗ trợ chuyện gì?",
+    openBodyPlaceholderSupport: "Mô tả ngắn gọn vấn đề của bạn…",
+    openEvidenceLabel: "Bằng chứng (ảnh chụp, link, tên người) — tuỳ chọn",
+    openEvidencePlaceholder: "Dán link ảnh/tin nhắn, hoặc bỏ trống nếu chưa có…",
+    openHint: "💡 Trả lời ngay trong kênh ticket vẫn được nhé — nhân viên sẽ thấy và phản hồi bạn.",
+    // Nút cho CHÍNH người mở đóng ticket (thân thiện hơn: không bắt phải chờ staff).
+    btnCloseOwn: "Tôi tự đóng",
+    closeOwnDone: "✅ Đã đóng ticket. Cảm ơn bạn đã báo lại!",
+    closeOwnDenied: "Chỉ người mở ticket mới tự đóng được. Bạn có thể nhắn staff trong kênh này.",
+    // Lời dặn đầu kênh ticket + DM báo "đã mở" (tuỳ chỉnh của chủ server).
+    openNoteTitle: "📌 Trước khi bắt đầu",
+    openDmTitle: "✅ Ticket của bạn đã mở",
+    openDmBody:
+      "Ticket **#{n}** của bạn trong **{server}** đã được mở.\n\nHãy nhắn tin trong [kênh ticket]({link}) để được hỗ trợ — đội ngũ ở đó sẽ phản hồi bạn.",
   },
   en: {
     openedTitle: "Appeal #{n}",
@@ -281,6 +303,27 @@ const TICKET_TEXT = {
     langCurrent: "Your current language: **{name}**.",
     langDetected: "(detected: {name})",
     langAutoNotice: "I don't know your language yet — type `/language` to pick one.",
+    openPanelTitle: "Need help?",
+    openPanelBody:
+      "Tap a button below and tell us what happened — the bot will open a **private channel** only you and the staff can see.\n\n• A question or something to report → **Support**\n• You think a punishment was a mistake → **Appeal**\n\nYou can only have **one open ticket at a time**; just keep talking in that channel if you need more.",
+    openSupport: "💬 General support",
+    openAppeal: "⚖️ Appeal a punishment",
+    openModalTitleSupport: "Open a support ticket",
+    openModalTitleAppeal: "Open an appeal ticket",
+    openBodyLabelSupport: "What do you need help with?",
+    openBodyPlaceholderSupport: "Describe your issue in a few words…",
+    openEvidenceLabel: "Evidence (screenshots, links, names) — optional",
+    openEvidencePlaceholder: "Paste image/message links, or leave empty if you don't have any…",
+    openHint:
+      "💡 You can reply right in the ticket channel too — staff will see it and get back to you.",
+    btnCloseOwn: "Close it myself",
+    closeOwnDone: "✅ Ticket closed. Thanks for letting us know!",
+    closeOwnDenied:
+      "Only the person who opened this ticket can close it. Just message staff in this channel.",
+    openNoteTitle: "📌 Before you start",
+    openDmTitle: "✅ Your ticket is open",
+    openDmBody:
+      "Your ticket **#{n}** in **{server}** is now open.\n\nReply in [your ticket channel]({link}) to get help — the team there will get back to you.",
   },
   de: {
     openedTitle: "Beschwerde #{n}",
@@ -358,6 +401,26 @@ const TICKET_TEXT = {
     langCurrent: "Deine aktuelle Sprache: **{name}**.",
     langDetected: "(erkannt: {name})",
     langAutoNotice: "Ich kenne deine Sprache noch nicht — tippe `/language`, um eine zu wählen.",
+    openPanelTitle: "Hilfe gebraucht?",
+    openPanelBody:
+      "Klick unten auf eine Schaltfläche und schilder dein Anliegen — der Bot öffnet einen **privaten Kanal**, den nur du und das Team sehen.\n\n• Frage oder etwas zu melden → **Support**\n• Eine Strafe war zu Unrecht → **Anfechten**\n\nDu kannst nur **ein offenes Ticket** haben; schreib einfach im selben Kanal weiter.",
+    openSupport: "💬 Allgemeiner Support",
+    openAppeal: "⚖️ Strafe anfechten",
+    openModalTitleSupport: "Support-Ticket öffnen",
+    openModalTitleAppeal: "Beschwerde-Ticket öffnen",
+    openBodyLabelSupport: "Wobei brauchst du Hilfe?",
+    openBodyPlaceholderSupport: "Beschreib dein Anliegen kurz…",
+    openEvidenceLabel: "Beweise (Screenshots, Links, Namen) — optional",
+    openEvidencePlaceholder: "Bild-/Nachrichtenlinks einfügen oder leer lassen…",
+    openHint: "💡 Du kannst direkt im Ticket-Kanal antworten — das Team sieht es und meldet sich.",
+    btnCloseOwn: "Selbst schließen",
+    closeOwnDone: "✅ Ticket geschlossen. Danke für deine Meldung!",
+    closeOwnDenied:
+      "Nur wer das Ticket eröffnet hat, kann es schließen. Schreib dem Team einfach im Kanal.",
+    openNoteTitle: "📌 Bevor es losgeht",
+    openDmTitle: "✅ Dein Ticket ist offen",
+    openDmBody:
+      "Dein Ticket **#{n}** in **{server}** ist jetzt offen.\n\nSchreib in [deinem Ticketkanal]({link}), um Hilfe zu bekommen — das Team antwortet dir dort.",
   },
 };
 

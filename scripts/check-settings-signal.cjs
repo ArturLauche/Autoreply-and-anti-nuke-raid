@@ -62,6 +62,8 @@ const ALLOWLIST = {
   "hidden.ts::botReportDmError": "bot báo lỗi gửi DM; web đọc — bot không đọc lại field này",
   "guilds.ts::clearVerifySendPanel":
     "bot xoá cờ sau khi gửi panel; verifySendPanel được batch tick đọc TƯƠI (bot_tick.getPendingJobs.verifyPanels)",
+  "guilds.ts::clearTicketPanel":
+    "bot xoá cờ sau khi dán panel mở ticket; ticketSendPanel được batch tick đọc TƯƠI (bot_tick.getPendingJobs.ticketPanels) — không đi qua bundle cache nên không cần settingsChangedAt",
   "guilds.ts::botSyncGuilds":
     "vòng sync metadata 5 phút của bot (tên/icon/số thành viên + seed mặc định cho guild MỚI). Cố ý KHÔNG invalidate: mỗi 5 phút một lần thì cache config vô nghĩa; guild mới chưa có cache",
 };

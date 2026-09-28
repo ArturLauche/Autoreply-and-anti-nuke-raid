@@ -123,6 +123,78 @@ const LOCALIZATIONS = {
       list: { d: ["View the bad word list", "Liste verbotener Wörter ansehen"] },
     },
   },
+  lock: {
+    d: [
+      "Lock chat in channels (by role, auto-unlock after a delay)",
+      "Chat in Kanälen sperren (nach Rolle, zeitgesteuert entsperren)",
+    ],
+    subs: {
+      add: {
+        d: ["Lock one channel", "Einen Kanal sperren"],
+        opts: {
+          kenh: { d: ["Channel to lock", "Zu sperrender Kanal"] },
+          role: {
+            d: [
+              "Only lock this role (blank = lock @everyone)",
+              "Nur diese Rolle sperren (leer = @everyone)",
+            ],
+          },
+          phut: {
+            d: [
+              "Auto-unlock after: 30m, 2h, 1d (blank = forever)",
+              "Auto-Entsperren nach: 30m, 2h, 1d (leer = dauerhaft)",
+            ],
+          },
+          lydo: { d: ["Reason for locking (logged)", "Grund zum Sperren (protokolliert)"] },
+        },
+      },
+      all: {
+        d: ["Lock every chat channel", "Alle Chat-Kanäle sperren"],
+        opts: {
+          role: {
+            d: [
+              "Only lock this role (blank = lock @everyone)",
+              "Nur diese Rolle sperren (leer = @everyone)",
+            ],
+          },
+          phut: {
+            d: [
+              "Auto-unlock after: 30m, 2h, 1d (blank = forever)",
+              "Auto-Entsperren nach: 30m, 2h, 1d (leer = dauerhaft)",
+            ],
+          },
+          lydo: { d: ["Reason for locking (logged)", "Grund zum Sperren (protokolliert)"] },
+        },
+      },
+      remove: {
+        d: ["Unlock one channel", "Einen Kanal entsperren"],
+        opts: {
+          kenh: { d: ["Channel to unlock", "Zu entsperrender Kanal"] },
+          role: {
+            d: [
+              "Role that was locked (blank if @everyone was locked)",
+              "Gesperrte Rolle (leer, wenn @everyone gesperrt wurde)",
+            ],
+          },
+        },
+      },
+      "unlock-all": {
+        d: [
+          "Unlock every channel Protogon locked",
+          "Alle von Protogon gesperrten Kanäle entsperren",
+        ],
+        opts: {
+          role: {
+            d: [
+              "Only unlock this role (blank = unlock @everyone)",
+              "Nur diese Rolle entsperren (leer = @everyone)",
+            ],
+          },
+        },
+      },
+      list: { d: ["View locked channels", "Gesperrte Kanäle ansehen"] },
+    },
+  },
   heat: {
     d: [
       "View violation heat and server safety level",

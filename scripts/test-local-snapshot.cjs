@@ -87,12 +87,16 @@ console.log("── danh sách + rotate ──");
 
 console.log("── log theo ngày ──");
 {
-  const f = snap.logFileFor(new Date("2026-09-27T03:04:05Z"));
+  // PHẢI truyền CÙNG một mốc thời gian vào cả logFileFor lẫn appendLog/tailLog.
+  // Gọi appendLog() trần là ghi vào file của NGÀY HÔM NAY, còn f là file của
+  // 27/09 → test chỉ xanh đúng ngày 27/09 và đỏ ngay hôm sau (đã xảy ra).
+  const at = new Date("2026-09-27T03:04:05Z");
+  const f = snap.logFileFor(at);
   check("tên file theo ngày UTC", path.basename(f) === "bot-2026-09-27.log", path.basename(f));
-  check("appendLog tạo thư mục + file", (snap.appendLog("dòng 1"), fs.existsSync(f)));
-  snap.appendLog("dòng 2");
-  snap.appendLog("dòng 3");
-  const tail2 = snap.tailLog(2);
+  check("appendLog tạo thư mục + file", (snap.appendLog("dòng 1", at), fs.existsSync(f)));
+  snap.appendLog("dòng 2", at);
+  snap.appendLog("dòng 3", at);
+  const tail2 = snap.tailLog(2, at);
   check(
     "tailLog lấy N dòng cuối",
     tail2.split("\n").filter(Boolean).length === 2,
@@ -119,7 +123,113 @@ console.log("── log theo ngày ──");
   check("appendLog lỗi → nuốt, không ném", threw === false);
 }
 
-console.log(`\nKết quả local-snapshot: ${pass} PASS, ${fail} FAIL`);
-// Dọn thư mục tạm — test chạy hàng chục lần, để lại sẽ đầy /tmp.
-fs.rmSync(TMP, { recursive: true, force: true });
-process.exit(fail === 0 ? 0 : 1);
+console.log("── rotate file log ──");
+{
+  // rotateLogs phải chịu được thư mục log chưa tồn tại (bot vừa restart).
+  const realLogDir = process.env.PROTOGON_LOG_DIR;
+  process.env.PROTOGON_LOG_DIR = path.join(TMP, "chua-co-log");
+  check("rotateLogs: thư mục chưa có → 0, không ném", snap.rotateLogs() === 0);
+  process.env.PROTOGON_LOG_DIR = realLogDir;
+
+  fs.mkdirSync(realLogDir, { recursive: true });
+  const het = path.join(realLogDir, "bot-2020-01-01.log");
+  const moi = path.join(realLogDir, "bot-2099-01-01.log");
+  const rac = path.join(realLogDir, "khong-phai-log.txt");
+  fs.writeFileSync(het, "x");
+  fs.writeFileSync(moi, "x");
+  fs.writeFileSync(rac, "x");
+  const removed = snap.rotateLogs(new Date("2026-09-27T00:00:00Z"));
+  check(
+    "rotateLogs: xoá đúng file quá 7 ngày",
+    removed === 1 && !fs.existsSync(het),
+    String(removed),
+  );
+  check("rotateLogs: giữ file mới + file không phải log", fs.existsSync(moi) && fs.existsSync(rac));
+  fs.rmSync(moi, { force: true });
+  fs.rmSync(rac, { force: true });
+}
+
+console.log("── chụp qua engine backup + vòng lặp ──");
+(async () => {
+  // Thư mục snapshot bị chặn bởi một FILE → ghi phải trả null, không ném.
+  const snapBlocker = path.join(TMP, "snap-blocker");
+  fs.writeFileSync(snapBlocker, "x");
+  const realSnapDir = process.env.PROTOGON_SNAPSHOT_DIR;
+  process.env.PROTOGON_SNAPSHOT_DIR = snapBlocker;
+  const r = snap.writeLocalSnapshot("g-loi", payload, 1_700_000_000_009);
+  check("ghi lỗi (đĩa hỏng) → null, không ném", r === null, JSON.stringify(r));
+  process.env.PROTOGON_SNAPSHOT_DIR = realSnapDir;
+
+  const Module = require("module");
+  const origLoad = Module._load;
+  let engineThrows = false;
+  let engineEmpty = false;
+  const bigSnapshot = {
+    channels: Array.from({ length: 25 }, (_, i) => ({ id: i, name: `kênh ${i}`, type: 0 })),
+    roles: Array.from({ length: 15 }, (_, i) => ({ id: i, name: `role ${i}` })),
+  };
+  Module._load = function (request, parent) {
+    if (request === "./handlers/backup" && parent && /localSnapshot\.js$/.test(parent.filename)) {
+      return {
+        snapshotWithSettings: async () => {
+          if (engineThrows) throw new Error("Discord API lỗi");
+          if (engineEmpty) return { snapshot: null };
+          return { snapshot: bigSnapshot };
+        },
+      };
+    }
+    return origLoad.apply(this, arguments);
+  };
+  try {
+    const ok = await snap.snapshotGuildLocal({}, {}, "g-snap", 1_700_000_000_010);
+    check(
+      "snapshotGuildLocal: engine OK → ghi file thật",
+      !!ok && fs.existsSync(ok.file),
+      JSON.stringify(ok),
+    );
+
+    engineThrows = true;
+    const bad = await snap.snapshotGuildLocal({}, {}, "g-snap-loi", 1_700_000_000_011);
+    check("snapshotGuildLocal: engine lỗi → null, không ném", bad === null, JSON.stringify(bad));
+    engineThrows = false;
+
+    engineEmpty = true;
+    const rong = await snap.snapshotGuildLocal({}, {}, "g-snap-rong", 1_700_000_000_012);
+    check(
+      "snapshotGuildLocal: engine không trả snapshot → null",
+      rong === null,
+      JSON.stringify(rong),
+    );
+    engineEmpty = false;
+
+    // Vòng lặp chạy MỖI GIỜ trên VPS — lỗi 1 guild không được chặn guild sau,
+    // và stop() phải giải phóng timer (rò rỉ timer chặn shutdown).
+    const loopClient = {
+      guilds: {
+        cache: new Map([
+          ["g-loop-a", { id: "g-loop-a" }],
+          ["g-loop-b", { id: "g-loop-b" }],
+        ]),
+      },
+    };
+    const stop = snap.startLocalSnapshotLoop(loopClient, {}, 10);
+    await new Promise((r) => setTimeout(r, 80));
+    stop();
+    check(
+      "vòng chụp: quét được CẢ 2 guild",
+      snap.listLocalSnapshots("g-loop-a").length > 0 &&
+        snap.listLocalSnapshots("g-loop-b").length > 0,
+    );
+  } finally {
+    Module._load = origLoad;
+  }
+
+  console.log(`\nKết quả local-snapshot: ${pass} PASS, ${fail} FAIL`);
+  // Dọn thư mục tạm — test chạy hàng chục lần, để lại sẽ đầy /tmp.
+  fs.rmSync(TMP, { recursive: true, force: true });
+  process.exit(fail === 0 ? 0 : 1);
+})().catch((e) => {
+  console.error("CRASH:", e);
+  fs.rmSync(TMP, { recursive: true, force: true });
+  process.exit(1);
+});

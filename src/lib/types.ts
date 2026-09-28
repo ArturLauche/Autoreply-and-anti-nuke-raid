@@ -248,6 +248,25 @@ export interface GuildData {
     ticketPanelText: string | null;
     /** Role được tag khi mở ticket (tối đa 3). */
     ticketPingRoleIds: string[];
+    /** Kênh công khai dán panel "Mở ticket" (nút cho thành viên tự mở). */
+    ticketPanelChannelId: string | null;
+    /** Cờ chờ bot dán panel (dashboard bấm nút / tự bật khi vừa chọn kênh). */
+    ticketSendPanel: boolean;
+    /** Lý do bot không dán được panel (hiện trên web thay vì im lặng). */
+    ticketPanelError: string | null;
+    ticketPanelErrorAt: number | null;
+    /** Tiêu đề panel mở tuỳ chỉnh; rỗng = dùng mặc định theo ngôn ngữ. */
+    ticketOpenPanelTitle: string | null;
+    /** Nội dung panel mở tuỳ chỉnh ({server} {open} {support}); rỗng = mặc định. */
+    ticketOpenPanelText: string | null;
+    /** Màu panel mở dạng hex 6 chữ số (không có `#`); rỗng = màu mặc định. */
+    ticketOpenPanelColor: string | null;
+    /** Hiện thêm nút "Khiếu nại" bên cạnh nút Hỗ trợ. Mặc định = true. */
+    ticketShowAppealButton: boolean;
+    /** DM cho người mở kèm link kênh ticket. Mặc định = true. */
+    ticketDmOnOpen: boolean;
+    /** Lời dặn dán ở đầu kênh ticket ({user} {number} {server}); rỗng = không dán. */
+    ticketOpenNote: string | null;
   };
   heatStates: HeatState[];
   autoReplies: AutoReply[];

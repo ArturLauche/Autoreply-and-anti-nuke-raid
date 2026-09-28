@@ -294,6 +294,45 @@ export default defineSchema({
     ticketDmOnBan: v.optional(v.boolean()),
     /** Loại ticket mặc định khi gọi `/ticket` không kèm lựa chọn: support | appeal. */
     ticketDefaultKind: v.optional(v.string()),
+    /**
+     * Kênh dán PANEL "Mở ticket" — tin nhắn có nút để thành viên TỰ MỞ ticket
+     * (không cần gõ lệnh `/ticket` và nhớ cú pháp). Rỗng = chưa chọn kênh.
+     * Khác `ticketCategoryId`: đây là kênh CÔNG KHAI trước khi mở ticket.
+     */
+    ticketPanelChannelId: v.optional(v.string()),
+    /**
+     * Cờ yêu cầu bot dán panel. Dashboard bấm nút "Gửi panel" (hoặc tự đặt
+     * khi bật ticket lần đầu) → bot dán xong tự xoá cờ + báo lỗi nếu hỏng.
+     * Cùng khuôn với `verifySendPanel`.
+     */
+    ticketSendPanel: v.optional(v.boolean()),
+    /** Lý do bot không dán được panel (hiện trên dashboard thay vì im lặng). */
+    ticketPanelError: v.optional(v.string()),
+    ticketPanelErrorAt: v.optional(v.number()),
+    /**
+     * Message id của panel MỞ ticket đang dán. Lần dán sau bot xoá bản cũ
+     * trước — không có id này thì mỗi lần bấm "Gửi lại" lại dán thêm 1 bản,
+     * kênh đầy panel trùng và người dùng bấm nhầm phiên bản cũ.
+     */
+    ticketPanelMessageId: v.optional(v.string()),
+    // ═══ TUỲ CHỈNH trải nghiệm thành viên (tất cả rỗng = mặc định đa ngôn ngữ) ═══
+    /** Tiêu đề panel mở ticket (thay cho "Cần trợ giúp?"). */
+    ticketOpenPanelTitle: v.optional(v.string()),
+    /**
+     * Nội dung panel mở ticket — hỗ trợ placeholder {server} {open} {support}.
+     * ⚠️ Tách khỏi `ticketPanelText` (dành cho panel TRONG kênh ticket): dùng
+     * chung một ô khiến chủ server nhập lời dặn trong kênh ticket lại thấy nó
+     * hiện ở kênh công khai cho cả server đọc.
+     */
+    ticketOpenPanelText: v.optional(v.string()),
+    /** Màu embed panel mở, hex 6 chữ số không có # (vd 5865f2). Rỗng = mặc định. */
+    ticketOpenPanelColor: v.optional(v.string()),
+    /** Hiện nút "Khiếu nại" trên panel mở không (mặc định có). */
+    ticketShowAppealButton: v.optional(v.boolean()),
+    /** DM cho thành viên ngay khi ticket mở (kèm link kênh để quay lại). */
+    ticketDmOnOpen: v.optional(v.boolean()),
+    /** Lời dặn của chủ server dán ở đầu kênh ticket (tách khỏi `ticketCloseNote`). */
+    ticketOpenNote: v.optional(v.string()),
     /** Lời nhắc dán trong kênh ticket (chủ server tuỳ biến). */
     ticketCloseNote: v.optional(v.string()),
     /**
@@ -431,6 +470,45 @@ export default defineSchema({
     .index("by_guildId", ["guildId"])
     .index("by_guildId_userId", ["guildId", "userId"])
     .index("by_guildId_heat", ["guildId", "heat"]),
+
+  /**
+   * Lệnh `/lock` của chủ server — kênh đang bị khoá chat.
+   *
+   * Vì sao bảng này tồn tại (và không chỉ set quyền rồi quên): khoá là
+   * thao tác GHI ĐÈ quyền của role trên kênh. Nếu không lưu quyền CŨ thì lúc
+   * mở khoá chỉ có 2 lựa chọn — reset về `null` (xoá sạch override chủ server
+   * tự đặt) hoặc giữ nguyên (kênh kẹt vĩnh viễn). Lưu `prev` là cách duy
+   * nhất mở khoá mà KHÔNG phá cấu hình người dùng.
+   *
+   * `roleId`: snowflake của role bị khoá; với @everyone thì lưu chính id
+   * @everyone của server — để một bản ghi luôn tự mô tả trọn vẹn, không
+   * phải suy ra từ "roleId rỗng".
+   *
+   * `by_due` chỉ chứa bản ghi CÓ `until` (khoá có hạn) → truy vấn kênh đã
+   * hết hạn là `lte("until", now)`, và khoá vô hạn (thiếu `until`) không
+   * bao giờ lọt vào — đúng ý nghĩa "không tự mở".
+   */
+  channelLocks: defineTable({
+    guildId: v.string(),
+    channelId: v.string(),
+    roleId: v.string(),
+    /** "text" = chặn SendMessages · "voice" = chặn Connect. */
+    kind: v.union(v.literal("text"), v.literal("voice")),
+    /**
+     * Quyền TRƯỚC khi khoá. `null` = role chưa có override này (kế thừa từ
+     * trên) — phải phân biệt `null` với `false`, nếu không mở khoá sẽ mở
+     * nhầm kênh vốn đã bị chủ server cấm.
+     */
+    prev: v.union(v.boolean(), v.null()),
+    /** ms. THIẾU = khoá vô hạn (tự mở tay bằng `/lock remove`). */
+    until: v.optional(v.number()),
+    reason: v.optional(v.string()),
+    lockedBy: v.optional(v.string()),
+    lockedAt: v.number(),
+  })
+    .index("by_guildId", ["guildId"])
+    .index("by_guildId_channelId_roleId", ["guildId", "channelId", "roleId"])
+    .index("by_due", ["until"]),
 
   guildChannels: defineTable({
     guildId: v.string(),

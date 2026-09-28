@@ -1,6 +1,6 @@
 // TEST Haimiya web — tầng 1: bộ kiến thức cục bộ (fallback khi AI thật offline).
 // Chạy: bun scripts/test-haimiya-web.ts
-import { askHaimiya, GREETING, QUICK_QUESTIONS } from "../src/lib/haimiya";
+import { askHaimiya, buildAskHistory, GREETING, QUICK_QUESTIONS } from "../src/lib/haimiya";
 
 let pass = 0;
 let fail = 0;
@@ -54,6 +54,44 @@ for (const q of QUICK_QUESTIONS) {
 
 // 6. Chuỗi rỗng → fallback an toàn
 check("input rỗng → fallback an toàn", askHaimiya("").text.length > 0);
+
+console.log("\nDựng lịch sử gửi AI (buildAskHistory):");
+const HINT = "Hãy mô tả ảnh này.";
+// Bug 27/09/2026: gửi ảnh KHÔNG kèm chữ → lượt cuối `content` rỗng →
+// haimiya.ask trả "Tin nhắn rỗng" → ảnh bị bỏ rơi, panel báo AI offline.
+{
+  const h = buildAskHistory(
+    [
+      { role: "assistant", text: "Chào bạn" },
+      { role: "user", text: "" },
+    ],
+    HINT,
+  );
+  const last = h[h.length - 1];
+  check(
+    "lượt cuối rỗng (ảnh không kèm chữ) → thay bằng chỉ dẫn, KHÔNG gửi rỗng",
+    last.role === "user" && last.content === HINT && last.content.trim().length > 0,
+    last,
+  );
+  check("lượt trước giữ nguyên", h[0].content === "Chào bạn" && h[0].role === "assistant");
+}
+{
+  const h = buildAskHistory([{ role: "user", text: "  Hệ thống nhiệt độ thế nào?  " }], HINT);
+  check("lượt có chữ → giữ nguyên (và trim)", h[0].content === "Hệ thống nhiệt độ thế nào?");
+}
+{
+  const many = Array.from({ length: 12 }, (_, i) => ({
+    role: (i % 2 ? "assistant" : "user") as "user" | "assistant",
+    text: `lượt ${i}`,
+  }));
+  const h = buildAskHistory(many, HINT);
+  check("cap 8 lượt (khớp cap phía Convex)", h.length === 8, h.length);
+  check("giữ lượt MỚI nhất, bỏ lượt cũ nhất", h[7].content === "lượt 11", h[7]);
+}
+{
+  const h = buildAskHistory([{ role: "user", text: "   " }], HINT);
+  check("lượt toàn khoảng trắng cũng không gửi rỗng", h[0].content === HINT, h[0]);
+}
 
 console.log(`\nKết quả tầng fallback: ${pass} PASS, ${fail} FAIL`);
 process.exit(fail === 0 ? 0 : 1);

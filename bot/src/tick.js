@@ -113,6 +113,22 @@ async function readImportContent(item) {
 }
 
 /** Xử lý các yêu cầu backup/restore/import trong batch (như pollBackups cũ). */
+/**
+ * Khoá chat hết hạn → tự mở khoá.
+ *
+ * Vì sao gọi query RIÊNG thay vì gộp vào `getPendingJobs`: bảng `channelLocks`
+ * index theo HẠN (không theo guild) nên không dựng được từ danh sách guild
+ * sẵn có, và mỗi lượt tick vốn đã hỏi Convex ở nhiều chỗ — thêm một query
+ * gọn thành một chỗ, dễ bỏ sót hơn là nhét vào batch chung.
+ *
+ * `processDueLocks` tự nuốt lỗi từng guild, nên 1 server lỗi không chặn
+ * các server còn lại trong cùng lượt.
+ */
+async function runChannelLocks(client, store) {
+  const due = await store.client.query("channelLocks:botDueChannelLocks", {});
+  await require("./channelLock").processDueLocks(client, store, due ?? []);
+}
+
 async function runBackupJobs(client, store, items) {
   if (!items || items.length === 0) return;
   for (const item of items) {
@@ -215,9 +231,23 @@ async function runTickOnce(client, store) {
       console.error("[tick:verify]", e?.message || e);
     }
     try {
+      await require("./handlers/tickets").processOpenPanelItems(
+        client,
+        store,
+        jobs.ticketPanels ?? [],
+      );
+    } catch (e) {
+      console.error("[tick:ticketPanel]", e?.message || e);
+    }
+    try {
       await require("./handlers/ticketJobs").processTicketJobs(client, store, jobs.tickets ?? []);
     } catch (e) {
       console.error("[tick:tickets]", e?.message || e);
+    }
+    try {
+      await runChannelLocks(client, store);
+    } catch (e) {
+      console.error("[tick:channelLock]", e?.message || e);
     }
     await runBackupJobs(client, store, jobs.backups ?? []);
     return;
@@ -241,6 +271,11 @@ async function runTickOnce(client, store) {
     await runBackupJobs(client, store, pending ?? []);
   } catch (e) {
     console.error("[tick:backup:fallback]", e?.message || e);
+  }
+  try {
+    await runChannelLocks(client, store);
+  } catch (e) {
+    console.error("[tick:channelLock:fallback]", e?.message || e);
   }
 }
 

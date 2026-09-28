@@ -4,7 +4,7 @@ import { ImagePlus, Send, Sparkles, X } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import { api } from "../../convex/_generated/api";
 import { getSessionToken } from "../lib/discord";
-import { askHaimiya, GREETING, QUICK_QUESTIONS } from "../lib/haimiya";
+import { askHaimiya, buildAskHistory, GREETING, QUICK_QUESTIONS } from "../lib/haimiya";
 import { useBranding } from "../lib/useBranding";
 import { cn } from "../lib/utils";
 import { sha256Hex } from "../../convex/sha256";
@@ -388,13 +388,14 @@ export default function HaimiyaChat({
     window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(
       async () => {
-        const history = messages
-          .concat([{ id: "_h", role: "user", text: q }])
-          .slice(-8)
-          .map((m) => ({
-            role: m.role === "user" ? ("user" as const) : ("assistant" as const),
-            content: m.text,
-          }));
+        // Lượt cuối phải CÓ nội dung: gửi ảnh mà không gõ chữ thì `q` rỗng,
+        // mà action haimiya.ask từ chối `content` rỗng → panel báo "AI chưa
+        // phản hồi" và ảnh bị bỏ rơi (bug 27/09/2026). buildAskHistory thay
+        // lượt rỗng bằng chỉ dẫn mặc định, nên ảnh luôn được hỏi thật.
+        const history = buildAskHistory(
+          messages.concat([{ id: "_h", role: "user" as const, text: q }]),
+          translate("Hãy mô tả ảnh này."),
+        );
 
         const aiReply = await getAIResponse(
           history,

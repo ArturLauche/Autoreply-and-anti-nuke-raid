@@ -5,6 +5,7 @@
 //   B) guard: mime sai/không base64 → bị bỏ, không crash
 //   C) cap 3 ảnh + cap kích thước ~550KB/ảnh
 //   D) history không đổi khi không có ảnh; system prompt có ghi chú ảnh
+//   F) ảnh KHÔNG kèm chữ vẫn hỏi được (bug 27/09/2026: "Tin nhắn rỗng")
 import { ask } from "../convex/haimiya";
 import { computeBotKey } from "../convex/botAuth";
 
@@ -157,6 +158,51 @@ const askWith = async (args: Record<string, unknown>) =>
   const hist = requests[0]?.history ?? [];
   check("turn assistant giữ string", typeof hist[0]?.content === "string");
   check("turn user CUỐI là mảng parts", Array.isArray(hist[1]?.content));
+
+  console.log("\nF) Ảnh KHÔNG kèm chữ (gửi ảnh rồi bấm gửi) — bug 27/09/2026:");
+  // Trước đây action trả "Tin nhắn rỗng" → web báo "AI chưa phản hồi" và trả
+  // lời bằng kiến thức cục bộ, tức ảnh gửi lên bị bỏ rơi hoàn toàn.
+  mockFetch();
+  const r5 = (await askHandler(ctxMock, {
+    token: "test-session-token",
+    messages: [{ role: "user", content: "" }],
+    images: [{ dataUrl: jpeg(20_000) }],
+  } as any)) as any;
+  check(
+    "text rỗng + ảnh hợp lệ → vẫn hỏi AI được",
+    r5.offline === false && r5.reply.length > 0,
+    r5,
+  );
+  const partsF = requests[0]?.history?.[0]?.content;
+  check(
+    "part text KHÔNG bị gửi rỗng (có chỉ dẫn mặc định)",
+    Array.isArray(partsF) && partsF[0]?.type === "text" && partsF[0].text.trim().length > 0,
+    partsF,
+  );
+  check(
+    "ảnh vẫn được gửi kèm lượt không có chữ",
+    partsF?.[1]?.type === "image_url" && partsF[1].image_url.url.startsWith("data:image/jpeg"),
+  );
+  // Ranh giới: rỗng mà KHÔNG có ảnh hợp lệ thì vẫn phải từ chối.
+  mockFetch();
+  const r6 = (await askHandler(ctxMock, {
+    token: "test-session-token",
+    messages: [{ role: "user", content: "  " }],
+  } as any)) as any;
+  check("rỗng mà không có ảnh → vẫn từ chối (không đốt lượt AI)", r6.offline === true, r6);
+  const r7 = (await askHandler(ctxMock, {
+    token: "test-session-token",
+    messages: [{ role: "user", content: "" }],
+    images: [{ dataUrl: "https://example.com/x.png" }], // ảnh không hợp lệ
+  } as any)) as any;
+  check(
+    "rỗng + ảnh KHÔNG hợp lệ → từ chối, không gọi AI",
+    r7.offline === true && requests.length === 0,
+    {
+      r7,
+      requests: requests.length,
+    },
+  );
 
   console.log(`\nKết quả: ${pass} pass, ${fail} fail`);
   process.exit(fail ? 1 : 0);

@@ -300,6 +300,25 @@ async function openTicket({
     return { ok: false, code: kindErr === "MAX_CHANNELS" ? "errChannelsFull" : "errNoPerm" };
   }
 
+  // Lời dặn của chủ server dán ở ĐẦU kênh, TRÊN nội dung khiếu nại: staff
+  // thấy ngay "cần gì / trễ bao lâu" thay vì phải cuộn, và thành viên biết
+  // mình đang ở đâu. Rỗng thì KHÔNG gửi embed rỗng ra kênh ticket.
+  const note = openNoteEmbed({
+    T,
+    customNote: config?.ticketOpenNote,
+    openerName: user.username || user.id,
+    number,
+    serverName: guild.name,
+    customColor: config?.ticketOpenPanelColor,
+  });
+  if (note) {
+    try {
+      await channel.send({ embeds: [note] });
+    } catch (e) {
+      console.error(`[tickets] gửi lời dặn thất bại ${channel.id}:`, e.message);
+    }
+  }
+
   const payload = core.buildOpenPayload({
     TICKET_TEXT: T,
     number,
@@ -352,7 +371,93 @@ async function openTicket({
     console.error(`[tickets] cập nhật channelId thất bại:`, e.message);
   }
 
+  // DM cho người mở kèm link kênh. Lý do: họ bấm nút ở kênh công khai và
+  // KHÔNG nhìn thấy tin nhắn ephemeral trả lời của bot — không có link trong
+  // DM thì phải tự đi tìm kênh ticket vừa tạo.
+  //
+  // Best-effort: người dùng tắt tin nhắn riêng là chuyện của họ, KHÔNG được
+  // để nó làm hỏng luồng mở ticket (kênh đã tạo xong, staff đã thấy rồi).
+  if (config?.ticketDmOnOpen !== false) {
+    await sendOpenDm(
+      client,
+      user,
+      openDmEmbed({
+        T,
+        guildId: guild.id,
+        serverName: guild.name,
+        number,
+        channelId: channel.id,
+      }),
+    );
+  }
+
   return { ok: true, channelId: channel.id, number };
+}
+
+/**
+ * Lời dặn của chủ server dán ở đầu kênh ticket.
+ *
+ * Rỗng → trả `null` để `openTicket` bỏ qua (KHÔNG gửi embed trắng).
+ *
+ * ⚠️ Nội dung do CHỦ SERVER soạn nên bắt buộc đi qua `core.fillPanelText` —
+ * hàm đó escape mention. Không escape thì lời dặn gõ `@everyone` là bot ping
+ * cả server ngay khi thành viên vừa mở ticket.
+ */
+function openNoteEmbed({ T, customNote, openerName, number, serverName, customColor }) {
+  const raw = String(customNote ?? "").trim();
+  if (!raw) return null;
+  const text = core.fillPanelText(
+    raw,
+    {
+      user: String(openerName ?? ""),
+      number: String(number ?? ""),
+      kind: core.normalizeKind("support"),
+      server: String(serverName ?? ""),
+    },
+    T,
+  );
+  return new EmbedBuilder()
+    .setColor(core.parsePanelColor(customColor, Colors.Blurple))
+    .setTitle(T.openNoteTitle)
+    .setDescription(text)
+    .setFooter({ text: "Protogon · Ticket" })
+    .setTimestamp();
+}
+
+/** Embed DM báo "ticket của bạn đã mở" kèm link tới kênh. */
+function openDmEmbed({ T, guildId, serverName, number, channelId }) {
+  const server = core.escapeMentions(String(serverName ?? "").slice(0, 100));
+  return new EmbedBuilder()
+    .setColor(Colors.Green)
+    .setTitle(T.openDmTitle)
+    .setDescription(
+      T.openDmBody
+        .replace("{n}", String(number ?? ""))
+        .replace("{server}", server)
+        // Link kênh Discord cần CẢ guildId lẫn channelId — thiếu guildId thì
+        // link mở ra trang trắng thay vì kênh ticket vừa tạo.
+        .replace("{link}", `https://discord.com/channels/${guildId}/${channelId}`),
+    )
+    .setFooter({ text: "Protogon · Ticket" })
+    .setTimestamp();
+}
+
+/**
+ * Gửi DM cho người mở ticket. Trả `true` nếu gửi được.
+ *
+ * Nuốt lỗi thay vì ném: DM là tiện ích, không phải điều kiện để mở ticket.
+ * Người dùng tắt tin nhắn riêng là chuyện thường, không được ghi vào log
+ * như lỗi hệ thống.
+ */
+async function sendOpenDm(client, user, embed) {
+  try {
+    const dmUser = await client.users.fetch(user.id);
+    await dmUser.send({ embeds: [embed] });
+    return true;
+  } catch (e) {
+    console.log(`[tickets] không gửi được DM cho ${user?.id || "?"}: ${e?.message || e}`);
+    return false;
+  }
 }
 
 /**
@@ -462,6 +567,216 @@ function escapePayload(text) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
+   PANEL MỞ TICKET — nút cho THÀNH VIÊN tự mở ticket
+   ══════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Panel dán vào kênh công khai: 2 nút (Hỗ trợ / Khiếu nại).
+ *
+ * Khác panel trong kênh ticket (`buildPanel`): panel này cho NGƯỜI DÙNG bấm,
+ * và panel kia cho STAFF thao tác. Hai chiều không được lẫn — nhân viên mở
+ * ticket hộ thành viên là mất dấu vết ai thực sự cần hỗ trợ.
+ *
+ * ⚠️ Mọi nội dung chủ server soạn (`customText`) đi qua core.fillPanelText
+ * (escape mention) — nếu không, chủ server dán `@everyone` trong ô nội dung
+ * là bot ping cả server từ tin nhắn của họ.
+ */
+function openPanel({
+  T,
+  customTitle,
+  customText,
+  customColor,
+  showAppeal = true,
+  serverName = "",
+  openCount = 0,
+}) {
+  // fillPanelText("") trả về `T.panelTitle` đã bỏ placeholder — dành cho panel
+  // TRONG KÊNH TICKET, không phải panel mở. Rỗng thì phải lấy openPanelBody.
+  const custom = String(customText ?? "").trim();
+  const values = {
+    server: String(serverName || "").slice(0, 100),
+    open: String(openCount ?? 0),
+    support: T.openSupport,
+  };
+  const body = custom ? core.fillPanelText(custom, values, T) : T.openPanelBody;
+  const color = core.parsePanelColor(customColor, Colors.Blurple);
+  const title = String(customTitle ?? "").trim()
+    ? core.escapeMentions(String(customTitle).trim().slice(0, 256))
+    : T.openPanelTitle;
+  const embed = new EmbedBuilder()
+    .setColor(color)
+    .setTitle(title)
+    .setDescription(body)
+    .setFooter({ text: "Protogon · Ticket" })
+    .setTimestamp();
+
+  const buttons = [
+    new ButtonBuilder()
+      .setCustomId("ticket_open:" + core.normalizeKind("support"))
+      .setLabel(T.openSupport)
+      .setStyle(ButtonStyle.Primary),
+  ];
+  if (showAppeal) {
+    buttons.push(
+      new ButtonBuilder()
+        .setCustomId("ticket_open:" + core.normalizeKind("appeal"))
+        .setLabel(T.openAppeal)
+        .setStyle(ButtonStyle.Secondary),
+    );
+  }
+  return {
+    embeds: [embed],
+    components: [new ActionRowBuilder().addComponents(buttons)],
+  };
+}
+
+/**
+ * Modal hỏi thông tin TRƯỚC khi tạo kênh (như Ticket Tool V2).
+ *
+ * Vì sao hỏi trước: tạo kênh xong rồi mới nhắn nội dung nghĩa là staff phải
+ * chờ, còn người dùng thấy 1 kênh trống rỗng. Hỏi ở modal giúp kênh sinh ra
+ * đã có đủ thông tin để trả lời ngay.
+ *
+ * `kind` = "support" | "appeal" — chỉ quyết định câu hỏi + tiêu đề, phần
+ * kiểm tra quyền/giới hạn vẫn do openTicket lo (một nơi duy nhất).
+ */
+function openModal(T, kind) {
+  const appeal = core.normalizeKind(kind) === "appeal";
+  return new ModalBuilder()
+    .setCustomId("ticket_open_submit:" + core.normalizeKind(kind))
+    .setTitle(appeal ? T.openModalTitleAppeal : T.openModalTitleSupport)
+    .addComponents(
+      new TextInputBuilder()
+        .setCustomId("ticket_body")
+        .setLabel(appeal ? T.modalAppealLabel : T.openBodyLabelSupport)
+        .setPlaceholder(appeal ? undefined : T.openBodyPlaceholderSupport)
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(core.BODY_MAX),
+      new TextInputBuilder()
+        .setCustomId("ticket_evidence")
+        .setLabel(appeal ? T.modalEvidenceLabel : T.openEvidenceLabel)
+        .setPlaceholder(T.openEvidencePlaceholder)
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(false)
+        .setMaxLength(core.EVIDENCE_MAX),
+    );
+}
+
+/**
+ * Dán panel mở ticket vào kênh chủ server chọn.
+ *
+ * ⚠️ CỐ TÌNH KHÔNG dùng `buildPanel` (panel trong kênh ticket): panel mở phải
+ * là nút MỞ, không phải nút ĐÓNG. Dùng nhầm panel là nút "Đóng" lọt ra kênh
+ * công khai — ai bấm cũng đóng được, kể cả người không liên quan.
+ */
+async function sendOpenPanel(client, store, item) {
+  const guild = client.guilds.cache.get(item.guildId);
+  if (!guild) {
+    // Bot đã rời server → bỏ qua im lặng, KHÔNG spam báo lỗi lên dashboard
+    // (người dùng bấm nút sẽ thấy "bot không còn trong server" ở chỗ khác).
+    return;
+  }
+  const config = await store.getConfig(guild.id);
+  if (!config?.ticketEnabled || !config.ticketCategoryId || !config.ticketPanelChannelId) {
+    await reportPanel(
+      store,
+      item.guildId,
+      "Chưa cấu hình đủ: cần bật ticket + chọn category + chọn kênh dán panel.",
+    );
+    return;
+  }
+  const staffIds = staffRoleIds(config);
+  if (staffIds.length === 0) {
+    await reportPanel(
+      store,
+      item.guildId,
+      "Chưa chọn role staff xử lý ticket — không ai đọc được ticket thành viên mở.",
+    );
+    return;
+  }
+  const channel = await client.channels.fetch(item.channelId).catch(() => null);
+  if (!channel?.isTextBased()) {
+    await reportPanel(
+      store,
+      item.guildId,
+      "Kênh dán panel không tồn tại hoặc bot không xem được — hãy chọn kênh khác.",
+    );
+    return;
+  }
+  const T = lang.ticketText(lang.langForGuild(guild));
+  // Số ticket đang mở cho placeholder {open} — đọc 1 query, rẻ hơn việc bỏ
+  // luôn tính năng (chủ server thích thấy "đang có 3 ticket chờ" trên panel).
+  let openCount = 0;
+  try {
+    const state = await client.query("tickets:botTicketSummary", {
+      guildId: guild.id,
+      botKey: process.env.PROTOGON_BOT_KEY || undefined,
+    });
+    openCount = Number(state?.openCount ?? 0) || 0;
+  } catch {
+    // Không đọc được thì để 0 — panel vẫn dán, chỉ mất con số.
+  }
+
+  // Dán bản MỚI trước, xoá bản CŨ sau: nếu xoá trước mà tin mới gửi hỏng,
+  // server mất panel hoàn toàn (thành viên không còn đường mở ticket).
+  let sent;
+  try {
+    sent = await channel.send(
+      openPanel({
+        T,
+        customTitle: config.ticketOpenPanelTitle,
+        customText: config.ticketOpenPanelText,
+        customColor: config.ticketOpenPanelColor,
+        showAppeal: config.ticketShowAppealButton !== false,
+        serverName: guild.name,
+        openCount,
+      }),
+    );
+  } catch (e) {
+    console.error(`[tickets] dán panel thất bại ${guild.id}:`, e.message);
+    await reportPanel(store, item.guildId, `Không gửi được: ${e.message}`);
+    return;
+  }
+  const oldId = config.ticketPanelMessageId;
+  if (oldId && oldId !== sent?.id) {
+    try {
+      const old = await channel.messages.fetch(oldId);
+      if (old?.deletable !== false) await old.delete();
+    } catch {
+      // Panel cũ đã bị xoá tay / không còn quyền — bỏ qua, không báo lỗi
+      // (người dùng vẫn có panel MỚI nên không mất gì).
+    }
+  }
+  await reportPanel(store, item.guildId, null, sent?.id);
+}
+
+/** Báo kết quả dán panel về dashboard (xoá cờ + lưu lỗi nếu có). */
+async function reportPanel(store, guildId, error, panelMessageId) {
+  try {
+    await store.client.mutation("guilds:clearTicketPanel", {
+      guildId,
+      panelMessageId,
+      error: error ? String(error).slice(0, 300) : undefined,
+    });
+  } catch (e) {
+    console.error(`[tickets] ghi trạng thái panel thất bại ${guildId}:`, e.message);
+  }
+}
+
+/** Xử lý danh sách panel mở ticket đã fetch — tách riêng để test được. */
+async function processOpenPanelItems(client, store, items) {
+  if (!items || items.length === 0) return;
+  for (const item of items) {
+    try {
+      await sendOpenPanel(client, store, item);
+    } catch (e) {
+      console.error(`[tickets:openPanel] ${item.guildId}:`, e?.message || e);
+    }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
    PANEL + NHẬN VIỆC + TỰ ĐÓNG (đợt nâng cấp)
    ══════════════════════════════════════════════════════════════════════ */
 
@@ -516,7 +831,7 @@ function actionRow(T, ticketId) {
   );
 }
 
-/** Hàng nút phụ: gỡ ban / ghim / ghi chú AI (tách khỏi hàng chính). */
+/** Hàng nút phụ: gỡ ban / ghim / ghi chú AI / tự đóng (tách khỏi hàng chính). */
 function extraRow(T, ticketId) {
   const suffix = ticketId ? ID_SEP + ticketId : "";
   return new ActionRowBuilder().addComponents(
@@ -531,6 +846,12 @@ function extraRow(T, ticketId) {
     new ButtonBuilder()
       .setCustomId("ticket_ai" + suffix)
       .setLabel(T.btnAi)
+      .setStyle(ButtonStyle.Secondary),
+    // Cho CHÍNH người mở tự đóng — không bắt họ chờ staff rảnh tay mới đóng
+    // được. Handler chặn lại bằng `row.openerId` nên ai khác bấm cũng vô nghĩa.
+    new ButtonBuilder()
+      .setCustomId("ticket_close_own" + suffix)
+      .setLabel(T.btnCloseOwn)
       .setStyle(ButtonStyle.Secondary),
   );
 }
@@ -691,11 +1012,18 @@ module.exports = {
   describeGuildError,
   createTicketChannel,
   openTicket,
+  openNoteEmbed,
+  openDmEmbed,
+  sendOpenDm,
   closeTicketChannel,
   banNoticeEmbed,
   dmButtonRow,
   appealModal,
   aiModal,
+  openPanel,
+  openModal,
+  sendOpenPanel,
+  processOpenPanelItems,
   escapePayload,
   ID_SEP,
   buildPanel,

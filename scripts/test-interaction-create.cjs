@@ -1575,6 +1575,591 @@ Module._load = function (request, parent) {
     check("nút AI cũng chỉ staff được bấm", shownModals.length === 0);
   }
 
+  // ── Nhánh LỖI của /mod: mọi subcommand đều phải báo lỗi rõ ràng thay vì
+  // im lặng (đây là lớp chưa có test nào trước đây). ──
+  const modTarget = {
+    id: "t1",
+    user: { tag: "target#1", username: "target" },
+    timeout: async () => {},
+    kick: async () => {},
+    ban: async () => {},
+  };
+  {
+    const modErr = async (subcommand, extra = {}) => {
+      reset();
+      ctl.actionThrows = true;
+      await run({
+        isChatInputCommand: true,
+        commandName: "mod",
+        subcommand,
+        members: { user: modTarget },
+        users: { user: { id: "t1" } },
+        integers: { count: 5, delete_days: 1 },
+        ...extra,
+      });
+      return replies[0]?.content ?? "";
+    };
+    check("mod ban lỗi → báo không thể ban", (await modErr("ban")).includes("Không thể ban"));
+    check(
+      "mod purge lỗi → báo không thể purge",
+      (await modErr("purge")).includes("Không thể purge"),
+    );
+    check(
+      "mod untimeout lỗi → báo không thể gỡ timeout",
+      (await modErr("untimeout")).includes("Không thể gỡ timeout"),
+    );
+    check(
+      "mod unban lỗi → báo không thể gỡ ban",
+      (await modErr("unban")).includes("Không thể gỡ ban"),
+    );
+    check(
+      "mod unwarn lỗi → báo không thể gỡ warn",
+      (await modErr("unwarn")).includes("Không thể gỡ warn"),
+    );
+
+    // Không tìm thấy thành viên / người dùng → chặn TRƯỚC khi gọi hàm mod.
+    reset();
+    await run({
+      isChatInputCommand: true,
+      commandName: "mod",
+      subcommand: "untimeout",
+      members: { user: null },
+    });
+    check(
+      "mod untimeout không thấy member → từ chối",
+      (replies[0]?.content ?? "").includes("Không tìm thấy"),
+    );
+
+    reset();
+    await run({
+      isChatInputCommand: true,
+      commandName: "mod",
+      subcommand: "unwarn",
+      users: { user: null },
+    });
+    check(
+      "mod unwarn không thấy user → từ chối",
+      (replies[0]?.content ?? "").includes("Không tìm thấy"),
+    );
+  }
+
+  // ── Nhánh LỖI của /reactionrole: bảng không tồn tại + mutation hỏng ──
+  {
+    const panel = {
+      _id: "p1",
+      label: "Bảng",
+      channelId: "c1",
+      entries: [{ emoji: "✅", roleId: "r1" }],
+    };
+
+    reset();
+    ctl.queryResult = { panels: [panel] };
+    await run({
+      isChatInputCommand: true,
+      commandName: "reactionrole",
+      subcommand: "remove",
+      strings: { label: "Không có", emoji: "✅" },
+    });
+    check(
+      "reactionrole remove bảng không tồn tại → chỉ đường dẫn đúng",
+      replies[0].content.includes("Không tìm thấy bảng"),
+    );
+
+    reset();
+    ctl.queryResult = { panels: [panel] };
+    await run({
+      isChatInputCommand: true,
+      commandName: "reactionrole",
+      subcommand: "delete",
+      strings: { label: "Không có" },
+    });
+    check(
+      "reactionrole delete bảng không tồn tại → chỉ đường dẫn đúng",
+      replies[0].content.includes("Không tìm thấy bảng"),
+    );
+
+    reset();
+    ctl.queryResult = { panels: [panel] };
+    const origMutation = store.client.mutation;
+    store.client.mutation = async (name, args) => {
+      if (name === "hidden:botDeletePanel" || name === "hidden:botUpdatePanel")
+        throw new Error("Convex down");
+      return origMutation(name, args);
+    };
+    await run({
+      isChatInputCommand: true,
+      commandName: "reactionrole",
+      subcommand: "delete",
+      strings: { label: "Bảng" },
+    });
+    check(
+      "reactionrole delete lỗi Convex → báo lỗi, không crash",
+      replies[0].content.includes("Convex down"),
+    );
+    store.client.mutation = origMutation;
+  }
+
+  // ══════════════════ LỆNH /lock (khoá chat) ══════════════════
+  // Ở đây kiểm LỚP DẪN: quyền, tham số, và — quan trọng nhất — các ca mà
+  // handler phải TỪ CHỐI làm thay vì tự ý sửa quyền người dùng.
+  console.log("\n── /lock ──");
+
+  const EVERYONE = "EVERYONE";
+  /** Guild đủ cấu trúc cho /lock (guild mặc định của suite thiếu roles.everyone). */
+  function lockGuild({ canManage = true, channels = [], roles = [] } = {}) {
+    const chMap = new Map(channels.map((c) => [c.id, c]));
+    const roleMap = new Map(roles.map((r) => [r.id, r]));
+    roleMap.set(EVERYONE, { id: EVERYONE, name: "@everyone", position: 0, managed: false });
+    return {
+      id: "g1",
+      name: "Server",
+      iconURL: () => null,
+      members: {
+        me: { permissions: { has: () => canManage } },
+        cache: new Map(),
+        fetch: async () => ({}),
+      },
+      channels: { cache: chMap },
+      roles: { everyone: roleMap.get(EVERYONE), cache: roleMap },
+    };
+  }
+  function lockChannel({
+    id = "ch1",
+    name = "general",
+    voice = false,
+    thread = false,
+    editThrows = false,
+  } = {}) {
+    const ow = new Map();
+    const ch = {
+      id,
+      name,
+      isTextBased: () => !voice,
+      isVoiceBased: () => voice,
+      isThread: () => thread,
+      permissionOverwrites: {
+        cache: ow,
+        edit: async (roleId, opts) => {
+          if (editThrows) throw new Error("Missing Permissions");
+          const o = ow.get(roleId) || { allow: new Set(), deny: new Set() };
+          for (const [k, v] of Object.entries(opts)) {
+            if (v === null || v === undefined) {
+              o.allow.delete(k);
+              o.deny.delete(k);
+            } else if (v === true) {
+              o.allow.add(k);
+              o.deny.delete(k);
+            } else {
+              o.deny.add(k);
+              o.allow.delete(k);
+            }
+          }
+          ow.set(roleId, o);
+          return ch.permissionOverwrites;
+        },
+      },
+      denied: (roleId, key) => ow.get(roleId)?.deny.has(key) === true,
+    };
+    return ch;
+  }
+  const saveMuts = () =>
+    calls.mutations.filter((m) => m.name === "channelLocks:botSaveChannelLock");
+  const relMuts = () =>
+    calls.mutations.filter((m) => m.name === "channelLocks:botReleaseChannelLock");
+
+  {
+    reset();
+    await run({ isChatInputCommand: true, commandName: "lock", noGuild: true, subcommand: "add" });
+    check(
+      "/lock ngoài server → báo rõ",
+      replies[0]?.content.includes("chỉ hoạt động trong server"),
+      replies[0]?.content,
+    );
+  }
+  {
+    reset();
+    ctl.perms.manage = false;
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "add",
+      channels: { kenh: lockChannel() },
+      guild: lockGuild(),
+    });
+    ctl.perms.manage = true;
+    check(
+      "/lock không đủ quyền → từ chối, KHÔNG sửa quyền kênh",
+      calls.mutations.length === 0,
+      JSON.stringify(calls.mutations.map((m) => m.name)),
+    );
+  }
+  {
+    // Bot thiếu Manage Channels → nói rõ, không âm thầm thử rồi im lặng.
+    reset();
+    const ch = lockChannel();
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "add",
+      channels: { kenh: ch },
+      guild: lockGuild({ canManage: false, channels: [ch] }),
+    });
+    check(
+      "/lock bot thiếu quyền → báo lý do",
+      /Quản lý kênh/.test(replies[0]?.content || ""),
+      replies[0]?.content,
+    );
+    check("/lock bot thiếu quyền → không đụng kênh", calls.mutations.length === 0);
+  }
+  {
+    // Ô thời lượng TRỐNG = vô hạn → mutation không được gửi 'until'.
+    reset();
+    const ch = lockChannel();
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "add",
+      channels: { kenh: ch },
+      guild: lockGuild({ channels: [ch] }),
+    });
+    const m = saveMuts()[0];
+    check("/lock add: ghi bản ghi", !!m, JSON.stringify(calls.mutations.map((x) => x.name)));
+    check(
+      "/lock add: trống thời lượng → VÔ HẠN (không có until)",
+      m?.args.until === undefined,
+      JSON.stringify(m?.args),
+    );
+    check("/lock add: khoá @everyone", m?.args.roleId === EVERYONE, m?.args?.roleId);
+    check(
+      "/lock add: lưu quyền cũ (null = kế thừa)",
+      m?.args.prev === null,
+      JSON.stringify(m?.args?.prev),
+    );
+    check("/lock add: thực sự chặn quyền trên kênh", ch.denied(EVERYONE, "SendMessages") === true);
+  }
+  {
+    reset();
+    const ch = lockChannel();
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "add",
+      strings: { phut: "2h" },
+      channels: { kenh: ch },
+      guild: lockGuild({ channels: [ch] }),
+    });
+    const until = saveMuts()[0]?.args.until;
+    check(
+      "/lock add 2h → đặt hạn ~2 giờ",
+      typeof until === "number" &&
+        until - Date.now() > 100 * 60_000 &&
+        until - Date.now() < 125 * 60_000,
+      String(until),
+    );
+  }
+  {
+    reset();
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "add",
+      strings: { phut: "abc" },
+      channels: { kenh: lockChannel() },
+      guild: lockGuild({ channels: [lockChannel()] }),
+    });
+    check(
+      "/lock thời lượng rác → báo lỗi, KHÔNG khoá",
+      saveMuts().length === 0,
+      replies[0]?.content,
+    );
+  }
+  {
+    // Kênh không khoá được (thread) → nói rõ thay vì im lặng.
+    reset();
+    const th = lockChannel({ id: "t1", thread: true });
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "add",
+      channels: { kenh: th },
+      guild: lockGuild({ channels: [th] }),
+    });
+    check(
+      "/lock thread → báo không khoá được",
+      /Không khoá được/.test(replies[0]?.content || ""),
+      replies[0]?.content,
+    );
+    check("/lock thread → không ghi bản ghi", saveMuts().length === 0);
+  }
+  {
+    // Đã khoá rồi → bỏ qua, KHÔNG ghi đè bản ghi (giữ prev gốc).
+    reset();
+    const ch = lockChannel();
+    ctl.queryResult = [{ channelId: "ch1", roleId: EVERYONE, kind: "text", prev: true }];
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "add",
+      channels: { kenh: ch },
+      guild: lockGuild({ channels: [ch] }),
+    });
+    check(
+      "/lock kênh đã khoá → không ghi lại",
+      saveMuts().length === 0,
+      JSON.stringify(calls.mutations),
+    );
+  }
+  {
+    // Khoá lỗi quyền → KHÔNG ghi bản ghi (bản ghi mà chưa khoá được thì lúc
+    // mở sẽ "khôi phục" một thứ chưa từng bị đổi).
+    reset();
+    const ch = lockChannel({ editThrows: true });
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "add",
+      channels: { kenh: ch },
+      guild: lockGuild({ channels: [ch] }),
+    });
+    check(
+      "/lock kênh không sửa được quyền → không ghi bản ghi",
+      saveMuts().length === 0,
+      JSON.stringify(calls.mutations),
+    );
+    check(
+      "/lock kênh lỗi → báo lý do",
+      /Missing Permissions/.test(replies[0]?.content || ""),
+      replies[0]?.content,
+    );
+  }
+  {
+    // Theo ROLE: khoá đúng role được chọn, không đụng @everyone.
+    reset();
+    const ch = lockChannel();
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "add",
+      roles: { role: { id: "R1" } },
+      channels: { kenh: ch },
+      guild: lockGuild({
+        channels: [ch],
+        roles: [{ id: "R1", name: "Mod", position: 1, managed: false }],
+      }),
+    });
+    const m = saveMuts()[0];
+    check("/lock theo role: ghi đúng roleId", m?.args.roleId === "R1", m?.args?.roleId);
+    check(
+      "/lock theo role: @everyone KHÔNG bị đụng",
+      ch.denied(EVERYONE, "SendMessages") === false,
+    );
+  }
+  {
+    // Role do bot quản lý → từ chối trước khi đụng kênh.
+    reset();
+    const ch = lockChannel();
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "add",
+      roles: { role: { id: "R2" } },
+      channels: { kenh: ch },
+      guild: lockGuild({
+        channels: [ch],
+        roles: [{ id: "R2", name: "BotRole", position: 1, managed: true }],
+      }),
+    });
+    check(
+      "/lock role do bot quản lý → từ chối",
+      saveMuts().length === 0 && /quản lý/.test(replies[0]?.content || ""),
+      replies[0]?.content,
+    );
+  }
+  {
+    // ⚠️ BẤT BIẾN AN TOÀN: kênh KHÔNG do bot khoá thì KHÔNG tự mở quyền —
+    // mở bừa là xoá cấu hình riêng của chủ server.
+    reset();
+    const ch = lockChannel();
+    ctl.queryResult = [];
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "remove",
+      channels: { kenh: ch },
+      guild: lockGuild({ channels: [ch] }),
+    });
+    check(
+      "/lock remove kênh chưa từng bị khoá → KHÔNG tự mở quyền",
+      relMuts().length === 0,
+      JSON.stringify(calls.mutations),
+    );
+  }
+  {
+    // Có bản ghi → mở khoá thật và xoá bản ghi.
+    reset();
+    const ch = lockChannel();
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "add",
+      channels: { kenh: ch },
+      guild: lockGuild({ channels: [ch] }),
+    });
+    const before = saveMuts().length;
+    reset();
+    ctl.queryResult = [
+      { guildId: "g1", channelId: "ch1", roleId: EVERYONE, kind: "text", prev: null },
+    ];
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "remove",
+      channels: { kenh: ch },
+      guild: lockGuild({ channels: [ch] }),
+    });
+    check(
+      "/lock remove: gọi xoá bản ghi",
+      relMuts().length === 1,
+      JSON.stringify(calls.mutations.map((m) => m.name)),
+    );
+    check("/lock remove: mở lại quyền trên kênh", ch.denied(EVERYONE, "SendMessages") === false);
+    check(
+      "/lock remove: báo đã mở",
+      /Đã mở khoá/.test(replies[0]?.content || ""),
+      replies[0]?.content,
+    );
+    void before;
+  }
+  {
+    // unlock-all mở mọi bản ghi của role đang chọn.
+    reset();
+    const a = lockChannel({ id: "a", name: "a" });
+    const b = lockChannel({ id: "b", name: "b" });
+    ctl.queryResult = [
+      { guildId: "g1", channelId: "a", roleId: EVERYONE, kind: "text", prev: null },
+      { guildId: "g1", channelId: "b", roleId: EVERYONE, kind: "text", prev: null },
+    ];
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "unlock-all",
+      guild: lockGuild({ channels: [a, b] }),
+    });
+    check(
+      "/lock unlock-all: mở cả 2 kênh",
+      relMuts().length === 2,
+      JSON.stringify(calls.mutations.map((m) => m.name)),
+    );
+  }
+  {
+    // /lock all: bỏ qua kênh đã khoá, chỉ khoá phần còn lại.
+    reset();
+    const a = lockChannel({ id: "a", name: "a" });
+    const b = lockChannel({ id: "b", name: "b" });
+    ctl.queryResult = [
+      { guildId: "g1", channelId: "a", roleId: EVERYONE, kind: "text", prev: null },
+    ];
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "all",
+      guild: lockGuild({ channels: [a, b] }),
+    });
+    const saved = saveMuts();
+    check(
+      "/lock all: chỉ khoá kênh CHƯA khoá",
+      saved.length === 1 && saved[0].args.channelId === "b",
+      JSON.stringify(saved.map((m) => m.args.channelId)),
+    );
+    check(
+      "/lock all: báo số kênh đã bỏ qua",
+      /bỏ qua/.test(replies[0]?.content || ""),
+      replies[0]?.content,
+    );
+  }
+  {
+    reset();
+    ctl.queryResult = [];
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "list",
+      guild: lockGuild(),
+    });
+    check(
+      "/lock list rỗng → nói rõ không có gì",
+      /Không có kênh nào/.test(replies[0]?.content || ""),
+      replies[0]?.content,
+    );
+  }
+  {
+    reset();
+    const ch = lockChannel();
+    ctl.queryResult = [
+      { guildId: "g1", channelId: "ch1", roleId: EVERYONE, kind: "text", prev: null, until: null },
+    ];
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "list",
+      guild: lockGuild({ channels: [ch] }),
+    });
+    check(
+      "/lock list: khoá vô hạn hiện 'vô hạn'",
+      /vô hạn/.test(replies[0]?.content || ""),
+      replies[0]?.content,
+    );
+  }
+  {
+    // Convex hỏng lúc đọc bản ghi → KHÔNG được báo "đã khoá" rồi im lặng.
+    reset();
+    const ch = lockChannel();
+    ctl.queryResult = null;
+    const origQ = store.client.query;
+    store.client.query = async () => {
+      throw new Error("Convex down");
+    };
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "add",
+      channels: { kenh: ch },
+      guild: lockGuild({ channels: [ch] }),
+    });
+    store.client.query = origQ;
+  }
+
+  {
+    // BẤT BIẾN AN TOÀN: ghi bản ghi HỎNG sau khi đã ghi quyền khoá thì kênh
+    // bị khoá mà không có dấu vết nào để mở lại — chủ server phải tự vào
+    // Discord gỡ tay. Handler phải HOÀN TÁC quyền ngay.
+    reset();
+    const ch = lockChannel();
+    const origMutation = store.client.mutation;
+    store.client.mutation = async (name, args) => {
+      calls.mutations.push({ name, args });
+      if (name === "channelLocks:botSaveChannelLock") throw new Error("Convex down");
+      return { ok: true };
+    };
+    await run({
+      isChatInputCommand: true,
+      commandName: "lock",
+      subcommand: "add",
+      channels: { kenh: ch },
+      guild: lockGuild({ channels: [ch] }),
+    });
+    store.client.mutation = origMutation;
+    check(
+      "/lock lưu bản ghi hỏng → TRẢ LẠI quyền, không để kênh kẹt",
+      ch.denied(EVERYONE, "SendMessages") === false,
+    );
+    check(
+      "/lock lưu bản ghi hỏng → báo rõ đã hoàn tác",
+      /trả lại quyền/i.test(replies[0]?.content || ""),
+      replies[0]?.content,
+    );
+  }
+
   fs.unlinkSync(path.join(__dirname, "..", "bot", "test-djs-mock.cjs"));
   console.log(`\nKết quả interaction create: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail > 0 ? 1 : 0);

@@ -288,6 +288,7 @@ class ConvexStore {
         hit.config?.heatResetRequested ||
         hit.config?.dmRequested ||
         hit.config?.verifySendPanel ||
+        hit.config?.ticketSendPanel ||
         // Đang trong cửa sổ khóa kênh: cần thấy cờ "Mở khóa" từ dashboard nhanh.
         (typeof hit.config?.lockdownUntil === "number" && hit.config.lockdownUntil > now);
       const ttl = hasPending ? CONFIG_TTL_PENDING_MS : CONFIG_TTL_MS;

@@ -36,6 +36,11 @@ export const getPendingJobs = query({
         verifiedRoleId: g.verifiedRoleId ?? null,
         verifyMethod: g.verifyMethod ?? "button",
       }));
+    // Panel MỞ ticket (nút cho thành viên tự mở ticket, không cần gõ lệnh).
+    // Cùng khuôn cờ chờ với verify: dashboard bấm → bot dán xong xoá cờ.
+    const ticketPanels = guilds
+      .filter((g) => g.ticketSendPanel === true && g.ticketEnabled && g.ticketPanelChannelId)
+      .map((g) => ({ guildId: g.discordId, channelId: g.ticketPanelChannelId! }));
 
     // Cấu hình vừa đổi từ dashboard (updateSettings / module antinuke / alt config /
     // auto reply / tùy chỉnh khôi phục / lịch backup) → bot xóa cache config của
@@ -180,6 +185,15 @@ export const getPendingJobs = query({
       }
     }
 
-    return { hidden, verifyPanels, backups, settingsChanges, selfDiagnose, threatFlags, tickets };
+    return {
+      hidden,
+      verifyPanels,
+      ticketPanels,
+      backups,
+      settingsChanges,
+      selfDiagnose,
+      threatFlags,
+      tickets,
+    };
   },
 });

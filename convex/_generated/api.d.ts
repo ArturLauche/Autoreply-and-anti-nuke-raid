@@ -21,6 +21,7 @@ import type * as botBootstrapAction from "../botBootstrapAction.js";
 import type * as botFunc from "../botFunc.js";
 import type * as bot_tick from "../bot_tick.js";
 import type * as bot_writes from "../bot_writes.js";
+import type * as channelLocks from "../channelLocks.js";
 import type * as guildConfig from "../guildConfig.js";
 import type * as guildStats from "../guildStats.js";
 import type * as guilds from "../guilds.js";
@@ -64,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   botFunc: typeof botFunc;
   bot_tick: typeof bot_tick;
   bot_writes: typeof bot_writes;
+  channelLocks: typeof channelLocks;
   guildConfig: typeof guildConfig;
   guildStats: typeof guildStats;
   guilds: typeof guilds;

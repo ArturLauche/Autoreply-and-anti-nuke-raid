@@ -34,6 +34,39 @@ function RouteMetadataSync({ lang }: { lang: "vi" | "en" | "de" }) {
   return null;
 }
 
+declare global {
+  interface Window {
+    /** Preloader trong index.html gọi hàm này để fade khi app đã vẽ xong. */
+    __bootDone?: () => void;
+  }
+}
+
+/**
+ * Báo preloader (index.html) biết đã tới lúc hiện web.
+ *
+ * Đặt BÊN TRONG <Suspense> là cố ý: chunk route đầu tiên chưa tải xong thì
+ * component này chưa mount → preloader giữ nguyên, không bao giờ thấy cảnh
+ * preloader biến mất rồi lại nhảy sang RouteFallback. Chờ font sẵn sàng để
+ * trang hiện ra không bị FOUT ngay sau khi màn che mờ.
+ */
+function BootSignal() {
+  useEffect(() => {
+    let cancelled = false;
+    const done = () => {
+      if (!cancelled) window.__bootDone?.();
+    };
+    if (document.fonts?.ready) {
+      document.fonts.ready.then(done).catch(done);
+    } else {
+      done();
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return null;
+}
+
 /**
  * Màn hình chờ khi chunk route đang tải lần đầu: logo + thanh tiến trình mảnh
  * chạy vô hạn ở đỉnh trang (kiểu GitHub/YouTube — người dùng thấy "đang đi"
@@ -68,6 +101,7 @@ export default function App() {
       <RouteMetadataSync lang={lang} />
       <MotionConfig reducedMotion="user">
         <Suspense fallback={<RouteFallback />}>
+          <BootSignal />
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<AuthPage />} />

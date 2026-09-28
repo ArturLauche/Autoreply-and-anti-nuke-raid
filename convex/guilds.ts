@@ -8,6 +8,7 @@ import { getBotStatus, hiddenPasswordIsSet, isBotOwnerUser } from "./hidden";
 import {
   ANTI_NUKE_MODULES,
   HEAT_DEFAULTS,
+  LOCKDOWN_DEFAULTS,
   MODULE_HEAT_DEFAULTS,
   WARN_STRIKE_DEFAULTS,
 } from "./modules";
@@ -179,8 +180,11 @@ export const getGuild = query({
         // bot" thay vì im lặng (xem src/lib/syncState.ts). Không phải mốc bot
         // đã áp dụng: phía bot chưa ghi tín hiệu ngược lại.
         settingsChangedAt: guild.settingsChangedAt ?? null,
-        lockdownEnabled: guild.lockdownEnabled ?? true,
-        lockdownMinutes: guild.lockdownMinutes ?? 5,
+        // Đọc từ LOCKDOWN_DEFAULTS thay vì gõ lại `true`/`5`: bản trước gõ
+        // lại nên hằng số trong modules.ts không ai dùng (dead) và sửa default
+        // ở một chỗ là lệch ngay chỗ kia.
+        lockdownEnabled: guild.lockdownEnabled ?? LOCKDOWN_DEFAULTS.enabled,
+        lockdownMinutes: guild.lockdownMinutes ?? LOCKDOWN_DEFAULTS.minutes,
         lockdownUntil: guild.lockdownUntil ?? null,
         lockdownRequested: guild.lockdownRequested ?? false,
         dailyReportEnabled: guild.dailyReportEnabled ?? true,
@@ -266,6 +270,16 @@ export const getGuild = query({
         ticketCooldownHours: guild.ticketCooldownHours ?? 24,
         ticketDmOnBan: guild.ticketDmOnBan ?? true,
         ticketDefaultKind: guild.ticketDefaultKind ?? "support",
+        ticketPanelChannelId: guild.ticketPanelChannelId ?? null,
+        ticketSendPanel: guild.ticketSendPanel ?? false,
+        ticketPanelError: guild.ticketPanelError ?? null,
+        ticketPanelErrorAt: guild.ticketPanelErrorAt ?? null,
+        ticketOpenPanelTitle: guild.ticketOpenPanelTitle ?? null,
+        ticketOpenPanelText: guild.ticketOpenPanelText ?? null,
+        ticketOpenPanelColor: guild.ticketOpenPanelColor ?? null,
+        ticketShowAppealButton: guild.ticketShowAppealButton ?? true,
+        ticketDmOnOpen: guild.ticketDmOnOpen ?? true,
+        ticketOpenNote: guild.ticketOpenNote ?? null,
         ticketCloseNote: guild.ticketCloseNote ?? null,
         ticketIdleHours: guild.ticketIdleHours ?? 24,
         ticketCloseGraceHours: guild.ticketCloseGraceHours ?? 24,
@@ -534,6 +548,18 @@ export const getBotConfig = query({
       ticketCooldownHours: guild.ticketCooldownHours ?? 24,
       ticketDmOnBan: guild.ticketDmOnBan ?? true,
       ticketDefaultKind: guild.ticketDefaultKind ?? "support",
+      // Kênh dán panel + cờ chờ dán: bot đọc để dựng panel, và cache config phải
+      // rút TTL ngắn khi cờ đang chờ (xem hasPending trong bot/src/convex.js) —
+      // nếu không, bấm "Gửi panel" xong phải đợi tới 30 phút mới thấy.
+      ticketPanelChannelId: guild.ticketPanelChannelId ?? null,
+      ticketSendPanel: guild.ticketSendPanel ?? false,
+      ticketPanelMessageId: guild.ticketPanelMessageId ?? null,
+      ticketOpenPanelTitle: guild.ticketOpenPanelTitle ?? null,
+      ticketOpenPanelText: guild.ticketOpenPanelText ?? null,
+      ticketOpenPanelColor: guild.ticketOpenPanelColor ?? null,
+      ticketShowAppealButton: guild.ticketShowAppealButton ?? true,
+      ticketDmOnOpen: guild.ticketDmOnOpen ?? true,
+      ticketOpenNote: guild.ticketOpenNote ?? null,
       ticketCloseNote: guild.ticketCloseNote ?? "",
       ticketIdleHours: guild.ticketIdleHours ?? 24,
       ticketCloseGraceHours: guild.ticketCloseGraceHours ?? 24,
@@ -658,6 +684,14 @@ export const updateSettings = mutation({
     ticketCooldownHours: v.optional(v.number()),
     ticketDmOnBan: v.optional(v.boolean()),
     ticketDefaultKind: v.optional(v.string()),
+    ticketPanelChannelId: v.optional(v.string()),
+    ticketSendPanel: v.optional(v.boolean()),
+    ticketOpenPanelTitle: v.optional(v.string()),
+    ticketOpenPanelText: v.optional(v.string()),
+    ticketOpenPanelColor: v.optional(v.string()),
+    ticketShowAppealButton: v.optional(v.boolean()),
+    ticketDmOnOpen: v.optional(v.boolean()),
+    ticketOpenNote: v.optional(v.string()),
     ticketCloseNote: v.optional(v.string()),
     ticketIdleHours: v.optional(v.number()),
     ticketCloseGraceHours: v.optional(v.number()),
@@ -789,6 +823,89 @@ export const updateSettings = mutation({
     if (args.ticketDmOnBan !== undefined) patch.ticketDmOnBan = args.ticketDmOnBan;
     if (args.ticketDefaultKind !== undefined)
       patch.ticketDefaultKind = args.ticketDefaultKind === "appeal" ? "appeal" : "support";
+    // Kênh dán panel "Mở ticket" — chỉ nhận snowflake, rác thì xoá (undefined)
+    // để chủ server thấy ô trống thay vì bot cố gửi vào một id không tồn tại.
+    if (args.ticketPanelChannelId !== undefined)
+      patch.ticketPanelChannelId = /^\d{15,20}$/.test(args.ticketPanelChannelId)
+        ? args.ticketPanelChannelId
+        : undefined;
+    if (args.ticketSendPanel !== undefined) patch.ticketSendPanel = args.ticketSendPanel;
+    // ── Tuỳ chỉnh trải nghiệm thành viên ──
+    // Ô nào bị xoá trắng thì set undefined (xoá hẳn khỏi doc) để sau này bật
+    // lại tính năng là mặc định mới có hiệu lực, chứ không dính giá trị cũ.
+    if (args.ticketOpenPanelTitle !== undefined)
+      patch.ticketOpenPanelTitle = args.ticketOpenPanelTitle.trim().slice(0, 256) || undefined;
+    if (args.ticketOpenPanelText !== undefined)
+      patch.ticketOpenPanelText = args.ticketOpenPanelText.trim().slice(0, 2000) || undefined;
+    // Chỉ nhận hex 6 chữ số — Color cần số nguyên, chuỗi rác làm `setColor`
+    // ném và cả panel không hiện (mất luôn nút mở ticket cho thành viên).
+    if (args.ticketOpenPanelColor !== undefined)
+      patch.ticketOpenPanelColor = /^[0-9a-fA-F]{6}$/.test(
+        args.ticketOpenPanelColor.trim().replace(/^#/, ""),
+      )
+        ? args.ticketOpenPanelColor.trim().replace(/^#/, "").toLowerCase()
+        : undefined;
+    if (args.ticketShowAppealButton !== undefined)
+      patch.ticketShowAppealButton = args.ticketShowAppealButton;
+    if (args.ticketDmOnOpen !== undefined) patch.ticketDmOnOpen = args.ticketDmOnOpen;
+    if (args.ticketOpenNote !== undefined)
+      patch.ticketOpenNote = args.ticketOpenNote.trim().slice(0, 1000) || undefined;
+    // Yêu cầu dán panel mới → xoá lỗi cũ (đây là lần thử lại của người dùng).
+    if (args.ticketSendPanel === true) {
+      patch.ticketPanelError = undefined;
+      patch.ticketPanelErrorAt = undefined;
+    }
+    // Tự đặt cờ dán khi chủ server VỪA chọn kênh panel (và ticket đang bật):
+    // đây là khoảnh khắc họ "setup xong" — bắt họ đi tìm nút bấm thứ hai thì
+    // phần lớn server sẽ cứ tưởng tính năng không hoạt động. Chỉ khi giá trị
+    // THỰC SỰ đổi, nếu không mỗi lần lưu cấu hình khác lại dán panel mới.
+    if (
+      args.ticketPanelChannelId !== undefined &&
+      /^\d{15,20}$/.test(args.ticketPanelChannelId) &&
+      guild.ticketPanelChannelId !== args.ticketPanelChannelId &&
+      args.ticketSendPanel === undefined
+    ) {
+      const ticketOn = args.ticketEnabled ?? guild.ticketEnabled ?? false;
+      if (ticketOn) patch.ticketSendPanel = true;
+    }
+    // Tự đặt cờ dán lại khi chủ server SỬA NỘI DUNG panel. Cùng lý do như chọn
+    // kênh ở trên: đổi tiêu đề rồi phải tự bấm "Gửi lại panel" thì phần lớn
+    // server sẽ kết luận tính năng hỏng — ô nhập đã lưu, kênh thì không đổi.
+    // Đây là chi tiết của lỗi đó, nên đóng mặc định.
+    //
+    // Chỉ 4 field quyết định NỘI DUNG panel. ticketOpenNote và ticketDmOnOpen
+    // không nằm trong panel nên không dán lại (tránh lãng phí mỗi lần sửa lỗi).
+    //
+    // patch.X chỉ CÓ khi đối số tương ứng được truyền vào, nên phải so đè
+    // điều kiện "được truyền" — không thì sửa màu sẽ không phải là sửa tiêu đề.
+    if (args.ticketSendPanel === undefined) {
+      const touched = (provided: boolean, next: unknown, prev: unknown) =>
+        provided && (next ?? null) !== (prev ?? null);
+      const panelContentChanged =
+        touched(
+          args.ticketOpenPanelTitle !== undefined,
+          patch.ticketOpenPanelTitle,
+          guild.ticketOpenPanelTitle,
+        ) ||
+        touched(
+          args.ticketOpenPanelText !== undefined,
+          patch.ticketOpenPanelText,
+          guild.ticketOpenPanelText,
+        ) ||
+        touched(
+          args.ticketOpenPanelColor !== undefined,
+          patch.ticketOpenPanelColor,
+          guild.ticketOpenPanelColor,
+        ) ||
+        (args.ticketShowAppealButton !== undefined &&
+          args.ticketShowAppealButton !== (guild.ticketShowAppealButton ?? true));
+      const ticketOn = args.ticketEnabled ?? guild.ticketEnabled ?? false;
+      // Chỉ dán lại khi đã có kênh panel: không có chỗ nào dán thì bật cờ là
+      // vô nghĩa, bot sẽ báo lỗi cấu hình rồi xoá cờ ngay.
+      const hasPanelChannel = Boolean(patch.ticketPanelChannelId ?? guild.ticketPanelChannelId);
+      if (ticketOn && hasPanelChannel && panelContentChanged) patch.ticketSendPanel = true;
+    }
+
     if (args.ticketCloseNote !== undefined)
       patch.ticketCloseNote = args.ticketCloseNote.trim().slice(0, 300) || undefined;
     // 0 = tát hấn. Trần 720 giờ (30 ngày) — quá dài thì tửn để kênh đển vứ.
@@ -1400,6 +1517,47 @@ export const getVerifySendPanelGuilds = query({
         verifiedRoleId: g.verifiedRoleId ?? null,
         verifyMethod: g.verifyMethod ?? "button",
       }));
+  },
+});
+
+/**
+ * Mutation: clear ticketSendPanel flag sau khi bot dán panel mở ticket.
+ * Cùng khuôn với `clearVerifySendPanel` — có `error` thì lưu lại để dashboard
+ * hiện lý do (im lặng là kiểu lỗi tệ nhất: chủ server bấm xong không hiểu vì
+ * sao không có panel).
+ */
+export const clearTicketPanel = mutation({
+  args: {
+    guildId: v.string(),
+    error: v.optional(v.string()),
+    /** Id tin nhắn panel vừa dán — bot dùng để XOÁ bản cũ ở lần dán sau. */
+    panelMessageId: v.optional(v.string()),
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { botKey, guildId, error, panelMessageId }) => {
+    await requireBotKeyStrict(ctx, botKey);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) return;
+    await ctx.db.patch(
+      guild._id,
+      error
+        ? {
+            ticketSendPanel: false,
+            ticketPanelError: String(error || "Lỗi không xác định").slice(0, 300),
+            ticketPanelErrorAt: Date.now(),
+            updatedAt: Date.now(),
+          }
+        : {
+            ticketSendPanel: false,
+            ticketPanelError: undefined,
+            ticketPanelErrorAt: undefined,
+            ticketPanelMessageId: panelMessageId ?? guild.ticketPanelMessageId,
+            updatedAt: Date.now(),
+          },
+    );
   },
 });
 

@@ -252,6 +252,7 @@ export const DE: Record<string, string> = {
     "Nur Bilder (jpg/png/webp) oder Videos (mp4/webm) werden unterstützt",
   "Máy chủ AI đang lỗi tạm thời": "Der KI-Server ist vorübergehend gestört",
   "(xem ảnh)": "(siehe Bild)",
+  "Hãy mô tả ảnh này.": "Bitte beschreibe dieses Bild.",
   "Không đọc được file": "Datei konnte nicht gelesen werden",
   "Mô tả về ảnh…": "Bild beschreiben…",
   "Hỏi tôi điều gì đó…": "Frag mich etwas…",
@@ -1116,6 +1117,16 @@ export const DE: Record<string, string> = {
     "Alle Funktionen des Protogon-Discord-Bots: Auto-Antworten nach Schl\u00fcsselw\u00f6rtern, vierstufiges Heat-System, Join Gate, 32 Anti-Nuke/Raid-Module und Server-Backup.",
 
   /* ==== ticket: tu dong lam sach, phan cong, /language ==== */
+  "Kênh dán panel mở ticket": "Kanal für das Ticket-Panel",
+  "Chọn kênh công khai…": "Öffentlichen Kanal wählen…",
+  "Đã chọn kênh dán panel — bot sẽ gửi trong ~2 phút":
+    "Panel-Kanal gewählt — der Bot postet es in etwa 2 Minuten",
+  "Thành viên bấm nút trong kênh này để tự mở ticket — không cần gõ lệnh /ticket. Chọn kênh xong bot tự dán trong ~2 phút.":
+    "Mitglieder tippen in diesem Kanal auf eine Schaltfläche, um ein Ticket zu öffnen — kein /ticket-Befehl nötig. Der Bot postet das Panel etwa 2 Minuten nach der Auswahl.",
+  "⚠️ Bot không dán được panel mở ticket": "⚠️ Der Bot konnte das Ticket-Panel nicht posten",
+  '— hãy sửa lỗi rồi bấm "Gửi lại panel"': '— behebe den Fehler und tippe "Panel erneut senden"',
+  "Gửi lại panel mở ticket vào kênh": "Ticket-Panel erneut senden",
+  "Đã yêu cầu bot dán panel mở ticket!": "Der Bot soll das Ticket-Panel posten!",
   "Tự động dọn & phân công": "Automatische Aufräumung & Zuweisung",
   "Kênh ticket không ai trả lời sẽ tự đóng. Khi đóng đủ lâu, bot lưu toàn bộ nội dung rồi mới xoá kênh — không bao giờ xoá trước khi lưu.":
     "Ein Ticket-Kanal ohne Antworten schließt sich selbst. Nach ausreichender Zeit speichert der Bot das gesamte Gespräch und löscht den Kanal erst danach — er löscht niemals vor dem Speichern.",
@@ -1147,4 +1158,40 @@ export const DE: Record<string, string> = {
     "Deine Sprache wird automatisch erkannt, bis du eine auswählst.",
   "Xem ngôn ngữ hiện tại của bạn (không chọn = chỉ xem).":
     "Aktuelle Sprache ansehen (leer lassen, um nur anzusehen).",
+
+  /* ==== ticket: tuy chinh panel mo + loi dan + DM ==== */
+  "Tuỳ chỉnh panel mở ticket": "Ticket-Panel anpassen",
+  "Sửa tiêu đề, màu và nội dung panel thành viên thấy trước khi bấm nút. Bot tự dán lại trong khoảng 2 phút và xoá bản cũ — không cần bấm gì thêm.":
+    "Ändere Titel, Farbe und Text, die Mitglieder vor dem Klick sehen. Der Bot postet das Panel nach etwa 2 Minuten neu und löscht das alte — du musst nichts weiter anklicken.",
+  "Tiêu đề panel (tuỳ chọn)": "Panel-Titel (optional)",
+  "Cần trợ giúp?": "Brauchst du Hilfe?",
+  "Đã lưu tiêu đề panel": "Panel-Titel gespeichert",
+  "Màu panel": "Panel-Farbe",
+  "Chọn màu panel": "Panel-Farbe wählen",
+  "Đã về màu mặc định": "Zurück zur Standardfarbe",
+  "Nội dung panel mở (tuỳ chọn)": "Text des Panels (optional)",
+  "Bấm nút bên dưới, kể lại vấn đề của bạn. {server} đang có {open} ticket chờ.":
+    "Klicke unten und erzähl uns, was los ist. {server} hat {open} wartende Tickets.",
+  "Đã lưu nội dung panel mở": "Panel-Text gespeichert",
+  "Dùng được: {server} tên server, {open} số ticket đang mở, {support} tên nút Hỗ trợ. Bỏ trống thì dùng nội dung mặc định.":
+    "Verfügbar: {server} Servername, {open} Anzahl offener Tickets, {support} Beschriftung des Support-Buttons. Leer lassen für den Standardtext.",
+  'Hiện nút "Khiếu nại hình phạt"': 'Schaltfläche "Beschwerde einreichen" anzeigen',
+  "Tắt nếu server bạn không dùng hình phạt — thành viên chỉ thấy một nút Hỗ trợ.":
+    "Ausschalten, wenn dein Server keine Strafen nutzt — Mitglieder sehen dann nur den Support-Button.",
+  "Đã hiện nút Khiếu nại": "Beschwerde-Button angezeigt",
+  "Đã ẩn nút Khiếu nại": "Beschwerde-Button ausgeblendet",
+  "Lời dặn dán ở đầu kênh ticket (tuỳ chọn)": "Hinweis oben im Ticket-Kanal (optional)",
+  "Chào {user}! Bạn đang ở ticket #{number} của {server}. Staff phản hồi trong 24 giờ.":
+    "Hallo {user}! Du bist in Ticket #{number} von {server}. Das Team antwortet innerhalb von 24 Stunden.",
+  "Đã lưu lời dặn đầu kênh": "Kanal-Hinweis gespeichert",
+  "Dán TRƯỚC nội dung khiếu nại, cho cả người mở lẫn staff đọc. Dùng được: {user} tên người mở, {number} số ticket, {server} tên server.":
+    "Erscheint VOR dem Anfragetext, gelesen von Ersteller und Team. Verfügbar: {user} Name, {number} Ticket-Nummer, {server} Servername.",
+  "Gửi DM cho người mở ticket": "Ticket-Ersteller an DM schreiben",
+  "DM kèm link thẳng tới kênh ticket vừa tạo. Người đã tắt tin nhắn riêng sẽ không nhận được — ticket vẫn mở bình thường.":
+    "Sendet eine DM mit direktem Link zum neuen Ticket-Kanal. Wer DMs deaktiviert hat, bekommt nichts — das Ticket öffnet sich trotzdem.",
+  "Sẽ DM khi mở ticket": "DM beim Öffnen senden",
+  "Không DM khi mở ticket": "Keine DM beim Öffnen",
+  "Đã lưu màu panel": "Panel-Farbe gespeichert",
+  "Mã hex 6 chữ số, ví dụ #5865f2. Ô trống = màu mặc định của bot.":
+    "Ein 6-stelliger Hex-Code, z. B. #5865f2. Leer lassen für die Standardfarbe des Bots.",
 };

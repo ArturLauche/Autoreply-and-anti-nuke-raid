@@ -208,6 +208,35 @@ export const closeTicket = mutation({
  * đổi mỗi giây. Nếu nhét vào bundle cache 30 phút thì hàng rào chống spam
  * sẽ đếm trên dữ liệu cũ — tức là vô hiệu. Query riêng luôn đọc tươi.
  */
+/**
+ * BOT đếm nhanh số ticket đang mở của cả server (không lọc theo người gọi).
+ *
+ * Vì sao cần query riêng thay vì dùng `ticketSummary`: bản đó xác thực bằng
+ * `token` phiên đăng nhập của CHỦ SERVER (người bấm nút trên dashboard) —
+ * bot không có token đó. `botTicketState` thì lọc theo `userId` nên không
+ * dùng được cho placeholder `{open}` trên panel mở ticket.
+ *
+ * ⚠️ Đọc tươi (không đi qua `getBotConfig` cache 30 phút): con số này chỉ
+ * dùng cho hiển thị, nhưng dán lại từ cache cũ sẽ ra "0 ticket" sai lệch
+ * với thực tế. Query riêng giữ panel luôn khớp với DB.
+ */
+export const botTicketSummary = query({
+  args: {
+    guildId: v.string(),
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { guildId, botKey }) => {
+    await requireBotKeyStrict(ctx, botKey);
+    // `.take(1_000)` chứ không `.collect()`: chỉ cần số, không cần cả danh
+    // sách. Trần mềm giữ để không kéo hàng nghìn doc khi server bị lạm dụng.
+    const open = await ctx.db
+      .query("tickets")
+      .withIndex("by_guildId_status", (q) => q.eq("guildId", guildId).eq("status", "open"))
+      .take(1_000);
+    return { openCount: open.length };
+  },
+});
+
 export const botTicketState = query({
   args: {
     guildId: v.string(),

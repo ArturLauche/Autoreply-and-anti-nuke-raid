@@ -62,8 +62,25 @@ const FLOORS = {
   // "vẽ ra ảnh trống" — font thiếu khiến fillText im lặng không vẽ gì.
   "handlers/welcomeCard.js": 80,
   // Snapshot cục bộ + log theo ngày: chạy mỗi giờ, là nguồn khôi phục khi
-  // Convex chết. Lỗi ở đây = mất dữ liệu im lặng.
-  "localSnapshot.js": 70,
+  // Convex chết. Lỗi ở đây = mất dữ liệu im lặng. Sàn 90 (đo 99.2% sau khi có
+  // test phủ rotateLogs + vòng lặp chụp; đã vá bug mkdirSync ném ra ngoài try).
+  "localSnapshot.js": 90,
+  // Tự hồi phục sau nuke: đối chiếu snapshot và TẠO LẠI role/kênh đã mất.
+  // File này quyết định server có tự lành hay không — chạy sai là chủ server
+  // phải restore tay, hoặc tệ hơn là tạo trùng hàng loạt. Sàn 95 (đo 100%
+  // sau khi có test-nuke-rollback phủ cả vòng grace + các nhánh lỗi).
+  "handlers/antinuke/nukeRollback.js": 95,
+  // Lớp dẫn log dùng chung: quyết định log moderation rơi vào kênh nào và
+  // có bị mất không khi webhook chết. Sàn 95 (đo 100%).
+  "util.js": 95,
+  // Nút/modal/lệnh ticket trong interactionCreate: rẫy customId, quyền staff,
+  // điều kiện lỗi. Sàn 90 (đo 95.2% sau khi có test-ticket-interactions).
+  "handlers/interactionCreate.js": 90,
+  // Reaction role + giveaway + panel xác minh. Sàn 95 (đo 100% sau khi phủ
+  // postPanel/postGiveaway/endGiveaway + đường DM trực tiếp của admin).
+  "handlers/hidden.js": 95,
+  // Khoá server khi raid: trao quyền kênh cho bot và thu lại. Sàn 95 (đo 99.1%).
+  "lockdown.js": 95,
 };
 
 const summaryPath = path.join(process.cwd(), "coverage", "coverage-summary.json");
@@ -92,7 +109,7 @@ for (const [file, floor] of Object.entries(FLOORS)) {
     // (đổi tên, bị thêm vào exclude, hoặc không test nào nạp nữa) nghĩa là
     // SÀN BỊ VÔ HIỆU IM LẶNG — đúng kiểu lỗi cổng này sinh ra để chặn.
     console.log(
-      `❌ ${file.padEnd(24)} — KHÔNG có dữ liệu coverage (đổi tên / bị exclude / không test nào nạp?)`,
+      `❌ ${file.padEnd(32)} — KHÔNG có dữ liệu coverage (đổi tên / bị exclude / không test nào nạp?)`,
     );
     violations++;
     continue;
@@ -100,7 +117,7 @@ for (const [file, floor] of Object.entries(FLOORS)) {
   const pct = data.lines.pct;
   const ok = pct >= floor;
   const mark = ok ? "✅" : "❌";
-  console.log(`${mark} ${file.padEnd(24)} ${String(pct).padStart(6)}%  (sàn ${floor}%)`);
+  console.log(`${mark} ${file.padEnd(32)} ${String(pct).padStart(6)}%  (sàn ${floor}%)`);
   if (!ok) violations++;
 }
 

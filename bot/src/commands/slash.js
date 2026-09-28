@@ -149,6 +149,81 @@ const commands = applyLocalizations([
     ],
   },
   {
+    name: "lock",
+    description: "Khoá chat kênh (có thể theo role, tự mở khi hết hạn)",
+    options: [
+      {
+        name: "add",
+        description: "Khoá 1 kênh",
+        type: 1,
+        options: [
+          { name: "kenh", description: "Kênh cần khoá", type: 7, required: true },
+          {
+            name: "role",
+            description: "Chỉ khoá role này (bỏ trống = khoá @everyone)",
+            type: 8,
+            required: false,
+          },
+          {
+            name: "phut",
+            description: "Tự mở sau bao lâu: 30m, 2h, 1d (trống = vô hạn)",
+            type: 3,
+            required: false,
+          },
+          { name: "lydo", description: "Lý do khoá (ghi vào log)", type: 3, required: false },
+        ],
+      },
+      {
+        name: "all",
+        description: "Khoá toàn bộ kênh chat",
+        type: 1,
+        options: [
+          {
+            name: "role",
+            description: "Chỉ khoá role này (bỏ trống = khoá @everyone)",
+            type: 8,
+            required: false,
+          },
+          {
+            name: "phut",
+            description: "Tự mở sau bao lâu: 30m, 2h, 1d (trống = vô hạn)",
+            type: 3,
+            required: false,
+          },
+          { name: "lydo", description: "Lý do khoá (ghi vào log)", type: 3, required: false },
+        ],
+      },
+      {
+        name: "remove",
+        description: "Mở khoá 1 kênh",
+        type: 1,
+        options: [
+          { name: "kenh", description: "Kênh cần mở khoá", type: 7, required: true },
+          {
+            name: "role",
+            description: "Role đã bị khoá (bỏ trống nếu khoá @everyone)",
+            type: 8,
+            required: false,
+          },
+        ],
+      },
+      {
+        name: "unlock-all",
+        description: "Mở khoá tất cả kênh đang bị Protogon khoá",
+        type: 1,
+        options: [
+          {
+            name: "role",
+            description: "Chỉ mở role này (bỏ trống = mở @everyone)",
+            type: 8,
+            required: false,
+          },
+        ],
+      },
+      { name: "list", description: "Xem các kênh đang bị khoá", type: 1 },
+    ],
+  },
+  {
     name: "heat",
     description: "Xem mức nhiệt độ vi phạm và độ an toàn của server",
     options: [

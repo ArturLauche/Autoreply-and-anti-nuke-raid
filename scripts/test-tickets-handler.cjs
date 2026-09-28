@@ -146,13 +146,13 @@ check(
 // ═══ actionRow: nút mang ticketId + nhãn đúng ngôn ngữ ═══
 console.log("\n── actionRow ──");
 {
-  // Panel nay có 6 nút → BẮT BUỘC 2 hàng (Discord tối đa 5 nút/hàng).
+  // Panel nay có 7 nút → BẮT BUỘC 2 hàng (Discord tối đa 5 nút/hàng).
   // Gom 1 hàng là `send()` ném lỗi → mất cả nút Gỡ ban.
   const rows = tickets.panelRows(T, "TID123");
   const all = rows.flatMap((r) => r.components);
   const ids = all.map((c) => c.customId);
   check("panel chia 2 hàng", rows.length === 2);
-  check("6 nút thao tác", all.length === 6);
+  check("7 nút thao tác (6 staff + 1 tự đóng cho người mở)", all.length === 7);
   check(
     "mọi hàng không vượt 5 nút (giới hạn Discord)",
     rows.every((r) => r.components.length <= 5),
@@ -168,6 +168,7 @@ console.log("\n── actionRow ──");
   check("nút Nhận việc", ids.includes("ticket_claim:TID123"));
   check("nút Gỡ ban", ids.includes("ticket_unban:TID123"));
   check("nút Ghim", ids.includes("ticket_pin:TID123"));
+  check("nút Tôi tự đóng (chỉ người mở bấm được)", ids.includes("ticket_close_own:TID123"));
   check("nút AI", ids.includes("ticket_ai:TID123"));
   check("nhãn theo ngôn ngữ VI", all[0].label === T.btnClose);
   const rowsEn = tickets.panelRows(lang.ticketText("en"), "T1");
@@ -457,7 +458,16 @@ function makeGuild({ createThrows = null, overwritesFail = new Set() } = {}) {
       rec = { ticketId: "TID1", number: 7 },
       guildId = "g1",
     } = opts;
-    const calls = { queries: [], mutations: [], sent: null, createdName: null, createdTopic: null };
+    const calls = {
+      queries: [],
+      mutations: [],
+      sent: null,
+      sentList: [],
+      dms: [],
+      dmFails: false,
+      createdName: null,
+      createdTopic: null,
+    };
     const category = { id: "CAT", type: 4 };
     const guild = {
       id: guildId,
@@ -477,6 +487,7 @@ function makeGuild({ createThrows = null, overwritesFail = new Set() } = {}) {
             send: async (payload) => {
               if (sendFails) throw new Error("không gửi được");
               calls.sent = payload;
+              calls.sentList.push(payload);
             },
           };
           return ch;
@@ -487,6 +498,14 @@ function makeGuild({ createThrows = null, overwritesFail = new Set() } = {}) {
       query: async (name, args) => {
         calls.queries.push({ name, args });
         return state;
+      },
+      users: {
+        fetch: async () => ({
+          send: async (payload) => {
+            if (calls.dmFails) throw new Error("Cannot send messages to this user");
+            calls.dms.push(payload);
+          },
+        }),
       },
     };
     const store = {
@@ -519,6 +538,101 @@ function makeGuild({ createThrows = null, overwritesFail = new Set() } = {}) {
       T,
       ...over,
     });
+
+  // ═══ openTicket: lời dặn đầu kênh + DM khi mở ═══
+  console.log("\n── openTicket (lời dặn + DM) ──");
+  {
+    // THỨ TỰ quan trọng: lời dặn phải là tin ĐẦU, nội dung khiếu nại sau —
+    // staff mở kênh thấy "cần gì / trễ bao lâu" trước khi đọc lời kêu.
+    const env = openEnv({ config: { ...goodConfig, ticketOpenNote: "Chào {user}! #{number}" } });
+    const r = await run(env);
+    check("mở ticket thành công", r.ok === true && r.channelId === "CH-NEW", JSON.stringify(r));
+    const first = env.calls.sentList[0];
+    check(
+      "lời dặn là tin ĐẦU TIÊN trong kênh",
+      first?.embeds?.[0]?.d?.title === T.openNoteTitle,
+      first?.embeds?.[0]?.d?.title,
+    );
+    check(
+      "lời dặn điền {user} {number}",
+      first?.embeds?.[0]?.d?.description === "Chào minh! #7",
+      first?.embeds?.[0]?.d?.description,
+    );
+    check(
+      "nội dung khiếu nại đứng SAU lời dặn",
+      env.calls.sentList.length === 3 && !!env.calls.sentList[1]?.embeds?.[0]?.d?.fields,
+      JSON.stringify(env.calls.sentList.map((s) => !!s.embeds?.[0]?.d?.fields)),
+    );
+  }
+  {
+    // Không cấu hình lời dặn → chỉ 2 tin (khiếu nại + panel), KHÔNG gửi embed rỗng.
+    const env = openEnv();
+    await run(env);
+    check(
+      "không cấu hình lời dặn → 2 tin, tin đầu là nội dung khiếu nại",
+      env.calls.sentList.length === 2 && !!env.calls.sentList[0].embeds[0].d.fields,
+      JSON.stringify(env.calls.sentList.map((s) => s.embeds?.[0]?.d?.title)),
+    );
+  }
+  {
+    // Lời dặn là nội dung CHỦ SERVER soạn → escape mention như mọi chỗ khác.
+    const env = openEnv({ config: { ...goodConfig, ticketOpenNote: "@everyone {user}" } });
+    await run(env);
+    check(
+      "lời dặn escape @everyone",
+      !env.calls.sentList[0].embeds[0].d.description.includes("@everyone"),
+      env.calls.sentList[0].embeds[0].d.description,
+    );
+  }
+  {
+    // Mặc định (undefined) = BẬT DM — dựa vào so sánh !== false nên dữ liệu
+    // cũ (chưa có field) vẫn hành xử đúng.
+    const env = openEnv();
+    await run(env);
+    check(
+      "mặc định: DM cho người mở",
+      env.calls.dms.length === 1,
+      JSON.stringify(env.calls.dms.length),
+    );
+    check(
+      "DM có link kênh ticket vừa tạo",
+      env.calls.dms[0]?.embeds?.[0]?.d?.description?.includes("/channels/g1/CH-NEW"),
+      env.calls.dms[0]?.embeds?.[0]?.d?.description,
+    );
+  }
+  {
+    const env = openEnv({ config: { ...goodConfig, ticketDmOnOpen: true } });
+    await run(env);
+    check("bật tường minh → có DM", env.calls.dms.length === 1);
+  }
+  {
+    const env = openEnv({ config: { ...goodConfig, ticketDmOnOpen: false } });
+    const r = await run(env);
+    check(
+      "tắt DM → không gửi, ticket VẪN mở bình thường",
+      env.calls.dms.length === 0 && r.ok === true,
+      JSON.stringify({ dms: env.calls.dms.length, ok: r.ok }),
+    );
+  }
+  {
+    // Người dùng tắt tin nhắn riêng là chuyện thường — KHÔNG được làm hỏng
+    // luồng mở ticket (kênh đã tạo, staff đã thấy, bản ghi đã ghi).
+    const env = openEnv();
+    env.calls.dmFails = true;
+    const r = await run(env);
+    check(
+      "DM hỏng (tắt tin nhắn riêng) → ticket vẫn mở, không ném lỗi",
+      r.ok === true && r.channelId === "CH-NEW",
+      JSON.stringify(r),
+    );
+    check(
+      "DM hỏng vẫn ghi channelId vào bản ghi",
+      env.calls.mutations.some(
+        (m) => m.name === "bot_writes:botSetTicketChannel" && m.args.channelId === "CH-NEW",
+      ),
+      JSON.stringify(env.calls.mutations.map((m) => m.name)),
+    );
+  }
 
   // Mỗi mã lỗi phảI có bản dịch — hàm assert dùng chung cho các case dưới.
   const hasText = (code) => typeof T[code] === "string" && T[code].length > 0;

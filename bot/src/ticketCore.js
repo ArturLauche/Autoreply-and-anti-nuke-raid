@@ -89,7 +89,7 @@ function sanitizeBody(text, max = BODY_MAX) {
 function stripDiacritics(s) {
   return String(s ?? "")
     .normalize("NFD")
-    .replace(/[̀-ͯ᪰-᫿]/g, "");
+    .replace(/[\u0300-\u036f\u1ab0-\u1aff]/g, "");
 }
 
 /** Chuẩn hoá tên kênh về đúng luật Discord. */
@@ -326,12 +326,16 @@ const PANEL_MAX = 1000;
 /**
  * Thay placeholder trong nội dung tuỳ biến của chủ server.
  *
- * Placeholder hỗ trợ: {user} tên người mở, {number} số ticket, {kind} loại,
- * {idle} số giờ tự đóng.
+ * Placeholder hỗ trợ:
+ *   - panel TRONG kênh ticket: {user} người mở, {number} số ticket, {kind} loại,
+ *     {idle} số giờ tự đóng;
+ *   - panel MỞ ở kênh công khai: {server} tên server, {open} số ticket đang mở,
+ *     {support} loại mặc định. Hai nhóm dùng chung hàm nhưng nội dung này dán
+ *     nơi công khai cho cả server đọc nên không có {user}/{number}.
  *
- * ⚠️ BẮT BUỘC escape trước khi thay: nội dung này dán vào embed trong kênh
- * ticket. Chủ server gõ `@everyone` trong ô tuỳ chỉnh sẽ ping cả server mỗi
- * lần có người mở ticket — hàng rào chống ping áp cho cả chủ server.
+ * ⚠️ BẮT BUỘC escape trước khi thay: nội dung này dán vào embed. Chủ server
+ * gõ `@everyone` trong ô tuỳ chỉnh sẽ ping cả server mỗi lần có người mở
+ * ticket — hàng rào chống ping áp cho cả chủ server.
  */
 function fillPanelText(template, values, T = {}) {
   const src = String(template ?? "").trim();
@@ -341,10 +345,29 @@ function fillPanelText(template, values, T = {}) {
     number: escapeMentions(String(values?.number ?? "")),
     kind: escapeMentions(String(values?.kind ?? "")),
     idle: escapeMentions(String(values?.idle ?? "")),
+    server: escapeMentions(String(values?.server ?? "")),
+    open: escapeMentions(String(values?.open ?? "")),
+    support: escapeMentions(String(values?.support ?? "")),
   };
   return escapeMentions(src)
     .slice(0, PANEL_MAX)
     .replace(/\{(\w+)\}/g, (m, key) => (key in safe ? safe[key] : m));
+}
+
+/**
+ * Màu tuỳ chỉnh do chủ server nhập (chuỗi hex) → số nguyên 0xRRGGBB mà
+ * `EmbedBuilder.setColor` chịu.
+ *
+ * Vì sao phải có hàm này: `setColor` NÉM TypeError khi nhận chuỗi, nên
+ * chủ server gõ "đỏ" hay "#GGGGGG" là hỏng CẢ panel kèm nút Mở ticket — chứ
+ * không chỉ hỏng màu. Rác thì rơi về `fallback` (màu mặc định của bot).
+ */
+function parsePanelColor(hex, fallback) {
+  const clean = String(hex ?? "")
+    .trim()
+    .replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{6}$/.test(clean)) return fallback;
+  return parseInt(clean, 16);
 }
 
 /**
@@ -407,6 +430,7 @@ module.exports = {
   isPurgeDue,
   purgeHoursLeft,
   fillPanelText,
+  parsePanelColor,
   sanitizeCloseReason,
   buildRoleMentions,
 };

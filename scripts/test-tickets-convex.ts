@@ -18,6 +18,7 @@ import {
   botTicketById,
 } from "../convex/tickets";
 import { botOpenTicket, botCloseTicket, botSetTicketChannel } from "../convex/bot_writes";
+import { updateSettings } from "../convex/guilds";
 import { computeBotKey } from "../convex/botAuth";
 
 const listH = (listTickets as any)._handler;
@@ -28,6 +29,7 @@ const byIdH = (botTicketById as any)._handler;
 const openH = (botOpenTicket as any)._handler;
 const botCloseH = (botCloseTicket as any)._handler;
 const setChannelH = (botSetTicketChannel as any)._handler;
+const updateH = (updateSettings as any)._handler;
 
 let pass = 0;
 let fail = 0;
@@ -575,6 +577,225 @@ const throws = async (fn: () => Promise<unknown>) => {
     check(
       "ticket thuộc guild khác → không ghi",
       r.found === false && e.tickets[0].channelId === "ch-t1",
+    );
+  }
+
+  // ═══ updateSettings: tự bật cờ dán lại panel khi sửa nội dung panel ═══
+  // Lý do có test này: ô nhập đã LƯU nhưng kênh không đổi là kiểu lỗi khiến
+  // phần lớn server kết luận "tính năng hỏng". Muốn chặn được thì phải test
+  // cả chiều "KHÔNG bật cờ" — dán lên mọi lần lưu là spam, còn không bật
+  // lúc sửa nội dung thì tuỳ chỉnh là vô hiệu.
+  console.log("\n── updateSettings: tự dán lại panel khi sửa nội dung ──");
+
+  /** Ctx giả cho updateSettings: chỉ cần sessions + users + guilds. */
+  function settingsCtx(guild: Row): { ctx: any; guild: Row } {
+    const guilds: Row[] = [{ _id: "g1", discordId: "server-1", ...guild }];
+    const users: Row[] = [{ _id: "u1", discordId: "owner-1", manageableGuildIds: ["server-1"] }];
+    const sessions: Row[] = [
+      { _id: "s1", token: "tok", userId: "u1", createdAt: Date.now(), authVersion: 1 },
+    ];
+    const tables: Record<string, Row[]> = { guilds, users, sessions };
+    const all = () => [...guilds, ...users, ...sessions];
+    const ctx = {
+      now: 1_700_000_000_000,
+      db: {
+        insert: async () => "x",
+        get: async (id: string) => all().find((r) => r._id === id) ?? null,
+        patch: async (id: string, patch: Row) => {
+          const row = all().find((r) => r._id === id);
+          if (row) Object.assign(row, patch);
+        },
+        query: (table: string) => ({
+          withIndex: (_name: string, bound: (q: any) => any) => {
+            const capture: Record<string, unknown> = {};
+            const q: any = { eq: (f: string, v: unknown) => ((capture[f] = v), q) };
+            bound(q);
+            const rows = (tables[table] ?? []).filter((r) =>
+              Object.entries(capture).every(([f, v]) => r[f] === v),
+            );
+            return {
+              first: async () => rows[0] ?? null,
+              collect: async () => [...rows],
+              take: async (n: number) => rows.slice(0, n),
+              order: () => ({
+                take: async (n: number) => rows.slice(0, n),
+                collect: async () => [...rows],
+              }),
+              unique: async () => rows[0] ?? null,
+            };
+          },
+        }),
+      },
+    };
+    return { ctx, guild: guilds[0] };
+  }
+
+  /** Chạy updateSettings rồi trả về patch đã ghi (để soi field cờ). */
+  async function save(guild: Row, args: Row) {
+    const { ctx, guild: row } = settingsCtx(guild);
+    let written: Row = {};
+    const spy = {
+      ...ctx,
+      db: {
+        ...ctx.db,
+        patch: async (id: string, p: Row) => {
+          written = p;
+          await ctx.db.patch(id, p);
+        },
+      },
+    };
+    await updateH(spy, { token: "tok", guildId: "server-1", ...args });
+    return written;
+  }
+
+  const ON = { ticketEnabled: true, ticketPanelChannelId: "123456789012345678" };
+  {
+    const p = await save({ ...ON, ticketOpenPanelTitle: "Cũ" }, { ticketOpenPanelTitle: "Mới" });
+    check("đổi tiêu đề panel → tự bật cờ dán lại", p.ticketSendPanel === true, JSON.stringify(p));
+  }
+  {
+    const p = await save(
+      { ...ON, ticketOpenPanelTitle: "Giữ nguyên" },
+      { ticketOpenPanelTitle: "Giữ nguyên" },
+    );
+    check(
+      "lưu lại y hệt (không đổi gì) → KHÔNG dán lại",
+      p.ticketSendPanel === undefined,
+      JSON.stringify(p),
+    );
+  }
+  {
+    const p = await save({ ...ON, ticketOpenPanelTitle: "Xoá đi" }, { ticketOpenPanelTitle: "  " });
+    check(
+      "xoá trắng tiêu đề (khác giá trị cũ) → dán lại",
+      p.ticketSendPanel === true && p.ticketOpenPanelTitle === undefined,
+      JSON.stringify(p),
+    );
+  }
+  {
+    const p = await save(
+      { ...ON, ticketOpenPanelColor: "ff0000" },
+      { ticketOpenPanelColor: "00FF00" },
+    );
+    check(
+      "đổi màu → tự bật cờ dán lại",
+      p.ticketSendPanel === true && p.ticketOpenPanelColor === "00ff00",
+      JSON.stringify(p),
+    );
+  }
+  {
+    // CHỐNG HỒI QUY của chính cách so sánh: đổi màu NHƯNG màu không đổi,
+    // trong khi tiêu đề đang có sẵn. So sánh kiểu "patch.X !== guild.X" mà
+    // không xét "đối số có được truyền không" sẽ thấy undefined != "Tiêu đề"
+    // và bật cờ oan → dán panel mới mỗi lần lưu cấu hình.
+    const p = await save(
+      { ...ON, ticketOpenPanelTitle: "Tiêu đề", ticketOpenPanelColor: "ff0000" },
+      { ticketOpenPanelColor: "ff0000" },
+    );
+    check(
+      "lưu màu Y HỆT (tiêu đề đang có sẵn) → KHÔNG dán lại oan",
+      p.ticketSendPanel === undefined,
+      JSON.stringify(p),
+    );
+  }
+  {
+    const p = await save(
+      { ...ON, ticketShowAppealButton: true },
+      { ticketShowAppealButton: false },
+    );
+    check("tắt nút Khiếu nại → tự bật cờ dán lại", p.ticketSendPanel === true, JSON.stringify(p));
+  }
+  {
+    const p = await save(
+      { ...ON, ticketShowAppealButton: false },
+      { ticketShowAppealButton: false },
+    );
+    check(
+      "lưu lại nút Khiếu nại y hệt → KHÔNG dán lại",
+      p.ticketSendPanel === undefined,
+      JSON.stringify(p),
+    );
+  }
+  {
+    // Chưa từng lưu (undefined = mặc định true) → đặt true là KHÔNG đổi.
+    const p = await save(ON, { ticketShowAppealButton: true });
+    check(
+      "nút Khiếu nại chưa từng lưu, đặt true (= mặc định) → KHÔNG dán lại",
+      p.ticketSendPanel === undefined,
+      JSON.stringify(p),
+    );
+  }
+  {
+    // ticketOpenNote / ticketDmOnOpen KHÔNG nằm trong panel.
+    const p = await save(ON, { ticketOpenNote: "Lời dặn mới" });
+    check(
+      "đổi lời dặn đầu kênh → KHÔNG dán lại panel",
+      p.ticketSendPanel === undefined,
+      JSON.stringify(p),
+    );
+  }
+  {
+    const p = await save(ON, { ticketDmOnOpen: false });
+    check(
+      "tắt DM khi mở → KHÔNG dán lại panel",
+      p.ticketSendPanel === undefined,
+      JSON.stringify(p),
+    );
+  }
+  {
+    // ⚠️ Phải bật ticket + BỎ kênh panel. Lần đầu viết case này quên bật
+    // ticket nên nó "xanh" vì lý do SAI (do ticket tắt, không phải do thiếu
+    // kênh) — mutation bỏ kiểm tra hasPanelChannel vẫn sống sót.
+    const p = await save({ ticketEnabled: true }, { ticketOpenPanelTitle: "Mới" });
+    check(
+      "chưa chọn kênh panel → KHÔNG bật cờ (không có chỗ dán)",
+      p.ticketSendPanel === undefined,
+      JSON.stringify(p),
+    );
+  }
+  {
+    const p = await save(
+      { ticketEnabled: true, ticketPanelChannelId: "" },
+      { ticketOpenPanelTitle: "Mới" },
+    );
+    check(
+      "kênh panel bị xoá trắng → KHÔNG bật cờ",
+      p.ticketSendPanel === undefined,
+      JSON.stringify(p),
+    );
+  }
+  {
+    const p = await save(
+      { ticketEnabled: false, ticketPanelChannelId: "123456789012345678" },
+      { ticketOpenPanelTitle: "Mới" },
+    );
+    check("ticket đang tắt → KHÔNG bật cờ", p.ticketSendPanel === undefined, JSON.stringify(p));
+  }
+  {
+    const p = await save(
+      { ...ON, ticketOpenPanelTitle: "Cũ" },
+      {
+        ticketOpenPanelTitle: "Mới",
+        ticketSendPanel: false,
+      },
+    );
+    check(
+      "người dùng tự tắt cờ → không bật lại (ý chí họ được tôn trọng)",
+      p.ticketSendPanel === false,
+      JSON.stringify(p),
+    );
+  }
+  {
+    const p = await save(
+      { ...ON, ticketPanelChannelId: "876543210987654321" },
+      {
+        ticketPanelChannelId: "111111111111111111",
+      },
+    );
+    check(
+      "đổi kênh dán panel → vẫn tự dán (hành vi có sẵn, không hồi quy)",
+      p.ticketSendPanel === true && p.ticketPanelChannelId === "111111111111111111",
+      JSON.stringify(p),
     );
   }
 

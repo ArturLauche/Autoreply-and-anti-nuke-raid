@@ -413,6 +413,31 @@ const TOPICS: Topic[] = [
 export const GREETING =
   "Xin chào! Tôi là Haimiya, trợ lý ảo của Protogon — bot Discord bảo vệ server. Tôi có thể giúp bạn giải đáp về hệ thống nhiệt độ, Join Gate, chống nuke/raid, công cụ mod và nhiều hơn nữa. Bạn muốn hỏi điều gì?";
 
+/** Lượt chat tối thiểu cần để dựng lịch sử gửi lên `haimiya:ask`. */
+export interface AskTurn {
+  role: "user" | "haimiya";
+  text: string;
+}
+
+/**
+ * Dựng lịch sử (tối đa 8 lượt, khớp cap phía Convex) gửi lên AI thật.
+ *
+ * BẤT BIẾN: lượt cuối KHÔNG BAO GIỜ rỗng. Người dùng gửi ảnh mà không gõ
+ * chữ (chụp màn hình rồi bấm gửi) thì lượt đó phải mang chỉ dẫn mặc định —
+ * action `haimiya.ask` từ chối `content` rỗng với `reason: "Tin nhắn rỗng"`,
+ * panel báo "AI chưa phản hồi" và rơi về kiến thức cục bộ, tức ảnh gửi lên
+ * bị bỏ rơi hoàn toàn (bug thật 27/09/2026, thấy trong chat web).
+ */
+export function buildAskHistory(
+  turns: AskTurn[],
+  imageOnlyHint: string,
+): Array<{ role: "user" | "assistant"; content: string }> {
+  return turns.slice(-8).map((m) => ({
+    role: m.role === "user" ? ("user" as const) : ("assistant" as const),
+    content: m.text.trim() || imageOnlyHint,
+  }));
+}
+
 export const QUICK_QUESTIONS = [
   "Hệ thống nhiệt độ hoạt động thế nào?",
   "Join Gate là gì?",

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
-import { LifeBuoy, MessageSquareWarning, ShieldQuestion, Users, X } from "lucide-react";
+import { LifeBuoy, MessageSquareWarning, Send, ShieldQuestion, Users, X } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Switch } from "../ui/switch";
@@ -45,6 +45,10 @@ export default function TicketPanel({ data }: { data: GuildData }) {
 
   // Category: Discord type 4 = danh mục. Chỉ danh mục mới chứa được kênh con.
   const categories = data.channels.filter((c) => c.type === 4);
+  // Kênh CÔNG KHAI dán panel "Mở ticket" — loại 0 (text) và 5 (announcement).
+  // Chọn nhầm danh mục (type 4) là cách quen thuộc nhất khiến bot dán panel
+  // hỏng, nên danh mục không bao giờ xuất hiện trong danh sách này.
+  const panelChannels = data.channels.filter((c) => c.type === 0 || c.type === 5);
   const staffRoles = data.roles.filter((r) => r.name !== "@everyone");
   const modRoleNames = g.modRoles
     .map((id) => data.roles.find((r) => r.roleId === id)?.name)
@@ -65,6 +69,25 @@ export default function TicketPanel({ data }: { data: GuildData }) {
   }
 
   const openCount = summary?.openCount ?? 0;
+
+  /** Màu lưu trong Convex phải là hex 6 chữ số (không `#`) — bot parse thẳng. */
+  const validColor = (v: string | null | undefined) => /^[0-9a-fA-F]{6}$/.test(v ?? "");
+
+  /** Lưu màu: bỏ `#`, chấp nhận cả dạng ngắn 3 ký tự. Rác → rỗng (màu mặc định). */
+  function saveColor(raw: string) {
+    const v = raw.trim().replace(/^#/, "");
+    const next = /^[0-9a-fA-F]{6}$/.test(v)
+      ? v.toLowerCase()
+      : /^[0-9a-fA-F]{3}$/.test(v)
+        ? v
+            .split("")
+            .map((c) => c + c)
+            .join("")
+            .toLowerCase()
+        : "";
+    if ((g.ticketOpenPanelColor ?? "") === next) return;
+    patch({ ticketOpenPanelColor: next }, translate("Đã lưu màu panel"));
+  }
 
   return (
     <div className="space-y-4">
@@ -156,6 +179,72 @@ export default function TicketPanel({ data }: { data: GuildData }) {
                       )
                     : translate("Kênh ticket sẽ được tạo tự động bên trong danh mục này.")}
                 </p>
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label className="flex items-center gap-1.5">
+                  <MessageSquareWarning className="h-4 w-4 text-primary" />
+                  {translate("Kênh dán panel mở ticket")}
+                </Label>
+                <Select
+                  value={g.ticketPanelChannelId ?? "none"}
+                  onValueChange={(v) =>
+                    patch(
+                      { ticketPanelChannelId: v === "none" ? "" : v },
+                      translate("Đã chọn kênh dán panel — bot sẽ gửi trong ~2 phút"),
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={translate("Chọn kênh công khai…")}
+                      className="text-foreground"
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{translate("— Chưa chọn —")}</SelectItem>
+                    {panelChannels.map((c) => (
+                      <SelectItem key={c.channelId} value={c.channelId}>
+                        #{c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  {translate(
+                    "Thành viên bấm nút trong kênh này để tự mở ticket — không cần gõ lệnh /ticket. Chọn kênh xong bot tự dán trong ~2 phút.",
+                  )}
+                </p>
+
+                {g.ticketPanelError && (
+                  <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
+                    <p className="font-semibold">
+                      {translate("⚠️ Bot không dán được panel mở ticket")}
+                    </p>
+                    <p className="mt-0.5 text-xs opacity-90">{g.ticketPanelError}</p>
+                    <p className="mt-1 text-[11px] opacity-70">
+                      {g.ticketPanelErrorAt
+                        ? new Date(g.ticketPanelErrorAt).toLocaleString(dateLocale())
+                        : ""}{" "}
+                      {translate('— hãy sửa lỗi rồi bấm "Gửi lại panel"')}
+                    </p>
+                  </div>
+                )}
+
+                {g.ticketPanelChannelId && (
+                  <button
+                    onClick={() =>
+                      patch(
+                        { ticketSendPanel: true },
+                        translate("Đã yêu cầu bot dán panel mở ticket!"),
+                      )
+                    }
+                    className="flex items-center gap-2 self-start rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                  >
+                    <Send className="h-4 w-4" />
+                    {translate("Gửi lại panel mở ticket vào kênh")}{" "}
+                  </button>
+                )}
               </div>
 
               <div className="grid gap-1.5">
@@ -318,6 +407,170 @@ export default function TicketPanel({ data }: { data: GuildData }) {
                       patch({ ticketCloseNote: v }, translate("Đã lưu ghi chú"));
                     }
                   }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ═══ Tuỳ chỉnh panel mở + lời dặn đầu kênh + DM khi mở ═══ */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{translate("Tuỳ chỉnh panel mở ticket")}</CardTitle>
+              <CardDescription>
+                {translate(
+                  "Sửa tiêu đề, màu và nội dung panel thành viên thấy trước khi bấm nút. Bot tự dán lại trong khoảng 2 phút và xoá bản cũ — không cần bấm gì thêm.",
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-1.5 sm:grid-cols-[1fr_9rem]">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="ticket-open-panel-title">
+                    {translate("Tiêu đề panel (tuỳ chọn)")}
+                  </Label>
+                  <Input
+                    id="ticket-open-panel-title"
+                    maxLength={256}
+                    defaultValue={g.ticketOpenPanelTitle ?? ""}
+                    placeholder={translate("Cần trợ giúp?")}
+                    onBlur={(e) => {
+                      const v = e.target.value;
+                      if ((g.ticketOpenPanelTitle ?? "") !== v) {
+                        patch({ ticketOpenPanelTitle: v }, translate("Đã lưu tiêu đề panel"));
+                      }
+                    }}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="ticket-open-panel-color">{translate("Màu panel")}</Label>
+                  <div className="flex items-center gap-2">
+                    {/* Ô chọn màu ghi khi BLUR, không ghi khi kéo: onChange của
+                        input[type=color] bắn liên tục mỗi bước kéo chuột, gọi
+                        mutation mỗi bước là spam Convex vô ích. Cùng quy ước
+                        defaultValue + onBlur như các ô khác trong file này. */}
+                    <input
+                      type="color"
+                      aria-label={translate("Chọn màu panel")}
+                      className="h-9 w-9 shrink-0 cursor-pointer rounded-md border border-border bg-transparent p-1"
+                      defaultValue={
+                        validColor(g.ticketOpenPanelColor) ? g.ticketOpenPanelColor! : "#5865f2"
+                      }
+                      onBlur={(e) => saveColor(e.target.value)}
+                    />
+                    <Input
+                      id="ticket-open-panel-color"
+                      className="w-28 font-mono text-xs uppercase"
+                      maxLength={7}
+                      defaultValue={g.ticketOpenPanelColor ?? ""}
+                      placeholder="#5865f2"
+                      onBlur={(e) => saveColor(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        patch({ ticketOpenPanelColor: "" }, translate("Đã về màu mặc định"))
+                      }
+                    >
+                      {translate("Mặc định")}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {translate("Mã hex 6 chữ số, ví dụ #5865f2. Ô trống = màu mặc định của bot.")}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label htmlFor="ticket-open-panel-text">
+                  {translate("Nội dung panel mở (tuỳ chọn)")}
+                </Label>
+                <Textarea
+                  id="ticket-open-panel-text"
+                  rows={3}
+                  defaultValue={g.ticketOpenPanelText ?? ""}
+                  placeholder={translate(
+                    "Bấm nút bên dưới, kể lại vấn đề của bạn. {server} đang có {open} ticket chờ.",
+                  )}
+                  onBlur={(e) => {
+                    const v = e.target.value;
+                    if ((g.ticketOpenPanelText ?? "") !== v) {
+                      patch({ ticketOpenPanelText: v }, translate("Đã lưu nội dung panel mở"));
+                    }
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {translate(
+                    "Dùng được: {server} tên server, {open} số ticket đang mở, {support} tên nút Hỗ trợ. Bỏ trống thì dùng nội dung mặc định.",
+                  )}
+                </p>
+              </div>
+
+              <div className="flex items-start justify-between gap-4 rounded-xl border border-border px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">
+                    {translate('Hiện nút "Khiếu nại hình phạt"')}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {translate(
+                      "Tắt nếu server bạn không dùng hình phạt — thành viên chỉ thấy một nút Hỗ trợ.",
+                    )}
+                  </p>
+                </div>
+                <Switch
+                  checked={g.ticketShowAppealButton !== false}
+                  onCheckedChange={(v) =>
+                    patch(
+                      { ticketShowAppealButton: v },
+                      translate(v ? "Đã hiện nút Khiếu nại" : "Đã ẩn nút Khiếu nại"),
+                    )
+                  }
+                />
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label htmlFor="ticket-open-note">
+                  {translate("Lời dặn dán ở đầu kênh ticket (tuỳ chọn)")}
+                </Label>
+                <Textarea
+                  id="ticket-open-note"
+                  rows={3}
+                  defaultValue={g.ticketOpenNote ?? ""}
+                  placeholder={translate(
+                    "Chào {user}! Bạn đang ở ticket #{number} của {server}. Staff phản hồi trong 24 giờ.",
+                  )}
+                  onBlur={(e) => {
+                    const v = e.target.value;
+                    if ((g.ticketOpenNote ?? "") !== v) {
+                      patch({ ticketOpenNote: v }, translate("Đã lưu lời dặn đầu kênh"));
+                    }
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {translate(
+                    "Dán TRƯỚC nội dung khiếu nại, cho cả người mở lẫn staff đọc. Dùng được: {user} tên người mở, {number} số ticket, {server} tên server.",
+                  )}
+                </p>
+              </div>
+
+              <div className="flex items-start justify-between gap-4 rounded-xl border border-border px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{translate("Gửi DM cho người mở ticket")}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {translate(
+                      "DM kèm link thẳng tới kênh ticket vừa tạo. Người đã tắt tin nhắn riêng sẽ không nhận được — ticket vẫn mở bình thường.",
+                    )}
+                  </p>
+                </div>
+                <Switch
+                  checked={g.ticketDmOnOpen !== false}
+                  onCheckedChange={(v) =>
+                    patch(
+                      { ticketDmOnOpen: v },
+                      translate(v ? "Sẽ DM khi mở ticket" : "Không DM khi mở ticket"),
+                    )
+                  }
                 />
               </div>
             </CardContent>

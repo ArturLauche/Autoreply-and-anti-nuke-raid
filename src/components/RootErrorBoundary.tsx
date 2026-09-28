@@ -26,6 +26,9 @@ export default class RootErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error("[RootErrorBoundary]", error, info.componentStack);
+    // Preloader che toàn màn hình → phải mở ra, nếu không người dùng chỉ thấy
+    // loading mãi dù app đã quyết định hiện màn báo lỗi.
+    window.__bootDone?.();
   }
 
   render() {

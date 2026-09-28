@@ -200,6 +200,86 @@ section("fillPanelText — escape mention cho nội dung CHỦ SERVER");
   check("cắt ở trần 1000 ký tự", long.length === 1000, String(long.length));
 }
 
+// ═══ 4b. Placeholder panel MỞ + màu tuỳ chỉnh ═══
+section("fillPanelText — placeholder panel mở ({server} {open} {support})");
+{
+  const out = core.fillPanelText(
+    "{server} đang có {open} ticket chờ — bấm {support} nhé.",
+    { server: "Protogon", open: "3", support: "Hỗ trợ" },
+    { panelTitle: "" },
+  );
+  check(
+    "thay đủ placeholder panel mở",
+    out === "Protogon đang có 3 ticket chờ — bấm Hỗ trợ nhé.",
+    out,
+  );
+}
+{
+  // Giá trị placeholder đi vào embed → cũng phải escape, không chỉ template.
+  const ZW = String.fromCharCode(0x200b);
+  const out = core.fillPanelText(
+    "Server {server} @everyone",
+    { server: "<@&123>" },
+    { panelTitle: "" },
+  );
+  check(
+    "escape mention TRONG GIÁ TRỊ placeholder",
+    !out.includes("<@&123>") && !out.includes("@everyone"),
+    out,
+  );
+  const out2 = core.fillPanelText("Số: {open}", { open: "<@777>" }, { panelTitle: "" });
+  check(
+    "escape user mention trong {open}",
+    !out2.includes("<@777>") && out2.includes("<@" + ZW + "777>"),
+    out2,
+  );
+  const out3 = core.fillPanelText("Tên: {support}", { support: "@here" }, { panelTitle: "" });
+  check("escape @here trong {support}", !out3.includes("@here"), out3);
+}
+{
+  // Thiếu giá trị → thành chuỗi rỗng, KHÔNG in ra chữ "undefined".
+  const out = core.fillPanelText("Số: {open}", {}, { panelTitle: "" });
+  check("placeholder thiếu giá trị → rỗng, không in undefined", out === "Số: ", out);
+}
+
+section("parsePanelColor — màu tuỳ chỉnh của chủ server");
+{
+  const FALLBACK = 0x5865f2;
+  check("hex 6 chữ số → số nguyên", core.parsePanelColor("ff0000", FALLBACK) === 0xff0000);
+  check("hex viết hoa → vẫn đúng", core.parsePanelColor("FF0000", FALLBACK) === 0xff0000);
+  check("có dấu # ở đầu → bỏ rồi parse", core.parsePanelColor("#00FF00", FALLBACK) === 0x00ff00);
+  check(
+    "khoảng trắng thừa → vẫn parse được",
+    core.parsePanelColor("  123abc  ", FALLBACK) === 0x123abc,
+  );
+  // setColor NÉM khi nhận chuỗi rác → hỏng cả panel kèm nút mở.
+  check("chuỗi rác → fallback", core.parsePanelColor("đỏ", FALLBACK) === FALLBACK);
+  check(
+    "thiếu dấu # nhưng sai ký tự → fallback",
+    core.parsePanelColor("#GGG", FALLBACK) === FALLBACK,
+  );
+  check("hex quá ngắn (3 chữ số) → fallback", core.parsePanelColor("fff", FALLBACK) === FALLBACK);
+  check(
+    "hex quá dài (7 chữ số) → fallback",
+    core.parsePanelColor("fffffffff", FALLBACK) === FALLBACK,
+  );
+  check("rỗng → fallback", core.parsePanelColor("", FALLBACK) === FALLBACK);
+  check("undefined → fallback", core.parsePanelColor(undefined, FALLBACK) === FALLBACK);
+  check("null → fallback", core.parsePanelColor(null, FALLBACK) === FALLBACK);
+  // Giá trị không phải chuỗi bị ép về chuỗi (đúng quy ước `String(x ?? "")` ở
+  // khắp codebase) rồi mới qua regex: số 6 chữ số hex vẫn ra màu hợp lệ,
+  // số quá độ dài thì rơi về fallback — KHÔNG bao giờ trả màu setColor ném.
+  check("số 6 chữ số hex → vẫn ra màu hợp lệ", core.parsePanelColor(123456, FALLBACK) === 0x123456);
+  check("số quá độ dài hex → fallback", core.parsePanelColor(1234567, FALLBACK) === FALLBACK);
+  check(
+    "mọi kiểu rác đều ra số nguyên hợp lệ cho setColor",
+    [undefined, null, "", "đỏ", "fff", 0, {}, [], "12345678", "#GGG"].every((v) => {
+      const c = core.parsePanelColor(v, FALLBACK);
+      return Number.isInteger(c) && c >= 0 && c <= 0xffffff;
+    }),
+  );
+}
+
 // ═══ 5. Lý do đóng ═══
 section("sanitizeCloseReason");
 {

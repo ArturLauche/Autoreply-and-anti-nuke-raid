@@ -4,7 +4,7 @@
 
 Bot Discord tự động trả lời tin nhắn thành viên theo **từ khóa** hoặc khi bị **tag @mention** (nội dung do bạn tùy chỉnh), hỗ trợ đầy đủ **prefix (`!`) + slash commands**, kèm hệ thống **chống nuke/raid** bật tắt từng phần theo ý mod & owner — tất cả quản lý qua một **dashboard web** tùy chỉnh.
 
-> **Chất lượng**: 72 CJS + 16 TS test suites · coverage c8 (88.1% dòng / 93.6% hàm / 72.5% nhánh — toàn bộ engine chống nuke + alt detection được phủ test trực tiếp, **sàn coverage theo file** chặn engine bảo vệ tụt) · **mutation score 100%** (`bun run test:mutation`) · property-based + fuzz test · **memGuard sweeper bộ nhớ tập trung** · ESLint sạch · typecheck sạch · smoke test VPS · CI 4 job (lint + security + test → deploy): gitleaks chặn secret lộ, bun audit chặn CVE critical (`bun run test` để chạy local).
+> **Chất lượng**: 78 CJS + 17 TS test suites · coverage c8 (90.8% dòng / 95.7% hàm / 74.6% nhánh — toàn bộ engine chống nuke + alt detection + ticket + lớp dẫn log được phủ test trực tiếp, **sàn coverage theo file** chặn engine bảo vệ tụt) · **mutation score 100%** (`bun run test:mutation`) · property-based + fuzz test · **memGuard sweeper bộ nhớ tập trung** · ESLint sạch · typecheck sạch · smoke test VPS · CI 4 job (lint + security + test → deploy): gitleaks chặn secret lộ, bun audit chặn CVE critical (`bun run test` để chạy local).
 >
 > **Hệ sinh thái**: threat relay liên server (chia sẻ signature raid ẩn danh, opt-in từng chiều) · preset bảo mật 1 chạm (server nhỏ / cộng đồng / rủi ro cao) — bật trên dashboard, tab Chống nuke.
 
@@ -97,8 +97,8 @@ Bot tự đăng ký slash commands và đồng bộ server/kênh/role lên Conve
 ## Kiểm thử & Coverage
 
 ```bash
-bun run test            # chạy 72 suite CJS (~54s, thoát khác 0 nếu fail)
-bun run test:ts         # chạy 16 suite TypeScript
+bun run test            # chạy 78 suite CJS (~54s, thoát khác 0 nếu fail)
+bun run test:ts         # chạy 17 suite TypeScript
 bun run test:coverage   # chạy test + đo coverage (báo cáo HTML tại coverage/)
 bun run smoke:vps       # smoke test VPS (env + module + Convex + Discord login)
 ```
@@ -107,17 +107,17 @@ Coverage được đo bằng [`c8`](https://github.com/bcoe/c8) (V8 native, khô
 
 | Chỉ số          | Giá trị | Ý nghĩa                                                    |
 | --------------- | ------- | ---------------------------------------------------------- |
-| Dòng            | 88.1%   | phần lớn dòng `bot/src` được test chạm tới                 |
-| Hàm             | 93.6%   | 93% hàm được **gọi thật** (không chỉ import)               |
-| Nhánh (if/else) | 72.5%   | cả hai phía true/false của phần lớn điều kiện đã được kiểm |
+| Dòng            | 90.8%   | phần lớn dòng `bot/src` được test chạm tới                 |
+| Hàm             | 95.7%   | 96% hàm được **gọi thật** (không chỉ import)               |
+| Nhánh (if/else) | 74.6%   | cả hai phía true/false của phần lớn điều kiện đã được kiểm |
 
 **Bản đồ nhiệt theo file** (phần quan trọng nhất):
 
-- ✅ **≥ 80%** (đủ cả sàn theo file trong `scripts/check-coverage-floor.cjs`): `caseLog` (100%), `misfire`, `lang`, `dailyReport` (100%), `antinuke/shared` (99%), `ticketCore` (99,6%), `backupUtils` (97%), `messageCreate` (97%), `handlers/welcomeCard` (89,5%), `antinuke/raidIntel` (95%), `handlers/tickets` (99%), `ticketActivity` (100%), `ticketJobs` (93%), `moduleActions` (94,9%), `antiNuke/*` (82–96%), `threatEngine` (89%), `selfDiagnose` (89%), `altDetection` (80%) — **toàn bộ engine chống nuke + alt detection + ticket được phủ test trực tiếp**, đúng chỗ xử lý mọi vụ nuke thật.
-- ⚠️ **70–80%**: `joinGate` (72,9%), `heat` (76,4%), `register-slash` (72,3%), `localSnapshot` (83,4%) — luồng chính có test nhưng còn nhánh hiếm gặp chưa phủ.
+- ✅ **≥ 90%** (đều có sàn theo file trong `scripts/check-coverage-floor.cjs`): `util` (100%), `handlers/hidden` (100%), `ticketActivity` (100%), `register-slash` (100%), `ticketCore` (99,8%), `localSnapshot` (99,2%), `lockdown` (99,1%), `antinuke/shared` (99%), `handlers/tickets` (99%), `antinuke/raidIntel` (95%), `handlers/interactionCreate` (95,2%), `joinGate` (95,8%), `moduleActions` (94,9%), `ticketJobs` (93%), `heat` (92,6%) — **toàn bộ engine chống nuke + alt detection + ticket + lớp dẫn log được phủ test trực tiếp**, đúng chỗ xử lý mọi vụ nuke thật.
+- ⚠️ **80–90%**: `handlers/lang` (88,8%), `antinuke/externalApp` (88,7%), `antinuke/vandalBudget` (88,3%), `backupAudit` (88,2%), `actionBudget` (85,1%), `handlers/backup` (83,2%), `research` (82,7%), `antinuke/audit` (81,7%), `altDetection` (80,7%) — luồng chính có test nhưng còn nhánh hiếm gặp chưa phủ.
 - 🔴 **< 20%**: `antinuke/index` (13,9%) — entry-point nối cổng gateway Discord, phủ bằng `bun run smoke:vps` trên VPS thay vì unit test.
 
-> **Giới hạn cần biết**: c8 chỉ đo được code chạy dưới V8 — 16 suite `.ts` chạy bằng **Bun** nên **không** xuất hiện trong báo cáo (đó là giới hạn ĐO, không phải giới hạn TEST; ví dụ `test-welcome-card.ts` vẫn kiểm thẻ ảnh rất kỹ, và `test-welcome-card-render.cjs` chạy dưới node để c8 thấy). Dashboard `src/` và `convex/` hiện **chưa** được đo — đó là hạn chế của chuỗi c8+Bun, chưa phải lỗi cấu hình.
+> **Giới hạn cần biết**: c8 chỉ đo được code chạy dưới V8 — 17 suite `.ts` chạy bằng **Bun** nên **không** xuất hiện trong báo cáo (đó là giới hạn ĐO, không phải giới hạn TEST; ví dụ `test-welcome-card.ts` vẫn kiểm thẻ ảnh rất kỹ, và `test-welcome-card-render.cjs` chạy dưới node để c8 thấy). Dashboard `src/` và `convex/` hiện **chưa** được đo — đó là hạn chế của chuỗi c8+Bun, chưa phải lỗi cấu hình.
 
 **Chống regress bằng ngưỡng**: `.c8rc.json` đặt ngưỡng tối thiểu (lines 58 / functions 65 / branches 50) — nếu code mới làm rớt coverage xuống dưới ngưỡng, `bun run test:coverage` thất bại, chặn regress trước khi commit.
 
@@ -138,7 +138,7 @@ bun run format:check    # CI dùng lệnh này để chặn code chưa format
 
 **Dependabot** (`.github/dependabot.yml`) quét weekly: root `bun`, `bot/` (discord.js, convex) và `github-actions` — tự tạo PR cập nhật, group các bump minor/patch thành 1 PR. Bot bảo mật không được để deps cũ.
 
-**Thứ tự gate trong CI**: `lint` (ESLint + Prettier + check repo-map/hợp đồng bot⇄Convex/đa ngôn ngữ) → `test` (72 CJS + 16 TS suites + coverage + typecheck) → `deploy` Convex production. Job sau chỉ chạy khi job trước pass.
+**Thứ tự gate trong CI**: `lint` (ESLint + Prettier + check repo-map/hợp đồng bot⇄Convex/đa ngôn ngữ) → `test` (78 CJS + 17 TS suites + coverage + typecheck) → `deploy` Convex production. Job sau chỉ chạy khi job trước pass.
 
 ## Phát triển
 

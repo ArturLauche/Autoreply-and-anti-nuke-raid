@@ -266,6 +266,7 @@ export const EN: Record<string, string> = {
     "Only images (jpg/png/webp) or videos (mp4/webm) are supported",
   "Máy chủ AI đang lỗi tạm thời": "The AI server is temporarily down",
   "(xem ảnh)": "(see image)",
+  "Hãy mô tả ảnh này.": "Please describe this image.",
   "Không đọc được file": "Could not read the file",
   "Mô tả về ảnh…": "Describe the image…",
   "Hỏi tôi điều gì đó…": "Ask me anything…",
@@ -1136,6 +1137,16 @@ export const EN: Record<string, string> = {
   "Kênh ticket sẽ được tạo tự động bên trong danh mục này.":
     "Ticket channels are created automatically inside this category.",
   "Role xử lý ticket": "Role that handles tickets",
+  "Kênh dán panel mở ticket": "Channel for the ticket panel",
+  "Chọn kênh công khai…": "Choose a public channel…",
+  "Đã chọn kênh dán panel — bot sẽ gửi trong ~2 phút":
+    "Panel channel picked — the bot will post it in about 2 minutes",
+  "Thành viên bấm nút trong kênh này để tự mở ticket — không cần gõ lệnh /ticket. Chọn kênh xong bot tự dán trong ~2 phút.":
+    "Members tap a button in this channel to open a ticket — no /ticket command needed. The bot posts the panel within about 2 minutes of your choice.",
+  "⚠️ Bot không dán được panel mở ticket": "⚠️ The bot could not post the ticket panel",
+  '— hãy sửa lỗi rồi bấm "Gửi lại panel"': '— fix it, then hit "Send panel again"',
+  "Gửi lại panel mở ticket vào kênh": "Send the ticket panel again",
+  "Đã yêu cầu bot dán panel mở ticket!": "Asked the bot to post the ticket panel!",
   "Đã cập nhật role xử lý ticket": "Ticket role updated",
   "— Dùng role mod —": "— Use the mod role —",
   "Hiện tại: {p0}": "Currently: {p0}",
@@ -1211,4 +1222,41 @@ export const EN: Record<string, string> = {
     "Your language is auto-detected until you pick one.",
   "Xem ngôn ngữ hiện tại của bạn (không chọn = chỉ xem).":
     "See your current language (leave unset to only view it).",
+
+  /* ==== ticket: tuy chinh panel mo + loi dan + DM ==== */
+  "Tuỳ chỉnh panel mở ticket": "Customize the ticket panel",
+  "Sửa tiêu đề, màu và nội dung panel thành viên thấy trước khi bấm nút. Bot tự dán lại trong khoảng 2 phút và xoá bản cũ — không cần bấm gì thêm.":
+    "Change the title, color and text members see before tapping a button. The bot reposts within about 2 minutes and deletes the old panel — nothing else to click.",
+  "Tiêu đề panel (tuỳ chọn)": "Panel title (optional)",
+  "Cần trợ giúp?": "Need help?",
+  "Đã lưu tiêu đề panel": "Panel title saved",
+  "Màu panel": "Panel color",
+  "Chọn màu panel": "Pick a panel color",
+  "Đã về màu mặc định": "Back to the default color",
+  "Nội dung panel mở (tuỳ chọn)": "Open panel text (optional)",
+  "Bấm nút bên dưới, kể lại vấn đề của bạn. {server} đang có {open} ticket chờ.":
+    "Tap the button below and tell us what happened. {server} has {open} tickets waiting.",
+  "Đã lưu nội dung panel mở": "Open panel text saved",
+  "Dùng được: {server} tên server, {open} số ticket đang mở, {support} tên nút Hỗ trợ. Bỏ trống thì dùng nội dung mặc định.":
+    "Available: {server} server name, {open} number of open tickets, {support} the Support button label. Leave empty to use the default text.",
+  'Hiện nút "Khiếu nại hình phạt"': 'Show the "Appeal a punishment" button',
+  "Tắt nếu server bạn không dùng hình phạt — thành viên chỉ thấy một nút Hỗ trợ.":
+    "Turn this off if your server has no punishments — members then only see the Support button.",
+  "Đã hiện nút Khiếu nại": "Appeal button shown",
+  "Đã ẩn nút Khiếu nại": "Appeal button hidden",
+  "Lời dặn dán ở đầu kênh ticket (tuỳ chọn)":
+    "Note posted at the top of the ticket channel (optional)",
+  "Chào {user}! Bạn đang ở ticket #{number} của {server}. Staff phản hồi trong 24 giờ.":
+    "Hi {user}! You're in ticket #{number} of {server}. Staff replies within 24 hours.",
+  "Đã lưu lời dặn đầu kênh": "Channel note saved",
+  "Dán TRƯỚC nội dung khiếu nại, cho cả người mở lẫn staff đọc. Dùng được: {user} tên người mở, {number} số ticket, {server} tên server.":
+    "Posted BEFORE the request text, read by both the opener and staff. Available: {user} opener name, {number} ticket number, {server} server name.",
+  "Gửi DM cho người mở ticket": "DM the ticket opener",
+  "DM kèm link thẳng tới kênh ticket vừa tạo. Người đã tắt tin nhắn riêng sẽ không nhận được — ticket vẫn mở bình thường.":
+    "Sends a DM with a direct link to the new ticket channel. People with DMs off won't get it — the ticket still opens normally.",
+  "Sẽ DM khi mở ticket": "Will DM on ticket open",
+  "Không DM khi mở ticket": "No DM on ticket open",
+  "Đã lưu màu panel": "Panel color saved",
+  "Mã hex 6 chữ số, ví dụ #5865f2. Ô trống = màu mặc định của bot.":
+    "A 6-digit hex code, e.g. #5865f2. Leave empty to use the bot's default color.",
 };

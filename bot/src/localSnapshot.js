@@ -105,17 +105,20 @@ function writeLocalSnapshot(guildId, snapshot, now = Date.now()) {
   if (!snapshot || typeof snapshot !== "object") return null;
   const json = JSON.stringify(snapshot);
   if (!json || json.length < 10) return null;
-  const dir = guildDir(guildId);
-  const file = path.join(dir, `${now}.z`);
-  const tmp = `${file}.tmp`;
+  let tmp = null;
   try {
+    // `guildDir` tạo thư mục — PHẢI nằm trong try: đĩa đầy / mất quyền /
+    // đường dẫn bị chiếm bởi file đều làm mkdirSync ném, và hàm này hứa trả
+    // null chứ không ném (xem docstring). Trước đây lỗi này ném ra ngoài.
+    const file = path.join(guildDir(guildId), `${now}.z`);
+    tmp = `${file}.tmp`;
     fs.writeFileSync(tmp, zlib.deflateSync(Buffer.from(json, "utf8")));
     fs.renameSync(tmp, file);
     rotateLocalSnapshots(guildId);
     return { file, bytes: fs.statSync(file).size };
   } catch (e) {
     try {
-      fs.rmSync(tmp, { force: true });
+      if (tmp) fs.rmSync(tmp, { force: true });
     } catch {}
     console.error(`[localSnapshot] ghi ${guildId} lỗi:`, e?.message || e);
     return null;

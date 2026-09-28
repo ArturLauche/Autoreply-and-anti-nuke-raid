@@ -139,6 +139,14 @@ function aiProvider(): { key: string; baseUrl: string; model: string } | null {
 const FALLBACK_MODEL = "openai/gpt-oss-120b";
 
 /**
+ * Chỉ dẫn thay thế khi lượt cuối chỉ có ẢNH, không kèm chữ (người dùng chụp
+ * màn hình rồi bấm gửi). Một số provider từ chối content part text rỗng, và
+ * lượt rỗng cũng không bảo được model làm gì — dùng lượt chỉ dẫn mặc định
+ * giữ đúng ý "xem ảnh này giúp tôi".
+ */
+const IMAGE_ONLY_PROMPT = "Hãy mô tả và giải thích ảnh này.";
+
+/**
  * Fetch có giới hạn thời gian — gateway treo/DNS chết không được giữ action
  * sống vô hạn (Convex action có budget thời gian, treo = đốt tài nguyên).
  */
@@ -304,7 +312,6 @@ export const ask = action({
         reason: "AI chưa cấu hình trên máy chủ (thiếu AI_API_KEY/GROQ_API_KEY)",
       };
     const last = safeMessages[safeMessages.length - 1];
-    if (!last?.content?.trim()) return { reply: "", offline: true, reason: "Tin nhắn rỗng" };
 
     // VISION — validate ảnh: chỉ nhận data URL jpeg/png/webp, cap 3 ảnh × 550KB
     // (base64 ~737KB wire). LỰA CHỌN AN TOÀN: ảnh lỗi/không hợp lệ bị bỏ qua
@@ -317,6 +324,15 @@ export const ask = action({
       .filter((img) => img.dataUrl.length <= MAX_IMAGE_CHARS)
       .slice(0, MAX_IMAGES);
 
+    // Lượt cuối rỗng + KHÔNG có ảnh hợp lệ → không còn gì để hỏi, từ chối.
+    // Có ảnh thì KHÔNG từ chối: coi như lượt "mô tả ảnh này" (người dùng chụp
+    // màn hình rồi bấm gửi, không gõ chữ). Trước đây từ chối ở đây khiến ảnh
+    // bị bỏ rơi hoàn toàn — web báo "AI chưa phản hồi — Tin nhắn rỗng" rồi
+    // trả lời bằng kiến thức cục bộ (bug thật 27/09/2026).
+    if (!last?.content?.trim() && validImages.length === 0) {
+      return { reply: "", offline: true, reason: "Tin nhắn rỗng" };
+    }
+
     const history = safeMessages.map((m, i) => {
       // Chỉ tin nhắn user CUỐI được ghép ảnh (mô hình vision chuẩn OpenAI:
       // history text thuần, ảnh nằm trong turn hiện tại).
@@ -326,7 +342,7 @@ export const ask = action({
       return {
         role: m.role,
         content: [
-          { type: "text", text: m.content } as const,
+          { type: "text", text: m.content.trim() || IMAGE_ONLY_PROMPT } as const,
           ...validImages.map(
             (img) => ({ type: "image_url", image_url: { url: img.dataUrl } }) as const,
           ),
