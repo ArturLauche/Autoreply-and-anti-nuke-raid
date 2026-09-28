@@ -1,4 +1,4 @@
-import { BotFaceIcon } from "./BotLogo";
+import { WhaleIcon } from "./BotLogo";
 import { cn } from "../lib/utils";
 import { translate } from "../lib/i18n";
 import { Skeleton } from "./ui/skeleton";
@@ -11,7 +11,7 @@ export interface PageSplashProps {
 
 /**
  * Màn hình tải trang / route thống nhất:
- * - Logo bot vector mới (nền rounded-square đen, hình học rõ).
+ * - Logo cá voi vector mới (nền rounded-square đen, tương phản đen/trắng cao).
  * - Thanh tiến trình mảnh với chu kỳ 1.1s (≤ 1.2s).
  * - Không layout shift: kích thước cố định.
  * - Tôn trọng @media (prefers-reduced-motion: reduce): tắt animation.
@@ -33,7 +33,7 @@ export default function PageSplash({
       )}
     >
       <div className="relative mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-neutral-950 p-2 shadow-sm ring-1 ring-border/50 motion-reduce:animate-none">
-        <BotFaceIcon className="h-full w-full" />
+        <WhaleIcon className="h-full w-full" />
       </div>
 
       {/* Thanh tiến trình mảnh: chiều cao 2px, rộng 140px, vòng lặp 1.1s */}

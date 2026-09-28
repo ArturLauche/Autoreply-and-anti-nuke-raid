@@ -621,10 +621,20 @@ check(
   Number.isFinite(bootTrackHeightPx) && bootTrackHeightPx > 0 && bootTrackHeightPx <= 4,
   `height=${Number.isFinite(bootTrackHeightPx) ? bootTrackHeightPx : "?"}px`,
 );
+// Logo cá voi: MỘT hình, BA nơi (favicon.svg + component web + preloader).
+// Comment ở BotLogo.tsx đã từng cảnh báo đúng cái bẫy "nhiều bản chép lệch
+// nhau" — khoá bằng chính path thân cá voi, lệch một chỗ là đỏ ngay.
+const WHALE_BODY =
+  "M9 34C9 25.5 18 21 28.5 21C37 21 43.5 24 46 29V39C43.5 44 37 47 28.5 47C18 47 9 42.5 9 34Z";
+const faviconSrc = fs.readFileSync(path.join(ROOT, "public", "favicon.svg"), "utf8");
+const botLogoSrc = files.get("components/BotLogo.tsx") ?? "";
 check(
-  "preloader có logo thương hiệu (khối bo góc + mặt robot dạng SVG)",
-  /class="boot-logo"/.test(html) && /<svg[\s\S]*?<rect[\s\S]*?rx="20"/.test(html),
+  "preloader có logo thương hiệu (khối bo góc + SVG)",
+  /class="boot-logo"/.test(html) && /<svg[\s\S]*?<rect[\s\S]*?rx="16"/.test(html),
 );
+check("logo cá voi có trong favicon.svg", faviconSrc.includes(WHALE_BODY));
+check("logo cá voi có trong BotLogo.tsx (web)", botLogoSrc.includes(WHALE_BODY));
+check("logo cá voi có trong preloader (index.html)", html.includes(WHALE_BODY));
 check(
   "preloader có vệt ánh sáng chạy trên thanh (animation CSS)",
   /\.boot-fill::after\s*\{/.test(html) && /@keyframes boot-sheen/.test(html),

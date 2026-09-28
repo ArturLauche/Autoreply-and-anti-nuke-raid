@@ -3,11 +3,13 @@ import { useBranding } from "../lib/useBranding";
 import { cn } from "../lib/utils";
 
 /**
- * Biểu tượng mặt bot vector tối giản đồng bộ với favicon.svg:
- * - Hình học sắc nét, nét dày đều 4px trên canvas 64x64.
- * - Nền rounded-square đen với điểm nhấn từ token primary.
+ * Logo mặc định của Protogon: CÁ VOI vector tối giản (thay mặt bot cũ).
+ * - Trắng trên nền rounded-square đen: tương phản đen/trắng rõ nét ở mọi cỡ,
+ *   kể cả favicon 16–20px.
+ * - Cùng MỘT hình (path y hệt) với public/favicon.svg và preloader trong
+ *   index.html — đổi hình phải sửa cả ba, scripts/test-web-contracts.cjs chốt hạ.
  */
-export function BotFaceIcon({ className }: { className?: string }) {
+export function WhaleIcon({ className }: { className?: string }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -17,44 +19,15 @@ export function BotFaceIcon({ className }: { className?: string }) {
       aria-hidden="true"
     >
       <rect width="64" height="64" rx="16" fill="#09090b" />
-      {/* Ăng-ten */}
-      <line
-        x1="32"
-        y1="11"
-        x2="32"
-        y2="18"
-        stroke="#ffffff"
-        strokeWidth="4"
-        strokeLinecap="round"
+      {/* Thân cá voi (đầu tròn bên trái) */}
+      <path
+        d="M9 34C9 25.5 18 21 28.5 21C37 21 43.5 24 46 29V39C43.5 44 37 47 28.5 47C18 47 9 42.5 9 34Z"
+        fill="#ffffff"
       />
-      <circle cx="32" cy="9" r="3.5" fill="#ffffff" />
-      {/* Khớp tai hai bên */}
-      <rect x="7" y="27" width="5" height="12" rx="2.5" fill="#ffffff" />
-      <rect x="52" y="27" width="5" height="12" rx="2.5" fill="#ffffff" />
-      {/* Khung đầu mặt bot */}
-      <rect
-        x="12"
-        y="18"
-        width="40"
-        height="32"
-        rx="9"
-        fill="#18181b"
-        stroke="#ffffff"
-        strokeWidth="4"
-      />
-      {/* Mắt hình học */}
-      <rect x="20" y="27" width="8" height="8" rx="4" fill="#ffffff" />
-      <rect x="36" y="27" width="8" height="8" rx="4" fill="#ffffff" />
-      {/* Vạch tín hiệu / miệng */}
-      <line
-        x1="24"
-        y1="41"
-        x2="40"
-        y2="41"
-        stroke="#ffffff"
-        strokeWidth="3.5"
-        strokeLinecap="round"
-      />
+      {/* Đuôi hai thuỳ */}
+      <path d="M44 28 L58 17 L50 34 L58 49 L44 39 Z" fill="#ffffff" />
+      {/* Mắt (khoét nền cho tương phản) */}
+      <circle cx="17" cy="32" r="2.4" fill="#09090b" />
     </svg>
   );
 }
@@ -108,7 +81,7 @@ export default function BotLogo({
         className,
       )}
     >
-      <BotFaceIcon className={cn("h-full w-full", fallbackClassName)} />
+      <WhaleIcon className={cn("h-full w-full", fallbackClassName)} />
     </span>
   );
 }

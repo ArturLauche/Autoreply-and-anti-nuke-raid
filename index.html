@@ -69,9 +69,10 @@
 
       Nhân vật pixel chạy trên thanh đã BỎ (28/09/2026). Ở cỡ vẽ được trên
       thanh nó không đọc ra hình người, chỉ tốn 60 lần dựng lại lưới mỗi giây
-      để nhấp nháy — rối mắt mà không nói thêm gì. Thay vào đó: LOGO thương
-      hiệu (khối bo góc + mặt robot, cùng phong cách og-image.svg), thanh MẢNH
-      (4px) và một VỆT SÁNG chạy dọc thanh thuần CSS. ĐỪNG dựng lại nhân vật.
+      để nhấp nháy — rối mắt mà không nói thêm gì. Thay vào đó: LOGO CÁ VOI
+      trắng/đen tương phản rõ nét (cùng hình với favicon.svg + BotLogo.tsx),
+      thanh MẢNH (4px) và một VỆT SÁNG chạy dọc thanh thuần CSS. ĐỪNG dựng lại
+      nhân vật.
     -->
     <style>
       #boot {
@@ -99,8 +100,8 @@
       #boot[data-boot="dark"] {
         background: #0a0a0a;
         color: #ededed;
-        /* Đảo khối logo (nền sáng, robot tối — đúng og-image) và cho vệt sáng
-           trắng đặc để còn đọc ra trên thanh xám. */
+        /* Đảo khối logo (nền sáng, cá voi tối) và cho vệt sáng trắng đặc để
+           còn đọc ra trên thanh xám. */
         --boot-mark-bg: #f5f5f5;
         --boot-mark-fg: #111111;
         --boot-sheen: #ffffff;
@@ -229,15 +230,14 @@
     >
       <div class="boot-in">
         <span class="boot-logo" aria-hidden="true">
-          <svg viewBox="0 0 86 86" focusable="false">
-            <rect width="86" height="86" rx="20" fill="var(--boot-mark-bg)" />
+          <svg viewBox="0 0 64 64" focusable="false">
+            <rect width="64" height="64" rx="16" fill="var(--boot-mark-bg)" />
             <path
-              d="M27 13C16 13 9 21 9 32v25c0 5 4 9 9 9h5l3 8h17l3-8h5c5 0 9-4 9-9V32c0-11-7-19-18-19Z"
+              d="M9 34C9 25.5 18 21 28.5 21C37 21 43.5 24 46 29V39C43.5 44 37 47 28.5 47C18 47 9 42.5 9 34Z"
               fill="var(--boot-mark-fg)"
             />
-            <circle cx="29" cy="38" r="6" fill="var(--boot-mark-bg)" />
-            <circle cx="55" cy="38" r="6" fill="var(--boot-mark-bg)" />
-            <rect x="37" y="49" width="10" height="5" rx="2.5" fill="var(--boot-mark-bg)" />
+            <path d="M44 28 L58 17 L50 34 L58 49 L44 39 Z" fill="var(--boot-mark-fg)" />
+            <circle cx="17" cy="32" r="2.4" fill="var(--boot-mark-bg)" />
           </svg>
         </span>
         <p class="boot-mark">Protogon.</p>
