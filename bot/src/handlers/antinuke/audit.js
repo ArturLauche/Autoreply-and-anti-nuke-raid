@@ -52,7 +52,39 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
       console.error(`[antinuke:hooks:${module}]`, e.message);
     }
   }
-  const { recordEvent, record, markHandled, wasHandled, auditExecutor } = state;
+  const { recordEvent, record, recordExempt, markHandled, wasHandled, auditExecutor } = state;
+
+  /**
+   * Owner/whitelist/admin vượt ngưỡng: bot cố ý KHÔNG phạt nhóm này (tránh
+   * phạt oan chủ server/mod hợp pháp) nhưng hành vi nuke vẫn phải báo owner —
+   * kẻ có quyền quản lý phá server là tình huống sống còn, và owner là người
+   * duy nhất gỡ được quyền/whitelist.
+   *
+   * Dùng `recordExempt` (bucket riêng theo executor) chứ không `record()`:
+   * bucket của record() gộp mọi executor theo `guildId:module`, nên hành vi
+   * của người được miễn sẽ vô tình đẩy ngưỡng phạt của người khác lên.
+   */
+  async function alertPrivilegedExecutor(guild, config, executor, module, moduleCfg) {
+    if (!executor || executor.id === client.user.id) return;
+    const count = recordExempt(guild.id, module, moduleCfg, executor.id);
+    const em = await guild.members.fetch(executor.id).catch(() => null);
+    const privileged =
+      executor.id === guild.ownerId ||
+      (config?.whitelistUsers || []).includes(executor.id) ||
+      (em &&
+        (em.permissions?.has?.(PermissionFlagsBits.Administrator) ||
+          (config?.adminRoles || []).some((id) => em.roles?.cache.has(id))));
+    if (privileged && count >= moduleCfg.threshold) {
+      void alertOwner(client, store, {
+        guild,
+        module,
+        summary: MODULE_LABELS[module] + " — " + count + " lượt (nhóm miễn trừ)",
+        executorId: executor.id,
+        executorName: executor.username,
+        privileged: true,
+      });
+    }
+  }
   const { joiners, lastConfigs, staleUnlockSwept } = state.state;
   const { punishWithHeat, maybeLockdown } = core;
   const { clusterStats } = ai;
@@ -134,31 +166,21 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
     if (!moduleCfg || !moduleCfg.enabled) return;
 
     const executor = await auditExecutor(guild, eventType, targetId);
-    if (executor && (executor.id === client.user.id || isExempt(executor, moduleCfg, config))) {
-      // Privileged alert: owner/whitelist/admin vượt ngưỡng → bot cố ý KHÔNG
-      // phạt nhóm này, nhưng hành vi nuke vẫn phải báo owner biết (kẻ có quyền
-      // quản lý phá server là tình huống sống còn — owner là người duy nhất
-      // gỡ được quyền/whitelist). record() chỉ để theo dõi ngưỡng, không phạt.
-      if (executor.id !== client.user.id) {
-        const privilegedCount = record(guild.id, module, moduleCfg);
-        const em = await guild.members.fetch(executor.id).catch(() => null);
-        const privileged =
-          executor.id === guild.ownerId ||
-          (config?.whitelistUsers || []).includes(executor.id) ||
-          (em &&
-            (em.permissions?.has?.(PermissionFlagsBits.Administrator) ||
-              (config?.adminRoles || []).some((id) => em.roles?.cache.has(id))));
-        if (privileged && privilegedCount >= moduleCfg.threshold) {
-          void alertOwner(client, store, {
-            guild,
-            module,
-            summary: MODULE_LABELS[module] + " — " + privilegedCount + " lượt (nhóm miễn trừ)",
-            executorId: executor.id,
-            executorName: executor.username,
-            privileged: true,
-          });
-        }
-      }
+    // `entry.executor` từ audit log là User THÔ — không có roles/permissions,
+    // nên isExempt(User) luôn false và admin/mod bị phạt oan ở đường này (đường
+    // handleAuditEntry đã fetch member trước nên không dính lỗi tương tự).
+    // Phải tra member TRƯỚC khi quyết định miễn trừ.
+    const executorMember = executor
+      ? await guild.members.fetch(executor.id).catch(() => null)
+      : null;
+    if (
+      executor &&
+      (executor.id === client.user.id || isExempt(executorMember ?? executor, moduleCfg, config))
+    ) {
+      // Owner/whitelist/admin vượt ngưỡng: bot cố ý KHÔNG phạt nhóm này, nhưng
+      // hành vi nuke vẫn phải báo owner biết (kẻ có quyền quản lý phá server
+      // là tình huống sống còn — owner là người duy nhất gỡ được quyền).
+      await alertPrivilegedExecutor(guild, config, executor, module, moduleCfg);
       return; // whitelisted / self — fully ignore
     }
     // Owner + whitelist toàn cục: miễn NGAY CẢ KHI executor là User thô (không có
@@ -181,12 +203,9 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
     const count = record(guild.id, module, moduleCfg);
     // Bot gây hại: hạ ngưỡng xuống 1 — bot nuke bị xử lý NGAY ở lần đầu,
     // không chờ đủ ngưỡng như người dùng (audit vẫn cho biết thủ phạm là bot).
-    // Bot gây hại (vừa được thêm vào server): xử lý NGAY ở lần đầu.
     // Bot tin cậy (xác minh / đã ở lại server >= 7 ngày — Carl-bot, Dyno, Wick…)
     // làm moderation bình thường → đi theo ngưỡng thường, không bị ban oan.
-    const executorMember = executor
-      ? await guild.members.fetch(executor.id).catch(() => null)
-      : null;
+    // `executorMember` đã tra sẵn ở trên (cần cho quyết định miễn trừ).
     const executorIsHostileBot =
       executor?.bot === true && !isTrustedBotMember(executorMember ?? executor, guild);
     const effectiveThreshold =
@@ -347,7 +366,15 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
         }
       }
     }
-    if (exempt) return;
+    if (exempt) {
+      // Owner/whitelist/admin vượt ngưỡng: bot KHÔNG phạt (tránh phạt oan), nhưng
+      // hành vi nuke vẫn phải DM owner — cùng nguyên tắc với handleAttributeEvent.
+      // Thiếu nhánh này thì mod có quyền xoá hàng loạt kênh/role sẽ KHÔNG để lại
+      // dấu vết nào cho owner (massChannelDelete là vector nuke nghiêm trọng nhất
+      // sau massBan và chỉ đi qua đường audit này).
+      await alertPrivilegedExecutor(guild, config, executor, module, moduleCfg);
+      return;
+    }
 
     const count = record(guild.id, module, moduleCfg);
     // Bot gây hại: hạ ngưỡng xuống 1 — bot nuke bị xử lý NGAY ở lần đầu,
@@ -593,14 +620,34 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
       case AuditLogEvent.InviteCreate:
         return { module: "massInviteCreate", describeTarget: "Tạo link mời mới" };
       case AuditLogEvent.GuildUpdate: {
+        // Danh sách key Discord phát khi GUILD_UPDATE. Bản cũ chỉ có key
+        // "trang trí" (tên/icon/splash) + mfa/verification nên BỎ SÓT các bước
+        // chiếm quyền server: chuyển owner_id (mất trọn server), trỏ
+        // system/rules/AFK channel sang kênh của kẻ raid (mọi thành viên mới
+        // phải đọc), tắt explicit_content_filter. Cùng hành vi "đổi cấu hình
+        // server" mà module guildTamper cấu hình sẵn punish=ban.
         const tampered = changes.filter((k) =>
           [
             "name",
+            "description",
             "icon_hash",
+            "splash_hash",
+            "discovery_splash_hash",
+            "banner_hash",
             "mfa_level",
             "verification_level",
             "region",
-            "splash_hash",
+            "preferred_locale",
+            "owner_id",
+            "system_channel_id",
+            "system_channel_flags",
+            "afk_channel_id",
+            "afk_timeout",
+            "rules_channel_id",
+            "public_updates_channel_id",
+            "safety_alerts_channel_id",
+            "explicit_content_filter",
+            "default_message_notifications",
           ].includes(k),
         );
         if (tampered.length > 0) {

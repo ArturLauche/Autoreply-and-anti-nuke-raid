@@ -16,6 +16,12 @@ module.exports = function createAntiNukeState({ client, store }) {
     }
   }
   const buckets = new Map(); // `${guildId}:${module}` -> [timestamps]
+  // Nhánh MIỄN TRỪ (owner/whitelist/admin): đếm riêng theo từng executor.
+  // `buckets` gộp mọi người vào cùng một số đếm — nếu nhánh miễn trừ cũng
+  // đếm vào đó thì hành vi của mod được miễn sẽ vô tình vũ khí hóa ngưỡng
+  // phạt của người khác (mod tạo 2 webhook → raider tạo webhook đầu tiên
+  // bị phạt oan). Số ở đây chỉ quyết định có DM cảnh báo owner hay không.
+  const exemptBuckets = new Map(); // `${guildId}:${module}:${executorId}` -> [timestamps]
   const joiners = new Map(); // guildId -> [{id, ts}]
   const spamBuckets = new Map(); // `${guildId}:${userId}` -> [timestamps]
   const patternBuckets = new Map(); // `${guildId}:${userId}:${pattern}` -> [timestamps]
@@ -49,6 +55,22 @@ module.exports = function createAntiNukeState({ client, store }) {
     const cutoff = now - cfg.windowSeconds * 1000;
     const pruned = arr.filter((t) => t >= cutoff);
     buckets.set(key, pruned);
+    return pruned.length;
+  }
+
+  /**
+   * Đếm hành vi riêng của MỘT executor được miễn trừ (owner/whitelist/admin).
+   * Tách bucket khỏi `record()` để không đè ngưỡng phạt của người khác — xem
+   * giải thích ở khai báo `exemptBuckets`.
+   */
+  function recordExempt(guildId, module, cfg, executorId) {
+    const key = `${guildId}:${module}:${executorId}`;
+    const arr = exemptBuckets.get(key) ?? [];
+    const now = Date.now();
+    arr.push(now);
+    const cutoff = now - cfg.windowSeconds * 1000;
+    const pruned = arr.filter((t) => t >= cutoff);
+    exemptBuckets.set(key, pruned);
     return pruned.length;
   }
 
@@ -136,6 +158,16 @@ module.exports = function createAntiNukeState({ client, store }) {
     for (const [key] of buckets) {
       const guildId = key.split(":")[0];
       if (!live.has(guildId)) buckets.delete(key);
+    }
+    for (const [key, arr] of exemptBuckets) {
+      const guildId = key.split(":")[0];
+      if (!live.has(guildId)) {
+        exemptBuckets.delete(key);
+        continue;
+      }
+      const fresh = arr.filter((t) => t >= stale);
+      if (fresh.length === 0) exemptBuckets.delete(key);
+      else exemptBuckets.set(key, fresh);
     }
     // Chống rò rỉ RAM: ngoài việc xóa guild đã rời, còn loại luôn entry cũ
     // quá 10 phút của guild ĐANG hoạt động (trước đây cứ tích lại mãi).
@@ -237,10 +269,15 @@ module.exports = function createAntiNukeState({ client, store }) {
       const keys = [...buckets.keys()].slice(0, buckets.size - BUCKET_MAX);
       for (const k of keys) buckets.delete(k);
     }
+    if (exemptBuckets.size > BUCKET_MAX) {
+      const keys = [...exemptBuckets.keys()].slice(0, exemptBuckets.size - BUCKET_MAX);
+      for (const k of keys) exemptBuckets.delete(k);
+    }
   }
   return {
     recordEvent,
     record,
+    recordExempt,
     markHandled,
     wasHandled,
     appUserHandledRecently,
@@ -252,6 +289,7 @@ module.exports = function createAntiNukeState({ client, store }) {
     sweepMemory,
     state: {
       buckets,
+      exemptBuckets,
       joiners,
       spamBuckets,
       patternBuckets,

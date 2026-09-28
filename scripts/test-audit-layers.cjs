@@ -47,6 +47,7 @@ module.exports = {
     mutations: [],
     unlockEdits: [],
     heatResets: [],
+    ownerDms: [],
   };
 
   function baseConfig(overrides = {}) {
@@ -215,7 +216,19 @@ module.exports = {
   const createEnforce = require("../bot/src/handlers/antinuke/enforce");
   const createAudit = require("../bot/src/handlers/antinuke/audit");
 
-  let client = { user: { id: "bot-self" }, guilds: { cache: new Map() }, on: () => {} };
+  let client = {
+    user: { id: "bot-self" },
+    guilds: { cache: new Map() },
+    // ownerAlert DM chủ server — kênh không xoá được từ trong server.
+    users: {
+      fetch: async () => ({
+        send: async (opts) => {
+          calls.ownerDms.push(opts);
+        },
+      }),
+    },
+    on: () => {},
+  };
   const state = createState({ client, store });
   const realAi = createAi({ state });
   const ai = {
@@ -595,6 +608,197 @@ module.exports = {
       "trả về mô tả 'không phạt thành viên' + chosen=null",
       res.chosen === null && String(res.action).includes("không phạt thành viên"),
       JSON.stringify(res),
+    );
+  }
+
+  // ── 14. routeAuditEntry: GUILD_UPDATE phải bắt được bước CHIẾM QUYỀN server ──
+  // Danh sách key cũ chỉ có key "trang trí" (tên/icon/splash) + mfa/verification.
+  // `owner_id` (chuyển quyền sở hữu server) và `system_channel_id` /
+  // `rules_channel_id` (trỏ sang kênh scam cho mọi thành viên mới) rơi ngoài
+  // danh sách nên im lặng hoàn toàn — trong khi module guildTamper cấu hình sẵn
+  // punish=ban và nằm trong nhóm rollback cấu trúc.
+  {
+    clear();
+    const gid = "g-tamper";
+    const guild = makeGuild(gid, []);
+    const AE = require("discord.js").AuditLogEvent;
+    const routeKey = (key) =>
+      audit.routeAuditEntry({ action: AE.GuildUpdate, target: null, changes: [{ key }] }, guild);
+    for (const key of [
+      "owner_id",
+      "system_channel_id",
+      "rules_channel_id",
+      "afk_channel_id",
+      "public_updates_channel_id",
+      "explicit_content_filter",
+      "description",
+      "banner_hash",
+    ]) {
+      const r = await routeKey(key);
+      check(`GuildUpdate doi \`${key}\` → guildTamper`, r?.module === "guildTamper");
+    }
+    const benign = await routeKey("premium_tier");
+    check("GuildUpdate doi thuoc tinh vo hai → khong bat nham", benign === null);
+    const mixed = await audit.routeAuditEntry(
+      {
+        action: AE.GuildUpdate,
+        target: null,
+        changes: [{ key: "premium_tier" }, { key: "owner_id" }],
+      },
+      guild,
+    );
+    check(
+      "GuildUpdate lẫn key vo hai + key chiem quyen → van guildTamper",
+      mixed?.module === "guildTamper",
+    );
+  }
+
+  // ── 15. handleAuditEntry: nguoi co quyen vuot nguong → canh bao owner ──
+  // handleAttributeEvent đã DM owner khi thủ phạm là người được miễn, nhưng
+  // đường audit (xoá kênh, thêm bot, sửa role, đổi cấu hình server…) lại
+  // `if (exempt) return` trần im lặng. Hậu quả: mod có quyền xoá 20 kênh →
+  // owner KHÔNG nhận tín hiệu nào, dù massChannelDelete là vector nuke nghiêm
+  // trọng nhất sau massBan.
+  {
+    clear();
+    const { _ownerAlertForTest } = require("../bot/src/handlers/antinuke/ownerAlert");
+    _ownerAlertForTest();
+    const gid = "g-privileged-audit";
+    const mod = makeMember("mod-priv", { admin: true });
+    const guild = makeGuild(gid, [mod]);
+    configs.set(
+      gid,
+      baseConfig({
+        modules: [
+          {
+            module: "massChannelDelete",
+            enabled: true,
+            threshold: 2,
+            windowSeconds: 10,
+            punish: "ban",
+            timeoutSeconds: 600,
+            actions: ["ban"],
+            whitelistRoles: [],
+          },
+        ],
+      }),
+    );
+    client.guilds.cache.set(gid, guild);
+    const entry = { executor: makeExecutorUser("mod-priv"), target: { id: "ch-1" }, changes: [] };
+    await audit.handleAuditEntry(entry, guild, "massChannelDelete", "#general");
+    await audit.handleAuditEntry(entry, guild, "massChannelDelete", "#random");
+    await new Promise((r) => setImmediate(r));
+    check(
+      "mod duoc mien: bot khong phat",
+      !calls.memberBans.includes("mod-priv") && calls.events.length === 0,
+      JSON.stringify(calls.memberBans),
+    );
+    check(
+      "mod vuot nguong → DM owner (privileged)",
+      calls.ownerDms.length === 1,
+      `ownerDms=${calls.ownerDms.length}`,
+    );
+    const dmText = calls.ownerDms[0]?.embeds?.[0]?.d?.description ?? "";
+    check("DM ghi ro thu pham de owner go quyen", dmText.includes("<@mod-priv>"), dmText);
+    check("DM nói rõ bot không phat (chống hiểu nhầm)", dmText.includes("không phạt"), dmText);
+  }
+
+  // ── 16. Bộ đếm ngưỡng phải tách theo từng executor ──
+  // `record()` gộp mọi người vào cùng bucket `${guildId}:${module}`. Nếu nhánh
+  // "được miễn" cũng đếm vào đó thì mod tạo 2 webhook sẽ đẩy bộ đếm lên ngưỡng
+  // và raider tạo webhook ĐẦU TIÊN bị phạt oan. Nhánh miễn trừ phải đếm ở
+  // bucket riêng theo executor.
+  {
+    clear();
+    const { _ownerAlertForTest } = require("../bot/src/handlers/antinuke/ownerAlert");
+    _ownerAlertForTest();
+    const gid = "g-bucket";
+    const mod = makeMember("mod-bucket", { admin: true });
+    const raider = makeMember("raider-bucket");
+    const guild = makeGuild(gid, [mod, raider]);
+    configs.set(
+      gid,
+      baseConfig({
+        modules: [
+          {
+            module: "massWebhookCreate",
+            enabled: true,
+            threshold: 2,
+            windowSeconds: 10,
+            punish: "ban",
+            timeoutSeconds: 600,
+            actions: ["ban"],
+            whitelistRoles: [],
+          },
+        ],
+      }),
+    );
+    client.guilds.cache.set(gid, guild);
+    const webhookEntry = (id) => ({
+      executor: makeExecutorUser(id),
+      target: { id: "w" },
+      changes: [],
+    });
+    await audit.handleAuditEntry(webhookEntry("mod-bucket"), guild, "massWebhookCreate", "w1");
+    await audit.handleAuditEntry(webhookEntry("mod-bucket"), guild, "massWebhookCreate", "w2");
+    await audit.handleAuditEntry(webhookEntry("raider-bucket"), guild, "massWebhookCreate", "w3");
+    await new Promise((r) => setImmediate(r));
+    check(
+      "nguoi duoc mien spam khong vu khi hoa nguong cua nguoi khac",
+      !calls.memberBans.includes("raider-bucket"),
+      JSON.stringify(calls.memberBans),
+    );
+  }
+
+  // ── 17. handleAttributeEvent: cảnh báo owner vẫn còn (chặn hồi quy) ──
+  {
+    clear();
+    const { _ownerAlertForTest } = require("../bot/src/handlers/antinuke/ownerAlert");
+    _ownerAlertForTest();
+    const gid = "g-privileged-attr";
+    const mod = makeMember("mod-attr", { admin: true });
+    const guild = makeGuild(
+      gid,
+      [mod],
+      [{ executor: makeExecutorUser("mod-attr"), target: { id: "ch-1" } }],
+    );
+    configs.set(
+      gid,
+      baseConfig({
+        modules: [
+          {
+            module: "massChannelCreate",
+            enabled: true,
+            threshold: 2,
+            windowSeconds: 10,
+            punish: "ban",
+            timeoutSeconds: 600,
+            actions: ["ban"],
+            whitelistRoles: [],
+          },
+        ],
+      }),
+    );
+    client.guilds.cache.set(gid, guild);
+    // auditExecutor tra thu pham theo targetId → phai khop `target.id` cua entry.
+    const attr = (n) => ({
+      guild,
+      module: "massChannelCreate",
+      eventType: "GuildChannelCreate",
+      targetId: "ch-1",
+      describeTarget: "#k" + n,
+    });
+    await audit.handleAttributeEvent(attr(1));
+    await audit.handleAttributeEvent(attr(2));
+    await new Promise((r) => setImmediate(r));
+    check(
+      "handleAttributeEvent: mod vuot nguong → DM owner (khong hoi quy)",
+      calls.ownerDms.length === 1,
+      `ownerDms=${calls.ownerDms.length}`,
+    );
+    check(
+      "handleAttributeEvent: mod duoc mien thi khong phat",
+      !calls.memberBans.includes("mod-attr"),
     );
   }
 
