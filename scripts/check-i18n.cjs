@@ -23,7 +23,9 @@
  *   5. Key DE không có bản EN tương ứng (bản dịch mồ côi).
  *
  * Dùng: node scripts/check-i18n.cjs
- *       node scripts/check-i18n.cjs --all   # in HẾT danh sách việc còn lại
+ *       node scripts/check-i18n.cjs --all        # in HẾT danh sách việc còn lại
+ *       node scripts/check-i18n.cjs --self-test  # tự dựng bug thật, chứng minh
+ *                                                # cổng bắt được và không báo nhầm
  */
 
 const fs = require("fs");
@@ -557,6 +559,252 @@ const deadKeys = [...enKeys].filter((k) => {
   const escaped = JSON.stringify(k).slice(1, -1);
   return !allCode.includes(escaped);
 });
+
+// ─── Tự kiểm: cổng này có thật sự bắt lỗi không ───────────────────────────
+// Nguyên tắc: một luật luôn xanh thì vô dụng, và một luật báo nhầm thì agent
+// sẽ tắt cảng. Nên mỗi luật CỨNG đều có case dựng lại đúng lỗi từng xảy ra,
+// cộng một case "bản sạch" phải xanh (chứng minh không báo nhầm).
+//
+// Cố tình chạy CÁCH LY: dựng cây thư mục tối thiểu, chạy chính script này bằng
+// process con, rồi xoá. Không dùng require() nội bộ vì script đọc SRC/CONVEX từ
+// đường dẫn gốc — chạy lại trong thư mục tạm là cách duy nhất không phá cây
+// repo thật khi thử lỗi.
+//
+// Trọng tâm là phần "bản dịch chết": dọn từ điển mà sợ xoá nhầm là lý do
+// người ta KHÔNG dọn. Case cuối chứng minh key chỉ còn dùng ở convex/ (backend
+// sinh chuỗi, web dịch lúc render) không bị báo là chết.
+if (process.argv.includes("--self-test")) {
+  const { spawnSync } = require("child_process");
+  const os = require("os");
+
+  /** Khoá có sẵn trong cây tối thiểu — mỗi khoá phục vụ một tình huống. */
+  const BASE_KEYS = {
+    "Khoá dùng trong code": "Key used in code",
+    "Khoá dùng ở backend": "Key used in backend",
+    "Khoá đã chết": "Dead key",
+    "Khoá nhãn dữ liệu": "Data label",
+  };
+  const BASE_APP =
+    'import { translate } from "./lib/i18n";\n' +
+    "\n" +
+    "export function App() {\n" +
+    "  return (\n" +
+    "    <div>\n" +
+    '      <button>{translate("Khoá dùng trong code")}</button>\n' +
+    "    </div>\n" +
+    "  );\n" +
+    "}\n";
+  const BASE_MODULES =
+    'export const MODULES = [{ id: "anticheat", label: "Khoá nhãn dữ liệu" }];\n';
+
+  /** Dựng cây tối thiểu rồi chạy chính script này trong đó. */
+  function runGate({ en = {}, de = null, files = {}, real = false }) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "i18n-selftest-"));
+    try {
+      fs.mkdirSync(path.join(dir, "scripts"), { recursive: true });
+      fs.copyFileSync(__filename, path.join(dir, "scripts", "check-i18n.cjs"));
+      // script require("typescript") — nối tới node_modules gốc thay vì copy 23MB.
+      fs.symlinkSync(path.join(ROOT, "node_modules"), path.join(dir, "node_modules"), "dir");
+      if (real) {
+        fs.cpSync(path.join(ROOT, "src"), path.join(dir, "src"), { recursive: true });
+        fs.cpSync(path.join(ROOT, "convex"), path.join(dir, "convex"), { recursive: true });
+        for (const [rel, content] of Object.entries(files)) {
+          const full = path.join(dir, rel);
+          fs.mkdirSync(path.dirname(full), { recursive: true });
+          fs.writeFileSync(full, content);
+        }
+      } else {
+        const dict = { ...BASE_KEYS, ...en };
+        const deDict = de || dict;
+        const dump = (obj) =>
+          "export const dict = {\n" +
+          Object.entries(obj)
+            .map(([k, v]) => "  " + JSON.stringify(k) + ": " + JSON.stringify(v) + ",\n")
+            .join("") +
+          "};\n";
+        const all = {
+          "src/lib/i18n.en.ts": dump(dict),
+          "src/lib/i18n.de.ts": dump(deDict),
+          "src/app.tsx": BASE_APP,
+          "src/modules.ts": BASE_MODULES,
+          "convex/ai.ts": 'export const aiReason = "Khoá dùng ở backend";\n',
+          ...files,
+        };
+        for (const [rel, content] of Object.entries(all)) {
+          const full = path.join(dir, rel);
+          fs.mkdirSync(path.dirname(full), { recursive: true });
+          fs.writeFileSync(full, content);
+        }
+      }
+      const res = spawnSync(
+        process.execPath,
+        [path.join(dir, "scripts", "check-i18n.cjs"), "--all"],
+        {
+          cwd: dir,
+          encoding: "utf8",
+        },
+      );
+      return { code: res.status, out: (res.stdout || "") + (res.stderr || "") };
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  /** Danh sách bản dịch chết mà script in ra (dòng "   · key"). */
+  function deadKeysIn(out) {
+    const at = out.indexOf("không còn xuất hiện trong code");
+    if (at < 0) return [];
+    const section = out.slice(at).split("\n\n")[0];
+    return [...section.matchAll(/^\s+· (.+)$/gm)].map((m) => m[1].trim());
+  }
+
+  const withTranslate = (key) =>
+    'import { translate } from "./lib/i18n";\n\nexport const label = translate("' + key + '");\n';
+  const rawText = "Chữ Việt trần trong JSX"; // chứa dấu ữ → VIET.test thật
+  const CASES = [
+    {
+      desc: "translate() thiếu bản EN",
+      expect: /THIẾU EN/,
+      fixture: { files: { "src/extra.ts": withTranslate("Khoá mới chưa có bản dịch") } },
+    },
+    {
+      desc: "chữ Việt trần trong JSX",
+      expect: /CHƯA DỊCH \(text\)/,
+      fixture: {
+        files: {
+          "src/extra.tsx": "export const Box = () => (\n  <span>" + rawText + "</span>\n);\n",
+        },
+      },
+    },
+    {
+      desc: "render {x.label} không bọc translate()",
+      expect: /CHƯA DỊCH \(render nhãn\)/,
+      fixture: {
+        files: {
+          "src/extra.tsx":
+            "export const Row = ({ row }: { row: { label: string } }) => (\n  <b>{row.label}</b>\n);\n",
+        },
+      },
+    },
+    {
+      desc: "mảng tiếng Việt render tham số .map() trần",
+      expect: /CHƯA DỊCH \(render mảng\)/,
+      fixture: {
+        en: { "Tên module tiếng Việt": "Module name" },
+        files: {
+          "src/extra.tsx":
+            'const NAMES = ["Tên module tiếng Việt"];\n' +
+            "export const List = () => (\n" +
+            "  <ul>\n" +
+            "    {NAMES.map((n) => (\n" +
+            "      <li>{n}</li>\n" +
+            "    ))}\n" +
+            "  </ul>\n" +
+            ");\n",
+        },
+      },
+    },
+    {
+      desc: "nhãn dữ liệu thiếu bản EN",
+      expect: /THIẾU EN \(nhãn dữ liệu\)/,
+      fixture: {
+        files: {
+          "src/extra.ts": 'export const T = { label: "Nhãn dữ liệu chưa có bản EN" };\n',
+        },
+      },
+    },
+    {
+      desc: "key có bản EN nhưng thiếu bản DE",
+      expect: /THIẾU DE/,
+      fixture: {
+        en: { "Khoá mới chỉ có bản EN": "New EN key" },
+        de: { ...BASE_KEYS },
+      },
+    },
+    {
+      desc: "bản sạch + ghi chú i18n-ok không báo nhầm",
+      expect: null,
+      fixture: {
+        en: {
+          "Tên module tiếng Việt": "Module name",
+          "Nhãn dữ liệu tự dịch khi render": "Self translated label",
+        },
+        files: {
+          "src/extra.ts":
+            "export const T = [\n" +
+            "  // i18n-ok: nhãn dữ liệu dịch lúc render bằng translate(item.label)\n" +
+            '  { id: "a", label: "Nhãn dữ liệu tự dịch khi render" },\n' +
+            "];\n",
+          "src/extra.tsx":
+            'const NAMES = ["Tên module tiếng Việt"];\n' +
+            "export const List = () => (\n" +
+            "  <ul>\n" +
+            "    {/* i18n-ok: dữ liệu dịch lúc render bằng translate(item.label) */}\n" +
+            "    {NAMES.map((n) => (\n" +
+            "      <li>{n}</li>\n" +
+            "    ))}\n" +
+            "  </ul>\n" +
+            ");\n",
+        },
+      },
+    },
+  ];
+
+  let selfFail = 0;
+  for (const c of CASES) {
+    const got = runGate(c.fixture);
+    const ok = c.expect ? got.code === 1 && c.expect.test(got.out) : got.code === 0;
+    if (!ok) selfFail++;
+    console.log(
+      (ok ? "✅" : "❌") +
+        " self-test: " +
+        c.desc +
+        " — mong " +
+        (c.expect ? "exit 1 + " + c.expect.source : "exit 0") +
+        ", nhận exit " +
+        got.code,
+    );
+    if (!ok) {
+      for (const line of got.out.split("\n").slice(0, 6)) console.error("      | " + line);
+    }
+  }
+
+  // Bản dịch chết: chỉ đúng khoá thật sự không còn dùng mới được báo.
+  const clean = runGate({});
+  const dead = deadKeysIn(clean.out);
+  const deadOk = clean.code === 0 && dead.length === 1 && dead[0] === "Khoá đã chết";
+  if (!deadOk) selfFail++;
+  console.log(
+    (deadOk ? "✅" : "❌") +
+      " self-test: bản dịch chết chỉ báo khoá thật — mong [Khoá đã chết], nhận " +
+      JSON.stringify(dead),
+  );
+
+  // Cây repo THẬT + đúng lỗi đã xảy ra 28/09 (chuỗi VI render thẳng trong JSX).
+  const real = runGate({
+    real: true,
+    files: {
+      "src/zz-selftest-bug.tsx":
+        "export const Bad = () => <span>Phát hiện và chặn alt account</span>;\n",
+    },
+  });
+  const realOk = real.code === 1 && real.out.includes("zz-selftest-bug.tsx");
+  if (!realOk) selfFail++;
+  console.log(
+    (realOk ? "✅" : "❌") +
+      " self-test: cây repo thật bắt được lỗi JSX chưa bọc translate() — exit " +
+      real.code,
+  );
+  if (!realOk) {
+    for (const line of real.out.split("\n").slice(0, 8)) console.error("      | " + line);
+  }
+
+  if (selfFail) {
+    console.error("\\n❌ self-test FAIL — " + selfFail + " case sai (cổng mù hoặc báo nhầm)");
+    process.exit(1);
+  }
+  console.log("✅ self-test PASS — cổng i18n bắt đúng bug thật, không báo nhầm chỗ sạch");
+}
 
 // ── Báo cáo ───────────────────────────────────────────────────────────────
 console.log(

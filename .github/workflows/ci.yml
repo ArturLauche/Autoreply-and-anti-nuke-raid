@@ -81,8 +81,10 @@ jobs:
         run: node scripts/check-convex-contract.cjs
       # Chuỗi VI trong code là key của từ điển EN — thiếu bản dịch thì UI vẫn
       # chạy nhưng người dùng EN đọc tiếng Việt (lỗi im lặng). Chặn ở lint.
+      # --self-test: dựng lại từng bug thật trong thư mục tạm để chứng minh cổng
+      # không mù và không báo nhầm (cổng luôn xanh thì vô dụng).
       - name: Đa ngôn ngữ (mọi chuỗi người dùng có bản EN)
-        run: node scripts/check-i18n.cjs
+        run: node scripts/check-i18n.cjs --self-test
       # Bot cache bundle cấu hình của guild 30 phút (cắt reads). Mutation nào ghi
       # field bot đọc mà không đánh tín hiệu thì thay đổi từ dashboard "đứng im"
       # tới 30 phút dù giao diện hứa ~3 phút — bug thật 23/09/2026 (welcome/goodbye

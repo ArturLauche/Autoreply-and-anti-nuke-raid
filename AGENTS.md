@@ -80,8 +80,7 @@ thôi. Khi nghi file có thể sửa dở: xem `git diff` trước khi sửa ti�
       thêm/xoá trang/panel/module/Convex function; CI cũng chặn bước này)
 - [ ] `node scripts/check-convex-contract.cjs` — hợp đồng bot ⇄ Convex khớp
       (chỉ khi đổi tên/di chuyển function Convex hoặc thêm/sửa call từ bot;
-      CI cũng chặn bước này)
-- [ ] `node scripts/check-i18n.cjs` — mọi chuỗi người dùng đều có bản EN
+      CI cũng chặn bước này) - [ ] `node scripts/check-i18n.cjs` (kèm `--self-test`) — mọi chuỗi người dùng đều có bản EN
       (chỉ khi thêm/sửa chuỗi UI hoặc từ điển `src/lib/i18n.en.ts`; CI cũng
       chặn bước này). Chuỗi UI viết thẳng bằng tiếng Việt rồi bọc
       `translate("…")` — key chính là chuỗi VI đó
