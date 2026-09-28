@@ -552,6 +552,52 @@ module.exports = {
     );
   }
 
+  // ── 13. punishWithHeat: module CHỈ dọn tin nhắn → không đụng thành viên ──
+  // Nhánh này chưa từng chạy. Hậu quả nếu hỏng: chủ server chọn “chỉ xoá tin
+  // nhắn” cho module nhưng bot vẫn ban thành viên — phạt oan, mất niềm tin.
+  {
+    clear();
+    const gid = "g-no-punish";
+    const spammer = makeMember("spammer-1");
+    const guild = makeGuild(gid, [spammer]);
+    configs.set(
+      gid,
+      baseConfig({
+        modules: [
+          {
+            module: "massSpam",
+            enabled: true,
+            threshold: 1,
+            windowSeconds: 10,
+            punish: "ban",
+            timeoutSeconds: 600,
+            actions: ["delete", "purge"], // KHÔNG có warn/kick/ban/timeout
+            whitelistRoles: [],
+          },
+        ],
+      }),
+    );
+    client.guilds.cache.set(gid, guild);
+    const res = await core.punishWithHeat(
+      guild,
+      spammer,
+      { module: "massSpam", punish: "ban", actions: ["delete", "purge"] },
+      "spam",
+    );
+    check(
+      "chỉ dọn tin nhắn → không ban/kick/timeout thành viên",
+      calls.memberBans.length === 0 &&
+        calls.memberKicks.length === 0 &&
+        calls.memberTimeouts.length === 0,
+      JSON.stringify(calls.memberBans),
+    );
+    check(
+      "trả về mô tả 'không phạt thành viên' + chosen=null",
+      res.chosen === null && String(res.action).includes("không phạt thành viên"),
+      JSON.stringify(res),
+    );
+  }
+
   fs.unlinkSync(path.join(__dirname, "..", "bot", "test-djs-mock.cjs"));
   console.log(`\nKết quả audit layers: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail > 0 ? 1 : 0);
