@@ -680,6 +680,30 @@ check(
   /#boot\[data-boot="dark"\]\s*\.boot-logo[^{]*\{[^}]*invert\(1\)/.test(html),
 );
 
+// Ảnh chia sẻ (Open Graph): sinh từ scripts/build-og-image.cjs. Trước đây nó
+// vẫn giữ logo MẶT BOT vẽ tay vì máy build không có font — canvas không có
+// font thì vẽ chữ ra trang trắng im lặng. Luật này chặn quay lại logo cũ.
+const ogPng = pngInfo("public/og-image.png");
+const ogSvg = fs.readFileSync(path.join(ROOT, "public", "og-image.svg"), "utf8");
+check(
+  "og-image.png là PNG đúng khung 1200×630 (tỉ lệ Open Graph)",
+  !!ogPng && ogPng.isPng && ogPng.w === 1200 && ogPng.h === 630,
+  ogPng ? `${ogPng.w}×${ogPng.h}` : "thiếu public/og-image.png",
+);
+check(
+  "og-image KHÔNG còn logo mặt bot vẽ tay (đã đổi sang cá voi)",
+  !/C27 13C16 13/.test(ogSvg) && !/cx="29" cy="38"/.test(ogSvg),
+);
+check(
+  "og-image dùng CHUNG asset cá voi với web (không tự vẽ lại)",
+  ogSvg.includes("logo-mark.png") && ogSvg.includes("brand-whale.png"),
+);
+check(
+  "og:image trong index.html + seo.ts vẫn trỏ og-image.png",
+  /og:image[\s\S]{0,120}og-image\.png/.test(html) &&
+    (files.get("lib/seo.ts") ?? "").includes("og-image.png"),
+);
+
 // Ảnh thương hiệu đầu trang chủ: bản KHỔ RỘNG (cá voi + sóng + vệt nước), khác
 // hẳn logo vuông 256. Bị kéo méo hoặc dùng nhầm bản vuông là tranh hỏng — chặn
 // bằng chính tỉ lệ + kích thước khai báo trong markup (không dịch layout).

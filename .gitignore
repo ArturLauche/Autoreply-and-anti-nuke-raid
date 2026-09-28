@@ -29,3 +29,6 @@ scripts/_*.mjs
 
 # Artifacts audit bảo mật (skill security-audit — chỉ xem local, không vào git)
 .security-audit/
+
+# Font tải về để vẽ ảnh chia sẻ (xem header scripts/build-og-image.cjs)
+assets/brand/fonts/
