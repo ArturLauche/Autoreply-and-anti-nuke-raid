@@ -1827,22 +1827,29 @@ async function restoreCore(
   const s = backup.settings || {};
   const asIdArray = (v) => (Array.isArray(v) ? v : []);
   const mapId = (id, m) => (id ? m.get(id) || undefined : undefined);
+  // Chỉ ghi đè danh sách role/kênh khi bản khôi phục THỰC SỰ dựng lại chúng.
+  // Nếu chủ server tắt "khôi phục role" thì roleMap rỗng → map ra [] → ghi đè
+  // admin/mod/whitelist của server thành rỗng, tức mất luôn cấu hình "role nào là
+  // admin/mod" ⇒ tê liệt heat + mất mọi miễn trừ anti-nuke, trong khi họ chỉ xin
+  // ĐỪNG đụng role. Gửi undefined để Convex giữ nguyên field cũ (botRestoreSettings
+  // chỉ patch field được truyền). Tương tự cho logChannelId/modLogChannelId.
+  const remapRoles = (v) =>
+    restoreRoles
+      ? asIdArray(v)
+          .map((id) => roleMap.get(id))
+          .filter(Boolean)
+      : undefined;
+  const remapChannel = (id) => (restoreChannels ? (mapId(id, channelMap) ?? null) : undefined);
   const settingsResult = await store.client.mutation("bot_writes:botRestoreSettings", {
     guildId,
     prefix: typeof s.prefix === "string" ? s.prefix : undefined,
     badWords: Array.isArray(s.badWords) ? s.badWords : undefined,
-    whitelistRoles: asIdArray(s.whitelistRoles)
-      .map((id) => roleMap.get(id))
-      .filter(Boolean),
+    whitelistRoles: remapRoles(s.whitelistRoles),
     whitelistUsers: Array.isArray(s.whitelistUsers) ? s.whitelistUsers : undefined,
-    modRoles: asIdArray(s.modRoles)
-      .map((id) => roleMap.get(id))
-      .filter(Boolean),
-    adminRoles: asIdArray(s.adminRoles)
-      .map((id) => roleMap.get(id))
-      .filter(Boolean),
-    logChannelId: mapId(s.logChannelId, channelMap) ?? null,
-    modLogChannelId: mapId(s.modLogChannelId, channelMap) ?? null,
+    modRoles: remapRoles(s.modRoles),
+    adminRoles: remapRoles(s.adminRoles),
+    logChannelId: remapChannel(s.logChannelId),
+    modLogChannelId: remapChannel(s.modLogChannelId),
     claimAt,
   });
   if (settingsResult?.ok === false) {

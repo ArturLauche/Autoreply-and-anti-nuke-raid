@@ -413,9 +413,42 @@ function sourceSnapshot() {
   check("tắt tin nhắn → không phát lại tin", c2.messagesSent.length === 0);
   check("vẫn tạo kênh khi chỉ tắt role/tin", c2.channelsCreated.length === 3);
   const s2 = store2._mutations.find((x) => x.name === "bot_writes:botRestoreSettings");
+  // Trước đây test này khóa luôn BUG: role bị tắt → roleMap rỗng → map ra [] →
+  // ghi đè admin/mod/whitelist của server thành rỗng. Mất cấu hình "role nào là
+  // admin/mod" ⇒ tê liệt heat + mất mọi miễn trừ anti-nuke, trong khi chủ server
+  // chỉ xin ĐỪNG đụng role. Nay phải BỎ QUA field (undefined) để Convex giữ nguyên.
   check(
-    "modRoles rỗng khi role bị tắt (map không còn ID)",
-    Array.isArray(s2?.args?.modRoles) && s2.args.modRoles.length === 0,
+    "tắt role → KHÔNG ghi đè modRoles (giữ cấu hình server)",
+    s2?.args?.modRoles === undefined,
+    JSON.stringify(s2?.args?.modRoles),
+  );
+  check(
+    "tắt role → KHÔNG ghi đè adminRoles/whitelistRoles",
+    s2?.args?.adminRoles === undefined && s2?.args?.whitelistRoles === undefined,
+    JSON.stringify([s2?.args?.adminRoles, s2?.args?.whitelistRoles]),
+  );
+  // Tắt kênh → logChannelId/modLogChannelId cũng phải giữ, không bị set null.
+  const guildNoCh = makeTargetGuild();
+  const storeNoCh = makeStore(guildNoCh);
+  storeNoCh._restoreChannels = false;
+  await backup.runRestore(
+    { guilds: { cache: new Map([["999888777666555444", guildNoCh]]) } },
+    storeNoCh,
+    "999888777666555444",
+    stored.backupJson,
+    "Server Gốc Bị Nuke",
+  );
+  const sNoCh = storeNoCh._mutations.find((x) => x.name === "bot_writes:botRestoreSettings");
+  check(
+    "tắt kênh → KHÔNG xoá logChannelId/modLogChannelId của server",
+    sNoCh?.args?.logChannelId === undefined && sNoCh?.args?.modLogChannelId === undefined,
+    JSON.stringify([sNoCh?.args?.logChannelId, sNoCh?.args?.modLogChannelId]),
+  );
+  // Vẫn map được role khi bật role (hành vi cũ phải giữ nguyên).
+  check(
+    "tắt kênh nhưng bật role → modRoles vẫn map sang ID mới",
+    Array.isArray(sNoCh?.args?.modRoles) && sNoCh.args.modRoles.length === 1,
+    JSON.stringify(sNoCh?.args?.modRoles),
   );
 
   /* ── 3. Nhánh lỗi: guild không tồn tại → ném lỗi rõ ràng (bot báo về dashboard) ── */
@@ -454,8 +487,8 @@ function sourceSnapshot() {
   /* ── 5. Settings dị dạng: whitelistRoles/modRoles là object (không phải mảng) ──
    * File import từ bot nuke khác có thể chứa settings sai kiểu. restoreCore map
    * thẳng s.modRoles.map(...) → TypeError làm hỏng cả restore. */
-  const guild3 = makeTargetGuild();
-  const store3 = makeStore(guild3);
+  const guildChOff = makeTargetGuild();
+  const store3 = makeStore(guildChOff);
   const badSettings = JSON.parse(JSON.stringify(snap));
   badSettings.settings = {
     prefix: "!",
@@ -469,7 +502,7 @@ function sourceSnapshot() {
   let threw3 = "";
   try {
     await backup.runRestore(
-      { guilds: { cache: new Map([["999888777666555444", guild3]]) } },
+      { guilds: { cache: new Map([["999888777666555444", guildChOff]]) } },
       store3,
       "999888777666555444",
       JSON.stringify(badSettings),
@@ -479,7 +512,7 @@ function sourceSnapshot() {
     threw3 = e.message;
   }
   check("settings sai kiểu không làm hỏng restore", threw3 === "", threw3);
-  check("settings sai kiểu vẫn tạo role/kênh", guild3._created.rolesCreated.length > 0);
+  check("settings sai kiểu vẫn tạo role/kênh", guildChOff._created.rolesCreated.length > 0);
 
   console.log(`\nKết quả restore e2e: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail > 0 ? 1 : 0);
