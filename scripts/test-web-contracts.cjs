@@ -679,6 +679,26 @@ check(
   "preloader đảo màu logo ở chủ đề tối (ảnh chỉ có trắng + alpha)",
   /#boot\[data-boot="dark"\]\s*\.boot-logo[^{]*\{[^}]*invert\(1\)/.test(html),
 );
+
+// Ảnh thương hiệu đầu trang chủ: bản KHỔ RỘNG (cá voi + sóng + vệt nước), khác
+// hẳn logo vuông 256. Bị kéo méo hoặc dùng nhầm bản vuông là tranh hỏng — chặn
+// bằng chính tỉ lệ + kích thước khai báo trong markup (không dịch layout).
+const brandWhale = pngInfo("public/brand-whale.png");
+const landingSrc = files.get("pages/Landing.tsx") ?? "";
+check(
+  "ảnh thương hiệu đầu trang chủ là PNG khổ rộng (tỉ lệ 1.4–1.7)",
+  !!brandWhale &&
+    brandWhale.isPng &&
+    brandWhale.w / brandWhale.h > 1.4 &&
+    brandWhale.w / brandWhale.h < 1.7,
+  brandWhale ? `${brandWhale.w}×${brandWhale.h}` : "thiếu public/brand-whale.png",
+);
+check(
+  "trang chủ dùng ảnh thương hiệu ở đầu hero + khai báo kích thước",
+  /src="\/brand-whale\.png"/.test(landingSrc) &&
+    /width=\{1024\}/.test(landingSrc) &&
+    /height=\{652\}/.test(landingSrc),
+);
 check(
   "preloader có vệt ánh sáng chạy trên thanh (animation CSS)",
   /\.boot-fill::after\s*\{/.test(html) && /@keyframes boot-sheen/.test(html),

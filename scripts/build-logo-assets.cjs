@@ -16,6 +16,8 @@
  *   public/logo-mark.png        256×256 — khối bo góc + cá voi, dùng trong web
  *   public/favicon.png           64×64  — favicon
  *   public/apple-touch-icon.png 180×180 — icon iOS (nền trắng đục)
+ *   public/brand-whale.png      1024×652 — ảnh thương hiệu KHỔ RỘNG (cá voi +
+ *     sóng, bỏ khối bo góc) để làm banner đầu trang chủ
  */
 const fs = require("fs");
 const path = require("path");
@@ -36,6 +38,10 @@ const OUT = {
   // iOS không vẽ nền trong suốt — đệm nền trắng quanh khối bo góc.
   touch: { file: "public/apple-touch-icon.png", size: 180, outer: "#ffffff" },
 };
+// Ảnh thương hiệu khổ rộng: GIỮ NGUYÊN bức tranh (sóng + vệt nước), không đóng
+// khối bo góc — web tự bọc nền tối quanh nó. Rộng hơn logo để nét mảnh của tranh
+// còn đọc được ở cỡ hiển thị lớn trên trang chủ.
+const HERO = { file: "public/brand-whale.png", width: 1024 };
 
 const canvasPath = require.resolve("@napi-rs/canvas", {
   paths: [path.join(ROOT, "bot", "node_modules")],
@@ -145,6 +151,17 @@ async function main() {
       `→ ${out.file} ${out.size}×${out.size} ${(buf.length / 1024).toFixed(1)}KB (${name})`,
     );
   }
+
+  // Ảnh thương hiệu khổ rộng: hình gốc đã bỏ chữ, chỉ thu về HERO.width.
+  const heroW = HERO.width;
+  const heroH = Math.round(heroW / ratio);
+  const hero = createCanvas(heroW, heroH);
+  const hg = hero.getContext("2d");
+  hg.imageSmoothingEnabled = true;
+  hg.drawImage(art, 0, 0, heroW, heroH);
+  const heroBuf = hero.toBuffer("image/png");
+  fs.writeFileSync(path.join(ROOT, HERO.file), heroBuf);
+  console.log(`→ ${HERO.file} ${heroW}×${heroH} ${(heroBuf.length / 1024).toFixed(1)}KB`);
 
   // --preview: in ASCII khối logo để tự kiểm tra khi không xem được ảnh.
   if (process.argv.includes("--preview")) {
