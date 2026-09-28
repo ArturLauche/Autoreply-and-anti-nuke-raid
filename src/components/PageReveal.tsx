@@ -27,6 +27,11 @@ export default function PageReveal({
   return (
     <motion.main
       id={id}
+      // tabIndex={-1}: skip-link (href="#main") kích hoạt phải đưa FOCUS tới
+      // đây, không chỉ đổi hash — người dùng bàn phím cần biết con trỏ đã
+      // nhảy sang nội dung chính. Trình duyệt chỉ tự focus đích đến khi đích
+      // là phần tử focusable được.
+      tabIndex={-1}
       className={className}
       variants={motionSet.panel}
       initial="hidden"

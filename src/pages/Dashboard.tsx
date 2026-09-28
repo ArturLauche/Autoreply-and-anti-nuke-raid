@@ -211,7 +211,7 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <main id="main" className="container py-10">
+        <main id="main" tabIndex={-1} className="container py-10">
           <div className="mb-8">
             <h1 className="font-display text-3xl font-bold tracking-tight">
               {translate("Bảng điều khiển")}

@@ -32,20 +32,23 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 | `pages/FeaturesPage.tsx`    | Trang tính năng công khai (/features, SEO 3 thứ tiếng) |
 | `pages/NotFound.tsx`        | 404                                                    |
 
-| Component nhóm               | Vai trò                                                                                              |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `components/dashboard/`      | Các panel cấu hình: Overview, Webhook, Verify, JoinGate, Ticket, Settings (theme xám), Branding…     |
-| `components/landing/`        | Nav, Footer, sections trang chủ                                                                      |
-| `components/ui/`             | shadcn/ui nền tảng (button border-first, card mono)                                                  |
-| `components/Taskbar.tsx`     | Pill dọc trái + panel điều hướng nhanh (Escape/click-outside)                                        |
-| `components/HaimiyaChat.tsx` | Chat nhân vật Haimiya (giữ màu brand illustration)                                                   |
-| `components/LangSwitch.tsx`  | Công tắc ngôn ngữ VI/EN/DE — nhúng vào chrome mọi trang (nav, taskbar, header dashboard, trang auth) |
-| `components/SkipLink.tsx`    | Lối tắt "Bỏ qua tới nội dung" (WCAG 2.4.1) — mọi trang, chỉ hiện khi focus bàn phím                  |
-| `lib/i18n.tsx`               | Lõi đa ngôn ngữ gettext: LangProvider/useT, `translate()` toàn cục, `dateLocale()`                   |
-| `lib/i18n.en.ts`             | Từ điển EN (key = nguyên chuỗi tiếng Việt); thiếu key thì rơi về VI                                  |
-| `lib/legalContent.ts`        | Nội dung 3 văn bản pháp lý × VI/EN/DE (cổng 3f check-i18n kiểm cấu trúc)                             |
-| `lib/useBotMonitor.ts`       | Hook trạng thái bot realtime                                                                         |
-| `lib/constants.ts`           | SERVER_THEMES (đã mono xám), hằng số                                                                 |
+| Component nhóm               | Vai trò                                                                                                          |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `components/dashboard/`      | Các panel cấu hình: Overview, Webhook, Verify, JoinGate, Ticket, Settings (theme xám), Branding…                 |
+| `components/landing/`        | Nav, Footer, sections trang chủ                                                                                  |
+| `components/ui/`             | shadcn/ui nền tảng (button border-first, card mono)                                                              |
+| `components/Taskbar.tsx`     | Pill dọc trái + panel điều hướng nhanh (Escape/click-outside)                                                    |
+| `components/HaimiyaChat.tsx` | Chat nhân vật Haimiya (giữ màu brand illustration)                                                               |
+| `components/LangSwitch.tsx`  | Công tắc ngôn ngữ VI/EN/DE — nhúng vào chrome mọi trang (nav, taskbar, header dashboard, trang auth)             |
+| `components/SkipLink.tsx`    | Lối tắt "Bỏ qua tới nội dung" (WCAG 2.4.1) — mọi trang, chỉ hiện khi focus bàn phím                              |
+| `lib/i18n.tsx`               | Lõi đa ngôn ngữ gettext: LangProvider/useT, `translate()` toàn cục, `dateLocale()`                               |
+| `lib/i18n.en.ts`             | Từ điển EN (key = nguyên chuỗi tiếng Việt); thiếu key thì rơi về VI                                              |
+| `lib/legalContent.ts`        | Nội dung 3 văn bản pháp lý × VI/EN/DE (cổng 3f check-i18n kiểm cấu trúc)                                         |
+| `lib/useBotMonitor.ts`       | Hook trạng thái bot realtime                                                                                     |
+| `lib/routes.json`            | **BẢNG TUYẾN ĐƯỜNG** — nguồn duy nhất: path, public/private, index, sitemap, SPA fallback, alias redirect        |
+| `lib/routes.ts`              | Lớp kiểu + hàm đọc bảng (`routeForPath`, `canonicalPathFor`, `SITEMAP_ROUTES`…) — seo.ts + test đều đọc từ đây   |
+| `lib/bootOverlay.ts`         | `finishBootOverlay()` — đường ra THỨ HAI cho preloader khi /boot.js hỏng (fail-open, không phụ thuộc file ngoài) |
+| `lib/constants.ts`           | SERVER_THEMES (đã mono xám), hằng số                                                                             |
 
 ## bot/ — Discord bot (CommonJS, chạy pm2 `protogon`)
 
@@ -104,9 +107,10 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 
 ## Vòng lặp làm việc
 
-- Kiểm chứng: `bun run test` (79 CJS suites) · `bun run test:ts` (17 TS suites) · `bun tsc -b --noEmit` ·
+- Kiểm chứng: `bun run test` (80 CJS suites — gồm `test-browser-contracts` cháº¡y Chromium headless THáº¬T qua DevTools Protocol) · `bun run test:ts` (18 TS suites) · `bun tsc -b --noEmit` ·
   `bun run lint` · `bun run format:check` — chi tiết gộp 1 lệnh xem skill
   `verification-loop`.
+- Route/SEO/hosting: `src/lib/routes.json` là NGUỒN DUY NHẤT — thêm trang công khai PHẢI khai báo ở đó; `scripts/test-web-contracts.cjs` + `scripts/test-route-manifest.ts` suy kỳ vọng cho vercel.json / nginx / sitemap / robots.txt TỪ bảng. Alias (`/status` → `/monitor`) chỉ redirect 301, không tự khai canonical.
 - Kiểm tra cấu trúc: `scripts/check-repo-map.cjs` (bản đồ khớp thật) +
   `scripts/check-convex-contract.cjs` (tên function bot gọi tồn tại phía
   Convex) +

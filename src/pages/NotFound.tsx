@@ -11,6 +11,7 @@ export default function NotFound() {
   return (
     <main
       id="main"
+      tabIndex={-1}
       className="flex min-h-screen flex-col items-center justify-center px-6 text-center"
     >
       <SkipLink />

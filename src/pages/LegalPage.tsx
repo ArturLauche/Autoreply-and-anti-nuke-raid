@@ -84,7 +84,7 @@ export default function LegalPage({ slug }: { slug: LegalSlug }) {
         </div>
       </header>
 
-      <main id="main" className="container max-w-6xl py-10 md:py-14">
+      <main id="main" tabIndex={-1} className="container max-w-6xl py-10 md:py-14">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_17rem] lg:gap-14">
           <article className="min-w-0">
             <Badge variant="secondary" className="border border-primary/30">

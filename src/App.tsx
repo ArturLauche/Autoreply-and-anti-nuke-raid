@@ -7,7 +7,16 @@ import NotFound from "./pages/NotFound";
 import RequireAuth from "./components/RequireAuth";
 
 import { translate, useT } from "./lib/i18n";
+import { finishBootOverlay } from "./lib/bootOverlay";
 import { syncRouteMetadata } from "./lib/seo";
+
+/**
+ * Chốt an toàn của BootSignal: app hiện ra chậm nhất sau bao lâu kể từ khi
+ * React mount, bất kể font đã tải xong chưa. 3s đủ cho lần tải đầu bình
+ * thường (fonts.ready thường < 1s) và đủ ngắn để người dùng không tưởng web
+ * treo. Treo `fonts.ready` (CDN font chết) là kịch bản có thật.
+ */
+const BOOT_SIGNAL_CAP_MS = 3000;
 // Route-level code splitting: khách vào landing chỉ tải Landing + vendors.
 // Các trang dashboard/admin nặng (nhiều panel) chỉ tải khi thật sự mở —
 // giảm đáng kể JS parse/execute lần đầu.
@@ -48,13 +57,22 @@ declare global {
  * component này chưa mount → preloader giữ nguyên, không bao giờ thấy cảnh
  * preloader biến mất rồi lại nhảy sang RouteFallback. Chờ font sẵn sàng để
  * trang hiện ra không bị FOUT ngay sau khi màn che mờ.
+ *
+ * CHỐT AN TOÀN + ĐƯỜNG RA DỰ PHÒNG (đều đi qua finishBootOverlay):
+ *   · `document.fonts.ready` treo được (fonts.googleapis.com chậm/bị chặn/
+ *     mạng đứt) — treo là kẹt preloader vĩnh viễn nên có chốt 3s.
+ *   · /boot.js hỏng → `window.__bootDone` không tồn tại → finishBootOverlay tự
+ *     gỡ lớp phủ bằng DOM. Xem src/lib/bootOverlay.ts.
  */
 function BootSignal() {
   useEffect(() => {
     let cancelled = false;
     const done = () => {
-      if (!cancelled) window.__bootDone?.();
+      if (!cancelled) finishBootOverlay();
     };
+    // Chốt 3s: app phải hiện ra kể cả khi font chưa tải xong — màn hình trắng
+    // có chủ đích, còn lớp phủ kẹt vĩnh viễn thì không.
+    const cap = window.setTimeout(done, BOOT_SIGNAL_CAP_MS);
     if (document.fonts?.ready) {
       document.fonts.ready.then(done).catch(done);
     } else {
@@ -62,6 +80,7 @@ function BootSignal() {
     }
     return () => {
       cancelled = true;
+      window.clearTimeout(cap);
     };
   }, []);
   return null;
@@ -115,8 +134,12 @@ export default function App() {
             {/* Trang tính năng công khai (SEO quốc tế, nội dung 3 thứ tiếng). */}
             <Route path="/features" element={<FeaturesPage />} />
             {/* Alias dễ nhớ của trang giám sát — không nhân bản component: cùng
-                1 trang Monitor, 2 đường vào (/status dùng cho status page công
-                khai, /monitor là tên gọi gốc trong dashboard link cũ). */}
+                1 trang Monitor. CANONICAL là /monitor; /status chỉ là đường
+                vào phụ và hosting đã redirect 301 /status → /monitor (xem
+                vercel.json + Dockerfile.web). Route này vẫn tồn tại để
+                (1) hosting/dev chưa áp redirect thì không 404,
+                (2) seo.ts canonical hóa /status về /monitor thay vì để 2 URL
+                tự khai canonical. Khai báo trong src/lib/routes.json. */}
             <Route path="/status" element={<Monitor />} />
             <Route
               path="/admin"

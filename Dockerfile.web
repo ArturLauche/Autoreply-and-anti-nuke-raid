@@ -65,12 +65,22 @@ RUN printf '%s\n' \
   "    include /etc/nginx/security-headers.conf;" \
   "    add_header X-Robots-Tag \"noindex, nofollow\" always;" \
   "  }" \
+  "  # Alias /status → redirect VĨNH VIỄN về /monitor (canonical)." \
+  "  # Cặp URL cùng nội dung phải có ĐÚNG MỘT canonical: /monitor; /status chỉ" \
+  "  # là đường dễ nhớ. Không thêm /status vào khối SPA dưới đây — alias không" \
+  "  # được tự phục vụ trang (trùng lặp nội dung)." \
+  "  # location dúng (=) thắng mọi regex location bên dưới." \
+  "  location = /status {" \
+  "    include /etc/nginx/security-headers.conf;" \
+  "    return 301 /monitor;" \
+  "  }" \
   "  # Route CÔNG KHAI (indexable): SPA fallback, KHÔNG noindex." \
   "  # Mọi trang công khai đều phải nằm ở đây — thiếu một URL là trang đó 404" \
   "  # khi mở trực tiếp/tải lại (bug thật 28/09: /features chỉ có route React," \
-  "  # không có ở vercel.json lẫn nginx). Nhớ kiểm tra bằng trình duyệt sau khi" \
-  "  # thêm trang công khai mới (xem scripts/test-web-contracts.cjs)." \
-  "  location ~ ^/(features|monitor|status|terms|privacy|data-deletion)/?$ {" \
+  "  # không có ở vercel.json lẫn nginx). Bộ test scripts/test-web-contracts.cjs" \
+  "  # suy danh sách này từ src/lib/routes.json — thêm route công khai mà quên" \
+  "  # sửa cả hai hosting sẽ bị CI chặn." \
+  "  location ~ ^/(features|monitor|terms|privacy|data-deletion)/?$ {" \
   "    try_files /index.html =404;" \
   "    include /etc/nginx/security-headers.conf;" \
   "  }" \

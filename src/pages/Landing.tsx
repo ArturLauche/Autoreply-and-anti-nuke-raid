@@ -40,7 +40,7 @@ export default function Landing() {
       {/* Các phần phụ thuộc backend được bọc chặn lỗi riêng — backend down thì
           phần đó tự ẩn, hero/tính năng/footer vẫn hiển thị đầy đủ. */}
       <Nav />
-      <main id="main">
+      <main id="main" tabIndex={-1}>
         {/* ============ HERO ============ */}
         <section className="relative overflow-hidden pb-16 pt-28 md:pb-20 md:pt-32">
           {/* Ảnh thương hiệu lớn: bức tranh cá voi bứt sóng (đã bỏ dải chữ, sinh

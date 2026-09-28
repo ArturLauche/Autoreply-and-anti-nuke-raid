@@ -90,8 +90,10 @@ export default function Footer({
             {translate("Lưu trữ & xoá dữ liệu")}
           </Link>
           {/* Trạng thái hệ thống: công khai (không auth) — người dùng tự kiểm
-              bot/web có sống không mà không cần hỏi trong Discord. */}
-          <Link to="/status" className="transition-colors hover:text-foreground">
+              bot/web có sống không mà không cần hỏi trong Discord. Trỏ thẳng
+              /monitor (canonical) chứ không phải alias /status để khỏi mất một
+              lượt redirect. */}
+          <Link to="/monitor" className="transition-colors hover:text-foreground">
             {translate("Trạng thái hệ thống")}
           </Link>
         </nav>

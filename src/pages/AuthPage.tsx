@@ -61,7 +61,7 @@ export default function AuthPage() {
       <HaimiyaChat position="dashboard" />
       <LangSwitch showIcon className="absolute right-4 top-4 z-20" />
 
-      <main id="main" className="relative grid w-full max-w-4xl gap-8 lg:grid-cols-2">
+      <main id="main" tabIndex={-1} className="relative grid w-full max-w-4xl gap-8 lg:grid-cols-2">
         {/* MỘT khối trái duy nhất: logo + H1 + danh sách. Mobile chỉ hiện H1
             (logo + danh sách ẩn bằng lg:*) và nhờ order để khối nằm DƯỚI card;
             desktop trở lại cột trái. TRƯỚC ĐÂY H1 bị NHÂN ĐÔI trong DOM — bản

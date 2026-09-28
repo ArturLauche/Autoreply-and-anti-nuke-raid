@@ -390,6 +390,7 @@ export default function GuildPage() {
 
         <main
           id="main"
+          tabIndex={-1}
           className="container w-full max-w-full py-4 max-sm:px-3 max-sm:pb-32 sm:py-8"
         >
           <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-[230px_1fr]">

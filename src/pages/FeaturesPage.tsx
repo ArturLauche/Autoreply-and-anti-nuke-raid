@@ -41,7 +41,7 @@ export default function FeaturesPage() {
         <LangSwitch />
       </div>
 
-      <main id="main" className="mx-auto max-w-4xl px-6 pb-16 pt-10">
+      <main id="main" tabIndex={-1} className="mx-auto max-w-4xl px-6 pb-16 pt-10">
         {/* Hero */}
         <header>
           <Badge variant="secondary" className="mb-4 gap-1.5">

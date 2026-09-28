@@ -38,6 +38,15 @@
   XANH; browser thật (Chromium headless, CSP production) 0 console error mọi
   route, preloader tắt đúng, JSON-LD parse được, Tab-1 focus đúng skip link.
 
+## 28/09/2026 (2) — Đợt "production invariants": fail-open preloader, canonical gộp, bảng tuyến đường, test trình duyệt thật
+
+- 🔴 **Fail-open preloader (bug lớp còn sót của PR #15)**: `/boot.js` chuyển ra file ngoài cho khỏi CSP, nhưng CHỐT AN TOÀN (`window.__bootDone`) vẫn nằm trong file đó — file 404/bị chặn/tải dở/throw → app render phía dưới nhưng lớp phủ `#boot` phủ kín vĩnh viễn. Thêm `finishBootOverlay()` (src/lib/bootOverlay.ts): boot.js sống thì dùng `__bootDone`, hỏng thì tự gỡ DOM. Dùng ở BootSignal (kèm chốt 3s cho trường hợp `fonts.ready` treo), RootErrorBoundary, và catch bootstrap trong `main.tsx` (React chết trước cả khi mount cũng không kẹt).
+- 🟠 **Gộp canonical `/status` + `/monitor`**: `/monitor` là canonical; `/status` chỉ là alias — Vercel `redirects` 301 + nginx `location = /status { return 301 }` (nginx đã kiểm bằng `nginx -t` trong container thật). seo.ts suy canonical/og:url/JSON-LD từ bảng tuyến đường: mở `/status` cũng khai canonical `/monitor`. Sitemap bỏ `/status`, Footer trỏ thẳng `/monitor`.
+- 🟠 **BẢNG TUYẾN ĐƯỜNG (`src/lib/routes.json`) là nguồn duy nhất** cho public/private/index/sitemap/SPA-fallback/alias. seo.ts đọc bảng thay vì bảng route viết tay; `test-web-contracts` + `test-route-manifest` SUY kỳ vọng cho vercel.json, nginx, sitemap, robots.txt, App.tsx TỪ bảng → thêm route public mà quên sửa hosting = CI đỏ (đúng lớp bug của `/features`).
+- 🟢 **Test trình duyệt THẬT** (`scripts/test-browser-contracts.cjs`, 7 test, chạy trong `bun run test`): điều khiển Chromium bằng DevTools Protocol qua WebSocket sẵn có của Node — **không cài dependency mới**. Chặn request `/boot.js` rồi chứng minh app vẫn hiện + lớp phủ biến mất + bấm nút đổi ngôn ngữ được (toạ độ chuột thật); đường boot bình thường vẫn đúng; `/status` redirect + canonical; skip-link bằng Tab/Enter với focus rơi vào `<main>` (đã thêm `tabIndex={-1}`); public/private/404; 0 console error qua 6 route.
+- 🟢 Hoàn thiện: manifest bỏ `orientation: portrait-primary` (dashboard dùng được trên tablet xoay ngang); sitemap bỏ `lastmod` bịa — chỉ 3 trang pháp lý có ngày THẬT (LEGAL_UPDATED trong legalContent.ts); skip-link + `main#main` đủ ở MỌI trang (kể cả DiscordCallback); CI cài Chromium cho job test.
+- ✅ Kiểm chứng: **80/80 CJS + 18/18 TS** suites · tsc · lint · format · repo-map · convex-contract · i18n · settings-signal · coverage floor · mutation 12/12 · `nginx -t` trong container nginx:1.27 thật · browser suite 7/7. Cập nhật AGENTS.md + guardrails (79→80, 17→18) và repo-map.
+
 ## Đang dở
 
 - 🔴 **Bot production OFFLINE từ 26/09 13:23 UTC (11h lúc phát hiện 27/09)** —
