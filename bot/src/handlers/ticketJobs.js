@@ -127,6 +127,10 @@ async function markChannelClosed(store, job) {
 /**
  * Xử lý 1 job purge: đã đóng đủ hạn → lưu transcript rồi xoá kênh.
  * KHÔNG xoá khi lưu transcript thất bại.
+ *
+ * `job.transcriptReady` = transcript đã nằm trong storage ở lượt trước
+ * (lần trước lưu xong nhưng xoá kênh lỗi). Bỏ qua bước lưu để không ghi
+ * thêm một file mỗi lượt tick — chỉ thử xoá lại kênh.
  */
 async function runPurge(client, store, job) {
   const guild = client.guilds.cache.get(job.guildId);
@@ -144,18 +148,20 @@ async function runPurge(client, store, job) {
     }
     return true;
   }
-  const saved = await tickets.saveTranscript({
-    store,
-    guild,
-    channel,
-    ticketId: job.ticketId,
-    maxMessages: TRANSCRIPT_LIMIT,
-  });
-  if (!saved) {
-    console.warn(
-      `[tickets:purge] ${job.guildId}: lưu transcript thất bại → GIỮ kênh #${job.number} (không xoá mất bằng chứng)`,
-    );
-    return false;
+  if (!job.transcriptReady) {
+    const saved = await tickets.saveTranscript({
+      store,
+      guild,
+      channel,
+      ticketId: job.ticketId,
+      maxMessages: TRANSCRIPT_LIMIT,
+    });
+    if (!saved) {
+      console.warn(
+        `[tickets:purge] ${job.guildId}: lưu transcript thất bại → GIỮ kênh #${job.number} (không xoá mất bằng chứng)`,
+      );
+      return false;
+    }
   }
   try {
     await channel.delete("Ticket đã lưu transcript và hết hạn");

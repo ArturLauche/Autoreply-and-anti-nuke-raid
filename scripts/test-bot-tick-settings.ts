@@ -170,6 +170,65 @@ const status = { _id: "st", kind: "status", botKeySeed: computeBotKey(BOT_KEY), 
     check("không có guild sửa cấu hình → settingsChanges rỗng", jobs.settingsChanges.length === 0);
   }
 
+  console.log("\n── Job dọn kênh ticket ──");
+  {
+    // Bug thật 28/09/2026: `runPurge` lưu transcript xong mới xoá kênh. Nếu
+    // `channel.delete()` lỗi (thiếu quyền) thì bản ghi vẫn `closed` + ĐÃ CÓ
+    // transcript → lượt tick sau `continue` vì `transcriptStorageId` → kênh
+    // không bao giờ được dọn lần nữa. Phải vẫn sinh job, kèm cờ báo đã có
+    // transcript để bot khỏi lưu lại.
+    const OLD = NOW - 40 * 3_600_000;
+    const ctx = makeCtx({
+      botStatus: [status],
+      guilds: [
+        {
+          _id: "g1",
+          discordId: "g-tk",
+          botInGuild: true,
+          name: "Ticket",
+          ticketEnabled: true,
+          ticketIdleHours: 24,
+          ticketCloseGraceHours: 24,
+        },
+      ],
+      tickets: [
+        {
+          _id: "t-saved",
+          guildId: "g-tk",
+          channelId: "ch-1",
+          status: "closed",
+          createdAt: OLD,
+          closedAt: OLD,
+          // Đã lưu transcript (lượt purge trước) + đã thu quyền, nhưng
+          // `channel.delete()` lỗi → kênh còn treo, phải được thử xoá lại.
+          transcriptStorageId: "st-1",
+          channelClosedAt: OLD,
+        },
+        {
+          _id: "t-fresh",
+          guildId: "g-tk",
+          channelId: "ch-2",
+          status: "closed",
+          createdAt: OLD,
+          closedAt: NOW - 60_000,
+          channelClosedAt: OLD,
+        },
+      ],
+    });
+    const jobs = await handler(ctx, { botKey: BOT_KEY });
+    const saved = jobs.tickets.find((j: any) => j.ticketId === "t-saved");
+    check(
+      "ticket đã lưu transcript + hết hạn → VẪN sinh job purge (không bị bỏ rơi)",
+      !!saved && saved.status === "purge",
+      JSON.stringify(saved),
+    );
+    check("job purge kèm cờ transcriptReady", saved?.transcriptReady === true);
+    check(
+      "ticket mới đóng (chưa hết hạn giữ kênh) → không sinh purge",
+      !jobs.tickets.some((j: any) => j.ticketId === "t-fresh" && j.status === "purge"),
+    );
+  }
+
   console.log("\n── botKey: batch là function bảo mật cao ──");
   {
     const ctx = makeCtx({ botStatus: [status], guilds: [] });

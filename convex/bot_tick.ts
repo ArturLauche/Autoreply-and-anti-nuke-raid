@@ -138,6 +138,8 @@ export const getPendingJobs = query({
       lastActivityAt: number;
       closedAt: number;
       closeReason?: string;
+      /** Purge: transcript đã nằm trong storage ở lượt trước → chỉ xoá kênh. */
+      transcriptReady?: boolean;
     }[] = [];
     for (const g of guilds) {
       if (!g.ticketEnabled) continue;
@@ -166,9 +168,13 @@ export const getPendingJobs = query({
             closedAt: 0,
           });
         } else if (t.status === "closed") {
-          // Chỉ xoá khi transcript ĐÃ lưu — xoá kênh mà mất transcript là
-          // mất bằng chứng, tệ hơn nhiều so với giữ kênh lâu hơn.
-          if (t.transcriptStorageId) continue;
+          // ⚠️ KHÔNG `continue` khi transcript đã lưu — đó là cách khiến kênh
+          // ticket treo VĨNH VIỄN: `runPurge` lưu transcript xong mới xoá
+          // kênh, nếu `channel.delete()` lỗi (thiếu quyền, rate limit) thì
+          // bản ghi vẫn `closed` + đã có transcript → mọi lượt tick sau đều
+          // bỏ qua, kênh không bao giờ được dọn lần nữa (28/09/2026).
+          // Thay vào đó vẫn sinh job purge với cờ `transcriptReady` để bot
+          // bỏ qua bước lưu (không ghi file mỗi vòng) và chỉ thử xoá kênh.
           // Kênh CHƯA được thu quyền → khoá ngay ở lượt tick này. Trước
           // đây nhánh closed chỉ chờ tới lượt purge sau closeGraceHours,
           // tức dashboard đóng ticket xong thì kênh vẫn còn tên cũ + quyền cũ
@@ -204,6 +210,7 @@ export const getPendingJobs = query({
             closeGraceHours,
             lastActivityAt: t.lastActivityAt ?? t.createdAt,
             closedAt: closed,
+            transcriptReady: !!t.transcriptStorageId,
           });
         }
       }

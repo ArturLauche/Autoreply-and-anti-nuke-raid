@@ -1055,6 +1055,12 @@ export default defineSchema({
   })
     .index("by_guildId", ["guildId"])
     .index("by_guildId_status", ["guildId", "status"])
+    // Field CUỐI là `createdAt` → `order("desc")` ở đây là lời hứa có thật,
+    // khác với `by_guildId_status` (cuối là `status`, cố định sau `eq`).
+    // Không có index này thì tab "Đã đóng"/"Đã lưu trữ" phải cắt 100 bản
+    // ghi theo thứ tự index RỒI mới sắp xếp → ra 100 ticket CŨ nhất, ticket
+    // mới biến mất khỏi dashboard (28/09/2026).
+    .index("by_guildId_status_createdAt", ["guildId", "status", "createdAt"])
     .index("by_guildId_createdAt", ["guildId", "createdAt"])
     .index("by_guildId_openerId", ["guildId", "openerId"]),
 });

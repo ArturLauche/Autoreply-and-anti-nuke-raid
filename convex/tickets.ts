@@ -71,14 +71,26 @@ export const listTickets = query({
     // `status` lạ (bộ lọc cũ còn sót, gõ tay) → coi như không lọc. Trả rỗng
     // sẽ khiến dashboard hiện "không có ticket nào" một cách sai lệch.
     const filter = status && STATUSES.has(status) ? (status as "open" | "closed" | "locked") : null;
+    // ⚠️ Cắt (take) SAU khi đã sắp trong DB, không phải trước.
+    // Index 2 field (`by_guildId_status`) scan theo `status` cố định rồi tới
+    // document id → `take(100)` trả về 100 bản ghi CŨ nhất rồi `newestFirst`
+    // mới sắp lại, tức ticket MỚI NHẤT không bao giờ hiện trên dashboard khi
+    // server đã có hơn 100 ticket cùng trạng thái (lỗi thật 28/09/2026).
+    // Index 3 field `by_guildId_status_createdAt` có `createdAt` ở CUỐI nên
+    // `order("desc")` lần này là lời hứa có thật: cắt 100 bản ghi ĐÚNG là 100
+    // ticket mới nhất.
     const rows = filter
       ? await ctx.db
           .query("tickets")
-          .withIndex("by_guildId_status", (q) => q.eq("guildId", guildId).eq("status", filter))
+          .withIndex("by_guildId_status_createdAt", (q) =>
+            q.eq("guildId", guildId).eq("status", filter),
+          )
+          .order("desc")
           .take(LIST_LIMIT)
       : await ctx.db
           .query("tickets")
           .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId))
+          .order("desc")
           .take(LIST_LIMIT);
 
     return newestFirst(rows).map((t) => ({

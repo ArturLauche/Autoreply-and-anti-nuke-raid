@@ -56,6 +56,15 @@ const check = (label: string, ok: boolean, detail?: string) => {
 const BOT_KEY = "khoa-bot-that-giu-nguyen";
 type Row = Record<string, any>;
 
+/** Field CUỐI của từng index `tickets` — `order()` của Convex đảo theo nó. */
+const INDEX_LAST_FIELD: Record<string, string> = {
+  by_guildId: "guildId",
+  by_guildId_status: "status",
+  by_guildId_status_createdAt: "createdAt",
+  by_guildId_createdAt: "createdAt",
+  by_guildId_openerId: "openerId",
+};
+
 // ─── Ctx giả: 5 bảng trên Map, withIndex mô phỏng đúng range của Convex ───
 function makeCtx(opts: { seed?: string | null } = {}) {
   const tickets: Row[] = [];
@@ -88,7 +97,7 @@ function makeCtx(opts: { seed?: string | null } = {}) {
         }
       },
       query: (table: string) => ({
-        withIndex: (_name: string, bound: (q: any) => any) => {
+        withIndex: (name: string, bound: (q: any) => any) => {
           const capture: Record<string, string> = {};
           // Cận dưới (`gte`) tách riêng khỏi `eq` — cùng một field có thể vừa
           // bằng vừa lớn hơn một mốc (ticketStats quét createdAt >= since).
@@ -105,11 +114,12 @@ function makeCtx(opts: { seed?: string | null } = {}) {
               Object.entries(capture).every(([f, v]) => r[f] === v) &&
               Object.entries(lower).every(([f, v]) => r[f] >= v),
           );
-          // `order(dir)` chỉ đảo theo field CUỐI trong capture (field cuối của
-          // index). Field đó cố định ở mọi index dùng ở đây → thứ tự giữ nguyên
-          // như scan thẳng. Đây chính là hành vi khiến "mới nhất trước" là
-          // một lời hứa không có, nên code phải tự sắp lại.
-          const lastField = Object.keys(capture).at(-1);
+          // `order(dir)` của Convex đảo theo field CUỐI CỦA INDEX (không phải
+          // field cuối vừa bị `eq` — sau `eq` thì field đó cố định, nên
+          // `order("desc")` trên index 2 field là lời hứa rỗng). Bảng dưới
+          // là bản sao nguyên văn field cuối của từng index; dùng sai thì test
+          // "xanh" trong khi code thật vẫn trả 100 bản ghi cũ nhất.
+          const lastField = INDEX_LAST_FIELD[name];
           const ordered = (dir: "asc" | "desc") => {
             if (!lastField) return [...matched];
             const f = lastField;
@@ -283,6 +293,39 @@ const throws = async (fn: () => Promise<unknown>) => {
     check(
       "đã cấu hình → missingCategory=false, enabled=true",
       s.missingCategory === false && s.enabled === true,
+    );
+  }
+
+  // ═══ listTickets: cắt SAU khi sắp, không cắt trước ═══
+  // Bug thật 28/09/2026: `.take(100)` trên index 2 field trả 100 bản ghi CŨ
+  // nhất, `newestFirst` sắp lại sau đó → ticket MỚI NHẤT không bao giờ hiện
+  // trên dashboard của server đã có hơn 100 ticket cùng trạng thái.
+  {
+    const e = env();
+    for (let i = 0; i < 150; i++) {
+      e.tickets.push(ticket(`c${i}`, { status: "closed", createdAt: 1_000 + i * 10 }));
+    }
+    const r = await listH(e.ctx, { token: "tok", guildId: "g1", status: "closed" });
+    check("dùng index có createdAt ở cuối để order desc", r.length === 100, String(r.length));
+    check(
+      "trả 100 ticket MỚI nhất, không phải 100 cái cũ nhất",
+      r[0].id === "c149" && r[99].id === "c50",
+      `${r[0]?.id} .. ${r[99]?.id}`,
+    );
+    check(
+      "thứ tự giảm dần theo createdAt",
+      r.every((x: Row, i: number) => i === 0 || r[i - 1].createdAt > x.createdAt),
+    );
+  }
+  {
+    // Không lọc trạng thái cũng phải mới trước — cùng lý do trên.
+    const e = env();
+    for (let i = 0; i < 150; i++) e.tickets.push(ticket(`m${i}`, { createdAt: 1_000 + i * 10 }));
+    const r = await listH(e.ctx, { token: "tok", guildId: "g1" });
+    check(
+      "bỏ trống status → vẫn 100 ticket mới nhất",
+      r[0].id === "m149" && r.length === 100,
+      `${r[0]?.id}/${r.length}`,
     );
   }
 

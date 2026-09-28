@@ -227,10 +227,35 @@ const job = {
     check("lỗi lưu → kênh phải còn nguyên", w.channel.deleted !== true, w.log.join(" > "));
   }
   {
-    // Đã lưu transcript từ trước (bot_tick lọc sẵn) → không xoá 2 lần.
+    // Lượt trước đã lưu transcript xong nhưng `channel.delete()` lỗi → bản ghi
+    // vẫn `closed` + đã có transcript. Không có `transcriptReady` thì lượt
+    // tick này sẽ lại lưu transcript lần nữa: ghi thêm file mỗi vòng, vô
+    // hạn. Với cờ đó, bot bỏ qua bước lưu và chỉ thử xoá lại kênh.
     const w = mkWorld();
-    const ok = await jobs.runPurge(w.client, w.store, job);
-    check("dọn lần đầu ok", ok === true);
+    const ok = await jobs.runPurge(w.client, w.store, { ...job, transcriptReady: true });
+    check("transcript đã lưu → vẫn xoá được kênh", ok === true, w.log.join(" > "));
+    check(
+      "không ghi lại transcript lần nữa",
+      !w.log.includes("storage.store") &&
+        !w.mutations.some((m) => m.name === "bot_writes:botSaveTicketTranscript"),
+      w.log.join(" > "),
+    );
+    check(
+      "vẫn khép bản ghi thành locked",
+      w.mutations.some((m) => m.args.status === "locked"),
+    );
+  }
+  {
+    // Kênh xoá lỗi thì phải BÁO THẤT BẠI (false) để lượt tick sau thử lại —
+    // im lặng thành công giả là bỏ rơi kênh vĩnh viễn.
+    const w = mkWorld();
+    w.channel.delete = async () => {
+      w.log.push("DELETE_FAIL");
+      throw new Error("Missing Permissions");
+    };
+    const ok = await jobs.runPurge(w.client, w.store, { ...job, transcriptReady: true });
+    check("xoá kênh lỗi → báo thất bại để thử lại", ok === false);
+    check("không khép bản ghi khi kênh còn", !w.mutations.some((m) => m.args.status === "locked"));
   }
 
   // ═══ 2b. Khoá kênh của ticket đóng từ DASHBOARD ═══
