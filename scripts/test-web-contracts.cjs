@@ -625,7 +625,7 @@ check(
 // Comment ở BotLogo.tsx đã từng cảnh báo đúng cái bẫy "nhiều bản chép lệch
 // nhau" — khoá bằng chính path thân cá voi, lệch một chỗ là đỏ ngay.
 const WHALE_BODY =
-  "M9 34C9 25.5 18 21 28.5 21C37 21 43.5 24 46 29V39C43.5 44 37 47 28.5 47C18 47 9 42.5 9 34Z";
+  "M59 11 C55 12 52 13 49 14 C45 14.5 39 13 33 13 C40 17 46 19 49 20 C48.5 25 48 28 47 30 C43 28 40 26 36 25 C31 23 26 21 22 21 C15 21 9 26 7 33 C5 40 18 53 36 53 C42 53 46 51 48 49 C51 39 53 29 55 20 C56 17 58 13 59 11 Z";
 const faviconSrc = fs.readFileSync(path.join(ROOT, "public", "favicon.svg"), "utf8");
 const botLogoSrc = files.get("components/BotLogo.tsx") ?? "";
 check(

@@ -3,9 +3,10 @@ import { useBranding } from "../lib/useBranding";
 import { cn } from "../lib/utils";
 
 /**
- * Logo mặc định của Protogon: CÁ VOI vector tối giản (thay mặt bot cũ).
- * - Trắng trên nền rounded-square đen: tương phản đen/trắng rõ nét ở mọi cỡ,
- *   kể cả favicon 16–20px.
+ * Logo mặc định của Protogon: CÁ VOI vector (thay mặt bot cũ).
+ * - Dáng đặc trưng của cá voi: thân to + đuôi cong vểnh + vây đuôi hai thuỳ
+ *   (khác đuôi cá) + mắt và đường miệng.
+ * - Trắng trên nền rounded-square đen: tương phản đen/trắng rõ nét mọi cỡ.
  * - Cùng MỘT hình (path y hệt) với public/favicon.svg và preloader trong
  *   index.html — đổi hình phải sửa cả ba, scripts/test-web-contracts.cjs chốt hạ.
  */
@@ -19,15 +20,20 @@ export function WhaleIcon({ className }: { className?: string }) {
       aria-hidden="true"
     >
       <rect width="64" height="64" rx="16" fill="#09090b" />
-      {/* Thân cá voi (đầu tròn bên trái) */}
+      {/* Thân cá voi + đuôi cong vểnh + vây đuôi hai thuỳ (một khối liền) */}
       <path
-        d="M9 34C9 25.5 18 21 28.5 21C37 21 43.5 24 46 29V39C43.5 44 37 47 28.5 47C18 47 9 42.5 9 34Z"
+        d="M59 11 C55 12 52 13 49 14 C45 14.5 39 13 33 13 C40 17 46 19 49 20 C48.5 25 48 28 47 30 C43 28 40 26 36 25 C31 23 26 21 22 21 C15 21 9 26 7 33 C5 40 18 53 36 53 C42 53 46 51 48 49 C51 39 53 29 55 20 C56 17 58 13 59 11 Z"
         fill="#ffffff"
       />
-      {/* Đuôi hai thuỳ */}
-      <path d="M44 28 L58 17 L50 34 L58 49 L44 39 Z" fill="#ffffff" />
-      {/* Mắt (khoét nền cho tương phản) */}
-      <circle cx="17" cy="32" r="2.4" fill="#09090b" />
+      {/* Mắt và đường miệng — khoét nền cho tương phản */}
+      <circle cx="15.4" cy="31.9" r="2.2" fill="#09090b" />
+      <path
+        d="M10 40 C14 43.5 19 44.5 25 43.5"
+        stroke="#09090b"
+        strokeWidth="2"
+        fill="none"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
