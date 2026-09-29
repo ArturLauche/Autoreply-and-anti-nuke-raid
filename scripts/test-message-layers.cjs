@@ -148,8 +148,14 @@ module.exports = {
 
   // AI giả: có thể bẻ verdict theo kịch bản qua biến `aiVerdict`.
   let aiVerdict = null; // null → AI offline (trả null)
+  // Cổng treo: giả độ trễ mạng của lệnh gọi AI thật (1–5s trên VPS) để kiểm
+  // tra kịch bản tin nhắn chồng lên lúc bot đang chờ AI.
+  let aiGate = null;
   const ai = {
-    aiClassify: async () => aiVerdict,
+    aiClassify: async () => {
+      if (aiGate) await aiGate;
+      return aiVerdict;
+    },
     clusterStats: realAi.clusterStats ?? (() => null),
   };
   const raidIntel = {
@@ -182,6 +188,8 @@ module.exports = {
     state.state.spamBuckets.clear();
     state.state.patternBuckets.clear();
     state.state.recentMessages.clear();
+    state.state.punishedRecently.clear();
+    aiGate = null;
   };
 
   function makeGuild(id, opts = {}) {
@@ -304,6 +312,34 @@ module.exports = {
     );
   }
 
+  // ── 2b. Spam CHỒNG lúc bot đang chờ AI → 1 đợt chỉ được xử lý 1 vụ ──
+  // Bucket bị xoá NGAY trước mọi await. Trên VPS lệnh gọi AI mất 1–5 giây; nếu
+  // kẻ spam tiếp trong lúc đó thì lại đủ ngưỡng → chạy pipeline thứ 2 song song
+  // → cùng 1 đợt spam bị phạt 2 lần, ghi 2 case log, cộng 2 lần nhiệt.
+  {
+    clear();
+    let release;
+    aiGate = new Promise((r) => (release = r));
+    const first = [];
+    for (let i = 0; i < 5; i++) first.push(messages.handleSpam(makeMessage({ id: "c" + i })));
+    // Để cả 5 lượt đi hết phần đồng bộ và treo ở lời gọi AI.
+    for (let k = 0; k < 5; k++) await new Promise((r) => setImmediate(r));
+    const second = [];
+    for (let i = 0; i < 5; i++) second.push(messages.handleSpam(makeMessage({ id: "d" + i })));
+    release();
+    await Promise.all([...first, ...second]);
+    const spamEvents = calls.events.filter((e) => e.module === "spam");
+    check(
+      `spam chồng lúc chờ AI → vẫn chỉ 1 vụ sự kiện (thực tế ${spamEvents.length})`,
+      spamEvents.length === 1,
+    );
+    check(
+      `spam chồng lúc chờ AI → không cộng nhiệt 2 lần (thực tế ${calls.heatAdds.length})`,
+      calls.heatAdds.length === 1,
+    );
+    aiGate = null;
+  }
+
   // ── 3. AI xác nhận raid (conf >= 0.6) → ban + lockdown + cảnh báo khẩn ──
   {
     clear();
@@ -401,6 +437,36 @@ module.exports = {
     const blanks = ["\u0020", "\u200b", "\u0020\u200b\u0020"];
     for (let i = 0; i < 3; i++)
       await messages.handleMessagePatterns(makeMessage({ id: "Z" + i, content: blanks[i] }));
+  }
+
+  // ── 8b. blankNoise CHỒNG lúc chờ AI → 1 đợt chỉ 1 vụ ──
+  {
+    clear();
+    let release;
+    aiGate = new Promise((r) => (release = r));
+    // Hai đợt dùng nội dung KHÁC NHAU hoàn toàn: nếu lặp lại, pattern massMessage
+    // chạy trước và kịch bản đang kiểm (blankNoise) không được bắn.
+    const round1 = ["\u0020", "\u200b", "\u0020\u200b\u0020"];
+    const round2 = ["\u200c", "\u200d", "\u2060\u0020"];
+    const first = [];
+    for (let i = 0; i < 3; i++)
+      first.push(messages.handleMessagePatterns(makeMessage({ id: "Y" + i, content: round1[i] })));
+    for (let k = 0; k < 5; k++) await new Promise((r) => setImmediate(r));
+    const second = [];
+    for (let i = 0; i < 3; i++)
+      second.push(messages.handleMessagePatterns(makeMessage({ id: "X" + i, content: round2[i] })));
+    release();
+    await Promise.all([...first, ...second]);
+    const blankEvents = calls.events.filter((e) => e.module === "blankNoise");
+    check(
+      `blankNoise chồng lúc chờ AI → vẫn chỉ 1 vụ (thực tế ${blankEvents.length})`,
+      blankEvents.length === 1,
+    );
+    check(
+      `không phát sinh vụ massMessage ngoài ý muốn (thực tế ${calls.events.filter((e) => e.module === "massMessage").length})`,
+      calls.events.filter((e) => e.module === "massMessage").length === 0,
+    );
+    aiGate = null;
   }
 
   // ── 9. Webhook → External App Guard, KHÔNG vào pipeline spam ──

@@ -43,11 +43,11 @@ module.exports = function createAntiNukeState({ client, store }) {
   //    hoặc tầng tin nhắn app) trong cửa sổ → tầng còn lại bỏ qua, không phạt/log trùng.
   //  - lastExtAppProcessedAt: guild vừa xử lý 1 đợt kết nối app → IntegrationCreate kế tiếp
   //    trong cùng cửa sổ không log thành vụ mới (1 làn sóng = 1 sự kiện).
-  //  - patternPunishedAt: vừa phạt pattern (tin dài/lặp/blank) → cooldown 1 cửa sổ, không
-  //    re-trigger để khỏi ghi liên tiếp nhiều vụ cùng 1 người spam liên tục.
+  //  - patternPunishedAt: ĐÃ BỎ. Chống phạt lặt cho pattern (tin dài/lặp/blank) dùng
+  //    chung `punishedRecently` qua markHandled/wasHandled như massJoin — map riêng
+  //    không ai ghi nên chỉ là trạng thái chết + nhầm lẫn.
   const appUserHandledAt = new Map(); // `${guildId}:${userId}` -> ts
   const lastExtAppProcessedAt = new Map(); // guildId -> ts
-  const patternPunishedAt = new Map(); // `${guildId}:${userId}:${module}` -> ts
   const buttonRaidHandledAt = new Map(); // `${guildId}:${msgId}` -> ts — debounce vụ bấm nút đã xử lý
   const staleUnlockSwept = new Set(); // guild key mốc đã quét (chống spam log mở khóa)
   const punishedRecently = new Map(); // `${guildId}:${module}:${userId}` -> ts (chống phạt/case lặp)
@@ -264,10 +264,6 @@ module.exports = function createAntiNukeState({ client, store }) {
     for (const [guildId, ts] of lastExtAppProcessedAt) {
       if (!live.has(guildId) || ts < stale) lastExtAppProcessedAt.delete(guildId);
     }
-    for (const [key, ts] of patternPunishedAt) {
-      const guildId = key.split(":")[0];
-      if (!live.has(guildId) || ts < stale) patternPunishedAt.delete(key);
-    }
     for (const [key, ts] of buttonRaidHandledAt) {
       const guildId = key.split(":")[0];
       if (!live.has(guildId) || ts < stale) buttonRaidHandledAt.delete(key);
@@ -310,7 +306,6 @@ module.exports = function createAntiNukeState({ client, store }) {
       botExemptAtJoin,
       appUserHandledAt,
       lastExtAppProcessedAt,
-      patternPunishedAt,
       buttonRaidHandledAt,
       staleUnlockSwept,
       punishedRecently,

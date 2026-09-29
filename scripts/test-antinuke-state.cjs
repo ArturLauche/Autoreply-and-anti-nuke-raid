@@ -273,9 +273,6 @@ fs.writeFileSync(
     S.lastExtAppProcessedAt.set("live", now);
     S.lastExtAppProcessedAt.set("dead", now);
 
-    S.patternPunishedAt.clear();
-    S.patternPunishedAt.set("live:u:massBan", now);
-
     S.buttonRaidHandledAt.clear();
     S.buttonRaidHandledAt.set("live:m1", now);
     S.buttonRaidHandledAt.set("dead:m2", now);

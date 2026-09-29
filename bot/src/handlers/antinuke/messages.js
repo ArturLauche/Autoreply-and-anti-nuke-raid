@@ -25,7 +25,7 @@ module.exports = function createAntiNukeLayer({
   raidIntel,
   externalApp,
 }) {
-  const { recordEvent } = state;
+  const { recordEvent, markHandled, wasHandled } = state;
   const { spamBuckets, patternBuckets, recentMessages, lastConfigs } = state.state;
   const { punishWithHeat, maybeLockdown } = core;
   const { aiClassify } = ai;
@@ -139,6 +139,19 @@ module.exports = function createAntiNukeLayer({
       const fresh = arr.filter((t) => t >= cutoff);
       patternBuckets.set(key, fresh);
       if (fresh.length < cfg.threshold) continue;
+
+      // CHỐNG PHẠT LẶT 1 ĐỢT: đánh dấu NGAY, đồng bộ, TRƯỚC mọi await. Bucket bị
+      // xoá ngay bên dưới còn lệnh gọi AI mất tới 6s — trong khoảng đó kẻ phát
+      // lại lại đủ ngưỡng và chạy tiếp pipeline thứ 2 SONG SONG: cùng một đợt bị
+      // phạt 2 lần, ghi 2 case log, cộng 2 lần nhiệt. Cùng nguyên tắc đã dùng ở
+      // massJoin (join đầu chạm ngưỡng đánh dấu trước, không đợi AI).
+      if (wasHandled(message.guild.id, cfg.module, member.id)) continue;
+      markHandled(
+        message.guild.id,
+        cfg.module,
+        member.id,
+        Math.max(30_000, (cfg.windowSeconds || 10) * 2000),
+      );
 
       patternBuckets.delete(key);
       const samples = freshRecents.map((m) => m.content.slice(0, 200));
@@ -301,6 +314,17 @@ module.exports = function createAntiNukeLayer({
     const fresh = arr.filter((t) => t >= cutoff);
     spamBuckets.set(key, fresh);
     if (fresh.length < moduleCfg.threshold) return;
+
+    // CHỐNG PHẠT LẶT 1 ĐỢT: đánh dấu NGAY, đồng bộ, TRƯỚC mọi await (xem giải
+    // thích ở nhánh pattern phía trên). Nếu không, kẻ spam tiếp trong lúc bot
+    // chờ AI (tới 6s) sẽ chạy cả pipeline thứ 2 cho cùng một đợt.
+    if (wasHandled(message.guild.id, "spam", member.id)) return;
+    markHandled(
+      message.guild.id,
+      "spam",
+      member.id,
+      Math.max(30_000, (moduleCfg.windowSeconds || 5) * 2000),
+    );
 
     spamBuckets.delete(key); // reset after punishing
     // Ghi mẫu tin nhắn spam cho n-gram engine (threat intel cục bộ, 0 token).
