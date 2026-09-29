@@ -416,6 +416,23 @@ const LOCALIZATIONS = {
           },
         },
       },
+      keep: {
+        d: [
+          "Keep N backups and delete ones older than a set age",
+          "N Backups behalten und ältere nach einer Frist löschen",
+        ],
+        opts: {
+          count: {
+            d: ["Backups to keep (2-50)", "Zu behaltende Backups (2-50)"],
+          },
+          days: {
+            d: [
+              "Delete backups older than N days (0-365; leave empty to keep the current rule)",
+              "Backups älter als N Tage löschen (0-365; leer lassen behält die aktuelle Regel)",
+            ],
+          },
+        },
+      },
     },
   },
   research: {

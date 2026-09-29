@@ -58,6 +58,8 @@ const ctl = {
   unlockGuildCalls: 0,
   parseDuration: (s) => (/^(\d+)m$/.test(s || "") ? parseInt(s, 10) : null),
   actionThrows: false,
+  /** Kết quả mutation tuỳ chỉnh (mặc định { ok: true }) — vd botSetBackupRetention trả quy tắc đã chặn. */
+  mutationResult: null,
   reportInteractive: null,
   handleResearch: null,
 };
@@ -186,6 +188,7 @@ Module._load = function (request, parent) {
       mutation: async (name, args) => {
         calls.mutations.push({ name, args });
         if (name === "hidden:botGiveawayEndNow") return { ok: ctl.giveawayEndOk !== false };
+        if (ctl.mutationResult) return ctl.mutationResult;
         return { ok: true };
       },
       query: async (name) => {
@@ -212,6 +215,7 @@ Module._load = function (request, parent) {
     ctl.unlockGuildCalls = 0;
     ctl.actionThrows = false;
     ctl.queryResult = null;
+    ctl.mutationResult = null;
     ctl.giveawayEndOk = true;
     altAnalysis = { riskScore: 0, action: "pass", riskFactors: [] };
     punishResult = { executed: false };
@@ -1286,6 +1290,120 @@ Module._load = function (request, parent) {
       "backup auto hợp lệ → mutation",
       calls.mutations.some((m) => m.name === "bot_writes:botSetAutoBackup"),
     );
+
+    // /backup keep — quy tắc giữ bản (giống !backup keep trong prefix.js).
+    reset();
+    await run({
+      isChatInputCommand: true,
+      commandName: "backup",
+      subcommand: "keep",
+      integers: { count: 1 },
+    });
+    check(
+      "backup keep số bản ngoài khoảng → từ chối",
+      replies[0].content.includes("2 đến 50"),
+      replies[0].content,
+    );
+    check(
+      "backup keep số bản sai → KHÔNG gọi mutation",
+      !calls.mutations.some((m) => m.name === "bot_writes:botSetBackupRetention"),
+    );
+
+    reset();
+    await run({
+      isChatInputCommand: true,
+      commandName: "backup",
+      subcommand: "keep",
+      integers: { count: 7, days: 400 },
+    });
+    check(
+      "backup keep số ngày ngoài khoảng → từ chối",
+      replies[0].content.includes("0 đến 365"),
+      replies[0].content,
+    );
+
+    reset();
+    ctl.mutationResult = { ok: true, keepCount: 7, keepDays: 30 };
+    await run({
+      isChatInputCommand: true,
+      commandName: "backup",
+      subcommand: "keep",
+      integers: { count: 7, days: 30 },
+    });
+    const keepMut = calls.mutations.find((m) => m.name === "bot_writes:botSetBackupRetention");
+    check(
+      "backup keep hợp lệ → mutation giữ bản đúng tham số",
+      !!keepMut && keepMut.args.keepCount === 7 && keepMut.args.keepDays === 30,
+      JSON.stringify(keepMut?.args),
+    );
+    check(
+      "backup keep phản hồi kết quả đã áp dụng",
+      replies[0].content.includes("7 bản") && replies[0].content.includes("30 ngày"),
+      replies[0].content,
+    );
+
+    // Bỏ trống `days` → giữ nguyên quy tắc tuổi đang có, KHÔNG tự đặt về 0
+    // (người dùng chỉ muốn đổi số bản mà mất luôn giới hạn tuổi).
+    reset();
+    ctl.mutationResult = { ok: true, keepCount: 10, keepDays: 45 };
+    await run({
+      isChatInputCommand: true,
+      commandName: "backup",
+      subcommand: "keep",
+      integers: { count: 10 },
+    });
+    const keepNoDays = calls.mutations.find((m) => m.name === "bot_writes:botSetBackupRetention");
+    check(
+      "backup keep bỏ trống ngày → gửi undefined (giữ quy tắc cũ)",
+      !!keepNoDays && keepNoDays.args.keepDays === undefined,
+      JSON.stringify(keepNoDays?.args),
+    );
+    check(
+      "backup keep bỏ trống ngày → phản hồi theo giá trị server trả về",
+      replies[0].content.includes("10 bản") && replies[0].content.includes("45 ngày"),
+      replies[0].content,
+    );
+
+    // ok=false (server chưa đồng bộ) → phải báo lỗi, không báo thành công.
+    reset();
+    ctl.mutationResult = { ok: false, reason: "no_guild" };
+    await run({
+      isChatInputCommand: true,
+      commandName: "backup",
+      subcommand: "keep",
+      integers: { count: 5 },
+    });
+    check(
+      "backup keep server chưa đồng bộ → báo lỗi chứ không báo xong",
+      replies[0].content.includes("❌") && !replies[0].content.includes("✅"),
+      replies[0].content,
+    );
+
+    // HỢP ĐỒNG giữa 2 file: handler đọc option nào thì lệnh PHẢI khai báo đúng
+    // tên đó. Lệch 1 chữ là `/backup keep` không nhận được giá trị (getInteger
+    // trả null) — chạy không lỗi nhưng cấu hình không bao giờ được đặt.
+    {
+      const slashSrc = fs.readFileSync(
+        path.join(__dirname, "..", "bot", "src", "handlers", "interactionCreate.js"),
+        "utf8",
+      );
+      const branch = slashSrc.slice(
+        slashSrc.indexOf('if (sub === "keep")'),
+        slashSrc.indexOf("// /backup now", slashSrc.indexOf('if (sub === "keep")')),
+      );
+      const readNames = [...branch.matchAll(/getInteger\("([a-z]+)"/g)].map((m) => m[1]);
+      const { commands } = require("../bot/src/commands/slash.js");
+      const defined =
+        (commands.find((c) => c.name === "backup")?.options ?? [])
+          .find((o) => o.name === "keep")
+          ?.options?.map((o) => o.name) ?? [];
+      const missing = readNames.filter((n) => !defined.includes(n));
+      check(
+        "/backup keep: handler đọc đúng option đã khai báo",
+        readNames.length > 0 && missing.length === 0,
+        `đọc=[${readNames}] khai báo=[${defined}] thiếu=[${missing}]`,
+      );
+    }
 
     reset();
     await run({

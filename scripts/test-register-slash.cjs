@@ -131,6 +131,27 @@ check(
   problems.slice(0, 6).join(" | "),
 );
 
+// `/backup keep` phải CÓ TRONG danh sách đăng ký — nếu handler xử lý được mà
+// lệnh không được đăng ký thì người dùng gõ `/backup keep` không thấy gì, và
+// đó là kiểu chết âm thầm mà shape check ở trên không bắt được.
+{
+  const backup = commands.find((c) => c.name === "backup");
+  const keep = backup?.options?.find((o) => o.name === "keep");
+  check("/backup có subcommand keep", !!keep, JSON.stringify(backup?.options?.map((o) => o.name)));
+  const count = keep?.options?.find((o) => o.name === "count");
+  const days = keep?.options?.find((o) => o.name === "days");
+  check(
+    "/backup keep có option count (bắt buộc, số nguyên)",
+    count?.type === 4 && count.required === true,
+    JSON.stringify(count),
+  );
+  check(
+    "/backup keep có option days (tuỳ chọn, số nguyên)",
+    days?.type === 4 && days.required === false,
+    JSON.stringify(days),
+  );
+}
+
 // ═══ Tầng 2: registerCommands ═══
 console.log("\n── registerCommands ──");
 
