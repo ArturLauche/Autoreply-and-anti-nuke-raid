@@ -34,9 +34,15 @@ const { handleResearch } = require("../bot/src/handlers/researchCommands.js");
 const research = require("../bot/src/research.js");
 
 const mutations = [];
+// "ok" | "null" (query lỗi → bot dùng fallback botGetIntel) | "empty"
+let historyMode = "ok";
 const store = {
   client: {
     query: async (name) => {
+      if (name === "threatIntel:getResearchHistory") {
+        if (historyMode === "null") return null;
+        if (historyMode === "empty") return [];
+      }
       if (name === "threatIntel:botGetIntel") {
         return {
           researchEnabled: true,
@@ -86,13 +92,14 @@ const store = {
   getConfig: async () => ({ modRoles: [], adminRoles: [] }),
 };
 
-function makeSource({ canManage = true, sub = "status", isSlash = true } = {}) {
+function makeSource({ canManage = true, sub = "status", isSlash = true, args = [] } = {}) {
   const replies = [];
-  return {
+  const src = {
     guild: { id: "g1" },
     member: { permissions: { has: () => canManage }, roles: { cache: new Map() } }, // has() trả canManage cho mọi permission
     user: { username: "wio" },
     options: { getSubcommand: () => sub },
+    args,
     replies,
     deferReply: async () => {},
     editReply: async (payload) => replies.push(payload),
@@ -101,6 +108,14 @@ function makeSource({ canManage = true, sub = "status", isSlash = true } = {}) {
     _replies: replies,
     _isSlash: isSlash,
   };
+  // Prefix `!research` KHÔNG có deferReply/editReply/options — bot phải tự rơi
+  // về nhánh message. Xoá hẳn các method slash để không thể đi nhầm nhánh.
+  if (!isSlash) {
+    delete src.deferReply;
+    delete src.editReply;
+    delete src.options;
+  }
+  return src;
 }
 
 (async () => {
@@ -155,6 +170,73 @@ function makeSource({ canManage = true, sub = "status", isSlash = true } = {}) {
         m.args.requestedBy === "wio",
     ),
   );
+
+  // 6. Đường PREFIX `!research` — trước đây KHÔNG có test nào chạy tới nhánh
+  //    này: bot gửi lệnh tiếp trong kênh mà lỗi im lặng (chỉ slash mới chạy).
+  {
+    const p1 = makeSource({ sub: "learn", isSlash: false, args: ["learn"] });
+    await handleResearch({}, store, p1);
+    const t1 = JSON.stringify(p1._replies);
+    check(
+      "prefix learn: báo 'Đang kích hoạt' trước khi chạy",
+      t1.includes("Đang kích hoạt lượt học"),
+    );
+    check(
+      "prefix learn: kết quả đăng qua channel.send (không dùng editReply)",
+      p1._replies.some((r) => r && r.embeds) && !p1._replies.some((r) => r === undefined),
+    );
+  }
+  {
+    // Không truyền args → mặc định "status" (không được lỗi vì thiếu options).
+    const p2 = makeSource({ isSlash: false, args: [] });
+    await handleResearch({}, store, p2);
+    check(
+      "prefix không args → chạy status",
+      JSON.stringify(p2._replies).includes("Tiến độ học tập"),
+    );
+  }
+
+  // 7. history khi query lỗi (bot thiếu token) → rơi về botGetIntel thay vì im
+  historyMode = "null";
+  {
+    const h1 = makeSource({ sub: "history" });
+    await handleResearch({}, store, h1);
+    check(
+      "history: query lỗi → rơi về botGetIntel, vẫn trả lời được",
+      JSON.stringify(h1._replies).includes("Lượt học gần nhất"),
+    );
+  }
+  historyMode = "empty";
+  {
+    const h2 = makeSource({ sub: "history" });
+    await handleResearch({}, store, h2);
+    check(
+      "history: rỗng → báo chưa có lượt học nào",
+      JSON.stringify(h2._replies).includes("Chưa có lượt học nào"),
+    );
+  }
+  historyMode = "ok";
+
+  // 8. learnNow ném lỗi (provider AI chết) → phải báo lỗi, không im lặng
+  {
+    const realLearnNow = research.learnNow;
+    research.learnNow = async () => {
+      throw new Error("provider AI không phản hồi");
+    };
+    const f1 = makeSource({ sub: "learn" });
+    await handleResearch({}, store, f1);
+    check(
+      "learn lỗi (slash): trả lời lỗi thay vì im lặng",
+      JSON.stringify(f1._replies).includes("Lượt học thất bại"),
+    );
+    const f2 = makeSource({ isSlash: false, args: ["learn"] });
+    await handleResearch({}, store, f2);
+    check(
+      "learn lỗi (prefix): trả lời lỗi thay vì im lặng",
+      JSON.stringify(f2._replies).includes("Lượt học thất bại"),
+    );
+    research.learnNow = realLearnNow;
+  }
 
   console.log(`\nKết quả research commands: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail > 0 ? 1 : 0);
