@@ -711,6 +711,48 @@ for (const k of [
   }
 
   {
+    // SONG SONG, không phải tuần tự. Case T1c trên dùng `await` từng lần nên
+    // luôn kịp đánh dấu trước lần sau — còn raid thật thì Discord bắn hàng
+    // chục IntegrationCreate gần như cùng lúc, và trong lúc bot đang CHỜ AI
+    // (tới 6s) thì debounce chưa được đánh dấu → mỗi lần đều tốn 1 lượt AI.
+    resetCalls();
+    aiProbe.calls = 0;
+    aiReply = { offline: false, isRaid: true, confidence: 0.9, reason: "phối hợp rõ ràng" };
+    const raider = makeMember("raider-par", { freshAcc: true });
+    const guild = makeGuild({ membersMap: { "raider-par": raider }, id: "g-par" });
+    const entry = {
+      executor: raider,
+      target: { type: "discord", id: "app-par", name: "Free Nitro Generator" },
+    };
+    // Treo lời gọi AI để cả 3 lần kịp chạy tới chỗ gọi AI như raid thật.
+    let release;
+    const gate = new Promise((r) => (release = r));
+    const savedAi = fakeAi.aiAnalyzeExternalApp;
+    fakeAi.aiAnalyzeExternalApp = async () => {
+      aiProbe.calls += 1;
+      await gate;
+      return aiReply;
+    };
+    const pending = [
+      ext2.handleExternalApp(entry, guild),
+      ext2.handleExternalApp(entry, guild),
+      ext2.handleExternalApp(entry, guild),
+    ];
+    for (let i = 0; i < 6; i++) await new Promise((r) => setImmediate(r));
+    release();
+    await Promise.all(pending);
+    fakeAi.aiAnalyzeExternalApp = savedAi;
+    check(
+      aiProbe.calls === 1,
+      `T1c-đồng thời: 3 kết nối SONG SONG chỉ gọi AI 1 lần (gọi=${aiProbe.calls})`,
+    );
+    check(
+      calls.ban.length === 1,
+      `T1c-đồng thời: chỉ ban 1 lần, không ban lặp (ban=${calls.ban.length})`,
+    );
+  }
+
+  {
     // AI nghi raid nhưng TIN CẬY THẤP (0.4 < 0.6) → không được tự ý ban, chỉ
     // phạt theo cấu hình. Đây là ranh giới an toàn quan trọng: AI sai/kẻ độc
     // gắn nhãn raid thì người dùng vẫn chỉ bị kick theo đúng cấu hình server.

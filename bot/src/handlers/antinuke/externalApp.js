@@ -157,6 +157,12 @@ module.exports = function createAntiNukeLayer({ client, store, state, core, ai, 
     // hàng chục lượt gọi AI/giây mà kết quả chỉ dùng 1 vụ đầu.
     const lastProc = lastExtAppProcessedAt.get(guild.id);
     if (lastProc && Date.now() - lastProc < moduleCfg.windowSeconds * 1000) return;
+    // Đánh dấu NGAY, đồng bộ, TRƯỚC lệch gọi AI. Chỉ đặt sau thì trong lúc bot
+    // chờ AI (tới 6s) map vẫn trống: mọi IntegrationCreate đến trong khoảng đó
+    // lọt qua check ở trên và mỗi cái đều tốn trọn 1 lượt gọi AI. Raid thật
+    // bắn event SONG SONG, không phải tuần tự — đo thật 3 kết nối cùng lúc
+    // thì 3 lượt AI cho 1 vụ. Cửa sổ tính từ đầu làn sóng cho đúng nghĩa.
+    lastExtAppProcessedAt.set(guild.id, Date.now());
 
     // AI nhận diện: người dùng app ngoài có đang raid không? (kèm tín hiệu deterministic)
     const profile = `${fresh
@@ -231,7 +237,6 @@ module.exports = function createAntiNukeLayer({ client, store, state, core, ai, 
       (t) => !appUserHandledRecently(guild.id, t.executorId, moduleCfg.windowSeconds * 1000),
     );
     if (freshTargets.length === 0) return;
-    lastExtAppProcessedAt.set(guild.id, Date.now());
     for (const t of freshTargets) markAppUserHandled(guild.id, t.executorId);
 
     // Danh sách app được kết nối trong cửa sổ (bỏ trùng, giới hạn 10) — hiển thị trên dashboard.
