@@ -1,0 +1,39 @@
+{
+  "name": "Protogon — Bot Discord bảo vệ server",
+  "short_name": "Protogon",
+  "description": "Bot Discord tự trả lời theo từ khóa, hệ thống nhiệt độ vi phạm 4 giai đoạn, Join Gate chống selfbot, chặn link độc hại và 32 module chống nuke/raid — kèm trợ lý ảo Haimiya.",
+  "lang": "vi",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#171717",
+  "categories": ["security", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/logo-mark.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

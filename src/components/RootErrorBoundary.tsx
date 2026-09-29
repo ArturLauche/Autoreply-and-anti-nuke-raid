@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 import { RefreshCw } from "lucide-react";
 import BotLogo from "./BotLogo";
 import { Button } from "./ui/button";
+import { finishBootOverlay } from "../lib/bootOverlay";
 
 import { translate } from "../lib/i18n";
 interface Props {
@@ -27,8 +28,10 @@ export default class RootErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error("[RootErrorBoundary]", error, info.componentStack);
     // Preloader che toàn màn hình → phải mở ra, nếu không người dùng chỉ thấy
-    // loading mãi dù app đã quyết định hiện màn báo lỗi.
-    window.__bootDone?.();
+    // loading mãi dù app đã quyết định hiện màn báo lỗi. finishBootOverlay tự
+    // chọn đường: dùng boot.js nếu còn sống, tự gỡ DOM nếu /boot.js hỏng —
+    // KHÔNG được phụ thuộc vào file ngoài đang bị nghi ngờ.
+    finishBootOverlay();
   }
 
   render() {

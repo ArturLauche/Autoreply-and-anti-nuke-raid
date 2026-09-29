@@ -24,6 +24,7 @@ import { latencyLabel, useBotMonitor } from "../lib/useBotMonitor";
 import { cn } from "../lib/utils";
 
 import LangSwitch from "../components/LangSwitch";
+import SkipLink from "../components/SkipLink";
 
 import { dateLocale, translate } from "../lib/i18n";
 function AdminContent() {
@@ -71,6 +72,7 @@ function AdminContent() {
 
   return (
     <div className="relative min-h-screen">
+      <SkipLink />
       <div className="relative z-10">
         <header className="border-b border-border/60 bg-background/70 backdrop-blur">
           <div className="container flex items-center gap-3 py-5">
@@ -96,7 +98,7 @@ function AdminContent() {
           </div>
         </header>
 
-        <PageReveal className="container space-y-4 py-6">
+        <PageReveal id="main" className="container space-y-4 py-6">
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-danger/25 bg-danger/5 p-4">
               <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">

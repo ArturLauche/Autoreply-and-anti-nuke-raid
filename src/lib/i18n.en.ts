@@ -7,6 +7,9 @@
  * (src/lib/i18n.tsx import "./i18n.en").
  */
 export const EN: Record<string, string> = {
+  /* ==== Khả năng truy cập (28/09/2026) ==== Skip-to-content trên mọi trang
+     công khai — lối tắt bàn phìm bỏ qua điều hướng (WCAG 2.4.1). */
+  "Bỏ qua tới nội dung": "Skip to content",
   /* ==== Gom menu server thành nhóm (27/09/2026) ==== */
   "Bảo vệ": "Protection",
   "Nội dung & phạt": "Content & punishments",

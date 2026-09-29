@@ -373,11 +373,43 @@ check(
   /for \(const name of CONVEX_URL_VARS\)/.test(buildShim) &&
     /CONVEX_URL_VARS\s*=\s*\["CONVEX_URL", "VITE_CONVEX_URL"/.test(buildShim),
 );
+// Hai nhãn location phải TÁCH CRÔI: private (có X-Robots-Tag noindex) và
+// public (SPA fallback, KHÔNG noindex). Bug thật 28/09/2026: cả hai dùng chung
+// MỘT location → nginx phát noindex lên đúng /terms /privacy /data-deletion
+// /monitor /status — năm trang đang nằm trong sitemap và cần index. Lỗi im
+// lặng: không crash, không log, chỉ mất khả năng xếp hạng tìm kiếm.
+// Cách kiểm: cắt nội dung từng block rồi bắt điều kiện trên ĐÚNG block đó, không
+// đoán bằng substring trên cả file (thứ tự liệt kê khác đi là test cũ vượt ải).
+function nginxBlock(source, marker) {
+  const at = source.indexOf(marker);
+  if (at === -1) return "";
+  const next = source.indexOf("location", at + marker.length);
+  return next === -1 ? source.slice(at) : source.slice(at, next);
+}
+const dockerPrivateBlock = nginxBlock(dockerfile, "auth|discord/callback|admin|stats|dashboard");
+const dockerPublicBlock = nginxBlock(dockerfile, "features|monitor|terms|privacy|data-deletion");
 check(
-  "Docker noindex chỉ áp route private và có branded 404",
-  /auth\|discord\/callback\|admin\|stats/.test(dockerfile) &&
-    !/terms\|privacy\|data-deletion\|monitor/.test(dockerfile) &&
-    /error_page 404 \/404\.html/.test(dockerfile),
+  "Docker: route private có noindex + SPA fallback",
+  dockerPrivateBlock.length > 0 &&
+    /X-Robots-Tag \\?"noindex, nofollow\\?"/.test(dockerPrivateBlock) &&
+    /try_files \/index\.html =404/.test(dockerPrivateBlock),
+  "block private phải có X-Robots-Tag + try_files /index.html",
+);
+check(
+  "Docker: route công khai (gồm /features) có SPA fallback VÀ KHÔNG bị noindex",
+  dockerPublicBlock.length > 0 &&
+    /try_files \/index\.html =404/.test(dockerPublicBlock) &&
+    !/X-Robots-Tag/.test(dockerPublicBlock) &&
+    /features\\|monitor\\|terms\\|privacy\\|data-deletion/.test(dockerPublicBlock),
+  "block public thiếu /features hoặc đang bị gắn noindex",
+);
+// Alias /status: redirect 301 bằng location DÚNG (=) — thắng mọi regex location,
+// không còn là route SPA tự phục vụ (đã bỏ khỏi block public ở trên).
+check(
+  "Docker: /status redirect 301 về /monitor (alias không tự phục vụ trang)",
+  /location = \/status \{[\s\S]{0,240}?return 301 \/monitor;/.test(dockerfile) &&
+    dockerfile.includes("location = /status {") &&
+    !/features\|monitor\|status\|/.test(dockerfile),
 );
 const notFoundPage = fs.readFileSync(path.join(ROOT, "public", "404.html"), "utf8");
 const notFoundScript = fs.readFileSync(path.join(ROOT, "public", "404.js"), "utf8");
@@ -398,9 +430,15 @@ check(
   "online status dùng chung heartbeat freshness helper",
   /isHeartbeatFresh/.test(utils) && /isHeartbeatFresh/.test(overviewPanel),
 );
+const useBotStatusSrc = files.get("lib/useBotStatus.ts") ?? "";
 check(
-  "useBotStatus tự tạo lại trạng thái khi heartbeat cũ",
-  /setInterval[\s\S]{0,180}setNow/.test(files.get("lib/useBotStatus.ts") ?? ""),
+  "useBotStatus có đồng hồ cập nhật + đồng bộ lại ngay khi tab hiện (heartbeat có thể vừa hết hạn lúc tab ẩn)",
+  /setInterval[\s\S]{0,220}broadcastNow/.test(useBotStatusSrc) &&
+    /visibilitychange[\s\S]{0,220}broadcastNow/.test(useBotStatusSrc),
+);
+check(
+  "useBotStatus dùng CHUNG một ticker cho mọi consumer (Footer + Taskbar cùng mount trên Landing — không mỗi đứa một interval, tab ẩn thì im)",
+  /nowListeners/.test(useBotStatusSrc) && /document\.hidden/.test(useBotStatusSrc),
 );
 
 // ─── N. IP-detect ngôn ngữ ban đầu (không persist) ─────────────────────────
@@ -486,9 +524,9 @@ check(
     /\bde:\s*\{/.test(featuresContentSrc),
 );
 check(
-  "/features được index: seo.ts có kind features + sitemap + meta robots",
-  /"features"/.test(seo) &&
-    /path === "\/features"/.test(seo) &&
+  "/features được index: seo.ts láy route từ routes.json + sitemap có /features",
+  /routeForPath/.test(seo) &&
+    /canonicalPathFor/.test(seo) &&
     fs.readFileSync(path.join(ROOT, "public", "sitemap.xml"), "utf8").includes("/features"),
 );
 check(
@@ -496,6 +534,237 @@ check(
   /translate\(doc\.hero\.title\)/.test(featuresPageSrc) &&
     /translate\(block\.description\)/.test(featuresPageSrc) &&
     /translate\(step\)/.test(featuresPageSrc),
+);
+
+// ─── O2. Cửa trước production: SPA fallback / redirect / canonical ───────────
+// Bug thật 28/09/2026: /features có route React nhưng KHÔNG có trong
+// vercel.json rewrites lẫn nginx SPA fallback → mở trực tiếp/tải lại trang bị
+// 404 ở production trong khi dev chạy ngon. Cùng lớp bug: /status vừa là alias
+// vừa tự khai canonical → 2 URL cùng nội dung tranh nhau index.
+//
+// BẢNG TUYẾN ĐƯỜNG (src/lib/routes.json) LÀ NGUỒN DUY NHẤT: mọi kỳ vọng dưới
+// đây SUY RA từ đó, không có mảng gõ tay thứ hai. Thêm route public mà quên
+// sửa vercel.json hoặc Dockerfile.web = CI đỏ, không thể "quên cả hai".
+const routeManifest = require("../src/lib/routes.json");
+const ROUTES = routeManifest.routes;
+const byVisibility = (v) => ROUTES.filter((r) => r.visibility === v);
+const SPA_FALLBACK_ROUTES = ROUTES.filter((r) => r.spaFallback);
+const REDIRECT_ROUTES = ROUTES.filter((r) => r.redirect);
+const SITEMAP_ROUTES = ROUTES.filter((r) => r.index && !r.redirect && r.visibility === "public");
+
+// ── O2a. Bảng tuyến đường phải nhất quán với code ──
+check(
+  "bảng tuyến đường có đủ các trường bắt buộc (path/seoKind/visibility/index/sitemap/spaFallback/redirect)",
+  ROUTES.length > 0 &&
+    ROUTES.every(
+      (r) =>
+        typeof r.path === "string" &&
+        r.path.startsWith("/") &&
+        typeof r.seoKind === "string" &&
+        ["public", "private"].includes(r.visibility) &&
+        typeof r.index === "boolean" &&
+        typeof r.sitemap === "boolean" &&
+        typeof r.spaFallback === "boolean" &&
+        (r.redirect === null || typeof r.redirect === "string"),
+    ),
+);
+check(
+  "bảng tuyến đường: alias KHÔNG index, KHÔNG sitemap, KHÔNG tự phục vụ (chỉ redirect)",
+  REDIRECT_ROUTES.every((r) => !r.index && !r.sitemap && !r.spaFallback),
+);
+check(
+  "bảng tuyến đường: private luôn noindex + không sitemap",
+  byVisibility("private").every((r) => !r.index && !r.sitemap),
+);
+check(
+  "bảng tuyến đường: redirect phải trỏ tới một route TỒN TẠI và khác chính nó",
+  REDIRECT_ROUTES.every(
+    (r) => r.redirect !== r.path && ROUTES.some((t) => t.path === r.redirect && !t.redirect),
+  ),
+);
+// MỌI route trong App.tsx phải có trong bảng — route "vô danh" là route không
+// ai (test/hosting/SEO) biết tới, đúng lớp bug của /features và /status.
+{
+  const appRoutes = [...appSrc.matchAll(/path="(\/[^"]*)"/g)].map((m) => m[1]);
+  const unregistered = appRoutes.filter((p) => {
+    const norm = p.replace(/\/+$/, "") || "/";
+    return !ROUTES.some(
+      (r) =>
+        r.path === norm ||
+        (r.match === "prefix" && norm.startsWith(`${r.path}/`)) ||
+        // ":param" trong App.tsx thuộc route prefix của bảng
+        norm.startsWith("/dashboard/"),
+    );
+  });
+  check(
+    `mọi route trong App.tsx đều khai báo trong routes.json (${appRoutes.length} path)`,
+    unregistered.length === 0,
+    `chưa khai báo: ${unregistered.join(", ")}`,
+  );
+}
+// Và ngược lại: route nào bảng yêu cầu SPA fallback thì phải có mặt trong
+// App.tsx (bảng không được mô tả một trang không tồn tại).
+{
+  const appSrcPaths = [...appSrc.matchAll(/path="(\/[^"]*)"/g)].map((m) => m[1]);
+  const missingInApp = SPA_FALLBACK_ROUTES.filter((r) =>
+    r.match === "exact"
+      ? !appSrcPaths.includes(r.path)
+      : !appSrcPaths.some((p) => p.startsWith("/dashboard")),
+  );
+  check(
+    "mọi route cần SPA fallback đều có trong App.tsx",
+    missingInApp.length === 0,
+    `thiếu: ${missingInApp.map((r) => r.path).join(", ")}`,
+  );
+}
+
+// ── O2b. Vercel: rewrite phủ mọi route cần SPA fallback + redirect cho alias ──
+const vercelJson = JSON.parse(fs.readFileSync(path.join(ROOT, "vercel.json"), "utf8"));
+const vercelRewrites = vercelJson.rewrites ?? [];
+const vercelRedirects = vercelJson.redirects ?? [];
+for (const route of SPA_FALLBACK_ROUTES) {
+  const expected = route.match === "prefix" ? `${route.path}/:path*` : route.path;
+  check(
+    `vercel.json rewrites phủ ${route.path} (mở trực tiếp không bị 404)`,
+    vercelRewrites.some((r) => r.source === expected),
+  );
+}
+for (const route of REDIRECT_ROUTES) {
+  check(
+    `vercel.json redirect VĨNH VIỄN ${route.path} → ${route.redirect} (một canonical duy nhất)`,
+    vercelRedirects.some(
+      (r) => r.source === route.path && r.destination === route.redirect && r.permanent === true,
+    ),
+  );
+}
+check(
+  "vercel.json KHÔNG tự phục vụ alias /status bằng rewrite (redirect đã lo, rewrite sẽ cướp precedence)",
+  !vercelRewrites.some((r) => r.source === "/status"),
+);
+// Private routes phải có X-Robots-Tag noindex; public KHÔNG được có.
+// Pattern kiểu "/(auth|dashboard)(/.*)?" không chứa chuỗi "/auth" — phải tách
+// alternation ra rồi so, không so substring (sai cả hai chiều).
+{
+  const noindexSources = (vercelJson.headers ?? [])
+    .filter((h) => (h.headers ?? []).some((x) => /noindex/.test(x.value ?? "")))
+    .map((h) => h.source);
+  /** Các path alternative trong pattern Vercel: /(auth|dashboard)(/.*)? → ["auth","dashboard"] */
+  const alternativesOf = (pattern) =>
+    [...pattern.matchAll(/[A-Za-z0-9_/-]+/g)]
+      .map((m) => m[0])
+      .filter((t) => t !== "path" && !t.startsWith("http"));
+  const noindexed = new Set(noindexSources.flatMap(alternativesOf));
+  for (const route of byVisibility("private")) {
+    const name = route.path.replace(/^\//, "");
+    check(
+      `vercel.json gắn X-Robots-Tag noindex cho ${route.path}`,
+      noindexed.has(name) ||
+        noindexSources.some(
+          (src) => src.includes(`${route.path}`) || src.includes(`${route.path}(`),
+        ),
+    );
+  }
+  for (const route of ROUTES) {
+    if (route.visibility !== "public" || !route.index || route.redirect) continue;
+    if (route.path === "/") continue; // index.html: không có pattern noindex nào khớp được "/"
+    const name = route.path.replace(/^\//, "");
+    check(
+      `vercel.json KHÔNG gắn noindex cho ${route.path} (trang public cần index)`,
+      !noindexed.has(name) && !noindexSources.some((src) => src.includes(`${route.path}`)),
+    );
+  }
+}
+
+// ── O2c. robots.txt chỉ chặn private; public KHÔNG bị chặn ──
+const robotsTxt = fs.readFileSync(path.join(ROOT, "public", "robots.txt"), "utf8");
+const robotsDisallows = [...robotsTxt.matchAll(/^Disallow:\s*(\S+)$/gm)].map((m) => m[1]);
+for (const route of byVisibility("private")) {
+  check(
+    `robots.txt chặn /${route.path.replace(/^\//, "")}`,
+    robotsDisallows.some((d) => route.path.startsWith(d.replace(/\/+$/, ""))),
+  );
+}
+for (const route of ROUTES) {
+  if (route.visibility !== "public" || !route.index || route.redirect) continue;
+  check(
+    `robots.txt KHÔNG chặn ${route.path} (trang public cần index)`,
+    !robotsDisallows.some((d) => route.path.startsWith(d.replace(/\/+$/, ""))),
+  );
+}
+
+// ── O2d. Sitemap: đúng bộ URL canonical, không alias, không private ──
+const sitemapSrc = fs.readFileSync(path.join(ROOT, "public", "sitemap.xml"), "utf8");
+const sitemapLocs = [...sitemapSrc.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+const expectedSitemapLocs = SITEMAP_ROUTES.map((r) => `https://protogon.freebuff.app${r.path}`);
+check(
+  "sitemap.xml chứa ĐÚNG bộ URL canonical từ routes.json (không thiếu, không thừa)",
+  sitemapLocs.length === expectedSitemapLocs.length &&
+    expectedSitemapLocs.every((loc) => sitemapLocs.includes(loc)),
+  `sitemap: [${sitemapLocs.join(", ")}] — kỳ vọng: [${expectedSitemapLocs.join(", ")}]`,
+);
+check(
+  "sitemap.xml KHÔNG chứa /auth và KHÔNG chứa alias /status",
+  !sitemapLocs.some((loc) => loc.endsWith("/auth")) &&
+    !sitemapLocs.some((loc) => loc.endsWith("/status")),
+);
+// lastmod: chỉ được có ở trang có NGUỒN NGÀY THẬT (3 văn bản pháp lý — ngày
+// LEGAL_UPDATED trong legalContent.ts). Không có nguồn thì bỏ hẳn, không bịa.
+{
+  const legalSrc = fs.readFileSync(path.join(ROOT, "src", "lib", "legalContent.ts"), "utf8");
+  const legalUpdated = legalSrc.match(/LEGAL_UPDATED\s*=\s*"(\d{2})\/(\d{2})\/(\d{4})"/);
+  const iso = legalUpdated ? `${legalUpdated[3]}-${legalUpdated[2]}-${legalUpdated[1]}` : null;
+  const urls = [...sitemapSrc.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]);
+  const legalPaths = ["/terms", "/privacy", "/data-deletion"];
+  const legalDates = new Set();
+  const nonLegalWithLastmod = [];
+  for (const url of urls) {
+    const loc = url.match(/<loc>([^<]+)<\/loc>/)?.[1] ?? "";
+    const lastmod = url.match(/<lastmod>([^<]+)<\/lastmod>/)?.[1];
+    if (!lastmod) continue;
+    const path = loc.replace("https://protogon.freebuff.app", "") || "/";
+    if (legalPaths.includes(path)) legalDates.add(lastmod);
+    else nonLegalWithLastmod.push(path);
+  }
+  check(
+    "sitemap: lastmod chỉ ở 3 trang pháp lý (trang không có nguồn ngày thì bỏ hẳn, không bịa ngày build)",
+    nonLegalWithLastmod.length === 0,
+    `có lastmod không có nguồn: ${nonLegalWithLastmod.join(", ")}`,
+  );
+  check(
+    "sitemap: lastmod pháp lý khớp LEGAL_UPDATED trong legalContent.ts",
+    legalDates.size === 1 && (iso === null || legalDates.has(iso)),
+    `các lastmod: [${[...legalDates].join(", ")}] — kỳ vọng ${iso}`,
+  );
+  // Ngày đồng loạt cho MỌI url (kể cả trang không có nguồn) là dấu hiệu ngày bịa.
+  check(
+    "sitemap: không gắn lastmod đồng loạt cho mọi trang (dấu hiệu ngày bịa)",
+    urls.every((u) => /<lastmod>/.test(u)) === false || legalPaths.length === urls.length,
+  );
+}
+
+// ── O2e. seo.ts: alias canonicalize về đích, không tự khai canonical ──
+check(
+  "seo.ts lấy canonical từ routes.ts (alias → đích redirect, route private → không canonical)",
+  /canonicalPathFor/.test(seo) && /routeForPath/.test(seo) && /isIndexableRoute/.test(seo),
+);
+check("seo.ts dựng og:url từ canonical (không từ URL đang mở)", /og:url", canonicalUrl/.test(seo));
+check(
+  "seo.ts không còn bảng route/indexed viết tay (nguồn duy nhất là routes.json)",
+  !/INDEXED_KINDS/.test(seo) && !/path === "\/monitor" /.test(seo),
+);
+
+check(
+  "seo.ts tiêm JSON-LD theo route (WebPage + BreadcrumbList), route ẩn thì gỡ",
+  /WebPage/.test(seo) &&
+    /BreadcrumbList/.test(seo) &&
+    /itemListElement/.test(seo) &&
+    /existing\?\.remove\(\)/.test(seo) &&
+    /syncRouteJsonLd\(route, canonicalPath, lang\)/.test(seo) &&
+    /isIndexableRoute\(route\).*route\.redirect/.test(seo),
+);
+check(
+  "llms.txt niêm yết /features (trang public SEO quốc tế)",
+  fs.readFileSync(path.join(ROOT, "public", "llms.txt"), "utf8").includes("/features"),
 );
 
 // ─── 10. TicketPanel: số liệu + link + cấu hình phải thật sự có tác dụng ───
@@ -596,7 +865,8 @@ for (const flag of ["rollbackEnabled"]) {
 }
 
 // ─── 12. Preloader: không bao giờ kẹt người dùng ở màn loading ────────────────
-// Preloader nằm inline trong index.html (chạy trước bundle React) và tự fade
+// Preloader: CSS inline trong index.html (chống màn trắng) + script ở FILE
+// NGOÀI public/boot.js (CSP script-src 'self' chặn inline — xem 12d). Tự fade
 // khi window.__bootDone() được gọi. Ba đường kẹt người dùng đều phải chặn:
 //   1. Không có JS → không ai gọi __bootDone → kẹt vĩnh viễn (phải có noscript).
 //   2. Bundle lỗi / app crash → phải có chốt an toàn theo thời gian.
@@ -604,7 +874,193 @@ for (const flag of ["rollbackEnabled"]) {
 //      nếu không người dùng thấy loading mãi dù app đã có màn báo lỗi.
 const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 const bootAppSrc = files.get("App.tsx") ?? "";
+const bootJs = fs.readFileSync(path.join(ROOT, "public", "boot.js"), "utf8");
+
+// ─── 12b. Cửa trước HTML: manifest, icon, dữ liệu có cấu trúc ────────────────
+// Web app thiếu manifest = không cài được lên màn hình chính, thiếu
+// favicon.ico = trình duyệt tự hỏi và ăn 404 vào log mỗi lượt tải trang.
+check(
+  "index.html khai báo manifest + favicon.ico dự phòng",
+  /rel="manifest" href="\/site\.webmanifest"/.test(html) &&
+    /rel="icon"[^>]*favicon\.ico/.test(html),
+);
+check(
+  "public/site.webmanifest tồn tại, parse được, đủ icon 192/512 + start_url",
+  (() => {
+    try {
+      const manifest = JSON.parse(
+        fs.readFileSync(path.join(ROOT, "public", "site.webmanifest"), "utf8"),
+      );
+      const sizes = (manifest.icons ?? []).map((i) => i.sizes);
+      return (
+        typeof manifest.name === "string" &&
+        manifest.name.length > 0 &&
+        typeof manifest.start_url === "string" &&
+        typeof manifest.display === "string" &&
+        sizes.includes("192x192") &&
+        sizes.includes("512x512")
+        // "orientation" CỐ Ý KHÔNG kiểm ở đây — xem check riêng bên dưới.
+      );
+    } catch {
+      return false;
+    }
+  })(),
+);
+// Dashboard responsive — khoá portrait là khoá cả tablet/laptop xoay ngang.
+// (Bug láº1i: manifest cĂ³ "orientation": "portrait-primary".)
+check(
+  "site.webmanifest KHÔNG khoá hÆ°á»ng portrait (dashboard dĂ¹ng ÄÆ°á»£c trĂªn m»)",
+  (() => {
+    try {
+      const m = JSON.parse(fs.readFileSync(path.join(ROOT, "public", "site.webmanifest"), "utf8"));
+      return !("orientation" in m) || !/portrait|landscape/.test(String(m.orientation));
+    } catch {
+      return false;
+    }
+  })(),
+);
+check(
+  "favicon.ico tồn tại và là ICO chứa PNG (magic bytes)",
+  (() => {
+    try {
+      const ico = fs.readFileSync(path.join(ROOT, "public", "favicon.ico"));
+      return (
+        ico.readUInt16LE(2) === 1 && ico.readUInt16LE(4) >= 1 && ico.readUInt32BE(22) === 0x89504e47 // PNG magic ngay sau ICONDIR+ENTRY
+      );
+    } catch {
+      return false;
+    }
+  })(),
+);
+// Dữ liệu có cấu trúc: SoftwareApplication PHẢI gắn publisher vào Organization
+// qua @id — hai khối rời rạc không liên kết thì Google chỉ hiểu nửa.
+check(
+  "index.html có JSON-LD SoftwareApplication + Organization liên kết qua @id",
+  /"@type": "SoftwareApplication"/.test(html) &&
+    /"@type": "Organization"/.test(html) &&
+    /"@id": "https:\/\/protogon\.freebuff\.app\/#organization"/.test(html) &&
+    /publisher/.test(html),
+);
+check(
+  "theme-color nhất quán giữa index.html và 404.html (tab không đổi màu khi lạc trang)",
+  /theme-color" content="#171717"/.test(html) &&
+    /theme-color" content="#171717"/.test(
+      fs.readFileSync(path.join(ROOT, "public", "404.html"), "utf8"),
+    ),
+);
+// security.txt (RFC 9116): sản phẩm bảo mật phải có kênh báo lỗi công khai.
+// Expires quá hạn = công cụ quét BỎ QUA im lặng toàn bộ tệp — phải chặn.
+check(
+  "security.txt hợp lệ: có Contact + Expires chưa quá hạn",
+  (() => {
+    try {
+      const txt = fs.readFileSync(path.join(ROOT, "public", ".well-known", "security.txt"), "utf8");
+      const expires = txt.match(/^Expires:\s*(.+)$/m)?.[1];
+      const contacts = [...txt.matchAll(/^Contact:\s*(.+)$/gm)];
+      return (
+        contacts.length > 0 &&
+        contacts.every((c) => /^https?:\/\//.test(c[1].trim())) &&
+        !!expires &&
+        Number.isFinite(Date.parse(expires)) &&
+        Date.parse(expires) > Date.now()
+      );
+    } catch {
+      return false;
+    }
+  })(),
+);
+
+// ─── 12d. CSP: KHÔNG có inline <script> trong index.html ─────────────────────
+// Bug thảm hoạng, đo bằng trình duyệt thật 28/09/2026: CSP production
+// (vercel.json + Dockerfile.web) đặt `script-src 'self'` — inline script
+// KHÔNG có nonce/hash bị chặn IM LẶNG. Script preloader lúc đó nằm inline →
+// không chạy → #boot không bao giờ nhận class `is-done` → lớp phủ preloader
+// phủ kín TOÀN BỘ app ở MỌI trang, kẹt ở 0% vĩnh viễn. App render bình
+// thường phía dưới, không ai thấy được.
+// Cách chống: mọi script phải là file ngoài cùng origin; kiểm ở đây để không
+// ai thêm lại inline script (hoặc đổi boot.js về inline) mà không thấy.
+const inlineExecutableScripts = [
+  ...html.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/g),
+].filter((m) => !/application\/ld\+json/.test(m[1]) && m[2].trim().length > 0);
+check(
+  "index.html KHÔNG có inline <script> thực thi (CSP script-src 'self' chặn → preloader kẹt)",
+  inlineExecutableScripts.length === 0,
+  `đang có ${inlineExecutableScripts.length} script inline — chuyển sang file ngoài cùng origin`,
+);
+check(
+  "index.html nạp preloader từ /boot.js (file ngoài)",
+  /<script src="\/boot\.js"><\/script>/.test(html),
+);
+check(
+  "boot.js là file ngoài hợp lệ: __bootDone + chốt 7s + requestAnimationFrame",
+  /window\.__bootDone/.test(bootJs) &&
+    /7_?000\s*\)/.test(bootJs) &&
+    /requestAnimationFrame/.test(bootJs),
+);
+
+// ─── 12c. Skip-to-content: mọi trang có một nút "Bỏ qua tới nội dung" ─────────
+// WCAG 2.4.1: header cố định + điều hướng dài buộc người dùng bàn phím phải
+// Tab qua toàn bộ chrome mỗi lần mở trang. Trang thiếu SkipLink hoặc thiếu
+// <main id="main"> là nút bấm chết (nhảy không tới đâu).
+// MỌI trang .tsx trong src/pages — danh sách phải khớp thư mục thật, không
+// gõ tay từng trang: thêm trang mới mà quên skip link = CI đỏ.
+const SKIP_LINK_PAGES = fs
+  .readdirSync(path.join(ROOT, "src", "pages"))
+  .filter((f) => f.endsWith(".tsx"))
+  .sort();
+for (const page of SKIP_LINK_PAGES) {
+  const src = files.get(`pages/${page}`) ?? "";
+  // Hai hình thức hợp lệ: trang tự render <main id="main" tabIndex={-1}>,
+  // hoặc giao cho <PageReveal id="main"> (PageReveal đã có tabIndex — kiểm
+  // riêng ở dưới). Cả hai đều cho skip link một đích nhảy CÓ THỂ NHẬN FOCUS.
+  const hasOwnMain = /<main[^>]*id="main"[^>]*tabIndex=\{-1\}/.test(src);
+  const usesPageReveal = /<PageReveal id="main"/.test(src);
+  check(
+    `${page} có SkipLink + đích nhảy nhận được focus (<main tabIndex={-1}> hoặc PageReveal)`,
+    /<SkipLink/.test(src) && (hasOwnMain || usesPageReveal),
+  );
+}
 const bootBoundary = files.get("components/RootErrorBoundary.tsx") ?? "";
+// ── Fail-open: preloader KHÔNG được phụ thuộc vào /boot.js ──
+// Bug lớp: PR #15 chuyển script preloader sang /boot.js cho khỏi CSP, nhưng
+// chốt an toàn (window.__bootDone) vẫn nằm TRONG boot.js. Nếu file đó 404, bị
+// chặn, tải dở, hoặc throw trước khi gán window.__bootDone thì BootSignal và
+// RootErrorBoundary chỉ gọi window.__bootDone?.() → no-op → lớp phủ #boot
+// phủ kín app vĩnh viễn. Fix: finishBootOverlay() là đường ra THỨ HAI, độc
+// lập — boot.js còn sống thì dùng nó, hỏng thì tự gỡ DOM. Hành vi thực tế do
+// scripts/test-browser-contracts.cjs chặn request /boot.js rồi kiểm tra app
+// hiện được + lớp phủ biến mất.
+check(
+  "BootSignal gọi finishBootOverlay (đường ra thứ hai khi /boot.js hỏng)",
+  /import \{ finishBootOverlay \} from ".\/lib\/bootOverlay"/.test(bootAppSrc) &&
+    /finishBootOverlay\(\)/.test(bootAppSrc) &&
+    /BOOT_SIGNAL_CAP_MS/.test(bootAppSrc),
+);
+check(
+  "RootErrorBoundary gọi finishBootOverlay (lỗi toàn trang cũng phải hiện app)",
+  /finishBootOverlay\(\)/.test(bootBoundary) && !/window\.__bootDone/.test(bootBoundary),
+);
+{
+  const mainSrc = files.get("pages/Main.tsx") ?? "";
+  const mainReal = mainSrc || fs.readFileSync(path.join(ROOT, "src", "main.tsx"), "utf8");
+  check(
+    "Bootstrap lỗi (trước khi React mount) cũng gọi finishBootOverlay",
+    /finishBootOverlay\(\)/.test(mainReal) && /catch \(error\)/.test(mainReal),
+  );
+  const helper = files.get("lib/bootOverlay.ts") ?? "";
+  check(
+    "bootOverlay.ts đủ 2 đường: boot.js sống thì dùng __bootDone, hỏng thì tự gỡ DOM",
+    /window\.__bootDone/.test(helper) &&
+      /getElementById\(BOOT_OVERLAY_ID\)/.test(helper) &&
+      /classList\.add\("is-done"\)/.test(helper) &&
+      /overlay\.remove\(\)/.test(helper),
+  );
+}
+
+check(
+  "PageReveal (5 trang dùng) cũng cho <main> nhận focus (tabIndex={-1})",
+  [files.get("components/PageReveal.tsx") ?? ""].some((src) => /tabIndex=\{-1\}/.test(src)),
+);
 check(
   "preloader có markup + role progressbar",
   /id="boot"/.test(html) && /role="progressbar"/.test(html),
@@ -615,19 +1071,22 @@ check(
 );
 check(
   "preloader có chốt an toàn theo thời gian",
-  /setTimeout\(function \(\) \{\s*done = true;/.test(html),
+  /setTimeout\(function \(\) \{\s*done = true;/.test(bootJs),
 );
 check("preloader tôn trọng prefers-reduced-motion", /prefers-reduced-motion: reduce/.test(html));
 check(
   "preloader bám chủ đề app (không lóe trắng trên máy chủ đề tối)",
-  /protogon-theme/.test(html) && /prefers-color-scheme: dark/.test(html),
+  /protogon-theme/.test(bootJs) && /prefers-color-scheme: dark/.test(bootJs),
 );
 check("App gọi __bootDone khi đã vẽ xong", /window\.__bootDone/.test(bootAppSrc));
 check(
   "Tín hiệu __bootDone nằm BÊN TRONG <Suspense> (không nhảy qua RouteFallback)",
   /<Suspense[^]*?\n\s*<BootSignal \/>/.test(bootAppSrc),
 );
-check("App lỗi toàn trang cũng mở preloader", /__bootDone/.test(bootBoundary));
+check(
+  "App lỗi toàn trang cũng mở preloader (fail-open, không phụ thuộc /boot.js)",
+  /finishBootOverlay/.test(bootBoundary),
+);
 check("App khai báo kiểu __bootDone cho TypeScript", /__bootDone\?: \(\) => void/.test(bootAppSrc));
 // Đừng thêm transition width cho thanh: JS đã easing và đặt % mỗi frame, bộ
 // easing thứ hai của CSS làm đầu thanh trễ ~150ms so với số % bên dưới — hai
@@ -650,7 +1109,7 @@ check(
 );
 check(
   "preloader chỉ còn MỘT nguồn đặt tiến trình (paint), không còn run.style.left",
-  /fill\.style\.width = v \+ "%";/.test(html) && !/run\.style\.left/.test(html),
+  /fill\.style\.width = v \+ "%";/.test(bootJs) && !/run\.style\.left/.test(bootJs),
 );
 check(
   "KHÔNG transition width trên .boot-fill (JS đã easing — transition làm lệch)",
@@ -659,7 +1118,7 @@ check(
 );
 check(
   "Bật giảm chuyển động: giá trị % chặn trên 100 (làm tròn bậc 8 → 104 là tràn thanh)",
-  /Math\.min\(100, Math\.round\(p \/ 8\) \* 8\)/.test(html),
+  /Math\.min\(100, Math\.round\(p \/ 8\) \* 8\)/.test(bootJs),
 );
 
 // Ba thứ "làm đẹp" của preloader (logo, thanh mảnh, vệt sáng) là chủ đích của

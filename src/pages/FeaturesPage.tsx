@@ -6,6 +6,7 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import Footer from "../components/landing/Footer";
 import LangSwitch from "../components/LangSwitch";
+import SkipLink from "../components/SkipLink";
 import { usePublicConfig } from "../lib/usePublicConfig";
 import { featuresDoc } from "../lib/featuresContent";
 import { translate, useT } from "../lib/i18n";
@@ -27,6 +28,7 @@ export default function FeaturesPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      <SkipLink />
       {/* Thanh đầu trang: về trang chủ + đổi ngôn ngữ — dùng chung khuôn LegalPage */}
       <div className="mx-auto flex max-w-4xl items-center justify-between px-6 pt-6">
         <Link
@@ -39,7 +41,7 @@ export default function FeaturesPage() {
         <LangSwitch />
       </div>
 
-      <main className="mx-auto max-w-4xl px-6 pb-16 pt-10">
+      <main id="main" tabIndex={-1} className="mx-auto max-w-4xl px-6 pb-16 pt-10">
         {/* Hero */}
         <header>
           <Badge variant="secondary" className="mb-4 gap-1.5">
@@ -62,7 +64,7 @@ export default function FeaturesPage() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: i * 0.05 }}
-              className="rounded-2xl border border-border bg-card p-5"
+              className="rounded-xl border border-border bg-card p-5"
             >
               <h2 className="font-display text-base font-bold tracking-tight text-foreground">
                 {translate(block.name)}
@@ -94,7 +96,7 @@ export default function FeaturesPage() {
         {/* So sánh */}
         <section className="mt-14">
           <h2 className="font-display text-2xl font-bold tracking-tight">{doc.comparisonTitle}</h2>
-          <div className="mt-5 overflow-x-auto rounded-2xl border border-border">
+          <div className="mt-5 overflow-x-auto rounded-xl border border-border">
             <table className="w-full min-w-[34rem] text-sm">
               <thead>
                 <tr className="border-b border-border bg-secondary/60 text-left">
@@ -131,7 +133,7 @@ export default function FeaturesPage() {
         </section>
 
         {/* CTA */}
-        <section className="mt-14 rounded-2xl border border-primary/30 bg-primary/5 p-6 text-center sm:p-10">
+        <section className="mt-14 rounded-xl border border-primary/30 bg-primary/5 p-6 text-center sm:p-10">
           <h2 className="font-display text-2xl font-bold tracking-tight">{doc.ctaTitle}</h2>
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
             {doc.ctaBody}

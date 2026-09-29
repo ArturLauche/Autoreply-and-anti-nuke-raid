@@ -104,6 +104,20 @@ jobs:
         run: |
           bun install --frozen-lockfile
           (cd bot && bun install --no-save)
+      # Test trình duyệt thật (scripts/test-browser-contracts.cjs) điều khiển
+      # Chromium bằng DevTools Protocol — KHÔNG cài dependency nào vào repo,
+      # nhưng cần một bản Chromium chạy được. Runner Ubuntu chỉ có snap-stub
+      # chromium-browser (không dùng được trong service), nên tải bản
+      # playwright về cache nếu chưa có. Thiếu Chromium = test FAIL kèm hướng
+      # dẫn (không im lặng xanh).
+      - name: Bảo đảm có Chromium cho test trình duyệt
+        run: |
+          if ! ls -d "$HOME"/.cache/ms-playwright/chromium-* >/dev/null 2>&1; then
+            echo "Chưa có Chromium — tải về ~/.cache/ms-playwright"
+            bunx playwright@1.63.0 install chromium
+          else
+            echo "Đã có Chromium trong cache playwright"
+          fi
       - name: Typecheck (web + convex)
         run: bun run typecheck
       - name: Chạy toàn bộ test suites + đo coverage (c8)

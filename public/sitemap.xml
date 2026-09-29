@@ -1,5 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!--
+    CHỈ chứa URL CANONICAL, CÔNG KHAI, CHO INDEX — bộ test
+    scripts/test-web-contracts.cjs suy danh sách này từ src/lib/routes.json
+    (nguồn duy nhất). Hai loại URL cố tình KHÔNG nằm ở đây:
+      · /auth và mọi trang cần đăng nhập: bị robots.txt Disallow + noindex —
+        URL bị chặn mà đăng ký sitemap là mâu thuẫn bị Search Console báo lỗi.
+      · /status: alias của /monitor, hosting redirect 301 về /monitor. Hai URL
+        cùng nội dung chỉ được có MỘT canonical — đăng ký cả hai là tự xin
+        trùng lặp nội dung.
+
+    <lastmod> chỉ có ở 3 trang pháp lý: đó là ngày duy nhất repo THẬT SỰ duy
+    trì (LEGAL_UPDATED trong src/lib/legalContent.ts — hiện là 22/09/2026).
+    Các trang còn lại KHÔNG có lastmod vì không có nguồn "ngày sửa nội dung"
+    đáng tin; gắn ngày build/ngày hôm nay cho đủ bộ là dữ liệu giả — công cụ
+    tìm kiếm sẽ thấy sitemap nào cũng "vừa mới sửa" và bỏ qua tín hiệu.
+  -->
   <url>
     <loc>https://protogon.freebuff.app/</loc>
     <changefreq>weekly</changefreq>
@@ -11,37 +27,31 @@
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
-  <url>
-    <loc>https://protogon.freebuff.app/auth</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
-  </url>
-  <!-- Monitor: trang công khai, dữ liệu realtime theo heartbeat bot. -->
+  <!-- Monitor: trang công khai, dữ liệu realtime theo heartbeat bot.
+       Canonical của cả /status. -->
   <url>
     <loc>https://protogon.freebuff.app/monitor</loc>
     <changefreq>hourly</changefreq>
     <priority>0.6</priority>
   </url>
-  <!-- Văn bản pháp lý: URL riêng, công khai — Discord dùng để xác minh bot. -->
+  <!-- Văn bản pháp lý: URL riêng, công khai — Discord dùng để xác minh bot.
+       lastmod = ngày LEGAL_UPDATED trong src/lib/legalContent.ts. -->
   <url>
     <loc>https://protogon.freebuff.app/terms</loc>
+    <lastmod>2026-09-22</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://protogon.freebuff.app/privacy</loc>
+    <lastmod>2026-09-22</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://protogon.freebuff.app/data-deletion</loc>
+    <lastmod>2026-09-22</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
-  </url>
-  <!-- Trạng thái hệ thống: công khai, cập nhật realtime theo dữ liệu bot. -->
-  <url>
-    <loc>https://protogon.freebuff.app/status</loc>
-    <changefreq>hourly</changefreq>
-    <priority>0.6</priority>
   </url>
 </urlset>

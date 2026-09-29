@@ -1,0 +1,136 @@
+{
+  "routes": [
+    {
+      "path": "/",
+      "match": "exact",
+      "seoKind": "home",
+      "visibility": "public",
+      "index": true,
+      "sitemap": true,
+      "spaFallback": false,
+      "redirect": null,
+      "note": "index.html itself - hosting serves it directly, no SPA fallback needed"
+    },
+    {
+      "path": "/features",
+      "match": "exact",
+      "seoKind": "features",
+      "visibility": "public",
+      "index": true,
+      "sitemap": true,
+      "spaFallback": true,
+      "redirect": null,
+      "note": "international SEO page (VI/EN/DE content)"
+    },
+    {
+      "path": "/terms",
+      "match": "exact",
+      "seoKind": "terms",
+      "visibility": "public",
+      "index": true,
+      "sitemap": true,
+      "spaFallback": true,
+      "redirect": null,
+      "note": "legal page - Discord bot verification requires a stable public URL"
+    },
+    {
+      "path": "/privacy",
+      "match": "exact",
+      "seoKind": "privacy",
+      "visibility": "public",
+      "index": true,
+      "sitemap": true,
+      "spaFallback": true,
+      "redirect": null,
+      "note": "legal page - Discord bot verification requires a stable public URL"
+    },
+    {
+      "path": "/data-deletion",
+      "match": "exact",
+      "seoKind": "data-deletion",
+      "visibility": "public",
+      "index": true,
+      "sitemap": true,
+      "spaFallback": true,
+      "redirect": null,
+      "note": "legal page - Discord bot verification requires a stable public URL"
+    },
+    {
+      "path": "/monitor",
+      "match": "exact",
+      "seoKind": "monitor",
+      "visibility": "public",
+      "index": true,
+      "sitemap": true,
+      "spaFallback": true,
+      "redirect": null,
+      "note": "CANONICAL status page - /status is only an alias that redirects here"
+    },
+    {
+      "path": "/status",
+      "match": "exact",
+      "seoKind": "monitor",
+      "visibility": "public",
+      "index": false,
+      "sitemap": false,
+      "spaFallback": false,
+      "redirect": "/monitor",
+      "note": "friendly alias of /monitor: permanent redirect, never indexed, never in sitemap"
+    },
+    {
+      "path": "/auth",
+      "match": "exact",
+      "seoKind": "auth",
+      "visibility": "private",
+      "index": false,
+      "sitemap": false,
+      "spaFallback": true,
+      "redirect": null,
+      "note": "login page - noindex, no sitemap entry"
+    },
+    {
+      "path": "/discord/callback",
+      "match": "exact",
+      "seoKind": "callback",
+      "visibility": "private",
+      "index": false,
+      "sitemap": false,
+      "spaFallback": true,
+      "redirect": null,
+      "note": "OAuth callback - transient, noindex"
+    },
+    {
+      "path": "/dashboard",
+      "match": "prefix",
+      "seoKind": "dashboard",
+      "visibility": "private",
+      "index": false,
+      "sitemap": false,
+      "spaFallback": true,
+      "redirect": null,
+      "note": "covers /dashboard, /dashboard/:guildId, /:guildId/history, /:guildId/incidents"
+    },
+    {
+      "path": "/stats",
+      "match": "exact",
+      "seoKind": "stats",
+      "visibility": "private",
+      "index": false,
+      "sitemap": false,
+      "spaFallback": true,
+      "redirect": null,
+      "note": "authenticated heat rankings - noindex"
+    },
+    {
+      "path": "/admin",
+      "match": "exact",
+      "seoKind": "admin",
+      "visibility": "private",
+      "index": false,
+      "sitemap": false,
+      "spaFallback": true,
+      "redirect": null,
+      "note": "owner-only area - noindex"
+    }
+  ]
+}

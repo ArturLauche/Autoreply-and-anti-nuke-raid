@@ -46,6 +46,7 @@ import { confirmLeave } from "../lib/useUnsavedChanges";
 import { syncState } from "../lib/syncState";
 
 import LangSwitch from "../components/LangSwitch";
+import SkipLink from "../components/SkipLink";
 
 import { dateLocale, translate } from "../lib/i18n";
 // Code-split theo panel: mở tab nào mới tải JS của tab đó. Chỉ OverviewPanel
@@ -321,6 +322,7 @@ export default function GuildPage() {
     <div className="relative min-h-screen overflow-x-clip" style={themeVars}>
       <HaimiyaChat position="dashboard" />
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} items={commands} />
+      <SkipLink />
       <div className="relative z-10">
         <header className="border-b border-border/60 bg-background/70 backdrop-blur">
           {/* Header 2 hàng cho điện thoại: hàng 1 là điều hướng + nhận diện
@@ -386,7 +388,11 @@ export default function GuildPage() {
           </div>
         </header>
 
-        <main className="container w-full max-w-full py-4 max-sm:px-3 max-sm:pb-32 sm:py-8">
+        <main
+          id="main"
+          tabIndex={-1}
+          className="container w-full max-w-full py-4 max-sm:px-3 max-sm:pb-32 sm:py-8"
+        >
           <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-[230px_1fr]">
             {/* Sidebar — min-w-0: nếu thiếu, nội dung panel rộng (bảng hình
                 phạt 720px…) sẽ kéo cả track grid rộng hơn màn hình và bị

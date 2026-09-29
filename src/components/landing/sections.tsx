@@ -141,13 +141,16 @@ export function Features() {
           ))}
         </motion.div>
 
-        {/* Dải điểm nổi bật thêm */}
+        {/* Dải điểm nổi bật — KHÔNG bọc container: 10 card tính năng phía trên
+            đã đủ "hộp trong hộp"; dải này tách bằng đường kẻ + khoảng thở như
+            hàng số liệu ở hero, đọc là một dãy thông tin chứ không phải thêm
+            một cái thẻ nữa. */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-60px" }}
           transition={{ duration: 0.5 }}
-          className="mt-10 grid gap-3 rounded-2xl border border-border bg-card/60 p-4 sm:p-6 sm:grid-cols-2 lg:grid-cols-4"
+          className="mt-10 grid gap-6 border-t border-border pt-6 sm:grid-cols-2 lg:grid-cols-4"
         >
           {[
             // i18n-ok: nhãn dịch lúc render bằng translate(b.t)/translate(b.d)

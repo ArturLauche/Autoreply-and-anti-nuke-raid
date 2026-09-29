@@ -42,6 +42,7 @@ import type { MeData } from "../lib/types";
 import { toast } from "sonner";
 
 import LangSwitch from "../components/LangSwitch";
+import SkipLink from "../components/SkipLink";
 
 import { dateLocale, translate } from "../lib/i18n";
 import { isHeartbeatFresh } from "../lib/utils";
@@ -171,6 +172,7 @@ export default function Dashboard() {
 
   return (
     <div className="relative min-h-screen">
+      <SkipLink />
       <HaimiyaChat position="dashboard" />
       <div className="relative z-10">
         <header className="sticky top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl">
@@ -209,7 +211,7 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <main className="container py-10">
+        <main id="main" tabIndex={-1} className="container py-10">
           <div className="mb-8">
             <h1 className="font-display text-3xl font-bold tracking-tight">
               {translate("Bảng điều khiển")}

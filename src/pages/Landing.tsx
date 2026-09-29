@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useEffect } from "react";
 import { ArrowRight } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -15,17 +16,31 @@ import {
   CtaBanner,
 } from "../components/landing/sections";
 import { DashboardCta, SafeHaimiyaAvatar } from "../components/landing/shared";
+import SkipLink from "../components/SkipLink";
 import { usePublicConfig } from "../lib/usePublicConfig";
 
 import { translate } from "../lib/i18n";
 export default function Landing() {
   const { discordInvite, facebookUrl } = usePublicConfig();
+  // Nạp sẵn chunk /auth khi trình duyệt RẢNH (sau khi landing đã vẽ xong):
+  // khách đọc xong hero gần như chắc chắn bấm "Đăng nhập"/"Mở dashboard" —
+  // nạp trước lúc rảnh thì cú nhấp đó khỏi chờ mạng, còn không làm chậm lần
+  // tải đầu (requestIdleCallback chỉ chạy khi main thread đã thong thả).
+  useEffect(() => {
+    const warm = () => void import("./AuthPage");
+    if (typeof window.requestIdleCallback === "function") {
+      window.requestIdleCallback(warm, { timeout: 3000 });
+    } else {
+      window.setTimeout(warm, 1500);
+    }
+  }, []);
   return (
     <div className="relative min-h-screen text-foreground">
+      <SkipLink />
       {/* Các phần phụ thuộc backend được bọc chặn lỗi riêng — backend down thì
           phần đó tự ẩn, hero/tính năng/footer vẫn hiển thị đầy đủ. */}
       <Nav />
-      <main>
+      <main id="main" tabIndex={-1}>
         {/* ============ HERO ============ */}
         <section className="relative overflow-hidden pb-16 pt-28 md:pb-20 md:pt-32">
           {/* Ảnh thương hiệu lớn: bức tranh cá voi bứt sóng (đã bỏ dải chữ, sinh
@@ -45,6 +60,9 @@ export default function Landing() {
                 width={1024}
                 height={652}
                 decoding="async"
+                // Ảnh này là phần tử LCP của trang — ưu tiên tải NGAY, đừng
+                // xếp sau các chunk JS như ảnh bình thường.
+                fetchPriority="high"
                 draggable={false}
                 className="w-full"
               />

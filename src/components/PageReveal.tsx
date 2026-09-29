@@ -16,13 +16,27 @@ import { useProductMotion } from "../lib/motion";
 export default function PageReveal({
   children,
   className,
+  id,
 }: {
   children: ReactNode;
   className?: string;
+  /** id để SkipLink nhảy tới (id="main"). */
+  id?: string;
 }) {
   const motionSet = useProductMotion();
   return (
-    <motion.main className={className} variants={motionSet.panel} initial="hidden" animate="show">
+    <motion.main
+      id={id}
+      // tabIndex={-1}: skip-link (href="#main") kích hoạt phải đưa FOCUS tới
+      // đây, không chỉ đổi hash — người dùng bàn phím cần biết con trỏ đã
+      // nhảy sang nội dung chính. Trình duyệt chỉ tự focus đích đến khi đích
+      // là phần tử focusable được.
+      tabIndex={-1}
+      className={className}
+      variants={motionSet.panel}
+      initial="hidden"
+      animate="show"
+    >
       {children}
     </motion.main>
   );

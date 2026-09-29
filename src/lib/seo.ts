@@ -1,4 +1,5 @@
 import type { Lang } from "./i18n";
+import { canonicalPathFor, routeForPath, type RouteEntry, type RouteSeoKind } from "./routes";
 
 export const SITE_URL = "https://protogon.freebuff.app";
 
@@ -14,19 +15,14 @@ export function activeSiteUrl(): string {
   return SITE_URL;
 }
 
-type RouteKind =
-  | "home"
-  | "features"
-  | "terms"
-  | "privacy"
-  | "data-deletion"
-  | "monitor"
-  | "auth"
-  | "dashboard"
-  | "stats"
-  | "admin"
-  | "callback"
-  | "not-found";
+/**
+ * RouteKind = seoKind khai báo trong bảng tuyến đường (src/lib/routes.ts) cộng
+ * "not-found" cho URL không khớp route nào. Bảng tuyến đường là NGUỒN DUY NHẤT
+ * — thêm/sửa route phải sửa routes.json, không sửa bằng cách thêm nhánh riêng
+ * trong file này (đó chính là cách bug "/features thiếu SPA fallback" và
+ * "/status trùng canonical" ra đời).
+ */
+export type RouteKind = RouteSeoKind | "not-found";
 
 type Copy = Record<Exclude<RouteKind, "not-found">, { title: string; description: string }>;
 
@@ -179,20 +175,19 @@ const COPY: Record<Lang, Copy> = {
   },
 };
 
+/** Kind SEO cho pathname — tra bảng tuyến đường; không khớp thì là 404. */
 function routeKind(pathname: string): RouteKind {
-  const path = pathname !== "/" ? pathname.replace(/\/+$/, "") || "/" : "/";
-  if (path === "/") return "home";
-  if (path === "/features") return "features";
-  if (path === "/terms") return "terms";
-  if (path === "/privacy") return "privacy";
-  if (path === "/data-deletion") return "data-deletion";
-  if (path === "/monitor") return "monitor";
-  if (path === "/auth") return "auth";
-  if (path === "/discord/callback") return "callback";
-  if (path === "/dashboard" || path.startsWith("/dashboard/")) return "dashboard";
-  if (path === "/stats") return "stats";
-  if (path === "/admin") return "admin";
-  return "not-found";
+  return routeForPath(pathname)?.seoKind ?? "not-found";
+}
+
+/** Entry bảng tuyến đường cho pathname (null nếu URL không có route). */
+function routeEntry(pathname: string): RouteEntry | null {
+  return routeForPath(pathname);
+}
+
+/** Route được index — lấy thẳng từ bảng tuyến đường, không nhập tay. */
+function isIndexableRoute(route: RouteEntry | null): boolean {
+  return route !== null && route.index && route.visibility === "public";
 }
 
 function setMeta(attribute: "name" | "property", key: string, content: string): void {
@@ -219,14 +214,77 @@ function setCanonical(href: string | null): void {
   element.href = href;
 }
 
+/**
+ * Dữ liệu có cấu trúc THEO ROUTE (WebPage + BreadcrumbList), gắn vào <head>
+ * sau hydration. index.html đã có 2 khối tĩnh (Organization + SoftwareApplication)
+ * — khối này bổ sung phần chỉ route cụ thể mới biết được (URL nào, thuộc trang
+ * gì, nằm ở đâu trong cây điều hướng).
+ *
+ * Ba luật bắt buộc (bug lớp "alias tạo bản sao canonical"):
+ *   1. Chỉ chạy cho route indexable — route private/noindex/404: GỠ hẳn.
+ *   2. URL LUÔN là canonical: alias (/status) không được tự khai WebPage riêng,
+ *      nó trỏ thẳng WebPage của /monitor.
+ *   3. Trang chủ không có khối này — đã có JSON-LD tĩnh trong index.html và
+ *      không cần breadcrumb một mức.
+ */
+function syncRouteJsonLd(route: RouteEntry, canonicalPath: string, lang: Lang): void {
+  const ID = "route-jsonld";
+  const existing = document.getElementById(ID);
+  if (!isIndexableRoute(route) || route.seoKind === "home" || route.redirect) {
+    existing?.remove();
+    return;
+  }
+  const siteUrl = activeSiteUrl();
+  const url = `${siteUrl}${canonicalPath}`;
+  const copy = COPY[lang][route.seoKind];
+  const data = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebPage",
+        "@id": `${url}#webpage`,
+        url,
+        name: copy.title,
+        description: copy.description,
+        inLanguage: lang,
+        isPartOf: {
+          "@id": `${siteUrl}/#website`,
+          "@type": "WebSite",
+          name: "Protogon",
+          url: siteUrl,
+        },
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Protogon", item: siteUrl },
+          { "@type": "ListItem", position: 2, name: copy.title, item: url },
+        ],
+      },
+    ],
+  };
+  let element = document.getElementById(ID) as HTMLScriptElement | null;
+  if (!element) {
+    element = document.createElement("script");
+    element.type = "application/ld+json";
+    element.id = ID;
+    document.head.appendChild(element);
+  }
+  element.textContent = JSON.stringify(data);
+}
+
 /** Đồng bộ metadata sau hydration; static index vẫn có fallback cho crawler. */
 export function syncRouteMetadata(pathname: string, lang: Lang): void {
+  const route = routeEntry(pathname);
   const kind = routeKind(pathname);
   const copy = kind === "not-found" ? COPY[lang].home : COPY[lang][kind];
-  const indexed = ["home", "features", "terms", "privacy", "data-deletion", "monitor"].includes(
-    kind,
-  );
-  const normalized = pathname !== "/" ? pathname.replace(/\/+$/, "") || "/" : "/";
+  const indexed = isIndexableRoute(route);
+  const isAlias = route !== null && route.redirect !== null;
+  // Canonical: alias trỏ về đích redirect, route indexable trỏ về chính nó,
+  // còn lại (private / 404) không có canonical.
+  const canonicalPath = canonicalPathFor(pathname);
+  const canonicalUrl =
+    canonicalPath && (indexed || isAlias) ? `${activeSiteUrl()}${canonicalPath}` : null;
   const siteUrl = activeSiteUrl();
   const ogImage = `${siteUrl}/og-image.png`;
 
@@ -234,13 +292,22 @@ export function syncRouteMetadata(pathname: string, lang: Lang): void {
   setMeta("name", "description", copy.description);
   setMeta("property", "og:title", document.title);
   setMeta("property", "og:description", copy.description);
-  setMeta("property", "og:url", indexed ? `${siteUrl}${normalized}` : siteUrl);
+  // og:url dựng từ CANONICAL, không từ URL đang mở — mở /status phải báo
+  // og:url là /monitor, nếu không hai URL cùng tranh giàn một nội dung.
+  setMeta("property", "og:url", canonicalUrl ?? siteUrl);
   setMeta("property", "og:image", ogImage);
   setMeta("property", "og:image:alt", "Protogon — Discord server protection");
   setMeta("name", "twitter:title", document.title);
   setMeta("name", "twitter:description", copy.description);
   setMeta("name", "twitter:image", ogImage);
   setMeta("name", "twitter:image:alt", "Protogon — Discord server protection");
-  setMeta("name", "robots", indexed ? "index,follow" : "noindex,nofollow");
-  setCanonical(indexed ? `${siteUrl}${normalized}` : null);
+  // Alias: noindex nhưng follow — nó chỉ là đường vào phụ của /monitor.
+  setMeta(
+    "name",
+    "robots",
+    indexed ? "index,follow" : isAlias ? "noindex,follow" : "noindex,nofollow",
+  );
+  setCanonical(canonicalUrl);
+  if (route && canonicalPath) syncRouteJsonLd(route, canonicalPath, lang);
+  else document.getElementById("route-jsonld")?.remove();
 }

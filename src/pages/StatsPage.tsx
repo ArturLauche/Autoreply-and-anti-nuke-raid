@@ -32,6 +32,7 @@ import { timeAgo } from "../lib/utils";
 import type { MeData } from "../lib/types";
 
 import LangSwitch from "../components/LangSwitch";
+import SkipLink from "../components/SkipLink";
 
 import { translate } from "../lib/i18n";
 /** 1 dòng bảng xếp hạng trả về từ convex/reports.ts heatLeaderboard. */
@@ -142,6 +143,7 @@ export default function StatsPage() {
 
   return (
     <div className="relative min-h-screen">
+      <SkipLink />
       <div className="relative z-10">
         <header className="border-b border-border/60 bg-background/70 backdrop-blur">
           <div className="container py-6">
@@ -166,7 +168,7 @@ export default function StatsPage() {
           </div>
         </header>
 
-        <PageReveal className="container py-8">
+        <PageReveal id="main" className="container py-8">
           <div className="grid gap-1.5 sm:max-w-xs">
             <p className="text-xs text-muted-foreground">{translate("Chọn server")}</p>
             <Select value={guildId} onValueChange={setGuildId}>

@@ -4,6 +4,7 @@ import { useAction } from "convex/react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "../components/ui/button";
+import SkipLink from "../components/SkipLink";
 import {
   OAUTH_STATE_KEY,
   OAUTH_VERIFIER_KEY,
@@ -149,7 +150,8 @@ export default function DiscordCallback() {
   }, [exchangeAndLogin, navigate]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
+    <main id="main" tabIndex={-1} className="flex min-h-screen items-center justify-center px-4">
+      <SkipLink />
       <div className="w-full max-w-md text-center">
         {error ? (
           <div className="rounded-2xl border border-danger/30 bg-danger/10 p-4 sm:p-6">
@@ -174,6 +176,6 @@ export default function DiscordCallback() {
           </div>
         )}
       </div>
-    </div>
+    </main>
   );
 }
