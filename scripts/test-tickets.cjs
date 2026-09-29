@@ -542,5 +542,117 @@ check(
     .title === "Khiếu nại #3",
 );
 
+// ═══ 13. Ô NHẬP BỔ SUNG — bộ câu hỏi tuỳ chỉnh theo loại (phương án B) ═══
+console.log("\n── ô nhập bổ sung ──");
+
+const FIELD_KIND = core.normalizeKinds(
+  [
+    {
+      key: "billing",
+      label: "Hoá đơn",
+      fields: [
+        { key: "amount", label: "Số tiền", required: true, long: true },
+        { key: "order_id", label: "Mã đơn", placeholder: "AB-123" },
+        // Trùng 2 ô cố định → phải bị bỏ (customId trùng là Discord ném lỗi).
+        { key: "ticket_body", label: "Trùng ô nội dung" },
+        { key: "CÓ DẤU", label: "Khoá sai" },
+        { key: "khongnhan", label: "   " },
+      ],
+    },
+  ],
+  TK,
+)[0];
+const FSPEC = core.buildModalSpec(FIELD_KIND, TK);
+check(
+  "giữ đúng 2 ô hợp lệ, bỏ ô trùng/khoá sai/không nhãn",
+  FSPEC.extraFields.map((f) => f.key).join(",") === "amount,order_id",
+  FSPEC.extraFields.map((f) => f.key).join(","),
+);
+check(
+  "customId ô bổ sung có tiền tố riêng (không đụng ô cố định)",
+  FSPEC.extraFields.every((f) => f.customId.startsWith("xf_") && f.customId !== "ticket_body"),
+);
+check(
+  "bắt buộc giữ đúng như cấu hình",
+  FSPEC.extraFields[0].required === true && FSPEC.extraFields[1].required === false,
+);
+check(
+  "ô nhiều dòng giữ đúng như cấu hình",
+  FSPEC.extraFields[0].long === true && FSPEC.extraFields[1].long === false,
+);
+check("placeholder giữ nguyên", FSPEC.extraFields[1].placeholder === "AB-123");
+check(
+  "loại KHÔNG có ô bổ sung → danh sách rỗng (modal vẫn 2 ô như cũ)",
+  core.buildModalSpec(core.normalizeKinds([{ key: "a", label: "A" }], TK)[0], TK).extraFields
+    .length === 0,
+);
+
+// Trần ô: Discord chỉ nhận 5 input 1 modal, 2 ô cố định đã chiếm 2 chỗ.
+const NHIEU_FIELD = core.normalizeKinds(
+  [
+    {
+      key: "x",
+      label: "X",
+      fields: Array.from({ length: 9 }, (_, i) => ({ key: `f${i}`, label: `F${i}` })),
+    },
+  ],
+  TK,
+)[0];
+check(
+  `cắt còn ${core.MAX_KIND_EXTRA_FIELDS} ô (khớp MAX_EXTRA_FIELDS bên Convex)`,
+  core.buildModalSpec(NHIEU_FIELD, TK).extraFields.length === core.MAX_KIND_EXTRA_FIELDS,
+);
+check(
+  "2 ô cố định + 3 ô bổ sung = 5 ô, đúng trần Discord",
+  2 + core.buildModalSpec(NHIEU_FIELD, TK).extraFields.length === 5,
+);
+
+// Gom giá trị.
+check(
+  "ô rỗng bị bỏ khỏi kết quả (không hiện dòng 'Số tiền: —' làm nhiễu kênh)",
+  JSON.stringify(core.collectExtraValues({ amount: "250k", order_id: "   " }, FSPEC)) ===
+    JSON.stringify([{ key: "amount", label: "Số tiền", value: "250k" }]),
+  JSON.stringify(core.collectExtraValues({ amount: "250k", order_id: "   " }, FSPEC)),
+);
+check(
+  "giá trị ô bổ sung escape mention (vào embed trong kênh ticket)",
+  core
+    .collectExtraValues({ amount: "@everyone" }, FSPEC)[0]
+    .value.includes(String.fromCharCode(0x200b)),
+);
+check("collect với spec rỗng → mảng rỗng", core.collectExtraValues({}, {}).length === 0);
+
+// Embed mở ticket hiện ô bổ sung.
+const P = core.buildOpenPayload({
+  TICKET_TEXT: TK,
+  number: 1,
+  kind: "billing",
+  openerName: "a",
+  body: "b",
+  extraFields: [
+    { key: "amount", label: "Số tiền", value: "250k" },
+    { key: "x", label: "Rỗng", value: "  " },
+  ],
+});
+check(
+  "embed có ô bổ sung (nhãn + giá trị)",
+  P.fields.some((f) => f.name === "Số tiền" && f.value === "250k"),
+  JSON.stringify(P.fields.map((f) => f.name)),
+);
+check("ô rỗng không sinh dòng trong embed", P.fields.length === 5, String(P.fields.length));
+check(
+  "nhãn ô bổ sung escape trước khi vào embed",
+  core
+    .buildOpenPayload({
+      TICKET_TEXT: TK,
+      number: 1,
+      kind: "b",
+      openerName: "a",
+      body: "b",
+      extraFields: [{ key: "k", label: "@everyone", value: "x" }],
+    })
+    .fields.some((f) => f.name.includes(String.fromCharCode(0x200b))),
+);
+
 console.log(`\nKết quả tickets: ${pass} PASS, ${fail} FAIL`);
 process.exit(fail === 0 ? 0 : 1);

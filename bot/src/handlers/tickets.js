@@ -205,6 +205,7 @@ async function openTicket({
   source,
   body,
   evidence,
+  extraValues = [],
   T,
   openerOnly,
 }) {
@@ -291,6 +292,9 @@ async function openTicket({
       openerName: user.username || user.id,
       body: cleanBody,
       evidence: cleanEvidence,
+      // Ô bổ sung: chỉ ghi ô CÓ giá trị, giá trị đã escape + cắt sẵn ở
+      // `collectExtraValues`. `key` bỏ hẳn vì không ai đọc lại nó.
+      fields: extraValues.map((f) => ({ label: f.label, value: f.value })),
       source,
     });
     number = rec?.number ?? number;
@@ -360,6 +364,7 @@ async function openTicket({
     openedById: user.id,
     body: cleanBody,
     evidence: cleanEvidence,
+    extraFields: extraValues,
   });
   const embed = new EmbedBuilder()
     .setColor(Colors.Blue)
@@ -689,25 +694,36 @@ function openPanel({
 function openModal(T, kind, kinds = null) {
   const list = core.normalizeKinds(kinds, T);
   const spec = core.buildModalSpec(core.findKind(list, kind) ?? list[0], T);
-  return new ModalBuilder()
-    .setCustomId(spec.customId)
-    .setTitle(spec.title)
-    .addComponents(
-      new TextInputBuilder()
-        .setCustomId("ticket_body")
-        .setLabel(spec.bodyLabel)
-        .setPlaceholder(spec.bodyPlaceholder)
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(true)
-        .setMaxLength(core.BODY_MAX),
-      new TextInputBuilder()
-        .setCustomId("ticket_evidence")
-        .setLabel(spec.evidenceLabel)
-        .setPlaceholder(spec.evidencePlaceholder)
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(false)
-        .setMaxLength(core.EVIDENCE_MAX),
-    );
+  const rows = [
+    new TextInputBuilder()
+      .setCustomId("ticket_body")
+      .setLabel(spec.bodyLabel)
+      .setPlaceholder(spec.bodyPlaceholder)
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true)
+      .setMaxLength(core.BODY_MAX),
+    new TextInputBuilder()
+      .setCustomId("ticket_evidence")
+      .setLabel(spec.evidenceLabel)
+      .setPlaceholder(spec.evidencePlaceholder)
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(false)
+      .setMaxLength(core.EVIDENCE_MAX),
+  ];
+  // Ô bổ sung do chủ server thêm. `long` → ô nhiều dòng; ô ngắn cắt 300 ký tự
+  // (trần thực tế của ô Short trên Discord là 4000 nhưng ô 1 dòng hiển thị
+  // vừa đủ, nhập dài không ai đọc nổi).
+  for (const f of spec.extraFields) {
+    const b = new TextInputBuilder()
+      .setCustomId(f.customId)
+      .setLabel(f.label)
+      .setStyle(f.long ? TextInputStyle.Paragraph : TextInputStyle.Short);
+    if (f.placeholder) b.setPlaceholder(f.placeholder);
+    b.setRequired(f.required);
+    b.setMaxLength(f.long ? core.BODY_MAX : core.EXTRA_VALUE_MAX);
+    rows.push(b);
+  }
+  return new ModalBuilder().setCustomId(spec.customId).setTitle(spec.title).addComponents(rows);
 }
 
 /**

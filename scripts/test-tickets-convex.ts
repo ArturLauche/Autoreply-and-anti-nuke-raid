@@ -36,6 +36,7 @@ import {
   swapKindOrder,
   botKinds,
   MAX_KINDS,
+  MAX_EXTRA_FIELDS,
 } from "../convex/ticketKinds";
 import { computeBotKey } from "../convex/botAuth";
 
@@ -1406,6 +1407,125 @@ const throws = async (fn: () => Promise<unknown>) => {
     check(
       "botKinds sai botKey → chặn",
       await throws(() => botKindsH(e.ctx, { guildId: "g1", botKey: "sai" })),
+    );
+  }
+
+  // ═══ Ô NHẬP BỔ SUNG (phương án B — 29/09/2026) ═══
+  console.log("\n── ticketKinds: ô nhập bổ sung ──");
+  {
+    const e = env();
+    await saveKindH(e.ctx, {
+      token: "tok",
+      guildId: "g1",
+      key: "billing",
+      label: "Hoá đơn",
+      fields: [
+        { key: "amount", label: "Số tiền", required: true, long: true },
+        { key: "order_id", label: "Mã đơn", placeholder: "AB-123" },
+        // Trùng 2 ô cố định → phải bị bỏ, nếu không customId trùng là
+        // Discord ném lỗi CẢ modal.
+        { key: "ticket_body", label: "Trùng ô nội dung" },
+        { key: "CÓ DẤU", label: "Khoá sai" },
+        { key: "khongnhan", label: "   " },
+      ],
+    });
+    const rows = await listKindsH(e.ctx, { token: "tok", guildId: "g1" });
+    check(
+      "chỉ giữ ô hợp lệ, bỏ ô trùng/khoá sai/không nhãn",
+      (rows[0]?.fields ?? []).map((f: Row) => f.key).join(",") === "amount,order_id",
+      JSON.stringify(rows[0]?.fields?.map((f: Row) => f.key)),
+    );
+    check(
+      "bắt buộc + ô nhiều dòng được giữ",
+      rows[0]?.fields?.[0]?.required === true && rows[0]?.fields?.[0]?.long === true,
+    );
+    check("placeholder được giữ", rows[0]?.fields?.[1]?.placeholder === "AB-123");
+    check(
+      "thiếu required/long → false (không phải undefined)",
+      rows[0]?.fields?.[1]?.required === false && rows[0]?.fields?.[1]?.long === false,
+    );
+  }
+  {
+    // Trần 3 ô: Discord chỉ nhận 5 input 1 modal, 2 ô cố định đã chiếm 2 chỗ.
+    const e = env();
+    await saveKindH(e.ctx, {
+      token: "tok",
+      guildId: "g1",
+      key: "a",
+      label: "A",
+      fields: Array.from({ length: 9 }, (_, i) => ({ key: `f${i}`, label: `F${i}` })),
+    });
+    const rows = await listKindsH(e.ctx, { token: "tok", guildId: "g1" });
+    check(
+      `cắt còn ${MAX_EXTRA_FIELDS} ô bổ sung`,
+      rows[0]?.fields?.length === MAX_EXTRA_FIELDS,
+      String(rows[0]?.fields?.length),
+    );
+  }
+  {
+    // Không khai ô bổ sung → mảng rỗng, modal vẫn đúng 2 ô như trước.
+    const e = env();
+    await saveKindH(e.ctx, { token: "tok", guildId: "g1", key: "a", label: "A" });
+    const rows = await listKindsH(e.ctx, { token: "tok", guildId: "g1" });
+    check(
+      "loại không khai ô bổ sung → mảng rỗng",
+      Array.isArray(rows[0]?.fields) && rows[0].fields.length === 0,
+    );
+  }
+
+  console.log("\n── botOpenTicket: ghi ô bổ sung ──");
+  {
+    const e = env();
+    await openH(e.ctx, {
+      guildId: "g1",
+      channelId: "c1",
+      kind: "billing",
+      openerId: "u1",
+      openerName: "Minh",
+      body: "nội dung",
+      evidence: "",
+      fields: [
+        { label: "Số tiền", value: "250000" },
+        { label: "Mã đơn", value: "   " },
+        { label: "a".repeat(80), value: "b".repeat(900) },
+      ],
+      source: "panel",
+      botKey: BOT_KEY,
+    });
+    const t = e.tickets[0];
+    check(
+      "ô rỗng bị lọc khỏi bản ghi",
+      t.fields.length === 2,
+      JSON.stringify(t.fields.map((x: Row) => x.label)),
+    );
+    check(
+      "giá trị ô bị cắt 300 ký tự",
+      t.fields[1].value.length === 300,
+      String(t.fields[1].value.length),
+    );
+    check(
+      "nhãn ô bị cắt 45 ký tự",
+      t.fields[1].label.length === 45,
+      String(t.fields[1].label.length),
+    );
+    check("không lưu khoá ô (chỉ cần nhãn + giá trị)", !("key" in t.fields[0]));
+  }
+  {
+    // Không gửi ô bổ sung (ticket mở bằng lệnh /ticket hoặc từ DM) → không lỗi.
+    const e = env();
+    await openH(e.ctx, {
+      guildId: "g1",
+      channelId: "c1",
+      kind: "support",
+      openerId: "u1",
+      openerName: "Minh",
+      body: "b",
+      source: "command",
+      botKey: BOT_KEY,
+    });
+    check(
+      "ticket không có ô bổ sung vẫn tạo được",
+      e.tickets.length === 1 && e.tickets[0].fields === undefined,
     );
   }
 

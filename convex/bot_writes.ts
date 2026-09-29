@@ -1306,6 +1306,18 @@ export const botOpenTicket = mutation({
     openerName: v.string(),
     body: v.optional(v.string()),
     evidence: v.optional(v.string()),
+    /**
+     * Ô nhập bổ sung do chủ server thêm cho loại này (29/09/2026). Lưu kèm
+     * nhãn để embed trong kênh + transcript hiện đúng tiêu đề ô.
+     */
+    fields: v.optional(
+      v.array(
+        v.object({
+          label: v.string(),
+          value: v.string(),
+        }),
+      ),
+    ),
     /** "dm" | "command" */
     source: v.string(),
     /** Lỗi mở kênh (thiếu quyền, chạm trần 500 kênh…) — dashboard hiển thị. */
@@ -1335,6 +1347,15 @@ export const botOpenTicket = mutation({
       openerName: args.openerName.slice(0, 80),
       body: args.body ? args.body.slice(0, 1000) : undefined,
       evidence: args.evidence ? args.evidence.slice(0, 500) : undefined,
+      // Cắt 3 ô × (nhãn 45 + giá trị 300) — chặn 1 modal gửi nội dung khổng lồ
+      // làm phình document. Trần khớp MAX_EXTRA_FIELDS ở ticketKinds.ts.
+      fields: args.fields
+        ?.filter((f) => String(f?.value ?? "").trim())
+        .slice(0, 3)
+        .map((f) => ({
+          label: String(f.label ?? "").slice(0, 45),
+          value: String(f.value).slice(0, 300),
+        })),
       source: args.source,
       status: "open",
       openError: args.openError ? args.openError.slice(0, 200) : undefined,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { ArrowDown, ArrowUp, ListPlus, Pencil, Plus, Trash2 } from "lucide-react";
@@ -27,9 +27,34 @@ type Kind = {
   questionPlaceholder: string | null;
   evidenceQuestion: string | null;
   staffRoleIds: string[];
+  /** Ô nhập bổ sung (phương án B) — tối đa 3 ô, khớp MAX_EXTRA_FIELDS bên Convex. */
+  fields: {
+    key: string;
+    label: string;
+    placeholder?: string;
+    required?: boolean;
+    long?: boolean;
+  }[];
   order: number;
   enabled: boolean;
 };
+
+/**
+ * 1 ô nhập bổ sung của riêng loại này.
+ *
+ * `key` ĐI THẲNG vào customId nên không đổi sau khi tạo — nhưng nó cũng là
+ * thứ duy nhất phải khoá lại trong UI, vì ticket đã mổ vẫn tra theo khoá này.
+ */
+type ExtraField = {
+  key: string;
+  label: string;
+  placeholder: string;
+  required: boolean;
+  long: boolean;
+};
+
+/** Khớp MAX_EXTRA_FIELDS ở convex/ticketKinds.ts. */
+const MAX_EXTRA_FIELDS = 3;
 
 type FormState = {
   key: string;
@@ -40,6 +65,7 @@ type FormState = {
   questionPlaceholder: string;
   evidenceQuestion: string;
   staffRoleIds: string[];
+  extraFields: ExtraField[];
 };
 
 const emptyForm: FormState = {
@@ -51,6 +77,7 @@ const emptyForm: FormState = {
   questionPlaceholder: "",
   evidenceQuestion: "",
   staffRoleIds: [],
+  extraFields: [],
 };
 
 /**
@@ -65,7 +92,19 @@ const emptyForm: FormState = {
  * rơi về đúng 2 loại cứng cũ (support + khiếu nại). Muốn ẩn hẳn thì tắt
  * công tắc, không xoá.
  */
-export default function TicketKindsCard({ data }: { data: GuildData }) {
+export default function TicketKindsCard({
+  data,
+  onKindsLoaded,
+}: {
+  data: GuildData;
+  /**
+   * Báo nhãn loại lên panel cha để danh sách ticket hiện đúng tên thay vì
+   * mã khoá. Gọi trong effect + nằm sau error boundary: nếu card này lỗi
+   * (backend chưa deploy hàm mới) thì panel cha rơi về hiện mã khoá — vẫn
+   * đọc được, không mất danh sách ticket.
+   */
+  onKindsLoaded?: (kinds: Kind[]) => void;
+}) {
   const g = data.guild;
   const saveKind = useMutation(api.ticketKinds.saveKind);
   const removeKind = useMutation(api.ticketKinds.removeKind);
@@ -82,6 +121,10 @@ export default function TicketKindsCard({ data }: { data: GuildData }) {
   const [saving, setSaving] = useState(false);
 
   const list = kinds ?? [];
+
+  useEffect(() => {
+    onKindsLoaded?.(list);
+  }, [list, onKindsLoaded]);
   const roles = data.roles;
 
   function openCreate() {
@@ -101,6 +144,13 @@ export default function TicketKindsCard({ data }: { data: GuildData }) {
       questionPlaceholder: k.questionPlaceholder ?? "",
       evidenceQuestion: k.evidenceQuestion ?? "",
       staffRoleIds: k.staffRoleIds,
+      extraFields: (k.fields ?? []).map((f) => ({
+        key: f.key,
+        label: f.label,
+        placeholder: f.placeholder ?? "",
+        required: f.required === true,
+        long: f.long === true,
+      })),
     });
     setDialogOpen(true);
   }
@@ -123,6 +173,13 @@ export default function TicketKindsCard({ data }: { data: GuildData }) {
         questionPlaceholder: form.questionPlaceholder.trim(),
         evidenceQuestion: form.evidenceQuestion.trim(),
         staffRoleIds: form.staffRoleIds,
+        fields: form.extraFields.map((f) => ({
+          key: f.key.trim().toLowerCase(),
+          label: f.label.trim(),
+          placeholder: f.placeholder.trim(),
+          required: f.required,
+          long: f.long,
+        })),
       });
       toast.success(
         editing
@@ -358,6 +415,126 @@ export default function TicketKindsCard({ data }: { data: GuildData }) {
                 value={form.evidenceQuestion}
                 onChange={(e) => setForm({ ...form, evidenceQuestion: e.target.value })}
               />
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>{translate("Ô nhập bổ sung (tối đa 3)")}</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={form.extraFields.length >= MAX_EXTRA_FIELDS}
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      extraFields: [
+                        ...form.extraFields,
+                        { key: "", label: "", placeholder: "", required: false, long: false },
+                      ],
+                    })
+                  }
+                >
+                  <Plus className="h-4 w-4" />
+                  {translate("Thêm ô")}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {translate(
+                  "Mỗi ô là 1 câu hỏi thêm trong modal mở ticket. 2 ô nội dung và bằng chứng đã có sẵn nên chỉ thêm được 3 ô nữa.",
+                )}
+              </p>
+              {form.extraFields.length === 0 ? (
+                <p className="text-xs text-muted-foreground">{translate("Chưa thêm ô nào.")}</p>
+              ) : (
+                form.extraFields.map((f, i) => (
+                  <div key={i} className="grid gap-2 rounded-lg border p-3">
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="grid gap-1.5">
+                        <Label htmlFor={`xf-label-${i}`}>{translate("Tiêu đề ô")}</Label>
+                        <Input
+                          id={`xf-label-${i}`}
+                          value={f.label}
+                          onChange={(e) => {
+                            const next = [...form.extraFields];
+                            next[i] = { ...f, label: e.target.value };
+                            setForm({ ...form, extraFields: next });
+                          }}
+                        />
+                      </div>
+                      <div className="grid gap-1.5">
+                        <Label htmlFor={`xf-key-${i}`}>
+                          {translate("Mã ô (tiếng Anh, không dấu)")}
+                        </Label>
+                        <Input
+                          id={`xf-key-${i}`}
+                          placeholder="amount"
+                          value={f.key}
+                          onChange={(e) => {
+                            const next = [...form.extraFields];
+                            next[i] = { ...f, key: e.target.value };
+                            setForm({ ...form, extraFields: next });
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label htmlFor={`xf-ph-${i}`}>
+                        {translate("Gợi ý trong ô nhập (tuỳ chọn)")}
+                      </Label>
+                      <Input
+                        id={`xf-ph-${i}`}
+                        value={f.placeholder}
+                        onChange={(e) => {
+                          const next = [...form.extraFields];
+                          next[i] = { ...f, placeholder: e.target.value };
+                          setForm({ ...form, extraFields: next });
+                        }}
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4">
+                      <label className="flex items-center gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={f.required}
+                          onChange={(e) => {
+                            const next = [...form.extraFields];
+                            next[i] = { ...f, required: e.target.checked };
+                            setForm({ ...form, extraFields: next });
+                          }}
+                        />
+                        {translate("Bắt buộc nhập")}
+                      </label>
+                      <label className="flex items-center gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={f.long}
+                          onChange={(e) => {
+                            const next = [...form.extraFields];
+                            next[i] = { ...f, long: e.target.checked };
+                            setForm({ ...form, extraFields: next });
+                          }}
+                        />
+                        {translate("Ô nhiều dòng")}
+                      </label>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            extraFields: form.extraFields.filter((_, x) => x !== i),
+                          })
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        {translate("Xoá ô này")}
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
 
             <div className="grid gap-2">

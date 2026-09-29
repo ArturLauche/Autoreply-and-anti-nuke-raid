@@ -448,6 +448,7 @@ export const getBotConfig = query({
         questionPlaceholder: k.questionPlaceholder ?? null,
         evidenceQuestion: k.evidenceQuestion ?? null,
         staffRoleIds: k.staffRoleIds ?? [],
+        fields: k.fields ?? [],
       }));
     return {
       prefix: guild.prefix,

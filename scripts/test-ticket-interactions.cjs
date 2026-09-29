@@ -66,6 +66,7 @@ const T = {
   errCooldown: "ERR_COOLDOWN_{h}h",
   errMaxOpen: "ERR_MAX_{n}/{max}",
   errAlreadyOpen: "ERR_ALREADY_{ch}",
+  errRequiredFields: "ERR_REQUIRED_{fields}",
   unclaimDone: "UNCLAIM_DONE",
   claimMine: "CLAIM_MINE",
   claimTaken: "CLAIM_TAKEN_{staff}",
@@ -164,6 +165,13 @@ const ticketCoreMock = {
     return list.some((k) => k.key === kind) ? kind : list[0].key;
   },
   findKind: (kinds, key) => (kinds || []).find((k) => k.key === key) ?? null,
+  // Ô nhập bổ sung (phương án B): mock trả danh sách rỗng — đúng hành vi loại
+  // cũ, và giữ suite này tập trung vào dẫn kết thay vì dựng modal.
+  buildModalSpec: (kind) => ({
+    customId: "ticket_open_submit:" + (kind?.key ?? "support"),
+    extraFields: [],
+  }),
+  collectExtraValues: () => [],
 };
 
 /** 2 loại cứng — mirror `defaultTicketKinds()` của ticketCore.js. */

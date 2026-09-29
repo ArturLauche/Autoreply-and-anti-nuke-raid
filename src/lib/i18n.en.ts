@@ -1348,4 +1348,14 @@ export const EN: Record<string, string> = {
   "Đưa xuống dưới": "Move down",
   "Sửa loại ticket này": "Edit this ticket type",
   "Xoá loại ticket này": "Delete this ticket type",
+  "Ô nhập bổ sung (tối đa 3)": "Extra input fields (up to 3)",
+  "Thêm ô": "Add field",
+  "Mỗi ô là 1 câu hỏi thêm trong modal mở ticket. 2 ô nội dung và bằng chứng đã có sẵn nên chỉ thêm được 3 ô nữa.":
+    "Each field is one extra question in the ticket modal. The message and evidence fields already exist, so only 3 more fit.",
+  "Chưa thêm ô nào.": "No extra fields yet.",
+  "Tiêu đề ô": "Field label",
+  "Mã ô (tiếng Anh, không dấu)": "Field code (lowercase, no accents)",
+  "Bắt buộc nhập": "Required",
+  "Ô nhiều dòng": "Multi-line field",
+  "Xoá ô này": "Remove this field",
 };

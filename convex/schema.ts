@@ -1009,6 +1009,21 @@ export default defineSchema({
     body: v.optional(v.string()),
     /** Bằng chứng / tên người bị cho là có (tùy chọn, đã cắt 500 ký tự). */
     evidence: v.optional(v.string()),
+    /**
+     * Ô nhập BỔ SUNG do chủ server tự thêm cho loại ticket này (29/09/2026).
+     *
+     * Vì sao lưu kèm nhãn chứ không chỉ giá trị: embed trong kênh ticket và
+     * transcript sau này phải hiện đúng tiêu đề ô ("Số tiền: 250.000đ").
+     * Chỉ lưu giá trị thì 3 tháng sau không ai nhớ ô đó hỏi cái gì.
+     */
+    fields: v.optional(
+      v.array(
+        v.object({
+          label: v.string(),
+          value: v.string(),
+        }),
+      ),
+    ),
     /** "dm" (nút trong DM sau ban) | "command" (lệnh /ticket trong server). */
     source: v.string(),
     /** open → closed (staff bấm Đóng) → locked (tự động, đợt sau). */
@@ -1104,6 +1119,31 @@ export default defineSchema({
     questionPlaceholder: v.optional(v.string()),
     /** Nhãn ô "bằng chứng" trong modal. */
     evidenceQuestion: v.optional(v.string()),
+    /**
+     * Ô nhập BỔ SUNG của riêng loại này (phương án B — 29/09/2026).
+     *
+     * Ô "nội dung" và "bằng chứng" đã có sẵn ở 2 field phẳng nên không khai
+     * ở đây; mảng này chỉ chứa phần RIÊNG của từng loại — "số tiền", "link
+     * đơn hàng", "bạn đã thử gì".
+     *
+     * Trần 3 ô: Discord chỉ nhận tối đa 5 input 1 modal, 2 ô cố định đã
+     * chiếm 2 chỗ. Vượt trần là API từ chối → mất CẢ modal → mất đường mở
+     * ticket cho cả server.
+     */
+    fields: v.optional(
+      v.array(
+        v.object({
+          /** Khoá ô: dùng làm customId nên phải ngắn + ký tự an toàn. */
+          key: v.string(),
+          label: v.string(),
+          placeholder: v.optional(v.string()),
+          /** true = bắt buộc nhập. Mặc định false. */
+          required: v.optional(v.boolean()),
+          /** true = ô nhiều dòng (Paragraph) thay vì 1 dòng. */
+          long: v.optional(v.boolean()),
+        }),
+      ),
+    ),
     /**
      * Role xử lý RIÊNG cho loại này. Rỗng → dùng `ticketStaffRoleId` chung.
      * Ghi vậy để phân loại việc (kế toán riêng khác CS hỗ trợ).

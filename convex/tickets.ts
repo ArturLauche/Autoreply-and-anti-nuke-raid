@@ -102,6 +102,9 @@ export const listTickets = query({
       openerName: t.openerName,
       body: t.body ?? "",
       evidence: t.evidence ?? "",
+      // Ô nhập bổ sung của chủ server (29/09/2026). Trả kèm nhãn ô để staff
+      // đọc được "Số tiền: 250.000đ" thay vì 3 dòng vô danh.
+      fields: t.fields ?? [],
       source: t.source,
       status: t.status,
       closedByName: t.closedByName ?? null,

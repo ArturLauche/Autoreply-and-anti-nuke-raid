@@ -375,6 +375,24 @@ async function ticketOpenSubmitModal(client, store, interaction) {
   if (!body || !body.trim()) {
     return interaction.reply({ content: T.aiEmpty, ephemeral: true });
   }
+  // Ô bổ sung: đọc theo đúng danh sách loại (KHÔNG đọc hết interaction.fields —
+  // customId do chủ server soạn qua bảng loại, đọc mù là tin vào dữ liệu rác).
+  // Ô bắt buộc mà bỏ trống thì chặn ngay, không tạo kênh rỗng rồi mới báo lỗi.
+  const spec = ticketCore.buildModalSpec(ticketCore.findKind(kinds, kind), T);
+  const extraInput = {};
+  const missingRequired = [];
+  for (const f of spec.extraFields) {
+    const raw = interaction.fields.getTextInputValue(f.customId);
+    extraInput[f.key] = raw;
+    if (f.required && !String(raw ?? "").trim()) missingRequired.push(f.label);
+  }
+  if (missingRequired.length > 0) {
+    return interaction.reply({
+      content: T.errRequiredFields.replace("{fields}", missingRequired.join(", ")),
+      ephemeral: true,
+    });
+  }
+  const extraValues = ticketCore.collectExtraValues(extraInput, spec);
   await interaction.deferReply({ ephemeral: true });
   const res = await tickets.openTicket({
     client,
@@ -385,6 +403,7 @@ async function ticketOpenSubmitModal(client, store, interaction) {
     source: "panel",
     body,
     evidence,
+    extraValues,
     T,
     // Mở từ trong server → người mở CẦN vào được kênh ticket của mình để đọc
     // trả lời. Khác điểm vào DM (người bị ban) vốn không vào được kênh nào.

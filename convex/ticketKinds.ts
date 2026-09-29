@@ -33,6 +33,14 @@ const KEY_RE = /^[a-z0-9_-]{1,32}$/;
 /** Màu hợp lệ `#rrggbb` (rơi về mặc định của bot nếu rác). */
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
+/** Bỏ khoảng trắng thừa + cắt theo trần; rỗng → undefined. */
+function clipField(value: unknown, max: number): string | undefined {
+  const out = String(value ?? "")
+    .trim()
+    .slice(0, max);
+  return out || undefined;
+}
+
 /** Emoji Discord: ký tự Unicode, hoặc `<:ten:id>` / `<a:ten:id>`. */
 const CUSTOM_EMOJI_RE = /^<a?:\w{2,32}:\d{15,25}>$/;
 
@@ -41,6 +49,16 @@ const LABEL_MAX = 80;
 const MODAL_LABEL_MAX = 45;
 const PLACEHOLDER_MAX = 100;
 const DESC_MAX = 120;
+
+/**
+ * Trần ô nhập BỔ SUNG mỗi loại.
+ *
+ * 3 chứ không phải 5: Discord chỉ nhận 5 input 1 modal, và 2 ô cố định
+ * (nội dung + bằng chứng) đã chiếm 2 chỗ. Cho phép 5 ô bổ sung tức modal
+ * có 7 input → API TỪ CHỐI toàn bộ modal, người dùng bấm nút xong không
+ * thấy gì cả.
+ */
+export const MAX_EXTRA_FIELDS = 3;
 
 /**
  * Chuẩn hoá 1 loại trước khi ghi.
@@ -59,6 +77,13 @@ function cleanKind(input: {
   questionPlaceholder?: string;
   evidenceQuestion?: string;
   staffRoleIds?: string[];
+  fields?: {
+    key: string;
+    label: string;
+    placeholder?: string;
+    required?: boolean;
+    long?: boolean;
+  }[];
 }) {
   const key = String(input.key ?? "")
     .trim()
@@ -89,6 +114,34 @@ function cleanKind(input: {
     ),
   ];
 
+  // Ô bổ sung: khoá phải khớp regex vì nó ĐI THẲNG vào customId của
+  // TextInputBuilder. Khoá trùng nhau (hoặc trùng 2 ô cố định) → 2 ô cùng
+  // customId → Discord ném lỗi cả modal.
+  const seenKeys = new Set(["ticket_body", "ticket_evidence"]);
+  const fields: {
+    key: string;
+    label: string;
+    placeholder?: string;
+    required: boolean;
+    long: boolean;
+  }[] = [];
+  for (const f of Array.isArray(input.fields) ? input.fields : []) {
+    if (fields.length >= MAX_EXTRA_FIELDS) break;
+    const key = String(f?.key ?? "")
+      .trim()
+      .toLowerCase();
+    const label = clipField(f?.label, MODAL_LABEL_MAX);
+    if (!KEY_RE.test(key) || !label || seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    fields.push({
+      key,
+      label,
+      placeholder: clipField(f?.placeholder, PLACEHOLDER_MAX),
+      required: f?.required === true,
+      long: f?.long === true,
+    });
+  }
+
   return {
     key,
     label,
@@ -111,6 +164,7 @@ function cleanKind(input: {
         .trim()
         .slice(0, MODAL_LABEL_MAX) || undefined,
     staffRoleIds,
+    fields,
   };
 }
 
@@ -139,6 +193,7 @@ async function loadKinds(ctx: QueryCtx, guildId: string, includeDisabled: boolea
       questionPlaceholder: r.questionPlaceholder ?? null,
       evidenceQuestion: r.evidenceQuestion ?? null,
       staffRoleIds: r.staffRoleIds ?? [],
+      fields: r.fields ?? [],
       order: r.order ?? 0,
       enabled: r.enabled !== false,
     }));
@@ -191,6 +246,17 @@ export const saveKind = mutation({
     questionPlaceholder: v.optional(v.string()),
     evidenceQuestion: v.optional(v.string()),
     staffRoleIds: v.optional(v.array(v.string())),
+    fields: v.optional(
+      v.array(
+        v.object({
+          key: v.string(),
+          label: v.string(),
+          placeholder: v.optional(v.string()),
+          required: v.optional(v.boolean()),
+          long: v.optional(v.boolean()),
+        }),
+      ),
+    ),
     order: v.optional(v.number()),
     enabled: v.optional(v.boolean()),
   },

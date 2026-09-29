@@ -1281,4 +1281,14 @@ export const DE: Record<string, string> = {
   "Đưa xuống dưới": "Nach unten",
   "Sửa loại ticket này": "Diesen Ticket-Typ bearbeiten",
   "Xoá loại ticket này": "Diesen Ticket-Typ löschen",
+  "Ô nhập bổ sung (tối đa 3)": "Zusätzliche Eingabefelder (max. 3)",
+  "Thêm ô": "Feld hinzufügen",
+  "Mỗi ô là 1 câu hỏi thêm trong modal mở ticket. 2 ô nội dung và bằng chứng đã có sẵn nên chỉ thêm được 3 ô nữa.":
+    "Jedes Feld ist eine zusätzliche Frage im Ticket-Modal. Nachricht und Beweis gibt es bereits, daher passen nur 3 weitere.",
+  "Chưa thêm ô nào.": "Noch keine zusätzlichen Felder.",
+  "Tiêu đề ô": "Feldbezeichnung",
+  "Mã ô (tiếng Anh, không dấu)": "Feld-Code (Kleinbuchstaben, ohne Umlaute)",
+  "Bắt buộc nhập": "Pflichtfeld",
+  "Ô nhiều dòng": "Mehrzeiliges Feld",
+  "Xoá ô này": "Dieses Feld entfernen",
 };

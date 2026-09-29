@@ -193,6 +193,18 @@ const KIND_PLACEHOLDER_MAX = 100;
 const KIND_DESC_MAX = 120;
 
 /**
+ * Trần ô nhập BỔ SUNG mỗi loại (khớp MAX_EXTRA_FIELDS bên Convex).
+ *
+ * 3 chứ không phải 5: Discord chỉ nhận 5 input 1 modal, 2 ô cố định
+ * (nội dung + bằng chứng) đã chiếm 2 chỗ. 7 input là API TỪ CHỐI toàn bộ
+ * modal → người dùng bấm nút xong không thấy gì cả.
+ */
+const MAX_KIND_EXTRA_FIELDS = 3;
+
+/** Trần value của ô bổ sung (khớp cắt ở bot_writes:botOpenTicket). */
+const EXTRA_VALUE_MAX = 300;
+
+/**
  * 2 loại CỨNG — dùng khi server chưa cấu hình loại tuỳ chỉnh.
  *
  * `T` ở đây là BẢNG CHUỖI ĐÃ DỊCH, không phải tên: chuỗi được dùng làm nhãn
@@ -210,6 +222,7 @@ function defaultTicketKinds(T = {}) {
       questionPlaceholder: T.openBodyPlaceholderSupport || "",
       evidenceQuestion: T.openEvidenceLabel || "",
       staffRoleIds: [],
+      fields: [],
     },
     {
       key: "appeal",
@@ -221,6 +234,7 @@ function defaultTicketKinds(T = {}) {
       questionPlaceholder: "",
       evidenceQuestion: T.modalEvidenceLabel || T.openEvidenceLabel || "",
       staffRoleIds: [],
+      fields: [],
     },
   ];
 }
@@ -274,6 +288,7 @@ function normalizeKinds(raw, T = {}) {
         0,
         5,
       ),
+      fields: normalizeExtraFields(item.fields),
     });
   }
   return out.length > 0 ? out : defaultTicketKinds(T);
@@ -315,6 +330,41 @@ function isUsableEmoji(emoji) {
   if (!s) return false;
   if (/^<a?:\w{2,32}:\d{15,25}>$/.test(s)) return true;
   return [...s].length <= 2;
+}
+
+/**
+ * Chuẩn hoá các ô nhập BỔ SUNG của một loại.
+ *
+ * Rác bị BỎ QUA chứ không làm hỏng modal: ô thiếu nhãn hoặc khoá sai định
+ * dạng thì bỏ ô đó, giữ lại phần còn lại. 1 ô sai không được giết cả
+ * đường mở ticket.
+ *
+ * Khoá trùng 2 ô cố định (`ticket_body` / `ticket_evidence`) cũng bị bỏ:
+ * chúng đã chiếm chỗ trong modal, trùng customId là Discord ném lỗi.
+ */
+function normalizeExtraFields(raw) {
+  const out = [];
+  const seen = new Set(["ticket_body", "ticket_evidence"]);
+  for (const f of Array.isArray(raw) ? raw : []) {
+    if (out.length >= MAX_KIND_EXTRA_FIELDS) break;
+    const key = String(f?.key ?? "")
+      .trim()
+      .toLowerCase();
+    const label = clipField(f?.label, KIND_MODAL_LABEL_MAX);
+    if (!/^[a-z0-9_-]{1,32}$/.test(key) || !label || seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      key,
+      label,
+      placeholder: clipField(f?.placeholder, KIND_PLACEHOLDER_MAX),
+      // Bắt buộc mặc định FALSE: ô bổ sung bắt buộc mà người dùng không
+      // biết điền là họ bấm "Gửi" rồi bị từ chối, thường hơn nhiều so với
+      // việc họ bỏ trống 1 ô phụ.
+      required: f?.required === true,
+      long: f?.long === true,
+    });
+  }
+  return out;
 }
 
 /**
@@ -367,7 +417,38 @@ function buildModalSpec(kind, T = {}) {
     evidenceLabel:
       kind?.evidenceQuestion || (appeal ? T.modalEvidenceLabel : T.openEvidenceLabel) || T.evidence,
     evidencePlaceholder: T.openEvidencePlaceholder,
+    /**
+     * Ô nhập bổ sung, ĐÃ gắn customId.
+     *
+     * `ticket_body` và `ticket_evidence` giữ nguyên tên cũ — code đọc ở
+     * nhiều nơi (interactionCreate, DM modal) và test hiện có đều dựa vào
+     * chúng. Ô bổ sung mới mang tiền tố `xf_` để không bao giờ đụng.
+     */
+    extraFields: normalizeExtraFields(kind?.fields).map((f) => ({
+      customId: "xf_" + f.key,
+      key: f.key,
+      label: f.label,
+      placeholder: f.placeholder,
+      required: f.required,
+      long: f.long,
+    })),
   };
+}
+
+/**
+ * Gom cặp {nhãn, giá trị} của các ô bổ sung mà người dùng đã điền.
+ *
+ * Bỏ ô rỗng: ô tuỳ chọn bỏ trống thì hiện dòng "Số tiền: —" làm nhiễu kênh
+ * ticket cho staff, mà dữ liệu thì không thêm được gì.
+ */
+function collectExtraValues(entries, spec) {
+  const out = [];
+  for (const f of spec?.extraFields ?? []) {
+    const value = String(entries?.[f.key] ?? "").trim();
+    if (!value) continue;
+    out.push({ key: f.key, label: f.label, value: clip(escapeMentions(value), EXTRA_VALUE_MAX) });
+  }
+  return out;
 }
 
 /** Người dùng có quyền staff theo danh sách role không. */
@@ -401,6 +482,7 @@ function buildOpenPayload({
   openedById = null,
   body,
   evidence,
+  extraFields = [],
 }) {
   const num = String(number);
   // Loại tuỳ chỉnh có nhãn riêng → dùng nhãn đó làm tiêu đề, thay 2 tiêu đề
@@ -422,6 +504,16 @@ function buildOpenPayload({
       { name: T.status, value: num, inline: true },
       { name: T.body, value: body || "—", inline: false },
       { name: T.evidence, value: evidence || T.noEvidence, inline: false },
+      // Ô bổ sung của chủ server. Nhãn đã escape sẵn ở collectExtraValues;
+      // escape thêm 1 lần ở đây để hàm này an toàn khi gọi từ nơi khác.
+      ...(Array.isArray(extraFields) ? extraFields : [])
+        .filter((f) => f && String(f.value ?? "").trim())
+        .slice(0, MAX_KIND_EXTRA_FIELDS)
+        .map((f) => ({
+          name: clip(escapeMentions(f.label), KIND_MODAL_LABEL_MAX),
+          value: clip(escapeMentions(f.value), EXTRA_VALUE_MAX),
+          inline: false,
+        })),
     ],
     footer: T.staffOnboard,
   };
@@ -616,14 +708,18 @@ module.exports = {
   KIND_MODAL_LABEL_MAX,
   KIND_PLACEHOLDER_MAX,
   KIND_DESC_MAX,
+  MAX_KIND_EXTRA_FIELDS,
+  EXTRA_VALUE_MAX,
   defaultTicketKinds,
   normalizeKinds,
+  normalizeExtraFields,
   findKind,
   normalizeKind,
   staffRoleIdsForKind,
   isUsableEmoji,
   buildPanelButtons,
   buildModalSpec,
+  collectExtraValues,
   isStaff,
   buildOpenPayload,
   cooldownMinutesLeft,

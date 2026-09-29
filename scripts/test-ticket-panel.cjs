@@ -313,6 +313,59 @@ module.exports = {
     );
   }
 
+  // ═════════ 2c. Modal có ô nhập bổ sung (phương án B) ═════════
+  {
+    const core = require("../bot/src/ticketCore");
+    const kinds = core.normalizeKinds(
+      [
+        {
+          key: "billing",
+          label: "Hoá đơn",
+          fields: [
+            { key: "amount", label: "Số tiền", required: true, long: true },
+            { key: "order_id", label: "Mã đơn" },
+          ],
+        },
+      ],
+      T,
+    );
+    const m = tickets.openModal(T, "billing", kinds);
+    check(
+      "modal dựng 4 ô: nội dung + bằng chứng + 2 ô bổ sung",
+      m.components.length === 4,
+      String(m.components.length),
+    );
+    check(
+      "ô bổ sung giữ customId riêng + nhãn cấu hình",
+      m.components[2].customId === "xf_amount" && m.components[2].label === "Số tiền",
+      m.components[2].customId,
+    );
+    check("ô bổ sung bắt buộc đi theo cấu hình", m.components[2].required === true);
+    check(
+      "ô ngắn dùng kiểu Short, ô dài dùng Paragraph",
+      m.components[2].style === 2 && m.components[3].style === 1,
+      m.components[2].style + "/" + m.components[3].style,
+    );
+    check(
+      "loại không có ô bổ sung → modal vẫn đúng 2 ô như trước",
+      tickets.openModal(
+        T,
+        "support",
+        core.normalizeKinds(
+          [
+            { key: "support", label: "Hỗ trợ" },
+            { key: "billing", label: "Hoá đơn" },
+          ],
+          T,
+        ),
+      ).components.length === 2,
+    );
+    check(
+      "key không có trong danh sách → rơi về loại ĐẦU (billing) chứ không mất ô bổ sung",
+      tickets.openModal(T, "khongco", kinds).components.length === 4,
+    );
+  }
+
   // ═════════ 3. Hàng nút trong kênh ticket: có nút tự đóng ═════════
   {
     const row = tickets.extraRow(T, "T1");

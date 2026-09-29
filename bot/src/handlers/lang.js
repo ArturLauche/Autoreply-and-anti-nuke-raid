@@ -165,6 +165,7 @@ const TICKET_TEXT = {
     errMaxOpen:
       "❌ Server hiện đang có {n} ticket mở — vượt giới hạn ({max}). Vui lòng chờ staff xử lý.",
     errAlreadyOpen: "ℹ️ Bạn đã có một ticket đang mở: {ch}.",
+    errRequiredFields: "❌ Bạn cần điền: {fields}",
     errHierarchy: "❌ Bot cần role cao hơn bạn để cấp quyền xem kênh ticket.",
     errChannelsFull: "❌ Server đã đạt giới hạn 500 kênh của Discord — không thể tạo ticket mới.",
     errNoStaff: "❌ Chủ server chưa cấu hình role staff xử lý ticket.",
@@ -267,6 +268,7 @@ const TICKET_TEXT = {
     errMaxOpen:
       "❌ This server has {n} open ticket(s) — over the limit ({max}). Please wait for staff.",
     errAlreadyOpen: "ℹ️ You already have an open ticket: {ch}.",
+    errRequiredFields: "❌ You need to fill in: {fields}",
     errHierarchy: "❌ The bot needs a higher role than you to grant channel access.",
     errChannelsFull: "❌ This server hit Discord's 500 channel limit — cannot create a ticket.",
     errNoStaff: "❌ The server owner has not set a staff role for tickets.",
@@ -368,6 +370,7 @@ const TICKET_TEXT = {
     errMaxOpen:
       "❌ Auf diesem Server sind {n} Ticket(s) offen — über dem Limit ({max}). Bitte warte auf das Team.",
     errAlreadyOpen: "ℹ️ Du hast bereits ein offenes Ticket: {ch}.",
+    errRequiredFields: "❌ Du musst ausfüllen: {fields}",
     errHierarchy: "❌ Der Bot braucht eine höhere Rolle als du, um Kanalzugriff zu geben.",
     errChannelsFull: "❌ Dieser Server hat das Discord-Limit von 500 Kanälen erreicht.",
     errNoStaff: "❌ Der Serverbesitzer hat noch keine Staff-Rolle für Tickets festgelegt.",

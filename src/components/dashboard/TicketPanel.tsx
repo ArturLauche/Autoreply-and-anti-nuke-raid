@@ -58,6 +58,10 @@ export default function TicketPanel({ data }: { data: GuildData }) {
   const g = data.guild;
 
   const [tab, setTab] = useState<Tab>("open");
+  // Nhãn loại tuỳ chỉnh do `TicketKindsCard` báo lên. Rỗng = card lỗi (chưa
+  // deploy hàm mới) hoặc ticket cũ → rơi về `KIND_LABEL`, rồi tới mã khoá.
+  const [kindLabels, setKindLabels] = useState<Record<string, string>>({});
+  const kindLabelOf = (k: string) => kindLabels[k] ?? translate(KIND_LABEL[k] ?? k);
   // Ticket đang mở khung transcript (null = đóng). Chỉ chọn MỘT cái: transcript
   // có tới 200 tin, tải cả danh sách sẽ nhét vào RAM dashboard.
   const [transcriptOf, setTranscriptOf] = useState<TicketRow | null>(null);
@@ -755,7 +759,12 @@ export default function TicketPanel({ data }: { data: GuildData }) {
           + số liệu, tức 1 hàm chưa deploy làm mất cả tính năng cũ. */}
       {g.ticketEnabled ? (
         <PanelErrorBoundary>
-          <TicketKindsCard data={data} />
+          <TicketKindsCard
+            data={data}
+            onKindsLoaded={(list) =>
+              setKindLabels(Object.fromEntries(list.map((k) => [k.key, k.label])))
+            }
+          />
         </PanelErrorBoundary>
       ) : null}
 
@@ -776,6 +785,7 @@ export default function TicketPanel({ data }: { data: GuildData }) {
                   rows={tickets}
                   statusFilter={t}
                   guildId={g.discordId}
+                  kindLabelOf={kindLabelOf}
                   onViewTranscript={setTranscriptOf}
                   onClose={async (row) => {
                     try {
@@ -1028,12 +1038,19 @@ function TicketList({
   rows,
   statusFilter,
   guildId,
+  kindLabelOf,
   onClose,
   onViewTranscript,
 }: {
   rows: TicketRow[] | undefined;
   statusFilter: Tab;
   guildId: string;
+  /**
+   * Hàm tra nhãn loại, đóng bên trong TicketPanel vì nhãn tuỳ chỉnh do
+   * `TicketKindsCard` nạp. Rơi về 2 nhãn cứng rồi tới mã khoá nếu chưa nạp
+   * được (card lỗi, hoặc ticket của loại đã bị xoá).
+   */
+  kindLabelOf: (kind: string) => string;
   onClose: (row: TicketRow) => void;
   onViewTranscript: (row: TicketRow) => void;
 }) {
@@ -1063,7 +1080,7 @@ function TicketList({
               <span className="font-mono text-xs text-muted-foreground">#{t.number}</span>
               <Badge variant="outline" className="gap-1">
                 <ShieldQuestion className="h-3 w-3" />
-                {translate(KIND_LABEL[t.kind] ?? t.kind)}
+                {kindLabelOf(t.kind)}
               </Badge>
               {t.claimedByName ? (
                 <Badge className="gap-1">
@@ -1096,6 +1113,11 @@ function TicketList({
               </span>
             </div>
             {t.body && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{t.body}</p>}
+            {t.fields.length > 0 && (
+              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                {t.fields.map((f) => f.label + ": " + f.value).join(" · ")}
+              </p>
+            )}
             {t.openError && (
               <p className="mt-1 text-xs text-destructive">
                 {translate("Lỗi mở kênh: {p0}", { p0: t.openError })}

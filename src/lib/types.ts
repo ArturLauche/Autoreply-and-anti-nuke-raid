@@ -294,12 +294,17 @@ export interface TicketRow {
   id: string;
   number: number;
   channelId: string;
-  /** "appeal" (khiếu nại hình phạt) | "support" (hỗ trợ chung). */
+  /**
+   * Khoá loại ticket — khớp `key` của bảng `ticketKinds`. Server chưa cấu
+   * hình loại tuỳ chỉnh thì chỉ có 2 giá trị cũ: "support" | "appeal".
+   */
   kind: string;
   openerId: string;
   openerName: string;
   body: string;
   evidence: string;
+  /** Ô nhập bổ sung do chủ server thêm cho loại này (lưu kèm nhãn ô). */
+  fields: { label: string; value: string }[];
   /** "dm" (nút trong DM sau ban) | "command" (lệnh /ticket). */
   source: string;
   status: "open" | "closed" | "locked";
