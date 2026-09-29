@@ -61,6 +61,14 @@ const timeoutWatchMock = {
   },
 };
 
+// Mock util cho caseLog THẬT: sendModLog ghi lại để assert embed + meta webhook.
+const modLogCalls = [];
+const utilMock = {
+  async sendModLog(guild, guildConfig, embed, channelId, eventType, meta) {
+    modLogCalls.push({ guild, guildConfig, embed, channelId, eventType, meta });
+  },
+};
+
 const origLoad = Module._load;
 Module._load = function (request, parent) {
   const fromModTools = parent && /handlers[\\/]modTools\.js$/.test(parent.filename);
@@ -68,6 +76,8 @@ Module._load = function (request, parent) {
     if (request === "../caseLog") return caseLogMock;
     if (request === "../timeoutWatch") return timeoutWatchMock;
   }
+  const fromCaseLog = parent && /caseLog\.js$/.test(parent.filename);
+  if (fromCaseLog && request === "./util") return utilMock;
   return origLoad.apply(this, arguments);
 };
 
@@ -426,6 +436,122 @@ Module._load = function (request, parent) {
     check("unwarnMember với HeatTracker thật không ném", threw === "", threw);
     check("unwarnMember xóa đúng warn tích lũy", out.includes("1 warn"));
     check("sau unwarn, strikeCount về 0", heat.strikeCount("g1", "u1", s) === 0);
+  }
+
+  // ── 7. caseLog thật — mức chi tiết log theo cấu hình (punishNotice) ──
+  // Đây là thứ chủ server cấu hình ở dashboard Moderation và thấy hằng ngày;
+  // nhánh `punishNotice` trước đây gần như không được test chạm tới.
+  {
+    const { sendCaseLog } = require("../bot/src/caseLog");
+    const guild = { id: "g-cl", name: "G-cl", client: { user: { username: "Protogon" } } };
+    const base = (punishNotice) => ({
+      punishNotice,
+      punishNoticeChannelId: "ch-notice",
+      logChannelId: null,
+      modLogChannelId: null,
+    });
+    const run = async (cfg, opts = {}) => {
+      modLogCalls.length = 0;
+      const embed = await sendCaseLog({
+        guild,
+        guildConfig: cfg,
+        action: opts.action ?? "ban",
+        offender: opts.offender === null ? undefined : { id: "u1", username: "nguoi-bi-phat" },
+        reason: opts.reason,
+        executor: opts.executor ?? null,
+        caseNumber: opts.caseNumber,
+        extraDescription: opts.extraDescription ?? [],
+      });
+      return { embed, call: modLogCalls[0] };
+    };
+    const desc = (r) => r.embed?.d?.description ?? "";
+
+    {
+      const r = await run(base({ ban: "none" }));
+      check(
+        "mức none → không gửi embed case (dashboard vẫn ghi nhận)",
+        r.embed === null && modLogCalls.length === 0,
+        JSON.stringify(r.embed),
+      );
+    }
+    {
+      const r = await run(base({ ban: "action" }), { caseNumber: 7 });
+      check(
+        "mức action → chỉ hiện Offender (+ case N trong tiêu đề)",
+        desc(r).includes("Offender") &&
+          !desc(r).includes("Reason") &&
+          r.embed.d.title.includes("case 7"),
+        JSON.stringify(desc(r)),
+      );
+    }
+    {
+      const r = await run(base({ ban: "reason" }));
+      check(
+        "mức reason → thêm Reason, trống thì ghi 'không có lý do'",
+        desc(r).includes("Reason") &&
+          desc(r).includes("không có lý do") &&
+          !desc(r).includes("Responsible"),
+        JSON.stringify(desc(r)),
+      );
+    }
+    {
+      const r = await run(base({ ban: "full" }), {
+        reason: "spam",
+        executor: { username: "mod-name" },
+      });
+      check(
+        "mức full + executor → hiện Responsible moderator = tên mod",
+        desc(r).includes("Responsible moderator") && desc(r).includes("mod-name"),
+        JSON.stringify(desc(r)),
+      );
+    }
+    {
+      const r = await run(base({ ban: "full" }));
+      check(
+        "mức full, executor null → Responsible moderator = tên bot",
+        desc(r).includes("Protogon"),
+        JSON.stringify(desc(r)),
+      );
+    }
+    {
+      // timeout_expired là hậu quả của timeout → tôn trọng mức của "timeout",
+      // chủ server đặt timeout = none thì không muốn thấy log timeout nào.
+      const cfg = base({ timeout: "none" });
+      const none = await run(cfg, { action: "timeout_expired" });
+      const full = await run(base({ timeout: "full" }), { action: "timeout_expired" });
+      check(
+        "timeout_expired tôn trọng mức của timeout (none → im lặng)",
+        none.embed === null && full.embed !== null,
+        JSON.stringify([none.embed, full.embed?.d?.title]),
+      );
+    }
+    {
+      // purge/delete không nằm trong bảng cấu hình → luôn hiện đầy đủ.
+      const r = await run(base({}), { action: "purge", offender: null });
+      check(
+        "purge (ngoài bảng cấu hình) → luôn hiện đầy đủ",
+        desc(r).includes("Responsible moderator"),
+        JSON.stringify(desc(r)),
+      );
+    }
+    {
+      const r = await run(base({ ban: "full" }), { reason: "ping @everyone" });
+      check(
+        "lý do đi vào content webhook phải được escape (chống ping)",
+        r.call?.meta?.reason?.startsWith("ping @") === true &&
+          !r.call.meta.reason.includes("@everyone"),
+        JSON.stringify(r.call?.meta),
+      );
+      check(
+        "gửi ưu tiên kênh thông báo hình phạt + loại sự kiện webhook",
+        r.call?.channelId === "ch-notice" && r.call?.eventType === "ban",
+        JSON.stringify([r.call?.channelId, r.call?.eventType]),
+      );
+    }
+    {
+      const r = await sendCaseLog({ guild: null, guildConfig: base({}), action: "ban" });
+      check("thiếu guild/config → trả null, không ném", r === null, JSON.stringify(r));
+    }
   }
 
   fs.unlinkSync(path.join(__dirname, "..", "bot", "test-djs-mock.cjs"));
