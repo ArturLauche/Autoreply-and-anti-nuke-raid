@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import type { GuildData, TicketRow } from "../../lib/types";
 import { getSessionToken } from "../../lib/discord";
 import { dateLocale, translate } from "../../lib/i18n";
+import PanelErrorBoundary from "../PanelErrorBoundary";
 import TicketKindsCard from "./TicketKindsCard";
 
 const TOKEN = () => getSessionToken();
@@ -747,8 +748,16 @@ export default function TicketPanel({ data }: { data: GuildData }) {
         </>
       )}
 
-      {/* ═══ DANH SÁCH LOẠI TICKET TUỲ CHỈNH (29/09/2026) ═══ */}
-      {g.ticketEnabled ? <TicketKindsCard data={data} /> : null}
+      {/* ═══ DANH SÁCH LOẠI TICKET TUỲ CHỈNH (29/09/2026) ═══
+          Bọc `PanelErrorBoundary` RIÊNG cho card này: `api.ticketKinds.*` là
+          hàm mới, nếu backend chưa deploy kịp thì query ném lỗi — không có
+          boundary riêng thì lỗi đó lan ra cả tab và mất luôn danh sách ticket
+          + số liệu, tức 1 hàm chưa deploy làm mất cả tính năng cũ. */}
+      {g.ticketEnabled ? (
+        <PanelErrorBoundary>
+          <TicketKindsCard data={data} />
+        </PanelErrorBoundary>
+      ) : null}
 
       <TicketStatsCard stats={stats} days={statsDays} onDays={setStatsDays} />
 
