@@ -85,6 +85,33 @@ export default defineSchema({
     /** Lỗi khôi phục gần nhất (bot báo lại — dashboard hiển thị thay vì im lặng). */
     restoreError: v.optional(v.string()),
     restoreErrorAt: v.optional(v.number()),
+    /**
+     * Kế hoạch khôi phục (dry-run): dashboard xin xem TRƯỚC sẽ tạo gì, bot chỉ
+     * đọc backup + cấu hình rồi báo số liệu — KHÔNG tạo role/kênh/tin nào.
+     * Khôi phục thật là việc phá hủy (tạo hàng chục role/kênh), không có đường
+     * lùi nên chủ server cần biết trước còn thiếu quyền, đủ quyền, số lượng.
+     */
+    restorePlanRequested: v.optional(v.boolean()),
+    restorePlanBackupId: v.optional(v.id("guildBackups")),
+    /** Kết quả dry-run gần nhất — dashboard hiển thị trước khi bấm khôi phục. */
+    restorePlan: v.optional(
+      v.object({
+        guildName: v.optional(v.string()),
+        createdAt: v.optional(v.number()),
+        roleCount: v.number(),
+        channelCount: v.number(),
+        messageCount: v.number(),
+        emojiCount: v.number(),
+        stickerCount: v.number(),
+        /** Số mục cấu hình (admin/mod/whitelist/kênh log) sẽ được áp lại. */
+        settingsCount: v.number(),
+        /** Cảnh báo tiếng Việt — bot so sánh backup với quyền và server hiện tại. */
+        warnings: v.array(v.string()),
+        at: v.number(),
+      }),
+    ),
+    restorePlanError: v.optional(v.string()),
+    restorePlanErrorAt: v.optional(v.number()),
     /** Lỗi gửi panel xác minh gần nhất (bot báo lại — dashboard hiển thị). */
     verifyPanelError: v.optional(v.string()),
     verifyPanelErrorAt: v.optional(v.number()),

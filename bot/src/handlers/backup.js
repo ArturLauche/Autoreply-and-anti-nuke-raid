@@ -1772,6 +1772,189 @@ function normalizeBackupFile(content) {
 }
 
 /** Tạo lại role/kênh + phục hồi tin nhắn + áp cấu hình — dùng chung cho restore mọi nguồn. */
+/**
+ * Tính KẾ HOẠCH khôi phục mà KHÔNG đụng server (dry-run).
+ *
+ * Lý do có hàm này: khôi phục là hành động KHÔNG HOÀN TÁC được — bot tạo hàng
+ * chục role/kênh và spam tin nhắn qua webhook; nếu thiếu quyền hoặc kênh trùng
+ * tên thì chủ server chỉ biết sau khi đã làm. Dry-run đọc backup + cấu hình
+ * rồi báo TRƯỚC: tạo bao nhiêu role/kênh/tin, thiếu quyền gì, cảnh báo nào.
+ *
+ * Cố ý KHÔNG gọi bất kỳ lệnh tạo nào (roles.create / channels.create /
+ * webhook.send): đây là hợp đồng của dry-run.
+ */
+async function planRestoreCore(client, store, guildId, backup, { backupName } = {}) {
+  const guild = client.guilds.cache.get(guildId);
+  if (!guild || guild.available === false) {
+    throw new Error("Bot không còn trong server cần khôi phục");
+  }
+  const cfg = await store.getConfig(guildId).catch(() => null);
+  const restoreRoles = cfg?.restoreRolesEnabled !== false;
+  const restoreChannels = cfg?.restoreChannelsEnabled !== false;
+  const restoreMessages = cfg?.restoreMessagesEnabled !== false;
+  const restoreEmojis = cfg?.restoreEmojisEnabled !== false;
+
+  const roles = sortedRoles(backup).filter((r) => r.name);
+  const channels = sortedChannels(backup).filter((c) => c.name);
+  const emojis = (backup.emojis || []).filter((e) => e && e.name);
+  const stickers = (backup.stickers || []).filter((s) => s && s.name);
+
+  // replayMessages chỉ gửi tối đa MAX_REPLAY_PER_CHANNEL tin/kênh và chỉ kênh
+  // có bản ghi mới được gửi → báo đúng số SẼ phục hồi, không phải số có trong
+  // file (backup có thể chứa 50 tin × 60 kênh mà chỉ 50/kênh là phục hồi được).
+  let messages = 0;
+  let skippedMessages = 0;
+  for (const c of channels) {
+    const n = Array.isArray(c.messages) ? c.messages.length : 0;
+    if (n === 0) continue;
+    messages += Math.min(n, MAX_REPLAY_PER_CHANNEL);
+    skippedMessages += Math.max(0, n - MAX_REPLAY_PER_CHANNEL);
+  }
+
+  // Cấu hình sẽ được áp lại: restoreCore chỉ ghi đè được field map trọn vẹn,
+  // thiếu 1 role là GIỮ NGUYÊN cả danh sách — báo trước để chủ server biết.
+  const s = backup.settings || {};
+  const asArr = (v) => (Array.isArray(v) ? v : []);
+  const settingRoleRefs = [
+    ...new Set([...asArr(s.modRoles), ...asArr(s.adminRoles), ...asArr(s.whitelistRoles)]),
+  ];
+  const roleIds = new Set(roles.map((r) => r.id));
+  const orphanRoleRefs = settingRoleRefs.filter((id) => !roleIds.has(id));
+  const settingsCount =
+    settingRoleRefs.length +
+    (s.prefix ? 1 : 0) +
+    (asArr(s.badWords).length > 0 ? 1 : 0) +
+    (s.logChannelId ? 1 : 0) +
+    (s.modLogChannelId ? 1 : 0);
+
+  const warnings = [];
+  const myBits = myPermissionBits(guild);
+  const can = (flag) => {
+    const bit = PermissionsBitField.Flags?.[flag];
+    if (bit === undefined) return false; // không biết quyền → coi như thiếu, nói ra
+    return (BigInt(myBits) & BigInt(bit)) === BigInt(bit);
+  };
+  if (restoreRoles && roles.length > 0 && !can("ManageRoles")) {
+    warnings.push(
+      `Bot thiếu quyền Manage Roles — ${roles.length} role trong backup sẽ KHÔNG tạo lại được.`,
+    );
+  }
+  if (restoreChannels && channels.length > 0 && !can("ManageChannels")) {
+    warnings.push(
+      `Bot thiếu quyền Manage Channels — ${channels.length} kênh trong backup sẽ KHÔNG tạo lại được.`,
+    );
+  }
+  const existingNames = new Set([...(guild.channels?.cache?.values?.() ?? [])].map((c) => c.name));
+  const dupChannels = restoreChannels
+    ? channels.filter((c) => existingNames.has(c.name)).length
+    : 0;
+  if (dupChannels > 0) {
+    warnings.push(
+      `${dupChannels} kênh trùng tên với kênh đang có trong server — Discord sẽ tự đổi tên (general → general-2).`,
+    );
+  }
+  // Trần role của server: Discord chặn ở 250 role (đã trừ @everyone).
+  const existingRoles = guild.roles?.cache?.size ?? 0;
+  if (restoreRoles && existingRoles + roles.length > 250) {
+    warnings.push(
+      `Server đã có ${existingRoles} role, backup thêm ${roles.length} — vượt trần 250 role, Discord sẽ từ chối phần dư.`,
+    );
+  }
+  if (restoreRoles && orphanRoleRefs.length > 0) {
+    warnings.push(
+      `${orphanRoleRefs.length} role trong cấu hình (admin/mod/whitelist) không có trong backup → danh sách cũ sẽ được GIỮ NGUYÊN.`,
+    );
+  }
+  if (skippedMessages > 0) {
+    warnings.push(
+      `${skippedMessages} tin nhắn vượt giới hạn ${MAX_REPLAY_PER_CHANNEL} tin/kênh sẽ không được phục hồi.`,
+    );
+  }
+  const skipped = [];
+  if (!restoreRoles) skipped.push("role");
+  if (!restoreChannels) skipped.push("kênh");
+  if (!restoreMessages) skipped.push("tin nhắn");
+  if (!restoreEmojis) skipped.push("emoji/sticker");
+  if (skipped.length > 0) {
+    warnings.push(
+      `Đang tắt khôi phục ${skipped.join(", ")} trong Tùy chỉnh khôi phục — phần này sẽ KHÔNG được tạo lại.`,
+    );
+  }
+  if (messages === 0 && countMessages(backup) > 0) {
+    warnings.push(
+      "Backup có tin nhắn nhưng chưa bật khôi phục tin nhắn (hoặc kênh chứa tin đã bị xóa) — sẽ không phục hồi tin nào.",
+    );
+  }
+  const roleCount = restoreRoles ? roles.length : 0;
+  const channelCount = restoreChannels ? channels.length : 0;
+  if (roleCount === 0 && channelCount === 0) {
+    warnings.push("Bản backup này không có role/kênh nào để tạo — khôi phục sẽ không tạo gì.");
+  }
+
+  return {
+    guildName: backupName || backup.guildName || null,
+    createdAt: backup.createdAt ?? null,
+    roleCount,
+    channelCount,
+    messageCount: restoreMessages ? messages : 0,
+    emojiCount: restoreEmojis ? emojis.length : 0,
+    stickerCount: restoreEmojis ? stickers.length : 0,
+    settingsCount: restoreRoles || restoreChannels ? settingsCount : 0,
+    warnings,
+    at: Date.now(),
+  };
+}
+
+/**
+ * Dry-run từ một bản backup trên cloud: bung nén → chuẩn hoá giống hệt
+ * runRestore (kể cả bộ lọc thành phần) → tính kế hoạch → báo ngược lên
+ * dashboard. Dùng CHUNG đường chuẩn hoá với restore thật, nếu không kế hoạch
+ * nói "sẽ tạo 5 kênh" còn restore thật tạo 7 là bản thuyết phục sai.
+ */
+async function runRestorePlan(client, store, guildId, backupJson, backupName, options = {}) {
+  let backup;
+  try {
+    let json = backupJson;
+    try {
+      json = decompressAndDecryptBackup(backupJson);
+    } catch {}
+    backup = JSON.parse(json);
+  } catch {
+    throw new Error("Backup bi hong (khong doc duoc JSON)");
+  }
+  if (
+    options.restoreRoles === false ||
+    options.restoreChannels === false ||
+    options.restoreMessages === false ||
+    options.restoreEmojis === false
+  ) {
+    backup = filterBackupComponents(backup, {
+      roles: options.restoreRoles !== false,
+      channels: options.restoreChannels !== false,
+      emojis: options.restoreEmojis !== false,
+      stickers: options.restoreEmojis !== false,
+      messages: options.restoreMessages !== false,
+    });
+  }
+  const plan = await planRestoreCore(client, store, guildId, backup, { backupName });
+  const reported = await store.client.mutation("bot_writes:botReportRestorePlan", {
+    guildId,
+    plan,
+    claimAt: options.claimAt,
+  });
+  if (reported?.ok !== true) {
+    throw new Error(
+      reported?.reason === "stale_claim"
+        ? "stale backup claim"
+        : "không xác nhận được kế hoạch khôi phục",
+    );
+  }
+  console.log(
+    `[backup:plan] ${guildId}: ${plan.roleCount} roles, ${plan.channelCount} channels, ${plan.messageCount} messages, ${plan.warnings.length} cảnh báo`,
+  );
+  return plan;
+}
+
 async function restoreCore(
   client,
   store,
@@ -2135,6 +2318,10 @@ async function pollBackups(client, store) {
         await runRestore(client, store, item.guildId, item.backupJson, item.guildName, {
           claimAt,
         });
+      } else if (item.kind === "plan") {
+        await runRestorePlan(client, store, item.guildId, item.backupJson, item.guildName, {
+          claimAt,
+        });
       } else if (item.kind === "import") {
         const content = await readImportContent(item);
         await runImportRestore(client, store, item.guildId, content, item.fileName, {
@@ -2151,7 +2338,9 @@ async function pollBackups(client, store) {
           ? "bot_writes:botReportImportError"
           : item.kind === "restore"
             ? "bot_writes:botReportRestoreError"
-            : "bot_writes:botReportBackupError";
+            : item.kind === "plan"
+              ? "bot_writes:botReportRestorePlan"
+              : "bot_writes:botReportBackupError";
       await store.client
         .mutation(reportKind, {
           guildId: item.guildId,
@@ -2242,6 +2431,10 @@ async function cloneToServer(
 module.exports = pollBackups;
 module.exports.runBackup = runBackup;
 module.exports.runRestore = runRestore;
+// Dry-run (kế hoạch khôi phục) — tách riêng khỏi runRestore để test khẳng định
+// được "khôi phục có gọi tạo role/kênh, còn kế hoạch thì không".
+module.exports.planRestoreCore = planRestoreCore;
+module.exports.runRestorePlan = runRestorePlan;
 module.exports.runImportRestore = runImportRestore;
 module.exports.autoBackupSweep = autoBackupSweep;
 // C1 localSnapshot.js tái dùng engine chụp có sẵn — PHẢI export, nếu không

@@ -28,7 +28,7 @@ function claimMatches(
     restoreClaimedAt?: number;
     restoreLeaseUntil?: number;
   },
-  kind: "backup" | "restore" | "import",
+  kind: "backup" | "restore" | "import" | "plan",
   claimAt: number | undefined,
 ): boolean {
   if (claimAt === undefined) return true; // tương thích client cũ trong lúc rollout
@@ -795,7 +795,12 @@ export const botDeleteBackup = mutation({
 export const botClaimBackup = mutation({
   args: {
     guildId: v.string(),
-    kind: v.union(v.literal("backup"), v.literal("restore"), v.literal("import")),
+    kind: v.union(
+      v.literal("backup"),
+      v.literal("restore"),
+      v.literal("import"),
+      v.literal("plan"),
+    ),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()),
   },
@@ -837,6 +842,23 @@ export const botClaimBackup = mutation({
       });
       return { ok: true, claimAt: now };
     }
+    // Dry-run dùng CHUNG claim của restore: chủ server bấm "xem kế hoạch" rồi
+    // bấm "khôi phục" ngay thì 2 việc phải loại trừ nhau, không được chạy chồng.
+    if (kind === "plan") {
+      if (!guild.restorePlanRequested) return { ok: false, reason: "no_request" };
+      if (
+        claimIsActive(guild.backupClaimedAt, guild.backupLeaseUntil) ||
+        claimIsActive(guild.restoreClaimedAt, guild.restoreLeaseUntil)
+      ) {
+        return { ok: false, reason: "in_flight" };
+      }
+      await ctx.db.patch(guild._id, {
+        restoreClaimedAt: now,
+        restoreLeaseUntil: now + BACKUP_CLAIM_TTL_MS,
+        updatedAt: now,
+      });
+      return { ok: true, claimAt: now };
+    }
     if (!guild.restoreRequested) return { ok: false, reason: "no_request" };
     if (
       claimIsActive(guild.backupClaimedAt, guild.backupLeaseUntil) ||
@@ -857,7 +879,12 @@ export const botClaimBackup = mutation({
 export const botRenewBackupClaim = mutation({
   args: {
     guildId: v.string(),
-    kind: v.union(v.literal("backup"), v.literal("restore"), v.literal("import")),
+    kind: v.union(
+      v.literal("backup"),
+      v.literal("restore"),
+      v.literal("import"),
+      v.literal("plan"),
+    ),
     claimAt: v.number(),
     /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
     botKey: v.optional(v.string()),
@@ -918,7 +945,12 @@ export const botReportRestoreError = mutation({
 export const botClearBackup = mutation({
   args: {
     guildId: v.string(),
-    kind: v.union(v.literal("backup"), v.literal("restore"), v.literal("import")),
+    kind: v.union(
+      v.literal("backup"),
+      v.literal("restore"),
+      v.literal("import"),
+      v.literal("plan"),
+    ),
     /** true khi backup đã lưu thành công (hoặc bỏ qua vì không đổi) — chỉ khi đó mới cập nhật lastBackupAt. */
     storeOk: v.optional(v.boolean()),
     /** Backup bị bỏ qua vì server không đổi (checksum trùng) — dashboard nói rõ lý do. */
@@ -974,6 +1006,13 @@ export const botClearBackup = mutation({
           console.error(`[backup:clear:storage] ${guildId}:`, e instanceof Error ? e.message : e);
         }
       }
+    } else if (kind === "plan") {
+      // Dry-run KHÔNG đụng server nên không có "xong" để đánh dấu, và tuyệt đối
+      // không đụng restoreFinishedAt — nếu không dashboard tưởng đã khôi phục xong.
+      patch.restorePlanRequested = false;
+      patch.restorePlanBackupId = undefined;
+      patch.restoreClaimedAt = undefined;
+      patch.restoreLeaseUntil = undefined;
     } else {
       patch.restoreRequested = false;
       patch.restoreBackupId = undefined;
@@ -984,6 +1023,60 @@ export const botClearBackup = mutation({
       patch.restoreFinishedAt = Date.now();
     }
     await ctx.db.patch(guild._id, patch);
+    return { ok: true };
+  },
+});
+
+/**
+ * Bot báo KẾ HOẠCH khôi phục (dry-run) hoặc lỗi khi tính kế hoạch. Một mutation
+ * duy nhất cho cả hai vì cả hai đều ghi kết quả vào CÙNG chỗ (trường hợp lỗi
+ * thì `plan` rỗng) — tách làm hai sẽ dễ quên xóa cờ yêu cầu ở nhánh lỗi, và
+ * dashboard mãi chờ một kế hoạch không bao giờ tới.
+ */
+export const botReportRestorePlan = mutation({
+  args: {
+    guildId: v.string(),
+    /** Kế hoạch đã tính xong — bỏ trống khi tính lỗi. */
+    plan: v.optional(
+      v.object({
+        guildName: v.optional(v.string()),
+        createdAt: v.optional(v.number()),
+        roleCount: v.number(),
+        channelCount: v.number(),
+        messageCount: v.number(),
+        emojiCount: v.number(),
+        stickerCount: v.number(),
+        settingsCount: v.number(),
+        warnings: v.array(v.string()),
+        at: v.number(),
+      }),
+    ),
+    /** Lý do không tính được (backup hỏng, bot mất quyền…) — dashboard hiện ngay. */
+    error: v.optional(v.string()),
+    claimAt: v.optional(v.number()),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { botKey, guildId, plan, error, claimAt }) => {
+    await requireBotKeyStrict(ctx, botKey);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) return { ok: true };
+    // Dry-run dùng chung claim với restore (xem botClaimBackup kind "plan").
+    if (!claimMatches(guild, "plan", claimAt)) return { ok: false, reason: "stale_claim" };
+    const failed = !!error;
+    await ctx.db.patch(guild._id, {
+      restorePlanRequested: false,
+      restorePlanBackupId: undefined,
+      restoreClaimedAt: undefined,
+      restoreLeaseUntil: undefined,
+      restorePlan: plan ?? undefined,
+      restorePlanError: failed ? String(error || "Lỗi không xác định").slice(0, 300) : undefined,
+      restorePlanErrorAt: failed ? Date.now() : undefined,
+      updatedAt: Date.now(),
+    });
     return { ok: true };
   },
 });

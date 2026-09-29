@@ -25,7 +25,7 @@ class Collection extends Map {}
 class PermissionsBitField {
   constructor(bits = 0n) { this.bitfield = BigInt(bits); }
   has(b) { return (this.bitfield & BigInt(b)) === BigInt(b); }
-  static Flags = { Administrator: 1n << 3n, ManageGuild: 1n << 5n, ManageChannels: 1n << 4n, ViewChannel: 1n << 10n, SendMessages: 1n << 11n };
+  static Flags = { Administrator: 1n << 3n, ManageGuild: 1n << 5n, ManageChannels: 1n << 4n, ManageRoles: 1n << 28n, ManageEmojisAndStickers: 1n << 30n, ViewChannel: 1n << 10n, SendMessages: 1n << 11n };
 }
 module.exports = {
   Colors: new Proxy({}, { get: () => 0x000000 }),
@@ -210,9 +210,12 @@ const check = (label, ok) => {
     ),
   );
   check("skipNotice chỉ thông báo khi true (auto vẫn im lặng)", src.includes("if (skipNotice) {"));
+  // Móc neo kèm DẤU MỞ NGOẶC: hàm runRestorePlan có tên bắt đầu bằng
+  // "runRestore" nên indexOf("async function runRestore") khớp LUÔN vào nó →
+  // đoạn cắt rỗng và test âm thầm hỏng. Đây là lý do neo phải có "(".
   const restoreBlock = src.slice(
-    src.indexOf("async function restoreCore"),
-    src.indexOf("async function runRestore"),
+    src.indexOf("async function restoreCore("),
+    src.indexOf("async function runRestore("),
   );
   check(
     "restore không báo xong nếu áp cấu hình/clear request thất bại",
@@ -833,6 +836,7 @@ const check = (label, ok) => {
       ["backup", "bot_writes:botReportBackupError"],
       ["restore", "bot_writes:botReportRestoreError"],
       ["import", "bot_writes:botReportImportError"],
+      ["plan", "bot_writes:botReportRestorePlan"],
     ]) {
       seen.length = 0;
       const failStore = {
@@ -1547,6 +1551,253 @@ const check = (label, ok) => {
       String(r.roleCount),
     );
     check("clone: bộ lọc giữ lại kênh", r.channelCount === 4, String(r.channelCount));
+  }
+
+  // ══════════ 15. DRY-RUN: kế hoạch khôi phục KHÔNG đụng server ══════════
+  // Khôi phục là việc không hoàn tác được (tạo hàng chục role/kênh, spam tin qua
+  // webhook). Dry-run phải cho biết TRƯỚC — nên hợp đồng cứng nhất của hàm này là
+  // không gọi lệnh tạo nào. Test này là lá chắn cho đúng điều đó.
+  {
+    const tg = makeTarget();
+    const st = { client: { mutation: async () => ({ ok: true }) }, getConfig: async () => null };
+    const plan = await backup.planRestoreCore(
+      { guilds: { cache: new Map([[TGT, tg]]) } },
+      st,
+      TGT,
+      richBackup,
+    );
+    check(
+      "dry-run: KHÔNG tạo role/kênh/tin/emoji/sticker",
+      tg._log.roles.length === 0 &&
+        tg._log.channels.length === 0 &&
+        tg._log.sent.length === 0 &&
+        tg._log.emojis.length === 0 &&
+        tg._log.stickers.length === 0 &&
+        tg._log.webhooks.length === 0,
+      JSON.stringify(tg._log),
+    );
+    check(
+      "dry-run: đếm đúng số sẽ tạo (role rỗng tên bị loại)",
+      plan.roleCount === 1 && plan.channelCount === 1,
+      `${plan.roleCount}/${plan.channelCount}`,
+    );
+    check("dry-run: đếm tin nhắn sẽ phục hồi", plan.messageCount === 2, String(plan.messageCount));
+    check("dry-run: đếm emoji/sticker", plan.emojiCount === 1 && plan.stickerCount === 1);
+    // adminRoles trong backup là CHUỖI rác → ép về mảng rỗng, không được nằm
+    // trong danh sách role thiếu. Riêng modRoles trỏ role KHÔNG có trong backup
+    // thì phải cảnh báo: restore sẽ GIỮ NGUYÊN danh sách admin/mod cũ.
+    check(
+      "dry-run: adminRoles rác → không cảnh báo bậy",
+      !plan.warnings.some((w) => /GIỮ NGUYÊN/.test(w)),
+      JSON.stringify(plan.warnings),
+    );
+  }
+  {
+    // modRoles trỏ role không có trong backup → restoreCore sẽ GIỮ NGUYÊN danh
+    // sách cũ (tránh mất quyền admin/mod vô ích) → kế hoạch phải nói trước.
+    const tg = makeTarget();
+    const plan = await backup.planRestoreCore(
+      { guilds: { cache: new Map([[TGT, tg]]) } },
+      { client: {}, getConfig: async () => null },
+      TGT,
+      { ...richBackup, settings: { ...richBackup.settings, modRoles: ["role-bi-xoa"] } },
+    );
+    check(
+      "dry-run: role thiếu trong cấu hình → cảnh báo GIỮ NGUYÊN danh sách",
+      plan.warnings.some((w) => /GIỮ NGUYÊN/.test(w)),
+      JSON.stringify(plan.warnings),
+    );
+  }
+  {
+    // Trần 50 tin/kênh: backup chứa 60 tin → kế hoạch phải nói SẼ phục hồi 50 và
+    // cảnh báo phần bị bỏ, nếu không chủ server tưởng mất 10 tin vì bot lỗi.
+    const many = {
+      ...richBackup,
+      channels: [
+        {
+          ...richBackup.channels[0],
+          messages: Array.from({ length: 60 }, (_, i) => ({
+            id: `m${i}`,
+            authorName: "a",
+            content: "x",
+            timestamp: i,
+            attachments: [],
+          })),
+        },
+      ],
+    };
+    const tg = makeTarget();
+    const plan = await backup.planRestoreCore(
+      { guilds: { cache: new Map([[TGT, tg]]) } },
+      { client: {}, getConfig: async () => null },
+      TGT,
+      many,
+    );
+    check("dry-run: trần 50 tin/kênh", plan.messageCount === 50, String(plan.messageCount));
+    check(
+      "dry-run: cảnh báo số tin bị bỏ",
+      plan.warnings.some((w) => /10 tin nhắn vượt giới hạn/.test(w)),
+      JSON.stringify(plan.warnings),
+    );
+  }
+  {
+    // Thiếu quyền = nguyên nhân restore thất bại phổ biến nhất. Phải nói TRƯỚC.
+    const tg = makeTarget();
+    tg.members.me.permissions = { bitfield: 0n };
+    const plan = await backup.planRestoreCore(
+      { guilds: { cache: new Map([[TGT, tg]]) } },
+      { client: {}, getConfig: async () => null },
+      TGT,
+      richBackup,
+    );
+    check(
+      "dry-run: thiếu quyền → cảnh báo Manage Roles + Manage Channels",
+      plan.warnings.some((w) => /Manage Roles/.test(w)) &&
+        plan.warnings.some((w) => /Manage Channels/.test(w)),
+      JSON.stringify(plan.warnings),
+    );
+  }
+  {
+    // Kênh trùng tên: Discord tự đổi tên → chủ server phải biết trước.
+    const tg = makeTarget();
+    await tg.channels.create({ name: "general", type: 0 });
+    tg.channels.cache.get("nc1").name = "general";
+    const plan = await backup.planRestoreCore(
+      { guilds: { cache: new Map([[TGT, tg]]) } },
+      { client: {}, getConfig: async () => null },
+      TGT,
+      richBackup,
+    );
+    check(
+      "dry-run: cảnh báo kênh trùng tên",
+      plan.warnings.some((w) => /trùng tên/.test(w)),
+      JSON.stringify(plan.warnings),
+    );
+  }
+  {
+    // Tắt "khôi phục role" → kế hoạch phải phản ánh đúng việc sẽ làm, không
+    // phải số có trong backup (nếu không chủ server tưởng sẽ tạo role).
+    const tg = makeTarget();
+    const plan = await backup.planRestoreCore(
+      { guilds: { cache: new Map([[TGT, tg]]) } },
+      { client: {}, getConfig: async () => ({ restoreRolesEnabled: false }) },
+      TGT,
+      richBackup,
+    );
+    check(
+      "dry-run: tắt role → roleCount 0 + nói rõ đang tắt",
+      plan.roleCount === 0 && plan.warnings.some((w) => /Đang tắt khôi phục role/.test(w)),
+      JSON.stringify(plan),
+    );
+  }
+  {
+    // Bản backup rỗng → phải nói thẳng thay vì im lặng cho chủ server bấm khôi phục.
+    const tg = makeTarget();
+    const plan = await backup.planRestoreCore(
+      { guilds: { cache: new Map([[TGT, tg]]) } },
+      { client: {}, getConfig: async () => null },
+      TGT,
+      { roles: [], channels: [], emojis: [], stickers: [], settings: {} },
+    );
+    check(
+      "dry-run: backup rỗng → cảnh báo không tạo được gì",
+      plan.warnings.some((w) => /không có role\/kênh nào/.test(w)),
+      JSON.stringify(plan.warnings),
+    );
+  }
+  {
+    // runRestorePlan: nén → bung → tính → BÁO LẠI Convex (kèm claimAt).
+    const tg = makeTarget();
+    const muts = [];
+    const st = {
+      client: {
+        mutation: async (name, args) => {
+          muts.push({ name, args });
+          return { ok: true };
+        },
+      },
+      getConfig: async () => null,
+    };
+    const enc = utils.compressAndEncryptBackup(richBackup);
+    const plan = await backup.runRestorePlan(
+      { guilds: { cache: new Map([[TGT, tg]]) } },
+      st,
+      TGT,
+      enc.backupJson,
+      "Server Nguồn",
+      { claimAt: 42 },
+    );
+    check(
+      "runRestorePlan: báo kế hoạch lên Convex kèm claimAt",
+      muts.length === 1 &&
+        muts[0].name === "bot_writes:botReportRestorePlan" &&
+        muts[0].args.claimAt === 42 &&
+        muts[0].args.plan.roleCount === 1,
+      JSON.stringify(muts.map((m) => m.name)),
+    );
+    check(
+      "runRestorePlan: bung nén được bản 'z:' (đúng đường của backup thật)",
+      plan.channelCount === 1,
+    );
+    check(
+      "runRestorePlan: vẫn KHÔNG tạo gì trên server",
+      tg._log.roles.length === 0 && tg._log.channels.length === 0,
+    );
+  }
+  {
+    // Claim bị bot khác cướp / hết hạn → phải ném lỗi, im lặng coi như xong thì
+    // dashboard mãi chờ kế hoạch không bao giờ tới.
+    const tg = makeTarget();
+    const st = {
+      client: { mutation: async () => ({ ok: false, reason: "stale_claim" }) },
+      getConfig: async () => null,
+    };
+    let err = null;
+    try {
+      await backup.runRestorePlan(
+        { guilds: { cache: new Map([[TGT, tg]]) } },
+        st,
+        TGT,
+        JSON.stringify(richBackup),
+      );
+    } catch (e) {
+      err = e;
+    }
+    check("runRestorePlan: claim hết hạn → ném lỗi", /stale/i.test(err?.message ?? ""));
+  }
+  {
+    // pollBackups nhận kind "plan" → đi đúng đường dry-run (không lẫn sang restore).
+    const seen = [];
+    const tg = makeTarget();
+    const store = {
+      client: {
+        query: async (name) =>
+          name === "backup:botGetPending"
+            ? [
+                {
+                  guildId: TGT,
+                  kind: "plan",
+                  guildName: "Server Nguồn",
+                  backupJson: utils.compressAndEncryptBackup(richBackup).backupJson,
+                },
+              ]
+            : null,
+        mutation: async (name, args) => {
+          seen.push({ name, args });
+          if (name === "bot_writes:botClaimBackup") return { ok: true, claimAt: 7 };
+          return { ok: true };
+        },
+      },
+      getConfig: async () => null,
+    };
+    await backup({ guilds: { cache: new Map([[TGT, tg]]) } }, store);
+    check(
+      "poll: kind 'plan' → báo kế hoạch, KHÔNG tạo role/kênh",
+      seen.some((s) => s.name === "bot_writes:botReportRestorePlan") &&
+        !seen.some((s) => s.name === "bot_writes:botRestoreSettings") &&
+        tg._log.channels.length === 0,
+      JSON.stringify(seen.map((s) => s.name)),
+    );
   }
 
   console.log(`\nKết quả backup pipeline: ${pass} PASS, ${fail} FAIL`);

@@ -239,6 +239,81 @@ export const requestRestore = mutation({
 });
 
 /**
+ * Dashboard xin XEM TRƯỚC kế hoạch khôi phục (dry-run) — bot chỉ đọc backup và
+ * cấu hình rồi báo sẽ tạo gì, KHÔNG tạo role/kênh/tin nào. Khôi phục thật là
+ * việc khó hoàn tác (tạo hàng chục role/kênh, spam tin qua webhook) nên chủ
+ * server cần biết trước: đủ quyền chưa, có trùng tên kênh không, bao nhiêu
+ * role/kênh/tin sẽ được tạo.
+ */
+export const requestRestorePlan = mutation({
+  args: {
+    token: v.string(),
+    guildId: v.string(),
+    backupId: v.id("guildBackups"),
+  },
+  handler: async (ctx, { token, guildId, backupId }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild)) {
+      throw new Error("Không có quyền quản lý server này");
+    }
+    if (!guild.botInGuild) throw new Error("Bot chưa có trong server này");
+    if (isAnyClaimActive(guild)) {
+      throw new Error(
+        "Bot đang xử lý yêu cầu backup/khôi phục trước; hãy đợi hoàn tất rồi thử lại",
+      );
+    }
+    const backup = await ctx.db.get(backupId);
+    if (!backup) throw new Error("Backup không tồn tại hoặc đã bị xóa");
+    const source = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", backup.guildId))
+      .first();
+    if (!source || !canManageGuild(user, source)) {
+      throw new Error("Bạn không có quyền với server gốc của backup này");
+    }
+    await ctx.db.patch(guild._id, {
+      restorePlanRequested: true,
+      restorePlanBackupId: backupId,
+      // Xóa lỗi + kế hoạch cũ: nếu không, dashboard vẫn hiện kế hoạch của
+      // lượt trước trong lúc chờ bot trả lời cho lượt mới → tưởng đã có kết quả.
+      restorePlanError: undefined,
+      restorePlanErrorAt: undefined,
+      restorePlan: undefined,
+      updatedAt: Date.now(),
+    });
+    return { ok: true };
+  },
+});
+
+/**
+ * Dashboard theo dõi kế hoạch khôi phục: requested = bot đang tính; plan != null
+ * là đã có kết quả (kể cả rỗng); error != null là bot không đọc được backup.
+ */
+export const restorePlanStatus = query({
+  args: { token: v.string(), guildId: v.string() },
+  handler: async (ctx, { token, guildId }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild)) return null;
+    return {
+      requested: !!guild.restorePlanRequested,
+      backupId: guild.restorePlanBackupId ?? null,
+      plan: guild.restorePlan ?? null,
+      error: guild.restorePlanError ?? null,
+      errorAt: guild.restorePlanErrorAt ?? null,
+      updatedAt: guild.updatedAt,
+    };
+  },
+});
+
+/**
  * Dashboard xin URL upload file backup .msc/.json (bot nuke) — file được POST
  * thẳng lên Convex file storage (không giới hạn kích thước, POST có timeout 2
  * phút) rồi chỉ lưu mã file vào document.
@@ -517,6 +592,7 @@ export const botGetPending = query({
       fileName?: string;
       importStorageId?: string;
       importFileUrl?: string;
+      backupCreatedAt?: number;
     }[] = [];
     const all = await ctx.db.query("guilds").collect();
     for (const g of all) {
@@ -538,6 +614,21 @@ export const botGetPending = query({
             backupId: b._id,
             backupJson: b.backupJson,
             guildName: b.guildName,
+          });
+        }
+      }
+      // Dry-run: gửi kèm createdAt để dashboard đúng lúc bản backup này mới
+      // được chọn (tránh hiện kế hoạch cũ của bản khác khi danh sách đổi).
+      if (g.restorePlanRequested && g.restorePlanBackupId) {
+        const b = await ctx.db.get(g.restorePlanBackupId);
+        if (b) {
+          out.push({
+            kind: "plan",
+            guildId: g.discordId,
+            backupId: b._id,
+            backupJson: b.backupJson,
+            guildName: b.guildName,
+            backupCreatedAt: b.createdAt,
           });
         }
       }

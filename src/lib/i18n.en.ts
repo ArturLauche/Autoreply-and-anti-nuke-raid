@@ -374,6 +374,24 @@ export const EN: Record<string, string> = {
   "Auto-mod nội dung": "Content auto-mod",
   "Avatar URL ghi đè (tùy chọn)": "Avatar URL override (optional)",
   "Backup có sẵn": "Available backups",
+  /* ==== Kế hoạch khôi phục / dry-run (29/09/2026) ==== Xem trước bot sẽ tạo gì,
+     server chưa bị thay đổi — trước khi bấm khôi phục không hoàn tác được. */
+  "Xem kế hoạch": "Preview plan",
+  "Kế hoạch khôi phục (chưa thay đổi server)": "Restore plan (server untouched)",
+  "Xem trước sẽ tạo gì mà không thay đổi server (dry-run)":
+    "Preview what would be created without changing the server (dry-run)",
+  "Đang tính kế hoạch khôi phục…": "Calculating the restore plan…",
+  "Bot cần vài giây để đối chiếu backup với quyền hiện tại của server. Server chưa bị thay đổi.":
+    "The bot needs a few seconds to compare the backup against the server's current permissions. Nothing has changed yet.",
+  "Bot đang đối chiếu backup với server hiện tại…":
+    "The bot is comparing the backup with the current server…",
+  "Không xem được kế hoạch: {p0}": "Could not build the plan: {p0}",
+  "Không tính được kế hoạch: {p0}": "Could not calculate the plan: {p0}",
+  "mục cấu hình": "config fields",
+  "Không phát hiện vấn đề gì — bot đủ quyền tạo lại cấu trúc này.":
+    "No issues found — the bot has the permissions needed to rebuild this structure.",
+  "Đây chỉ là kế hoạch — server chưa bị thay đổi. Bấm “Khôi phục vào server này” ở bản backup tương ứng để thực sự tạo lại.":
+    'This is only a plan — the server is unchanged. Press "Restore into this server" on the matching backup to actually create it.',
   "Backup thất bại: {p0}": "Backup failed: {p0}",
   "Biểu đồ độ trễ (5 giây / mẫu)": "Latency chart (5s / sample)",
   "Bot Discord bảo vệ server, đồng hành cùng trợ lý Haimiya":

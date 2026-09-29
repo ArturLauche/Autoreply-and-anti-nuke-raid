@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   CalendarClock,
+  ClipboardList,
   CloudUpload,
   DatabaseBackup,
   ExternalLink,
@@ -120,6 +121,58 @@ export default function BackupPanel({ data }: { data: GuildData }) {
   // Theo dõi yêu cầu khôi phục (nút "Khôi phục vào server này") — bot xử lý xong
   // hoặc lỗi sẽ hiển thị ngay thay vì người dùng chờ không biết kết quả.
   const [restoreWatch, setRestoreWatch] = useState<null | { startedAt: number }>(null);
+  /** Dry-run: bản backup đang xem kế hoạch (để chờ đúng kết quả của lượt bấm). */
+  const [planBusy, setPlanBusy] = useState<string | null>(null);
+  const requestRestorePlan = useMutation(api.backup.requestRestorePlan);
+  const planStatus = useQuery(api.backup.restorePlanStatus, {
+    token: TOKEN(),
+    guildId: data.guild.discordId,
+  }) as
+    | {
+        requested: boolean;
+        backupId: string | null;
+        plan: {
+          guildName: string | null;
+          createdAt: number | null;
+          roleCount: number;
+          channelCount: number;
+          messageCount: number;
+          emojiCount: number;
+          stickerCount: number;
+          settingsCount: number;
+          warnings: string[];
+          at: number;
+        } | null;
+        error: string | null;
+        errorAt: number | null;
+      }
+    | null
+    | undefined;
+
+  // Bấm "Xem kế hoạch" — bot chỉ ĐỌC backup rồi báo sẽ tạo gì, không tạo gì cả.
+  const askPlan = async (b: BackupInfo) => {
+    setPlanBusy(b._id);
+    try {
+      await requestRestorePlan({
+        token: TOKEN(),
+        guildId: data.guild.discordId,
+        backupId: b._id as Id<"guildBackups">,
+      });
+      toast.info(translate("Đang tính kế hoạch khôi phục…"), {
+        description: translate(
+          "Bot cần vài giây để đối chiếu backup với quyền hiện tại của server. Server chưa bị thay đổi.",
+        ),
+      });
+    } catch (e) {
+      toast.error(
+        translate("Không xem được kế hoạch: {p0}", {
+          p0: e instanceof Error ? e.message : String(e),
+        }),
+      );
+    } finally {
+      setPlanBusy(null);
+    }
+  };
   // Theo dõi yêu cầu backup (nút "Backup ngay") — bot báo lỗi sẽ toast ngay.
   const [backupWatch, setBackupWatch] = useState<null | { startedAt: number }>(null);
 
@@ -885,7 +938,11 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         busy={busy}
         onRestore={restore}
         onRefresh={refresh}
+        planBusy={planBusy}
+        onPlan={askPlan}
       />
+
+      <RestorePlanCard status={planStatus} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-4 text-xs leading-relaxed text-muted-foreground">
@@ -932,17 +989,124 @@ export default function BackupPanel({ data }: { data: GuildData }) {
   );
 }
 
+/**
+ * KẾ HOẠCH khôi phục (dry-run) — kết quả bot trả về trước khi bấm "Khôi phục".
+ * Cố ý nói rõ "chưa thay đổi gì": chủ server thấy đủ quyền, số lượng và cảnh
+ * báo trước khi quyết định tạo hàng chục role/kênh không thể hoàn tác.
+ */
+function RestorePlanCard({
+  status,
+}: {
+  status:
+    | {
+        requested: boolean;
+        plan: {
+          guildName: string | null;
+          createdAt: number | null;
+          roleCount: number;
+          channelCount: number;
+          messageCount: number;
+          emojiCount: number;
+          stickerCount: number;
+          settingsCount: number;
+          warnings: string[];
+          at: number;
+        } | null;
+        error: string | null;
+      }
+    | null
+    | undefined;
+}) {
+  if (!status || (!status.plan && !status.requested && !status.error)) return null;
+  return (
+    <Card className="border-primary/30">
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex items-center gap-2">
+          <ClipboardList className="h-4 w-4 text-primary" />
+          <p className="font-display font-semibold">
+            {translate("Kế hoạch khôi phục (chưa thay đổi server)")}
+          </p>
+        </div>
+        {status.requested && (
+          <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {translate("Bot đang đối chiếu backup với server hiện tại…")}
+          </p>
+        )}
+        {status.error && (
+          <p className="mt-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+            {translate("Không tính được kế hoạch: {p0}", { p0: status.error })}
+          </p>
+        )}
+        {status.plan && (
+          <>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <Badge variant="secondary">
+                <Users className="mr-1 h-3 w-3" />
+                {status.plan.roleCount} {translate("role")}
+              </Badge>
+              <Badge variant="secondary">
+                <FolderTree className="mr-1 h-3 w-3" />
+                {status.plan.channelCount} {translate("kênh")}
+              </Badge>
+              <Badge variant="secondary">
+                <MessageSquare className="mr-1 h-3 w-3" />
+                {status.plan.messageCount} {translate("tin nhắn")}
+              </Badge>
+              <Badge variant="secondary">
+                <Smile className="mr-1 h-3 w-3" />
+                {status.plan.emojiCount} emoji
+              </Badge>
+              <Badge variant="secondary">
+                <Sticker className="mr-1 h-3 w-3" />
+                {status.plan.stickerCount} sticker
+              </Badge>
+              <Badge variant="secondary">
+                {status.plan.settingsCount} {translate("mục cấu hình")}
+              </Badge>
+            </div>
+            {status.plan.warnings.length > 0 ? (
+              <ul className="mt-3 space-y-1.5 text-xs text-danger">
+                {status.plan.warnings.map((w, i) => (
+                  <li key={i} className="flex items-start gap-1.5">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>{w}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                {translate("Không phát hiện vấn đề gì — bot đủ quyền tạo lại cấu trúc này.")}
+              </p>
+            )}
+            <p className="mt-3 text-xs text-muted-foreground">
+              {translate(
+                "Đây chỉ là kế hoạch — server chưa bị thay đổi. Bấm “Khôi phục vào server này” ở bản backup tương ứng để thực sự tạo lại.",
+              )}
+            </p>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 /** Danh sách backup — component con để nút "Tải lại" remount (refetch) qua `key`. */
 function BackupListCard({
   data,
   busy,
   onRestore,
   onRefresh,
+  planBusy,
+  onPlan,
 }: {
   data: GuildData;
   busy: "backup" | string | null;
   onRestore: (backup: BackupInfo) => void;
   onRefresh: () => void;
+  planBusy: string | null;
+  onPlan: (backup: BackupInfo) => void;
 }) {
   const backups = useQuery(api.backup.listMine, { token: TOKEN() }) as BackupInfo[] | undefined;
 
@@ -1060,6 +1224,20 @@ function BackupListCard({
                       </Button>
                     </a>
                   )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy !== null || planBusy !== null}
+                    onClick={() => onPlan(b)}
+                    title={translate("Xem trước sẽ tạo gì mà không thay đổi server (dry-run)")}
+                  >
+                    {planBusy === b._id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <ClipboardList className="h-3.5 w-3.5" />
+                    )}
+                    {translate("Xem kế hoạch")}
+                  </Button>
                   <Button
                     size="sm"
                     disabled={busy !== null}

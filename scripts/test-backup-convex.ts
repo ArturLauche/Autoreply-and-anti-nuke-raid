@@ -17,8 +17,17 @@ import {
   botClearBackup,
   botRestoreSettings,
   botRenewBackupClaim,
+  botReportRestorePlan,
 } from "../convex/bot_writes";
-import { listGuild, botAuditBackups, importStatus, requestBackup } from "../convex/backup";
+import {
+  listGuild,
+  botAuditBackups,
+  importStatus,
+  requestBackup,
+  requestRestorePlan,
+  restorePlanStatus,
+  botGetPending,
+} from "../convex/backup";
 import { computeBotKey } from "../convex/botAuth";
 
 // getBotStatus đọc ctx.db.query("botStatus") — ctx giả chỉ cần bảng botStatus
@@ -36,6 +45,10 @@ const listGuildHandler = (listGuild as any)._handler;
 const auditHandler = (botAuditBackups as any)._handler;
 const importStatusHandler = (importStatus as any)._handler;
 const requestBackupHandler = (requestBackup as any)._handler;
+const requestRestorePlanHandler = (requestRestorePlan as any)._handler;
+const restorePlanStatusHandler = (restorePlanStatus as any)._handler;
+const botGetPendingHandler = (botGetPending as any)._handler;
+const reportPlanHandler = (botReportRestorePlan as any)._handler;
 
 let pass = 0;
 let fail = 0;
@@ -525,6 +538,220 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
       auditThrew = e?.message ?? "";
     }
     check("botAuditBackups từ chối botKey sai", auditThrew.includes("botKey"));
+  }
+
+  console.log("\n── Kế hoạch khôi phục (dry-run): quyền, claim chung, báo cáo ──");
+  {
+    // Dry-run là hợp đồng "xem trước, không đụng server": mọi đường ghi vào DB
+    // phải nằm sau kiểm tra quyền + claim, và bot phải báo kết quả (kể cả lỗi)
+    // để dashboard không mãi chờ.
+    const { ctx, guildRows, sessionRows, userRows, backupRows } = makeCtx({ seed: BOT_KEY });
+    const discordId = "123456789012345678";
+    guildRows.push({
+      _id: "gplan",
+      discordId,
+      name: "Server",
+      managers: ["u1"],
+      botInGuild: true,
+      restorePlan: {
+        at: 1,
+        roleCount: 9,
+        channelCount: 9,
+        messageCount: 0,
+        emojiCount: 0,
+        stickerCount: 0,
+        settingsCount: 0,
+        warnings: [],
+      },
+      restorePlanError: "lỗi cũ",
+    });
+    userRows.push({ _id: "u1", discordId: "u1", manageableGuildIds: [discordId] });
+    sessionRows.push({
+      _id: "s1",
+      token: "tok",
+      userId: "u1",
+      createdAt: Date.now(),
+      authVersion: 1,
+    });
+    backupRows.push({
+      _id: "bk1",
+      guildId: discordId,
+      guildName: "Server",
+      createdAt: 500,
+      roleCount: 3,
+      channelCount: 4,
+      pushedToGithub: false,
+      backupJson: "z:abc",
+    });
+
+    // 1) Không đăng nhập / không quyền → từ chối, KHÔNG đặt cờ.
+    let noAuth = "";
+    try {
+      await requestRestorePlanHandler(ctx as any, {
+        token: "sai",
+        guildId: discordId,
+        backupId: "bk1",
+      });
+    } catch (e: any) {
+      noAuth = e?.message ?? "";
+    }
+    check("requestRestorePlan chặn token sai", noAuth.length > 0);
+    check(
+      "requestRestorePlan chặn → không đặt cờ",
+      guildRows.find((g) => g._id === "gplan").restorePlanRequested !== true,
+    );
+
+    // 2) Hợp lệ → đặt cờ + XÓA kế hoạch cũ (nếu không, dashboard hiện kế hoạch
+    // của lượt trước trong lúc chờ lượt mới).
+    await requestRestorePlanHandler(ctx as any, {
+      token: "tok",
+      guildId: discordId,
+      backupId: "bk1",
+    });
+    const g = guildRows.find((x) => x._id === "gplan")!;
+    check(
+      "requestRestorePlan đặt cờ + xóa kế hoạch/lỗi cũ",
+      g.restorePlanRequested === true &&
+        g.restorePlanBackupId === "bk1" &&
+        g.restorePlan === undefined &&
+        g.restorePlanError === undefined,
+      JSON.stringify(g),
+    );
+
+    // 3) botGetPending gửi job "plan" KÈM backupJson — nếu thiếu, bot không có
+    // gì để đọc và im lặng hỏng.
+    const pending = (await botGetPendingHandler(ctx as any, { botKey: BOT_KEY })) as any[];
+    const planJob = pending.find((p) => p.kind === "plan");
+    check(
+      "botGetPending trả job dry-run kèm backupJson",
+      !!planJob && planJob.backupJson === "z:abc" && planJob.backupId === "bk1",
+      JSON.stringify(planJob),
+    );
+
+    // 4) Claim: dry-run và restore dùng CHUNG lease → không chạy chồng.
+    const claim = (await claimHandler(ctx as any, {
+      guildId: discordId,
+      kind: "plan",
+      botKey: BOT_KEY,
+    })) as any;
+    check("botClaimBackup plan giành được claim", claim.ok === true && !!claim.claimAt);
+    const claim2 = (await claimHandler(ctx as any, {
+      guildId: discordId,
+      kind: "plan",
+      botKey: BOT_KEY,
+    })) as any;
+    check("claim thứ 2 bị chặn (in_flight)", claim2.ok === false && claim2.reason === "in_flight");
+    // Restore dùng CHUNG lease của dry-run: cả 2 cờ cùng treo thì bot tính
+    // kế hoạch và bot khôi phục không được chạy chồng trên cùng một server.
+    g.restoreRequested = true;
+    const restoreClaim = (await claimHandler(ctx as any, {
+      guildId: discordId,
+      kind: "restore",
+      botKey: BOT_KEY,
+    })) as any;
+    check(
+      "restore không giành được claim khi dry-run đang chạy",
+      restoreClaim.ok === false && restoreClaim.reason === "in_flight",
+    );
+    // Ngược lại: dashboard cũng phải chặn được yêu cầu mới khi bot đang bận.
+    let busyMsg = "";
+    try {
+      await requestRestorePlanHandler(ctx as any, {
+        token: "tok",
+        guildId: discordId,
+        backupId: "bk1",
+      });
+    } catch (e: any) {
+      busyMsg = e?.message ?? "";
+    }
+    check("requestRestorePlan chặn khi bot đang bận", /đang xử lý/i.test(busyMsg), busyMsg);
+    g.restoreRequested = false;
+
+    // 5) Báo kế hoạch → lưu plan, xóa cờ, trả claim. TUYỆT ĐỐI không đụng
+    // restoreFinishedAt (đó là mốc "đã khôi phục xong").
+    const beforeFinished = g.restoreFinishedAt;
+    const reported = (await reportPlanHandler(ctx as any, {
+      guildId: discordId,
+      plan: {
+        roleCount: 3,
+        channelCount: 4,
+        messageCount: 12,
+        emojiCount: 1,
+        stickerCount: 0,
+        settingsCount: 2,
+        warnings: ["Bot thiếu quyền Manage Roles"],
+        at: 999,
+      },
+      claimAt: claim.claimAt,
+      botKey: BOT_KEY,
+    })) as any;
+    check("botReportRestorePlan nhận kế hoạch", reported.ok === true, JSON.stringify(reported));
+    check(
+      "botReportRestorePlan lưu plan + xóa cờ + nhả claim",
+      g.restorePlan?.roleCount === 3 &&
+        g.restorePlan?.warnings?.length === 1 &&
+        g.restorePlanRequested === false &&
+        g.restorePlanBackupId === undefined &&
+        g.restoreClaimedAt === undefined &&
+        g.restoreFinishedAt === beforeFinished,
+      JSON.stringify(g.restorePlan),
+    );
+
+    // 6) Claim đã bị bot/instance khác cướp → từ chối, KHÔNG ghi đè kế hoạch.
+    await requestRestorePlanHandler(ctx as any, {
+      token: "tok",
+      guildId: discordId,
+      backupId: "bk1",
+    });
+    const claim4 = (await claimHandler(ctx as any, {
+      guildId: discordId,
+      kind: "plan",
+      botKey: BOT_KEY,
+    })) as any;
+    // Mô phỏng worker khác giành claim: restoreClaimedAt đổi sang mốc khác.
+    guildRows.find((x) => x._id === "gplan")!.restoreClaimedAt = claim4.claimAt + 1;
+    const stale = (await reportPlanHandler(ctx as any, {
+      guildId: discordId,
+      plan: {
+        roleCount: 999,
+        channelCount: 0,
+        messageCount: 0,
+        emojiCount: 0,
+        stickerCount: 0,
+        settingsCount: 0,
+        warnings: [],
+        at: 1,
+      },
+      claimAt: claim4.claimAt,
+      botKey: BOT_KEY,
+    })) as any;
+    // Kế hoạch cũ đã bị xóa lúc đặt yêu cầu mới (mục 2) → sau claim bị cướp,
+    // kế hoạch của worker cũ KHÔNG được ghi vào (roleCount 999 là bằng chứng).
+    check(
+      "botReportRestorePlan từ chối claim bị cướp",
+      stale.ok === false &&
+        stale.reason === "stale_claim" &&
+        g.restorePlan === undefined &&
+        g.restorePlanRequested === true,
+      JSON.stringify(stale),
+    );
+
+    // 7) Báo lỗi → dashboard phải thấy lý do, không chờ mãi.
+    await reportPlanHandler(ctx as any, {
+      guildId: discordId,
+      error: "Backup bi hong (khong doc duoc JSON)",
+      claimAt: claim4.claimAt + 1,
+      botKey: BOT_KEY,
+    });
+    const st = (await restorePlanStatusHandler(ctx as any, {
+      token: "tok",
+      guildId: discordId,
+    })) as any;
+    check(
+      "restorePlanStatus trả lỗi + không còn yêu cầu",
+      st.error === "Backup bi hong (khong doc duoc JSON)" && st.requested === false,
+      JSON.stringify(st),
+    );
   }
 
   console.log(`\n${pass}/${pass + fail} ✅`);
