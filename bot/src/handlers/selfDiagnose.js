@@ -124,11 +124,21 @@ async function diagnoseError(kind, reason) {
       const fp = fingerprintOf(reason);
       const last = recent.get(fp) ?? 0;
       if (Date.now() - last < COOLDOWN_MS) return; // lỗi đã chẩn đoán — không đốt token
+      // AI có sẵn không? Kiểm TRƯỚC khi ăn hạn mức: lỗi lúc AI offline không tốn
+      // token nào, nên không có lý nó ghi vào bộ đếm MAX_RUNS_PER_HOUR. Trước đây
+      // 5 lỗi phát sinh lúc provider chết là đủ để chặn cả giờ sau khi AI hồi
+      // phục — self-diagnose im lặng đúng lúc bot đang lỗi.
+      const ai = require("../ai");
+      const available =
+        typeof ai.researchAvailable === "function" ? ai.researchAvailable() : ai.aiAvailable();
+      if (!available) return;
       // Cap toàn cục: quá MAX_RUNS_PER_HOUR lượt khác nhau trong 1 giờ → dừng.
       while (runTimestamps.length && Date.now() - runTimestamps[0] > COOLDOWN_MS)
         runTimestamps.shift();
       if (runTimestamps.length >= MAX_RUNS_PER_HOUR) return;
       // Đánh dấu TRƯỚC khi gọi AI: lỗi lặp vô hạn vẫn chỉ tốn tối đa 1 lượt AI/giờ.
+      // Giữ nguyên thứ tự này (sau khi đã biết AI sẵn sàng) — hai lỗi cùng
+      // fingerprint phát sinh liên tiếp vẫn chỉ tốn 1 lượt.
       recent.set(fp, Date.now());
       runTimestamps.push(Date.now());
       if (recent.size > 120) {
@@ -136,11 +146,6 @@ async function diagnoseError(kind, reason) {
           if (Date.now() - ts > COOLDOWN_MS) recent.delete(k);
         }
       }
-
-      const ai = require("../ai");
-      const available =
-        typeof ai.researchAvailable === "function" ? ai.researchAvailable() : ai.aiAvailable();
-      if (!available) return;
 
       const ctx = codeContextOf(reason);
       const system = `Bạn là kỹ sư bảo trì bot Discord Node.js (discord.js v14). Nhận 1 lỗi runtime kèm stack + đoạn code liên quan. NHIỆM VỤ: chẩn đoán nguyên nhân gốc và đề xuất cách sửa NGẮN GỌN.

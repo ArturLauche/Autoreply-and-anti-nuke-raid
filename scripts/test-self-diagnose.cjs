@@ -119,6 +119,89 @@ async function main() {
   sd.setEnabledFromJobs(null);
   sd.setEnabledFromJobs("rác");
   assert(true, "input rác không vỡ");
+
+  // ---- 5. Lỗi lúc AI OFFLINE không được ăn hạn mức 5 lượt/giờ ----
+  // Provider (Kira) chết một lúc rồi hồi phục: các lỗi phát sinh lúc offline
+  // KHÔNG tốn token nào, nên không có lý do ghi chúng vào hạn mức. Trước đây
+  // 5 lỗi lúc AI tắt là đủ để chặn cả giờ sau khi AI hồi phục — self-diagnose
+  // im lặng đúng lúc bot đang lỗi.
+  let aiCalls = 0;
+  const realResearchChat = aiMod.researchChat;
+  aiMod.researchChat = async (...a) => {
+    aiCalls++;
+    return realResearchChat(...a);
+  };
+  aiMod.researchAvailable = () => false;
+  for (let i = 0; i < 8; i++) {
+    const off = new Error(`Lỗi lúc AI offline ${i}`);
+    off.stack = `Error: Lỗi lúc AI offline ${i}\n    at (${path.resolve(__dirname, "..", "bot", "src", "handlers", "x" + i + ".js")}:${10 + i}:5)`;
+    await sd.diagnoseError("unhandledRejection", off);
+  }
+  assert(aiCalls === 0, `AI offline → không gọi AI (gọi ${aiCalls} lần)`);
+  assert(
+    mutations.length === 3,
+    `AI offline → không ghi mutation nào (mutation ${mutations.length})`,
+  );
+
+  // AI hồi phục → lỗi mới vẫn phải chẩn đoán được (hạn mức còn nguyên).
+  aiMod.researchAvailable = () => true;
+  const back = new Error("Lỗi sau khi AI hồi phục");
+  back.stack = `Error: Lỗi sau khi AI hồi phục\n    at (${path.resolve(__dirname, "..", "bot", "src", "handlers", "back.js")}:7:1)`;
+  await sd.diagnoseError("unhandledRejection", back);
+  assert(
+    mutations.length === 4,
+    `AI hồi phục → vẫn còn suất chẩn đoán (mutation ${mutations.length}, mong đợi 4)`,
+  );
+  aiMod.researchChat = realResearchChat;
+
+  // ---- 6. AI trả rác → bot không vỡ, vẫn ghi 1 mutation với mức mặc định ----
+  // `severity` lạ phải rơi về "medium" (không rò severity tự do lên dashboard),
+  // JSON hỏng thì bỏ qua lượt đó chứ không ném ra ngoài.
+  const okChat = realResearchChat;
+  aiMod.researchChat = async () => JSON.stringify({ severity: "CỰC KỲ NGHIÊM TRỌNG", cause: "x" });
+  const junk = new Error("AI trả severity lạ");
+  junk.stack = `Error: AI trả severity lạ\n    at (${path.resolve(__dirname, "..", "bot", "src", "handlers", "junk.js")}:3:1)`;
+  await sd.diagnoseError("unhandledRejection", junk);
+  assert(mutations.length === 5, "AI trả severity lạ → vẫn ghi mutation");
+  assert(
+    mutations[4]?.args.severity === "medium",
+    `severity lạ → rơi về medium (thực tế ${mutations[4]?.args.severity})`,
+  );
+
+  aiMod.researchChat = async () => "không phải JSON";
+  const broken = new Error("AI trả rác");
+  broken.stack = `Error: AI trả rác\n    at (${path.resolve(__dirname, "..", "bot", "src", "handlers", "broken.js")}:4:1)`;
+  await sd.diagnoseError("unhandledRejection", broken);
+  assert(mutations.length === 5, "AI trả rác → bỏ qua lượt đó, không vỡ");
+
+  // ---- 7. Đăng embed đề xuất: guild chưa bật kênh log → bỏ qua, không vỡ ----
+  // Dùng bản module SẠNG (xoá require.cache) để có hạn mức 5 lượt/giờ nguyên —
+  // các kịch bản trên đã dùng hết, nếu không lượt này chỉ bị chặn vì cap.
+  const sdPath = require.resolve("../bot/src/handlers/selfDiagnose.js");
+  delete require.cache[sdPath];
+  const sd2 = require(sdPath);
+  const mutations2 = [];
+  const store2 = {
+    client: {
+      mutation: async (n, a) => mutations2.push({ name: n, args: a }),
+      query: async () => null,
+    },
+    getConfig: async () => null, // server chưa bật kênh log
+  };
+  const client2 = {
+    guilds: {
+      cache: new Map([["g-no-log", { id: "g-no-log", name: "Không log" }]]),
+    },
+  };
+  sd2.attach(client2, store2);
+  sd2.setEnabledFromJobs({ enabled: true });
+  aiMod.researchChat = okChat;
+  const posted = new Error("Lỗi cần đăng đề xuất");
+  posted.stack = `Error: Lỗi cần đăng đề xuất\n    at (${path.resolve(__dirname, "..", "bot", "src", "handlers", "post.js")}:5:1)`;
+  await sd2.diagnoseError("unhandledRejection", posted);
+  assert(mutations2.length === 1, "guild chưa bật log → vẫn ghi mutation, không vỡ");
+  await sd2.diagnoseError("unhandledRejection", "reason dạng string");
+  assert(mutations2.length === 1, "bản module mới: cooldown vẫn giữ nguyên hành vi");
 }
 
 main()
