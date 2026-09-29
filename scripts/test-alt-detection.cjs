@@ -390,6 +390,107 @@ module.exports = {
     embed?.d?.title?.includes("Alt Detection") === true,
   );
 
+  console.log("\n=== 5. Quét alt định kỳ KHÔNG CHẶN BOT ===");
+  // Bug thật 29/09/2026: scanGuildForAlts (đồng bộ, O(n²)) chạy tuần tự cho MỌI
+  // guild mỗi 6 giờ. Đo thật: 1000 tv ~1,0s · 2000 ~4,5s · 3000 ~12,9s ·
+  // 5000 ~36s — đó là thời gian bot ĐỨNG HÌNH: không nhận tin, không chạy
+  // anti-nuke. Bản async nhường event loop + chặn trần quy mô/deadline.
+  {
+    const WORDS = [
+      "nguyen",
+      "tran",
+      "le",
+      "pham",
+      "hoang",
+      "vu",
+      "dang",
+      "bui",
+      "do",
+      "ho",
+      "phuong",
+      "thao",
+      "linh",
+      "mai",
+      "nam",
+      "son",
+      "hue",
+      "lan",
+      "my",
+      "ngan",
+    ];
+    const mkGuild = (n) => {
+      const m = new Map();
+      for (let i = 0; i < n; i++) {
+        const w = WORDS[i % WORDS.length];
+        const name = w + (100 + (i % 97)) + (i % 3 === 0 ? "x" : "y") + (i % 7);
+        m.set("u" + i, {
+          id: "u" + i,
+          nickname: null,
+          user: { id: "u" + i, bot: false, username: name },
+        });
+      }
+      return { id: "g-perf", members: { cache: m } };
+    };
+    const guild = mkGuild(1200);
+
+    // 1) Bản sync: event loop KHÔNG chạy được trong lúc quét (chứng cứ bug).
+    let syncTicks = 0;
+    const syncTimer = setInterval(() => syncTicks++, 1);
+    const syncRes = alt.scanGuildForAlts(guild, {});
+    clearInterval(syncTimer);
+    check(`bản sync chặy trọn event loop (ticks=${syncTicks}) — đây chính là lỗi`, syncTicks === 0);
+
+    // 2) Bản async: event loop VẪN chạy trong lúc quét.
+    let ticks = 0;
+    const timer = setInterval(() => ticks++, 1);
+    const pending = alt.scanGuildForAltsAsync(guild, {});
+    await new Promise((r) => setTimeout(r, 20));
+    const ticksWhileRunning = ticks;
+    const res = await pending;
+    clearInterval(timer);
+    check(
+      `bản async nhường event loop (ticks=${ticksWhileRunning} trong lúc quét)`,
+      ticksWhileRunning > 0,
+    );
+    check(
+      `bản async cho KẾT QUẢ GIỐNG HỆT bản sync (${res.links.length} vs ${syncRes.length})`,
+      res.links.length === syncRes.length,
+    );
+    check(
+      `1200 thành viên: quét trọn, không cắt (truncated=${res.truncated})`,
+      !res.truncated && res.total === 1200,
+    );
+
+    // 3) Trần quy mô: server lớn phải báo cắt, KHÔNG im lặng bỏ sót.
+    const big = mkGuild(300);
+    const capped = await alt.scanGuildForAltsAsync(big, {}, { maxMembers: 50 });
+    check(
+      `vượt trần → báo cắt rõ ràng (${capped.scanned}/${capped.total}, truncated=${capped.truncated})`,
+      capped.truncated && capped.total === 300 && capped.scanned <= 50,
+    );
+
+    // 4) Deadline: máy yếu thì trần này mới là chốt chặn, cũng phải báo.
+    const deadline = await alt.scanGuildForAltsAsync(mkGuild(400), {}, { deadlineMs: 0 });
+    check(
+      `chạm deadline → báo cắt (hitDeadline=${deadline.hitDeadline})`,
+      deadline.hitDeadline === true && deadline.truncated === true,
+    );
+  }
+
+  {
+    // index.js là nơi quét chạy thật (mỗi 6 giờ, mọi guild) — dùng nhầm bản
+    // sync là bot lại đứng hình. Khoá bằng check tĩnh cho chắc.
+    const idxSrc = require("fs").readFileSync(
+      require("path").join(__dirname, "..", "bot", "src", "index.js"),
+      "utf8",
+    );
+    check(
+      "index.js gọi bản quét async (không chặn event loop)",
+      /scanGuildForAltsAsync\(guild, config\)/.test(idxSrc) &&
+        !/await scanGuildForAlts\(|= scanGuildForAlts\(/.test(idxSrc),
+    );
+  }
+
   console.log(`\nKết quả alt detection: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail > 0 ? 1 : 0);
 })();

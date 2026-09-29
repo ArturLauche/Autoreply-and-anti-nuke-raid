@@ -26,7 +26,7 @@ const guildSync = require("./handlers/guildSync");
 const onMessageCreate = require("./handlers/messageCreate");
 const onInteractionCreate = require("./handlers/interactionCreate");
 const joinGate = require("./handlers/joinGate");
-const { scanGuildForAlts, sweepStaleGuilds } = require("./altDetection");
+const { scanGuildForAltsAsync, sweepStaleGuilds } = require("./altDetection");
 const webhookHub = require("./webhookHub");
 const { registerSweeper, startMemGuard } = require("./memGuard");
 
@@ -460,7 +460,11 @@ const altScanInterval = setInterval(() => {
         if (guild.memberCount > guild.members.cache.size) {
           await guild.members.fetch({ limit: 1000 }).catch(() => {});
         }
-        const links = scanGuildForAlts(guild, config);
+        // Bản async: nhường event loop giữa lúc quét + trần quy mô/deadline.
+        // Bản sync chặn bot hàng chục giây trên server lớn — đúng lúc có raid
+        // thì anti-nuke cũng đứng hình theo.
+        const scan = await scanGuildForAltsAsync(guild, config);
+        const links = scan.links;
         if (links.length > 0) {
           console.log(`[altScan] ${guild.name}: found ${links.length} potential alt pairs`);
           // Log the top 3 to console
@@ -469,6 +473,14 @@ const altScanInterval = setInterval(() => {
               `  - ${link.username1} <-> ${link.username2} (${link.similarity}% via ${link.reason})`,
             );
           }
+        }
+        if (scan.truncated) {
+          // KHÔNG im lặng khi bỏ sót: chủ server cần biết quét chưa trọn.
+          console.log(
+            `[altScan] ${guild.name}: quét ${scan.scanned}/${scan.total} thành viên` +
+              (scan.hitDeadline ? " (chạm deadline)" : " (chạm trần quy mô)") +
+              " — cặp ngoài phạm vi phải đợi vòng sau",
+          );
         }
       } catch (e) {
         console.error(`[altScan] ${guild.id}:`, e.message);

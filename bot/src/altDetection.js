@@ -784,75 +784,71 @@ function trackJoinForBurst(guildId, userId, riskScore) {
  * Scan all cached members in a guild for potential alt links.
  * Returns [{ userId1, userId2, similarity, reason }].
  */
-function scanGuildForAlts(guild, config) {
-  const results = [];
-  const threshold = config?.altSimilarityThreshold ?? 70;
-  const members = Array.from(guild.members.cache.values()).filter((m) => !m.user.bot);
+/**
+ * So sánh 1 cặp thành viên, đẩy các cặp khớp vào `results`.
+ * Tách riêng để bản đồ bộ (sync) và bản lùi (async) dùng CHUNG một quy tắc —
+ * hai bản lệch nhau là bản "cho bot chạy nhanh" âm thầm bỏ sót cặp alt.
+ */
+function compareAltPair(a, b, threshold, results) {
+  // Check username similarity
+  const sim = usernameSimilarity(a.user.username, b.user.username);
+  if (sim >= threshold) {
+    results.push({
+      userId1: a.id,
+      userId2: b.id,
+      username1: a.user.username,
+      username2: b.user.username,
+      similarity: sim,
+      reason: `username_similarity_${sim}%`,
+    });
+  }
 
-  // Compare each pair (O(n^2) but guild members are typically < 5000)
-  for (let i = 0; i < members.length; i++) {
-    for (let j = i + 1; j < members.length; j++) {
-      const a = members[i];
-      const b = members[j];
-
-      // Check username similarity
-      const sim = usernameSimilarity(a.user.username, b.user.username);
-      if (sim >= threshold) {
-        results.push({
-          userId1: a.id,
-          userId2: b.id,
-          username1: a.user.username,
-          username2: b.user.username,
-          similarity: sim,
-          reason: `username_similarity_${sim}%`,
-        });
-      }
-
-      // Check display name similarity
-      if (a.nickname && b.nickname) {
-        const nickSim = usernameSimilarity(a.nickname, b.nickname);
-        if (nickSim >= threshold && nickSim > sim) {
-          results.push({
-            userId1: a.id,
-            userId2: b.id,
-            username1: a.nickname,
-            username2: b.nickname,
-            similarity: nickSim,
-            reason: `displayname_similarity_${nickSim}%`,
-          });
-        }
-      }
-
-      // Check cross username-displayname
-      if (a.nickname) {
-        const crossSim = usernameSimilarity(a.nickname, b.user.username);
-        if (crossSim >= threshold) {
-          results.push({
-            userId1: a.id,
-            userId2: b.id,
-            username1: a.nickname,
-            username2: b.user.username,
-            similarity: crossSim,
-            reason: `cross_name_similarity_${crossSim}%`,
-          });
-        }
-      }
-      if (b.nickname) {
-        const crossSim = usernameSimilarity(a.user.username, b.nickname);
-        if (crossSim >= threshold) {
-          results.push({
-            userId1: a.id,
-            userId2: b.id,
-            username1: a.user.username,
-            username2: b.nickname,
-            similarity: crossSim,
-            reason: `cross_name_similarity_${crossSim}%`,
-          });
-        }
-      }
+  // Check display name similarity
+  if (a.nickname && b.nickname) {
+    const nickSim = usernameSimilarity(a.nickname, b.nickname);
+    if (nickSim >= threshold && nickSim > sim) {
+      results.push({
+        userId1: a.id,
+        userId2: b.id,
+        username1: a.nickname,
+        username2: b.nickname,
+        similarity: nickSim,
+        reason: `displayname_similarity_${nickSim}%`,
+      });
     }
   }
 
+  // Check cross username-displayname
+  if (a.nickname) {
+    const crossSim = usernameSimilarity(a.nickname, b.user.username);
+    if (crossSim >= threshold) {
+      results.push({
+        userId1: a.id,
+        userId2: b.id,
+        username1: a.nickname,
+        username2: b.user.username,
+        similarity: crossSim,
+        reason: `cross_name_similarity_${crossSim}%`,
+      });
+    }
+  }
+  if (b.nickname) {
+    const crossSim = usernameSimilarity(a.user.username, b.nickname);
+    if (crossSim >= threshold) {
+      results.push({
+        userId1: a.id,
+        userId2: b.id,
+        username1: a.user.username,
+        username2: b.nickname,
+        similarity: crossSim,
+        reason: `cross_name_similarity_${crossSim}%`,
+      });
+    }
+  }
+}
+
+/** Gộp link voice-IP, khử trùng lặp, sắp xếp theo độ tương đồng giảm dần. */
+function finalizeAltLinks(results, members, guild) {
   // Also check IP-linked accounts
   for (const member of members) {
     const ipLinks = getIpLinkedAccounts(guild.id, member.id);
@@ -887,6 +883,76 @@ function scanGuildForAlts(guild, config) {
     }
   }
   return unique.sort((a, b) => b.similarity - a.similarity);
+}
+
+function scanGuildForAlts(guild, config) {
+  const results = [];
+  const threshold = config?.altSimilarityThreshold ?? 70;
+  const members = Array.from(guild.members.cache.values()).filter((m) => !m.user.bot);
+  // Compare each pair (O(n^2) — xem scanGuildForAltsAsync cho bản không chặn bot)
+  for (let i = 0; i < members.length; i++) {
+    for (let j = i + 1; j < members.length; j++) {
+      compareAltPair(members[i], members[j], threshold, results);
+    }
+  }
+  return finalizeAltLinks(results, members, guild);
+}
+
+/**
+ * TRẦN quét mỗi lượt. Đo thật (tên khác nhau ngẫu nhiên, 3 lần so khớp/cặp):
+ * 1000 thành viên ~1,0s · 2000 ~4,5s · 3000 ~12,9s · 5000 ~36s — và đó là
+ * thời gian bot ĐỨNG HÌNH, không nhận message, không phản ứng anti-nuke.
+ */
+const ALT_SCAN_MAX_MEMBERS = 2000;
+/** Deadline mỗi guild — trên VPS yếu hơn máy đo thì cap này mới là chốt chặn. */
+const ALT_SCAN_DEADLINE_MS = 20_000;
+/** Số cặp xử lý giữa 2 lần nhường event loop. */
+const ALT_SCAN_CHUNK = 2000;
+
+/**
+ * Quét alt MÀ KHÔNG CHẶN BOT: nhường event loop định kỳ, chặn trần quy mô và
+ * deadline. Bản sync `scanGuildForAlts` chạy tuần tự trong vòng lặp mọi guild
+ * mỗi 6 giờ — vài guild vài nghìn thành viên là bot đứng hình hàng chục giây,
+ * tức đúng lúc có raid thì anti-nuke cũng không chạy.
+ *
+ * Trả `{ links, scanned, truncated, total, hitDeadline }` để gọi rõ với người
+ * đọc log, không âm thầm bỏ sót cặp.
+ */
+async function scanGuildForAltsAsync(
+  guild,
+  config,
+  { maxMembers = ALT_SCAN_MAX_MEMBERS, deadlineMs = ALT_SCAN_DEADLINE_MS } = {},
+) {
+  const threshold = config?.altSimilarityThreshold ?? 70;
+  const all = Array.from(guild.members.cache.values()).filter((m) => !m.user.bot);
+  const total = all.length;
+  const members = total > maxMembers ? all.slice(0, maxMembers) : all;
+  const results = [];
+  const deadline = Date.now() + deadlineMs;
+  let hitDeadline = false;
+  let sinceYield = 0;
+
+  for (let i = 0; i < members.length && !hitDeadline; i++) {
+    for (let j = i + 1; j < members.length; j++) {
+      compareAltPair(members[i], members[j], threshold, results);
+      // Nhường event loop: tin nhắn/gateway vẫn xử lý được giữa lúc quét.
+      if (++sinceYield >= ALT_SCAN_CHUNK) {
+        sinceYield = 0;
+        await new Promise((r) => setImmediate(r));
+        if (Date.now() > deadline) {
+          hitDeadline = true;
+          break;
+        }
+      }
+    }
+  }
+  return {
+    links: finalizeAltLinks(results, members, guild),
+    scanned: hitDeadline ? members.length : members.length,
+    total,
+    truncated: total > maxMembers || hitDeadline,
+    hitDeadline,
+  };
 }
 
 // Cleanup old voice data periodically (every hour)
@@ -954,6 +1020,7 @@ module.exports = {
   trackJoinForBurst,
   // Upgrade C: Auto-scan
   scanGuildForAlts,
+  scanGuildForAltsAsync,
   // Đợt 7: dọn guild đã rời (memGuard)
   sweepStaleGuilds,
 };
