@@ -1073,4 +1073,48 @@ export default defineSchema({
     .index("by_guildId_status_createdAt", ["guildId", "status", "createdAt"])
     .index("by_guildId_createdAt", ["guildId", "createdAt"])
     .index("by_guildId_openerId", ["guildId", "openerId"]),
+
+  /**
+   * ═══ LOẠI TICKET TUỲ CHỈNH (29/09/2026) ═══
+   *
+   * Trước đây bot chỉ có ĐÚNG 2 loại cứng `support` | `appeal` (ràng buộc ở
+   * `bot/src/ticketCore.js:normalizeKind`). Bảng này thay 2 giá trị cứng đó
+   * bằng danh sách chủ server tự định nghĩa — mỗi loại có nhãn, emoji, màu
+   * nút, câu hỏi riêng trong modal và role xử lý riêng.
+   *
+   * ⚠️ TƯƠNG THÍCH NGƯỢC: server CHƯA có dòng nào thì bot dùng đúng 2 loại cũ
+   * (xem `DEFAULT_TICKET_KINDS` trong ticketCore.js) — không migration, không
+   * đụng hành vi server đang chạy. `kind` trong bảng `tickets` giờ mang giá
+   * trị `key` của bảng này (vẫn nhận `support`/`appeal` như cũ).
+   */
+  ticketKinds: defineTable({
+    guildId: v.string(),
+    /** Khoá ngắn, duy nhất trong server — nằm trong customId nút. */
+    key: v.string(),
+    /** Chữ trên nút (tối đa 80 ký tự — trần của Discord). */
+    label: v.string(),
+    /** Mô tả ngắn dưới nút / trong modal. */
+    description: v.optional(v.string()),
+    /** Emoji: ký tự Unicode hoặc `<:ten:id>` / `<a:ten:id>`. */
+    emoji: v.optional(v.string()),
+    /** Màu nút dạng `#rrggbb` — rác thì bot dùng màu mặc định. */
+    color: v.optional(v.string()),
+    /** Nhãn ô "nội dung" trong modal (tối đa 45 ký tự — trần Discord). */
+    question: v.optional(v.string()),
+    questionPlaceholder: v.optional(v.string()),
+    /** Nhãn ô "bằng chứng" trong modal. */
+    evidenceQuestion: v.optional(v.string()),
+    /**
+     * Role xử lý RIÊNG cho loại này. Rỗng → dùng `ticketStaffRoleId` chung.
+     * Ghi vậy để phân loại việc (kế toán riêng khác CS hỗ trợ).
+     */
+    staffRoleIds: v.optional(v.array(v.string())),
+    /** Thứ tự hiển thị trên panel (nhỏ trước). */
+    order: v.optional(v.number()),
+    /** Tạm ẩn khỏi panel mà không xoá (ticket cũ vẫn tra được). */
+    enabled: v.optional(v.boolean()),
+    createdAt: v.number(),
+  })
+    .index("by_guildId", ["guildId"])
+    .index("by_guildId_key", ["guildId", "key"]),
 });

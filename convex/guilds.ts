@@ -427,6 +427,28 @@ export const getBotConfig = query({
       .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
       .order("desc")
       .take(20);
+    // Loại ticket: chỉ lấy loại ĐANG BẬT, đã sắp theo `order` chủ server chọn.
+    // Sắp tay vì index `by_guildId` chỉ có `guildId` → `order()` của Convex là
+    // thứ tự scan, không phải thứ tự hiển thị (panel nhảy loạn).
+    const kinds = (
+      await ctx.db
+        .query("ticketKinds")
+        .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
+        .collect()
+    )
+      .filter((k) => k.enabled !== false)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.createdAt - b.createdAt)
+      .map((k) => ({
+        key: k.key,
+        label: k.label,
+        description: k.description ?? null,
+        emoji: k.emoji ?? null,
+        color: k.color ?? null,
+        question: k.question ?? null,
+        questionPlaceholder: k.questionPlaceholder ?? null,
+        evidenceQuestion: k.evidenceQuestion ?? null,
+        staffRoleIds: k.staffRoleIds ?? [],
+      }));
     return {
       prefix: guild.prefix,
       logChannelId: guild.logChannelId ?? null,
@@ -579,6 +601,18 @@ export const getBotConfig = query({
         endsAt: g.endsAt,
         entries: g.entries,
       })),
+      /**
+       * Loại ticket tuỳ chỉnh (29/09/2026). Rỗng → bot dùng 2 loại cứng cũ
+       * (`defaultTicketKinds` trong ticketCore.js), nên server chưa cấu hình
+       * gì thì hành vi y như trước.
+       *
+       * ⚠️ PHẢI viết dạng `ticketKinds: …`, không dùng shorthand `ticketKinds,`:
+       * `scripts/test-convex-arg-contract.cjs` quét field bot đọc bằng regex
+       * `^\s*(ten):` nên shorthand không lọt vào tập `returned` → hồi quy "bot
+       * đọc field không có trong getBotConfig" sẽ báo nhầm mỗi lần chạy.
+       * Vị trí cũng phải TRƯỚC khối `modules:` (script cắt tới đó).
+       */
+      ticketKinds: kinds,
       modules: modules.map((m) => ({
         module: m.module,
         enabled: m.enabled,

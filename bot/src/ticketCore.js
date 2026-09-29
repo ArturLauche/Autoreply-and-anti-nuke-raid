@@ -172,15 +172,202 @@ function decideOpen({
   return { ok: true };
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   LOẠI TICKET TUỲ CHỈNH (29/09/2026)
+   ══════════════════════════════════════════════════════════════════════
+   Trước đây chỉ có 2 loại CỨNG `support` | `appeal`. Nay chủ server tự
+   định nghĩa danh sách loại trên dashboard (bảng `ticketKinds`). Mọi hàm
+   dưới đây là HÀM THUẦN nhận danh sách loại → trả về danh sách đã chuẩn hoá,
+   nên test hermetic được không cần Discord.
+
+   ⚠️ NGUYÊN TẮC TƯƠNG THÍCH NGƯỢC: danh sách rác/rỗng → `defaultTicketKinds()`
+   (đúng 2 loại cũ). Server chưa cấu hình gì thì hành vi Y HỆT trước đây. */
+
+/** Trần số loại (khớp MAX_KINDS bên Convex). Discord: 5 nút/hàng × 5 hàng. */
+const MAX_TICKET_KINDS = 10;
+
+/** Trần của Discord — vượt thì API ném lỗi, hỏng CẢ panel. */
+const KIND_LABEL_MAX = 80;
+const KIND_MODAL_LABEL_MAX = 45;
+const KIND_PLACEHOLDER_MAX = 100;
+const KIND_DESC_MAX = 120;
+
 /**
- * Chuẩn hoá giá trị người dùng bấm nút thành 1 trong 2 loại ticket.
+ * 2 loại CỨNG — dùng khi server chưa cấu hình loại tuỳ chỉnh.
  *
- * `support` là loại CHUNG — hỏi đáp, cần giải đáp, báo cáo bất kỳ chuyện gì
- * (kể cả báo cáo chính bot). `appeal` dành riêng cho khiếu nại hình phạt.
- * Giá trị lạ → `support` vì đó là loại tồn tại mọi lúc, không cần bật riêng.
+ * `T` ở đây là BẢNG CHUỖI ĐÃ DỊCH, không phải tên: chuỗi được dùng làm nhãn
+ * nút và nhãn ô nhập. Rỗng → rơi về tiếng Việt để test/log vẫn đọc được.
  */
-function normalizeKind(kind) {
-  return kind === "appeal" ? "appeal" : "support";
+function defaultTicketKinds(T = {}) {
+  return [
+    {
+      key: "support",
+      label: T.openSupport || "Hỗ trợ chung",
+      description: "",
+      emoji: "",
+      color: "",
+      question: T.openBodyLabelSupport || "",
+      questionPlaceholder: T.openBodyPlaceholderSupport || "",
+      evidenceQuestion: T.openEvidenceLabel || "",
+      staffRoleIds: [],
+    },
+    {
+      key: "appeal",
+      label: T.openAppeal || "Khiếu nại hình phạt",
+      description: "",
+      emoji: "",
+      color: "",
+      question: T.modalAppealLabel || "",
+      questionPlaceholder: "",
+      evidenceQuestion: T.modalEvidenceLabel || T.openEvidenceLabel || "",
+      staffRoleIds: [],
+    },
+  ];
+}
+
+/** Bỏ khoảng trắng thừa + cắt theo trần; rỗng → undefined. */
+function clipField(value, max) {
+  const out = String(value ?? "")
+    .trim()
+    .slice(0, max);
+  return out || undefined;
+}
+
+/**
+ * Chuẩn hoá DANH SÁCH loại từ cấu hình.
+ *
+ * Phòng thủ ở đây chứ không phó bot xử lý từng lỗi: cấu hình do dashboard ghi
+ * nhưng vẫn có thể lệch (server cũ, migration, nhập tay). Mỗi loại rác bị BỎ
+ * QUA chứ không làm hỏng cả danh sách — 1 loại sai không được giết panel.
+ *
+ * @param {Array} raw  danh sách từ `getBotConfig.ticketKinds`
+ * @param {object} T   bảng chuỗi đã dịch (dùng cho loại mặc định)
+ * @returns {Array} danh sách loại đã chuẩn hoá, ≥ 1 phần tử
+ */
+function normalizeKinds(raw, T = {}) {
+  const list = Array.isArray(raw) ? raw : [];
+  const out = [];
+  const seen = new Set();
+  for (const item of list) {
+    if (out.length >= MAX_TICKET_KINDS) break;
+    if (!item || typeof item !== "object") continue;
+    const key = String(item.key ?? "").trim();
+    // Khoá rác → bỏ. `seen` chặn trùng: trùng key thì 2 nút có cùng customId →
+    // bấm nút nào cũng mở loại đầu tiên, loại còn lại không bao giờ dùng.
+    if (!/^[a-z0-9_-]{1,32}$/.test(key) || seen.has(key)) continue;
+    const label = clipField(item.label, KIND_LABEL_MAX);
+    // Không có nhãn thì bỏ: nút Discord không có nhãn sẽ trông như nút vô
+    // nghĩa và chủ server không phân biệt được loại nào là loại nào.
+    if (!label) continue;
+    seen.add(key);
+    const staff = Array.isArray(item.staffRoleIds) ? item.staffRoleIds : [];
+    out.push({
+      key,
+      label,
+      description: clipField(item.description, KIND_DESC_MAX) ?? "",
+      emoji: clipField(item.emoji, 40) ?? "",
+      color: clipField(item.color, 7) ?? "",
+      question: clipField(item.question, KIND_MODAL_LABEL_MAX),
+      questionPlaceholder: clipField(item.questionPlaceholder, KIND_PLACEHOLDER_MAX),
+      evidenceQuestion: clipField(item.evidenceQuestion, KIND_MODAL_LABEL_MAX),
+      staffRoleIds: [...new Set(staff.map((r) => String(r ?? "").trim()).filter(Boolean))].slice(
+        0,
+        5,
+      ),
+    });
+  }
+  return out.length > 0 ? out : defaultTicketKinds(T);
+}
+
+/** Tìm loại theo khoá; không thấy → `null` (KHÔNG tự rơi về loại đầu). */
+function findKind(kinds, key) {
+  const list = Array.isArray(kinds) ? kinds : [];
+  const k = String(key ?? "").trim();
+  return list.find((x) => x && x.key === k) ?? null;
+}
+
+/**
+ * Chuẩn hoá giá trị người dùng bấm nút / lệnh thành 1 key trong danh sách loại.
+ *
+ * Danh sách rỗng → `normalizeKinds` đã trả 2 loại cũ, nên "giá trị lạ → loại
+ * đầu tiên" là hành vi CŨ (loại đầu là `support`).
+ */
+function normalizeKind(kind, kinds) {
+  const list = Array.isArray(kinds) && kinds.length > 0 ? kinds : defaultTicketKinds();
+  return findKind(list, kind) ? String(kind) : list[0].key;
+}
+
+/**
+ * Role nào xử lý loại ticket này.
+ *
+ * Ưu tiên role RIÊNG của loại; rỗng thì rơi về `fallback` (role staff chung
+ * của server) — cùng quy tắc `staffRoleIds(config)` đã dùng từ trước.
+ */
+function staffRoleIdsForKind(kinds, key, fallback = []) {
+  const kind = findKind(kinds, key);
+  if (kind && kind.staffRoleIds.length > 0) return kind.staffRoleIds;
+  return Array.isArray(fallback) ? fallback : [];
+}
+
+/** Emoji dùng được cho `ButtonBuilder.setEmoji`: Unicode ngắn hoặc `<a:t:id>`. */
+function isUsableEmoji(emoji) {
+  const s = String(emoji ?? "").trim();
+  if (!s) return false;
+  if (/^<a?:\w{2,32}:\d{15,25}>$/.test(s)) return true;
+  return [...s].length <= 2;
+}
+
+/**
+ * Dựng bộ nút panel MỞ ticket từ danh sách loại — TRẢ OBJECT THUẦN.
+ *
+ * Vì sao không dựng `ButtonBuilder` ở đây: hàm thuần thì test được, và
+ * `tickets.js` bọc `new ButtonBuilder(spec)` ở bước sau (đúng cách
+ * `buildOpenPayload` tách khỏi `new EmbedBuilder(...)`).
+ *
+ * @returns {Array<{customId: string, label: string, emoji?: string, style: number}>}
+ *   `style` là SỐ thuần vì file này không import discord.js (giữ được tính
+ *   thuần); `tickets.js` map sang `ButtonStyle`.
+ */
+function buildPanelButtons(kinds) {
+  const list = Array.isArray(kinds) ? kinds : [];
+  return list.slice(0, MAX_TICKET_KINDS).map((kind, i) => ({
+    customId: "ticket_open:" + kind.key,
+    label: kind.label,
+    // Chỉ đưa emoji vào khi đúng định dạng Discord — rác thì `setEmoji` NÉM
+    // lỗi và hỏng luôn tin nhắn panel (mất đường mở ticket cho cả server).
+    emoji: isUsableEmoji(kind.emoji) ? kind.emoji : undefined,
+    // Nút đầu Primary (nổi nhất), các nút sau Secondary. Không dùng màu tuỳ
+    // chỉnh của chủ server cho nút: Discord chỉ có 5 style cố định, `color`
+    // chỉ áp cho embed — nhận nhầm là hiểu nhầm API.
+    style: i === 0 ? 1 : 2,
+  }));
+}
+
+/**
+ * Dựng đặc tả modal mở ticket cho 1 loại — TRẢ OBJECT THUẦN.
+ *
+ * Ô "nội dung" LUÔN bắt buộc (không có nội dung thì ticket vô nghĩa); ô
+ * "bằng chứng" tuỳ chọn. Nhãn rỗng → rơi về chuỗi dịch sẵn có, KHÔNG để
+ * Discord ném lỗi vì label rỗng.
+ */
+function buildModalSpec(kind, T = {}) {
+  const appeal = kind?.key === "appeal";
+  const bodyLabel =
+    kind?.question ||
+    (appeal ? T.modalAppealLabel : T.openBodyLabelSupport) ||
+    T.body ||
+    "Nội dung";
+  return {
+    customId: "ticket_open_submit:" + (kind?.key ?? "support"),
+    // Tiêu đề modal tối đa 45 ký tự — cắt ở đây, không phải lúc gửi API.
+    title: (appeal ? T.openModalTitleAppeal : T.openModalTitleSupport) || "Mở ticket",
+    bodyLabel,
+    bodyPlaceholder:
+      kind?.questionPlaceholder || (appeal ? undefined : T.openBodyPlaceholderSupport),
+    evidenceLabel:
+      kind?.evidenceQuestion || (appeal ? T.modalEvidenceLabel : T.openEvidenceLabel) || T.evidence,
+    evidencePlaceholder: T.openEvidencePlaceholder,
+  };
 }
 
 /** Người dùng có quyền staff theo danh sách role không. */
@@ -209,14 +396,23 @@ function buildOpenPayload({
   TICKET_TEXT: T,
   number,
   kind,
+  kindLabel,
   openerName,
   openedById = null,
   body,
   evidence,
 }) {
   const num = String(number);
+  // Loại tuỳ chỉnh có nhãn riêng → dùng nhãn đó làm tiêu đề, thay 2 tiêu đề
+  // cứng. Escape + bỏ `{}` vì nhãn do CHỦ SERVER soạn và đi thẳng vào embed
+  // (nhãn gõ `@everyone` sẽ ping cả server mỗi lần có người mở ticket).
+  const custom = kindLabel
+    ? `${escapeMentions(String(kindLabel)).replace(/[{}]/g, "").trim()} #${num}`
+    : "";
   return {
-    title: (normalizeKind(kind) === "appeal" ? T.openedTitle : T.supportTitle).replace("{n}", num),
+    title:
+      custom ||
+      (normalizeKind(kind) === "appeal" ? T.openedTitle : T.supportTitle).replace("{n}", num),
     fields: [
       {
         name: T.openedBy,
@@ -415,7 +611,19 @@ module.exports = {
   buildChannelName,
   decideOpen,
   normalizeLimit,
+  MAX_TICKET_KINDS,
+  KIND_LABEL_MAX,
+  KIND_MODAL_LABEL_MAX,
+  KIND_PLACEHOLDER_MAX,
+  KIND_DESC_MAX,
+  defaultTicketKinds,
+  normalizeKinds,
+  findKind,
   normalizeKind,
+  staffRoleIdsForKind,
+  isUsableEmoji,
+  buildPanelButtons,
+  buildModalSpec,
   isStaff,
   buildOpenPayload,
   cooldownMinutesLeft,

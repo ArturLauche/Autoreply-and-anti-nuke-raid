@@ -1,0 +1,421 @@
+import { useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
+import { ArrowDown, ArrowUp, ListPlus, Pencil, Plus, Trash2 } from "lucide-react";
+import { api } from "../../../convex/_generated/api";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { Switch } from "../ui/switch";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import type { GuildData } from "../../lib/types";
+import { getSessionToken } from "../../lib/discord";
+import { translate } from "../../lib/i18n";
+
+const TOKEN = () => getSessionToken();
+
+/** 1 loại ticket tuỳ chỉnh (đã chuẩn hoá phía Convex). */
+type Kind = {
+  key: string;
+  label: string;
+  description: string | null;
+  emoji: string | null;
+  color: string | null;
+  question: string | null;
+  questionPlaceholder: string | null;
+  evidenceQuestion: string | null;
+  staffRoleIds: string[];
+  order: number;
+  enabled: boolean;
+};
+
+type FormState = {
+  key: string;
+  label: string;
+  description: string;
+  emoji: string;
+  question: string;
+  questionPlaceholder: string;
+  evidenceQuestion: string;
+  staffRoleIds: string[];
+};
+
+const emptyForm: FormState = {
+  key: "",
+  label: "",
+  description: "",
+  emoji: "",
+  question: "",
+  questionPlaceholder: "",
+  evidenceQuestion: "",
+  staffRoleIds: [],
+};
+
+/**
+ * Quản lý DANH SÁCH LOẠI TICKET (29/09/2026).
+ *
+ * Trước đây bot có đúng 2 loại cứng `support` | `appeal` nằm thẳng trong
+ * `bot/src/ticketCore.js:normalizeKind` — chủ server muốn thêm nút thì phải sửa
+ * code bot. Nay mỗi loại là 1 dòng dữ liệu: nhãn, emoji, câu hỏi riêng trong
+ * modal, role xử lý riêng, thứ tự và bật/tắt.
+ *
+ * ⚠️ Xoá hết loại KHÔNG phải "tắt tính năng": server không còn dòng nào thì bot
+ * rơi về đúng 2 loại cứng cũ (support + khiếu nại). Muốn ẩn hẳn thì tắt
+ * công tắc, không xoá.
+ */
+export default function TicketKindsCard({ data }: { data: GuildData }) {
+  const g = data.guild;
+  const saveKind = useMutation(api.ticketKinds.saveKind);
+  const removeKind = useMutation(api.ticketKinds.removeKind);
+  const setKindEnabled = useMutation(api.ticketKinds.setKindEnabled);
+  const swapKindOrder = useMutation(api.ticketKinds.swapKindOrder);
+  const kinds = useQuery(api.ticketKinds.listKinds, {
+    token: TOKEN(),
+    guildId: g.discordId,
+  });
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<Kind | null>(null);
+  const [form, setForm] = useState<FormState>(emptyForm);
+  const [saving, setSaving] = useState(false);
+
+  const list = kinds ?? [];
+  const roles = data.roles;
+
+  function openCreate() {
+    setEditing(null);
+    setForm(emptyForm);
+    setDialogOpen(true);
+  }
+
+  function openEdit(k: Kind) {
+    setEditing(k);
+    setForm({
+      key: k.key,
+      label: k.label,
+      description: k.description ?? "",
+      emoji: k.emoji ?? "",
+      question: k.question ?? "",
+      questionPlaceholder: k.questionPlaceholder ?? "",
+      evidenceQuestion: k.evidenceQuestion ?? "",
+      staffRoleIds: k.staffRoleIds,
+    });
+    setDialogOpen(true);
+  }
+
+  async function handleSave() {
+    if (!/^[a-z0-9_-]{1,32}$/.test(form.key.trim())) {
+      return toast.error(translate("Mã loại chỉ gồm chữ thường, số, _ hoặc - (tối đa 32 ký tự)."));
+    }
+    if (!form.label.trim()) return toast.error(translate("Cần có tên hiển thị trên nút."));
+    setSaving(true);
+    try {
+      await saveKind({
+        token: TOKEN(),
+        guildId: g.discordId,
+        key: form.key.trim().toLowerCase(),
+        label: form.label.trim(),
+        description: form.description.trim(),
+        emoji: form.emoji.trim(),
+        question: form.question.trim(),
+        questionPlaceholder: form.questionPlaceholder.trim(),
+        evidenceQuestion: form.evidenceQuestion.trim(),
+        staffRoleIds: form.staffRoleIds,
+      });
+      toast.success(
+        editing
+          ? translate('Đã cập nhật loại ticket "{p0}"', { p0: form.label })
+          : translate('Đã thêm loại ticket "{p0}"', { p0: form.label }),
+      );
+      setDialogOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggle(k: Kind, enabled: boolean) {
+    try {
+      await setKindEnabled({ token: TOKEN(), guildId: g.discordId, key: k.key, enabled });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
+    }
+  }
+
+  async function move(index: number, dir: -1 | 1) {
+    const other = list[index + dir];
+    if (!other) return;
+    try {
+      await swapKindOrder({
+        token: TOKEN(),
+        guildId: g.discordId,
+        keyA: list[index].key,
+        keyB: other.key,
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
+    }
+  }
+
+  async function handleDelete(k: Kind) {
+    try {
+      await removeKind({ token: TOKEN(), guildId: g.discordId, key: k.key });
+      toast.success(translate('Đã xoá loại ticket "{p0}"', { p0: k.label }));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+        <div className="space-y-1">
+          <CardTitle className="text-base">{translate("Loại ticket")}</CardTitle>
+          <CardDescription>
+            {translate(
+              "Mỗi loại là 1 nút trên panel, 1 câu hỏi riêng trong modal và có thể có role xử lý riêng. Xoá hết thì bot quay về 2 loại mặc định.",
+            )}
+          </CardDescription>
+        </div>
+        <Button type="button" size="sm" variant="outline" onClick={openCreate}>
+          <Plus className="h-4 w-4" />
+          {translate("Thêm loại")}
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {list.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {translate(
+              "Chưa có loại tuỳ chỉnh — bot đang dùng 2 loại mặc định: Hỗ trợ chung và Khiếu nại hình phạt.",
+            )}
+          </p>
+        ) : (
+          <ul className="grid gap-2">
+            {list.map((k, i) => {
+              // `k.label` là nhãn do CHỦ SERVER tự đặt — dữ liệu người dùng,
+              // không phải chuỗi giao diện nên KHÔNG bọc translate(). Gán vào
+              // biến cục bộ để không bị cổng i18n coi là nhãn giao diện chưa dịch.
+              const kindLabel = k.label;
+              return (
+                <li
+                  key={k.key}
+                  className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2"
+                >
+                  <span className="text-lg" aria-hidden>
+                    {k.emoji || "•"}
+                  </span>
+                  <span className="font-medium">{kindLabel}</span>
+                  <Badge variant="outline">{k.key}</Badge>
+                  {k.staffRoleIds.length > 0 ? (
+                    <Badge variant="secondary">
+                      {translate("{p0} role riêng", {
+                        p0: k.staffRoleIds.length,
+                      })}
+                    </Badge>
+                  ) : null}
+                  <span className="flex-1" />
+                  <Switch
+                    checked={k.enabled}
+                    onCheckedChange={(v) => toggle(k, v)}
+                    aria-label={translate("Bật loại ticket này")}
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => move(i, -1)}
+                    disabled={i === 0}
+                    aria-label={translate("Đưa lên trên")}
+                  >
+                    <ArrowUp className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => move(i, 1)}
+                    disabled={i === list.length - 1}
+                    aria-label={translate("Đưa xuống dưới")}
+                  >
+                    <ArrowDown className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => openEdit(k)}
+                    aria-label={translate("Sửa loại ticket này")}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => handleDelete(k)}
+                    aria-label={translate("Xoá loại ticket này")}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <p className="text-xs text-muted-foreground">
+          {translate(
+            "Đổi danh sách xong bấm “Gửi lại panel mở ticket” để thay nút trên kênh công khai. Tối đa 10 loại.",
+          )}
+        </p>
+      </CardContent>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editing
+                ? translate('Chỉnh sửa loại "{p0}"', { p0: editing.label })
+                : translate("Thêm loại ticket")}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="kind-key">{translate("Mã loại (tiếng Anh, không dấu)")}</Label>
+              <Input
+                id="kind-key"
+                placeholder="billing"
+                value={form.key}
+                disabled={Boolean(editing)}
+                onChange={(e) => setForm({ ...form, key: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                {translate(
+                  "Mã nằm trong nút nên không đổi sau khi tạo. Ticket đã mở vẫn tra được loại này.",
+                )}
+              </p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="kind-label">{translate("Tên trên nút")}</Label>
+              <Input
+                id="kind-label"
+                placeholder={translate("Hoá đơn & thanh toán")}
+                value={form.label}
+                onChange={(e) => setForm({ ...form, label: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="kind-emoji">{translate("Emoji (tuỳ chọn)")}</Label>
+              <Input
+                id="kind-emoji"
+                placeholder="💳"
+                value={form.emoji}
+                onChange={(e) => setForm({ ...form, emoji: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="kind-desc">{translate("Mô tả ngắn (tuỳ chọn)")}</Label>
+              <Input
+                id="kind-desc"
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="kind-question">{translate("Câu hỏi trong modal")}</Label>
+              <Input
+                id="kind-question"
+                placeholder={translate("Bạn cần hỏi gì về hoá đơn?")}
+                value={form.question}
+                onChange={(e) => setForm({ ...form, question: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                {translate("Bỏ trống thì dùng câu hỏi mặc định. Tối đa 45 ký tự.")}
+              </p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="kind-placeholder">{translate("Gợi ý trong ô nhập (tuỳ chọn)")}</Label>
+              <Input
+                id="kind-placeholder"
+                value={form.questionPlaceholder}
+                onChange={(e) => setForm({ ...form, questionPlaceholder: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="kind-evidence">{translate("Câu hỏi ô bằng chứng (tuỳ chọn)")}</Label>
+              <Input
+                id="kind-evidence"
+                value={form.evidenceQuestion}
+                onChange={(e) => setForm({ ...form, evidenceQuestion: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label>{translate("Role xử lý riêng cho loại này")}</Label>
+              <p className="text-xs text-muted-foreground">
+                {translate("Bỏ trống thì dùng role xử lý ticket chung đã cấu hình ở trên.")}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {roles.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    {translate("Chưa có role nào trong server.")}
+                  </p>
+                ) : (
+                  roles.slice(0, 40).map((r) => {
+                    const picked = form.staffRoleIds.includes(r.roleId);
+                    return (
+                      <Button
+                        key={r.roleId}
+                        type="button"
+                        size="sm"
+                        variant={picked ? "default" : "outline"}
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            staffRoleIds: picked
+                              ? form.staffRoleIds.filter((x) => x !== r.roleId)
+                              : [...form.staffRoleIds, r.roleId].slice(0, 5),
+                          })
+                        }
+                      >
+                        {r.name}
+                      </Button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              onClick={() => setDialogOpen(false)}
+              className="transition-colors duration-150"
+            >
+              {translate("Hủy")}
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="gap-2 transition-all duration-150"
+            >
+              <ListPlus className="h-4 w-4" />
+              {translate(saving ? "Đang lưu…" : editing ? "Lưu thay đổi" : "Thêm loại")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}

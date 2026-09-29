@@ -95,6 +95,7 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 | `guildStats.ts`                                                   | Số liệu "Tình hình server" hôm nay: đe doạ đã chặn, người mới vào, nghi phạm phạt nhầm   |
 | `channelLocks.ts`                                                 | Lệnh `/lock`: bản ghi kênh đang khoá chat (quyền cũ để mở đúng) + khoá hết hạn           |
 | `tickets.ts`                                                      | Ticket/khiếu nại: web đọc danh sách + đóng từ dashboard; `botTicketState` cho bot        |
+| `ticketKinds.ts`                                                  | Loại ticket TUỲ CHỈNH (thay 2 loại cứng): CRUD cho dashboard + `botKinds` cho bot        |
 | `relay.ts`                                                        | Webhook + relay log sự kiện                                                              |
 | `backup_github.ts`                                                | Backup lên GitHub (kèm `backup.ts`)                                                      |
 | `rateGuard.ts`                                                    | Giới hạn tần suất gọi API từ bot                                                         |

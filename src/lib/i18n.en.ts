@@ -1308,4 +1308,44 @@ export const EN: Record<string, string> = {
     "⚠️ Content auto-mod is fully off — invite links, malicious links, bad words, dangerous files and spam are not blocked.",
 
   "Không đọc được transcript": "Could not read the transcript",
+
+  /* ==== Loại ticket tuỳ chỉnh (29/09/2026) ==== Xem i18n.de.ts ==== */
+  "Mã loại chỉ gồm chữ thường, số, _ hoặc - (tối đa 32 ký tự).":
+    "The kind code may only contain lowercase letters, digits, _ or - (max 32 characters).",
+  "Cần có tên hiển thị trên nút.": "A label for the button is required.",
+  'Đã cập nhật loại ticket "{p0}"': 'Updated ticket type "{p0}"',
+  'Đã thêm loại ticket "{p0}"': 'Added ticket type "{p0}"',
+  'Đã xoá loại ticket "{p0}"': 'Deleted ticket type "{p0}"',
+  "Loại ticket": "Ticket types",
+  "Mỗi loại là 1 nút trên panel, 1 câu hỏi riêng trong modal và có thể có role xử lý riêng. Xoá hết thì bot quay về 2 loại mặc định.":
+    "Each type is one panel button, one question in the modal, and can have its own staff roles. Deleting them all brings back the two defaults.",
+  "Thêm loại": "Add type",
+  "Chưa có loại tuỳ chỉnh — bot đang dùng 2 loại mặc định: Hỗ trợ chung và Khiếu nại hình phạt.":
+    "No custom types yet — the bot is using the two defaults: General support and Appeal a punishment.",
+  "{p0} role riêng": "{p0} own roles",
+  "Đổi danh sách xong bấm “Gửi lại panel mở ticket” để thay nút trên kênh công khai. Tối đa 10 loại.":
+    'After changing the list, hit "Send the ticket panel again" to replace the buttons in the public channel. Up to 10 types.',
+  'Chỉnh sửa loại "{p0}"': 'Edit type "{p0}"',
+  "Thêm loại ticket": "Add ticket type",
+  "Mã loại (tiếng Anh, không dấu)": "Type code (lowercase, no accents)",
+  "Mã nằm trong nút nên không đổi sau khi tạo. Ticket đã mở vẫn tra được loại này.":
+    "The code is part of the button, so it cannot change after creation. Already open tickets still resolve to this type.",
+  "Tên trên nút": "Button label",
+  "Hoá đơn & thanh toán": "Billing & payments",
+  "Emoji (tuỳ chọn)": "Emoji (optional)",
+  "Mô tả ngắn (tuỳ chọn)": "Short description (optional)",
+  "Câu hỏi trong modal": "Question in the modal",
+  "Bạn cần hỏi gì về hoá đơn?": "What do you need to ask about billing?",
+  "Bỏ trống thì dùng câu hỏi mặc định. Tối đa 45 ký tự.":
+    "Leave empty to use the default question. Max 45 characters.",
+  "Gợi ý trong ô nhập (tuỳ chọn)": "Input placeholder (optional)",
+  "Câu hỏi ô bằng chứng (tuỳ chọn)": "Evidence question (optional)",
+  "Role xử lý riêng cho loại này": "Staff roles for this type",
+  "Bỏ trống thì dùng role xử lý ticket chung đã cấu hình ở trên.":
+    "Leave empty to use the server-wide ticket staff role configured above.",
+  "Bật loại ticket này": "Enable this ticket type",
+  "Đưa lên trên": "Move up",
+  "Đưa xuống dưới": "Move down",
+  "Sửa loại ticket này": "Edit this ticket type",
+  "Xoá loại ticket này": "Delete this ticket type",
 };

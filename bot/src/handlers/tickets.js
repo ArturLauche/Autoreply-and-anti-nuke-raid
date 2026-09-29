@@ -214,7 +214,12 @@ async function openTicket({
   // mới đều là điểm yếu (kẻ raid sẽ spam được nội dung tùy ý).
   if (isLocked(guild.id)) return { ok: false, code: "errLocked" };
 
-  const staffIds = staffRoleIds(config);
+  // Loại đã CHUẨN HOÁ: \`kind\` từ caller có thể là key lạ (nút cũ dán tay,
+  // customId cũ sau khi chủ server đổi tên loại) → tra theo danh sách thật
+  // của server, không giả định còn "support"/"appeal".
+  const kinds = core.normalizeKinds(config?.ticketKinds, T);
+  const kindKey = core.normalizeKind(kind, kinds);
+  const staffIds = core.staffRoleIdsForKind(kinds, kindKey, staffRoleIds(config));
   const categoryId = config?.ticketCategoryId;
   const state = await client.query("tickets:botTicketState", {
     guildId: guild.id,
@@ -281,7 +286,7 @@ async function openTicket({
       // Chưa có kênh thật lúc này — ghi "pending" rồi điền lại bằng
       // botSetTicketChannel ngay dưới. Xem ghi chú ở mutation đó.
       channelId: "pending",
-      kind: core.normalizeKind(kind),
+      kind: kindKey,
       openerId: user.id,
       openerName: user.username || user.id,
       body: cleanBody,
@@ -349,7 +354,8 @@ async function openTicket({
   const payload = core.buildOpenPayload({
     TICKET_TEXT: T,
     number,
-    kind,
+    kind: kindKey,
+    kindLabel: kinds.find((k) => k.key === kindKey)?.label,
     openerName: user.username || user.id,
     openedById: user.id,
     body: cleanBody,
@@ -374,7 +380,7 @@ async function openTicket({
 
   const panel = buildPanel({
     T,
-    ticketKindLabel: core.normalizeKind(kind),
+    ticketKindLabel: kinds.find((k) => k.key === kindKey)?.label ?? kindKey,
     openerName: core.escapeMentions(user.username || user.id),
     number,
     idleHours: config?.ticketIdleHours,
@@ -614,6 +620,7 @@ function openPanel({
   customText,
   customColor,
   showAppeal = true,
+  kinds = null,
   serverName = "",
   openCount = 0,
 }) {
@@ -637,23 +644,35 @@ function openPanel({
     .setFooter({ text: "Protogon · Ticket" })
     .setTimestamp();
 
-  const buttons = [
-    new ButtonBuilder()
-      .setCustomId("ticket_open:" + core.normalizeKind("support"))
-      .setLabel(T.openSupport)
-      .setStyle(ButtonStyle.Primary),
-  ];
-  if (showAppeal) {
-    buttons.push(
-      new ButtonBuilder()
-        .setCustomId("ticket_open:" + core.normalizeKind("appeal"))
-        .setLabel(T.openAppeal)
-        .setStyle(ButtonStyle.Secondary),
-    );
+  // Nút lấy từ DANH SÁCH LOẠI của server (rỗng → đúng 2 loại cũ).
+  //
+  // \`showAppeal\` vẫn có tác dụng với mọi danh sách: nó ẩn loại có khoá
+  // "appeal" — khoá này là loại KHIẾU NẠI mặc định, nên server đã bỏ nút đó
+  // không đợi loại tuỳ chỉnh mới thấy nút biến mất.
+  const allKinds = core.normalizeKinds(kinds, T);
+  const visible = showAppeal ? allKinds : allKinds.filter((k) => k.key !== "appeal");
+  // Không còn loại nào sau khi lọc (server chỉ có "appeal" + tắt nút) → vẫn
+  // dán panel kèm nút: tin nhắn không có components KHÔNG phải lỗi, nhưng
+  // server mất hoàn toàn đường mở ticket.
+  const specs = core.buildPanelButtons(visible.length > 0 ? visible : allKinds);
+
+  // Discord: tối đa 5 nút 1 hàng, 5 hàng 1 tin. Chia hàng 5 — tràn sẽ bị API
+  // từ chối và mất CẢ panel.
+  const rows = [];
+  for (let i = 0; i < specs.length; i += 5) {
+    const buttons = specs.slice(i, i + 5).map((spec) => {
+      const b = new ButtonBuilder()
+        .setCustomId(spec.customId)
+        .setLabel(spec.label)
+        .setStyle(spec.style === 1 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+      if (spec.emoji) b.setEmoji(spec.emoji);
+      return b;
+    });
+    rows.push(new ActionRowBuilder().addComponents(buttons));
   }
   return {
     embeds: [embed],
-    components: [new ActionRowBuilder().addComponents(buttons)],
+    components: rows,
   };
 }
 
@@ -667,23 +686,24 @@ function openPanel({
  * `kind` = "support" | "appeal" — chỉ quyết định câu hỏi + tiêu đề, phần
  * kiểm tra quyền/giới hạn vẫn do openTicket lo (một nơi duy nhất).
  */
-function openModal(T, kind) {
-  const appeal = core.normalizeKind(kind) === "appeal";
+function openModal(T, kind, kinds = null) {
+  const list = core.normalizeKinds(kinds, T);
+  const spec = core.buildModalSpec(core.findKind(list, kind) ?? list[0], T);
   return new ModalBuilder()
-    .setCustomId("ticket_open_submit:" + core.normalizeKind(kind))
-    .setTitle(appeal ? T.openModalTitleAppeal : T.openModalTitleSupport)
+    .setCustomId(spec.customId)
+    .setTitle(spec.title)
     .addComponents(
       new TextInputBuilder()
         .setCustomId("ticket_body")
-        .setLabel(appeal ? T.modalAppealLabel : T.openBodyLabelSupport)
-        .setPlaceholder(appeal ? undefined : T.openBodyPlaceholderSupport)
+        .setLabel(spec.bodyLabel)
+        .setPlaceholder(spec.bodyPlaceholder)
         .setStyle(TextInputStyle.Paragraph)
         .setRequired(true)
         .setMaxLength(core.BODY_MAX),
       new TextInputBuilder()
         .setCustomId("ticket_evidence")
-        .setLabel(appeal ? T.modalEvidenceLabel : T.openEvidenceLabel)
-        .setPlaceholder(T.openEvidencePlaceholder)
+        .setLabel(spec.evidenceLabel)
+        .setPlaceholder(spec.evidencePlaceholder)
         .setStyle(TextInputStyle.Paragraph)
         .setRequired(false)
         .setMaxLength(core.EVIDENCE_MAX),
@@ -756,6 +776,7 @@ async function sendOpenPanel(client, store, item) {
         customText: config.ticketOpenPanelText,
         customColor: config.ticketOpenPanelColor,
         showAppeal: config.ticketShowAppealButton !== false,
+        kinds: config.ticketKinds,
         serverName: guild.name,
         openCount,
       }),

@@ -1241,4 +1241,44 @@ export const DE: Record<string, string> = {
     "⚠️ Die Inhalts-Automatik ist vollständig aus — Einladungslinks, schädliche Links, Beleidigungen, gefährliche Dateien und Spam werden nicht blockiert.",
 
   "Không đọc được transcript": "Transkript konnte nicht gelesen werden",
+
+  /* ==== Loại ticket tuỳ chỉnh (29/09/2026) ==== Xem i18n.en.ts ==== */
+  "Mã loại chỉ gồm chữ thường, số, _ hoặc - (tối đa 32 ký tự).":
+    "Der Typ-Code darf nur Kleinbuchstaben, Ziffern, _ oder - enthalten (max. 32 Zeichen).",
+  "Cần có tên hiển thị trên nút.": "Eine Beschriftung für den Button ist erforderlich.",
+  'Đã cập nhật loại ticket "{p0}"': 'Ticket-Typ "{p0}" aktualisiert',
+  'Đã thêm loại ticket "{p0}"': 'Ticket-Typ "{p0}" hinzugefügt',
+  'Đã xoá loại ticket "{p0}"': 'Ticket-Typ "{p0}" gelöscht',
+  "Loại ticket": "Ticket-Typen",
+  "Mỗi loại là 1 nút trên panel, 1 câu hỏi riêng trong modal và có thể có role xử lý riêng. Xoá hết thì bot quay về 2 loại mặc định.":
+    "Jeder Typ ist ein Panel-Button, eine eigene Frage im Modal und kann eigene Staff-Rollen haben. Werden alle gelöscht, gelten wieder die zwei Standardtypen.",
+  "Thêm loại": "Typ hinzufügen",
+  "Chưa có loại tuỳ chỉnh — bot đang dùng 2 loại mặc định: Hỗ trợ chung và Khiếu nại hình phạt.":
+    "Noch keine eigenen Typen — der Bot nutzt die zwei Standardtypen: Allgemeiner Support und Strafe anfechten.",
+  "{p0} role riêng": "{p0} eigene Rollen",
+  "Đổi danh sách xong bấm “Gửi lại panel mở ticket” để thay nút trên kênh công khai. Tối đa 10 loại.":
+    'Nach der Änderung der Liste auf "Ticket-Panel erneut senden" klicken, um die Buttons im öffentlichen Kanal zu ersetzen. Max. 10 Typen.',
+  'Chỉnh sửa loại "{p0}"': 'Typ "{p0}" bearbeiten',
+  "Thêm loại ticket": "Ticket-Typ hinzufügen",
+  "Mã loại (tiếng Anh, không dấu)": "Typ-Code (Kleinbuchstaben, ohne Umlaute)",
+  "Mã nằm trong nút nên không đổi sau khi tạo. Ticket đã mở vẫn tra được loại này.":
+    "Der Code steckt im Button und kann nach dem Anlegen nicht mehr geändert werden. Bereits offene Tickets finden diesen Typ weiterhin.",
+  "Tên trên nút": "Button-Beschriftung",
+  "Hoá đơn & thanh toán": "Rechnung & Zahlung",
+  "Emoji (tuỳ chọn)": "Emoji (optional)",
+  "Mô tả ngắn (tuỳ chọn)": "Kurzbeschreibung (optional)",
+  "Câu hỏi trong modal": "Frage im Modal",
+  "Bạn cần hỏi gì về hoá đơn?": "Was möchtest du zur Rechnung wissen?",
+  "Bỏ trống thì dùng câu hỏi mặc định. Tối đa 45 ký tự.":
+    "Leer lassen, um die Standardfrage zu verwenden. Max. 45 Zeichen.",
+  "Gợi ý trong ô nhập (tuỳ chọn)": "Platzhalter im Eingabefeld (optional)",
+  "Câu hỏi ô bằng chứng (tuỳ chọn)": "Frage zum Beweisfeld (optional)",
+  "Role xử lý riêng cho loại này": "Staff-Rollen für diesen Typ",
+  "Bỏ trống thì dùng role xử lý ticket chung đã cấu hình ở trên.":
+    "Leer lassen, um die oben konfigurierte allgemeine Ticket-Staff-Rolle zu verwenden.",
+  "Bật loại ticket này": "Diesen Ticket-Typ aktivieren",
+  "Đưa lên trên": "Nach oben",
+  "Đưa xuống dưới": "Nach unten",
+  "Sửa loại ticket này": "Diesen Ticket-Typ bearbeiten",
+  "Xoá loại ticket này": "Diesen Ticket-Typ löschen",
 };

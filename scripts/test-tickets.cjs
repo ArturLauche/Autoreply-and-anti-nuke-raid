@@ -366,5 +366,181 @@ check(
   })(),
 );
 
+// ═══ 12. LOẠI TICKET TUỲ CHỈNH — danh sách do chủ server tự định nghĩa ═══
+console.log("\n── loại ticket tuỳ chỉnh ──");
+
+const TK = lang.ticketText("vi");
+
+// Ràng buộc tương thích ngược: server chưa cấu hình gì phải y hệt trước đây.
+check(
+  "không cấu hình → đúng 2 loại cứng (support, appeal)",
+  core
+    .normalizeKinds(null, TK)
+    .map((k) => k.key)
+    .join(",") === "support,appeal",
+);
+check(
+  "danh sách rác (không phải mảng) → vẫn ra 2 loại cứng",
+  core.normalizeKinds("abc", TK).length === 2,
+);
+check("mảng rỗng → vẫn ra 2 loại cứng", core.normalizeKinds([], TK).length === 2);
+check(
+  "2 loại mặc định lấy nhãn ĐÃ DỊCH từ T (nút hiện đúng tiếng của user)",
+  core.normalizeKinds(null, TK)[0].label === TK.openSupport,
+);
+
+// Loại rác bị bỏ QUA chứ không làm hỏng cả danh sách.
+const MIX = core.normalizeKinds(
+  [
+    { key: "billing", label: "Hoá đơn" },
+    { key: "CÓ DẤU", label: "x" },
+    { key: "", label: "rỗng" },
+    { key: "khongnhan", label: "  " },
+    null,
+    "chuỗi",
+    { key: "billing", label: "Trùng khoá" },
+    { key: "bug", label: "Báo lỗi" },
+  ],
+  TK,
+);
+check("loại rác bị bỏ, loại tốt còn lại", MIX.map((k) => k.key).join(",") === "billing,bug");
+check(
+  "khoá trùng chỉ giữ 1 (trùng thì 2 nút cùng customId)",
+  !MIX.some((k) => k.key === "billing" && k.label === "Trùng khoá"),
+);
+check("loại không nhãn bị bỏ (nút vô nghĩa)", !MIX.some((k) => k.key === "khongnhan"));
+
+// Trần số loại — Discord chỉ chịu 5 nút/hàng × 5 hàng.
+const NHIEU = core.normalizeKinds(
+  Array.from({ length: 30 }, (_, i) => ({ key: `k${i}`, label: `Loại ${i}` })),
+  TK,
+);
+check(
+  `cắt còn ${core.MAX_TICKET_KINDS} loại (khớp MAX_KINDS bên Convex)`,
+  NHIEU.length === core.MAX_TICKET_KINDS,
+);
+
+// Trần ký tự của Discord: vượt thì API ném lỗi và hỏng CẢ panel.
+const DAI = core.normalizeKinds([{ key: "lon", label: "x".repeat(500) }], TK)[0];
+check(`nhãn cắt còn ${core.KIND_LABEL_MAX} ký tự`, DAI.label.length === core.KIND_LABEL_MAX);
+const DAI_Q = core.normalizeKinds([{ key: "q", label: "n", question: "y".repeat(200) }], TK)[0];
+check(
+  `nhãn modal cắt còn ${core.KIND_MODAL_LABEL_MAX} ký tự`,
+  DAI_Q.question.length === core.KIND_MODAL_LABEL_MAX,
+);
+const DAI_P = core.normalizeKinds(
+  [{ key: "p", label: "n", questionPlaceholder: "y".repeat(400) }],
+  TK,
+)[0];
+check(
+  `placeholder cắt còn ${core.KIND_PLACEHOLDER_MAX} ký tự`,
+  DAI_P.questionPlaceholder.length === core.KIND_PLACEHOLDER_MAX,
+);
+
+// findKind / normalizeKind theo danh sách thật.
+check("findKind thấy loại tuỳ chỉnh", core.findKind(MIX, "bug")?.label === "Báo lỗi");
+check(
+  "findKind không thấy → null (KHÔNG tự rơi về loại đầu)",
+  core.findKind(MIX, "khongco") === null,
+);
+check("normalizeKind giữ loại tuỳ chỉnh", core.normalizeKind("billing", MIX) === "billing");
+check("normalizeKind rác → loại đầu tiên", core.normalizeKind("khongco", MIX) === "billing");
+check(
+  "normalizeKind không có danh sách → hành xử CŨ (appeal giữ, rác → support)",
+  core.normalizeKind("appeal") === "appeal" &&
+    core.normalizeKind("support") === "support" &&
+    core.normalizeKind("rac") === "support" &&
+    core.normalizeKind("appeal", []) === "appeal",
+);
+
+// Role xử lý riêng theo loại.
+const VAI_THEO_LOAI = core.normalizeKinds(
+  [
+    { key: "billing", label: "Hoá đơn", staffRoleIds: ["111", "222", "111"] },
+    { key: "bug", label: "Báo lỗi" },
+  ],
+  TK,
+);
+check(
+  "loại có role riêng → dùng role riêng (đã bỏ trùng)",
+  core.staffRoleIdsForKind(VAI_THEO_LOAI, "billing", ["999"]).join(",") === "111,222",
+);
+check(
+  "loại không có role riêng → rơi về role staff chung",
+  core.staffRoleIdsForKind(VAI_THEO_LOAI, "bug", ["999"]).join(",") === "999",
+);
+check(
+  "loại KHÔNG tồn tại → vẫn dùng role staff chung (không chặn nhầm)",
+  core.staffRoleIdsForKind(VAI_THEO_LOAI, "khongco", ["999"]).join(",") === "999",
+);
+check("không có fallback → mảng rỗng", core.staffRoleIdsForKind(VAI_THEO_LOAI, "bug").length === 0);
+
+// Emoji: rác phải bị loại, vì setEmoji ném lỗi làm hỏng cả tin nhắn panel.
+check("emoji Unicode hợp lệ", core.isUsableEmoji("💳") === true);
+check("emoji tuỳ chỉnh hợp lệ", core.isUsableEmoji("<a:coin:123456789012345678>") === true);
+check("emoji rác bị từ chối", core.isUsableEmoji("đá quý") === false);
+check("emoji rỗng bị từ chối", core.isUsableEmoji("") === false);
+const BTN = core.buildPanelButtons(
+  core.normalizeKinds(
+    [
+      { key: "billing", label: "Hoá đơn", emoji: "💳" },
+      { key: "bug", label: "Báo lỗi", emoji: "đá quý" },
+    ],
+    TK,
+  ),
+);
+check("nút mang customId đúng key", BTN[0].customId === "ticket_open:billing");
+check("emoji tốt đi vào nút", BTN[0].emoji === "💳");
+check("emoji rác bị bỏ khỏi nút (API Discord sẽ ném)", BTN[1].emoji === undefined);
+check("nút đầu Primary, nút sau Secondary", BTN[0].style === 1 && BTN[1].style === 2);
+
+// Modal theo từng loại.
+const SPEC = core.buildModalSpec(core.findKind(MIX, "billing"), TK);
+check("modal mang customId theo key", SPEC.customId === "ticket_open_submit:billing");
+check(
+  "loại KHÔNG có câu hỏi riêng → dùng câu hỏi dịch sẵn",
+  core.buildModalSpec(core.findKind(MIX, "bug"), TK).bodyLabel === TK.openBodyLabelSupport,
+);
+check(
+  "loại có câu hỏi riêng → dùng câu hỏi của loại",
+  core.buildModalSpec(
+    core.normalizeKinds([{ key: "b", label: "B", question: "Bạn hỏi gì?" }], TK)[0],
+    TK,
+  ).bodyLabel === "Bạn hỏi gì?",
+);
+check(
+  "modal thiếu loại → vẫn dựng được (không lỗi)",
+  typeof core.buildModalSpec(null, TK).bodyLabel === "string",
+);
+
+// Tiêu đề embed mở ticket dùng nhãn tuỳ chỉnh, và escape mention trong đó.
+const PAY = core.buildOpenPayload({
+  TICKET_TEXT: TK,
+  number: 7,
+  kind: "billing",
+  kindLabel: "Hoá đơn",
+  openerName: "a",
+  body: "b",
+});
+check("tiêu đề embed dùng nhãn tuỳ chỉnh", PAY.title === "Hoá đơn #7", PAY.title);
+check(
+  "nhãn chủ server gõ @everyone KHÔNG ping được (escape trước khi vào embed)",
+  core
+    .buildOpenPayload({
+      TICKET_TEXT: TK,
+      number: 1,
+      kind: "x",
+      kindLabel: "@everyone",
+      openerName: "a",
+      body: "b",
+    })
+    .title.includes(String.fromCharCode(0x200b)),
+);
+check(
+  "không có nhãn tuỳ chỉnh → giữ tiêu đề cứng như cũ",
+  core.buildOpenPayload({ TICKET_TEXT: TK, number: 3, kind: "appeal", openerName: "a", body: "b" })
+    .title === "Khiếu nại #3",
+);
+
 console.log(`\nKết quả tickets: ${pass} PASS, ${fail} FAIL`);
 process.exit(fail === 0 ? 0 : 1);

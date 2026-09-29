@@ -36,6 +36,7 @@ class ButtonBuilder {
   setCustomId(v) { this.customId = v; return this; }
   setLabel(v) { this.label = v; return this; }
   setStyle(v) { this.style = v; return this; }
+  setEmoji(v) { this.emoji = v; return this; }
 }
 class ModalBuilder {
   constructor() { this.components = []; }
@@ -212,6 +213,103 @@ module.exports = {
       "modal mở: loại khiếu nại hỏi về hình phạt",
       a.customId === "ticket_open_submit:appeal" && a.title === T.openModalTitleAppeal,
       a.title,
+    );
+  }
+
+  // ═════════ 2b. Loại ticket TUỲ CHỈNH (29/09/2026) ═════════
+  {
+    const KINDS = [
+      { key: "billing", label: "Hoá đơn", emoji: "💳", question: "Bạn hỏi gì về hoá đơn?" },
+      { key: "bug", label: "Báo lỗi game", emoji: "🐛" },
+      {
+        key: "appeal",
+        label: "Khiếu nại hình phạt",
+        question: "Bạn cho rằng mình bị phạt oan vì…",
+      },
+    ];
+    const panel = tickets.openPanel({ T, customText: "", showAppeal: true, kinds: KINDS });
+    const ids = panel.components[0].components.map((b) => b.customId);
+    check(
+      "panel: dựng nút theo danh sách loại của server",
+      JSON.stringify(ids) ===
+        JSON.stringify(["ticket_open:billing", "ticket_open:bug", "ticket_open:appeal"]),
+      JSON.stringify(ids),
+    );
+    check(
+      "panel: nhãn nút lấy từ cấu hình, không phải chuỗi dịch sẵn",
+      panel.components[0].components[1].label === "Báo lỗi game",
+      panel.components[0].components[1].label,
+    );
+    check(
+      "panel: emoji hợp lệ được đưa vào nút",
+      panel.components[0].components[0].emoji === "💳",
+      String(panel.components[0].components[0].emoji),
+    );
+    check(
+      "panel: emoji rác bị bỏ (setEmoji ném lỗi sẽ hỏng cả tin nhắn panel)",
+      tickets.openPanel({
+        T,
+        customText: "",
+        kinds: [{ key: "x", label: "X", emoji: "đá quý" }],
+      }).components[0].components[0].emoji === undefined,
+    );
+    // showAppeal vẫn có tác dụng trên danh sách tuỳ chỉnh: khoá "appeal" là
+    // loại khiếu nại mặc định, server đã tắt nút đó thì phải biến mất luôn.
+    const noAppeal = tickets.openPanel({ T, customText: "", showAppeal: false, kinds: KINDS });
+    check(
+      "panel: tắt nút khiếu nại cũng ẩn loại tuỳ chỉnh có khoá 'appeal'",
+      JSON.stringify(noAppeal.components[0].components.map((b) => b.customId)) ===
+        JSON.stringify(["ticket_open:billing", "ticket_open:bug"]),
+    );
+    // Tràn số loại: bị cắt còn 10 (trần chung với Convex) RỒI chia hàng —
+    // Discord tối đa 5 nút/hàng, để 12 nút 1 hàng là API từ chối cả tin nhắn.
+    const nhieu = Array.from({ length: 12 }, (_, i) => ({ key: `k${i}`, label: `Loại ${i}` }));
+    const panelNhieu = tickets.openPanel({ T, customText: "", kinds: nhieu });
+    check(
+      "panel: 12 loại → cắt còn 10 rồi chia 2 hàng, không hàng nào quá 5 nút",
+      panelNhieu.components.length === 2 &&
+        panelNhieu.components.every((r) => r.components.length <= 5) &&
+        panelNhieu.components.reduce((n, r) => n + r.components.length, 0) === 10,
+      panelNhieu.components.map((r) => r.components.length).join(","),
+    );
+    // Chỉ có loại "appeal" mà lại tắt nút khiếu nại → vẫn phải dán panel,
+    // không thì server mất hoàn toàn đường mở ticket.
+    const onlyAppeal = tickets.openPanel({
+      T,
+      customText: "",
+      showAppeal: false,
+      kinds: [{ key: "appeal", label: "Khiếu nại" }],
+    });
+    check(
+      "panel: lọc hết nút vẫn dán panel (mất hàng đầu là mất đường mở ticket)",
+      onlyAppeal.components.length === 1 && onlyAppeal.components[0].components.length === 1,
+    );
+    // Danh sách rác → rơi về 2 loại cứng, panel không hỏng.
+    check(
+      "panel: danh sách loại rác → vẫn ra 2 nút mặc định",
+      tickets.openPanel({ T, customText: "", kinds: "rac" }).components[0].components.length === 2,
+    );
+
+    // Modal lấy câu hỏi riêng của từng loại.
+    const kinds = require("../bot/src/ticketCore").normalizeKinds(KINDS, T);
+    const mBilling = tickets.openModal(T, "billing", kinds);
+    check(
+      "modal: câu hỏi riêng của loại + customId theo key",
+      mBilling.customId === "ticket_open_submit:billing" &&
+        mBilling.components[0].label === "Bạn hỏi gì về hoá đơn?",
+      mBilling.components[0].label,
+    );
+    const mAppeal = tickets.openModal(T, "appeal", kinds);
+    check(
+      "modal: loại khiếu nại giữ câu hỏi riêng của mình",
+      mAppeal.components[0].label === "Bạn cho rằng mình bị phạt oan vì…",
+      mAppeal.components[0].label,
+    );
+    const mBug = tickets.openModal(T, "bug", kinds);
+    check(
+      "modal: loại không có câu hỏi riêng → dùng chuỗi dịch sẵn",
+      mBug.components[0].label === T.openBodyLabelSupport,
+      mBug.components[0].label,
     );
   }
 

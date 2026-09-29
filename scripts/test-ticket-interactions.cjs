@@ -154,7 +154,23 @@ const ticketCoreMock = {
     String(raw || "")
       .trim()
       .slice(0, 300),
+  // Loại ticket tuỳ chỉnh (29/09/2026): interactionCreate gọi 2 hàm này để tra
+  // key trên customId. Mock đúng hành vi của bản thật cho danh sách rỗng
+  // (rơi về 2 loại cứng) — nếu mock trả `undefined` thì mọi nhánh nút "Mở
+  // ticket" sẽ vỡ và suite báo lỗi KHÔNG LIÊN QUAN tới thay đổi này.
+  normalizeKinds: (raw) => (Array.isArray(raw) && raw.length > 0 ? raw : DEFAULT_MOCK_KINDS),
+  normalizeKind: (kind, kinds) => {
+    const list = Array.isArray(kinds) && kinds.length > 0 ? kinds : DEFAULT_MOCK_KINDS;
+    return list.some((k) => k.key === kind) ? kind : list[0].key;
+  },
+  findKind: (kinds, key) => (kinds || []).find((k) => k.key === key) ?? null,
 };
+
+/** 2 loại cứng — mirror `defaultTicketKinds()` của ticketCore.js. */
+const DEFAULT_MOCK_KINDS = [
+  { key: "support", label: "Hỗ trợ chung", staffRoleIds: [] },
+  { key: "appeal", label: "Khiếu nại hình phạt", staffRoleIds: [] },
+];
 
 const aiMock = {
   researchAvailable: () => ctl.aiAvailable,

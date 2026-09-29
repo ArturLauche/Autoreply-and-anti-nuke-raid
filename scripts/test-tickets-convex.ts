@@ -28,6 +28,15 @@ import {
   botMarkTicketChannelClosed,
 } from "../convex/bot_writes";
 import { updateSettings } from "../convex/guilds";
+import {
+  listKinds,
+  saveKind,
+  removeKind,
+  setKindEnabled,
+  swapKindOrder,
+  botKinds,
+  MAX_KINDS,
+} from "../convex/ticketKinds";
 import { computeBotKey } from "../convex/botAuth";
 
 const listH = (listTickets as any)._handler;
@@ -44,6 +53,12 @@ const transcriptH = (ticketTranscript as any)._handler;
 const transcriptUrlH = (ticketTranscriptUrl as any)._handler;
 const markClosedH = (botMarkTicketChannelClosed as any)._handler;
 const updateH = (updateSettings as any)._handler;
+const listKindsH = (listKinds as any)._handler;
+const saveKindH = (saveKind as any)._handler;
+const removeKindH = (removeKind as any)._handler;
+const setKindEnabledH = (setKindEnabled as any)._handler;
+const swapOrderH = (swapKindOrder as any)._handler;
+const botKindsH = (botKinds as any)._handler;
 
 let pass = 0;
 let fail = 0;
@@ -75,7 +90,18 @@ function makeCtx(opts: { seed?: string | null } = {}) {
     opts.seed === null
       ? []
       : [{ _id: "st1", kind: "status", botKeySeed: computeBotKey(opts.seed ?? BOT_KEY) }];
-  const tables: Record<string, Row[]> = { tickets, guilds, sessions, users, botStatus: statusRows };
+  // `ticketKinds` dùng chung ctx vì các handler của nó đi qua đúng
+  // insert/patch/delete/withIndex như mọi bảng khác — tách riêng sẽ tạo
+  // thêm một bộ mock phải bảo trì song song.
+  const ticketKinds: Row[] = [];
+  const tables: Record<string, Row[]> = {
+    tickets,
+    guilds,
+    sessions,
+    users,
+    botStatus: statusRows,
+    ticketKinds,
+  };
 
   let idSeq = 0;
   const ctx = {
@@ -87,11 +113,19 @@ function makeCtx(opts: { seed?: string | null } = {}) {
         return id;
       },
       get: async (id: string) =>
-        [...users, ...guilds, ...tickets, ...sessions].find((r) => r._id === id) ?? null,
+        [...users, ...guilds, ...tickets, ...sessions, ...ticketKinds].find((r) => r._id === id) ??
+        null,
+      delete: async (id: string) => {
+        const list = tables["ticketKinds"] ?? [];
+        const i = list.findIndex((r) => r._id === id);
+        if (i >= 0) list.splice(i, 1);
+      },
       patch: async (id: string, patch: Row) => {
-        // Phải vá CẢ `tickets` lẫn `guilds`: `botOpenTicket` bump bộ đếm
-        // modCaseCounter nằm ở bảng guilds.
-        for (const table of ["tickets", "guilds"]) {
+        // Phải vá CẢ `tickets`, `guilds` lẫn `ticketKinds`: `botOpenTicket` bump
+        // bộ đếm modCaseCounter nằm ở bảng guilds, còn các mutation loại
+        // ticket patch dòng của chính bảng `ticketKinds`. Bỏ bảng nào ở đây
+        // thì test "sửa loại" xanh trong khi dữ liệu thật KHÔNG đổi.
+        for (const table of ["tickets", "guilds", "ticketKinds"]) {
           const row = (tables[table] ?? []).find((r) => r._id === id);
           if (row) Object.assign(row, patch);
         }
@@ -146,7 +180,7 @@ function makeCtx(opts: { seed?: string | null } = {}) {
       }),
     },
   };
-  return { ctx, tickets, guilds, sessions, users };
+  return { ctx, tickets, guilds, sessions, users, ticketKinds };
 }
 
 /** Một ticket với createdAt chỉ định (để kiểm thứ tự). */
@@ -1150,6 +1184,229 @@ const throws = async (fn: () => Promise<unknown>) => {
     } finally {
       globalThis.fetch = realFetch;
     }
+  }
+
+  // ═══ LOẠI TICKET TUỲ CHỈNH (29/09/2026) — convex/ticketKinds.ts ═══
+  console.log("\n── ticketKinds ──");
+  {
+    // Ràng buộc tương thích ngược: server chưa cấu hình gì → danh sách rỗng,
+    // bot tự rơi về 2 loại cứng. Không có dòng nào KHÔNG được tự tạo.
+    const e = env();
+    const empty = await listKindsH(e.ctx, { token: "tok", guildId: "g1" });
+    check("chưa cấu hình → danh sách rỗng (bot dùng 2 loại cứng)", empty.length === 0);
+    check("chưa cấu hình → KHÔNG tự sinh dòng nào", e.ticketKinds.length === 0);
+  }
+  {
+    const e = env();
+    const out = await saveKindH(e.ctx, {
+      token: "tok",
+      guildId: "g1",
+      key: "billing",
+      label: "Hoá đơn",
+      question: "Bạn hỏi gì về hoá đơn?",
+      staffRoleIds: ["111111111111111111"],
+    });
+    check("saveKind tạo loại mới", out?.key === "billing" && e.ticketKinds.length === 1);
+    check(
+      "settingsChangedAt được bump (bot đọc qua cache 30 phút)",
+      typeof e.guilds[0].settingsChangedAt === "number",
+    );
+    const rows = await listKindsH(e.ctx, { token: "tok", guildId: "g1" });
+    check("listKinds trả về loại vừa tạo", rows[0]?.key === "billing");
+    check("câu hỏi riêng được giữ", rows[0]?.question === "Bạn hỏi gì về hoá đơn?");
+  }
+  {
+    // Upsert theo key: sửa nhãn thì KHÔNG tạo dòng thứ hai (ticket đã mở vẫn
+    // tra được đúng loại đó).
+    const e = env();
+    await saveKindH(e.ctx, { token: "tok", guildId: "g1", key: "bug", label: "Lỗi" });
+    await saveKindH(e.ctx, { token: "tok", guildId: "g1", key: "bug", label: "Báo lỗi" });
+    check("saveKind lần 2 SỬA chứ không tạo dòng mới", e.ticketKinds.length === 1);
+    check("nhãn đã cập nhật", e.ticketKinds[0].label === "Báo lỗi");
+    check("loại mới chen XUÔNG CUỐI (order tăng dần)", e.ticketKinds[0].order === 1);
+  }
+  {
+    // Chặn rác: mọi trường đều làm sạch ở tầng ghi, không để bot tự phòng thủ.
+    const e = env();
+    const bad = [
+      [{ key: "CÓ DẤU", label: "x" }, "khoá có dấu"],
+      [{ key: "", label: "x" }, "khoá rỗng"],
+      [{ key: "ok", label: "   " }, "nhãn rỗng"],
+      [{ key: "ok", label: "x", color: "đỏ" }, "màu sai định dạng"],
+      [{ key: "ok", label: "x", emoji: "đá quý dài" }, "emoji sai định dạng"],
+    ] as [Row, string][];
+    for (const [args, label] of bad) {
+      check(
+        `saveKind chặn: ${label}`,
+        await throws(() => saveKindH(e.ctx, { token: "tok", guildId: "g1", ...args })),
+      );
+    }
+    check("loại sai KHÔNG được ghi", e.ticketKinds.length === 0);
+    await saveKindH(e.ctx, {
+      token: "tok",
+      guildId: "g1",
+      key: "ok",
+      label: "x".repeat(200),
+      question: "y".repeat(200),
+    });
+    check("nhãn bị cắt theo trần Discord", e.ticketKinds[0].label.length === 80);
+    check("nhãn modal bị cắt theo trần Discord", e.ticketKinds[0].question.length === 45);
+  }
+  {
+    // Trần số loại — chặn spam tài liệu.
+    const e = env();
+    for (let i = 0; i < MAX_KINDS; i++) {
+      await saveKindH(e.ctx, { token: "tok", guildId: "g1", key: `k${i}`, label: `L${i}` });
+    }
+    check(
+      `đủ ${MAX_KINDS} loại thì chặn loại thứ ${MAX_KINDS + 1}`,
+      await throws(() =>
+        saveKindH(e.ctx, { token: "tok", guildId: "g1", key: "over", label: "x" }),
+      ),
+    );
+    check(
+      "sửa loại đã có KHÔNG bị chặn bởi trần",
+      (await saveKindH(e.ctx, { token: "tok", guildId: "g1", key: "k0", label: "đổi" })).key ===
+        "k0",
+    );
+  }
+  {
+    // Thứ tự: index chỉ có guildId nên phải tự sắp theo `order`.
+    const e = env();
+    e.ticketKinds.push(
+      { _id: "a", guildId: "g1", key: "a", label: "A", order: 3, enabled: true, createdAt: 1 },
+      { _id: "b", guildId: "g1", key: "b", label: "B", order: 1, enabled: true, createdAt: 2 },
+      { _id: "c", guildId: "g1", key: "c", label: "C", order: 2, enabled: false, createdAt: 3 },
+    );
+    const rows = await listKindsH(e.ctx, { token: "tok", guildId: "g1" });
+    check(
+      "listKinds sắp theo order (không theo thứ tự scan của index)",
+      rows.map((r: Row) => r.key).join(",") === "b,c,a",
+      rows.map((r: Row) => r.key).join(","),
+    );
+    const botRows = await botKindsH(e.ctx, { guildId: "g1", botKey: BOT_KEY });
+    check(
+      "botKinds CHỈ trả loại đang bật (loại tắt không dựng nút)",
+      botRows.map((r: Row) => r.key).join(",") === "b,a",
+      botRows.map((r: Row) => r.key).join(","),
+    );
+  }
+  {
+    // Bật/tắt là hành động thường ngày — phải giữ nguyên cấu hình câu hỏi.
+    const e = env();
+    e.ticketKinds.push({
+      _id: "a",
+      guildId: "g1",
+      key: "a",
+      label: "A",
+      question: "Hỏi gì?",
+      order: 1,
+      enabled: true,
+      createdAt: 1,
+    });
+    await setKindEnabledH(e.ctx, { token: "tok", guildId: "g1", key: "a", enabled: false });
+    check(
+      "tắt loại giữ nguyên câu hỏi (không mất cấu hình)",
+      e.ticketKinds[0].question === "Hỏi gì?",
+    );
+    check("tắt loại → enabled = false", e.ticketKinds[0].enabled === false);
+    check(
+      "tắt loại cũng bump settingsChangedAt",
+      typeof e.guilds[0].settingsChangedAt === "number",
+    );
+    check(
+      "tắt loại KHÔNG tồn tại → báo lỗi",
+      await throws(() =>
+        setKindEnabledH(e.ctx, { token: "tok", guildId: "g1", key: "zzz", enabled: true }),
+      ),
+    );
+  }
+  {
+    // Đổi thứ tự: đổi chỗ GIÁ TRỊ order, không cộng/trừ (trùng order thì nghẽn).
+    const e = env();
+    e.ticketKinds.push(
+      { _id: "a", guildId: "g1", key: "a", label: "A", order: 5, enabled: true, createdAt: 1 },
+      { _id: "b", guildId: "g1", key: "b", label: "B", order: 1, enabled: true, createdAt: 2 },
+    );
+    await swapOrderH(e.ctx, { token: "tok", guildId: "g1", keyA: "a", keyB: "b" });
+    check(
+      "swap đổi chỗ order của 2 loại",
+      e.ticketKinds[0].order === 1 && e.ticketKinds[1].order === 5,
+    );
+    check(
+      "swap cùng key là cấu hình vô nghĩa → không lỗi, không ghi",
+      (await swapOrderH(e.ctx, { token: "tok", guildId: "g1", keyA: "a", keyB: "a" })).ok === true,
+    );
+    check(
+      "swap loại không tồn tại → báo lỗi",
+      await throws(() =>
+        swapOrderH(e.ctx, { token: "tok", guildId: "g1", keyA: "a", keyB: "zzz" }),
+      ),
+    );
+  }
+  {
+    // Trùng order (dữ liệu cũ) phải tách được, không để nghẽn hàng.
+    const e = env();
+    e.ticketKinds.push(
+      { _id: "a", guildId: "g1", key: "a", label: "A", order: 2, enabled: true, createdAt: 1 },
+      { _id: "b", guildId: "g1", key: "b", label: "B", order: 2, enabled: true, createdAt: 2 },
+    );
+    await swapOrderH(e.ctx, { token: "tok", guildId: "g1", keyA: "a", keyB: "b" });
+    check("order trùng vẫn tách được sau swap", e.ticketKinds[0].order !== e.ticketKinds[1].order);
+  }
+  {
+    // Xoá hẳn.
+    const e = env();
+    e.ticketKinds.push({
+      _id: "a",
+      guildId: "g1",
+      key: "a",
+      label: "A",
+      order: 1,
+      enabled: true,
+      createdAt: 1,
+    });
+    await removeKindH(e.ctx, { token: "tok", guildId: "g1", key: "a" });
+    check("removeKind xoá dòng", e.ticketKinds.length === 0);
+    check("removeKind bump settingsChangedAt", typeof e.guilds[0].settingsChangedAt === "number");
+    check(
+      "xoá loại không tồn tại → không lỗi (idempotent)",
+      (await removeKindH(e.ctx, { token: "tok", guildId: "g1", key: "zzz" })).ok === true,
+    );
+  }
+  {
+    // Quyền: KHÔNG ai đọc/ghi được loại ticket của server không manage.
+    const e = env({ manageable: false });
+    check(
+      "không quyền → listKinds chặn",
+      await throws(() => listKindsH(e.ctx, { token: "tok", guildId: "g1" })),
+    );
+    check(
+      "không quyền → saveKind chặn",
+      await throws(() => saveKindH(e.ctx, { token: "tok", guildId: "g1", key: "a", label: "A" })),
+    );
+    check(
+      "không quyền → removeKind chặn",
+      await throws(() => removeKindH(e.ctx, { token: "tok", guildId: "g1", key: "a" })),
+    );
+  }
+  {
+    // Bot key: không có nó thì bất kỳ ai cũng đọc được cấu hình mọi server.
+    const e = env({ seed: null });
+    e.ticketKinds.push({
+      _id: "a",
+      guildId: "g1",
+      key: "a",
+      label: "A",
+      order: 1,
+      enabled: true,
+      createdAt: 1,
+    });
+    check("botKinds thiếu botKey → chặn", await throws(() => botKindsH(e.ctx, { guildId: "g1" })));
+    check(
+      "botKinds sai botKey → chặn",
+      await throws(() => botKindsH(e.ctx, { guildId: "g1", botKey: "sai" })),
+    );
   }
 
   console.log(`\nKết quả tickets-convex: ${pass} PASS, ${fail} FAIL`);

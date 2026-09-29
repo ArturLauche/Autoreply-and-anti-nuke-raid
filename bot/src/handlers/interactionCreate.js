@@ -79,6 +79,7 @@ const { analyzeNewMember, executePunishment, buildRiskEmbed } = require("../altD
 const { reportInteractive } = require("./incidentReport");
 const researchHandlers = require("./researchCommands");
 const tickets = require("./tickets");
+const ticketCore = require("../ticketCore");
 const lang = require("./lang");
 
 // Rate limiting for verify attempts: Map<userId, { attempts: number, lastAttemptAt: number }>
@@ -335,8 +336,6 @@ async function lockCommand(client, store, interaction) {
  * server tự tạo câu hỏi.)
  */
 async function ticketOpenButton(client, store, interaction) {
-  const kind =
-    interaction.customId.slice("ticket_open:".length) === "appeal" ? "appeal" : "support";
   const guild = interaction.guild;
   if (!guild)
     return interaction.reply({ content: "Lệnh này chỉ hoạt động trong server.", ephemeral: true });
@@ -348,19 +347,31 @@ async function ticketOpenButton(client, store, interaction) {
   if (interaction.user.bot) {
     return interaction.reply({ content: T.errBotAccount, ephemeral: true });
   }
-  return interaction.showModal(tickets.openModal(T, kind));
+  // Key lấy NGUYÊN VẸN từ customId (không ép về 2 giá trị cứng) rồi mới tra
+  // danh sách loại của server. Nút cũ dán tay từ trước khi có loại tuỳ chỉnh
+  // vẫn phải mở được — `normalizeKind` lo phần "key không còn tồn tại".
+  const kinds = ticketCore.normalizeKinds(config?.ticketKinds, T);
+  const kind = ticketCore.normalizeKind(interaction.customId.slice("ticket_open:".length), kinds);
+  return interaction.showModal(tickets.openModal(T, kind, kinds));
 }
 
 /** TICKET — modal nội dung sau khi bấm nút trên panel: mở ticket cho thành viên. */
 async function ticketOpenSubmitModal(client, store, interaction) {
-  const kind =
-    interaction.customId.slice("ticket_open_submit:".length) === "appeal" ? "appeal" : "support";
   const guild = interaction.guild;
   if (!guild)
     return interaction.reply({ content: "Lệnh này chỉ hoạt động trong server.", ephemeral: true });
   const body = interaction.fields.getTextInputValue("ticket_body");
   const evidence = interaction.fields.getTextInputValue("ticket_evidence");
   const T = lang.ticketText(tickets.langFor(interaction, guild));
+  const config = await store.getConfig(guild.id);
+  // Tra lại danh sách loại: giữa lúc mở nút và lúc bấm "Gửi", chủ server có
+  // thể đã đổi tên/xoá loại đó. Không tra thì `openTicket` tự rơi về loại đầu
+  // tiên — người dùng bấm "Khiếu nại" lại nhận ticket "Hỗ trợ".
+  const kinds = ticketCore.normalizeKinds(config?.ticketKinds, T);
+  const kind = ticketCore.normalizeKind(
+    interaction.customId.slice("ticket_open_submit:".length),
+    kinds,
+  );
   if (!body || !body.trim()) {
     return interaction.reply({ content: T.aiEmpty, ephemeral: true });
   }

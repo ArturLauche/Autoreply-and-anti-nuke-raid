@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import type { GuildData, TicketRow } from "../../lib/types";
 import { getSessionToken } from "../../lib/discord";
 import { dateLocale, translate } from "../../lib/i18n";
+import TicketKindsCard from "./TicketKindsCard";
 
 const TOKEN = () => getSessionToken();
 
@@ -745,6 +746,9 @@ export default function TicketPanel({ data }: { data: GuildData }) {
           </Card>
         </>
       )}
+
+      {/* ═══ DANH SÁCH LOẠI TICKET TUỲ CHỈNH (29/09/2026) ═══ */}
+      {g.ticketEnabled ? <TicketKindsCard data={data} /> : null}
 
       <TicketStatsCard stats={stats} days={statsDays} onDays={setStatsDays} />
 
