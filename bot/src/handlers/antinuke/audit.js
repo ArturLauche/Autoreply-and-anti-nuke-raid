@@ -229,7 +229,12 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
         if (cleanup) action = `${action} · ${cleanup}`;
       }
     } catch {
-      action = "không thể xử lý";
+      // KHÔNG ghi đè kết quả phạt đã có. Khóa kênh + dọn tin nằm trong cùng
+      // try nên lỗi bước phụ (mất gateway giữa lúc raid) sẽ xoá mất "đã ban"
+      // → chủ server đọc log tưởng bot chưa làm gì trong khi thủ phạm đã bị
+      // ban. Chỉ khi bản thân bước phạt chưa cho ra kết quả nào mới ghi
+      // "không thể xử lý".
+      action = action === "đã ghi nhận" ? "không thể xử lý" : `${action} · bước phụ lỗi`;
     }
 
     await recordEvent(guild.id, {
@@ -405,7 +410,12 @@ module.exports = function createAntiNukeLayer({ client, store, heat, state, core
         if (cleanup) action = `${action} · ${cleanup}`;
       }
     } catch {
-      action = "không thể xử lý";
+      // KHÔNG ghi đè kết quả phạt đã có. Khóa kênh + dọn tin nằm trong cùng
+      // try nên lỗi bước phụ (mất gateway giữa lúc raid) sẽ xoá mất "đã ban"
+      // → chủ server đọc log tưởng bot chưa làm gì trong khi thủ phạm đã bị
+      // ban. Chỉ khi bản thân bước phạt chưa cho ra kết quả nào mới ghi
+      // "không thể xử lý".
+      action = action === "đã ghi nhận" ? "không thể xử lý" : `${action} · bước phụ lỗi`;
     }
 
     await recordEvent(guild.id, {

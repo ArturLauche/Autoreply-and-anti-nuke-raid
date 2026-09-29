@@ -48,7 +48,43 @@ module.exports = {
     unlockEdits: [],
     heatResets: [],
     ownerDms: [],
+    bulkDeleted: [],
+    singleDeleted: [],
   };
+
+  // Kênh giả có tin nhắn để chạy nhánh purgeMessages (dọn tin của thủ phạm).
+  function makeMsg(id, authorId) {
+    return {
+      id,
+      author: { id: authorId },
+      deletable: true,
+      delete: async () => {
+        calls.singleDeleted.push(id);
+      },
+    };
+  }
+  function withMessages(guild, msgs) {
+    const col = new Map(msgs.map((m) => [m.id, m]));
+    col.filter = (fn) => {
+      const out = [...col.values()].filter(fn);
+      out.first = (n) => (typeof n === "number" ? out.slice(0, n) : out[0]);
+      out.sort = Array.prototype.sort.bind(out);
+      return out;
+    };
+    const ch = guild.channels.cache.get("ch-1");
+    ch.messages.fetch = async () => col;
+    ch.bulkDelete = async (targets) => {
+      calls.bulkDeleted.push(targets.length);
+      return { size: targets.length };
+    };
+    return ch;
+  }
+  function withModule(config, moduleName, patch) {
+    return {
+      ...config,
+      modules: config.modules.map((m) => (m.module === moduleName ? { ...m, ...patch } : m)),
+    };
+  }
 
   function baseConfig(overrides = {}) {
     return {
@@ -918,6 +954,277 @@ module.exports = {
       "handleAttributeEvent: mod duoc mien thi khong phat",
       !calls.memberBans.includes("mod-attr"),
     );
+  }
+
+  // ── 16. purgeMessages: dọn tin của thủ phạm trên toàn server ──
+  // Nhánh này chưa từng chạy: cleanupMessages gọi
+  // guild.channels.cache.filter(...).first(8) + channel.bulkDelete, mock cũ
+  // không có nên nhánh chỉ tồn tại trên giấy. Đây là bước cắt thiệt hại ngay
+  // sau khi ban — quan trọng không kém việc ban.
+  {
+    clear();
+    const gid = "g-audit-purge";
+    const raider = makeMember("purge-raider");
+    const guild = makeGuild(gid, [raider]);
+    withMessages(guild, [
+      makeMsg("pm1", "purge-raider"),
+      makeMsg("pm2", "purge-raider"),
+      makeMsg("pm3", "nguoi-tot"),
+    ]);
+    configs.set(
+      gid,
+      withModule(baseConfig(), "massChannelDelete", { actions: ["ban", "purgeMessages"] }),
+    );
+    client.guilds.cache.set(gid, guild);
+    const entry = { executor: makeExecutorUser("purge-raider"), target: { id: "ch-x" } };
+    await audit.handleAuditEntry(entry, guild, "massChannelDelete", "x1");
+    await audit.handleAuditEntry(entry, guild, "massChannelDelete", "x2");
+    check(
+      `audit purgeMessages: xoá hết tin của thủ phạm (thực tế ${calls.bulkDeleted.join(",")})`,
+      calls.bulkDeleted.length === 1 && calls.bulkDeleted[0] === 2,
+    );
+    check("audit purgeMessages: KHÔNG xoá tin của người khác", calls.singleDeleted.length === 0);
+    const ev = calls.events.find((e) => e.module === "massChannelDelete");
+    check(
+      `audit purgeMessages: sự kiện ghi kèm số tin đã dọn (${String(ev?.action ?? "").slice(0, 80)})`,
+      String(ev?.action ?? "").includes("purge 2 tin"),
+    );
+  }
+  {
+    // handleAttributeEvent cũng có nhánh purgeMessages riêng (audit entry có
+    // executor rõ, attribute event thì tra từ audit log theo targetId).
+    clear();
+    const gid = "g-attr-purge";
+    const raider = makeMember("attr-purge");
+    const guild = makeGuild(gid, [raider]);
+    withMessages(guild, [makeMsg("ap1", "attr-purge"), makeMsg("ap2", "nguoi-khac")]);
+    configs.set(
+      gid,
+      withModule(baseConfig(), "massChannelDelete", { actions: ["ban", "purgeMessages"] }),
+    );
+    client.guilds.cache.set(gid, guild);
+    guild.fetchAuditLogs = async () => ({
+      entries: {
+        first: () => ({ id: "e1", executor: { id: "attr-purge", username: "attr-purge" } }),
+        find: () => ({ id: "e1", executor: { id: "attr-purge", username: "attr-purge" } }),
+      },
+    });
+    const attr = (n) => ({
+      guild,
+      module: "massChannelDelete",
+      eventType: "GuildChannelDelete",
+      targetId: "ch-" + n,
+      describeTarget: "#k" + n,
+    });
+    await audit.handleAttributeEvent(attr(1));
+    await audit.handleAttributeEvent(attr(2));
+    check(
+      `attribute purgeMessages: xoá tin của thủ phạm (thực tế ${calls.singleDeleted.join(",")})`,
+      calls.singleDeleted.includes("ap1"),
+    );
+  }
+
+  // ── 17. LỖI BƯỚC PHỤ KHÔNG ĐƯỢC XOÁ THÔNG TIN ĐÃ PHẠT ──
+  // Khóa kênh + dọn tin nằm cùng try với phạt. Nếu chúng lỗi (mất gateway
+  // giữa lúc raid — đúng lúc bot phản ứng), catch ghi đè action thành
+  // "không thể xử lý" → chủ server đọc log tưởng bot chưa làm gì, trong khi
+  // thủ phạm ĐÃ bị ban.
+  {
+    clear();
+    const gid = "g-substep-fail";
+    const raider = makeMember("substep-raider");
+    const guild = makeGuild(gid, [raider]);
+    // Mock guild không có members.fetchMe → lockGuild ném TypeError, đúng
+    // dạng lỗi "gateway mất kết nối" mà bot gặp giữa lúc raid.
+    configs.set(
+      gid,
+      withModule(baseConfig({ lockdownEnabled: true }), "massChannelDelete", {
+        actions: ["ban", "purgeMessages"],
+      }),
+    );
+    client.guilds.cache.set(gid, guild);
+    const entry = { executor: makeExecutorUser("substep-raider"), target: { id: "ch-x" } };
+    await audit.handleAuditEntry(entry, guild, "massChannelDelete", "x1");
+    await audit.handleAuditEntry(entry, guild, "massChannelDelete", "x2");
+    check("bước phụ lỗi: thủ phạm VẪN bị ban", calls.memberBans.includes("substep-raider"));
+    const ev = calls.events.find((e) => e.module === "massChannelDelete");
+    check(
+      `bước phụ lỗi: sự kiện không mất thông tin đã ban (${String(ev?.action ?? "").slice(0, 80)})`,
+      String(ev?.action ?? "").includes("đã ban"),
+    );
+  }
+
+  // ── 18. handleAttributeEvent: các nhánh miễn trừ chưa chạy ──
+  {
+    clear();
+    const { _ownerAlertForTest } = require("../bot/src/handlers/antinuke/ownerAlert");
+    _ownerAlertForTest();
+    const gid = "g-attr-exempt";
+    const guild = makeGuild(gid, []);
+    configs.set(gid, baseConfig({ whitelistUsers: ["white-1"] }));
+    client.guilds.cache.set(gid, guild);
+    const mk = (executor) => ({
+      guild,
+      module: "massChannelDelete",
+      eventType: "GuildChannelDelete",
+      targetId: "ch-1",
+      describeTarget: "#a",
+      _exec: executor,
+    });
+    // auditExecutor dùng auditLookup — nạp executor qua fetchAuditLogs
+    const setExec = (id) => {
+      guild.fetchAuditLogs = async () => ({
+        entries: {
+          first: () => ({ id: "e1", executor: { id, username: id } }),
+          find: () => ({ id: "e1", executor: { id, username: id } }),
+        },
+      });
+    };
+    const run = async (id) => {
+      setExec(id);
+      await audit.handleAttributeEvent(mk());
+      await new Promise((r) => setImmediate(r));
+    };
+    // Owner (miễn ngay cả khi không fetch được member)
+    await run("owner-1");
+    check("attr: owner → bỏ qua, không ghi sự kiện", calls.events.length === 0);
+    // Whitelist toàn cục
+    await run("white-1");
+    check("attr: whitelist toàn cục → bỏ qua", calls.events.length === 0);
+    // Bot logging hợp pháp
+    await run("carl-bot-x");
+    check("attr: bot logging (Carl-bot) → bỏ qua", calls.events.length === 0);
+    // Không tra được executor → im lặng, không vỡ
+    guild.fetchAuditLogs = async () => ({ entries: { first: () => null, find: () => null } });
+    await audit.handleAttributeEvent(mk());
+    check("attr: không tra được executor → im lặng", calls.events.length === 0);
+    // Guild unavailable → bỏ qua ngay
+    await audit.handleAttributeEvent({ ...mk(), guild: { id: gid, available: false } });
+    check("attr: guild unavailable → bỏ qua", calls.events.length === 0);
+    await audit.handleAttributeEvent({ guild: null, module: "massChannelDelete" });
+    check("attr: thiếu guild → bỏ qua, không vỡ", true);
+  }
+
+  // ── 19. handleAttributeEvent: ban bot ngoài server thất bại ──
+  {
+    clear();
+    const gid = "g-attr-banfail";
+    const guild = makeGuild(gid, []);
+    configs.set(
+      gid,
+      withModule(baseConfig(), "massChannelDelete", { actions: ["ban"], threshold: 1 }),
+    );
+    client.guilds.cache.set(gid, guild);
+    guild.members.ban = async () => {
+      throw new Error("Missing Permissions");
+    };
+    guild.fetchAuditLogs = async () => ({
+      entries: {
+        first: () => ({
+          id: "e1",
+          executor: { id: "bot-ngoai", bot: true, username: "bot-ngoai" },
+        }),
+        find: () => ({
+          id: "e1",
+          executor: { id: "bot-ngoai", bot: true, username: "bot-ngoai" },
+        }),
+      },
+    });
+    await audit.handleAttributeEvent({
+      guild,
+      module: "massChannelDelete",
+      eventType: "GuildChannelDelete",
+      targetId: "ch-1",
+      describeTarget: "#a",
+    });
+    const ev = calls.events.find((e) => e.module === "massChannelDelete");
+    check(
+      `attr: ban bot ngoài server thất bại → ghi rõ (${String(ev?.action ?? "").slice(0, 60)})`,
+      String(ev?.action ?? "").includes("không thể ban"),
+    );
+  }
+
+  // ── 20. routeAuditEntry: các loại audit còn thiếu ──
+  {
+    clear();
+    const AE = require("discord.js").AuditLogEvent;
+    const gid = "g-route";
+    const guild = makeGuild(gid, []);
+    const go = (action, target, changes) =>
+      audit.routeAuditEntry({ action, target, changes }, guild);
+    check(
+      "route: ThreadCreate → massThreadCreate",
+      (await go(AE.ThreadCreate, { name: "t" }))?.module === "massThreadCreate",
+    );
+    check(
+      "route: ThreadDelete → massThreadDelete",
+      (await go(AE.ThreadDelete, { name: "t" }))?.module === "massThreadDelete",
+    );
+    check(
+      "route: RoleUpdate → massRoleEdit",
+      (await go(AE.RoleUpdate, { name: "r" }))?.module === "massRoleEdit",
+    );
+    check(
+      "route: MemberUpdate đổi biệt danh → massNickname",
+      (await go(AE.MemberUpdate, { id: "u1" }, [{ key: "nick" }]))?.module === "massNickname",
+    );
+    check(
+      "route: MemberUpdate khác biệt danh → null",
+      (await go(AE.MemberUpdate, { id: "u1" }, [{ key: "avatar" }])) === null,
+    );
+    check(
+      "route: ChannelUpdate đổi thuộc tính vô hại → null",
+      (await go(AE.ChannelUpdate, { name: "c" }, [{ key: "icon" }])) === null,
+    );
+    check(
+      "route: EmojiCreate → massEmoji",
+      (await go(AE.EmojiCreate, { name: "e" }))?.module === "massEmoji",
+    );
+    check(
+      "route: StickerCreate → massEmoji",
+      (await go(AE.StickerCreate, { name: "s" }))?.module === "massEmoji",
+    );
+    check(
+      "route: InviteCreate → massInviteCreate",
+      (await go(AE.InviteCreate, null))?.module === "massInviteCreate",
+    );
+    // MemberRoleUpdate: role thường (không có quyền quản trị) → massRoleAssign
+    const plain = await go(AE.MemberRoleUpdate, { id: "u1" }, [
+      { key: "$add", new: [{ id: "role-x" }] },
+    ]);
+    check(
+      `route: cấp role thường → massRoleAssign (${plain?.module})`,
+      plain?.module === "massRoleAssign",
+    );
+    // Role admin đã có trong cache → adminSelfGrant
+    guild.roles.cache.set("role-admin", {
+      id: "role-admin",
+      name: "Admin",
+      permissions: { has: (p) => String(p) === String(1n << 3n) },
+    });
+    const grant = await go(AE.MemberRoleUpdate, { id: "u1" }, [
+      { key: "$add", new: [{ id: "role-admin" }] },
+    ]);
+    check(
+      `route: cấp role admin → adminSelfGrant (${grant?.module})`,
+      grant?.module === "adminSelfGrant",
+    );
+    // Không có entry.executor / target → không vỡ
+    check("route: audit rác → không vỡ", (await go("KhongTonTai", null)) === null);
+  }
+
+  // ── 21. tickUnlocks: guild không có config → bỏ qua, không vỡ ──
+  {
+    clear();
+    const gidNoCfg = "g-khong-config";
+    client.guilds.cache.set(gidNoCfg, makeGuild(gidNoCfg, []));
+    let ok = true;
+    try {
+      await audit.tickUnlocks();
+    } catch (e) {
+      ok = false;
+    }
+    check("tickUnlocks: guild chưa có config → bỏ qua, không vỡ", ok);
   }
 
   fs.unlinkSync(path.join(__dirname, "..", "bot", "test-djs-mock.cjs"));
