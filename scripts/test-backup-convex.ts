@@ -425,7 +425,9 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
   console.log("\n── requestBackup + importStatus: hợp đồng trạng thái cho web ──");
   {
     const { ctx, guildRows, sessionRows, userRows } = makeCtx({ seed: BOT_KEY });
-    const discordId = "123456789012345678";
+    // ID server giả, KHÔNG dùng chuỗi 18 chữ số kiểu snowflake: gitleaks (job
+    // security của CI) coi đó là Discord client id và làm đỏ cả commit.
+    const discordId = "g-web-dashboard";
     guildRows.push({
       _id: "gld3",
       discordId,
@@ -576,7 +578,9 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
     // phải nằm sau kiểm tra quyền + claim, và bot phải báo kết quả (kể cả lỗi)
     // để dashboard không mãi chờ.
     const { ctx, guildRows, sessionRows, userRows, backupRows } = makeCtx({ seed: BOT_KEY });
-    const discordId = "123456789012345678";
+    // KHÔNG dùng chuỗi 18 chữ số kiểu snowflake ở test mới: gitleaks (job
+    // security của CI) coi đó là Discord client id và làm đỏ cả commit.
+    const discordId = "g-dry-run";
     guildRows.push({
       _id: "gplan",
       discordId,
