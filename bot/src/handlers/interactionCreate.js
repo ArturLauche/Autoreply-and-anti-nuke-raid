@@ -2182,6 +2182,54 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
         }
       }
 
+      // /backup keep <số bản> [số ngày] — quy tắc giữ bản (giống !backup keep).
+      // `days` bỏ trống thì GIỮ NGUYÊN quy tắc tuổi đang có: người dùng chỉ
+      // muốn đổi số bản không vô tình xoá luôn giới hạn tuổi họ đã đặt.
+      if (sub === "keep") {
+        if (!canManageGuild(interaction.member)) return needPerm(interaction);
+        const count = interaction.options.getInteger("count", true);
+        if (count < 2 || count > 50) {
+          return interaction.reply({
+            content: "Số bản phải từ **2 đến 50** (VD: `/backup keep count:7`).",
+            ephemeral: true,
+          });
+        }
+        // Discord trả NULL khi option bỏ trống — gửi null xuống Convex sẽ bị
+        // validator v.optional(v.number()) từ chối, nên phải đổi thành undefined
+        // (JSON.stringify bỏ field ⇒ server giữ nguyên quy tắc cũ).
+        const days = interaction.options.getInteger("days") ?? undefined;
+        if (days !== undefined && (days < 0 || days > 365)) {
+          return interaction.reply({
+            content: "Số ngày phải từ **0 đến 365** (0 = không xoá theo tuổi).",
+            ephemeral: true,
+          });
+        }
+        try {
+          const res = await store.client.mutation("bot_writes:botSetBackupRetention", {
+            guildId,
+            keepCount: count,
+            keepDays: days,
+          });
+          // ok=false (VD server chưa có trong DB vì bot vừa vào) KHÔNG được báo
+          // thành công — người dùng tin là đã đặt xong nhưng không có gì lưu.
+          if (res?.ok !== true) {
+            throw new Error(
+              res?.reason === "no_guild"
+                ? "bot chưa đồng bộ server này — thử lại sau vài phút"
+                : "không lưu được quy tắc giữ bản",
+            );
+          }
+          return interaction.reply({
+            content: `✅ Quy tắc giữ bản: giữ **${res?.keepCount ?? count} bản** gần nhất${
+              res?.keepDays ? ` và xoá bản cũ hơn **${res.keepDays} ngày**` : ""
+            }. Có hiệu lực từ lần backup kế tiếp (bản đang có không bị xoá ngay).`,
+            ephemeral: true,
+          });
+        } catch (e) {
+          return interaction.reply({ content: `❌ ${e.message}`, ephemeral: true });
+        }
+      }
+
       // /backup now — mặc định đẩy lên GitHub (token của chủ bot, dùng chung mọi server)
       if (!canManageGuild(interaction.member)) return needPerm(interaction);
       const github = interaction.options.getBoolean("github") ?? true;

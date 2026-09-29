@@ -53,6 +53,7 @@ const restorePlanStatusHandler = (restorePlanStatus as any)._handler;
 const botGetPendingHandler = (botGetPending as any)._handler;
 const reportPlanHandler = (botReportRestorePlan as any)._handler;
 const setRetentionHandler = (botSetBackupRetention as any)._handler;
+const setRetentionBotHandler = (botSetBackupRetention as any)._handler;
 const setRetentionWebHandler = (setRetention as any)._handler;
 
 let pass = 0;
@@ -1021,6 +1022,73 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
       "chunk: bản bị prune → chunk cũng bị xoá",
       chunkRows.length === 0,
       `${before} → ${chunkRows.length}`,
+    );
+  }
+
+  console.log("\n── /backup keep: từ lệnh slash đến quy tắc dọn bản ──");
+  {
+    // Đường đi thật của người dùng: gõ lệnh → handler gọi mutation → guild lưu
+    // quy tắc → lần backup sau TỰ DỌN theo đúng quy tắc đó. Test này nối hết
+    // bằng handler thật + ctx giả, nên lệch ở khâu nào cũng đỏ ngay.
+    const { ctx, guildRows, backupRows } = makeCtx({ seed: BOT_KEY });
+    guildRows.push({ _id: "gslash", discordId: "g-slash", name: "Server" });
+    const t0 = Date.now();
+    for (let i = 0; i < 4; i++) {
+      backupRows.push({
+        _id: `old${i}`,
+        guildId: "g-slash",
+        guildName: "Server",
+        backupJson: "z:old",
+        roleCount: 1,
+        channelCount: 1,
+        pushedToGithub: false,
+        createdAt: t0 - i * 86_400_000, // b0 mới nhất → b3 cũ nhất
+      });
+    }
+    // Handler slash gửi: keepCount = số người dùng gõ, keepDays = tuỳ chọn.
+    const saved = (await setRetentionBotHandler(ctx as any, {
+      guildId: "g-slash",
+      keepCount: 2,
+      keepDays: 30,
+      botKey: BOT_KEY,
+    })) as any;
+    check(
+      "slash keep: mutation trả về đúng quy tắc đã đặt",
+      saved.ok === true && saved.keepCount === 2 && saved.keepDays === 30,
+      JSON.stringify(saved),
+    );
+    check(
+      "slash keep: quy tắc được lưu vào server",
+      guildRows.find((g) => g._id === "gslash")?.backupKeepCount === 2,
+    );
+    // Backup mới tới → dọn: giữ 2 bản mới + xoá bản quá 30 ngày.
+    await storeHandler(ctx as any, {
+      guildId: "g-slash",
+      guildName: "Server",
+      backupJson: "z:moi",
+      roleCount: 1,
+      channelCount: 1,
+      botKey: BOT_KEY,
+    });
+    check(
+      "slash keep: quy tắc CÓ HIỆU LỰC — chỉ còn 2 bản mới nhất",
+      backupRows.length === 2,
+      `${backupRows.length} bản còn lại`,
+    );
+    check(
+      "slash keep: bản mới vừa tạo không bị dọn",
+      backupRows.some((r) => r.backupJson === "z:moi"),
+    );
+    // Bỏ trống `days` ở lệnh ⇒ undefined ⇒ giữ quy tắc tuổi đang có.
+    const kept = (await setRetentionBotHandler(ctx as any, {
+      guildId: "g-slash",
+      keepCount: 5,
+      botKey: BOT_KEY,
+    })) as any;
+    check(
+      "slash keep: bỏ trống ngày → giữ nguyên quy tắc tuổi",
+      kept.keepDays === 30 && guildRows.find((g) => g._id === "gslash")?.backupKeepDays === 30,
+      JSON.stringify(kept),
     );
   }
 

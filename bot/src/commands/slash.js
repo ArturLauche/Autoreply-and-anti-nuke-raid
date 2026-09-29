@@ -502,6 +502,26 @@ const commands = applyLocalizations([
           },
         ],
       },
+      {
+        name: "keep",
+        description: "Giữ bao nhiêu bản backup + xoá bản cũ hơn N ngày",
+        type: 1,
+        options: [
+          {
+            name: "count",
+            description: "Số bản gần nhất được giữ lại (2-50)",
+            type: 4,
+            required: true,
+          },
+          {
+            name: "days",
+            description:
+              "Xoá bản cũ hơn N ngày (0-365; bỏ trống = giữ nguyên, 0 = không xoá theo tuổi)",
+            type: 4,
+            required: false,
+          },
+        ],
+      },
     ],
   },
   {

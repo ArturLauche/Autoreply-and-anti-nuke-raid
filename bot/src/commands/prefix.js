@@ -1046,11 +1046,22 @@ async function handleBackup(client, message, args, config, store) {
       return message.reply("Số ngày phải từ **0 đến 365** (0 = không xoá theo tuổi).");
     }
     try {
-      await store.client.mutation("bot_writes:botSetBackupRetention", {
+      const res = await store.client.mutation("bot_writes:botSetBackupRetention", {
         guildId,
         keepCount: count,
         keepDays: days,
       });
+      // ok=false (VD server chưa có trong DB vì bot vừa vào) → KHÔNG báo thành
+      // công, người dùng sẽ tin là đã đặt xong nhưng không có gì lưu.
+      if (res?.ok !== true) {
+        return message.reply(
+          `❌ ${
+            res?.reason === "no_guild"
+              ? "bot chưa đồng bộ server này — thử lại sau vài phút"
+              : "không lưu được quy tắc giữ bản"
+          }`,
+        );
+      }
       return message.reply(
         `✅ Quy tắc giữ bản: giữ **${count} bản** gần nhất${
           days > 0 ? ` và xoá bản cũ hơn **${days} ngày**` : ""

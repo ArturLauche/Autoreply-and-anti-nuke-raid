@@ -36,6 +36,7 @@ import {
   botModuleUpdate,
   botUpdateLockdown,
   botSetBackupRequest,
+  botSetBackupRetention,
   botRecordModAction,
 } from "../convex/bot_writes";
 import { listGuild as backupListGuild } from "../convex/backup";
@@ -222,6 +223,7 @@ function installHandlers(h: ReturnType<typeof seed>) {
         "bot_writes:botModuleUpdate": botModuleUpdate,
         "bot_writes:botUpdateLockdown": botUpdateLockdown,
         "bot_writes:botSetBackupRequest": botSetBackupRequest,
+        "bot_writes:botSetBackupRetention": botSetBackupRetention,
         "bot_writes:botRecordModAction": botRecordModAction,
       },
     },
@@ -534,6 +536,75 @@ function newClient(extra: Row = {}) {
     check(
       "bot_tick:getPendingJobs trả job backup từ cờ lệnh vừa đặt",
       jobs.backups.some((b: any) => b.kind === "backup"),
+    );
+  }
+
+  console.log("\n═══ Quy tắc giữ bản: !backup keep + /backup keep — mutation Convex thật ═══");
+  {
+    // Đối xứng 2 lối vào cùng một tính năng: lệnh chat và lệnh slash phải cho
+    // ra CÙNG một kết quả trong DB, và lệnh slash phải được đăng ký thật.
+    const h = seed();
+    const client = newClient();
+    const store = makeStore();
+    installHandlers(h);
+
+    const chat = makeMessage(client, "!backup keep 7 30", {
+      member: makeMember({ manageGuild: true }),
+    });
+    await onMessageCreate(client, chat.message, store, {});
+    check(
+      "!backup keep báo đã đặt quy tắc",
+      chat.replies[0]?.content?.includes("7") && chat.replies[0]?.content?.includes("30"),
+      chat.replies[0]?.content,
+    );
+    check(
+      "!backup keep ghi thật backupKeepCount/backupKeepDays",
+      h.rows("guilds")[0].backupKeepCount === 7 && h.rows("guilds")[0].backupKeepDays === 30,
+      JSON.stringify({
+        c: h.rows("guilds")[0].backupKeepCount,
+        d: h.rows("guilds")[0].backupKeepDays,
+      }),
+    );
+
+    // Slash: đổi số bản, bỏ trống ngày → phải GIỮ NGUYÊN 30 ngày đã đặt.
+    const slash = makeInteraction(client, ["backup", "keep"], {
+      values: [
+        { name: "count", value: 10 },
+        { name: "days", value: null },
+      ],
+    });
+    await onInteractionCreate(client, slash.interaction, store, {});
+    check(
+      "/backup keep báo đúng quy tắc sau khi chạy",
+      slash.replies[0]?.content?.includes("10") && slash.replies[0]?.content?.includes("30"),
+      slash.replies[0]?.content,
+    );
+    check(
+      "/backup keep đổi số bản và GIỮ NGUYÊN quy tắc tuổi",
+      h.rows("guilds")[0].backupKeepCount === 10 && h.rows("guilds")[0].backupKeepDays === 30,
+      JSON.stringify({
+        c: h.rows("guilds")[0].backupKeepCount,
+        d: h.rows("guilds")[0].backupKeepDays,
+      }),
+    );
+    check(
+      "/backup keep có trong danh sách lệnh đăng ký",
+      slashDefs.some(
+        (c: any) => c.name === "backup" && c.options?.some((o: any) => o.name === "keep"),
+      ),
+    );
+
+    // Không có quyền quản lý → từ chối, DB không đổi.
+    const before = h.rows("guilds")[0].backupKeepCount;
+    const noPerm = makeInteraction(client, ["backup", "keep"], {
+      member: makeMember({ manageGuild: false }),
+      values: [{ name: "count", value: 3 }],
+    });
+    await onInteractionCreate(client, noPerm.interaction, store, {});
+    check(
+      "/backup keep không có quyền → từ chối, DB không đổi",
+      h.rows("guilds")[0].backupKeepCount === before,
+      String(h.rows("guilds")[0].backupKeepCount),
     );
   }
 
