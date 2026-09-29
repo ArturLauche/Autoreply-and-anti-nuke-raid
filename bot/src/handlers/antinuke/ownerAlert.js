@@ -68,17 +68,20 @@ async function alertOwner(client, store, opts = {}) {
   try {
     const { guild, module, summary, executorId, executorName, privileged } = opts;
     if (!guild || !store) return false;
-    const now = Date.now();
     const cdKey = opts.cooldownKey ?? guild.id;
     const cdMs = opts.cooldownMs ?? COOLDOWN_MS;
-    const last = lastAlertAt.get(cdKey) ?? 0;
-    if (now - last < cdMs) return false;
-    lastAlertAt.set(cdKey, now);
-
     const config = await store.getConfig(guild.id);
     if (!config) return false;
     // Tôn trọng toggle — chủ server tắt cảnh báo khẩn thì cả DM cũng tắt.
     if (config.emergencyAlertEnabled === false) return false;
+    // Đánh dấu cooldown SAU khi đã biết chắc sẽ gửi. Đánh dấu trước khi đọc
+    // cấu hình nghĩa là 1 lần đọc lỗi (Convex quá tải đúng lúc raid) ăn mất
+    // suất DM của cả đợt — mà DM là kênh DUY NHẤT còn lại khi kẻ nuke đã xoá
+    // kênh log. Check + set dồn 1 chỗ sau await: vẫn chống trùng khi nhiều
+    // module cùng cảnh báo (đoạn này chạy đồng bộ, không có await lần nào).
+    const now = Date.now();
+    if (now - (lastAlertAt.get(cdKey) ?? 0) < cdMs) return false;
+    lastAlertAt.set(cdKey, now);
 
     const title = privileged
       ? "⚠️ Người có quyền quản lý đang phá server!"

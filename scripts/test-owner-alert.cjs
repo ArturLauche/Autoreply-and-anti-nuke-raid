@@ -80,6 +80,38 @@ function makeClient({ dmOk = true } = {}) {
 }
 
 (async () => {
+  // 0. getConfig lỗi (Convex load cao đúng lúc raid) KHÔNG được ăn mất slot
+  //    cooldown — nếu ăn, cả đợt raid sau đó không có DM nào tới owner dù
+  //    module sau vẫn cảnh báo. DM là kênh DUY NHẤT còn lại khi kẻ nuke đã
+  //    xoá kênh log.
+  {
+    _ownerAlertForTest();
+    const client = makeClient();
+    let reads = 0;
+    const flakyStore = {
+      getConfig: async () => {
+        reads += 1;
+        return reads === 1 ? null : { emergencyAlertEnabled: true };
+      },
+    };
+    const guild = makeGuild();
+    const first = await alertOwner(client, flakyStore, {
+      guild,
+      module: "massBan",
+      summary: "lần 1",
+    });
+    check("getConfig lỗi → không DM (trả false)", first === false);
+    const second = await alertOwner(client, flakyStore, {
+      guild,
+      module: "massChannelDelete",
+      summary: "lần 2",
+    });
+    check(
+      `lượt sau vẫn DM được owner (thực tế ${client._dmCalls.length} DM)`,
+      second === true && client._dmCalls.length === 1,
+    );
+  }
+
   // 1. DM thành công cơ bản
   {
     _ownerAlertForTest();

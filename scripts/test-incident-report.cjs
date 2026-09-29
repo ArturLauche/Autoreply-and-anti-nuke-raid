@@ -392,6 +392,41 @@ Giữ nguyên phạt, bật join gate.`;
     check("emergency: chủ server tắt cảnh báo → không gửi", sent.length === 1);
   }
 
+  // ── 6b. getConfig lỗi KHÔNG được ăn mất slot cooldown 5 phút ─────────────
+  // Một vụ raid kích nhiều module; nếu lượt đầu đọc cấu hình lỗi (Convex quá
+  // tải đúng lúc raid) mà vẫn ghi cooldown thì cả đợt raid không còn cảnh
+  // báo khẩn nào tới kênh log.
+  {
+    const logCh = makeChannel("log-10", []);
+    const guild = {
+      id: "g-emg-flaky",
+      name: "Flaky Config Guild",
+      memberCount: 8,
+      channels: {
+        cache: new Collection([["log-10", logCh]]),
+        fetch: async (cid) => (cid === "log-10" ? logCh : null),
+      },
+      members: { me: { id: "me" } },
+    };
+    const sent = [];
+    logCh.send = async (p) => {
+      sent.push(p);
+      return p;
+    };
+    let reads = 0;
+    const flakyStore = {
+      getConfig: async () => {
+        reads += 1;
+        return reads === 1 ? null : { logChannelId: "log-10" };
+      },
+      client: { query: async () => null },
+    };
+    await emergencyRaidAlert({}, flakyStore, guild, { reason: "massBan lần 1" });
+    check("emergency: getConfig lỗi → không gửi", sent.length === 0);
+    await emergencyRaidAlert({}, flakyStore, guild, { reason: "massChannelDelete lần 2" });
+    check(`emergency: lượt sau vẫn gửi được cảnh báo (thực tế ${sent.length})`, sent.length === 1);
+  }
+
   // ── 7. emergencyRaidAlert — kênh log chết → fallback sendLog không ném ────
   {
     const ch = makeChannel("c6", [makeMessage("hi", "u1")]);

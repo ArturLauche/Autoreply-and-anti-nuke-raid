@@ -270,13 +270,17 @@ async function emergencyRaidAlert(client, store, guild, info = {}) {
   try {
     if (!guild || !store) return;
     // 1 alert / 5 phút / guild — một vụ raid kích nhiều module không spam alert.
-    const lastEm = lastEmergencyAt.get(guild.id) ?? 0;
-    if (Date.now() - lastEm < EMERGENCY_COOLDOWN_MS) return;
-    lastEmergencyAt.set(guild.id, Date.now());
+    // Đánh dấu cooldown SAU khi đã biết chắc sẽ gửi: đọc cấu hình lỗi (Convex
+    // quá tải đúng lúc raid) không được ăn mất suất cảnh báo của cả đợt.
+    // Check + set dồn 1 chỗ sau await — vẫn chống trùng khi nhiều module cùng
+    // kích hoạt (đoạn này chạy đồng bộ, không await lần nào).
     const config = await store.getConfig(guild.id);
     if (!config) return;
     // Tôn trọng toggle: chủ server tắt cảnh báo khẩn trên web → không gửi.
     if (config.emergencyAlertEnabled === false) return;
+    const now = Date.now();
+    if (now - (lastEmergencyAt.get(guild.id) ?? 0) < EMERGENCY_COOLDOWN_MS) return;
+    lastEmergencyAt.set(guild.id, now);
 
     const [chatLines, audit] = await Promise.all([
       collectRecentMessages(guild, null),
