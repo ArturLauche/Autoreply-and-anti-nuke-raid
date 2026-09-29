@@ -2,6 +2,13 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { ANTI_NUKE_MODULES, isAntiNukeModule } from "./modules";
 import { requireBotKeyStrict } from "./botAuth";
+import {
+  CHUNK_CHARS,
+  MAX_INLINE_CHARS,
+  CHUNKED_PREFIX,
+  deleteBackupChunks,
+  splitBackupJson,
+} from "./backupChunks";
 
 const ALLOWED_ACTIONS = [
   "warn",
@@ -618,10 +625,15 @@ export const botStoreBackup = mutation({
       return { ok: false, reason: "stale_claim" };
     }
     const now = Date.now();
+    // Vượt trần 1 MB → tách chunk; document cha chỉ giữ ký hiệu + số chunk.
+    const rawJson = args.backupJson;
+    const chunked = rawJson.length > MAX_INLINE_CHARS;
+    const chunkCount = chunked ? Math.ceil(rawJson.length / CHUNK_CHARS) : 0;
     const backupId = await ctx.db.insert("guildBackups", {
       guildId: args.guildId,
       guildName: args.guildName.slice(0, 120),
-      backupJson: args.backupJson,
+      backupJson: chunked ? `${CHUNKED_PREFIX}${chunkCount}` : rawJson,
+      backupChunkCount: chunked ? chunkCount : undefined,
       roleCount: Math.max(0, Math.floor(args.roleCount)),
       channelCount: Math.max(0, Math.floor(args.channelCount)),
       emojiCount:
@@ -638,6 +650,18 @@ export const botStoreBackup = mutation({
       pushedToGithub: false,
       createdAt: now,
     });
+    // Ghi từng chunk sau khi đã có id bản cha (chunk tham chiếu backupId).
+    if (chunked) {
+      for (const [index, data] of splitBackupJson(rawJson).entries()) {
+        await ctx.db.insert("backupChunks", {
+          guildId: args.guildId,
+          backupId,
+          index,
+          data,
+          createdAt: now,
+        });
+      }
+    }
     // Đánh dấu lần backup gần nhất — lịch tự động tính từ đây.
     if (guild) await ctx.db.patch(guild._id, { lastBackupAt: now, updatedAt: now });
     // Tự dọn dẹp backup tồn dư theo CẢ HAI quy tắc của server: giữ N bản mới
@@ -656,7 +680,11 @@ export const botStoreBackup = mutation({
       .sort((a, b) => b.createdAt - a.createdAt)
       .filter((row, i) => i >= keepCount || row.createdAt < cutoff)
       .map((row) => row._id);
-    for (const id of drop) await ctx.db.delete(id);
+    for (const id of drop) {
+      // Chunk là rác nếu bản cha biến mất — xoá kèm, không để lọt vào bảng.
+      await deleteBackupChunks(ctx, id);
+      await ctx.db.delete(id);
+    }
     return { ok: true, backupId };
   },
 });
@@ -829,6 +857,7 @@ export const botDeleteBackup = mutation({
     await requireBotKeyStrict(ctx, botKey);
     const row = await ctx.db.get(backupId);
     if (!row) return { ok: true, alreadyGone: true };
+    await deleteBackupChunks(ctx, backupId);
     await ctx.db.delete(backupId);
     return { ok: true, deleted: true, guildId: row.guildId };
   },

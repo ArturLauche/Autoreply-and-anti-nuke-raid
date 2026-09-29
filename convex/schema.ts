@@ -678,6 +678,12 @@ export default defineSchema({
     backupCompressed: v.optional(v.boolean()),
     /** Có mã hóa AES-256-GCM không. */
     backupEncrypted: v.optional(v.boolean()),
+    /**
+     * Số CHUNK của backupJson khi nó quá trần 1 MB của Convex. Khi > 0 thì
+     * backupJson chỉ chứa ký hiệu `chunked:<số>`, phần thật nằm ở bảng
+     * backupChunks — mỗi chunk một document riêng nên không vượt trần.
+     */
+    backupChunkCount: v.optional(v.number()),
     /** ID backup trước đó (dùng cho diff). */
     previousBackupId: v.optional(v.string()),
     /** URL gist GitHub nếu backup đã được đẩy lên đám mây. */
@@ -687,6 +693,23 @@ export default defineSchema({
   })
     .index("by_guildId", ["guildId"])
     .index("by_guildId_createdAt", ["guildId", "createdAt"]),
+
+  /**
+   * Backup quá trần 1 MB/doc của Convex được tách nhiều document. Payload đã
+   * nén zlib + base64 nên thuần ASCII → cắt theo ký tự là an toàn (không có
+   * nguy cơ cắt giữa ký tự UTF-8 như JSON thô).
+   */
+  backupChunks: defineTable({
+    guildId: v.string(),
+    /** Bản backup cha — xoá bản cha thì phải xoá luôn chunk của nó. */
+    backupId: v.id("guildBackups"),
+    /** Thứ tự 0..total-1; ghép lại bằng cách sắp theo index. */
+    index: v.number(),
+    data: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_backupId", ["backupId"])
+    .index("by_guildId", ["guildId"]),
 
   antinukeEvents: defineTable({
     guildId: v.string(),

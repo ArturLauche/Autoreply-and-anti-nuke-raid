@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserByToken, canManageGuild, guildAccessibleBy } from "./auth";
 import { requireBotKeyStrict } from "./botAuth";
+import { reassembleBackupJsonForRead } from "./backupChunks";
 
 /**
  * Backup server → đám mây GitHub.
@@ -131,22 +132,29 @@ export const botAuditBackups = query({
       .withIndex("by_guildId_createdAt", (q) => q.eq("guildId", guildId))
       .order("desc")
       .take(3);
-    return backups.map((b) => ({
-      _id: b._id,
-      guildId: b.guildId,
-      guildName: b.guildName,
-      createdAt: b.createdAt,
-      roleCount: b.roleCount,
-      channelCount: b.channelCount,
-      emojiCount: b.emojiCount ?? 0,
-      stickerCount: b.stickerCount ?? 0,
-      messageCount: b.messageCount ?? 0,
-      source: b.source ?? "backup",
-      githubUrl: b.githubUrl ?? null,
-      pushedToGithub: b.pushedToGithub,
-      backupJson: b.backupJson,
-      backupChecksum: b.backupChecksum ?? null,
-    }));
+    const out = [];
+    for (const b of backups) {
+      out.push({
+        _id: b._id,
+        guildId: b.guildId,
+        guildName: b.guildName,
+        createdAt: b.createdAt,
+        roleCount: b.roleCount,
+        channelCount: b.channelCount,
+        emojiCount: b.emojiCount ?? 0,
+        stickerCount: b.stickerCount ?? 0,
+        messageCount: b.messageCount ?? 0,
+        source: b.source ?? "backup",
+        githubUrl: b.githubUrl ?? null,
+        pushedToGithub: b.pushedToGithub,
+        // Audit cần JSON ĐẦY ĐỦ (kiểm tra đọc được). Backup tách chunk thì
+        // ghép lại; thiếu chunk → null + lý do, đừng trả ký hiệu "chunked:N"
+        // cho script tưởng là dữ liệu hỏng.
+        backupJson: await reassembleBackupJsonForRead(ctx, b._id, b.backupJson, b.backupChunkCount),
+        backupChecksum: b.backupChecksum ?? null,
+      });
+    }
+    return out;
   },
 });
 
@@ -653,13 +661,24 @@ export const botGetPending = query({
       if (g.restoreRequested && g.restoreBackupId) {
         const b = await ctx.db.get(g.restoreBackupId);
         if (b) {
-          out.push({
-            kind: "restore",
-            guildId: g.discordId,
-            backupId: b._id,
-            backupJson: b.backupJson,
-            guildName: b.guildName,
-          });
+          const json = await reassembleBackupJsonForRead(
+            ctx,
+            b._id,
+            b.backupJson,
+            b.backupChunkCount,
+          );
+          // Backup hỏng/thiếu chunk → KHÔNG gửi việc cho bot, nếu không bot sẽ
+          // "khôi phục thành công" từ dữ liệu cụt. Bỏ qua job: requestRestore
+          // vẫn treo và người dùng thấy cờ treo thay vì bị dữ liệu mất.
+          if (json !== null) {
+            out.push({
+              kind: "restore",
+              guildId: g.discordId,
+              backupId: b._id,
+              backupJson: json,
+              guildName: b.guildName,
+            });
+          }
         }
       }
       // Dry-run: gửi kèm createdAt để dashboard đúng lúc bản backup này mới
@@ -667,14 +686,22 @@ export const botGetPending = query({
       if (g.restorePlanRequested && g.restorePlanBackupId) {
         const b = await ctx.db.get(g.restorePlanBackupId);
         if (b) {
-          out.push({
-            kind: "plan",
-            guildId: g.discordId,
-            backupId: b._id,
-            backupJson: b.backupJson,
-            guildName: b.guildName,
-            backupCreatedAt: b.createdAt,
-          });
+          const json = await reassembleBackupJsonForRead(
+            ctx,
+            b._id,
+            b.backupJson,
+            b.backupChunkCount,
+          );
+          if (json !== null) {
+            out.push({
+              kind: "plan",
+              guildId: g.discordId,
+              backupId: b._id,
+              backupJson: json,
+              guildName: b.guildName,
+              backupCreatedAt: b.createdAt,
+            });
+          }
         }
       }
       if (g.importRestoreRequested && g.importStorageId) {

@@ -31,6 +31,7 @@ import {
   botGetPending,
 } from "../convex/backup";
 import { computeBotKey } from "../convex/botAuth";
+import { reassembleBackupJsonForRead } from "../convex/backupChunks";
 
 // getBotStatus đọc ctx.db.query("botStatus") — ctx giả chỉ cần bảng botStatus
 // với row { kind: "status", botKeySeed }. Không cần monkey-patch module.
@@ -66,6 +67,8 @@ const check = (label: string, ok: boolean, detail?: string) => {
 type Row = Record<string, any>;
 function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
   const backupRows: Row[] = [];
+  // Chunk của backup vượt trần 1 MB — bảng riêng, xoá theo bản cha.
+  const chunkRows: Row[] = [];
   const guildRows: Row[] = [];
   // Phiên + người dùng cho getUserByToken (importStatus/requestBackup cần đăng nhập).
   const sessionRows: Row[] = [];
@@ -80,6 +83,7 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
     guilds: guildRows,
     users: userRows,
     botStatus: statusRows,
+    backupChunks: chunkRows,
   });
   const ctx = {
     now,
@@ -96,7 +100,12 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
         null,
       delete: async (id: string) => {
         const i = backupRows.findIndex((r) => r._id === id);
-        if (i >= 0) backupRows.splice(i, 1);
+        if (i >= 0) {
+          backupRows.splice(i, 1);
+          return;
+        }
+        const j = chunkRows.findIndex((r) => r._id === id);
+        if (j >= 0) chunkRows.splice(j, 1);
       },
       patch: async (id: string, patch: Row) => {
         const row =
@@ -127,7 +136,14 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
               first: async () => userRows.find((u) => u.discordId === capture.discordId) ?? null,
             };
           }
-          const rows = table === "guilds" ? guildRows : backupRows;
+          // Chunk lọc theo backupId (index by_backupId) — không theo guildId.
+          if (table === "backupChunks") {
+            return {
+              collect: async () => chunkRows.filter((r) => r.backupId === capture.backupId),
+            };
+          }
+          const rows =
+            table === "guilds" ? guildRows : table === "backupChunks" ? chunkRows : backupRows;
           return {
             first: async () =>
               rows.find(
@@ -163,11 +179,17 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
           };
         },
         collect: async () =>
-          table === "guilds" ? guildRows : table === "botStatus" ? statusRows : backupRows,
+          table === "guilds"
+            ? guildRows
+            : table === "botStatus"
+              ? statusRows
+              : table === "backupChunks"
+                ? chunkRows
+                : backupRows,
       }),
     },
   };
-  return { ctx, backupRows, guildRows, nextId, statusRows, sessionRows, userRows };
+  return { ctx, backupRows, chunkRows, guildRows, nextId, statusRows, sessionRows, userRows };
 }
 
 (async () => {
@@ -914,6 +936,88 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
       }
       check("setRetention chặn token sai", threw.length > 0);
     }
+  }
+
+  console.log("\n── Backup vượt trần 1 MB: tách chunk + ghép lại ──");
+  {
+    // Trần 1 MB/doc của Convex khiến backup server lớn bị từ chối ghi; người
+    // dùng chỉ còn cách tắt "kèm tin nhắn" (mất dữ liệu). Nay payload lớn được
+    // tách document, ghép lại khi khôi phục/audit.
+    const big = "z:" + "A".repeat(1_500_000);
+    const { ctx, backupRows, chunkRows, guildRows } = makeCtx({ seed: BOT_KEY });
+    guildRows.push({
+      _id: "gc",
+      discordId: "g1",
+      name: "G1",
+      restoreRequested: true,
+    });
+    const r = (await storeHandler(ctx as any, {
+      guildId: "g1",
+      guildName: "G1",
+      backupJson: big,
+      roleCount: 40,
+      channelCount: 60,
+      botKey: BOT_KEY,
+    })) as any;
+    const row = backupRows.find((b) => b._id === r.backupId)!;
+    check(
+      "chunk: document cha KHÔNG chứa payload",
+      row.backupJson.startsWith("chunked:"),
+      row.backupJson,
+    );
+    check("chunk: payload nằm ở nhiều document", chunkRows.length === 3, String(chunkRows.length));
+    check(
+      "chunk: mọi chunk nằm trong trần 1 MB",
+      chunkRows.every((c) => c.data.length <= 600_000),
+      String(Math.max(...chunkRows.map((c) => c.data.length))),
+    );
+    check(
+      "chunk: ghép lại ra đúng payload gốc",
+      (await reassembleBackupJsonForRead(ctx, row._id, row.backupJson, row.backupChunkCount)) ===
+        big,
+    );
+    // Job khôi phục phải nhận payload ĐẦY ĐỦ, không phải ký hiệu "chunked:3".
+    guildRows.find((g) => g._id === "gc")!.restoreBackupId = row._id;
+    const pending = (await botGetPendingHandler(ctx as any, { botKey: BOT_KEY })) as any[];
+    const job = pending.find((p) => p.kind === "restore");
+    check(
+      "chunk: job khôi phục mang payload đầy đủ",
+      !!job && job.backupJson === big,
+      String(job?.backupJson?.slice(0, 12)),
+    );
+    const audit = (await auditHandler(ctx as any, { guildId: "g1", botKey: BOT_KEY })) as any[];
+    check("chunk: audit cũng thấy payload đầy đủ", audit[0].backupJson === big);
+    // Thiếu chunk → KHÔNG được đẩy job đi (khôi phục từ dữ liệu cụt là thảm họa).
+    chunkRows.pop();
+    const pending2 = (await botGetPendingHandler(ctx as any, { botKey: BOT_KEY })) as any[];
+    check(
+      "chunk: thiếu chunk → KHÔNG gửi job khôi phục (không khôi phục từ dữ liệu cụt)",
+      !pending2.some((p) => p.kind === "restore"),
+      JSON.stringify(pending2.map((p) => p.kind)),
+    );
+    check(
+      "chunk: audit trả null thay vì dữ liệu cụt",
+      (await auditHandler(ctx as any, { guildId: "g1", botKey: BOT_KEY })).length > 0,
+    );
+    // Prune/xoá bản cha phải xoá luôn chunk — rác chunk là tốn chỗ vô ích.
+    // Giữ tối thiểu 2 bản (đã chặn ở clamp) → cần 2 bản mới để đẩy bản cũ ra.
+    guildRows.find((g) => g._id === "gc")!.backupKeepCount = 2;
+    const before = chunkRows.length;
+    for (let i = 0; i < 2; i++) {
+      await storeHandler(ctx as any, {
+        guildId: "g1",
+        guildName: "G1",
+        backupJson: `z:small-${i}`,
+        roleCount: 1,
+        channelCount: 1,
+        botKey: BOT_KEY,
+      });
+    }
+    check(
+      "chunk: bản bị prune → chunk cũng bị xoá",
+      chunkRows.length === 0,
+      `${before} → ${chunkRows.length}`,
+    );
   }
 
   console.log(`\n${pass}/${pass + fail} ✅`);

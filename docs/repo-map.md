@@ -98,6 +98,7 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 | `ticketKinds.ts`                                                  | Loại ticket TUỲ CHỈNH (thay 2 loại cứng): CRUD cho dashboard + `botKinds` cho bot        |
 | `relay.ts`                                                        | Webhook + relay log sự kiện                                                              |
 | `backup_github.ts`                                                | Backup lên GitHub (kèm `backup.ts`)                                                      |
+| `backupChunks.ts`                                                 | Tách/ghép `backupJson` khi vượt trần 1 MB mỗi document Convex (bảng `backupChunks`)      |
 | `rateGuard.ts`                                                    | Giới hạn tần suất gọi API từ bot                                                         |
 | `public.ts`, `hidden.ts`                                          | API công khai landing + endpoint ẩn                                                      |
 | `http.ts`                                                         | httpRouter `/geo_lang`: dò quốc gia theo IP cho web tự chọn ngôn ngữ                     |

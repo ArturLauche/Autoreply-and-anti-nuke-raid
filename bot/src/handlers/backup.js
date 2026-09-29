@@ -551,16 +551,17 @@ async function pushBackupToGithub(store, { guildId, backupId, backupJson, guildN
 
 /**
  * Thông điệp lỗi lưu backup dễ hành động (hiện cả trên dashboard lẫn kênh log).
- * Nguyên nhân phổ biến nhất khi bấm "Backup ngay" mà không ra bản nào: mỗi
- * document của Convex tối đa 1 MB, backup kèm tin nhắn của server lớn vượt ngưỡng
- * → Convex từ chối. Nói đúng việc cần làm thay vì chỉ in mã lỗi.
+ * Mỗi document của Convex tối đa 1 MB — payload lớn đã được botStoreBackup tách
+ * chunk, nên gặp lỗi này nghĩa là CHÍNH CÁC CHUNK cũng quá lớn (bản cực lớn /
+ * nhiều media). Lúc đó việc cần làm vẫn là giảm khối lượng, và phải nói rõ là
+ * đã thử tách rồi — nếu không người dùng tưởng bot còn chưa biết cách.
  */
 function describeStoreFailure(err, { includeMessages, messageCount } = {}) {
   const raw = String(err?.message || err || "Lỗi không xác định").slice(0, 200);
   if (/too large|1 ?MB|document.*size|maximum size|vượt quá/i.test(raw)) {
     const extra =
       includeMessages && messageCount > 0 ? ` (lần này kèm ${messageCount} tin nhắn)` : "";
-    return `Bản backup vượt giới hạn 1 MB mỗi document của Convex${extra}. Hãy tắt "Kèm tin nhắn" rồi bấm Backup ngay lại.`;
+    return `Bản backup quá lớn cho giới hạn 1 MB mỗi document của Convex${extra}, kể cả sau khi tách chunk. Hãy tắt "Kèm tin nhắn" rồi bấm Backup ngay lại.`;
   }
   return `Không lưu được bản backup lên cloud: ${raw}`;
 }
