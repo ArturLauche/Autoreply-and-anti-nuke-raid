@@ -164,6 +164,10 @@ export const getGuild = query({
         botOwnerSet: !!ownerDiscordId,
         theme: guild.theme ?? "graphite",
         backupAutoDays: guild.backupAutoDays ?? 0,
+        // Quy tắc giữ bản: panel Backup đọc 2 field này để hiện đúng cài đặt đang
+        // áp dụng (mặc định 3 bản, không dọn theo tuổi).
+        backupKeepCount: guild.backupKeepCount ?? 3,
+        backupKeepDays: guild.backupKeepDays ?? 0,
         lastBackupAt: guild.lastBackupAt ?? null,
         restoreRolesEnabled: guild.restoreRolesEnabled ?? true,
         restoreChannelsEnabled: guild.restoreChannelsEnabled ?? true,

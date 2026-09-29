@@ -4,8 +4,8 @@
 // Chạy: bun scripts/test-backup-convex.ts
 // Không mạng, không deployment thật — chặn tái diễn các bug "backup fake":
 //   1. botStoreBackup phải TỪ CHỐI botKey sai (không ai ghi bản giả được).
-//   2. botStoreBackup tự xóa bản cũ (chỉ giữ 3) — bản "tồn đọng" >3/server
-//      không thể tồn tại qua đường chuẩn.
+//   2. botStoreBackup tự xóa bản cũ theo quy tắc GIỮ của server (mặc định 3
+//      bản + dọn theo tuổi) — bản "tồn đọng" không thể tồn tại qua đường chuẩn.
 //   3. Claim không được 2 process cùng giữ (in_flight < 10 phút).
 //   4. botClearBackup reset cờ + lastBackupAt đúng điều kiện storeOk.
 //   5. botClearBackup phải nói RÕ kết quả (backupFinishedAt + backupUnchanged) để
@@ -18,12 +18,14 @@ import {
   botRestoreSettings,
   botRenewBackupClaim,
   botReportRestorePlan,
+  botSetBackupRetention,
 } from "../convex/bot_writes";
 import {
   listGuild,
   botAuditBackups,
   importStatus,
   requestBackup,
+  setRetention,
   requestRestorePlan,
   restorePlanStatus,
   botGetPending,
@@ -49,11 +51,13 @@ const requestRestorePlanHandler = (requestRestorePlan as any)._handler;
 const restorePlanStatusHandler = (restorePlanStatus as any)._handler;
 const botGetPendingHandler = (botGetPending as any)._handler;
 const reportPlanHandler = (botReportRestorePlan as any)._handler;
+const setRetentionHandler = (botSetBackupRetention as any)._handler;
+const setRetentionWebHandler = (setRetention as any)._handler;
 
 let pass = 0;
 let fail = 0;
-const check = (label: string, ok: boolean) => {
-  console.log(ok ? `  ✅ ${label}` : `  ❌ ${label}`);
+const check = (label: string, ok: boolean, detail?: string) => {
+  console.log(ok ? `  ✅ ${label}` : `  ❌ ${label}${detail ? ` → ${detail}` : ""}`);
   if (ok) pass++;
   else fail++;
 };
@@ -218,7 +222,11 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
       botKey: BOT_KEY, // key thô — đúng như bot gửi
     });
     check("botKey đúng → lưu thành công", r?.ok === true && typeof r?.backupId === "string");
-    check("tự xóa tồn dư — chỉ còn 3 bản mới nhất", backupRows.length === 3);
+    check(
+      "tự xóa tồn dư — chỉ còn 3 bản mới nhất",
+      backupRows.length === 3,
+      JSON.stringify(backupRows.map((x) => [x._id, x.createdAt])),
+    );
     check(
       "bản mới nhất là bản vừa lưu",
       backupRows.some((b) => b.backupJson === "z:real"),
@@ -752,6 +760,160 @@ function makeCtx(opts: { now?: number; seed?: string | null } = {}) {
       st.error === "Backup bi hong (khong doc duoc JSON)" && st.requested === false,
       JSON.stringify(st),
     );
+  }
+
+  console.log("\n── Quy tắc giữ bản: N bản gần nhất + dọn theo tuổi ──");
+  {
+    // Trước đây `slice(3)` hard-code: server lớn mất dữ liệu, server nhỏ tốn chỗ.
+    // Nay chủ server tự đặt N bản + số ngày, và cả hai quy tắc phải cùng chạy.
+    const seed = (n: number, now: number, day = 86_400_000) =>
+      Array.from({ length: n }, (_, i) => ({
+        _id: `b${i}`,
+        guildId: "g1",
+        guildName: "G1",
+        backupJson: "x",
+        roleCount: 0,
+        channelCount: 0,
+        pushedToGithub: false,
+        // b0 là bản MỚI NHẤT, b(n-1) là bản cũ nhất.
+        createdAt: now - i * day,
+      }));
+
+    // 1) Mặc định (chưa cấu hình) → giữ 3, y hệt hành vi cũ.
+    {
+      const { ctx, backupRows } = makeCtx({ seed: BOT_KEY });
+      backupRows.push(...seed(5, Date.now()));
+      await storeHandler(ctx as any, {
+        guildId: "g1",
+        guildName: "G1",
+        backupJson: "z:new",
+        roleCount: 1,
+        channelCount: 1,
+        botKey: BOT_KEY,
+      });
+      check(
+        "giữ bản: mặc định chỉ còn 3 bản mới nhất",
+        backupRows.length === 3,
+        String(backupRows.length),
+      );
+    }
+    // 2) backupKeepCount = 7 → giữ 7 bản (server lớn không mất dữ liệu).
+    {
+      const { ctx, backupRows, guildRows } = makeCtx({ seed: BOT_KEY });
+      guildRows.push({ _id: "gk", discordId: "g1", name: "G1", backupKeepCount: 7 });
+      backupRows.push(...seed(8, Date.now()));
+      await storeHandler(ctx as any, {
+        guildId: "g1",
+        guildName: "G1",
+        backupJson: "z:new",
+        roleCount: 1,
+        channelCount: 1,
+        botKey: BOT_KEY,
+      });
+      check(
+        "giữ bản: giữ theo backupKeepCount (7)",
+        backupRows.length === 7,
+        String(backupRows.length),
+      );
+    }
+    // 3) backupKeepDays = 30 → bản quá 30 ngày bị xoá DÙ vẫn nằm trong N bản.
+    {
+      const { ctx, backupRows, guildRows } = makeCtx({ seed: BOT_KEY });
+      guildRows.push({
+        _id: "gk",
+        discordId: "g1",
+        name: "G1",
+        backupKeepCount: 10,
+        backupKeepDays: 30,
+      });
+      // 5 bản: 2 bản cũ hơn 30 ngày, 3 bản mới (mốc thời gian neo theo Date.now()
+      // vì botStoreBackup tự dùng đồng hồ thật, không dùng ctx.now của test).
+      const t0 = Date.now();
+      backupRows.push(
+        ...[0, 5, 40, 60, 10].map((daysAgo, i) => ({
+          _id: `b${i}`,
+          guildId: "g1",
+          guildName: "G1",
+          backupJson: "x",
+          roleCount: 0,
+          channelCount: 0,
+          pushedToGithub: false,
+          createdAt: t0 - daysAgo * 86_400_000,
+        })),
+      );
+      await storeHandler(ctx as any, {
+        guildId: "g1",
+        guildName: "G1",
+        backupJson: "z:new",
+        roleCount: 1,
+        channelCount: 1,
+        botKey: BOT_KEY,
+      });
+      check(
+        "giữ bản: xoá bản quá hạn dù còn trong N bản",
+        backupRows.length === 4,
+        String(backupRows.length),
+      );
+      check(
+        "giữ bản: bản mới nhất luôn được giữ",
+        backupRows.some((r) => r.backupJson === "z:new"),
+      );
+    }
+    // 4) Số bậy từ dashboard/lệnh chat → bị chặn trong khoảng, không làm rỗng server.
+    {
+      const { ctx, guildRows, sessionRows, userRows } = makeCtx({ seed: BOT_KEY });
+      guildRows.push({
+        _id: "gk",
+        discordId: "g1",
+        name: "G1",
+        managers: ["u1"],
+        botInGuild: true,
+      });
+      userRows.push({ _id: "u1", discordId: "u1", manageableGuildIds: ["g1"] });
+      sessionRows.push({
+        _id: "s1",
+        token: "tok",
+        userId: "u1",
+        createdAt: Date.now(),
+        authVersion: 1,
+      });
+      const r = (await setRetentionWebHandler(ctx as any, {
+        token: "tok",
+        guildId: "g1",
+        keepCount: 999,
+        keepDays: -5,
+      })) as any;
+      check(
+        "setRetention chặn số bậy (999 → 50, -5 → 0)",
+        r.keepCount === 50 && r.keepDays === 0,
+        JSON.stringify(r),
+      );
+      const g = guildRows.find((x) => x._id === "gk")!;
+      check("setRetention ghi vào guild", g.backupKeepCount === 50 && g.backupKeepDays === 0);
+      const bot = (await setRetentionHandler(ctx as any, {
+        guildId: "g1",
+        keepCount: 1,
+        keepDays: 400,
+        botKey: BOT_KEY,
+      })) as any;
+      check(
+        "botSetBackupRetention chặn số bậy (1 → 2, 400 → 365)",
+        bot.keepCount === 2 && bot.keepDays === 365,
+        JSON.stringify(bot),
+      );
+      let threw = "";
+      try {
+        await setRetentionWebHandler(ctx as any, {
+          token: "sai",
+          guildId: "g1",
+          keepCount: 5,
+          keepDays: 0,
+        });
+      } catch (e: any) {
+        threw = e?.message ?? "";
+      }
+      check("setRetention chặn token sai", threw.length > 0);
+    }
   }
 
   console.log(`\n${pass}/${pass + fail} ✅`);

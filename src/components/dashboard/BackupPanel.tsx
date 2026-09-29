@@ -77,6 +77,14 @@ export default function BackupPanel({ data }: { data: GuildData }) {
     Math.max(2, Math.min(30, data.guild.backupAutoDays ?? 7)),
   );
   const [autoBusy, setAutoBusy] = useState(false);
+  /** Quy tắc giữ bản: N bản gần nhất + dọn theo tuổi (0 = tắt). Mặc định 3 bản. */
+  const [keepCount, setKeepCount] = useState(
+    Math.max(2, Math.min(50, data.guild.backupKeepCount ?? 3)),
+  );
+  const [keepDays, setKeepDays] = useState(
+    Math.max(0, Math.min(365, data.guild.backupKeepDays ?? 0)),
+  );
+  const [retentionBusy, setRetentionBusy] = useState(false);
   /** Tùy chỉnh khôi phục: bật/tắt tạo lại role, emoji/sticker, kênh, tin nhắn khi restore (cả 2 nguồn). */
   const [restoreRoles, setRestoreRoles] = useState(data.guild.restoreRolesEnabled ?? true);
   const [restoreEmojis, setRestoreEmojis] = useState(data.guild.restoreEmojisEnabled ?? true);
@@ -93,6 +101,7 @@ export default function BackupPanel({ data }: { data: GuildData }) {
   const generateUploadUrl = useMutation(api.backup.generateImportUploadUrl);
   const requestImportRestore = useMutation(api.backup.requestImportRestore);
   const setAutoBackup = useMutation(api.backup.setAutoBackup);
+  const setRetention = useMutation(api.backup.setRetention);
   const setRestoreOptions = useMutation(api.backup.setRestoreOptions);
   // Luôn theo dõi trạng thái import (reactive): hiện lỗi lần trước + chẩn đoán bot online/bản cũ.
   const importStatus = useQuery(api.backup.importStatus, {
@@ -547,6 +556,33 @@ export default function BackupPanel({ data }: { data: GuildData }) {
     }
   }
 
+  async function saveRetention() {
+    setRetentionBusy(true);
+    try {
+      await setRetention({
+        token: TOKEN(),
+        guildId: data.guild.discordId,
+        keepCount,
+        keepDays,
+      });
+      toast.success(
+        translate("Đã lưu quy tắc giữ bản: giữ {p0} bản gần nhất, xoá bản cũ hơn {p1} ngày.", {
+          p0: keepCount,
+          p1: keepDays,
+        }),
+        {
+          description: translate(
+            "Quy tắc có hiệu lực từ lần backup kế tiếp. Những bản đang có không bị xoá ngay.",
+          ),
+        },
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : translate("Thất bại"));
+    } finally {
+      setRetentionBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -867,6 +903,45 @@ export default function BackupPanel({ data }: { data: GuildData }) {
               {translate("Lưu lịch tự động")}
             </Button>
           </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-3">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              {translate("Giữ")}{" "}
+              <input
+                type="number"
+                min={2}
+                max={50}
+                value={keepCount}
+                onChange={(e) =>
+                  setKeepCount(Math.max(2, Math.min(50, parseInt(e.target.value || "3", 10) || 3)))
+                }
+                className="h-9 w-20 rounded-lg border border-border bg-card px-2 text-center font-mono text-sm text-foreground outline-none focus:border-primary/60"
+              />{" "}
+              {translate("bản gần nhất")}{" "}
+            </label>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              {translate("xoá bản cũ hơn")}{" "}
+              <input
+                type="number"
+                min={0}
+                max={365}
+                value={keepDays}
+                onChange={(e) =>
+                  setKeepDays(Math.max(0, Math.min(365, parseInt(e.target.value || "0", 10) || 0)))
+                }
+                className="h-9 w-20 rounded-lg border border-border bg-card px-2 text-center font-mono text-sm text-foreground outline-none focus:border-primary/60"
+              />{" "}
+              {translate("ngày (0 = không xoá theo tuổi)")}{" "}
+            </label>
+            <Button size="sm" onClick={saveRetention} disabled={retentionBusy}>
+              {retentionBusy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {translate("Lưu quy tắc giữ bản")}
+            </Button>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {translate(
+              "Quy tắc này áp dụng cho các lần backup TIẾP THEO — bot xoá bản cũ ngay khi lưu bản mới, không xoá ngược lại những bản đang có.",
+            )}{" "}
+          </p>
         </CardContent>
       </Card>
 

@@ -535,6 +535,36 @@ export const setRestoreOptions = mutation({
   },
 });
 
+/** Dashboard đặt quy tắc giữ bản: giữ N bản gần nhất + dọn bản quá hạn (0 = tắt). */
+export const setRetention = mutation({
+  args: {
+    token: v.string(),
+    guildId: v.string(),
+    keepCount: v.number(),
+    keepDays: v.number(),
+  },
+  handler: async (ctx, { token, guildId, keepCount, keepDays }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild)) {
+      throw new Error("Không có quyền quản lý server này");
+    }
+    const count = Math.max(2, Math.min(50, Math.floor(keepCount)));
+    const days = Math.max(0, Math.min(365, Math.floor(keepDays)));
+    // Dọn chạy ở botStoreBackup (phía server), không qua cache của bot nên
+    // KHÔNG cần settingsChangedAt — thêm vào sẽ chỉ tốn một lần vô hiệu cache.
+    await ctx.db.patch(guild._id, {
+      backupKeepCount: count,
+      backupKeepDays: days,
+      updatedAt: Date.now(),
+    });
+    return { ok: true, keepCount: count, keepDays: days };
+  },
+});
+
 /**
  * Bot quét mỗi giờ để tìm server đã đến hạn tự động backup
  * (bật lịch 2-30 ngày, chưa có yêu cầu đang chờ, chưa backup trong khoảng thời gian đó).

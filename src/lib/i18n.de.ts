@@ -361,6 +361,18 @@ export const DE: Record<string, string> = {
   "Khôi phục tên / mô tả / icon server": "Servername / Beschreibung / Icon wiederherstellen",
   "Khôi phục danh sách ban + link mời": "Ban-Liste + Einladungslinks wiederherstellen",
   "không hoàn tác được": "nicht rückgängig machbar",
+  /* ==== Quy tắc giữ bản (29/09/2026) ==== */
+  Giữ: "Behalte",
+  "bản gần nhất": "neueste Backups",
+  "xoá bản cũ hơn": "Backups löschen, die älter sind als",
+  "ngày (0 = không xoá theo tuổi)": "Tage (0 = kein Alterslimit)",
+  "Lưu quy tắc giữ bản": "Aufbewahrungsregel speichern",
+  "Đã lưu quy tắc giữ bản: giữ {p0} bản gần nhất, xoá bản cũ hơn {p1} ngày.":
+    "Aufbewahrungsregel gespeichert: die {p0} neuesten Backups behalten, alles älter als {p1} Tage löschen.",
+  "Quy tắc này áp dụng cho các lần backup TIẾP THEO — bot xoá bản cũ ngay khi lưu bản mới, không xoá ngược lại những bản đang có.":
+    "Diese Regel gilt für die NÄCHSTEN Backups — der Bot löscht alte beim Speichern eines neuen; vorhandene Backups werden nicht gelöscht.",
+  "Quy tắc có hiệu lực từ lần backup kế tiếp. Những bản đang có không bị xoá ngay.":
+    "Die Regel gilt ab dem nächsten Backup. Vorhandene Backups werden nicht sofort gelöscht.",
   "Kế hoạch khôi phục (chưa thay đổi server)": "Wiederherstellungsplan (Server unverändert)",
   "Xem trước sẽ tạo gì mà không thay đổi server (dry-run)":
     "Vorschau, was erstellt würde, ohne den Server zu verändern (Dry-Run)",

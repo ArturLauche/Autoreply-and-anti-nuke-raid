@@ -152,6 +152,17 @@ export default defineSchema({
     restoreExtrasEnabled: v.optional(v.boolean()),
     /** Tự động backup: số ngày giữa 2 lần (2-30, 0 = tắt). */
     backupAutoDays: v.optional(v.number()),
+    /**
+     * Giữ bao nhiêu bản backup gần nhất mỗi server (2-50, mặc định 3). Trước
+     * đây con số 3 hard-code trong botStoreBackup nên không ai chỉnh được: server
+     * lớn cần nhiều bản hơn thì mất dữ liệu, server nhỏ thì tốn chỗ vô ích.
+     */
+    backupKeepCount: v.optional(v.number()),
+    /**
+     * Dọn bản backup cũ hơn N ngày (0 = tắt, mặc định). Chạy cùng lúc với
+     * backupKeepCount: bản quá hạn bị xoá dù còn nằm trong N bản gần nhất.
+     */
+    backupKeepDays: v.optional(v.number()),
     /** Lần backup thành công gần nhất (dùng cho lịch tự động). */
     lastBackupAt: v.optional(v.number()),
     /** Raid Intel: bật săn lùng nguồn cơn raid (phân tích cụm tài khoản + audit log). */

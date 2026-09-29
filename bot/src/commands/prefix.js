@@ -138,6 +138,7 @@ async function handleHelp(client, message) {
         "!backup list           - danh sách backup của server",
         "!backup restore <số>   - khôi phục cấu trúc server từ backup",
         "!backup auto <2-30|off> - tự động backup mỗi N ngày",
+        "!backup keep <2-50> [ngày] - giữ N bản gần nhất, xoá bản cũ hơn N ngày",
         "```",
       ].join("\n"),
     )
@@ -1030,10 +1031,40 @@ async function handleBackup(client, message, args, config, store) {
     }
   }
 
+  // !backup keep <số bản> [số ngày] — quy tắc giữ bản (2-50 bản; ngày 0 = tắt).
+  if (sub === "keep") {
+    if (!canManageGuild(message.member)) return noPerm(message);
+    const count = parseInt(args[1] || "", 10);
+    if (!Number.isFinite(count) || count < 2 || count > 50) {
+      return message.reply(
+        "Số bản phải từ **2 đến 50**. Ví dụ: `!backup keep 7 30` (giữ 7 bản, xoá bản cũ hơn 30 ngày).",
+      );
+    }
+    const daysRaw = args[2];
+    const days = daysRaw === undefined || daysRaw === "" ? 0 : parseInt(daysRaw, 10);
+    if (!Number.isFinite(days) || days < 0 || days > 365) {
+      return message.reply("Số ngày phải từ **0 đến 365** (0 = không xoá theo tuổi).");
+    }
+    try {
+      await store.client.mutation("bot_writes:botSetBackupRetention", {
+        guildId,
+        keepCount: count,
+        keepDays: days,
+      });
+      return message.reply(
+        `✅ Quy tắc giữ bản: giữ **${count} bản** gần nhất${
+          days > 0 ? ` và xoá bản cũ hơn **${days} ngày**` : ""
+        }. Có hiệu lực từ lần backup kế tiếp (bản đang có không bị xoá ngay).`,
+      );
+    } catch (e) {
+      return message.reply(`❌ ${e.message}`);
+    }
+  }
+
   // !backup / !backup now → tạo backup; !backup local → chỉ lưu Convex (không đẩy GitHub)
   if (sub !== "" && sub !== "now" && sub !== "local") {
     return message.reply(
-      "Cú pháp: `!backup` (tạo ngay) · `!backup local` (không đẩy GitHub) · `!backup list` · `!backup restore <số>` · `!backup auto <2-30|off>`",
+      "Cú pháp: `!backup` (tạo ngay) · `!backup local` (không đẩy GitHub) · `!backup list` · `!backup restore <số>` · `!backup auto <2-30|off>` · `!backup keep <2-50> [ngày]`",
     );
   }
   if (!canManageGuild(message.member)) return noPerm(message);

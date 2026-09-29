@@ -382,6 +382,18 @@ export const EN: Record<string, string> = {
   "Khôi phục tên / mô tả / icon server": "Restore server name / description / icon",
   "Khôi phục danh sách ban + link mời": "Restore ban list + invite links",
   "không hoàn tác được": "cannot be undone",
+  /* ==== Quy tắc giữ bản (29/09/2026) ==== thay cho slice(3) hard-code. */
+  Giữ: "Keep",
+  "bản gần nhất": "most recent backups",
+  "xoá bản cũ hơn": "delete backups older than",
+  "ngày (0 = không xoá theo tuổi)": "days (0 = no age limit)",
+  "Lưu quy tắc giữ bản": "Save retention rule",
+  "Đã lưu quy tắc giữ bản: giữ {p0} bản gần nhất, xoá bản cũ hơn {p1} ngày.":
+    "Retention saved: keep the {p0} most recent backups, delete anything older than {p1} days.",
+  "Quy tắc này áp dụng cho các lần backup TIẾP THEO — bot xoá bản cũ ngay khi lưu bản mới, không xoá ngược lại những bản đang có.":
+    "This rule applies to the NEXT backups — the bot prunes old ones when it saves a new backup; it does not delete anything you already have.",
+  "Quy tắc có hiệu lực từ lần backup kế tiếp. Những bản đang có không bị xoá ngay.":
+    "The rule takes effect from the next backup. Existing backups are not deleted right now.",
   "Kế hoạch khôi phục (chưa thay đổi server)": "Restore plan (server untouched)",
   "Xem trước sẽ tạo gì mà không thay đổi server (dry-run)":
     "Preview what would be created without changing the server (dry-run)",

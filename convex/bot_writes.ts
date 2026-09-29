@@ -52,6 +52,12 @@ function normalizeActions(raw: string[] | undefined): {
   return { actions, strongest };
 }
 
+/** Chặn trên/dưới + làm tròn — người dùng gõ bừa số cũng không làm hỏng dữ liệu. */
+function clampRetention(value: number | undefined, fallback: number, min: number, max: number) {
+  if (value === undefined || !Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(value)));
+}
+
 /**
  * These mutations are called by the Discord bot process itself. The bot
  * validates the executor's Discord permissions before calling them, and only
@@ -634,17 +640,59 @@ export const botStoreBackup = mutation({
     });
     // Đánh dấu lần backup gần nhất — lịch tự động tính từ đây.
     if (guild) await ctx.db.patch(guild._id, { lastBackupAt: now, updatedAt: now });
-    // Tự dọn dẹp backup tồn dư: chỉ giữ 3 bản mới nhất mỗi server (bản cũ hơn bị xóa).
+    // Tự dọn dẹp backup tồn dư theo CẢ HAI quy tắc của server: giữ N bản mới
+    // nhất + xoá mọi bản quá hạn (nếu bật). Trước đây `slice(3)` hard-code nên
+    // không ai chỉnh được; server lớn mất dữ liệu, server nhỏ tốn chỗ vô ích.
     const all = await ctx.db
       .query("guildBackups")
       .withIndex("by_guildId", (q) => q.eq("guildId", args.guildId))
       .collect();
+    const keepCount = clampRetention(guild?.backupKeepCount, 3, 2, 50);
+    const keepDays = clampRetention(guild?.backupKeepDays, 0, 0, 365);
+    // -Infinity = TẮT dọn theo tuổi. Dùng Infinity sẽ khiến mọi bản đều "quá hạn"
+    // (createdAt < Infinity luôn đúng) và xoá sạch — đã dính lỗi này một lần.
+    const cutoff = keepDays > 0 ? now - keepDays * 86_400_000 : -Infinity;
     const drop = all
       .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(3)
-      .map((r) => r._id);
+      .filter((row, i) => i >= keepCount || row.createdAt < cutoff)
+      .map((row) => row._id);
     for (const id of drop) await ctx.db.delete(id);
     return { ok: true, backupId };
+  },
+});
+
+/**
+ * Bot (lệnh chat `!backup keep`) đổi quy tắc giữ bản: giữ N bản gần nhất và
+ * dọn bản quá hạn. Bot TỰ ghi (nên không cần settingsChangedAt — không có
+ * bundle cache nào đọc 2 field này; việc dọn chạy ngay trong botStoreBackup).
+ */
+export const botSetBackupRetention = mutation({
+  args: {
+    guildId: v.string(),
+    keepCount: v.optional(v.number()),
+    keepDays: v.optional(v.number()),
+    /** Chìa khóa bot (botAuth) — chỉ bot có OWNER_SEED mới tính được. */
+    botKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { botKey, guildId, keepCount, keepDays }) => {
+    await requireBotKeyStrict(ctx, botKey);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild) return { ok: false, reason: "no_guild" };
+    await ctx.db.patch(guild._id, {
+      backupKeepCount:
+        keepCount === undefined ? guild.backupKeepCount : clampRetention(keepCount, 3, 2, 50),
+      backupKeepDays:
+        keepDays === undefined ? guild.backupKeepDays : clampRetention(keepDays, 0, 0, 365),
+      updatedAt: Date.now(),
+    });
+    return {
+      ok: true,
+      keepCount: clampRetention(keepCount ?? guild.backupKeepCount, 3, 2, 50),
+      keepDays: clampRetention(keepDays ?? guild.backupKeepDays, 0, 0, 365),
+    };
   },
 });
 
