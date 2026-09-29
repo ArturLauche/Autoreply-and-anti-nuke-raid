@@ -306,6 +306,94 @@ function makeGuild({ createThrows = null, overwritesFail = new Set() } = {}) {
     check("lỗi tạo kênh được ném lên (để ghi openError)", caught === boom);
   }
 
+  // ═══ Phương án D: kênh công khai + slowmode (29/09/2026) ═══
+  // Hai tuỳ chọn này đổi quyền và gọi Discord API NGAY LÚC TẠO — sai thì
+  // hậu quả nặng: kênh khiếu nại bị ai cũng đọc, hoặc cấu hình chết âm thầm
+  // (slowmode hỏng mà không ai báo).
+  console.log("\n── createTicketChannel (công khai + slowmode) ──");
+  {
+    // Mặc định PHẢI kín: ticket khiếu nại mà ai đọc được thì người dùng
+    // không dám kêu.
+    const { guild, category, overwrites } = makeGuild();
+    await tickets.createTicketChannel({
+      guild,
+      category,
+      channelName: "t-1",
+      staffIds: ["STAFF"],
+      openerOnly: false,
+    });
+    check(
+      "không bật công khai → @everyone vẫn bị chặn xem",
+      overwrites.find((o) => o.id === "EVERYONE")?.perms.ViewChannel === false,
+    );
+  }
+  {
+    const { guild, category, overwrites } = makeGuild();
+    await tickets.createTicketChannel({
+      guild,
+      category,
+      channelName: "t-1",
+      staffIds: ["STAFF"],
+      openerOnly: false,
+      isPublic: true,
+    });
+    check(
+      "bật công khai → @everyone ĐƯỢC xem kênh",
+      overwrites.find((o) => o.id === "EVERYONE")?.perms.ViewChannel === true,
+    );
+    // Chủ server bật công khai KHÔNG có nghĩa bỏ luôn quyền của staff.
+    check(
+      "bật công khai → staff vẫn được mở quyền đầy đủ",
+      overwrites.find((o) => o.id === "STAFF")?.perms.SendMessages === true,
+    );
+  }
+  {
+    const { guild, category, getCreated } = makeGuild();
+    await tickets.createTicketChannel({
+      guild,
+      category,
+      channelName: "t-1",
+      staffIds: [],
+      openerOnly: false,
+      slowmodeSec: 45,
+    });
+    check("slowmode 45s → truyền xuống rateLimitPerUser", getCreated().rateLimitPerUser === 45);
+  }
+  {
+    // Giá trị rác từ dashboard không được làm hỏng lượt mở ticket.
+    const cases = [
+      [999999, 21600, "vượt trần 21600"],
+      [-5, 0, "âm → 0"],
+      [30.7, 30, "thập phân → làm tròn xuống"],
+      ["abc", 0, "chữ → 0"],
+      [null, 0, "null → 0"],
+    ];
+    for (const [input, expected, label] of cases) {
+      const { guild, category, getCreated } = makeGuild();
+      await tickets.createTicketChannel({
+        guild,
+        category,
+        channelName: "t-1",
+        staffIds: [],
+        openerOnly: false,
+        slowmodeSec: input,
+      });
+      check(`slowmode ${label}`, getCreated().rateLimitPerUser === expected);
+    }
+  }
+  {
+    // Không đặt slowmode → KHÔNG gửi field (tránh ghi 0 lên mọi kênh cũ).
+    const { guild, category, getCreated } = makeGuild();
+    await tickets.createTicketChannel({
+      guild,
+      category,
+      channelName: "t-1",
+      staffIds: [],
+      openerOnly: false,
+    });
+    check("không đặt slowmode → mặc định 0 (tắt)", getCreated().rateLimitPerUser === 0);
+  }
+
   // ═══ closeTicketChannel: thu quyền + đổi tên, KHÔNG xoá kênh ═══
   console.log("\n── closeTicketChannel ──");
   {
@@ -457,6 +545,9 @@ function makeGuild({ createThrows = null, overwritesFail = new Set() } = {}) {
       sendFails = false,
       rec = { ticketId: "TID1", number: 7 },
       guildId = "g1",
+      // Chỉ cho lỗi ở MỘT loại tạo (vd category con) để kiểm đường lùi về
+      // category cha mà không làm hỏng luôn lượt mở ticket.
+      createFailsForType = null,
     } = opts;
     const calls = {
       queries: [],
@@ -467,6 +558,9 @@ function makeGuild({ createThrows = null, overwritesFail = new Set() } = {}) {
       dmFails: false,
       createdName: null,
       createdTopic: null,
+      // MỌI lần gọi channels.create — cần khi mở category con (gọi 2 lần:
+      // category trước, rồi mới tới kênh tin).
+      createdList: [],
     };
     const category = { id: "CAT", type: 4 };
     const guild = {
@@ -478,8 +572,12 @@ function makeGuild({ createThrows = null, overwritesFail = new Set() } = {}) {
         cache: new Map(categoryInCache ? [["CAT", category]] : []),
         create: async (o) => {
           if (createThrows) throw createThrows;
+          if (createFailsForType !== null && o.type === createFailsForType) {
+            throw new Error("không tạo được category con");
+          }
           calls.createdName = o.name;
           calls.createdTopic = o.topic;
+          calls.createdList.push({ name: o.name, type: o.type, parent: o.parent });
           const ch = {
             id: "CH-NEW",
             name: o.name,
@@ -898,6 +996,98 @@ function makeGuild({ createThrows = null, overwritesFail = new Set() } = {}) {
       openCall.args.body.length <= core.BODY_MAX &&
         !openCall.args.body.includes("@everyone") &&
         openCall.args.body.includes(ZWSP),
+    );
+  }
+
+  // ═══ Phương án D: mẫu tên kênh + category con theo loại (29/09/2026) ═══
+  console.log("\n── openTicket (mẫu tên + category con) ──");
+  {
+    // Không đặt mẫu → phải y hệt hành vi cũ, không đổi tên kênh nào đang có.
+    // Kỳ vọng TÍNH TỪ core.buildChannelName chứ không hardcode: hợp đồng cần
+    // kiểm là "giống hệt cách cũ", không phải một chuỗi tên cụ thể.
+    const env = openEnv();
+    await run(env);
+    const legacy = core.buildChannelName({ username: "minh", number: 7 });
+    check(
+      "không đặt mẫu tên → y hệt hành vi cũ",
+      env.calls.createdName === legacy,
+      `${env.calls.createdName} ≠ ${legacy}`,
+    );
+  }
+  {
+    const env = openEnv({
+      config: { ...goodConfig, ticketChannelTemplate: "tk-{number}-{kind}" },
+    });
+    await run(env);
+    check(
+      "mẫu tên được điền placeholder",
+      env.calls.createdName === "tk-7-support",
+      env.calls.createdName,
+    );
+  }
+  {
+    const env = openEnv({
+      config: { ...goodConfig, ticketChannelTemplate: "{user}-{number}" },
+    });
+    await run(env);
+    check("mẫu dùng được tên người mở", env.calls.createdName === "minh-7", env.calls.createdName);
+  }
+  {
+    // Mẫu do CHỦ SERVER soạn — rác trong đó không được làm tạo kênh hỏng.
+    const env = openEnv({
+      config: { ...goodConfig, ticketChannelTemplate: "  ../../etc/passwd {number}  " },
+    });
+    await run(env);
+    check(
+      "mẫu chứa ký tự lạ → vẫn tạo được kênh",
+      env.calls.createdName !== undefined && !env.calls.createdName.includes(".."),
+      env.calls.createdName,
+    );
+  }
+  {
+    // Bật category con: tạo category TRƯỚC, kênh tin nằm trong đó.
+    const env = openEnv({ config: { ...goodConfig, ticketCategoryPerKind: true } });
+    const r = await run(env);
+    check("bật category con → ticket vẫn mở được", r.ok === true, JSON.stringify(r));
+    check(
+      "tạo 2 lần: category con rồi mới tới kênh tin",
+      env.calls.createdList.length === 2,
+      String(env.calls.createdList.length),
+    );
+    check(
+      "lần đầu tạo category (type 4) đặt trong category cha",
+      env.calls.createdList[0]?.type === 4 && env.calls.createdList[0]?.parent?.id === "CAT",
+      JSON.stringify(env.calls.createdList[0]),
+    );
+    check(
+      "kênh tin nằm trong category CON, không phải category cha",
+      env.calls.createdList[1]?.type === 0 && env.calls.createdList[1]?.parent?.id === "CH-NEW",
+      JSON.stringify(env.calls.createdList[1]),
+    );
+  }
+  {
+    // Lỗi tạo category con → lùi về category cha. Người dùng đã bấm nút rồi,
+    // mất ticket tệ hơn là kênh nằm chỗ kém đẹp.
+    const env = openEnv({
+      config: { ...goodConfig, ticketCategoryPerKind: true },
+      createFailsForType: 4,
+    });
+    const r = await run(env);
+    check("lỗi tạo category con → vẫn mở được ticket", r.ok === true, JSON.stringify(r));
+    check(
+      "lỗi category con → kênh tin lùi về category cha",
+      env.calls.createdList.length === 1 && env.calls.createdList[0]?.parent?.id === "CAT",
+      JSON.stringify(env.calls.createdList),
+    );
+  }
+  {
+    // Tắt (mặc định) → KHÔNG tạo category con, chỉ 1 lần create.
+    const env = openEnv();
+    await run(env);
+    check(
+      "tắt category con → chỉ tạo kênh tin, không tạo category",
+      env.calls.createdList.length === 1 && env.calls.createdList[0]?.type === 0,
+      JSON.stringify(env.calls.createdList),
     );
   }
 

@@ -369,14 +369,14 @@ export default defineSchema({
 
     /* ═══ MẪU KÊNH TICKET (29/09/2026) ═══
      *
-     * Trước đây mọi kênh ticket sinh ra GIỐNG NHAU: tên `ticket-<số>`, chỉ
-     * staff + người mở nhìn thấy, không slowmode, không giới hạn tin. Chủ
+     * Trước đây mọi kênh ticket sinh ra GIỐNG NHAU: tên `ticket-<tên>-<số>`,
+     * chỉ staff + người mở nhìn thấy, không slowmode, không giới hạn tin. Chủ
      * server lớn không có cách nào vừa cho thành viên tự xem vừa vẫn giữ
      * kín đáo — 5 field dưới đây mở ra đúng chỗ đó. */
     /**
-     * Mẫu tên kênh. Hỗ trợ {number} {user} {kind}. Rỗng → `ticket-{number}`
+     * Mẫu tên kênh. Hỗ trợ {number} {user} {kind}. Rỗng → `ticket-<tên>-<số>`
      * (đúng hành vi cũ). Chủ server soạn text này nên nó phải đi qua
-     * `ticketCore.buildChannelName` — hàm đó bỏ dấu + chống ký tự lạ.
+     * `ticketCore.buildChannelNameFromTemplate` — hàm đó bỏ dấu + chống ký tự lạ.
      */
     ticketChannelTemplate: v.optional(v.string()),
     /**

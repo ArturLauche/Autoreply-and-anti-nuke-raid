@@ -113,7 +113,7 @@ function sanitizeChannelName(name, max = CHANNEL_NAME_MAX) {
  * Placeholder hỗ trợ: {number} {user} {kind}. Placeholder lạ → bỏ (không
  * để lọt ký tự `{}` vào tên kênh — Discord từ chối).
  *
- * Rỗng → rơi về `buildChannelName` (đúng hành vi cũ: `ticket-<số>`).
+ * Rỗng → rơi về `buildChannelName` (đúng hành vi cũ: `ticket-<tên user>-<số>`).
  *
  * ⚠️ Mẫu do CHỦ SERVER soạn nên đi qua `sanitizeChannelName` như mọi tên
  * kênh khác: gõ `../../../` hoặc 200 ký tự mới không làm tạo kênh hỏng.
@@ -144,7 +144,7 @@ function isBudgetExceeded({ messageCount, budget }) {
   return (Number(messageCount) || 0) >= cap;
 }
 
-/** Tên kênh ticket: `ticket-<số>` hoặc `<tên user đã bỏ dấu>-<số>`. */
+/** Tên kênh ticket: `ticket-<tên user đã bỏ dấu>-<số>`, thiếu tên thì `ticket-<số>`. */
 function buildChannelName({ username, number, prefix = "ticket" }) {
   // KHÔNG dùng fallback "ticket" của sanitizeChannelName làm `who`: nếu
   // username rỗng thì tên ra "ticket-ticket-7" (đã xảy ra, test bắt được).
