@@ -57,6 +57,13 @@ module.exports = function createAntiNukeLayer({
    * tín hiệu engine đã tính sẵn, 0 token thêm). Tất cả mục đều là số/boolean
    * đo được, không phải phán đoán chủ quan.
    */
+  // Câu tóm tắt cho cảnh báo khẩn. PHẢI nêu đúng module đang bắn: trước đây
+  // nhánh pattern hardcode "(spam)" cho mọi module, nên chủ server đọc cảnh báo
+  // tin giả blank lại thấy ghi là spam. Dùng chung 1 hàm cho cả spam lẫn
+  // pattern để 2 nhánh không trôi lệch nhau lần nữa.
+  const raidAlertSummary = (moduleKey, count, windowSeconds) =>
+    `AI xác nhận raid (${MODULE_LABELS[moduleKey] ?? moduleKey}) — ${count} tin trong ${windowSeconds}s`;
+
   function messageEvidence(samples, { recentJoins, memberCount } = {}) {
     const ev = [];
     const list = (samples || []).filter(Boolean).map((s) => String(s));
@@ -191,8 +198,7 @@ module.exports = function createAntiNukeLayer({
         await maybeLockdown(message.guild, config);
         // AI xác nhận raid → cảnh báo khẩn cho server (fire-and-forget).
         emergencyRaidAlert(client, store, message.guild, {
-          summary:
-            "AI xác nhận raid (spam) — " + fresh.length + " tin trong " + cfg.windowSeconds + "s",
+          summary: raidAlertSummary(cfg.module, fresh.length, cfg.windowSeconds),
           reason,
           lockdownActive: isLocked(message.guild.id),
         }).catch(() => {});
@@ -363,6 +369,16 @@ module.exports = function createAntiNukeLayer({
       action = res.action;
       caseNumber = res.caseNumber;
       await maybeLockdown(message.guild, config);
+      // AI xác nhận raid → CẢNH BÁO KHẨN cho server (fire-and-forget), giống
+      // nhánh pattern ở handleMessagePatterns. Trước đây chỉ nhánh pattern
+      // gọi: spam là đường raid phổ biến nhất lại im lặng — server bị ban +
+      // khoá kênh mà không ai trong đó được báo. Hàm tự chặn trùng 5 phút và
+      // tôn trọng tắt `emergencyAlertEnabled`, nên gọi thêm ở đây không gây spam.
+      emergencyRaidAlert(client, store, message.guild, {
+        summary: raidAlertSummary(moduleCfg.module, fresh.length, moduleCfg.windowSeconds),
+        reason,
+        lockdownActive: isLocked(message.guild.id),
+      }).catch(() => {});
       // Threat Relay (Đợt 6): đóng góp signature raid spam (fire-and-forget).
       relayClient.reportSignatureBatch(message.guild.id, "spam-text", samples);
     } else if (isBenign) {

@@ -50,6 +50,7 @@ module.exports = {
     caseLogs: [],
     mutations: [],
     threatNotes: [],
+    emergencyAlerts: [],
   };
 
   function baseConfig(overrides = {}) {
@@ -135,8 +136,20 @@ module.exports = {
 
   let client = { user: { id: "bot-self" }, guilds: { cache: new Map() }, on: () => {} };
   const createState = require("../bot/src/handlers/antinuke/state");
+  const { MODULE_LABELS } = require("../bot/src/handlers/antinuke/shared");
   const createAi = require("../bot/src/handlers/antinuke/ai");
   const createEnforce = require("../bot/src/handlers/antinuke/enforce");
+
+  // Bọc emergencyRaidAlert PHẢI TRƯỚC khi nạp messages.js: module đó giữ hàm
+  // bằng destructuring lúc require, bọc sau thì nó đã giữ bản gốc rồi.
+  // `clear()` xoá mảng nên mỗi kịch bản đếm độc lập.
+  const incidentReport = require("../bot/src/handlers/incidentReport");
+  const realEmergencyAlert = incidentReport.emergencyRaidAlert;
+  incidentReport.emergencyRaidAlert = (client_, store_, guild_, info) => {
+    calls.emergencyAlerts.push(info);
+    return realEmergencyAlert(client_, store_, guild_, info);
+  };
+
   const createMessages = require("../bot/src/handlers/antinuke/messages");
 
   const state = createState({ client, store });
@@ -145,6 +158,15 @@ module.exports = {
   require("../bot/src/webhookHub").init(client, store);
   const lockdownActive = () =>
     calls.mutations.some((m) => m.name === "bot_writes:botLockState" && m.args.until);
+  // `maybeLockdown` bỏ qua nếu guild ĐÃ bị khoá (đúng hành vi thật — không khoá
+  // 2 lần). Block 3 (spam) đã khoá "g-msg" nên block sau muốn kiểm nhánh khoá
+  // kênh của module khác thì phải mở khoá trước, nếu không assert "không khoá"
+  // là do trạng thái sót lại chứ không phải do pipeline.
+  const lockdown = require("../bot/src/lockdown");
+  async function resetLock() {
+    const g = client.guilds.cache.get("g-msg");
+    if (g && lockdown.isLocked(g.id)) await lockdown.unlockGuild(client, g, baseConfig(), store);
+  }
 
   // AI giả: có thể bẻ verdict theo kịch bản qua biến `aiVerdict`.
   let aiVerdict = null; // null → AI offline (trả null)
@@ -357,6 +379,21 @@ module.exports = {
       "AI raid → ghi mẫu huấn luyện kèm verdict",
       calls.raidSamples.some((s) => s.module === "spam" && s.aiClassification === "raid"),
     );
+    // Spam là đường raid phổ biến nhất nên phải CÓ cảnh báo khẩn cho server
+    // (nếu không: bị ban + khoá kênh mà không ai trong server được báo).
+    check("AI raid → bot gọi cảnh báo khẩn cho server", calls.emergencyAlerts.length === 1);
+    // Cảnh báo phải nêu đúng module đang bắn. Trước đây nhánh pattern
+    // hardcode "(spam)" cho mọi module → tin giả blank cũng bị ghi là spam.
+    check(
+      "AI raid → cảnh báo khẩn nêu đúng module spam",
+      calls.emergencyAlerts[0]?.summary ===
+        `AI xác nhận raid (${MODULE_LABELS.spam}) — 5 tin trong 10s`,
+    );
+    check(
+      "AI raid → cảnh báo khẩn nêu đúng số tin + trạng thái khoá kênh",
+      String(calls.emergencyAlerts[0]?.summary ?? "").includes("5 tin") &&
+        calls.emergencyAlerts[0]?.lockdownActive === true,
+    );
     configs.set("g-msg", baseConfig());
   }
 
@@ -387,6 +424,10 @@ module.exports = {
       ),
     );
     check("AI benign → không ghi mẫu raid", calls.raidSamples.length === 0);
+    check(
+      "AI benign → KHÔNG gọi cảnh báo khẩn (im lặng vì dương tính giả)",
+      calls.emergencyAlerts.length === 0,
+    );
   }
 
   // ── 5. AI raid nhưng tin cậy thấp (< 0.6) → KHÔNG leo thang ban ──
@@ -397,6 +438,11 @@ module.exports = {
     check(
       "AI raid confidence 0.3 → không ban (chỉ heat)",
       calls.memberBans.length === 0 && calls.heatAdds.length === 1,
+    );
+    for (let i = 0; i < 3; i++) await new Promise((r) => setImmediate(r));
+    check(
+      "AI raid conf thấp → KHÔNG gọi cảnh báo khẩn (chưa đủ tự tin)",
+      calls.emergencyAlerts.length === 0,
     );
   }
 
@@ -437,6 +483,122 @@ module.exports = {
     const blanks = ["\u0020", "\u200b", "\u0020\u200b\u0020"];
     for (let i = 0; i < 3; i++)
       await messages.handleMessagePatterns(makeMessage({ id: "Z" + i, content: blanks[i] }));
+    check(
+      "blankNoise → trigger đúng module (nội dung khác nhau)",
+      calls.events.some((e) => e.module === "blankNoise"),
+    );
+    check(
+      "blankNoise → không sinh vụ massMessage",
+      calls.events.every((e) => e.module !== "massMessage"),
+    );
+  }
+
+  // ── 8c. massMessage + AI xác nhận raid → leo thang ban + lockdown ──
+  // Nhánh leo thang của pattern CHƯA TỪNG chạy: module spam có test từ block 3
+  // nhưng massMessage/blankNoise thì không — cả đường ban + khóa kênh của chúng
+  // chưa từng được kiểm đúng 1 lần nào.
+  {
+    await resetLock();
+    clear();
+    configs.set("g-msg", baseConfig({ lockdownEnabled: true }));
+    aiVerdict = { classification: "raid", confidence: 0.85, reason: "lặp lại + link mời" };
+    const long = "A".repeat(2200);
+    for (let i = 0; i < 3; i++)
+      await messages.handleMessagePatterns(makeMessage({ id: "P" + i, content: long }));
+    check("massMessage AI raid → phạt BAN", calls.memberBans.length === 1);
+    check("massMessage AI raid → khóa kênh (lockdown)", lockdownActive());
+    check(
+      "massMessage AI raid → sự kiện gắn nhãn (AI: raid)",
+      String(calls.events.find((e) => e.module === "massMessage")?.action ?? "").includes(
+        "(AI: raid)",
+      ),
+    );
+    check("massMessage AI raid → không cộng nhiệt", calls.heatAdds.length === 0);
+    check(
+      "massMessage AI raid → ghi mẫu huấn luyện kèm verdict",
+      calls.raidSamples.some((s) => s.module === "massMessage" && s.aiClassification === "raid"),
+    );
+    // Không được ghi "(spam)" cho module này — chủ server cần biết đúng loại
+    // hành vi nào đang bắn để xử lý.
+    check(
+      "massMessage AI raid → cảnh báo khẩn nêu đúng module massMessage",
+      calls.emergencyAlerts[0]?.summary ===
+        `AI xác nhận raid (${MODULE_LABELS.massMessage}) — 3 tin trong 10s`,
+    );
+    check(
+      "massMessage AI raid → cảnh báo khẩn KHÔNG ghi nhầm module spam",
+      calls.emergencyAlerts.length === 1 && !calls.emergencyAlerts[0].summary.includes("(spam)"),
+    );
+    configs.set("g-msg", baseConfig());
+  }
+
+  // ── 8d. blankNoise + AI xác nhận raid → cũng leo thang ban + lockdown ──
+  {
+    await resetLock();
+    clear();
+    configs.set("g-msg", baseConfig({ lockdownEnabled: true }));
+    aiVerdict = { classification: "raid", confidence: 0.9, reason: "zero-width hàng loạt" };
+    const blanks = ["\u0020", "\u200b", "\u0020\u200b\u0020"];
+    for (let i = 0; i < 3; i++)
+      await messages.handleMessagePatterns(makeMessage({ id: "BW" + i, content: blanks[i] }));
+    check("blankNoise AI raid → phạt BAN", calls.memberBans.length === 1);
+    check("blankNoise AI raid → khóa kênh (lockdown)", lockdownActive());
+    check(
+      "blankNoise AI raid → sự kiện đúng module kèm nhãn raid",
+      calls.events.some(
+        (e) => e.module === "blankNoise" && String(e.action).includes("(AI: raid)"),
+      ),
+    );
+    check(
+      "blankNoise AI raid → cảnh báo khẩn nêu đúng module blankNoise",
+      calls.emergencyAlerts[0]?.summary ===
+        `AI xác nhận raid (${MODULE_LABELS.blankNoise}) — 3 tin trong 10s`,
+    );
+    configs.set("g-msg", baseConfig());
+  }
+
+  // ── 8e. massMessage + AI benign (paste tài liệu dài) → bỏ qua, KHÔNG phạt ──
+  {
+    clear();
+    aiVerdict = {
+      classification: "benign",
+      confidence: 0.8,
+      reason: "một người dán tài liệu, không phải spam",
+    };
+    const long = "B".repeat(2200);
+    for (let i = 0; i < 3; i++)
+      await messages.handleMessagePatterns(makeMessage({ id: "PB" + i, content: long }));
+    check(
+      "massMessage AI benign → KHÔNG phạt thành viên",
+      calls.memberBans.length === 0 &&
+        calls.memberKicks.length === 0 &&
+        calls.memberTimeouts.length === 0,
+    );
+    check("massMessage AI benign → KHÔNG cộng nhiệt", calls.heatAdds.length === 0);
+    check(
+      "massMessage AI benign → không dọn tin nhắn",
+      calls.msgDeleted.length === 0 && calls.bulkDeleted.length === 0,
+    );
+    check(
+      "massMessage AI benign → vẫn ghi sự kiện bỏ qua",
+      String(calls.events.find((e) => e.module === "massMessage")?.action ?? "").includes(
+        "bỏ qua (AI: benign)",
+      ),
+    );
+    check("massMessage AI benign → không ghi mẫu raid", calls.raidSamples.length === 0);
+  }
+
+  // ── 8f. massMessage AI raid nhưng tin cậy thấp → không ban, chỉ cộng nhiệt ──
+  {
+    clear();
+    aiVerdict = { classification: "raid", confidence: 0.3, reason: "mơ hồ" };
+    const long = "C".repeat(2200);
+    for (let i = 0; i < 3; i++)
+      await messages.handleMessagePatterns(makeMessage({ id: "PL" + i, content: long }));
+    check(
+      "massMessage raid conf 0.3 → không ban (chỉ heat)",
+      calls.memberBans.length === 0 && calls.heatAdds.length === 1,
+    );
   }
 
   // ── 8b. blankNoise CHỒNG lúc chờ AI → 1 đợt chỉ 1 vụ ──
