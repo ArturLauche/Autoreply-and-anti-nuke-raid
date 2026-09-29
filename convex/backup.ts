@@ -488,10 +488,21 @@ export const setRestoreOptions = mutation({
     restoreChannels: v.optional(v.boolean()),
     restoreMessages: v.optional(v.boolean()),
     restoreEmojis: v.optional(v.boolean()),
+    restoreMeta: v.optional(v.boolean()),
+    restoreExtras: v.optional(v.boolean()),
   },
   handler: async (
     ctx,
-    { token, guildId, restoreRoles, restoreChannels, restoreMessages, restoreEmojis },
+    {
+      token,
+      guildId,
+      restoreRoles,
+      restoreChannels,
+      restoreMessages,
+      restoreEmojis,
+      restoreMeta,
+      restoreExtras,
+    },
   ) => {
     const user = await getUserByToken(ctx, token);
     const guild = await ctx.db
@@ -509,6 +520,8 @@ export const setRestoreOptions = mutation({
     if (typeof restoreChannels === "boolean") patch.restoreChannelsEnabled = restoreChannels;
     if (typeof restoreMessages === "boolean") patch.restoreMessagesEnabled = restoreMessages;
     if (typeof restoreEmojis === "boolean") patch.restoreEmojisEnabled = restoreEmojis;
+    if (typeof restoreMeta === "boolean") patch.restoreMetaEnabled = restoreMeta;
+    if (typeof restoreExtras === "boolean") patch.restoreExtrasEnabled = restoreExtras;
     await ctx.db.patch(guild._id, patch);
     return {
       ok: true,
@@ -516,6 +529,8 @@ export const setRestoreOptions = mutation({
       restoreChannels: guild.restoreChannelsEnabled ?? true,
       restoreMessages: guild.restoreMessagesEnabled ?? true,
       restoreEmojis: guild.restoreEmojisEnabled ?? true,
+      restoreMeta: guild.restoreMetaEnabled ?? true,
+      restoreExtras: guild.restoreExtrasEnabled ?? false,
     };
   },
 });

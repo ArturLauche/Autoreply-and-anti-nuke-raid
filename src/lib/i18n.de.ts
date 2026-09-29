@@ -357,6 +357,10 @@ export const DE: Record<string, string> = {
   "Backup có sẵn": "Verfügbare Backups",
   /* ==== Kế hoạch khôi phục / dry-run (29/09/2026) ==== */
   "Xem kế hoạch": "Plan ansehen",
+  /* ==== Phạm vi chụp mở rộng (29/09/2026) ==== */
+  "Khôi phục tên / mô tả / icon server": "Servername / Beschreibung / Icon wiederherstellen",
+  "Khôi phục danh sách ban + link mời": "Ban-Liste + Einladungslinks wiederherstellen",
+  "không hoàn tác được": "nicht rückgängig machbar",
   "Kế hoạch khôi phục (chưa thay đổi server)": "Wiederherstellungsplan (Server unverändert)",
   "Xem trước sẽ tạo gì mà không thay đổi server (dry-run)":
     "Vorschau, was erstellt würde, ohne den Server zu verändern (Dry-Run)",

@@ -303,111 +303,132 @@ const check = (label, ok) => {
         return new Map((o.msgs ?? []).map((m) => [m.id, m]));
       },
     },
+    // Thread: kênh văn bản dùng fetchActive(), kênh forum dùng cache sẵn có.
+    threads: {
+      cache: new Map(o.threads ?? []),
+      fetchActive:
+        typeof o.fetchActive === "function"
+          ? o.fetchActive
+          : o.threads
+            ? async () => new Map(o.threads)
+            : undefined,
+    },
   });
 
-  const srcGuild = {
-    id: SRC,
-    name: "Server Nguồn",
-    available: true,
-    iconURL: () => null,
-    members: { me: { permissions: new PermissionsBitField(MY_BITS) } },
-    roles: {
-      cache: new Map([
-        ["r0", mkRole("r0", "@everyone", 0)],
-        [
-          "r1",
-          mkRole("r1", "Mod", 2, {
-            color: 0xff0000,
-            hoist: true,
-            mentionable: true,
-            permissions: (1n << 1n) | (1n << 10n),
-            icon: "https://cdn/role.png",
-            unicodeEmoji: "🐶",
-          }),
-        ],
-        ["r2", mkRole("r2", "Nitro Boost", 1, { managed: true })],
-        ["r3", mkRole("r3", "Thanh viên", 3)],
-      ]),
-    },
-    emojis: {
-      cache: new Map([
-        [
-          "e1",
-          {
-            id: "e1",
-            name: "Party",
-            animated: false,
-            available: true,
-            imageURL: () => "https://cdn/e1.png",
-          },
-        ],
-        ["e2", { id: "e2", name: "", available: true, imageURL: () => "https://cdn/e2.png" }],
-        ["e3", { id: "e3", name: "Hỏng", available: false, imageURL: () => "https://cdn/e3.png" }],
-      ]),
-    },
-    stickers: {
-      cache: new Map([
-        [
-          "s1",
-          {
-            id: "s1",
-            name: "Sticker",
-            description: "mô tả",
-            tags: "😀",
-            format: 1,
-            url: "https://cdn/s1.png",
-          },
-        ],
-        ["s2", { id: "s2", name: "", url: "https://cdn/s2.png" }],
-      ]),
-    },
-    channels: {
-      cache: new Map([
-        ["c-cat", mkChan("c-cat", "Khoá", CT.GuildCategory, 0)],
-        [
-          "c-text",
-          mkChan("c-text", "general", CT.GuildText, 1, {
-            topic: "chủ đề",
-            nsfw: true,
-            ows: [
-              [
-                "o1",
-                {
-                  id: "o1",
-                  type: 0,
-                  allow: new PermissionsBitField(1n << 11n),
-                  deny: new PermissionsBitField(1n << 10n),
-                },
-              ],
-            ],
-            // CỐ TÌNH đảo thứ tự + thêm 4 ảnh để kiểm sort và giới hạn 3 ảnh/tin.
-            msgs: [
-              mkMsg("m2", 2000, { authorName: "mai", content: "tin 2" }),
-              mkMsg("m1", 1000, {
-                content: "tin 1",
-                attachments: [
-                  "https://cdn/a.png",
-                  "https://cdn/b.png",
-                  "https://cdn/c.png",
-                  "https://cdn/d.png",
+  // Factory (không phải hằng số): các test mới thêm ban/invite/thread vào server
+  // giả phải không làm bẩn server giả dùng chung cho test cũ.
+  function mkSrcGuild() {
+    return {
+      id: SRC,
+      name: "Server Nguồn",
+      available: true,
+      iconURL: () => null,
+      members: { me: { permissions: new PermissionsBitField(MY_BITS) } },
+      roles: {
+        cache: new Map([
+          ["r0", mkRole("r0", "@everyone", 0)],
+          [
+            "r1",
+            mkRole("r1", "Mod", 2, {
+              color: 0xff0000,
+              hoist: true,
+              mentionable: true,
+              permissions: (1n << 1n) | (1n << 10n),
+              icon: "https://cdn/role.png",
+              unicodeEmoji: "🐶",
+            }),
+          ],
+          ["r2", mkRole("r2", "Nitro Boost", 1, { managed: true })],
+          ["r3", mkRole("r3", "Thanh viên", 3)],
+        ]),
+      },
+      emojis: {
+        cache: new Map([
+          [
+            "e1",
+            {
+              id: "e1",
+              name: "Party",
+              animated: false,
+              available: true,
+              imageURL: () => "https://cdn/e1.png",
+            },
+          ],
+          ["e2", { id: "e2", name: "", available: true, imageURL: () => "https://cdn/e2.png" }],
+          [
+            "e3",
+            { id: "e3", name: "Hỏng", available: false, imageURL: () => "https://cdn/e3.png" },
+          ],
+        ]),
+      },
+      stickers: {
+        cache: new Map([
+          [
+            "s1",
+            {
+              id: "s1",
+              name: "Sticker",
+              description: "mô tả",
+              tags: "😀",
+              format: 1,
+              url: "https://cdn/s1.png",
+            },
+          ],
+          ["s2", { id: "s2", name: "", url: "https://cdn/s2.png" }],
+        ]),
+      },
+      channels: {
+        cache: new Map([
+          ["c-cat", mkChan("c-cat", "Khoá", CT.GuildCategory, 0)],
+          [
+            "c-text",
+            mkChan("c-text", "general", CT.GuildText, 1, {
+              topic: "chủ đề",
+              nsfw: true,
+              ows: [
+                [
+                  "o1",
+                  {
+                    id: "o1",
+                    type: 0,
+                    allow: new PermissionsBitField(1n << 11n),
+                    deny: new PermissionsBitField(1n << 10n),
+                  },
                 ],
-              }),
-            ],
-          }),
-        ],
-        [
-          "c-voice",
-          mkChan("c-voice", "Voice", CT.GuildVoice, 2, {
-            bitrate: 64000,
-            userLimit: 5,
-            msgs: [mkMsg("v1", 500)],
-          }),
-        ],
-        ["c-nope", mkChan("c-nope", "DM", 1, 3, { msgs: [mkMsg("d1", 400)] })],
-        ["c-noread", mkChan("c-noread", "Không đọc được", CT.GuildText, 4, { fetchThrows: true })],
-      ]),
-    },
-  };
+              ],
+              // CỐ TÌNH đảo thứ tự + thêm 4 ảnh để kiểm sort và giới hạn 3 ảnh/tin.
+              msgs: [
+                mkMsg("m2", 2000, { authorName: "mai", content: "tin 2" }),
+                mkMsg("m1", 1000, {
+                  content: "tin 1",
+                  attachments: [
+                    "https://cdn/a.png",
+                    "https://cdn/b.png",
+                    "https://cdn/c.png",
+                    "https://cdn/d.png",
+                  ],
+                }),
+              ],
+            }),
+          ],
+          [
+            "c-voice",
+            mkChan("c-voice", "Voice", CT.GuildVoice, 2, {
+              bitrate: 64000,
+              userLimit: 5,
+              msgs: [mkMsg("v1", 500)],
+            }),
+          ],
+          ["c-nope", mkChan("c-nope", "DM", 1, 3, { msgs: [mkMsg("d1", 400)] })],
+          [
+            "c-noread",
+            mkChan("c-noread", "Không đọc được", CT.GuildText, 4, { fetchThrows: true }),
+          ],
+        ]),
+      },
+    };
+  }
+  const srcGuild = mkSrcGuild();
   const srcClient = { guilds: { cache: new Map([[SRC, srcGuild]]) } };
   const snapStore = { getConfig: async () => ({ prefix: "?", logChannelId: "L1" }) };
 
@@ -531,6 +552,10 @@ const check = (label, ok) => {
       sent: [],
       webhooks: [],
       iconSet: 0,
+      threads: [],
+      invites: [],
+      bans: [],
+      meta: [],
     };
     let n = 0;
     const guild = {
@@ -563,6 +588,35 @@ const check = (label, ok) => {
             name: o.name,
             type: o.type,
             isTextBased: () => o.type === 0 || o.type === 5,
+            threads: {
+              create: async (to) => {
+                log.threads.push({ channel: o.name, ...to });
+                const th = {
+                  id: `nth${++n}`,
+                  name: to.name,
+                  isTextBased: () => true,
+                  createWebhook: async (wo) => {
+                    const wh = {
+                      name: wo.name,
+                      send: async (p) => {
+                        log.sent.push({ via: "thread-webhook", ...p });
+                      },
+                      delete: async () => {},
+                    };
+                    log.webhooks.push(wh);
+                    return wh;
+                  },
+                  send: async (p) => {
+                    log.sent.push({ via: "thread-channel", ...p });
+                  },
+                };
+                return th;
+              },
+            },
+            createInvite: async (io) => {
+              log.invites.push({ channel: o.name, ...io });
+              return { code: `new-${log.invites.length}` };
+            },
             createWebhook: async (wo) => {
               const wh = {
                 name: wo.name,
@@ -595,7 +649,16 @@ const check = (label, ok) => {
           return { name: o.name };
         },
       },
-      members: { me: { permissions: { bitfield: (1n << 40n) - 1n } } },
+      members: {
+        me: { permissions: { bitfield: (1n << 40n) - 1n } },
+        ban: async (userId, opts) => {
+          log.bans.push({ userId, ...opts });
+        },
+      },
+      bans: { cache: new Map() },
+      setName: async (v) => log.meta.push({ name: v }),
+      setDescription: async (v) => log.meta.push({ description: v }),
+      setIcon: async (v) => log.meta.push({ icon: v }),
       _log: log,
     };
     return guild;
@@ -1797,6 +1860,359 @@ const check = (label, ok) => {
         !seen.some((s) => s.name === "bot_writes:botRestoreSettings") &&
         tg._log.channels.length === 0,
       JSON.stringify(seen.map((s) => s.name)),
+    );
+  }
+
+  // ══════════ 16. PHẠM VI CHỤP MỞ RỘNG: ban, invite, thread, danh tính server ══════════
+  // Trước đây backup chỉ lưu role/kênh/emoji/sticker/tin: server bị nuke mất
+  // luôn tên/icon/mô tả, danh sách ban, link mời và toàn bộ thread — những thứ
+  // cộng đồng thật sự dùng. Mỗi phần dưới đây có cả chiều CHỤP lẫn chiều
+  // KHÔI PHỤC, vì dữ liệu chụp mà không áp lại thì là dữ liệu chết.
+  {
+    const g = mkSrcGuild();
+    g.description = "Server đồ cộng đồng";
+    g.iconURL = () => "https://cdn/server.png";
+    g.bans = {
+      fetch: async () =>
+        new Map([
+          [
+            "raider1",
+            { id: "raider1", user: { id: "raider1", username: "kẻ cướp" }, reason: "raid" },
+          ],
+          ["spam", { id: "spam", user: { id: "spam", username: "spammer" }, reason: null }],
+        ]),
+    };
+    g.invites = {
+      fetch: async () =>
+        new Map([
+          [
+            "code1",
+            {
+              code: "code1",
+              channel: { name: "general" },
+              uses: 3,
+              maxUses: 0,
+              maxAge: 86400,
+              temporary: true,
+            },
+          ],
+        ]),
+    };
+    // Thread trong kênh văn bản (fetchActive) — 12 tin để chạm trần 10.
+    const th = g.channels.cache.get("c-text");
+    th.threads.fetchActive = async () =>
+      new Map([
+        [
+          "t1",
+          {
+            id: "t1",
+            name: "sự cố server",
+            archived: false,
+            autoArchiveDuration: 1440,
+            messageCount: 12,
+            messages: {
+              fetch: async () =>
+                new Map(Array.from({ length: 12 }, (_, i) => [i, mkMsg(`t${i}`, i)])),
+            },
+          },
+        ],
+      ]);
+    const st = { client: { mutation: async () => ({ ok: true }) }, getConfig: async () => null };
+    const { snapshot } = await backup.snapshotWithSettings(
+      { guilds: { cache: new Map([[SRC, g]]) } },
+      st,
+      SRC,
+      true,
+    );
+    const text = snapshot.channels.find((c) => c.id === "c-text");
+    check(
+      "chụp: lưu tên / mô tả / icon của server",
+      snapshot.guildMeta?.name === "Server Nguồn" &&
+        snapshot.guildMeta?.description === "Server đồ cộng đồng" &&
+        snapshot.guildMeta?.iconUrl === "https://cdn/server.png",
+      JSON.stringify(snapshot.guildMeta),
+    );
+    check(
+      "chụp: lưu danh sách ban (id + lý do)",
+      snapshot.bans.length === 2 &&
+        snapshot.bans[0].userId === "raider1" &&
+        snapshot.bans[0].reason === "raid",
+      JSON.stringify(snapshot.bans),
+    );
+    check(
+      "chụp: lưu link mời (kênh + giới hạn)",
+      snapshot.invites.length === 1 &&
+        snapshot.invites[0].channelName === "general" &&
+        snapshot.invites[0].temporary === true &&
+        snapshot.invites[0].maxAge === 86400,
+      JSON.stringify(snapshot.invites),
+    );
+    check(
+      "chụp: lưu thread kèm tin nhắn (trần 10 tin/thread)",
+      text.threads?.length === 1 &&
+        text.threads[0].name === "sự cố server" &&
+        text.threads[0].messages.length === 10,
+      JSON.stringify(text.threads?.map((t) => [t.name, t.messages.length])),
+    );
+    check(
+      "chụp: messageCount gồm cả tin trong thread",
+      snapshot.messageCount === text.messages.length + text.threads[0].messages.length,
+      `${snapshot.messageCount} vs ${text.messages.length}+${text.threads[0].messages.length}`,
+    );
+    // Media base64 trong thread phải bị loại khi lưu lên cloud, nếu không nó
+    // phình JSON và vượt trần 1 MB của Convex.
+    const withData = {
+      ...snapshot,
+      channels: [
+        {
+          ...text,
+          threads: [
+            {
+              name: "t",
+              messages: [
+                {
+                  id: "1",
+                  content: "",
+                  attachments: [`data:image/png;base64,AAA`, "https://cdn/a.png"],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const slim = backup.slimBackupForStore(withData);
+    check(
+      "lưu cloud: loại media base64 trong thread (slimBackupForStore)",
+      slim.channels[0].threads[0].messages[0].attachments.length === 1 &&
+        slim.channels[0].threads[0].messages[0].attachments[0] === "https://cdn/a.png",
+      JSON.stringify(slim.channels[0].threads[0].messages[0].attachments),
+    );
+  }
+  {
+    // Thread trong kênh forum: discord.js không có fetchActive → phải đọc cache.
+    const g = mkSrcGuild();
+    g.channels.cache.set(
+      "c-forum",
+      mkChan("c-forum", "diễn đàn", CT.GuildForum, 2, {
+        threads: [
+          [
+            "t9",
+            {
+              id: "t9",
+              name: "bài hỏi",
+              archived: true,
+              autoArchiveDuration: 4320,
+              messages: { fetch: async () => new Map([[1, mkMsg("q1", 1)]]) },
+            },
+          ],
+        ],
+      }),
+    );
+    const st = { client: { mutation: async () => ({ ok: true }) }, getConfig: async () => null };
+    const { snapshot } = await backup.snapshotWithSettings(
+      { guilds: { cache: new Map([[SRC, g]]) } },
+      st,
+      SRC,
+      true,
+    );
+    const forum = snapshot.channels.find((c) => c.id === "c-forum");
+    check(
+      "chụp: thread trong kênh forum đọc từ cache",
+      forum.threads?.length === 1 && forum.threads[0].archived === true,
+      JSON.stringify(forum.threads),
+    );
+  }
+  {
+    // Thiếu quyền Ban Members / Manage Guild là chuyện thường — KHÔNG được làm
+    // hỏng cả lượt backup (người dùng mất luôn role/kênh chỉ vì thiếu 1 quyền).
+    const g = mkSrcGuild();
+    g.bans = {
+      fetch: async () => {
+        throw new Error("Missing Permissions");
+      },
+    };
+    g.invites = {
+      fetch: async () => {
+        throw new Error("Missing Permissions");
+      },
+    };
+    const st = { client: { mutation: async () => ({ ok: true }) }, getConfig: async () => null };
+    const { snapshot } = await backup.snapshotWithSettings(
+      { guilds: { cache: new Map([[SRC, g]]) } },
+      st,
+      SRC,
+      false,
+    );
+    check(
+      "chụp: thiếu quyền ban/mời → backup vẫn ra, phần đó rỗng",
+      snapshot.bans.length === 0 && snapshot.invites.length === 0 && snapshot.roles.length === 2,
+      `${snapshot.bans.length}/${snapshot.invites.length}/${snapshot.roles.length}`,
+    );
+  }
+  {
+    // Khôi phục thread: tạo trong kênh vừa dựng + phục hồi tin qua webhook.
+    const tg = makeTarget();
+    const muts = [];
+    const st = {
+      client: {
+        mutation: async (name, args) => {
+          muts.push({ name, args });
+          return { ok: true };
+        },
+      },
+      getConfig: async () => null,
+    };
+    const withThread = {
+      ...richBackup,
+      channels: [
+        {
+          ...richBackup.channels[0],
+          threads: [
+            {
+              id: "t1",
+              name: "sự cố server",
+              autoArchiveDuration: 999,
+              messages: [
+                { id: "a", authorName: "minh", content: "chào", timestamp: 1, attachments: [] },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const r = await backup.runRestore(
+      { guilds: { cache: new Map([[TGT, tg]]) } },
+      st,
+      TGT,
+      JSON.stringify(withThread),
+    );
+    check(
+      "khôi phục: tạo lại thread trong kênh",
+      tg._log.threads.length === 1 && tg._log.threads[0].name === "sự cố server",
+      JSON.stringify(tg._log.threads),
+    );
+    check(
+      "khôi phục: autoArchiveDuration làm tròn LÊN giá trị Discord cho phép (999 → 1440)",
+      tg._log.threads[0].autoArchiveDuration === 1440,
+      String(tg._log.threads[0].autoArchiveDuration),
+    );
+    check(
+      "khôi phục: tin trong thread đi qua webhook (giữ tên tác giả)",
+      r.threadCount === 1 &&
+        r.threadMessageCount === 1 &&
+        tg._log.sent.some((s) => s.via === "thread-webhook" && s.username === "minh"),
+      JSON.stringify(tg._log.sent),
+    );
+  }
+  {
+    // Danh tính server: mặc định BẬT (tên/mô tả/icon là thứ người dùng thấy
+    // đầu tiên sau khi mở lại server bị nuke).
+    const tg = makeTarget();
+    const st = { client: { mutation: async () => ({ ok: true }) }, getConfig: async () => null };
+    const r = await backup.runRestore(
+      { guilds: { cache: new Map([[TGT, tg]]) } },
+      st,
+      TGT,
+      JSON.stringify({
+        ...richBackup,
+        guildMeta: { name: "Tên Mới", description: "mô tả mới", iconUrl: "https://cdn/i.png" },
+      }),
+    );
+    check(
+      "khôi phục: áp lại tên / mô tả / icon server",
+      r.metaApplied.name &&
+        r.metaApplied.description &&
+        r.metaApplied.icon &&
+        tg._log.meta.length === 3,
+      JSON.stringify(tg._log.meta),
+    );
+  }
+  {
+    // Ban + link mời: mặc định TẮT. Cấm người và mở link mời không hoàn tác được
+    // nên không được chạy chỉ vì backup có sẵn danh sách.
+    const withExtras = {
+      ...richBackup,
+      bans: [{ userId: "raider1", reason: "raid" }],
+      invites: [
+        { code: "old", channelName: "general", maxAge: 86400, maxUses: 0, temporary: true },
+      ],
+    };
+    const off = makeTarget();
+    const stOff = { client: { mutation: async () => ({ ok: true }) }, getConfig: async () => null };
+    const rOff = await backup.runRestore(
+      { guilds: { cache: new Map([[TGT, off]]) } },
+      stOff,
+      TGT,
+      JSON.stringify(withExtras),
+    );
+    check(
+      "khôi phục: mặc định KHÔNG cấm lại người",
+      off._log.bans.length === 0 && rOff.banCount === 0,
+      JSON.stringify(off._log.bans),
+    );
+    check(
+      "khôi phục: mặc định KHÔNG tạo link mời",
+      off._log.invites.length === 0 && rOff.inviteCount === 0,
+    );
+    const on = makeTarget();
+    const stOn = {
+      client: { mutation: async () => ({ ok: true }) },
+      getConfig: async () => ({ restoreExtrasEnabled: true }),
+    };
+    const rOn = await backup.runRestore(
+      { guilds: { cache: new Map([[TGT, on]]) } },
+      stOn,
+      TGT,
+      JSON.stringify(withExtras),
+    );
+    check(
+      "khôi phục: bật → cấm lại người bị ban",
+      on._log.bans.length === 1 && on._log.bans[0].userId === "raider1" && rOn.banCount === 1,
+      JSON.stringify(on._log.bans),
+    );
+    check(
+      "khôi phục: bật → tạo link mời MỚI trỏ đúng kênh",
+      on._log.invites.length === 1 &&
+        on._log.invites[0].channel === "general" &&
+        rOn.inviteCount === 1,
+      JSON.stringify(on._log.invites),
+    );
+    // Đã bị ban rồi thì không ban lại (tránh 2 lần ghi audit log + rate limit).
+    on.bans.cache.set("raider1", { id: "raider1" });
+    const again = await backup.applyBans(on, withExtras.bans);
+    check("khôi phục: người đã bị ban không bị ban lại", again === 1 && on._log.bans.length === 1);
+  }
+  {
+    // Thiếu quyền Manage Guild / Ban Members: chỉ ghi log, KHÔNG làm hỏng cả
+    // lần khôi phục (role/kênh đã tạo xong thì không được đổ sạch).
+    const tg = makeTarget();
+    tg.setName = async () => {
+      throw new Error("Missing Permissions");
+    };
+    tg.members.ban = async () => {
+      throw new Error("Missing Permissions");
+    };
+    const st = {
+      client: { mutation: async () => ({ ok: true }) },
+      getConfig: async () => ({ restoreExtrasEnabled: true }),
+    };
+    let err = null;
+    let r = null;
+    try {
+      r = await backup.runRestore(
+        { guilds: { cache: new Map([[TGT, tg]]) } },
+        st,
+        TGT,
+        JSON.stringify({ ...richBackup, guildMeta: { name: "Tên" }, bans: [{ userId: "u9" }] }),
+      );
+    } catch (e) {
+      err = e;
+    }
+    check(
+      "khôi phục: thiếu quyền tên/ban → vẫn khôi phục xong phần còn lại",
+      !err && r.roleCount === 1 && r.banCount === 0 && r.metaApplied.name === false,
+      err?.message,
     );
   }
 

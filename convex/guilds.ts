@@ -169,6 +169,9 @@ export const getGuild = query({
         restoreChannelsEnabled: guild.restoreChannelsEnabled ?? true,
         restoreMessagesEnabled: guild.restoreMessagesEnabled ?? true,
         restoreEmojisEnabled: guild.restoreEmojisEnabled ?? true,
+        restoreMetaEnabled: guild.restoreMetaEnabled ?? true,
+        // Mặc định TẮT: cấm người + mở link mời là hành động không hoàn tác được.
+        restoreExtrasEnabled: guild.restoreExtrasEnabled ?? false,
         raidHuntEnabled: guild.raidHuntEnabled ?? true,
         raidHuntBanSuspects: guild.raidHuntBanSuspects ?? true,
         rollbackEnabled: guild.rollbackEnabled ?? true,

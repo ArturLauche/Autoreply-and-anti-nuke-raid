@@ -103,6 +103,8 @@ export default defineSchema({
         messageCount: v.number(),
         emojiCount: v.number(),
         stickerCount: v.number(),
+        threadCount: v.optional(v.number()),
+        banCount: v.optional(v.number()),
         /** Số mục cấu hình (admin/mod/whitelist/kênh log) sẽ được áp lại. */
         settingsCount: v.number(),
         /** Cảnh báo tiếng Việt — bot so sánh backup với quyền và server hiện tại. */
@@ -137,6 +139,17 @@ export default defineSchema({
     restoreChannelsEnabled: v.optional(v.boolean()),
     /** Web bật/tắt khôi phục tin nhắn khi restore. */
     restoreMessagesEnabled: v.optional(v.boolean()),
+    /**
+     * Web bật/tắt áp lại tên / mô tả / icon của server khi restore (mặc định bật).
+     * Server bị nuke thường mất đúng những thứ này và người dùng nhận ra đầu tiên.
+     */
+    restoreMetaEnabled: v.optional(v.boolean()),
+    /**
+     * Web bật/tắt áp lại DANH SÁCH BAN + link mời khi restore (mặc định TẮT).
+     * Cấm người và mở link mời là hành động phá hủy, không thể hoàn tác → phải
+     * chủ server bật mới chạy.
+     */
+    restoreExtrasEnabled: v.optional(v.boolean()),
     /** Tự động backup: số ngày giữa 2 lần (2-30, 0 = tắt). */
     backupAutoDays: v.optional(v.number()),
     /** Lần backup thành công gần nhất (dùng cho lịch tự động). */

@@ -377,6 +377,11 @@ export const EN: Record<string, string> = {
   /* ==== Kế hoạch khôi phục / dry-run (29/09/2026) ==== Xem trước bot sẽ tạo gì,
      server chưa bị thay đổi — trước khi bấm khôi phục không hoàn tác được. */
   "Xem kế hoạch": "Preview plan",
+  /* ==== Phạm vi chụp mở rộng (29/09/2026) ==== ban list, link mời, tên/mô tả/
+     icon server, thread — server bị nuke mất đúng những thứ này. */
+  "Khôi phục tên / mô tả / icon server": "Restore server name / description / icon",
+  "Khôi phục danh sách ban + link mời": "Restore ban list + invite links",
+  "không hoàn tác được": "cannot be undone",
   "Kế hoạch khôi phục (chưa thay đổi server)": "Restore plan (server untouched)",
   "Xem trước sẽ tạo gì mà không thay đổi server (dry-run)":
     "Preview what would be created without changing the server (dry-run)",

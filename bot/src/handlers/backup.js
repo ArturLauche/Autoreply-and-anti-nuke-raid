@@ -250,11 +250,30 @@ const MAX_MESSAGES_PER_CHANNEL = 50;
 const TOTAL_MESSAGE_CAP = 3000;
 /** Số tin nhắn tối đa phục hồi lại mỗi kênh khi restore (giới hạn thời gian chạy). */
 const MAX_REPLAY_PER_CHANNEL = 50;
+/** Số thread đang hoạt động tối đa chụp mỗi kênh (tránh phình JSON khi server chat sôi). */
+const MAX_THREADS_PER_CHANNEL = 20;
+/** Số tin nhắn tối đa chụp/phục hồi mỗi thread. */
+const MAX_MESSAGES_PER_THREAD = 10;
 /** Chờ giữa 2 tin phục hồi (ms) — dưới giới hạn rate limit webhook (~30/phút). */
 const REPLAY_DELAY_MS = 1_100;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * URL icon/avatar của server, luôn trả về chuỗi hoặc null. `guild.iconURL` có
+ * thể không phải hàm (guild giả, client cũ) hoặc văng lỗi — gọi trực tiếp là
+ * hỏng cả lần khôi phục chỉ vì thứ trang trí.
+ */
+function safeGuildIconUrl(guild, size = 128) {
+  try {
+    if (typeof guild?.iconURL === "function") return guild.iconURL({ size }) ?? null;
+    return typeof guild?.iconURL === "string" ? guild.iconURL : null;
+  } catch (e) {
+    console.error(`[backup:icon] ${guild?.name ?? "?"}:`, e.message);
+    return null;
+  }
 }
 
 /** Lấy bitfield quyền hiệu dụng của bot (dùng để không cấp quyền vượt quá bot). */
@@ -282,6 +301,93 @@ async function captureChannelMessages(channel, limit) {
     }
   } catch (e) {
     console.error(`[backup:messages] #${channel.name}:`, e.message);
+  }
+  return out;
+}
+
+/**
+ * Chụp các THREAD đang hoạt động của một kênh (text/announcement/forum).
+ * Thread là nơi cộng đồng thật sự dùng — server bị nuke thường mất trọn thread
+ * cùng lịch sử trò chuyện trong đó. `threads` cache có sẵn với kênh forum,
+ * còn kênh văn bản phải gọi fetchActive().
+ */
+async function captureThreads(channel, messageLimit, threadCap) {
+  const out = [];
+  try {
+    let active = null;
+    if (typeof channel.threads?.fetchActive === "function") {
+      active = await channel.threads.fetchActive();
+    } else if (channel.threads?.cache) {
+      active = channel.threads.cache;
+    }
+    // PHẢI lấy .values(): spread Collection/Map ra là CẶP [key, value], không
+    // phải thread — lặp như vậy sẽ bỏ sạch thread mà không báo lỗi gì.
+    const list = active ? [...(active.values?.() ?? active)] : [];
+    for (const t of list.slice(0, threadCap)) {
+      if (!t?.name) continue;
+      const entry = {
+        id: t.id,
+        name: String(t.name).slice(0, 100),
+        archived: !!t.archived,
+        autoArchiveDuration: t.autoArchiveDuration ?? 1440,
+        messageCount: t.messageCount ?? 0,
+      };
+      if (messageLimit > 0 && typeof t.messages?.fetch === "function") {
+        const msgs = await captureChannelMessages(t, messageLimit);
+        // Cắt lần nữa sau khi fetch: `limit` chỉ là ý định, Discord/Collection
+        // mới là nơi thực sự tôn trọng nó — không cắt thì JSON phình ra mất kiểm soát.
+        const capped = msgs.slice(-messageLimit);
+        if (capped.length > 0) entry.messages = capped;
+      }
+      out.push(entry);
+    }
+  } catch (e) {
+    console.error(`[backup:threads] #${channel.name}:`, e.message);
+  }
+  return out;
+}
+
+/** Chụp danh sách thành viên bị ban (cần quyền Ban Members — thiếu thì bỏ trống). */
+async function captureBans(guild) {
+  const out = [];
+  try {
+    const fetched = await guild.bans.fetch();
+    for (const ban of fetched.values()) {
+      const userId = ban.user?.id ?? ban.id;
+      if (!userId) continue;
+      out.push({
+        userId,
+        username: ban.user?.username ?? "?",
+        reason: ban.reason ?? null,
+      });
+    }
+  } catch (e) {
+    // Thiếu quyền Ban Members là chuyện thường — chỉ ghi log, KHÔNG làm hỏng backup.
+    console.error(`[backup:bans] ${guild.name}:`, e.message);
+  }
+  return out;
+}
+
+/**
+ * Chụp link mời đang mở (cần quyền Manage Guild). Mã invite cũ KHÔNG dùng lại
+ * được sau khi server bị xoá, nên chỉ giữ để dựng lại link mới trỏ đúng kênh.
+ */
+async function captureInvites(guild) {
+  const out = [];
+  try {
+    const fetched = await guild.invites.fetch();
+    for (const inv of fetched.values()) {
+      out.push({
+        code: inv.code,
+        channelName: inv.channel?.name ?? null,
+        uses: inv.uses ?? 0,
+        maxUses: inv.maxUses ?? 0,
+        maxAge: inv.maxAge ?? 0,
+        temporary: !!inv.temporary,
+      });
+    }
+  } catch (e) {
+    console.error(`[backup:invites] ${guild.name}:`, e.message);
   }
   return out;
 }
@@ -358,18 +464,42 @@ async function snapshotGuild(guild, { includeMessages = false } = {}) {
         }
       }
     }
+    // Thread: luôn chụp kèm "kèm tin nhắn" (thread mà không có tin thì vô nghĩa).
+    if (includeMessages) {
+      const left = TOTAL_MESSAGE_CAP - messageTotal;
+      if (left > 0) {
+        const threads = await captureThreads(
+          c,
+          Math.min(MAX_MESSAGES_PER_THREAD, left),
+          MAX_THREADS_PER_CHANNEL,
+        );
+        if (threads.length > 0) {
+          entry.threads = threads;
+          messageTotal += threads.reduce((n, t) => n + (t.messages?.length ?? 0), 0);
+        }
+      }
+    }
     channels.push(entry);
   }
 
+  // Danh tính server: server bị nuke thường mất cả tên/icon/mô tả — đây là thứ
+  // người dùng nhận ra đầu tiên khi mở lại server.
   return {
     version: 4,
     guildId: guild.id,
     guildName: guild.name,
     createdAt: Date.now(),
+    guildMeta: {
+      name: guild.name ?? null,
+      description: guild.description ?? null,
+      iconUrl: safeGuildIconUrl(guild, 256),
+    },
     roles,
     channels,
     emojis,
     stickers,
+    bans: await captureBans(guild),
+    invites: await captureInvites(guild),
     emojiCount: emojis.length,
     stickerCount: stickers.length,
     messageCount: messageTotal,
@@ -868,9 +998,72 @@ async function restoreStickers(guild, backup, onProgress) {
  * (URL hoặc data URI base64 trong file bot nuke) và đăng LẠI THẬT vào tin khôi
  * phục — chỉ những file không tải được mới hiện dạng link 📎. Trả số tin đã phục hồi.
  */
-async function replayMessages(guild, backup, channelMap, onProgress) {
+/**
+ * Gửi lại một loạt tin nhắn vào MỘT kênh hoặc thread qua webhook (giữ tên tác
+ * giả + media). Tách riêng vì cả kênh và thread đều cần đúng logic này — trước
+ * đây logic nằm trong vòng for của replayMessages, thêm thread sẽ bắt buộc
+ * nhân bản (và hai bản chắc chắn lệch nhau sau này).
+ */
+async function replayIntoChannel(channel, msgs, webhookName, avatarUrl, onProgress) {
   let sent = 0;
   let processed = 0;
+  let webhook = null;
+  try {
+    webhook = await channel.createWebhook({
+      name: String(webhookName || "Protogon Restore").slice(0, 30) || "Protogon Restore",
+      avatar: avatarUrl ?? undefined,
+    });
+  } catch (e) {
+    console.error(`[backup:replay:webhook] #${channel.name ?? ""}:`, e.message);
+  }
+
+  for (const m of msgs) {
+    if (onProgress && processed++ % 10 === 0) await onProgress();
+    // Tải media (tối đa 3 file/tin, mỗi file ≤ 8 MB) — file lỗi thì hiện link.
+    const files = [];
+    const failedLines = [];
+    const atts = (m.attachments || []).slice(0, 3);
+    for (let i = 0; i < atts.length; i++) {
+      const f = await resolveAttachment(atts[i], i);
+      if (f) files.push(f);
+      else failedLines.push(String(atts[i]));
+    }
+    const attachLine = failedLines.map((u) => `\n📎 ${u}`).join("");
+    const content = m.content || "";
+    // Nội dung CHỈ KHOẢNG TRẮNG cũng phải coi như rỗng: Discord từ chối tin
+    // không có gì để gửi ("Cannot send an empty message"), nên đẩy payload rỗng
+    // là tin bị nuốt im lặng — số "đã phục hồi" lệch mà không có cảnh báo.
+    // Trước đây chỉ kiểm content falsy nên tin toàn khoảng trắng rơi thẳng
+    // vào payload {}. Nhờ vậy payload luôn có content hoặc files.
+    const hasText = !!content.trim();
+    const body = hasText
+      ? `${content}${attachLine}`
+      : attachLine || (files.length > 0 ? "" : "(tin không có nội dung)");
+    try {
+      if (webhook) {
+        const payload = { username: String(m.authorName || "?").slice(0, 32) || "?" };
+        if (body.trim()) payload.content = body.slice(0, 2000);
+        if (files.length > 0) payload.files = files;
+        await webhook.send(payload);
+      } else {
+        const payload = {};
+        if (body.trim()) payload.content = `**${m.authorName || "?"}:** ${body.slice(0, 1900)}`;
+        if (files.length > 0) payload.files = files;
+        await channel.send(payload);
+      }
+      sent++;
+    } catch {
+      // bỏ qua tin lỗi (vd media vượt giới hạn server), tiếp tục
+    }
+    await sleep(REPLAY_DELAY_MS);
+  }
+
+  if (webhook) webhook.delete().catch(() => {});
+  return sent;
+}
+
+async function replayMessages(guild, backup, channelMap, onProgress) {
+  let sent = 0;
   for (const ch of backup.channels || []) {
     const msgs = (Array.isArray(ch.messages) ? ch.messages : [])
       .slice()
@@ -882,69 +1075,165 @@ async function replayMessages(guild, backup, channelMap, onProgress) {
     const channel =
       guild.channels.cache.get(newId) ?? (await guild.channels.fetch(newId).catch(() => null));
     if (!channel || !channel.isTextBased?.()) continue;
-
-    let webhook = null;
-    try {
-      webhook = await channel.createWebhook({
-        name: String(backup.guildName || "Protogon Restore").slice(0, 30) || "Protogon Restore",
-        avatar: guild.iconURL({ size: 128 }) ?? undefined,
-      });
-    } catch (e) {
-      console.error(`[backup:replay:webhook] #${ch.name}:`, e.message);
-    }
-
-    for (const m of msgs) {
-      if (onProgress && processed++ % 10 === 0) await onProgress();
-      // Tải media (tối đa 3 file/tin, mỗi file ≤ 8 MB) — file lỗi thì hiện link.
-      const files = [];
-      const failedLines = [];
-      const atts = (m.attachments || []).slice(0, 3);
-      for (let i = 0; i < atts.length; i++) {
-        const f = await resolveAttachment(atts[i], i);
-        if (f) files.push(f);
-        else failedLines.push(String(atts[i]));
-      }
-      const attachLine = failedLines.map((u) => `\n📎 ${u}`).join("");
-      const content = m.content || "";
-      // Nội dung CHỈ KHOẢNG TRẮNG cũng phải coi như rỗng: Discord từ chối tin
-      // không có gì để gửi ("Cannot send an empty message"), nên đẩy payload rỗng
-      // là tin bị nuốt im lặng — số "đã phục hồi" lệch mà không có cảnh báo.
-      // Trước đây chỉ kiểm content falsy nên tin toàn khoảng trắng rơi thẳng
-      // vào payload {}. Nhờ vậy payload luôn có content hoặc files.
-      const hasText = !!content.trim();
-      const body = hasText
-        ? `${content}${attachLine}`
-        : attachLine || (files.length > 0 ? "" : "(tin không có nội dung)");
-      try {
-        if (webhook) {
-          const payload = {
-            username: String(m.authorName || "?").slice(0, 32) || "?",
-          };
-          if (body.trim()) payload.content = body.slice(0, 2000);
-          if (files.length > 0) payload.files = files;
-          await webhook.send(payload);
-        } else {
-          const payload = {};
-          if (body.trim()) payload.content = `**${m.authorName || "?"}:** ${body.slice(0, 1900)}`;
-          if (files.length > 0) payload.files = files;
-          await channel.send(payload);
-        }
-        sent++;
-      } catch {
-        // bỏ qua tin lỗi (vd media vượt giới hạn server), tiếp tục
-      }
-      await sleep(REPLAY_DELAY_MS);
-    }
-
-    if (webhook) webhook.delete().catch(() => {});
+    sent += await replayIntoChannel(
+      channel,
+      msgs,
+      backup.guildName,
+      safeGuildIconUrl(guild),
+      onProgress,
+    );
   }
   return sent;
 }
 
-/** Đếm tổng tin nhắn có trong backup. */
+/** Thời gian tự lưu trữ thread — Discord chỉ nhận đúng 4 giá trị này. */
+const AUTO_ARCHIVE_CHOICES = [60, 1440, 4320, 10080];
+function pickAutoArchive(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 1440;
+  return AUTO_ARCHIVE_CHOICES.find((x) => x >= n) ?? 10080;
+}
+
+/**
+ * Tạo lại THREAD của các kênh đã dựng, kèm tin nhắn gần nhất trong thread.
+ * Thread thuộc về kênh nên chỉ chạy khi "khôi phục kênh" bật; tin trong thread
+ * chỉ phục hồi khi "khôi phục tin nhắn" bật (cùng luật với tin của kênh).
+ */
+async function createThreads(guild, backup, channelMap, onProgress, { restoreMessages }) {
+  let threadsCreated = 0;
+  let messages = 0;
+  let processed = 0;
+  const avatar = safeGuildIconUrl(guild);
+  for (const ch of backup.channels || []) {
+    const wanted = Array.isArray(ch.threads) ? ch.threads.slice(0, MAX_THREADS_PER_CHANNEL) : [];
+    if (wanted.length === 0) continue;
+    const newId = channelMap.get(ch.id);
+    if (!newId) continue;
+    const parent =
+      guild.channels.cache.get(newId) ?? (await guild.channels.fetch(newId).catch(() => null));
+    if (!parent || typeof parent.threads?.create !== "function") continue;
+    for (const t of wanted) {
+      if (onProgress && processed++ % 5 === 0) await onProgress();
+      if (!t?.name) continue;
+      try {
+        const thread = await parent.threads.create({
+          name: String(t.name).slice(0, 100),
+          autoArchiveDuration: pickAutoArchive(t.autoArchiveDuration),
+        });
+        threadsCreated++;
+        const msgs = (Array.isArray(t.messages) ? t.messages : [])
+          .slice()
+          .sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
+          .slice(-MAX_MESSAGES_PER_THREAD);
+        if (restoreMessages && msgs.length > 0 && thread.isTextBased?.()) {
+          messages += await replayIntoChannel(thread, msgs, backup.guildName, avatar, onProgress);
+        }
+      } catch (e) {
+        console.error(`[backup:thread] ${t.name}:`, e.message);
+      }
+    }
+  }
+  return { threadsCreated, messages };
+}
+
+/**
+ * Áp lại danh tính server (tên / mô tả / icon) — thứ người dùng nhận ra đầu
+ * tiên sau khi mở lại server bị nuke. Best-effort từng bước: thiếu quyền
+ * Manage Guild thì bỏ qua chứ không làm hỏng cả lần khôi phục.
+ */
+async function applyGuildMeta(guild, meta) {
+  const done = { name: false, description: false, icon: false };
+  if (!meta) return done;
+  if (meta.name) {
+    try {
+      await guild.setName(String(meta.name).slice(0, 100));
+      done.name = true;
+    } catch (e) {
+      console.error(`[backup:meta:name] ${meta.name}:`, e.message);
+    }
+  }
+  if (meta.description) {
+    try {
+      await guild.setDescription(String(meta.description).slice(0, 300));
+      done.description = true;
+    } catch (e) {
+      console.error(`[backup:meta:description]:`, e.message);
+    }
+  }
+  if (meta.iconUrl) {
+    try {
+      await guild.setIcon(String(meta.iconUrl));
+      done.icon = true;
+    } catch (e) {
+      console.error(`[backup:meta:icon]:`, e.message);
+    }
+  }
+  return done;
+}
+
+/** Cấm lại danh tiếp ủy quyền (có bật riêng trong Tùy chỉnh khôi phục). */
+async function applyBans(guild, bans) {
+  let banned = 0;
+  for (const ban of bans || []) {
+    const userId = ban?.userId;
+    if (!userId) continue;
+    if (guild.bans?.cache?.has?.(userId)) {
+      banned++;
+      continue;
+    }
+    try {
+      await guild.members.ban(userId, {
+        reason: `Khôi phục từ backup${ban.reason ? `: ${String(ban.reason).slice(0, 200)}` : ""}`,
+      });
+      banned++;
+    } catch (e) {
+      console.error(`[backup:ban] ${userId}:`, e.message);
+    }
+  }
+  return banned;
+}
+
+/**
+ * Dựng lại link mời TRỎ ĐÚNG KÊNH (mã invite cũ chết sạch sau khi server bị xoá
+ * nên chỉ lấy lại thiết lập, không lấy lại mã). Tìm kênh theo TÊN vì kênh mới
+ * đã có id khác.
+ */
+async function applyInvites(guild, backup, channelMap) {
+  let created = 0;
+  const byName = new Map();
+  for (const ch of backup.channels || []) {
+    const newId = channelMap.get(ch.id);
+    const channel = newId ? guild.channels.cache.get(newId) : null;
+    if (channel?.name) byName.set(String(channel.name).toLowerCase(), channel);
+  }
+  for (const inv of backup.invites || []) {
+    const channel = byName.get(String(inv?.channelName || "").toLowerCase());
+    if (!channel || typeof channel.createInvite !== "function") continue;
+    try {
+      await channel.createInvite({
+        maxAge: Number.isFinite(inv.maxAge) ? inv.maxAge : 0,
+        maxUses: Number.isFinite(inv.maxUses) ? inv.maxUses : 0,
+        temporary: !!inv.temporary,
+        unique: true,
+      });
+      created++;
+    } catch (e) {
+      console.error(`[backup:invite] ${inv.channelName}:`, e.message);
+    }
+  }
+  return created;
+}
+
+/** Đếm tổng tin nhắn có trong backup (kể cả tin nằm trong thread). */
 function countMessages(backup) {
   return (backup.channels || []).reduce(
-    (n, c) => n + (Array.isArray(c.messages) ? c.messages.length : 0),
+    (n, c) =>
+      n +
+      (Array.isArray(c.messages) ? c.messages.length : 0) +
+      (c.threads || []).reduce(
+        (m, t) => m + (Array.isArray(t?.messages) ? t.messages.length : 0),
+        0,
+      ),
     0,
   );
 }
@@ -1793,11 +2082,18 @@ async function planRestoreCore(client, store, guildId, backup, { backupName } = 
   const restoreChannels = cfg?.restoreChannelsEnabled !== false;
   const restoreMessages = cfg?.restoreMessagesEnabled !== false;
   const restoreEmojis = cfg?.restoreEmojisEnabled !== false;
+  // Phần "ngoài cấu trúc" — phải KHỚP với restoreCore, nếu không kế hoạch nói
+  // một đằng, khôi phục thật làm một nẻo (lỗi tinh vi nhất của mọi bản thuyết phục).
+  const restoreExtras = cfg?.restoreExtrasEnabled === true;
 
   const roles = sortedRoles(backup).filter((r) => r.name);
   const channels = sortedChannels(backup).filter((c) => c.name);
   const emojis = (backup.emojis || []).filter((e) => e && e.name);
   const stickers = (backup.stickers || []).filter((s) => s && s.name);
+  const threadCount = restoreChannels
+    ? channels.reduce((n, c) => n + (Array.isArray(c.threads) ? c.threads.length : 0), 0)
+    : 0;
+  const banCount = restoreExtras ? (backup.bans || []).filter((b) => b?.userId).length : 0;
 
   // replayMessages chỉ gửi tối đa MAX_REPLAY_PER_CHANNEL tin/kênh và chỉ kênh
   // có bản ghi mới được gửi → báo đúng số SẼ phục hồi, không phải số có trong
@@ -1880,6 +2176,19 @@ async function planRestoreCore(client, store, guildId, backup, { backupName } = 
       `Đang tắt khôi phục ${skipped.join(", ")} trong Tùy chỉnh khôi phục — phần này sẽ KHÔNG được tạo lại.`,
     );
   }
+  if (threadCount > 0) {
+    warnings.push(`${threadCount} thread sẽ được tạo lại trong các kênh đã dựng.`);
+  }
+  if (!restoreExtras && ((backup.bans || []).length > 0 || (backup.invites || []).length > 0)) {
+    warnings.push(
+      "Bản backup có danh sách ban và link mời nhưng bạn CHƯA bật “khôi phục ban/link mời” — phần này sẽ không được áp lại.",
+    );
+  }
+  if (restoreExtras && banCount > 0) {
+    warnings.push(
+      `${banCount} thành viên bị ban sẽ được cấm lại — hành động này KHÔNG hoàn tác được.`,
+    );
+  }
   if (messages === 0 && countMessages(backup) > 0) {
     warnings.push(
       "Backup có tin nhắn nhưng chưa bật khôi phục tin nhắn (hoặc kênh chứa tin đã bị xóa) — sẽ không phục hồi tin nào.",
@@ -1899,6 +2208,8 @@ async function planRestoreCore(client, store, guildId, backup, { backupName } = 
     messageCount: restoreMessages ? messages : 0,
     emojiCount: restoreEmojis ? emojis.length : 0,
     stickerCount: restoreEmojis ? stickers.length : 0,
+    threadCount,
+    banCount,
     settingsCount: restoreRoles || restoreChannels ? settingsCount : 0,
     warnings,
     at: Date.now(),
@@ -1973,6 +2284,12 @@ async function restoreCore(
   const restoreChannels = cfg?.restoreChannelsEnabled !== false;
   const restoreMessages = cfg?.restoreMessagesEnabled !== false;
   const restoreEmojis = cfg?.restoreEmojisEnabled !== false;
+  // Phần "ngoài cấu trúc": tên/mô tả/icon server (mặc định bật — đây là thứ
+  // người dùng nhận ra đầu tiên sau khi mở lại server bị nuke), ban list + link
+  // mời (mặc định TẮT vì cấm người và mở link mời là hành động phá hủy, phải
+  // chủ server bật mới chạy).
+  const restoreMeta = cfg?.restoreMetaEnabled !== false;
+  const restoreExtras = cfg?.restoreExtrasEnabled === true;
   const claimKind = source === "import" ? "import" : "restore";
   const ensureClaim = async () => {
     if (claimAt === undefined) return;
@@ -2006,10 +2323,24 @@ async function restoreCore(
     ? await replayMessages(guild, backup, channelMap, ensureClaim)
     : 0;
   await ensureClaim();
+  // Thread: tạo lại trong kênh vừa dựng + phục hồi tin trong thread.
+  const threadResult = restoreChannels
+    ? await createThreads(guild, backup, channelMap, ensureClaim, { restoreMessages })
+    : { threadsCreated: 0, messages: 0 };
+  await ensureClaim();
   // Emoji + sticker: tải ảnh/file về và tạo lại thật (best-effort, lỗi từng cái bỏ qua).
   const emojisCreated = restoreEmojis ? await recreateEmojis(guild, backup, ensureClaim) : 0;
   await ensureClaim();
   const stickersCreated = restoreEmojis ? await restoreStickers(guild, backup, ensureClaim) : 0;
+  await ensureClaim();
+  // Danh tính server: tên / mô tả / icon.
+  const metaApplied = restoreMeta
+    ? await applyGuildMeta(guild, backup.guildMeta || { name: backup.guildName })
+    : { name: false, description: false, icon: false };
+  await ensureClaim();
+  // Ban list + link mời (chỉ khi chủ server bật "khôi phục ban/link mời").
+  const bansApplied = restoreExtras ? await applyBans(guild, backup.bans) : 0;
+  const invitesCreated = restoreExtras ? await applyInvites(guild, backup, channelMap) : 0;
   await ensureClaim();
 
   // Áp lại cấu hình cơ bản với id mới (role/kênh đã được map sang server này).
@@ -2107,6 +2438,35 @@ async function restoreCore(
   } else {
     fields.push({ name: "Tin nhắn", value: "⏭️ bỏ qua (đã tắt)", inline: true });
   }
+  if (threadResult.threadsCreated > 0) {
+    fields.push({
+      name: "Thread đã tạo",
+      value: `${threadResult.threadsCreated} (${threadResult.messages} tin nhắn trong thread)`,
+      inline: true,
+    });
+  }
+  if (restoreExtras) {
+    if (bansApplied > 0) {
+      fields.push({ name: "Thành viên đã cấm", value: `${bansApplied}`, inline: true });
+    }
+    if (invitesCreated > 0) {
+      fields.push({ name: "Link mời đã tạo", value: `${invitesCreated}`, inline: true });
+    }
+  }
+  if (restoreMeta) {
+    const parts = [
+      metaApplied.name ? "tên" : null,
+      metaApplied.description ? "mô tả" : null,
+      metaApplied.icon ? "icon" : null,
+    ].filter(Boolean);
+    if (parts.length > 0) {
+      fields.push({
+        name: "Thông tin server",
+        value: `Đã áp lại ${parts.join(", ")}`,
+        inline: true,
+      });
+    }
+  }
   if (droppedRoleRefs.length > 0) {
     fields.push({
       name: "⚠️ Cấu hình role giữ nguyên",
@@ -2117,7 +2477,7 @@ async function restoreCore(
   fields.push({
     name: "Lưu ý",
     value:
-      "Kênh đã được sắp xếp lại đúng thứ tự trong file backup; phần role, kênh, tin nhắn và emoji/sticker đã tắt trong Tùy chỉnh khôi phục sẽ không được tạo/phục hồi. Các role/kênh có sẵn của server này được giữ nguyên. Hãy kiểm tra lại quyền theo ý muốn.",
+      "Kênh đã được sắp xếp lại đúng thứ tự trong file backup; phần role, kênh, tin nhắn và emoji/sticker đã tắt trong Tùy chỉnh khôi phục sẽ không được tạo/phục hồi. Các role/kênh có sẵn của server này được giữ nguyên. Danh sách ban và link mời chỉ được áp lại khi bật “khôi phục ban/link mời” (link mời cũ đã chết sau khi server bị xoá nên bot tạo link MỚI trỏ đúng kênh). Hãy kiểm tra lại quyền theo ý muốn.",
     inline: false,
   });
 
@@ -2130,14 +2490,19 @@ async function restoreCore(
   });
   await sendToLog(guild, embed, store);
   console.log(
-    `[backup:restore] ${guildId}: ${roleMap.size} roles, ${channelMap.size} channels, ${replayed} messages, ${emojisCreated} emojis, ${stickersCreated} stickers (${source}, restoreRoles=${restoreRoles}, restoreChannels=${restoreChannels}, restoreMessages=${restoreMessages}, restoreEmojis=${restoreEmojis})`,
+    `[backup:restore] ${guildId}: ${roleMap.size} roles, ${channelMap.size} channels, ${threadResult.threadsCreated} threads, ${replayed} messages, ${emojisCreated} emojis, ${stickersCreated} stickers, ${bansApplied} bans, ${invitesCreated} invites (${source}, restoreRoles=${restoreRoles}, restoreChannels=${restoreChannels}, restoreMessages=${restoreMessages}, restoreEmojis=${restoreEmojis}, restoreMeta=${restoreMeta}, restoreExtras=${restoreExtras})`,
   );
   return {
     roleCount: roleMap.size,
     channelCount: channelMap.size,
+    threadCount: threadResult.threadsCreated,
+    threadMessageCount: threadResult.messages,
     messageCount: replayed,
     emojiCount: emojisCreated,
     stickerCount: stickersCreated,
+    banCount: bansApplied,
+    inviteCount: invitesCreated,
+    metaApplied,
   };
 }
 
@@ -2208,14 +2573,20 @@ async function readImportContent(item) {
  */
 function slimBackupForStore(backup) {
   const clone = JSON.parse(JSON.stringify(backup));
-  for (const ch of clone.channels || []) {
-    for (const m of ch.messages || []) {
+  const slimMessages = (list) => {
+    for (const m of list || []) {
       if (Array.isArray(m.attachments)) {
         m.attachments = m.attachments
           .map((a) => (typeof a === "string" && a.startsWith("data:") ? null : a))
           .filter(Boolean);
       }
     }
+  };
+  for (const ch of clone.channels || []) {
+    slimMessages(ch.messages);
+    // Thread mang theo tin nhắn riêng — sót chỗ này là media base64 nằm lọt
+    // vào bản lưu trên cloud (và phình JSON vượt trần 1 MB của Convex).
+    for (const t of ch.threads || []) slimMessages(t.messages);
   }
   for (const e of clone.emojis || []) delete e.raw;
   for (const s of clone.stickers || []) delete s.raw;
@@ -2447,6 +2818,17 @@ module.exports.sortedChannels = sortedChannels;
 module.exports.createRoles = createRoles;
 module.exports.createChannels = createChannels;
 module.exports.countMessages = countMessages;
+// Nhánh mở rộng phạm vi chụp (ban list, link mời, thread, danh tính server) —
+// export để test khẳng định được từng phần thay vì chỉ kiểm qua bản backup.
+module.exports.createThreads = createThreads;
+module.exports.applyGuildMeta = applyGuildMeta;
+module.exports.applyBans = applyBans;
+module.exports.applyInvites = applyInvites;
+module.exports.captureThreads = captureThreads;
+module.exports.captureBans = captureBans;
+module.exports.captureInvites = captureInvites;
+module.exports.replayIntoChannel = replayIntoChannel;
+module.exports.MAX_MESSAGES_PER_THREAD = MAX_MESSAGES_PER_THREAD;
 module.exports.resolveAttachment = resolveAttachment;
 module.exports.nameFromUrl = nameFromUrl;
 module.exports.assertSafeRemoteUrl = assertSafeRemoteUrl;

@@ -203,6 +203,10 @@ export interface GuildData {
     restoreRolesEnabled: boolean;
     /** Khôi phục emoji/sticker khi restore backup (áp dụng cho backup Protogon lẫn file bot nuke). */
     restoreEmojisEnabled: boolean;
+    /** Khôi phục tên / mô tả / icon server khi restore (mặc định bật). */
+    restoreMetaEnabled?: boolean;
+    /** Khôi phục danh sách ban + link mời khi restore (mặc định TẮT — không hoàn tác được). */
+    restoreExtrasEnabled?: boolean;
     /** Khôi phục kênh khi restore backup. */
     restoreChannelsEnabled?: boolean;
     /** Khôi phục tin nhắn khi restore backup. */

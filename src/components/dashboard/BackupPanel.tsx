@@ -14,6 +14,7 @@ import {
   Loader2,
   MessageSquare,
   RefreshCw,
+  ShieldAlert,
   ShieldCheck,
   Smile,
   Sticker,
@@ -79,6 +80,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
   /** Tùy chỉnh khôi phục: bật/tắt tạo lại role, emoji/sticker, kênh, tin nhắn khi restore (cả 2 nguồn). */
   const [restoreRoles, setRestoreRoles] = useState(data.guild.restoreRolesEnabled ?? true);
   const [restoreEmojis, setRestoreEmojis] = useState(data.guild.restoreEmojisEnabled ?? true);
+  const [restoreMeta, setRestoreMeta] = useState(data.guild.restoreMetaEnabled ?? true);
+  // Mặc định TẮT: cấm người + mở link mời không hoàn tác được.
+  const [restoreExtras, setRestoreExtras] = useState(data.guild.restoreExtrasEnabled ?? false);
   const [restoreChannels, setRestoreChannels] = useState(data.guild.restoreChannelsEnabled ?? true);
   const [restoreMessages, setRestoreMessages] = useState(data.guild.restoreMessagesEnabled ?? true);
   const [restoreOptBusy, setRestoreOptBusy] = useState(false);
@@ -421,6 +425,8 @@ export default function BackupPanel({ data }: { data: GuildData }) {
         restoreChannels,
         restoreMessages,
         restoreEmojis,
+        restoreMeta,
+        restoreExtras,
       });
       const { applied, skipped } = splitRestoreParts({
         roles: restoreRoles,
@@ -913,6 +919,23 @@ export default function BackupPanel({ data }: { data: GuildData }) {
               </span>
               <Switch checked={restoreEmojis} onCheckedChange={setRestoreEmojis} />
             </label>
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/50 px-3 py-2.5">
+              <span className="flex items-center gap-2 text-sm">
+                <DatabaseBackup className="h-4 w-4" />
+                {translate("Khôi phục tên / mô tả / icon server")}{" "}
+              </span>
+              <Switch checked={restoreMeta} onCheckedChange={setRestoreMeta} />
+            </label>
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-danger/25 bg-danger/5 px-3 py-2.5">
+              <span className="flex items-center gap-2 text-sm">
+                <ShieldAlert className="h-4 w-4 text-danger" />
+                <span>
+                  {translate("Khôi phục danh sách ban + link mời")}{" "}
+                  <span className="text-xs text-danger">({translate("không hoàn tác được")})</span>
+                </span>
+              </span>
+              <Switch checked={restoreExtras} onCheckedChange={setRestoreExtras} />
+            </label>
           </div>
           <div className="flex items-center gap-3">
             <Button size="sm" onClick={saveRestoreOptions} disabled={restoreOptBusy}>
@@ -922,7 +945,9 @@ export default function BackupPanel({ data }: { data: GuildData }) {
             {(data.guild.restoreRolesEnabled ?? true) !== restoreRoles ||
             (data.guild.restoreEmojisEnabled ?? true) !== restoreEmojis ||
             (data.guild.restoreChannelsEnabled ?? true) !== restoreChannels ||
-            (data.guild.restoreMessagesEnabled ?? true) !== restoreMessages ? (
+            (data.guild.restoreMessagesEnabled ?? true) !== restoreMessages ||
+            (data.guild.restoreMetaEnabled ?? true) !== restoreMeta ||
+            (data.guild.restoreExtrasEnabled ?? false) !== restoreExtras ? (
               <span className="text-xs text-muted-foreground">
                 {translate("Có thay đổi chưa lưu — bấm Lưu để áp dụng.")}{" "}
               </span>

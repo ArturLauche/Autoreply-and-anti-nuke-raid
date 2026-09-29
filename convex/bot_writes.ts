@@ -1046,6 +1046,8 @@ export const botReportRestorePlan = mutation({
         messageCount: v.number(),
         emojiCount: v.number(),
         stickerCount: v.number(),
+        threadCount: v.optional(v.number()),
+        banCount: v.optional(v.number()),
         settingsCount: v.number(),
         warnings: v.array(v.string()),
         at: v.number(),
