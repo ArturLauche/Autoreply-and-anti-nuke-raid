@@ -2,6 +2,7 @@ const { PermissionFlagsBits } = require("discord.js");
 const { sendCaseLog } = require("../caseLog");
 const { heatSettings, punishMember, choosePunish } = require("../heat");
 const { actionsOf, cleanupMessages } = require("../moduleActions");
+const { automodEnabled } = require("./antinuke/shared");
 
 const MODULE_LABELS = {
   badword: "Từ ngữ xấu",
@@ -428,7 +429,7 @@ async function punishFlow(client, message, moduleCfg, config, heat, reason, deta
 async function scanMessage(client, message, store, heat) {
   if (!message.guild || message.author.bot || message.channel.isDMBased?.()) return;
   const config = await store.getConfig(message.guild.id);
-  if (!config || config.antinukeEnabled === false) return;
+  if (!config || !automodEnabled(config)) return;
   const member = message.member;
   if (!member || isExempt(member, config)) return;
 

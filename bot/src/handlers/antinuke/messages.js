@@ -7,7 +7,13 @@ const { isLocked } = require("../../lockdown");
 const { punishMember } = require("../../heat");
 const { actionsOf, cleanupMessages } = require("../../moduleActions");
 const { emergencyRaidAlert } = require("../incidentReport");
-const { MODULE_LABELS, isExempt, LONG_MSG_LEN, ZERO_WIDTH_RE } = require("./shared");
+const {
+  MODULE_LABELS,
+  isExempt,
+  automodEnabled,
+  LONG_MSG_LEN,
+  ZERO_WIDTH_RE,
+} = require("./shared");
 const relayClient = require("../../relayClient");
 
 module.exports = function createAntiNukeLayer({
@@ -97,7 +103,7 @@ module.exports = function createAntiNukeLayer({
     if (message.channel.isDMBased?.()) return;
     const content = message.content || "";
     const config = await store.getConfig(message.guild.id);
-    if (!config || !config.antinukeEnabled) return;
+    if (!config || !automodEnabled(config)) return;
     lastConfigs.set(message.guild.id, config);
     const member = message.member;
     if (!member || isExempt(member, {}, config)) return;
@@ -280,7 +286,7 @@ module.exports = function createAntiNukeLayer({
     // là null nên tự bỏ qua ở đây — webhook do External App Guard xử lý).
     if (message.channel.isDMBased?.()) return;
     const config = await store.getConfig(message.guild.id);
-    if (!config || !config.antinukeEnabled) return;
+    if (!config || !automodEnabled(config)) return;
     lastConfigs.set(message.guild.id, config);
     const moduleCfg = config.modules.find((m) => m.module === "spam");
     if (!moduleCfg || !moduleCfg.enabled) return;

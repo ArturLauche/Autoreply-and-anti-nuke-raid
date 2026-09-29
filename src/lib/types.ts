@@ -123,6 +123,8 @@ export interface GuildData {
     modRoles: string[];
     adminRoles: string[];
     antinukeEnabled: boolean;
+    /** Cổng RIÊNG của tab Auto-mod nội dung (server cũ chưa có cờ thì kế thừa antinukeEnabled). */
+    automodEnabled: boolean;
     botInGuild: boolean;
     lastHeartbeat: number | null;
     /** Lúc dashboard ghi cấu hình — dùng cho badge trạng thái đồng bộ (lib/syncState.ts). */

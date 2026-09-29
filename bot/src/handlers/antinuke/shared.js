@@ -287,6 +287,23 @@ const DEFAULT_MODULE_CFG = {
   guildTamper: { threshold: 2, windowSeconds: 10, punish: "ban", timeoutSeconds: 600 },
 };
 
+/**
+ * CỔNG của tab "Auto-mod nội dung" (spam/massMessage/blankNoise/mention/
+ * badword/attachment/invite/malware) — TÁCH RIÊNG khỏi cổng chống nuke.
+ *
+ * Vì sao phải tách: trước đây cả tab Auto-mod lẫn tab Chống nuke cùng đọc
+ * `antinukeEnabled`. Chủ server tắt chống nuke (hợp lý — không muốn bot tự
+ * kick/ban hàng loạt) là mất LUÔN lọc link mời, link độc hại, file .exe, từ
+ * ngữ xấu, spam mention: không log, không cảnh báo, im lặng tuyệt đối.
+ *
+ * Fallback về `antinukeEnabled` khi server chưa có field (guild tạo trước khi
+ * tách) ⇒ hành vi của mọi server cũ giữ nguyên, chỉ khi chủ server tự bật/tắt
+ * ở dashboard thì `automodEnabled` mới chi phối.
+ */
+function automodEnabled(config) {
+  return (config?.automodEnabled ?? config?.antinukeEnabled) === true;
+}
+
 /** Lấy cấu hình module (đã seed) hoặc mặc định TẮT cho module mới chưa được seed. */
 function moduleCfgOf(config, module) {
   const found = (config?.modules || []).find((m) => m.module === module);
@@ -431,6 +448,7 @@ module.exports = {
   botHitAndRunVerdict,
   isTrustedBotMember,
   isExempt,
+  automodEnabled,
   DEFAULT_MODULE_CFG,
   moduleCfgOf,
   memberSuspicionScore,

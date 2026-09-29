@@ -472,6 +472,40 @@ module.exports = {
     configs.set("g-msg", baseConfig());
   }
 
+  // ── 14. Cổng Auto-mod TÁCH khỏi chống nuke ──
+  // Bug thật 29/09/2026: lớp tin nhắn dùng chung cổng tổng antinukeEnabled với
+  // tab Chống nuke. Tắt chống nuke là mất luôn chống spam/massMessage/blankNoise.
+  {
+    clear();
+    // Chống nuke TẮT nhưng cổng Auto-mod BẬT → spam vẫn phải bị chặn.
+    configs.set("g-msg", baseConfig({ antinukeEnabled: false, automodEnabled: true }));
+    for (let i = 0; i < 6; i++) await messages.handleSpam(makeMessage({ id: "am" + i }));
+    check("tắt chống nuke + bật auto-mod → spam VẪN bị ghi nhận", calls.events.length > 0);
+
+    // Ngược lại: bật chống nuke nhưng cổng Auto-mod TẮT → im lặng.
+    clear();
+    configs.set("g-msg", baseConfig({ antinukeEnabled: true, automodEnabled: false }));
+    for (let i = 0; i < 6; i++) await messages.handleSpam(makeMessage({ id: "ma" + i }));
+    check("bật chống nuke + tắt auto-mod → không sự kiện", calls.events.length === 0);
+
+    // Guild cũ chưa có field → kế thừa antinukeEnabled (hành vi không đổi).
+    clear();
+    const legacy = baseConfig({ antinukeEnabled: false });
+    configs.set("g-msg", legacy);
+    for (let i = 0; i < 6; i++) await messages.handleSpam(makeMessage({ id: "lg" + i }));
+    check(
+      "guild cũ + antinuke tắt → auto-mod tắt theo (không đổi hành vi cũ)",
+      calls.events.length === 0,
+    );
+
+    clear();
+    const legacy2 = baseConfig({ antinukeEnabled: true });
+    configs.set("g-msg", legacy2);
+    for (let i = 0; i < 6; i++) await messages.handleSpam(makeMessage({ id: "lg2" + i }));
+    check("guild cũ + antinuke bật → auto-mod kế thừa, vẫn chạy", calls.events.length > 0);
+    configs.set("g-msg", baseConfig());
+  }
+
   console.log(`\nKết quả message layers: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail > 0 ? 1 : 0);
 })();

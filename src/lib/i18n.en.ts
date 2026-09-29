@@ -1298,5 +1298,11 @@ export const EN: Record<string, string> = {
     "{p0} appeal(s) in this period, {p1} ended in an unban.",
   "{p0} tệp đính kèm": "{p0} attachments",
 
+  "Đã bật toàn bộ auto-mod nội dung": "Enabled all content auto-mod",
+  "Đã tắt toàn bộ auto-mod nội dung": "Disabled all content auto-mod",
+  "Đang kiểm duyệt nội dung": "Content moderation is on",
+  "⚠️ Auto-mod đang tắt toàn bộ — link mời, link độc hại, từ ngữ xấu, file nguy hiểm và spam đều không bị chặn.":
+    "⚠️ Content auto-mod is fully off — invite links, malicious links, bad words, dangerous files and spam are not blocked.",
+
   "Không đọc được transcript": "Could not read the transcript",
 };

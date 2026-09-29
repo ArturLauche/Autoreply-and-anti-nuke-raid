@@ -11,6 +11,7 @@ import {
   LOCKDOWN_DEFAULTS,
   MODULE_HEAT_DEFAULTS,
   WARN_STRIKE_DEFAULTS,
+  isModerationModule,
 } from "./modules";
 
 /**
@@ -174,6 +175,7 @@ export const getGuild = query({
         modRoles: guild.modRoles,
         adminRoles: guild.adminRoles,
         antinukeEnabled: guild.antinukeEnabled,
+        automodEnabled: guild.automodEnabled ?? guild.antinukeEnabled,
         botInGuild: guild.botInGuild,
         lastHeartbeat: guild.lastHeartbeat ?? null,
         // Lúc dashboard ghi cấu hình — web dùng để báo "đang gửi/đã gửi cho
@@ -441,6 +443,10 @@ export const getBotConfig = query({
       modRoles: guild.modRoles,
       adminRoles: guild.adminRoles,
       antinukeEnabled: guild.antinukeEnabled,
+      // Fallback về antinukeEnabled cho guild chưa có field: hành vi bot giữ
+      // nguyên, UI hiển thị đúng trạng thái đang chạy cho tới khi chủ server
+      // bật/tắt cổng Auto-mod riêng.
+      automodEnabled: guild.automodEnabled ?? guild.antinukeEnabled,
       lockdownEnabled: guild.lockdownEnabled ?? true,
       lockdownMinutes: guild.lockdownMinutes ?? 5,
       lockdownUntil: guild.lockdownUntil ?? null,
@@ -1443,6 +1449,54 @@ export const setAntinukeGlobal = mutation({
 });
 
 /**
+ * Bật/tắt CỔNG Auto-mod nội dung (tách riêng khỏi chống nuke).
+ *
+ * Vì sao cần: trước đây các module nội dung (spam/mention/badword/invite/
+ * malware/attachment/massMessage/blankNoise) dùng CHUNG cổng
+ * `antinukeEnabled` với tab Chống nuke. Chủ server tắt chống nuke (hợp lý —
+ * không muốn bot tự kick/ban hàng loạt) là mất LUÔN bộ lọc link mời, link
+ * độc hại, file nguy hiểm, từ ngữ xấu, spam mention: không log, không cảnh
+ * báo, im lặng tuyệt đối. Nay tab Auto-mod có cổng riêng.
+ *
+ * `settingsChangedAt` là BẮT BUỘC: bot đọc cấu hình qua TTL cache và chỉ làm
+ * mới khi thấy mốc này đổi — thiếu nó thì toggle này tới bot muộn tới hết
+ * TTL (đúng lớp lỗi 23/09).
+ *
+ * BẬT cổng = bật luôn module nội dung đang tắt (khớp hành vi cổng chống
+ * nuke: bật tổng thì sẵn sàng ngay, không phải bật lại từng module). TẮT cổng
+ * = chỉ tắt tổng, giữ nguyên cấu hình từng module.
+ */
+export const setAutomod = mutation({
+  args: { token: v.string(), guildId: v.string(), enabled: v.boolean() },
+  handler: async (ctx, { token, guildId, enabled }) => {
+    const user = await getUserByToken(ctx, token);
+    const guild = await ctx.db
+      .query("guilds")
+      .withIndex("by_discordId", (q) => q.eq("discordId", guildId))
+      .first();
+    if (!guild || !canManageGuild(user, guild))
+      throw new Error("Không có quyền quản lý server này");
+    await ctx.db.patch(guild._id, {
+      automodEnabled: enabled,
+      updatedAt: Date.now(),
+      settingsChangedAt: Date.now(),
+    });
+    if (enabled) {
+      const mods = await ctx.db
+        .query("antinukeModules")
+        .withIndex("by_guildId", (q) => q.eq("guildId", guildId))
+        .collect();
+      const now = Date.now();
+      for (const m of mods) {
+        if (isModerationModule(m.module) && !m.enabled)
+          await ctx.db.patch(m._id, { enabled: true, updatedAt: now });
+      }
+    }
+    return { ok: true };
+  },
+});
+
+/**
  * Bật/tắt chống nuke cho NHIỀU server cùng lúc.
  *
  * Vì sao cần: người quản trị 5–10 server phải mở từng server, bật từng module.
@@ -1724,6 +1778,10 @@ export const botSyncGuilds = mutation({
           modRoles: [],
           adminRoles: [],
           antinukeEnabled: true,
+          // Module nội dung mặc định bật (vòng for ANTI_NUKE_MODULES ngay dưới)
+          // ⇒ cổng Auto-mod cũng mặc định bật. Tách khỏi antinukeEnabled để chủ
+          // server tắt chống nuke không mất bộ lọc link mời/link độc hại.
+          automodEnabled: true,
           lockdownEnabled: true,
           lockdownMinutes: 5,
           lockdownUntil: undefined,

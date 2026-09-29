@@ -66,6 +66,7 @@ console.log("── allowlist: không lọt trạng thái vận hành / danh tí
     "prefix",
     "theme",
     "antinukeEnabled",
+    "automodEnabled",
     "heatEnabled",
     "heatWarnAt",
     "heatTimeoutAt",

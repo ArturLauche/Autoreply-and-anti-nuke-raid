@@ -1232,5 +1232,11 @@ export const DE: Record<string, string> = {
     "{p0} Beschwerde(n) im Zeitraum, {p1} endeten mit einer Sperr aufhebung.",
   "{p0} tệp đính kèm": "{p0} Anhänge",
 
+  "Đã bật toàn bộ auto-mod nội dung": "Gesamte Inhalts-Automatik eingeschaltet",
+  "Đã tắt toàn bộ auto-mod nội dung": "Gesamte Inhalts-Automatik abgeschaltet",
+  "Đang kiểm duyệt nội dung": "Inhaltsmoderation ist aktiv",
+  "⚠️ Auto-mod đang tắt toàn bộ — link mời, link độc hại, từ ngữ xấu, file nguy hiểm và spam đều không bị chặn.":
+    "⚠️ Die Inhalts-Automatik ist vollständig aus — Einladungslinks, schädliche Links, Beleidigungen, gefährliche Dateien und Spam werden nicht blockiert.",
+
   "Không đọc được transcript": "Transkript konnte nicht gelesen werden",
 };

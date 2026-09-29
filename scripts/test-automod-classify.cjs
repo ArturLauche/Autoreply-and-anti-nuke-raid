@@ -81,8 +81,10 @@ const PUNISH_EVENTS = new Set([
   "bot_writes:botRecordPunishment",
 ]);
 
+let configOverride = null;
 const store = {
   async getConfig() {
+    if (configOverride) return configOverride;
     return {
       antinukeEnabled: true,
       adminRoles: [],
@@ -326,7 +328,51 @@ async function runScan(msg) {
     findDangerousAttachment(new Map([["a", { name: "script.bat" }]])) !== null,
   );
 
-  console.log("\n=== 4) AI GUARD (antinuke): chat thường vs raid qua classifyViolation ===");
+  console.log("\n=== 4) CỔNG AUTO-MOD TÁCH KHỎI CHỐNG NUKE ===");
+  // Bug thật 29/09/2026: filters.js (và antinuke/messages.js) chặn bằng cổng
+  // TỔNG antinukeEnabled. Chủ server tắt chống nuke (không muốn bot tự kick/ban
+  // hàng loạt) là mất luôn lọc link mời/link độc hại — im lặng tuyệt đối.
+  // Nay Auto-mod có cổng RIÊNG (automodEnabled), fallback antinukeEnabled cho
+  // guild cũ chưa có field.
+  const base = await store.getConfig();
+
+  configOverride = { ...base, antinukeEnabled: false, automodEnabled: true };
+  const offNukeOnMod = await runScan(
+    makeMessage({ content: "vào server nè https://discord.gg/tachcog", authorId: USER_A }),
+  );
+  check(
+    "tắt chống nuke + bật auto-mod → link mời VẪN bị chặn",
+    offNukeOnMod.length === 1 && offNukeOnMod[0].module === "invite",
+  );
+
+  configOverride = { ...base, antinukeEnabled: true, automodEnabled: false };
+  const onNukeOffMod = await runScan(
+    makeMessage({ content: "vào server nè https://discord.gg/tachcog2", authorId: USER_A }),
+  );
+  check("bật chống nuke + tắt auto-mod → không phạt", onNukeOffMod.length === 0);
+
+  // Guild cũ chưa có field automodEnabled → kế thừa antinukeEnabled (giữ hành vi).
+  configOverride = { ...base, antinukeEnabled: true };
+  delete configOverride.automodEnabled;
+  const legacyOn = await runScan(
+    makeMessage({ content: "vào server nè https://discord.gg/legacy1", authorId: USER_A }),
+  );
+  check(
+    "guild cũ (chỉ có antinukeEnabled=true) → auto-mod kế thừa, vẫn chạy",
+    legacyOn.length === 1 && legacyOn[0].module === "invite",
+  );
+  configOverride = { ...base, antinukeEnabled: false };
+  delete configOverride.automodEnabled;
+  const legacyOff = await runScan(
+    makeMessage({ content: "vào server nè https://discord.gg/legacy2", authorId: USER_A }),
+  );
+  check(
+    "guild cũ + antinuke tắt → auto-mod cũng tắt (không đổi hành vi cũ)",
+    legacyOff.length === 0,
+  );
+  configOverride = null;
+
+  console.log("\n=== 5) AI GUARD (antinuke): chat thường vs raid qua classifyViolation ===");
   // (đã test chi tiết ở test-chat-flow-classify — ở đây chỉ nhắc luồng: AI offline → heat, không ban)
 
   console.log(`\nKết quả: ${pass} PASS, ${fail} FAIL`);

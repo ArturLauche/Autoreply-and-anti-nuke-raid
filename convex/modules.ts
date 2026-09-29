@@ -261,6 +261,32 @@ export const ANTI_NUKE_MODULES = [
   },
 ] as const;
 
+/**
+ * Nhóm module MODERATION NỘI DUNG (tab "Auto-mod nội dung" trên dashboard):
+ * spam, massMessage, blankNoise, mention, badword, attachment, invite, malware.
+ *
+ * Vì sao tách khỏi NUKE: cổng bật/tắt của nhóm này là `automodEnabled`, độc
+ * lập với `antinukeEnabled` (module phá cấu trúc server). Trước đây chung một
+ * cổng nên tắt chống nuke là mất luôn bộ lọc nội dung. Danh sách này phải
+ * khớp `MODERATION_MODULES` trong src/lib/constants.ts.
+ */
+export const MODERATION_MODULE_KEYS = [
+  "spam",
+  "massMessage",
+  "blankNoise",
+  "mention",
+  "badword",
+  "attachment",
+  "invite",
+  "malware",
+] as const;
+
+const MODERATION_MODULE_SET: ReadonlySet<string> = new Set(MODERATION_MODULE_KEYS);
+
+export function isModerationModule(name: string): boolean {
+  return MODERATION_MODULE_SET.has(name);
+}
+
 /** Defaults for the automatic channel-lockdown-on-raid feature. */
 export const LOCKDOWN_DEFAULTS = {
   enabled: true,

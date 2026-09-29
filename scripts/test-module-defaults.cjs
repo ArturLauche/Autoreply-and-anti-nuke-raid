@@ -59,6 +59,93 @@ const check = (label, ok) => {
     /if \(!m\.enabled\) await ctx\.db\.patch\(m\._id, \{ enabled: true/.test(globalBlock),
   );
 
+  // ---- 2b. CỔNG AUTO-MOD TÁCH KHỎI CHỐNG NUKE ----
+  // Bug thật 29/09/2026: tab Auto-mod nội dung dùng chung cổng tổng
+  // antinukeEnabled với tab Chống nuke — tắt chống nuke là mất luôn bộ lọc
+  // link mời/link độc hại, im lặng tuyệt đối. Nay có cờ automodEnabled riêng.
+  const automodBlock = gs.slice(
+    gs.indexOf("export const setAutomod"),
+    gs.indexOf("export const setAntinukeGlobalBatch"),
+  );
+  check("có mutation setAutomod", automodBlock.length > 0);
+  check(
+    "setAutomod ghi cờ automodEnabled + settingsChangedAt (bot thấy ngay)",
+    /automodEnabled: enabled,[\s\S]{0,80}settingsChangedAt: Date\.now\(\)/.test(automodBlock),
+  );
+  check(
+    "setAutomod bật cổng chỉ bật module NỘI DUNG (isModerationModule)",
+    /if \(isModerationModule\(m\.module\) && !m\.enabled\)/.test(automodBlock),
+  );
+  check(
+    "guild mới: automodEnabled mặc định bật (module nội dung mặc định bật)",
+    /antinukeEnabled: true,[\s\S]{0,400}?automodEnabled: true,/.test(gs),
+  );
+
+  // Danh sách module nội dung 2 bên phải KHỚP — lệch là bot cổng bỏ sót
+  // module mới (hoặc bật nhầm module nuke) mà không ai thấy.
+  const mods = fs.readFileSync(path.join(__dirname, "..", "convex", "modules.ts"), "utf8");
+  const constants = fs.readFileSync(
+    path.join(__dirname, "..", "src", "lib", "constants.ts"),
+    "utf8",
+  );
+  const grab = (src, marker) => {
+    const i = src.indexOf(marker);
+    if (i < 0) return null;
+    const body = src.slice(i, src.indexOf("] as const;", i));
+    return [...body.matchAll(/"([a-zA-Z]+)"/g)].map((m) => m[1]);
+  };
+  const convexKeys = grab(mods, "export const MODERATION_MODULE_KEYS");
+  const uiModules = grab(constants, "export const MODERATION_MODULES");
+  check(
+    "convex khai báo MODERATION_MODULE_KEYS",
+    Array.isArray(convexKeys) && convexKeys.length > 0,
+  );
+  check("dashboard khai báo MODERATION_MODULES", Array.isArray(uiModules) && uiModules.length > 0);
+  check(
+    `danh sách module nội dung khớp 2 bên (${convexKeys?.length ?? 0} mục)`,
+    JSON.stringify([...(convexKeys ?? [])].sort()) ===
+      JSON.stringify([...(uiModules ?? [])].sort()),
+  );
+
+  // Bot phải đọc qua helper, không đọc thẳng cờ tổng nữa.
+  const shared = fs.readFileSync(
+    path.join(__dirname, "..", "bot", "src", "handlers", "antinuke", "shared.js"),
+    "utf8",
+  );
+  const filters = fs.readFileSync(
+    path.join(__dirname, "..", "bot", "src", "handlers", "filters.js"),
+    "utf8",
+  );
+  const messages = fs.readFileSync(
+    path.join(__dirname, "..", "bot", "src", "handlers", "antinuke", "messages.js"),
+    "utf8",
+  );
+  check(
+    "shared có helper automodEnabled (fallback về antinukeEnabled cho guild cũ)",
+    /function automodEnabled\(config\)[\s\S]{0,160}automodEnabled \?\? config\?\.antinukeEnabled/.test(
+      shared,
+    ),
+  );
+  check(
+    "filters.js dùng cổng automodEnabled, không còn đọc antinukeEnabled",
+    filters.includes("automodEnabled(config)") && !filters.includes("config.antinukeEnabled"),
+  );
+  check(
+    "messages.js dùng cổng automodEnabled, không còn đọc antinukeEnabled",
+    messages.includes("automodEnabled(config)") && !messages.includes("config.antinukeEnabled"),
+  );
+
+  // Dashboard: toggle cổng riêng trong tab Auto-mod.
+  const automodPanel = fs.readFileSync(
+    path.join(__dirname, "..", "src", "components", "dashboard", "AutoModPanel.tsx"),
+    "utf8",
+  );
+  check(
+    "AutoModPanel có toggle cổng (setAutomod)",
+    automodPanel.includes("api.guilds.setAutomod") &&
+      automodPanel.includes("data.guild.automodEnabled"),
+  );
+
   // ---- 3. notify flag: schema + threatIntel + research ----
   const schema = fs.readFileSync(path.join(__dirname, "..", "convex", "schema.ts"), "utf8");
   check("schema có researchNotifyEnabled", schema.includes("researchNotifyEnabled"));

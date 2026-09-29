@@ -133,6 +133,16 @@ export default defineSchema({
     modRoles: v.array(v.string()),
     adminRoles: v.array(v.string()),
     antinukeEnabled: v.boolean(),
+    /**
+     * CỔNG RIÊNG của tab "Auto-mod nội dung" (spam/massMessage/blankNoise/
+     * mention/badword/attachment/invite/malware). Trước đây các module này
+     * dùng chung cổng `antinukeEnabled` với tab Chống nuke/raid — chủ server
+     * tắt chống nuke là mất luôn lọc link mời/link độc hại mà không ai báo.
+     * `optional` + fallback `antinukeEnabled` (xem bot/src/handlers/antinuke/
+     * shared.js: automodEnabled) để server cũ giữ nguyên hành vi hiện tại
+     * cho tới khi chủ server tự chốt trên dashboard.
+     */
+    automodEnabled: v.optional(v.boolean()),
     managers: v.array(v.string()),
     botInGuild: v.boolean(),
     lastHeartbeat: v.optional(v.number()),

@@ -140,6 +140,7 @@ export const PORTABLE_CONFIG_FIELDS = [
   "verifyWelcomeColor",
   "verifySendPanel",
   "antinukeEnabled",
+  "automodEnabled",
 ] as const;
 
 export type PortableConfigField = (typeof PORTABLE_CONFIG_FIELDS)[number];
@@ -171,6 +172,7 @@ const BOOL_FIELDS = new Set<string>([
   "verifyWelcomeEnabled",
   "verifySendPanel",
   "antinukeEnabled",
+  "automodEnabled",
 ]);
 
 /**

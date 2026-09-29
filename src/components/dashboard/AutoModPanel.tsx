@@ -64,6 +64,7 @@ function ModuleNumber({
 export default function ModerationPanel({ data }: { data: GuildData }) {
   const updateModule = useMutation(api.antinuke.updateModule);
   const updateSettings = useMutation(api.guilds.updateSettings);
+  const setAutomod = useMutation(api.guilds.setAutomod);
 
   const [tiers, setTiers] = useState({
     warnAt: data.guild.heatWarnAt,
@@ -110,6 +111,20 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
       if (successMsg) toast.success(successMsg);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : translate("Lưu thất bại"));
+    }
+  }
+
+  /** Cổng RIÊNG của tab Auto-mod: tắt chống nuke không tắt bộ lọc nội dung nữa. */
+  async function toggleAutomod(enabled: boolean) {
+    try {
+      await setAutomod({ token: TOKEN(), guildId: data.guild.discordId, enabled });
+      toast.success(
+        enabled
+          ? translate("Đã bật toàn bộ auto-mod nội dung")
+          : translate("Đã tắt toàn bộ auto-mod nội dung"),
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : translate("Thất bại"));
     }
   }
 
@@ -249,11 +264,31 @@ export default function ModerationPanel({ data }: { data: GuildData }) {
             )}{" "}
           </p>
         </div>
-        <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
-          <ShieldCheck className="h-3.5 w-3.5" />
-          {enabledCount}/{MODERATION_MODULES.length} {translate("module đang bật")}
-        </Badge>
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex items-center gap-4 p-4">
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            <div>
+              <p className="text-sm font-semibold">
+                {translate(
+                  data.guild.automodEnabled ? "Đang kiểm duyệt nội dung" : "Đã tắt toàn bộ",
+                )}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {enabledCount}/{MODERATION_MODULES.length} {translate("module đang bật")}
+              </p>
+            </div>
+            <Switch checked={data.guild.automodEnabled} onCheckedChange={toggleAutomod} />
+          </CardContent>
+        </Card>
       </div>
+
+      {!data.guild.automodEnabled && (
+        <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+          {translate(
+            "⚠️ Auto-mod đang tắt toàn bộ — link mời, link độc hại, từ ngữ xấu, file nguy hiểm và spam đều không bị chặn.",
+          )}{" "}
+        </div>
+      )}
 
       {/* Hệ thống nhiệt độ */}
       <Card>
