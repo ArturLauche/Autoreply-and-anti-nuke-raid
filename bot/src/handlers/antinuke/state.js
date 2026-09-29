@@ -33,6 +33,11 @@ module.exports = function createAntiNukeState({ client, store }) {
   // Bot hit-and-run: `${guildId}:${botId}` -> addedAt (ms). Ghi khi BotAdd (audit log
   // guildMemberAdd của bot), xóa khi bot rời — nếu rời trong cửa sổ → botHitAndRun.
   const botAddTimes = new Map();
+  // `${guildId}:${botId}` -> bot CÓ ĐƯỢC miễn trừ (owner/admin/mod/whitelist)
+  // tại thời điểm được thêm hay không. Cần nhớ LÚC JOIN vì tới lúc bot rời thì
+  // roles.cache đã rỗng ⇒ isExempt() trả false cho MỌI bot, kể cả bot hợp pháp
+  // do mod chủ động thêm ⇒ module botHitAndRun (phạt ban) phạt oan.
+  const botExemptAtJoin = new Map();
   // Chống log "chồng chặp" (trùng lặp):
   //  - appUserHandledAt: người dùng app vừa bị xử lý bởi 1 tầng (audit IntegrationCreate
   //    hoặc tầng tin nhắn app) trong cửa sổ → tầng còn lại bỏ qua, không phạt/log trùng.
@@ -182,7 +187,10 @@ module.exports = function createAntiNukeState({ client, store }) {
       else joiners.set(guildId, fresh);
     }
     for (const [key, ts] of botAddTimes) {
-      if (now - ts > 900_000) botAddTimes.delete(key);
+      if (now - ts > 900_000) {
+        botAddTimes.delete(key);
+        botExemptAtJoin.delete(key);
+      }
     }
     for (const [key, arr] of spamBuckets) {
       const guildId = key.split(":")[0];
@@ -299,6 +307,7 @@ module.exports = function createAntiNukeState({ client, store }) {
       buttonClickEvents,
       lastConfigs,
       botAddTimes,
+      botExemptAtJoin,
       appUserHandledAt,
       lastExtAppProcessedAt,
       patternPunishedAt,

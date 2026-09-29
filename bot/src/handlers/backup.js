@@ -809,7 +809,9 @@ function sanitizeStickerName(name) {
   const n = String(name || "")
     .trim()
     .slice(0, 30);
-  if (n.length < 2) return `${n}_`.slice(0, 30);
+  // Discord chỉ nhận tên sticker TỪ 2 ký tự: tên 1 ký tự (khoảng trắng,
+  // ký tự lạ bị trim) làm guild.stickers.create ném lỗi ⇒ mất sticker âm thầm.
+  if (n.length < 2) return `${n}_`.slice(0, 30).padEnd(2, "_");
   return n;
 }
 
@@ -1839,12 +1841,27 @@ async function restoreCore(
   // admin/mod" ⇒ tê liệt heat + mất mọi miễn trừ anti-nuke, trong khi họ chỉ xin
   // ĐỪNG đụng role. Gửi undefined để Convex giữ nguyên field cũ (botRestoreSettings
   // chỉ patch field được truyền). Tương tự cho logChannelId/modLogChannelId.
-  const remapRoles = (v) =>
-    restoreRoles
-      ? asIdArray(v)
-          .map((id) => roleMap.get(id))
-          .filter(Boolean)
-      : undefined;
+  // Tệ hơn nữa: khi "khôi phục role" BẬT nhưng role đó tạo thất bại (thiếu quyền
+  // Manage Roles, chạm trần 250 role, rate limit) thì .filter(Boolean) âm thầm
+  // LOẤI id khỏi danh sách, Convex nhận mảng thiếu phần tử ⇒ chủ server mất luôn
+  // role admin/mod/whitelist đó (tê liệt heat + mất miễn trừ anti-nuke) trong
+  // khi báo cáo vẫn ghi "Role đã tạo: N". Danh sách không map trọn vẹn → gửi
+  // undefined để Convex giữ nguyên cấu hình cũ, và nói rõ trong báo cáo.
+  const droppedRoleRefs = [];
+  const remapRoles = (v) => {
+    if (!restoreRoles) return undefined;
+    const ids = asIdArray(v);
+    const mapped = ids.map((id) => roleMap.get(id));
+    const missing = ids.filter((id, i) => !mapped[i]);
+    if (missing.length > 0) {
+      droppedRoleRefs.push(...missing);
+      console.error(
+        `[backup:restore] ${guildId}: ${missing.length} role trong cấu hình không tạo lại được (${missing.join(", ")}) — GIỮ NGUYÊN danh sách cũ`,
+      );
+      return undefined;
+    }
+    return mapped;
+  };
   const remapChannel = (id) => (restoreChannels ? (mapId(id, channelMap) ?? null) : undefined);
   const settingsResult = await store.client.mutation("bot_writes:botRestoreSettings", {
     guildId,
@@ -1906,6 +1923,13 @@ async function restoreCore(
     }
   } else {
     fields.push({ name: "Tin nhắn", value: "⏭️ bỏ qua (đã tắt)", inline: true });
+  }
+  if (droppedRoleRefs.length > 0) {
+    fields.push({
+      name: "⚠️ Cấu hình role giữ nguyên",
+      value: `${droppedRoleRefs.length} role trong cấu hình (admin/mod/whitelist) không tạo lại được nên danh sách cũ được GIỮ NGUYÊN, không bị ghi đè. Kiểm tra lại tab Nội dung & phạt sau khi restore.`,
+      inline: false,
+    });
   }
   fields.push({
     name: "Lưu ý",

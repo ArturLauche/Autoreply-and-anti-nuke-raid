@@ -21,7 +21,7 @@ const {
 
 module.exports = function createAntiNukeLayer({ store, state, core, ai, raidIntel }) {
   const { recordEvent, markHandled, wasHandled, auditExecutor } = state;
-  const { joiners, lastConfigs, botAddTimes } = state.state;
+  const { joiners, lastConfigs, botAddTimes, botExemptAtJoin } = state.state;
   const { punishWithHeat, maybeLockdown } = core;
   const { clusterStats } = ai;
   // Ý kiến thứ hai của AI (best-effort, có thể không có trong test) — dùng để
@@ -51,7 +51,6 @@ module.exports = function createAntiNukeLayer({ store, state, core, ai, raidInte
       if (!config || !config.antinukeEnabled) return;
       const moduleCfg = config.modules.find((m) => m.module === "suspiciousBotAlert");
       if (!moduleCfg || !moduleCfg.enabled) return;
-      if (isExempt(member, moduleCfg, config)) return;
       // Chống spam cảnh báo: cùng 1 bot vào/ra liên tục trong 10 phút chỉ cảnh báo 1 lần.
       if (wasHandled(guild.id, "suspiciousBotAlert", member.id)) return;
       markHandled(guild.id, "suspiciousBotAlert", member.id, 10 * 60_000);
@@ -117,6 +116,25 @@ module.exports = function createAntiNukeLayer({ store, state, core, ai, raidInte
       console.error("[antinuke:botAlert]", e.message);
     }
   }
+  /**
+   * Ghi nhớ bot CÓ ĐƯỢC miễn trừ tại lúc được thêm hay không.
+   *
+   * Vì sao phải nhớ: hit-and-run chạy khi bot ĐÃ RỜI khỏi server — lúc đó
+   * roles.cache rỗng nên isExempt() luôn false. Bot hợp pháp do chủ server/mod
+   * chủ động thêm (bot kiểm tra, bot dịch vụ…) rồi tự rời trong 10 phút sẽ bị
+   * BAN oan. Chỉ có thể biết lúc nó CÒN trong server.
+   */
+  async function markBotExemptOnJoin(member) {
+    if (!member?.guild || (member.user?.bot ?? member.bot) !== true) return;
+    const key = `${member.guild.id}:${member.id}`;
+    try {
+      const config = await store.getConfig(member.guild.id);
+      botExemptAtJoin.set(key, isExempt(member, {}, config));
+    } catch {
+      botExemptAtJoin.set(key, false);
+    }
+  }
+
   async function handleHitAndRunLeave(member, kickExecutor) {
     try {
       const user = member.user ?? {};
@@ -135,7 +153,13 @@ module.exports = function createAntiNukeLayer({ store, state, core, ai, raidInte
       if (!config || !config.antinukeEnabled) return;
       const moduleCfg = config.modules.find((m) => m.module === "botHitAndRun");
       if (!moduleCfg || !moduleCfg.enabled) return;
-      if (isExempt(member, moduleCfg, config)) return;
+      // Miễn trừ: ưu tiên dữ liệu lúc JOIN (bot đã rời thì roles.cache rỗng nên
+      // isExempt luôn false); chưa có dữ liệu thì mới hỏi lại config hiện tại.
+      const exemptAtJoin = botExemptAtJoin.get(key);
+      botExemptAtJoin.delete(key);
+      const exempt =
+        exemptAtJoin === undefined ? isExempt(member, moduleCfg, config) : exemptAtJoin;
+      if (exempt) return;
 
       const staySec = Math.max(1, Math.round((Date.now() - addedAt) / 1000));
       const reason = `[Protogon AntiNuke] ${MODULE_LABELS.botHitAndRun}: bot rời server sau ${staySec}s kể từ khi được thêm`;
@@ -512,5 +536,10 @@ module.exports = function createAntiNukeLayer({ store, state, core, ai, raidInte
     await sendLog(guild, config, embed);
   }
 
-  return { handleSuspiciousBotJoin, handleHitAndRunLeave, handleRaidJoin };
+  return {
+    handleSuspiciousBotJoin,
+    handleHitAndRunLeave,
+    handleRaidJoin,
+    markBotExemptOnJoin,
+  };
 };

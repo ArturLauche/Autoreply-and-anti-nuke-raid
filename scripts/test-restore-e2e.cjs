@@ -454,6 +454,77 @@ function sourceSnapshot() {
     sNoCh?.args?.logChannelId === undefined && sNoCh?.args?.modLogChannelId === undefined,
     JSON.stringify([sNoCh?.args?.logChannelId, sNoCh?.args?.modLogChannelId]),
   );
+  /* ── 2b. Role TẠO LỖI (thiếu quyền/trần 250 role) → KHÔNG mất cấu hình ── */
+  // Bug thật 29/09/2026: .filter(Boolean) âm thầm loại role không tạo được khỏi
+  // danh sách ⇒ Convex nhận mảng THIẾU phần tử ⇒ mất role admin/mod của server
+  // trong khi báo cáo vẫn ghi "Role đã tạo: N".
+  {
+    const guildFail = makeTargetGuild();
+    const storeFail = makeStore(guildFail);
+    // Role "Admin" (old-role-2) không tạo được — mô phỏng thiếu Manage Roles.
+    const realCreate = guildFail.roles.create;
+    guildFail.roles.create = async (opts) => {
+      if (opts.name === "Admin") throw new Error("Missing Permissions");
+      return realCreate(opts);
+    };
+    await backup.runRestore(
+      { guilds: { cache: new Map([["999888777666555444", guildFail]]) } },
+      storeFail,
+      "999888777666555444",
+      stored.backupJson,
+      "Server Gốc Bị Nuke",
+    );
+    const sFail = storeFail._mutations.find((x) => x.name === "bot_writes:botRestoreSettings");
+    check(
+      "role tạo lỗi thì KHÔNG ghi đè adminRoles (giữ cấu hình cũ)",
+      sFail?.args?.adminRoles === undefined,
+      JSON.stringify(sFail?.args?.adminRoles),
+    );
+    check(
+      "role tạo lỗi thì KHÔNG ghi đè modRoles (giữ cấu hình cũ)",
+      sFail?.args?.modRoles === undefined,
+      JSON.stringify(sFail?.args?.modRoles),
+    );
+    // whitelistRoles map trọn vẹn → vẫn được ghi đè đúng (không mất dữ liệu hợp lệ).
+    check(
+      "role tạo lỗi nhưng whitelistRoles map trọn vẹn → vẫn ghi đè đúng",
+      Array.isArray(sFail?.args?.whitelistRoles) && sFail.args.whitelistRoles.length === 1,
+      JSON.stringify(sFail?.args?.whitelistRoles),
+    );
+  }
+
+  /* ── 2c. Tên sticker 1 ký tự (khoảng trắng) → Discord từ chối, phải đệm ── */
+  // Bug thật 29/09/2026: sanitizeStickerName("  ") trả "_" — ngắn hơn ngưỡng
+  // 2 ký tự của Discord ⇒ guild.stickers.create ném lỗi ⇒ mất sticker âm thầm.
+  {
+    const guildSt = makeTargetGuild();
+    const storeSt = makeStore(guildSt);
+    const snapSt = sourceSnapshot();
+    snapSt.stickers = [
+      {
+        id: "old-st-blank",
+        name: "  ",
+        tags: "😀",
+        formatType: 1,
+        url: `data:image/png;base64,${PNG_B64}`,
+      },
+    ];
+    const storedSt = utils.compressAndEncryptBackup(snapSt);
+    await backup.runRestore(
+      { guilds: { cache: new Map([["999888777666555444", guildSt]]) } },
+      storeSt,
+      "999888777666555444",
+      storedSt.backupJson,
+      "Server Gốc Bị Nuke",
+    );
+    const names = guildSt._created.stickersCreated.map((o) => o.name);
+    check(
+      "sticker tên toàn khoảng trắng → tên ≥ 2 ký tự (Discord chỉ nhận từ 2)",
+      names.length === 1 && names[0].length >= 2,
+      JSON.stringify(names),
+    );
+  }
+
   // Vẫn map được role khi bật role (hành vi cũ phải giữ nguyên).
   check(
     "tắt kênh nhưng bật role → modRoles vẫn map sang ID mới",

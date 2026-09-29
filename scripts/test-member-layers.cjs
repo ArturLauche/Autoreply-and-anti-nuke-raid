@@ -288,6 +288,43 @@ module.exports = {
     await members.handleHitAndRunLeave(lateBot, null);
     check("bot rời sau 30 phút → không phải hit-and-run", calls.events.length === 0);
 
+    // 4f. Bot HỢP PHÁP do mod/owner thêm rồi tự rời → KHÔNG phạt oan.
+    // Bug thật 29/09/2026: hit-and-run chạy lúc bot ĐÃ RỜI, roles.cache rỗng
+    // ⇒ isExempt() luôn false ⇒ ban oan chính bot mà mod vừa chủ động thêm.
+    clear();
+    const gidModBot = "g-har-modbot";
+    const modBot = makeMember("mod-bot", { bot: true });
+    modBot.roles = { cache: new Set(["role-admin"]) };
+    const guildModBot = makeGuild(gidModBot, [modBot]);
+    configs.set(gidModBot, baseConfig({ adminRoles: ["role-admin"] }));
+    client.guilds.cache.set(gidModBot, guildModBot);
+    // Orchestrator ghi lúc bot JOIN (còn đầy đủ role).
+    await members.markBotExemptOnJoin(modBot);
+    state.state.botAddTimes.set(gidModBot + ":mod-bot", Date.now() - 30_000);
+    // Bot rời khỏi server: role/quyền biến mất (đúng thực tế Discord).
+    modBot.roles = { cache: new Set() };
+    modBot.permissions = { has: () => false };
+    await members.handleHitAndRunLeave(modBot, null);
+    check(
+      "bot do mod thêm, tự rời nhanh → KHÔNG bị ban oan",
+      calls.events.length === 0 && calls.memberBans.length === 0,
+    );
+
+    // 4g. Ngược lại: bot lạ (không role quyền) tự rời → vẫn phải bị xử lý.
+    clear();
+    const gidStranger = "g-har-stranger";
+    const strangerBot = makeMember("stranger-bot", { bot: true });
+    const guildStranger = makeGuild(gidStranger, [strangerBot]);
+    configs.set(gidStranger, baseConfig({ adminRoles: ["role-admin"] }));
+    client.guilds.cache.set(gidStranger, guildStranger);
+    await members.markBotExemptOnJoin(strangerBot);
+    state.state.botAddTimes.set(gidStranger + ":stranger-bot", Date.now() - 30_000);
+    await members.handleHitAndRunLeave(strangerBot, null);
+    check(
+      "bot lạ (không role quyền) tự rời nhanh → vẫn bị xử lý",
+      calls.events.some((e) => e.module === "botHitAndRun"),
+    );
+
     // 4e. Người thật rời → không liên quan
     clear();
     const human = makeMember("human-1", { bot: false });

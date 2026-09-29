@@ -46,7 +46,8 @@ module.exports = function createAntiNuke(client, store, heat) {
   const { auditLookup, sweepMemory } = state;
   const { botAddTimes } = state.state;
   const { handleExternalApp, handleButtonRaid } = externalApp;
-  const { handleSuspiciousBotJoin, handleHitAndRunLeave, handleRaidJoin } = members;
+  const { handleSuspiciousBotJoin, handleHitAndRunLeave, handleRaidJoin, markBotExemptOnJoin } =
+    members;
   const { handleSpam, handleMessagePatterns } = messages;
   const {
     handleAttributeEvent,
@@ -169,6 +170,9 @@ module.exports = function createAntiNuke(client, store, heat) {
       try {
         if ((member.user?.bot ?? member.bot) === true) {
           botAddTimes.set(`${member.guild.id}:${member.id}`, Date.now());
+          // Nhớ luôn bot có được miễn trừ lúc thêm hay không — tới lúc bot rời
+          // thì roles rỗng, hỏi lại được false và phạt oan bot hợp pháp.
+          void Promise.resolve(markBotExemptOnJoin(member)).catch(() => {});
         }
       } catch {}
       // Cảnh báo bot lạ (suspiciousBotAlert) — chỉ cảnh báo, không phạt.
