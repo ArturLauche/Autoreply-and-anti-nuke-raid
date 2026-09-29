@@ -636,6 +636,11 @@ module.exports = function createAntiNukeLayer({ client, store, state, core, ai, 
               action: String(actionLabel).slice(0, 40),
             });
             action = punished.join("\n");
+          } else if (cm && isExempt(cm, moduleCfg, config)) {
+            // Người tạo webhook CÓ QUYỀN (owner/admin/whitelist): bot cố ý không
+            // phạt để tránh phạt oan, nhưng im lặng thì chủ server mất toàn bộ
+            // tín hiệu — kẻ có quyền xoá được cả kênh log. Phải báo owner.
+            await alertPrivilegedExecutor(message.guild, config, cm, "externalAppRaid", moduleCfg);
           }
         }
       } catch {
@@ -713,6 +718,25 @@ module.exports = function createAntiNukeLayer({ client, store, state, core, ai, 
       footer: "Protogon · Anti Nuke/Raid",
     });
     await sendLog(message.guild, config, embed, "raid");
+
+    // BÁO CÁO KHẨN CHO OWNER: đường raid "cài app không cần mời bot" hay đi qua
+    // TẦNG NÀY (app spam tin) chứ không qua tầng IntegrationCreate. Không DM thì
+    // kẻ xoá được kênh log là chủ server không biết gì — đúng lớp lỗi đã vá ở
+    // audit.js/externalApp tầng trên.
+    if (isRaid) {
+      void alertOwner(client, store, {
+        guild: message.guild,
+        module: "externalAppRaid",
+        summary: `App "${appName}" gửi ${count} tin lặp trong ${moduleCfg.windowSeconds}s (đã dọn tin)`,
+        executorId: responsibleId ?? member?.id,
+        executorName: responsibleName ?? appName,
+      });
+    }
+    // Thủ phạm là owner/admin/whitelist mà bot CỐ Ý không phạt (tránh phạt oan)
+    // → phải báo, im lặng là mất toàn bộ tín hiệu.
+    if (member && isExempt(member, moduleCfg, config)) {
+      await alertPrivilegedExecutor(message.guild, config, member, "externalAppRaid", moduleCfg);
+    }
   }
 
   /**
@@ -848,6 +872,17 @@ module.exports = function createAntiNukeLayer({ client, store, state, core, ai, 
           action: String(res.chosen ?? "xử lý").slice(0, 40),
         });
         action = punished.join("\n");
+      } else if (clicker && isExempt(clicker, moduleCfg, config)) {
+        // Kẻ spam bấm CÓ QUYỀN (owner/admin/whitelist): bot cố ý không phạt để
+        // tránh phạt oan — im lặng thì chủ server mất toàn bộ tín hiệu (kẻ này
+        // xoá được cả kênh log). Báo owner TRƯỚC khi return sớm bên dưới.
+        await alertPrivilegedExecutor(
+          interaction.guild,
+          config,
+          clicker,
+          "externalAppRaid",
+          moduleCfg,
+        );
       }
     }
     // 3) Làn sóng bấm (nhiều người bấm cùng 1 tin app) → khóa kênh CHỈ khi AI
@@ -907,6 +942,17 @@ module.exports = function createAntiNukeLayer({ client, store, state, core, ai, 
       footer: "Protogon · Anti Nuke/Raid",
     });
     await sendLog(interaction.guild, config, embed);
+    // Raid nút bấm đã bị AI khẳng định → DM owner. Chỉ báo khi AI chắc chắn
+    // (không phải mọi làn sóng bấm) để không spam DM mỗi lượt bấm.
+    if (clickAiRaid) {
+      void alertOwner(client, store, {
+        guild: interaction.guild,
+        module: "externalAppRaid",
+        summary: `Nút bấm raid trên tin app "${appName}" — ${totalClicks} lượt bấm trong ${moduleCfg.windowSeconds}s`,
+        executorId: signal.spamClicker ? interaction.user.id : undefined,
+        executorName: signal.spamClicker ? interaction.user.username : undefined,
+      });
+    }
   }
 
   return { handleExternalApp, handleExternalAppMessage, handleButtonRaid };

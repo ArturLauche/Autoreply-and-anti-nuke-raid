@@ -398,6 +398,114 @@ for (const k of [
     config = baseConfig();
   }
 
+  // ==== TẦNG 2b: người tạo webhook CÓ QUYỀN → không phạt, nhưng PHẢI báo owner ====
+  // Kẻ có quyền tạo webhook rồi spam: bot dọn tin + xoá webhook (đúng), nhưng
+  // cố ý KHÔNG phạt để tránh phạt oan ⇒ trước đây im lặng tuyệt đối, kể cả DM
+  // owner. Kẻ này xoá được cả kênh log nên DM là kênh duy nhất còn lại.
+  {
+    resetCalls();
+    const { _ownerAlertForTest } = require("../bot/src/handlers/antinuke/ownerAlert");
+    _ownerAlertForTest();
+    const mod = makeMember("mod-1", { admin: true });
+    const guild = makeGuild({ membersMap: { "mod-1": mod }, id: "g-wh-creator" });
+    guild.fetchAuditLogs = async () => ({
+      entries: [{ target: { id: "wh-creator" }, executor: { id: "mod-1", username: "mod-name" } }],
+    });
+    for (let i = 0; i < 4; i++) {
+      const msg = makeMsg(guild, {
+        webhookId: "wh-creator",
+        content: "FREE NITRO CLAIM NOW discord.gg/xyz",
+      });
+      msg.channel.fetchWebhooks = async () => [
+        {
+          id: "wh-creator",
+          delete: async () => {
+            calls.webhookDeleted.push(1);
+          },
+        },
+      ];
+      await handleExternalAppMessage(msg);
+    }
+    check(
+      calls.kick.length + calls.ban.length + calls.timeout.length === 0,
+      "T2b: mod tạo webhook spam → bot không phạt oan chủ/mod hợp pháp",
+    );
+    check(calls.webhookDeleted.length > 0, "T2b: webhook của app vẫn bị xoá");
+    await new Promise((r) => setImmediate(r));
+    const dmTexts = calls.ownerDms.map((d) => d?.embeds?.[0]?.d?.description ?? "");
+    check(
+      dmTexts.some((t) => t.includes("mod-1") && t.includes("không phạt")),
+      `T2b: DM owner nói rõ mod là thủ phạm + bot không phạt (dm=${calls.ownerDms.length}) — ${JSON.stringify(dmTexts[0]?.slice(0, 90))}`,
+    );
+  }
+
+  // Raid app đã được AI/tín hiệu nội dung xác nhận → DM owner (đường tầng 2).
+  {
+    resetCalls();
+    const { _ownerAlertForTest } = require("../bot/src/handlers/antinuke/ownerAlert");
+    _ownerAlertForTest();
+    const guild = makeGuild({ membersMap: {}, id: "g-app-raid-dm" });
+    for (let i = 0; i < 5; i++) {
+      await handleExternalAppMessage(
+        makeMsg(guild, { webhookId: "wh-raid", content: "FREE NITRO CLAIM NOW discord.gg/xyz" }),
+      );
+    }
+    await new Promise((r) => setImmediate(r));
+    check(
+      calls.ownerDms.length === 1,
+      `T2c: app raid (spam lặp + link mời) → DM owner (dm=${calls.ownerDms.length})`,
+    );
+  }
+
+  // Cooldown RIÊNG: DM thủ phạm-có-quyền không được nuốt mất DM raid (và ngược lại).
+  {
+    resetCalls();
+    const {
+      _ownerAlertForTest,
+      EXEMPT_COOLDOWN_MS,
+    } = require("../bot/src/handlers/antinuke/ownerAlert");
+    const { COOLDOWN_MS } = require("../bot/src/handlers/antinuke/ownerAlert");
+    _ownerAlertForTest();
+    check(
+      EXEMPT_COOLDOWN_MS > COOLDOWN_MS,
+      "Cooldown: DM thủ phạm-có-quyền dài hơn DM raid (tín hiệu khác hẳn)",
+    );
+    const mod = makeMember("mod-1", { admin: true });
+    const guild = makeGuild({ membersMap: { "mod-1": mod }, id: "g-cd-priv" });
+    guild.fetchAuditLogs = async () => ({
+      entries: [{ target: { id: "wh-cd" }, executor: { id: "mod-1", username: "mod-name" } }],
+    });
+    // Vụ 1: mod tạo webhook spam → báo "không phạt" (chiếm cooldown privileged).
+    // Nội dung chỉ LẶP, không đủ tín hiệu raid (contentScore < 6) → không DM raid.
+    // 4 tin = 2 vụ trigger (mẫu bị xoá sau mỗi vụ) → đủ ngưỡng cảnh báo miễn trừ.
+    for (let i = 0; i < 4; i++) {
+      const msg = makeMsg(guild, { webhookId: "wh-cd", content: "ping ping ping" });
+      msg.channel.fetchWebhooks = async () => [{ id: "wh-cd", delete: async () => {} }];
+      await handleExternalAppMessage(msg);
+    }
+    await new Promise((r) => setImmediate(r));
+    const privDm = calls.ownerDms[0]?.embeds?.[0]?.d?.description ?? "";
+    check(
+      calls.ownerDms.length === 1 && privDm.includes("không phạt"),
+      `Cooldown: vụ thường chỉ gửi DM privileged, không tạo DM raid (dm=${calls.ownerDms.length}) — ${JSON.stringify(privDm.slice(0, 90))}`,
+    );
+    // Vụ 2: app raid khác webhook, CÙNG guild, ngay sau đó → DM raid vẫn phải qua.
+    resetCalls();
+    const guild2 = makeGuild({ membersMap: {}, id: "g-cd-priv" });
+    for (let i = 0; i < 5; i++) {
+      await handleExternalAppMessage(
+        makeMsg(guild2, { webhookId: "wh-raid2", content: "FREE NITRO CLAIM NOW discord.gg/xyz" }),
+      );
+    }
+    await new Promise((r) => setImmediate(r));
+    const raidDm = calls.ownerDms[0]?.embeds?.[0]?.d?.description ?? "";
+    check(
+      calls.ownerDms.length === 1 &&
+        (calls.ownerDms[0]?.embeds?.[0]?.d?.title ?? "").includes("đang bị tấn công"),
+      `Cooldown: DM raid không bị DM privileged nuốt (dm=${calls.ownerDms.length}) — ${JSON.stringify(raidDm.slice(0, 100))}`,
+    );
+  }
+
   // ==== TẦNG 3: handleButtonRaid ====
   console.log("\n===== TẦNG 3 — bấm nút spam trên tin app =====");
 
@@ -470,6 +578,31 @@ for (const k of [
     check(
       !evt || evt.punish === "none",
       "T3: minigame đông người bấm — AI offline → không phạt/khóa kênh oan",
+    );
+  }
+
+  // ==== TẦNG 3b: kẻ spam bấm nút CÓ QUYỀN → không phạt, nhưng PHẢI báo owner ====
+  {
+    resetCalls();
+    const { _ownerAlertForTest } = require("../bot/src/handlers/antinuke/ownerAlert");
+    _ownerAlertForTest();
+    const mod = makeMember("mod-1", { admin: true });
+    const guild = makeGuild({ membersMap: { "mod-1": mod }, id: "g-btn-mod" });
+    // 2 tin mồi khác nhau × 4 lượt bấm = 2 vụ trigger (đủ ngưỡng exempt).
+    for (const msgId of ["m-mod-1", "m-mod-2"]) {
+      for (let i = 0; i < 4; i++) {
+        await handleButtonRaid(makeInteraction(guild, { userId: "mod-1", msgId }));
+      }
+    }
+    check(
+      calls.kick.length + calls.ban.length + calls.timeout.length === 0,
+      "T3b: mod spam bấm nút → bot không phạt oan",
+    );
+    await new Promise((r) => setImmediate(r));
+    const dmTexts = calls.ownerDms.map((d) => d?.embeds?.[0]?.d?.description ?? "");
+    check(
+      dmTexts.some((t) => t.includes("mod-1") && t.includes("không phạt")),
+      `T3b: DM owner nói rõ mod spam bấm + bot không phạt (dm=${calls.ownerDms.length}) — ${JSON.stringify(dmTexts[0]?.slice(0, 90))}`,
     );
   }
 

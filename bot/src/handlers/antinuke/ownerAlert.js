@@ -30,15 +30,25 @@ const { MODULE_LABELS } = require("./shared");
 /** Chờ giữa 2 DM khẩn cùng guild — một vụ raid kích nhiều module chỉ DM 1 lần. */
 const COOLDOWN_MS = 5 * 60_000;
 
+/**
+ * DM "NGƯỜI CÓ QUYỀN đang phá server" là tín hiệu KHÁC HẲN DM "server đang bị
+ * raid": cả hai đều gọi alertOwner nhưng phải KHÔNG đá nhau. Trước đây cùng
+ * một map cooldown 5 phút nên vụ raid thật có thể bị DM thủ phạm-có-quyền nuốt
+ * mất (hoặc ngược lại) — mất đúng thứ chủ server cần nhất.
+ */
+const EXEMPT_COOLDOWN_MS = 15 * 60_000;
+
 /** guildId -> timestamp DM gần nhất. */
 const lastAlertAt = new Map();
 
 /** Dọn guild đã rời (memGuard gọi) — trả về số entry đã xoá. */
 function pruneCache(liveGuildIds) {
   let removed = 0;
-  for (const guildId of [...lastAlertAt.keys()]) {
+  for (const key of [...lastAlertAt.keys()]) {
+    // Key có thể kèm hậu tố (vd `123:privileged`) — lấy guildId phần trước dấu ":" đầu.
+    const guildId = key.split(":")[0];
     if (!liveGuildIds.has(guildId)) {
-      lastAlertAt.delete(guildId);
+      lastAlertAt.delete(key);
       removed++;
     }
   }
@@ -59,9 +69,11 @@ async function alertOwner(client, store, opts = {}) {
     const { guild, module, summary, executorId, executorName, privileged } = opts;
     if (!guild || !store) return false;
     const now = Date.now();
-    const last = lastAlertAt.get(guild.id) ?? 0;
-    if (now - last < COOLDOWN_MS) return false;
-    lastAlertAt.set(guild.id, now);
+    const cdKey = opts.cooldownKey ?? guild.id;
+    const cdMs = opts.cooldownMs ?? COOLDOWN_MS;
+    const last = lastAlertAt.get(cdKey) ?? 0;
+    if (now - last < cdMs) return false;
+    lastAlertAt.set(cdKey, now);
 
     const config = await store.getConfig(guild.id);
     if (!config) return false;
@@ -152,6 +164,10 @@ function createPrivilegedAlert({ client, store, state }) {
         executorId: executor.id,
         executorName: executor.username,
         privileged: true,
+        // Cooldown RIÊNG: tín hiệu "người có quyền" không được nuốt mất DM
+        // "server đang bị raid" (và ngược lại).
+        cooldownKey: `${guild.id}:privileged`,
+        cooldownMs: EXEMPT_COOLDOWN_MS,
       });
     }
   };
@@ -162,5 +178,6 @@ module.exports = {
   createPrivilegedAlert,
   pruneCache,
   COOLDOWN_MS,
+  EXEMPT_COOLDOWN_MS,
   _ownerAlertForTest,
 };
