@@ -149,6 +149,15 @@ module.exports = function createAntiNukeLayer({ client, store, state, core, ai, 
     // (vd acc mới cài app giả mạo — biến thể raid "1 app độc cài rải rác").
     if (count < moduleCfg.threshold && suspectScore < 4) return;
 
+    // Chống log chồng chặp: đợt kết nối app vừa được xử lý trong cùng cửa sổ →
+    // bỏ qua (1 làn sóng kết nối app = 1 vụ; IntegrationCreate kế tiếp không
+    // ghi vụ mới). PHẢI đặt TRƯỚC lệnh gọi AI: đặt sau thì mỗi
+    // IntegrationCreate tiếp theo trong làn sóng vẫn tốn trọn 1 lượt gọi AI
+    // rồi mới bị bỏ — raid thật (kẻ nối hàng chục app trong vài giây) tạo ra
+    // hàng chục lượt gọi AI/giây mà kết quả chỉ dùng 1 vụ đầu.
+    const lastProc = lastExtAppProcessedAt.get(guild.id);
+    if (lastProc && Date.now() - lastProc < moduleCfg.windowSeconds * 1000) return;
+
     // AI nhận diện: người dùng app ngoài có đang raid không? (kèm tín hiệu deterministic)
     const profile = `${fresh
       .map(
@@ -216,10 +225,6 @@ module.exports = function createAntiNukeLayer({ client, store, state, core, ai, 
     const targets = [
       ...new Map(fresh.filter((e) => e.executorId).map((e) => [e.executorId, e])).values(),
     ].slice(0, 5);
-    // Chống log chồng chặp: đợt kết nối app vừa được xử lý trong cùng cửa sổ → bỏ qua
-    // (1 làn sóng kết nối app = 1 vụ; IntegrationCreate kế tiếp không ghi vụ mới).
-    const lastProc = lastExtAppProcessedAt.get(guild.id);
-    if (lastProc && Date.now() - lastProc < moduleCfg.windowSeconds * 1000) return;
     // Bỏ người dùng đã bị tầng khác (audit / tin nhắn app) xử lý trong cửa sổ → không
     // phạt + log trùng; đánh dấu NGAY để tầng còn lại không xử lý tiếp cùng người này.
     const freshTargets = targets.filter(

@@ -661,6 +661,177 @@ for (const k of [
     );
   }
 
+  // ==== TẦNG 1c: AI TRẢ LỜI — nhánh phạt theo cấu hình + debounce đặt TRƯỚC AI ====
+  // Nhánh `else` (AI không khẳng định raid → phạt theo cấu hình) chưa hề chạy:
+  // mọi case cũ đều rơi vào ban. Đồng thời kiểm tra debounce "1 làn sóng = 1 vụ"
+  // có chặn AI hay không — đặt sau lệnh gọi AI thì mỗi IntegrationCreate trong
+  // cùng cửa sổ vẫn tốn trọn 1 lượt gọi AI rồi mới bị bỏ.
+  console.log("\n===== TẦNG 1c — AI trả lời (phạt theo cấu hình) =====");
+
+  const aiProbe = { calls: 0 };
+  let aiReply = { offline: false, isRaid: true, confidence: 0.9, reason: "phối hợp rõ ràng" };
+  const state2 = createState({ client, store });
+  const fakeAi = {
+    ...createAi({ state: state2 }),
+    aiAnalyzeExternalApp: async () => {
+      aiProbe.calls += 1;
+      return aiReply;
+    },
+  };
+  const ext2 = createExternalApp({
+    client,
+    store,
+    heat,
+    state: state2,
+    core: createEnforce({ client, store, heat, state: state2 }),
+    ai: fakeAi,
+    raidIntel: createRaidIntel({ client, store, ai: fakeAi }),
+  });
+
+  {
+    resetCalls();
+    aiProbe.calls = 0;
+    aiReply = { offline: false, isRaid: true, confidence: 0.9, reason: "phối hợp rõ ràng" };
+    const raider = makeMember("raider-ai", { freshAcc: true });
+    const guild = makeGuild({ membersMap: { "raider-ai": raider }, id: "g-ai-raid" });
+    const entry = {
+      executor: raider,
+      target: { type: "discord", id: "app-ai", name: "Free Nitro Generator" },
+    };
+    for (let i = 0; i < 3; i++) await ext2.handleExternalApp(entry, guild);
+    check(calls.ban.length === 1, `T1c: AI khẳng định raid → ban 1 lần (ban=${calls.ban.length})`);
+    check(
+      mutatedEvents().some((e) => (e.action || "").includes("đã ban (AI: raid)")),
+      "T1c: nhãn kết quả ghi rõ AI xác nhận raid",
+    );
+    check(
+      aiProbe.calls === 1,
+      `T1c: 3 kết nối app trong 1 cửa sổ chỉ gọi AI 1 lần (gọi=${aiProbe.calls})`,
+    );
+  }
+
+  {
+    // AI nghi raid nhưng TIN CẬY THẤP (0.4 < 0.6) → không được tự ý ban, chỉ
+    // phạt theo cấu hình. Đây là ranh giới an toàn quan trọng: AI sai/kẻ độc
+    // gắn nhãn raid thì người dùng vẫn chỉ bị kick theo đúng cấu hình server.
+    resetCalls();
+    aiProbe.calls = 0;
+    aiReply = { offline: false, isRaid: true, confidence: 0.4, reason: "chưa đủ bằng chứng" };
+    const u = makeMember("user-low", { freshAcc: true });
+    const guild = makeGuild({ membersMap: { "user-low": u }, id: "g-ai-low" });
+    const entry = {
+      executor: u,
+      target: { type: "discord", id: "app-low", name: "Free Nitro Generator" },
+    };
+    for (let i = 0; i < 2; i++) await ext2.handleExternalApp(entry, guild);
+    check(calls.ban.length === 0, "T1c: AI nghi raid nhưng tin cậy thấp → KHÔNG ban");
+    check(
+      calls.kick.length === 1,
+      `T1c: thay vào đó phạt đúng mức cấu hình (kick=${calls.kick.length})`,
+    );
+    const evt = mutatedEvents().find((e) => e.punish === "kick");
+    check(
+      !!evt && !(evt.action || "").includes("(raid)"),
+      `T1c: sự kiện ghi punish=kick, không gắn nhãn raid — ${JSON.stringify(evt?.action?.slice(0, 60))}`,
+    );
+  }
+
+  {
+    // Ban thất bại (thiếu quyền Ban Members) → phải ghi rõ, không nuốt im lặng
+    // và không làm hỏng cả vụ (case log/DM/log vẫn chạy tiếp).
+    resetCalls();
+    aiProbe.calls = 0;
+    aiReply = { offline: false, isRaid: true, confidence: 0.9, reason: "phối hợp rõ ràng" };
+    const u = makeMember("user-noban", { freshAcc: true });
+    u.ban = async () => {
+      throw new Error("Missing Permissions");
+    };
+    const guild = makeGuild({ membersMap: { "user-noban": u }, id: "g-ban-fail" });
+    const entry = {
+      executor: u,
+      target: { type: "discord", id: "app-nb", name: "Free Nitro Generator" },
+    };
+    await ext2.handleExternalApp(entry, guild);
+    check(
+      mutatedEvents().some((e) => (e.action || "").includes("không thể ban")),
+      "T1c: ban thất bại → sự kiện ghi 'không thể ban' thay vì im lặng",
+    );
+    check(calls.ban.length === 0, "T1c: ban thất bại không được tính là đã ban");
+  }
+
+  // ==== TẦNG 3c: nút bấm + AI khẳng định raid → MỚI khóa kênh ====
+  // Ngược lại với TẦNG 3 (AI offline → không khóa), khi AI chắc chắn raid thì
+  // làn sóng bấm nút phải khóa kênh + ghi sự kiện + DM owner.
+  console.log("\n===== TẦNG 3c — nút bấm, AI xác nhận raid → khóa kênh =====");
+
+  {
+    resetCalls();
+    aiProbe.calls = 0;
+    aiReply = { offline: false, isRaid: true, confidence: 0.95, reason: "mồi raid rõ ràng" };
+    const { _ownerAlertForTest } = require("../bot/src/handlers/antinuke/ownerAlert");
+    _ownerAlertForTest();
+    config = baseConfig({ lockdownEnabled: true, lockdownMinutes: 5 });
+    const guild = makeGuild({ membersMap: {}, id: "g-btn-lock" });
+    // Guild khóa được: bot có ManageChannels + có kênh text để edit overwrite.
+    guild.members.fetchMe = async () => ({ permissions: { has: () => true } });
+    guild.roles.everyone = { id: "@everyone" };
+    guild.channels.cache = new Map([
+      [
+        "ch-lock",
+        {
+          id: "ch-lock",
+          isTextBased: () => true,
+          isThread: () => false,
+          isVoiceBased: () => false,
+          permissionOverwrites: {
+            edit: async () => {
+              calls.lockdown.push(1);
+            },
+          },
+        },
+      ],
+    ]);
+    for (let i = 0; i < 6; i++) {
+      await ext2.handleButtonRaid(makeInteraction(guild, { userId: "u-" + i, msgId: "m-lock" }));
+    }
+    check(calls.msgDeleted.length >= 1, "T3c: AI xác nhận raid → xoá tin mồi chứa nút bấm");
+    check(
+      calls.lockdown.length > 0,
+      `T3c: AI xác nhận raid + làn sóng bấm → KHOÁ KÊNH (số kênh=${calls.lockdown.length})`,
+    );
+    const evt = mutatedEvents().find((e) => (e.action || "").includes("làn sóng"));
+    check(!!evt, "T3c: sự kiện ghi nhận làn sóng bấm nút");
+    await new Promise((r) => setImmediate(r));
+    check(
+      calls.ownerDms.length === 1,
+      `T3c: nút bấm raid → DM owner (dm=${calls.ownerDms.length})`,
+    );
+    config = baseConfig();
+  }
+
+  {
+    // AI nói rõ KHÔNG phải raid (tin cậy >= 0.5) → kể cả kẻ spam bấm 4 lượt
+    // cũng chỉ ghi nhận, không phạt — minigame/giveaway hợp pháp.
+    resetCalls();
+    aiProbe.calls = 0;
+    aiReply = { offline: false, isRaid: false, confidence: 0.8, reason: "hoạt động bình thường" };
+    const clicker = makeMember("clicker-safe", { freshAcc: true });
+    const guild = makeGuild({ membersMap: { "clicker-safe": clicker }, id: "g-btn-notraid" });
+    for (let i = 0; i < 4; i++) {
+      await ext2.handleButtonRaid(
+        makeInteraction(guild, { userId: "clicker-safe", msgId: "m-notraid" }),
+      );
+    }
+    check(
+      calls.kick.length + calls.ban.length + calls.timeout.length === 0,
+      "T3c: AI nói không phải raid → không phạt kẻ bấm nút",
+    );
+    check(
+      mutatedEvents().some((e) => (e.action || "").includes("bỏ qua")),
+      "T3c: vụ bị bỏ qua vẫn được ghi nhận để chủ server thấy",
+    );
+  }
+
   console.log(`\nKết quả: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail > 0 ? 1 : 0);
 })().catch((e) => {
