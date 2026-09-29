@@ -4,7 +4,7 @@
 
 Bot Discord tự động trả lời tin nhắn thành viên theo **từ khóa** hoặc khi bị **tag @mention** (nội dung do bạn tùy chỉnh), hỗ trợ đầy đủ **prefix (`!`) + slash commands**, kèm hệ thống **chống nuke/raid** bật tắt từng phần theo ý mod & owner — tất cả quản lý qua một **dashboard web** tùy chỉnh.
 
-> **Chất lượng**: 78 CJS + 17 TS test suites · coverage c8 (90.8% dòng / 95.7% hàm / 74.6% nhánh — toàn bộ engine chống nuke + alt detection + ticket + lớp dẫn log được phủ test trực tiếp, **sàn coverage theo file** chặn engine bảo vệ tụt) · **mutation score 100%** (`bun run test:mutation`) · property-based + fuzz test · **memGuard sweeper bộ nhớ tập trung** · ESLint sạch · typecheck sạch · smoke test VPS · CI 4 job (lint + security + test → deploy): gitleaks chặn secret lộ, bun audit chặn CVE critical (`bun run test` để chạy local).
+> **Chất lượng**: 80 CJS + 17 TS test suites · coverage c8 (92,6% dòng / 96,2% hàm / 76,6% nhánh — toàn bộ engine chống nuke + alt detection + ticket + lớp dẫn log được phủ test trực tiếp, **không còn file nào dưới 80%**, **sàn coverage theo file** chặn engine bảo vệ tụt) · **mutation score 100%** (`bun run test:mutation`) · property-based + fuzz test · **memGuard sweeper bộ nhớ tập trung** · ESLint sạch · typecheck sạch · smoke test VPS · CI 4 job (lint + security + test → deploy): gitleaks chặn secret lộ, bun audit chặn CVE critical (`bun run test` để chạy local).
 >
 > **Hệ sinh thái**: threat relay liên server (chia sẻ signature raid ẩn danh, opt-in từng chiều) · preset bảo mật 1 chạm (server nhỏ / cộng đồng / rủi ro cao) — bật trên dashboard, tab Chống nuke.
 
@@ -81,6 +81,7 @@ Bot tự đăng ký slash commands và đồng bộ server/kênh/role lên Conve
 - 🤖 **Auto reply**: kích hoạt bằng từ khóa hoặc tag bot; placeholder `{user}` (tag người nhắn), `{username}`; cooldown chống spam; giới hạn theo kênh.
 - 🛡️ **Chống nuke/raid**: **24 module chống nuke + 8 module auto-mod = 32 module** (ban/kick/join/channel/role/message/spam + biến thể: xóa thread, đổi tên/quyền kênh, sửa role, tự cấp quyền quản trị, gán role/biệt danh hàng loạt, emoji/sticker, bot add, tạo invite, đổi cấu hình server, bot hit-and-run…), phát hiện qua audit log, xử lý cảnh báo → tạm khóa → kick → ban, **tự động khóa kênh khi raid**, cảnh báo real-time tới kênh log, role Mod/Admin + whitelist được miễn trừ. Kèm **báo cáo hoạt động chống nuke hàng ngày** gửi vào kênh log.
 - 🧰 **Auto-moderation — 8 module**: spam, mass message, blank noise, mention, badword, attachment, invite, malware — lọc nội dung độc hại theo nhiệt độ vi phạm (warn → timeout → kick → ban).
+  ★ **Cổng bật riêng, không dính chống nuke**: tab Auto-mod có công tắc tổng **riêng** (`automodEnabled`). Trước đây tắt "Chống nuke" là mất luôn bộ lọc link mời/link độc hại/file .exe mà không ai báo — nay hai cổng tách bạch, tắt cổng nào cũng có dải cảnh báo đỏ ngay trên panel.
 - 🎫 **Ticket & Khiếu nại (Kênh riêng cho từng người)**: mỗi lượt mở tạo **một kênh riêng** thay vì nhắn ở kênh chung — `@everyone` bị chặn ngay từ đầu, chỉ người mở + role staff nhìn thấy. Có **2 điểm vào**: nút _Mở khiếu nại_ trong **DM gửi kèo sau khi ban** (dành cho người bị ban — họ không gõ được lệnh trong server), và lệnh `/ticket` cho thành viên đang ở trong server. Trong kênh có 6 nút trong 2 hàng: **Đóng**, **Đóng kèm lý do** (bắt buộc — cả staff lẫn người mở đều thấy), **Nhận việc** (chỉ **1 người** nhận — người sau bị từ chối, tránh 3 mod cùng trả lời), **Gỡ ban** (đi qua `unbanMember` nên vòng đo phạt nhầm tự chạy), **Ghim**, **Ghi chú AI**. Hàng rào chống spam: trần số ticket đang mở, thời gian chờ giữa 2 lượt, và giới hạn 500 kênh của Discord. Chủ server đặt hạn mức, role xử lý, danh mục chứa ticket, loại mặc định, ghi chú khi đóng, **thời gian tự đóng**, **nội dung panel** và **role được tag** ở dashboard → tab **Ticket & Khiếu nại**.
   ★ **Tự đóng + dọn kênh**: kênh ticket không ai chat quá hạn số giờ chủ server đặt (mặc định 24h, tắt được bằng 0) sẽ tự đóng; đóng đủ số giờ nữa (mặc định 24h) bot **lưu toàn bộ nội dung vào storage rồi mới xoá kênh** — không bao giờ xoá trước khi lưu. Có người chat trong kênh thì đồng hồ tự đóng lùi lại. Đây là cơ chế bảo vệ trần 500 kênh Discord mà server đã dùng tích năng ticket sẽ dẫn tới.
   ★ **Đa ngôn ngữ**: mọi việc viết theo ngôn ngữ **của người gõ** (locale client Discord), không phải locale server. `/language` để ghim lựa chọn; lệnh **chạy được cả trong server lẫn trong DM** để người bị ban đổi được (họ không vào được kênh nào). Hỗ trợ **VI / EN / DE**.
@@ -89,6 +90,7 @@ Bot tự đăng ký slash commands và đồng bộ server/kênh/role lên Conve
 - 🚨 **Báo cáo khẩn `/report` + `!report`**: khi có raid/nuke hoặc bot phạt nhầm thành viên, AI (Mimu v2.5) dò hàng trăm tin nhắn gần nhất + dữ liệu phạt để hiểu tình huống và công bố báo cáo rõ ràng cho cả server; mod ghi chú thêm bối cảnh; dashboard có nút bật/tắt cảnh báo khẩn + ping @everyone.
 - 🎯 **Raid Intel — thu thập dữ liệu + săn nguồn cơn raid**: bot tự ghi **mẫu dữ liệu huấn luyện** cho mỗi vụ raid/nuke (module, cụm tài khoản, AI verdict); bot + AI phân tích cụm (acc chủ mưu, avatar/username trùng nhau, người tạo invite, kẻ phá hoại trong audit log) để tìm **kẻ đứng sau raid rồi tự ban** — bật/tắt từng phần trên dashboard → Chống nuke/raid → Raid Intel.
 - 📱 **Chống raid bằng ứng dụng ngoài (External App Guard)**: phát hiện tấn công bằng **external app / integration** thay vì bot thành viên — đội quân sockpuppet cài app ồ ạt, app giả mạo app nổi tiếng / tên chứa từ khóa scam (nitro/giveaway/boost/free...), app spam @everyone + link mời/link rút gọn/lừa đảo, lặp nội dung giống hệt hoặc **gần giống** (đổi số/emoji/URL để né filter), webhook spam. **AI học hỏi cách raid này và chặn cả biến thể tương tự**: raid → xóa tin/webhook + ban + khóa kênh; còn lại → kick theo cấu hình. Xem danh sách vụ bị chặn (ai, app gì, lúc nào) trên dashboard → Chống nuke/raid → Raid bằng ứng dụng ngoài.
+- 📩 **DM khẩn cho owner — 2 loại tín hiệu tách cooldown**: (1) _server đang bị tấn công_ và (2) _người có quyền quản lý đang phá_ (bot cố ý không phạt owner/admin/whitelist để tránh phạt oan, nhưng hành vi nuke vẫng phải báo — kẻ có quyền xoá được cả kênh log, DM là kênh duy nhất không xoá được từ trong server). Mọi tầng chống nuke đều nối chung một cơ chế này, kể cả đường raid bằng ứng dụng ngoài và nút bấm.
 - 📒 **Log kiểu Carl-bot, gộp 2 luồng** (Cài đặt → Kênh log): 🛡️ **Anti nuke/raid** → kênh log chung · ⚙️ **Auto-mod + lệnh thủ công của mod/owner** (ban/timeout/kick/warn/gỡ hình phạt/purge/xóa tin) → **gộp chung 1 kênh log hành động mod** (chưa đặt → kênh log chung), mỗi embed hiển thị `Offender` / `Reason` / `Responsible moderator` + `case N` tăng dần: bot tự động để tên bot, mod dùng lệnh để tên mod, lý do trống ghi **“không có lý do”**.
 - ⌨️ **Prefix + slash**: `!help !ping !prefix !autoreply !antinuke !heat !badword !setlog !backup !report !research`, `/ticket mo|khieunai|dong`, `/language` và tương đương `/…` (kèm `/backup now|list|restore|auto` để tạo/liệt kê/khôi phục + tự động backup định kỳ server ngay trong Discord).
 - ♻️ **Tùy chỉnh khôi phục (Backup server → Tùy chỉnh khôi phục)**: bật/tắt từng phần **role** và **emoji/sticker** khi bot khôi phục — đồng bộ bot ↔ web, áp dụng cho **cả backup Protogon lẫn file backup của bot nuke** (.msc/.json tải lên). Phần tắt sẽ được bỏ qua khi restore; kênh, tin nhắn + media vẫn xử lý bình thường.
@@ -97,7 +99,7 @@ Bot tự đăng ký slash commands và đồng bộ server/kênh/role lên Conve
 ## Kiểm thử & Coverage
 
 ```bash
-bun run test            # chạy 78 suite CJS (~54s, thoát khác 0 nếu fail)
+bun run test            # chạy 80 suite CJS (~60s, thoát khác 0 nếu fail)
 bun run test:ts         # chạy 17 suite TypeScript
 bun run test:coverage   # chạy test + đo coverage (báo cáo HTML tại coverage/)
 bun run smoke:vps       # smoke test VPS (env + module + Convex + Discord login)
@@ -107,15 +109,15 @@ Coverage được đo bằng [`c8`](https://github.com/bcoe/c8) (V8 native, khô
 
 | Chỉ số          | Giá trị | Ý nghĩa                                                    |
 | --------------- | ------- | ---------------------------------------------------------- |
-| Dòng            | 90.8%   | phần lớn dòng `bot/src` được test chạm tới                 |
-| Hàm             | 95.7%   | 96% hàm được **gọi thật** (không chỉ import)               |
-| Nhánh (if/else) | 74.6%   | cả hai phía true/false của phần lớn điều kiện đã được kiểm |
+| Dòng            | 92,6%   | phần lớn dòng `bot/src` được test chạm tới                 |
+| Hàm             | 96,2%   | 96% hàm được **gọi thật** (không chỉ import)               |
+| Nhánh (if/else) | 76,6%   | cả hai phía true/false của phần lớn điều kiện đã được kiểm |
 
 **Bản đồ nhiệt theo file** (phần quan trọng nhất):
 
-- ✅ **≥ 90%** (đều có sàn theo file trong `scripts/check-coverage-floor.cjs`): `util` (100%), `handlers/hidden` (100%), `ticketActivity` (100%), `register-slash` (100%), `ticketCore` (99,8%), `localSnapshot` (99,2%), `lockdown` (99,1%), `antinuke/shared` (99%), `handlers/tickets` (99%), `antinuke/raidIntel` (95%), `handlers/interactionCreate` (95,2%), `joinGate` (95,8%), `moduleActions` (94,9%), `ticketJobs` (93%), `heat` (92,6%) — **toàn bộ engine chống nuke + alt detection + ticket + lớp dẫn log được phủ test trực tiếp**, đúng chỗ xử lý mọi vụ nuke thật.
-- ⚠️ **80–90%**: `handlers/lang` (88,8%), `antinuke/externalApp` (88,7%), `antinuke/vandalBudget` (88,3%), `backupAudit` (88,2%), `actionBudget` (85,1%), `handlers/backup` (83,2%), `research` (82,7%), `antinuke/audit` (81,7%), `altDetection` (80,7%) — luồng chính có test nhưng còn nhánh hiếm gặp chưa phủ.
-- 🔴 **< 20%**: `antinuke/index` (13,9%) — entry-point nối cổng gateway Discord, phủ bằng `bun run smoke:vps` trên VPS thay vì unit test.
+- ✅ **≥ 90% — 46/57 file** (đều có sàn theo file trong `scripts/check-coverage-floor.cjs`): `caseLog`, `util`, `handlers/hidden`, `ticketActivity`, `register-slash`, `ticketCore` (99,8%), `antinuke/shared` (99,6%), `localSnapshot` (99,2%), `lockdown` (99,1%), `handlers/tickets` (99%), `antinuke/ownerAlert` (98,4%), `incidentReport` (96,2%), `externalAppGuard` (95,9%), `joinGate` (95,8%), `antinuke/raidIntel` (95%), `moduleActions` (94,9%), `ticketJobs` (94,7%), `handlers/filters` (93,4%), `heat` (92,6%), `antinuke/state` (92,2%), `antinuke/messages` (91,9%), `antinuke/members` (91,7%), `relayClient` (90%) — **toàn bộ engine chống nuke + alt detection + ticket + lớp dẫn log được phủ test trực tiếp**, đúng chỗ xử lý mọi vụ nuke thật.
+- ⚠️ **80–90% — 11 file**: `handlers/researchCommands` (89,9%), `antinuke/externalApp` (89,7%), `handlers/welcomeCard` (89,5%), `threatEngine` (89%), `antinuke/audit` (88,4%), `antinuke/vandalBudget` (88,3%), `backupAudit` (88,2%), `actionBudget` (85,1%), `handlers/backup` (84%), `research` (82,7%), `altDetection` (80,7%) — luồng chính có test nhưng còn nhánh hiếm gặp chưa phủ.
+- ✅ **Không còn file nào dưới 80%**: entry-point `antinuke/index` (nối cổng gateway Discord) từng chỉ 13,9%, nay đã có bộ test orchestrator riêng (43 check) nên lên 100%. Phần kết nối gateway thật vẫn kiểm bằng `bun run smoke:vps` trên VPS.
 
 > **Giới hạn cần biết**: c8 chỉ đo được code chạy dưới V8 — 17 suite `.ts` chạy bằng **Bun** nên **không** xuất hiện trong báo cáo (đó là giới hạn ĐO, không phải giới hạn TEST; ví dụ `test-welcome-card.ts` vẫn kiểm thẻ ảnh rất kỹ, và `test-welcome-card-render.cjs` chạy dưới node để c8 thấy). Dashboard `src/` và `convex/` hiện **chưa** được đo — đó là hạn chế của chuỗi c8+Bun, chưa phải lỗi cấu hình.
 
@@ -138,9 +140,7 @@ bun run format:check    # CI dùng lệnh này để chặn code chưa format
 
 **Dependabot** (`.github/dependabot.yml`) quét weekly: root `bun`, `bot/` (discord.js, convex) và `github-actions` — tự tạo PR cập nhật, group các bump minor/patch thành 1 PR. Bot bảo mật không được để deps cũ.
 
-**Thứ tự gate trong CI**: `lint` (ESLint + Prettier + check repo-map/hợp đồng bot⇄Convex/đa ngôn ngữ) → `test` (78 CJS + 17 TS suites + coverage + typecheck) → `deploy` Convex production. Job sau chỉ chạy khi job trước pass.
-
-## Phát triển
+**Thứ tự gate trong CI**: `lint` (ESLint + Prettier + check repo-map/hợp đồng bot⇄Convex/đa ngôn ngữ) → `test` (80 CJS + 17 TS suites + coverage + typecheck) → `deploy` Convex production. Job sau chỉ chạy khi job trước pass.
 
 ## AI coding agent trên VPS (OpenCode)
 

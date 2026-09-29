@@ -307,6 +307,124 @@ module.exports = {
     );
   }
 
+  // ── 2b. Executor KHÔNG còn trong server (bot vừa bị kick/đã rời) ──
+  // Nhánh này ban bằng guild.members.ban(userId) — KHÔNG có punishWithHeat vì
+  // không còn member để phạt. Chỉ chạy khi executor là BOT GÂY HẠI (không tick
+  // xác minh, không ở lâu); người thật/bot tin cậy thì bỏ qua, không ban oan.
+  {
+    clear();
+    const gid = "g-bot-ngoai-server";
+    // Không đưa bot vào membersMap ⇒ guild.members.fetch trả null (đã rời/kicked).
+    const guild = makeGuild(gid, []);
+    configs.set(gid, baseConfig());
+    client.guilds.cache.set(gid, guild);
+    // Bot mới vào (joinedTimestamp = hôm nay) + không tick xác minh ⇒ host.
+    const hostile = makeExecutorUser("hostile-bot", { bot: true });
+    hostile.joinedTimestamp = Date.now();
+    const entry = { executor: hostile, target: { id: "ch-1" }, changes: [] };
+    await audit.handleAuditEntry(entry, guild, "massChannelDelete", "x1");
+    check(
+      "T-bot-ngoai-server: bot gây hại 1 lần (ngưỡng 1 với bot) → ban",
+      calls.memberBans.includes("hostile-bot"),
+      JSON.stringify(calls.memberBans),
+    );
+    const ev = calls.events.find((e) => e.module === "massChannelDelete");
+    check(
+      "T-bot-ngoai-server: ghi sự kiện + punish=ban",
+      !!ev && ev.punish === "ban" && ev.executorId === "hostile-bot",
+      JSON.stringify(ev),
+    );
+  }
+  {
+    // Cùng tình huống nhưng bot TIN CẬY (đã ở lâu) → KHÔNG ban.
+    clear();
+    const gid = "g-bot-tin-cay";
+    const guild = makeGuild(gid, []);
+    configs.set(gid, baseConfig());
+    client.guilds.cache.set(gid, guild);
+    const trusted = makeExecutorUser("trusted-bot", { bot: true });
+    trusted.joinedTimestamp = Date.now() - 30 * 86_400_000; // ở lâu ⇒ tin cậy
+    // Bot tin cậy dùng NGƯỠNG ĐẦY ĐỦ (2) — chỉ ban ngoài server sau 2 lượt.
+    const entry = { executor: trusted, target: { id: "ch-1" }, changes: [] };
+    await audit.handleAuditEntry(entry, guild, "massChannelDelete", "x1");
+    await audit.handleAuditEntry(entry, guild, "massChannelDelete", "x2");
+    check(
+      "bot tin cậy (đã ở lâu) không còn member → KHÔNG ban oan",
+      calls.memberBans.length === 0,
+      JSON.stringify(calls.memberBans),
+    );
+  }
+  {
+    // Người THẬT không còn trong server (vừa bị kick) → không ban (chỉ ghi nhận).
+    clear();
+    const gid = "g-nguoi-ngoai-server";
+    const guild = makeGuild(gid, []);
+    configs.set(gid, baseConfig());
+    client.guilds.cache.set(gid, guild);
+    const human = makeExecutorUser("human-1");
+    human.joinedTimestamp = Date.now();
+    const entry = { executor: human, target: { id: "ch-1" }, changes: [] };
+    await audit.handleAuditEntry(entry, guild, "massChannelDelete", "x1");
+    await audit.handleAuditEntry(entry, guild, "massChannelDelete", "x2");
+    check(
+      "người thật không còn trong server → không ban ngoài server",
+      calls.memberBans.length === 0,
+      JSON.stringify(calls.memberBans),
+    );
+  }
+
+  // ── 2c. handleAttributeEvent: ban executor ngoài server (bot vừa rời) ──
+  // Đường sự kiện (guildMemberRemove/gUILD_UPDATE…) không qua audit-entry nên
+  // cũng có nhánh ban ngoài server riêng: không còn member để punishWithHeat
+  // thì ban thẳng bằng guild.members.ban — CHỈ khi là bot gây hại.
+  {
+    clear();
+    const gid = "g-attr-ban";
+    const hostile = makeExecutorUser("attr-hostile", { bot: true });
+    hostile.joinedTimestamp = Date.now(); // vừa vào ⇒ không tin cậy
+    const entries = [{ target: { id: "ch-1" }, executor: hostile }];
+    const guild = makeGuild(gid, [], entries);
+    configs.set(gid, baseConfig());
+    client.guilds.cache.set(gid, guild);
+    await audit.handleAttributeEvent({
+      guild,
+      module: "massChannelDelete",
+      eventType: "ChannelDelete",
+      targetId: "ch-1",
+      describeTarget: "Xoá 5 kênh",
+    });
+    check(
+      "T-attr-ban: bot gây hại ngoài server → ban ngay lần đầu",
+      calls.memberBans.includes("attr-hostile"),
+      JSON.stringify(calls.memberBans),
+    );
+  }
+  {
+    // Bot tin cậy tạo sự kiện → KHÔNG ban dù không còn member.
+    clear();
+    const gid = "g-attr-ban-trusted";
+    const trusted = makeExecutorUser("attr-trusted", { bot: true });
+    trusted.joinedTimestamp = Date.now() - 30 * 86_400_000;
+    const entries = [{ target: { id: "ch-1" }, executor: trusted }];
+    const guild = makeGuild(gid, [], entries);
+    configs.set(gid, baseConfig());
+    client.guilds.cache.set(gid, guild);
+    for (let i = 0; i < 2; i++) {
+      await audit.handleAttributeEvent({
+        guild,
+        module: "massChannelDelete",
+        eventType: "ChannelDelete",
+        targetId: "ch-1",
+        describeTarget: "Xoá 5 kênh",
+      });
+    }
+    check(
+      "T-attr-ban: bot tin cậy ngoài server → KHÔNG ban oan",
+      calls.memberBans.length === 0,
+      JSON.stringify(calls.memberBans),
+    );
+  }
+
   // ── 3. Bot logging hợp pháp (Carl-bot) ban bot spam → KHÔNG bị xử lý oan ──
   {
     clear();
