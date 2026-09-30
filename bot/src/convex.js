@@ -315,14 +315,6 @@ class ConvexStore {
   }
 
   /**
-   * Đọc config ĐANG nằm trong cache — đồng bộ, không gọi mạng, không xét TTL.
-   * Dành cho sweeper/đường nóng chỉ cần ước lượng; cần giá trị tươi thì dùng getConfig.
-   */
-  peekConfig(guildId) {
-    return this.cache.get(guildId)?.config ?? null;
-  }
-
-  /**
    * Dọn cache config của guild đã rời (memGuard gọi định kỳ — Đợt 7). Guild rời
    * thì không bao giờ getConfig nữa nhưng cache vẫn giữ config cũ mãi. Trả về
    * số entry đã dọn.

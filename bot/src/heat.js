@@ -23,9 +23,6 @@ const TIER_STRENGTH = { warn: 1, timeout: 2, kick: 3, ban: 4 };
 const HEAT_MAX = 100;
 const MIN_MS = 60_000;
 const MAX_WARN_STRIKE_WINDOW_MIN = 1440;
-// Decay giả định cho entry KHÔNG biết decay của guild (chỉ entry dựng tay trong test):
-// thấp hơn mặc định (3/phút) nên chỉ làm sweeper dọn chậm hơn chứ không dọn oan.
-const SWEEP_FALLBACK_DECAY_PER_MIN = 1;
 
 /** Lấy cài đặt nhiệt độ + warn strike của guild (kèm giá trị mặc định). */
 function heatSettings(config) {
@@ -217,49 +214,40 @@ class HeatTracker {
   /**
    * Dọn entry nguội của guild im lặng (memGuard gọi định kỳ). flushGuild chỉ
    * dọn guild CÓ vi phạm mới — guild im lặng lâu ngày vẫn giữ entry cũ mãi.
-   *
-   * `decayOf(guildId)` (tuỳ chọn) trả decay/phút HIỆN HÀNH của guild từ cache cấu
-   * hình — đồng bộ, không gọi mạng. Thiếu → dùng decay chụp trên entry lúc ghi
-   * nhiệt. Trước đây hằng 1 điểm/phút cho mọi guild: guild đặt decay 0 (nhiệt
-   * không tự nguội) bị dọn MẤT nhiệt còn hiệu lực sau vài chục phút im lặng.
    * Trả về số entry đã dọn.
    */
-  sweepCold(decayOf) {
+  sweepCold() {
     let removed = 0;
-    const now = Date.now();
     for (const [key, entry] of this.states) {
       // Entry nguội hoàn toàn và không còn trong cửa sổ tái phạm → bỏ.
       // Cửa sổ dùng trần cấu hình cho phép (1440 phút) — không đọc config từng
       // guild (tốn call); guild nào có entry nóng thì flushGuild tự giữ đúng.
-      const decay = this._sweepDecay(key, entry, decayOf);
-      const heat = Math.max(0, Math.round(entry.heat - ((now - entry.updatedAt) / MIN_MS) * decay));
+      //
+      // Tốc độ giảm lấy từ decay GHI KÈM entry (`add`/`getHeat` cập nhật theo
+      // config mới nhất của guild). Trước đây hardcode 1 điểm/phút cho mọi
+      // guild, nên guild cấu hình decay < 1 (kể cả 0 = không bao giờ giảm) bị
+      // coi là đã nguội → dọn MẤT nhiệt còn sống: mất trí nhớ leo thang và
+      // lệch với hàng heatStates bên Convex (bảng vẫn còn nhiệt). Entry cũ
+      // không có field (dữ liệu cũ) → giữ nguyên hành vi 1 điểm/phút.
+      const decayPerMin = Number.isFinite(entry.decayPerMin) ? entry.decayPerMin : 1;
+      const heat = Math.max(
+        0,
+        Math.round(entry.heat - ((Date.now() - entry.updatedAt) / MIN_MS) * decayPerMin),
+      );
       if (heat > 0) continue;
-      if (entry.lastPunishedAt && now - entry.lastPunishedAt < 1440 * MIN_MS) continue;
+      if (entry.lastPunishedAt && Date.now() - entry.lastPunishedAt < 1440 * MIN_MS) continue;
       this.states.delete(key);
       this.warned.delete(key);
       removed++;
     }
     // Strikes: chỉ dọn sau cửa sổ cấu hình dài nhất để không cắt tích lũy đang hiệu lực.
     for (const [key, st] of this.strikes) {
-      if (now - st.firstAt > MAX_WARN_STRIKE_WINDOW_MIN * MIN_MS) {
+      if (Date.now() - st.firstAt > MAX_WARN_STRIKE_WINDOW_MIN * MIN_MS) {
         this.strikes.delete(key);
         removed++;
       }
     }
     return removed;
-  }
-
-  /** Decay/phút dùng để ước nhiệt của entry khi quét: cấu hình hiện hành → mốc trên entry → giả định thấp. */
-  _sweepDecay(key, entry, decayOf) {
-    let current;
-    try {
-      current = decayOf?.(key.slice(0, key.indexOf(":")));
-    } catch {
-      // cache cấu hình lỗi → rơi về mốc lưu trên entry, không làm hỏng lượt dọn
-    }
-    if (Number.isFinite(current)) return Math.max(0, current);
-    if (Number.isFinite(entry.decayPerMin)) return Math.max(0, entry.decayPerMin);
-    return SWEEP_FALLBACK_DECAY_PER_MIN;
   }
 
   /** Nhiệt độ hiệu dụng (đã trừ decay) của một thành viên. */
@@ -268,6 +256,10 @@ class HeatTracker {
     const entry = this.states.get(key);
     if (!entry) return 0;
     const heat = this._decay(entry, s);
+    // Cập nhật tốc độ giảm theo config MỚI NHẤT (đọc là đường đi thường gặp:
+    // mỗi vi phạm, mỗi lần xem /heat status) → sweeper dọn đúng cả khi guild
+    // đổi heatDecayPerMin sau khi entry đã được tạo.
+    if (Number.isFinite(s?.decayPerMin)) entry.decayPerMin = s.decayPerMin;
     if (heat <= 0) {
       this.warned.delete(key);
       // Nhiệt nguội về 0 NHƯNG còn trong cửa sổ tái phạm → GIỮ entry: đây là
@@ -333,6 +325,7 @@ class HeatTracker {
       updatedAt: Date.now(),
       lastPunishedAt: entry?.lastPunishedAt,
       username,
+      // Nhớ tốc độ giảm của guild ngay trên entry để sweeper dọn đúng (xem sweepCold).
       decayPerMin: s.decayPerMin,
     });
     const warned = await this._maybeWarn(guildId, userId, heat, s);
@@ -356,7 +349,7 @@ class HeatTracker {
       updatedAt: entry?.updatedAt ?? Date.now(),
       lastPunishedAt: Date.now(),
       username: entry?.username,
-      decayPerMin: entry?.decayPerMin,
+      decayPerMin: entry?.decayPerMin, // giữ nguyên tốc độ giảm sweeper cần
     });
   }
 

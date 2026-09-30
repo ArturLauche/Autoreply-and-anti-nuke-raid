@@ -569,6 +569,66 @@ function mkTracker(opts = {}) {
     );
   }
 
+  console.log("\n── sweepCold: tôn trọng tốc độ giảm thật của guild ──");
+  {
+    // ⚠️ Bug thật đã sửa: sweeper hardcode 1 điểm/phút cho MỌI guild. Guild cấu
+    // hình heatDecayPerMin < 1 (kể cả 0 = không bao giờ giảm) vì thế bị coi là
+    // "đã nguội" và dọn MẤT nhiệt còn sống sau ~10 phút im lặng → mất trí nhớ
+    // leo thang, lệch với hàng heatStates vẫn còn nguyên bên Convex.
+    const { tracker } = mkTracker();
+    const s0 = heatSettings({ heatDecayPerMin: 0 });
+    await tracker.add("g1", "u1", "A", 50, s0);
+    check(
+      "add ghi kèm decay của guild lên entry",
+      tracker.states.get("g1:u1").decayPerMin === 0,
+      String(tracker.states.get("g1:u1").decayPerMin),
+    );
+    tracker.states.get("g1:u1").updatedAt = Date.now() - 180 * MIN; // 3 tiếng im lặng
+    check(
+      "decay 0 (không giảm) → sweeper KHÔNG dọn nhiệt còn sống",
+      tracker.sweepCold() === 0 && tracker.states.has("g1:u1"),
+    );
+
+    const s05 = heatSettings({ heatDecayPerMin: 0.5 });
+    await tracker.add("g2", "u2", "B", 5, s05);
+    tracker.states.get("g2:u2").updatedAt = Date.now() - 6 * MIN; // còn 2 nhiệt
+    check(
+      "decay 0.5 → nhiệt còn sống thì giữ",
+      tracker.sweepCold() === 0 && tracker.states.has("g2:u2"),
+    );
+
+    // Ngược lại: entry đã nguội thật thì vẫn phải dọn (không rò rỉ RAM).
+    const s3 = heatSettings({ heatDecayPerMin: 3 });
+    await tracker.add("g3", "u3", "C", 5, s3);
+    tracker.states.get("g3:u3").updatedAt = Date.now() - 10 * MIN;
+    check(
+      "decay 3 → hết nhiệt thì vẫn dọn khỏi RAM",
+      tracker.sweepCold() === 1 && !tracker.states.has("g3:u3"),
+    );
+
+    // Guild đổi heatDecayPerMin sau khi entry đã tạo → lần đọc nhiệt cập nhật lại.
+    const { tracker: t2 } = mkTracker();
+    await t2.add("g4", "u4", "D", 40, s3);
+    t2.getHeat("g4", "u4", s0); // guild đổi sang decay 0
+    check(
+      "getHeat cập nhật decay mới lên entry",
+      t2.states.get("g4:u4").decayPerMin === 0,
+      String(t2.states.get("g4:u4").decayPerMin),
+    );
+    t2.states.get("g4:u4").updatedAt = Date.now() - 30 * MIN;
+    check(
+      "đổi config sang decay 0 → sweeper giữ nhiệt",
+      t2.sweepCold() === 0 && t2.states.has("g4:u4"),
+    );
+
+    tracker.markPunished("g2", "u2");
+    check(
+      "markPunished giữ nguyên decay của entry",
+      tracker.states.get("g2:u2").decayPerMin === 0.5,
+      String(tracker.states.get("g2:u2").decayPerMin),
+    );
+  }
+
   console.log("\n── heatSummary: dòng log cho mod ──");
   {
     check("không có kết quả nhiệt → chuỗi rỗng", heatSummary(null) === "");
@@ -633,91 +693,23 @@ function mkTracker(opts = {}) {
     );
   }
 
-  console.log("\n── sweepCold: dùng decay THẬT của guild, không giả định 1 điểm/phút ──");
+  console.log("\n── sweepCold: nhiều guild / entry dựng tay trong CÙNG một lượt quét ──");
   {
-    // decay 0 = nhiệt KHÔNG tự nguội: im lặng bao lâu cũng không được dọn theo thời gian.
-    const { tracker } = mkTracker();
-    const s0 = heatSettings({ heatDecayPerMin: 0 });
-    await tracker.add("g1", "bob", "Bob", 30, s0);
-    tracker.states.get("g1:bob").updatedAt = Date.now() - 40 * MIN;
-    check(
-      "entry ghi với decay 0 mang theo decay đó",
-      tracker.states.get("g1:bob").decayPerMin === 0,
-    );
-    check(
-      "decay 0 + im lặng 40 phút → sweepCold KHÔNG dọn nhiệt còn hiệu lực",
-      tracker.sweepCold() === 0,
-    );
-    check("Bob vẫn còn trong RAM với nhiệt thật", tracker.getHeat("g1", "bob", s0) === 30);
-  }
-  {
-    // Decay mặc định 3/phút: 30 nhiệt nguội hẳn sau 10 phút → phải dọn được (không rò RAM).
-    const { tracker } = mkTracker();
-    const s3 = heatSettings({});
-    await tracker.add("g1", "a", "A", 30, s3);
-    tracker.states.get("g1:a").updatedAt = Date.now() - 11 * MIN;
-    check(
-      "decay 3: nguội sau 11 phút → dọn",
-      tracker.sweepCold() === 1 && !tracker.states.has("g1:a"),
-    );
-  }
-  {
-    // Cấu hình hiện hành (cache) thắng mốc cũ trên entry — cùng nguyên tắc _decay().
-    const { tracker } = mkTracker();
-    await tracker.add("g1", "a", "A", 30, heatSettings({ heatDecayPerMin: 3 }));
-    tracker.states.get("g1:a").updatedAt = Date.now() - 40 * MIN;
-    check(
-      "chủ server đổi decay 3 → 0 khi guild im lặng: không dọn oan nhiệt còn hiệu lực",
-      tracker.sweepCold((g) => (g === "g1" ? 0 : undefined)) === 0 && tracker.states.has("g1:a"),
-    );
-    check(
-      "đổi decay 0 → 3: dọn đúng hạn theo cấu hình mới",
-      tracker.sweepCold((g) => (g === "g1" ? 3 : undefined)) === 1,
-    );
-  }
-  {
-    const { tracker } = mkTracker();
-    await tracker.add("g1", "a", "A", 30, heatSettings({ heatDecayPerMin: 0 }));
-    tracker.states.get("g1:a").updatedAt = Date.now() - 40 * MIN;
-    check(
-      "cache config ném lỗi → rơi về decay chụp trên entry (0), không dọn, không ném",
-      tracker.sweepCold(() => {
-        throw new Error("cache hỏng");
-      }) === 0,
-    );
-    check(
-      "cache không có guild (undefined) → dùng decay trên entry",
-      tracker.sweepCold(() => undefined) === 0 && tracker.states.has("g1:a"),
-    );
-  }
-  {
-    // Nhiều guild trong một lượt quét: mỗi guild dùng decay riêng.
+    // Bổ sung cho mục "tôn trọng tốc độ giảm thật" phía trên: mỗi entry mang decay
+    // RIÊNG của guild mình, nên một lượt quét xử lý đúng nhiều guild khác decay.
     const { tracker } = mkTracker();
     const decays = { gSlow: 0, gFast: 10 };
     for (const g of Object.keys(decays)) {
       await tracker.add(g, "u", "U", 30, heatSettings({ heatDecayPerMin: decays[g] }));
       tracker.states.get(`${g}:u`).updatedAt = Date.now() - 5 * MIN;
     }
-    const removed = tracker.sweepCold((g) => decays[g]);
     check(
       "guild decay 10 nguội sau 5 phút bị dọn; guild decay 0 thì giữ",
-      removed === 1 && !tracker.states.has("gFast:u") && tracker.states.has("gSlow:u"),
+      tracker.sweepCold() === 1 && !tracker.states.has("gFast:u") && tracker.states.has("gSlow:u"),
     );
   }
   {
-    // markPunished giữ decay đã chụp (không làm entry "quên" cấu hình guild).
-    const { tracker } = mkTracker();
-    await tracker.add("g1", "u", "U", 10, heatSettings({ heatDecayPerMin: 0 }));
-    tracker.markPunished("g1", "u");
-    check("markPunished giữ decayPerMin của entry", tracker.states.get("g1:u").decayPerMin === 0);
-    tracker.markPunished("g1", "chua-co-entry");
-    check(
-      "markPunished cho người chưa có entry: nhiệt 0 nên decay không quan trọng",
-      tracker.states.get("g1:chua-co-entry").heat === 0,
-    );
-  }
-  {
-    // Entry dựng tay (không decay, không cache) giữ hành vi cũ 1 điểm/phút.
+    // Entry dựng tay (không có decay) giữ hành vi cũ 1 điểm/phút.
     const { tracker } = mkTracker();
     tracker.states.set("g1:old", { heat: 5, updatedAt: Date.now() - 10 * MIN, username: "x" });
     tracker.states.set("g1:hot", { heat: 50, updatedAt: Date.now() - 10 * MIN, username: "y" });
