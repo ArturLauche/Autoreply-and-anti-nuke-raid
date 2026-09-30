@@ -21,7 +21,7 @@ if (!process.env.CONVEX_URL) {
 
 const { Client, GatewayIntentBits, ActivityType, Collection, Partials } = require("discord.js");
 const ConvexStore = require("./convex");
-const { HeatTracker } = require("./heat");
+const { HeatTracker, heatSettings } = require("./heat");
 const guildSync = require("./handlers/guildSync");
 const onMessageCreate = require("./handlers/messageCreate");
 const onInteractionCreate = require("./handlers/interactionCreate");
@@ -65,7 +65,12 @@ const heat = new HeatTracker(client, store);
 // Vùng nóng đã có sweeper riêng (state.js 20s, timeoutWatch, altDetection 1h…)
 // — không đăng ký lại. registerSweeper phải chạy trước clientReady để vòng đầu
 // không bỏ sót guild.
-registerSweeper("heat-states", () => heat.sweepCold());
+registerSweeper("heat-states", () =>
+  heat.sweepCold((guildId) => {
+    const cfg = store.peekConfig(guildId);
+    return cfg ? heatSettings(cfg).decayPerMin : undefined;
+  }),
+);
 registerSweeper("alt-guilds", () => sweepStaleGuilds(new Set(client.guilds.cache.keys())));
 registerSweeper("config-cache", () => store.pruneCache(new Set(client.guilds.cache.keys())));
 registerSweeper("owner-alert", () =>

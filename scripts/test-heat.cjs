@@ -582,6 +582,151 @@ function mkTracker(opts = {}) {
     check("không tái phạm/DM → không thêm chú thích", plain === " · +10 nhiệt → 10/100", plain);
   }
 
+  console.log("\n── flushGuild: cặp (heat, updatedAt) nhất quán với công thức decay phía đọc ──");
+  {
+    // Công thức ĐÚNG NHƯ phía đọc (convex/guilds.ts decayHeat + HeatBar.effectiveHeat):
+    // nhiệt hiển thị = heat ghi - (bây giờ - updatedAt) × decay. Bug cũ: bot ghi
+    // `heat` đã trừ decay tới bây giờ nhưng giữ `updatedAt` cũ → phía đọc trừ lần 2.
+    const readerHeat = (row, decay) =>
+      Math.max(0, Math.round(row.heat - ((Date.now() - row.updatedAt) / MIN) * decay));
+    const { tracker, calls } = mkTracker({ getConfig: async () => ({ heatDecayPerMin: 3 }) });
+    const s = heatSettings({ heatDecayPerMin: 3 });
+    await tracker.add("g1", "u1", "Alice", 60, s);
+    await tracker.add("g1", "u2", "Bob", 50, s);
+    tracker.states.get("g1:u1").updatedAt = Date.now() - 10 * MIN; // Alice nóng từ 10 phút trước
+    calls.mutations.length = 0;
+    await tracker.flushGuild("g1");
+    const rows = calls.mutations.find((m) => m.name === "bot_writes:botRecordHeatBatch").args
+      .entries;
+    const alice = rows.find((r) => r.userId === "u1");
+    const bob = rows.find((r) => r.userId === "u2");
+    check(
+      "người nóng từ 10 phút trước: phía đọc thấy ĐÚNG nhiệt thật (30), không phải 0",
+      readerHeat(alice, 3) === tracker.getHeat("g1", "u1", s) && readerHeat(alice, 3) === 30,
+      `đọc=${readerHeat(alice, 3)} thật=${tracker.getHeat("g1", "u1", s)}`,
+    );
+    check(
+      "người mới nóng: nhất quán tương tự",
+      readerHeat(bob, 3) === tracker.getHeat("g1", "u2", s),
+      `đọc=${readerHeat(bob, 3)}`,
+    );
+    check(
+      "updatedAt là mốc flush (heat đã trừ decay tới mốc đó), không phải mốc vi phạm cũ",
+      Math.abs(Date.now() - alice.updatedAt) < 5_000 &&
+        Math.abs(Date.now() - bob.updatedAt) < 5_000,
+      JSON.stringify([alice.updatedAt, bob.updatedAt]),
+    );
+    check(
+      "flush không đụng trạng thái RAM (vẫn là giá trị gốc + mốc vi phạm thật)",
+      tracker.states.get("g1:u1").heat === 60 &&
+        Date.now() - tracker.states.get("g1:u1").updatedAt >= 10 * MIN - 1_000,
+    );
+    // Flush lần 2 sau 4 phút: cặp mới vẫn nhất quán (không cộng dồn sai số decay).
+    tracker.states.get("g1:u1").updatedAt = Date.now() - 14 * MIN;
+    calls.mutations.length = 0;
+    await tracker.flushGuild("g1");
+    const alice2 = calls.mutations[0].args.entries.find((r) => r.userId === "u1");
+    check(
+      "flush lần 2: vẫn nhất quán (60 - 14×3 = 18)",
+      readerHeat(alice2, 3) === 18 && alice2.heat === 18,
+      JSON.stringify(alice2),
+    );
+  }
+
+  console.log("\n── sweepCold: dùng decay THẬT của guild, không giả định 1 điểm/phút ──");
+  {
+    // decay 0 = nhiệt KHÔNG tự nguội: im lặng bao lâu cũng không được dọn theo thời gian.
+    const { tracker } = mkTracker();
+    const s0 = heatSettings({ heatDecayPerMin: 0 });
+    await tracker.add("g1", "bob", "Bob", 30, s0);
+    tracker.states.get("g1:bob").updatedAt = Date.now() - 40 * MIN;
+    check(
+      "entry ghi với decay 0 mang theo decay đó",
+      tracker.states.get("g1:bob").decayPerMin === 0,
+    );
+    check(
+      "decay 0 + im lặng 40 phút → sweepCold KHÔNG dọn nhiệt còn hiệu lực",
+      tracker.sweepCold() === 0,
+    );
+    check("Bob vẫn còn trong RAM với nhiệt thật", tracker.getHeat("g1", "bob", s0) === 30);
+  }
+  {
+    // Decay mặc định 3/phút: 30 nhiệt nguội hẳn sau 10 phút → phải dọn được (không rò RAM).
+    const { tracker } = mkTracker();
+    const s3 = heatSettings({});
+    await tracker.add("g1", "a", "A", 30, s3);
+    tracker.states.get("g1:a").updatedAt = Date.now() - 11 * MIN;
+    check(
+      "decay 3: nguội sau 11 phút → dọn",
+      tracker.sweepCold() === 1 && !tracker.states.has("g1:a"),
+    );
+  }
+  {
+    // Cấu hình hiện hành (cache) thắng mốc cũ trên entry — cùng nguyên tắc _decay().
+    const { tracker } = mkTracker();
+    await tracker.add("g1", "a", "A", 30, heatSettings({ heatDecayPerMin: 3 }));
+    tracker.states.get("g1:a").updatedAt = Date.now() - 40 * MIN;
+    check(
+      "chủ server đổi decay 3 → 0 khi guild im lặng: không dọn oan nhiệt còn hiệu lực",
+      tracker.sweepCold((g) => (g === "g1" ? 0 : undefined)) === 0 && tracker.states.has("g1:a"),
+    );
+    check(
+      "đổi decay 0 → 3: dọn đúng hạn theo cấu hình mới",
+      tracker.sweepCold((g) => (g === "g1" ? 3 : undefined)) === 1,
+    );
+  }
+  {
+    const { tracker } = mkTracker();
+    await tracker.add("g1", "a", "A", 30, heatSettings({ heatDecayPerMin: 0 }));
+    tracker.states.get("g1:a").updatedAt = Date.now() - 40 * MIN;
+    check(
+      "cache config ném lỗi → rơi về decay chụp trên entry (0), không dọn, không ném",
+      tracker.sweepCold(() => {
+        throw new Error("cache hỏng");
+      }) === 0,
+    );
+    check(
+      "cache không có guild (undefined) → dùng decay trên entry",
+      tracker.sweepCold(() => undefined) === 0 && tracker.states.has("g1:a"),
+    );
+  }
+  {
+    // Nhiều guild trong một lượt quét: mỗi guild dùng decay riêng.
+    const { tracker } = mkTracker();
+    const decays = { gSlow: 0, gFast: 10 };
+    for (const g of Object.keys(decays)) {
+      await tracker.add(g, "u", "U", 30, heatSettings({ heatDecayPerMin: decays[g] }));
+      tracker.states.get(`${g}:u`).updatedAt = Date.now() - 5 * MIN;
+    }
+    const removed = tracker.sweepCold((g) => decays[g]);
+    check(
+      "guild decay 10 nguội sau 5 phút bị dọn; guild decay 0 thì giữ",
+      removed === 1 && !tracker.states.has("gFast:u") && tracker.states.has("gSlow:u"),
+    );
+  }
+  {
+    // markPunished giữ decay đã chụp (không làm entry "quên" cấu hình guild).
+    const { tracker } = mkTracker();
+    await tracker.add("g1", "u", "U", 10, heatSettings({ heatDecayPerMin: 0 }));
+    tracker.markPunished("g1", "u");
+    check("markPunished giữ decayPerMin của entry", tracker.states.get("g1:u").decayPerMin === 0);
+    tracker.markPunished("g1", "chua-co-entry");
+    check(
+      "markPunished cho người chưa có entry: nhiệt 0 nên decay không quan trọng",
+      tracker.states.get("g1:chua-co-entry").heat === 0,
+    );
+  }
+  {
+    // Entry dựng tay (không decay, không cache) giữ hành vi cũ 1 điểm/phút.
+    const { tracker } = mkTracker();
+    tracker.states.set("g1:old", { heat: 5, updatedAt: Date.now() - 10 * MIN, username: "x" });
+    tracker.states.set("g1:hot", { heat: 50, updatedAt: Date.now() - 10 * MIN, username: "y" });
+    check(
+      "entry không biết decay: dùng mốc giả định thấp (1/phút) như trước",
+      tracker.sweepCold() === 1 && !tracker.states.has("g1:old") && tracker.states.has("g1:hot"),
+    );
+  }
+
   console.log(`\nKết quả heat: ${pass} PASS, ${fail} FAIL`);
   process.exit(fail === 0 ? 0 : 1);
 })();

@@ -23,6 +23,9 @@ const TIER_STRENGTH = { warn: 1, timeout: 2, kick: 3, ban: 4 };
 const HEAT_MAX = 100;
 const MIN_MS = 60_000;
 const MAX_WARN_STRIKE_WINDOW_MIN = 1440;
+// Decay giả định cho entry KHÔNG biết decay của guild (chỉ entry dựng tay trong test):
+// thấp hơn mặc định (3/phút) nên chỉ làm sweeper dọn chậm hơn chứ không dọn oan.
+const SWEEP_FALLBACK_DECAY_PER_MIN = 1;
 
 /** Lấy cài đặt nhiệt độ + warn strike của guild (kèm giá trị mặc định). */
 function heatSettings(config) {
@@ -214,29 +217,49 @@ class HeatTracker {
   /**
    * Dọn entry nguội của guild im lặng (memGuard gọi định kỳ). flushGuild chỉ
    * dọn guild CÓ vi phạm mới — guild im lặng lâu ngày vẫn giữ entry cũ mãi.
+   *
+   * `decayOf(guildId)` (tuỳ chọn) trả decay/phút HIỆN HÀNH của guild từ cache cấu
+   * hình — đồng bộ, không gọi mạng. Thiếu → dùng decay chụp trên entry lúc ghi
+   * nhiệt. Trước đây hằng 1 điểm/phút cho mọi guild: guild đặt decay 0 (nhiệt
+   * không tự nguội) bị dọn MẤT nhiệt còn hiệu lực sau vài chục phút im lặng.
    * Trả về số entry đã dọn.
    */
-  sweepCold() {
+  sweepCold(decayOf) {
     let removed = 0;
+    const now = Date.now();
     for (const [key, entry] of this.states) {
       // Entry nguội hoàn toàn và không còn trong cửa sổ tái phạm → bỏ.
       // Cửa sổ dùng trần cấu hình cho phép (1440 phút) — không đọc config từng
       // guild (tốn call); guild nào có entry nóng thì flushGuild tự giữ đúng.
-      const heat = Math.max(0, Math.round(entry.heat - (Date.now() - entry.updatedAt) / MIN_MS));
+      const decay = this._sweepDecay(key, entry, decayOf);
+      const heat = Math.max(0, Math.round(entry.heat - ((now - entry.updatedAt) / MIN_MS) * decay));
       if (heat > 0) continue;
-      if (entry.lastPunishedAt && Date.now() - entry.lastPunishedAt < 1440 * MIN_MS) continue;
+      if (entry.lastPunishedAt && now - entry.lastPunishedAt < 1440 * MIN_MS) continue;
       this.states.delete(key);
       this.warned.delete(key);
       removed++;
     }
     // Strikes: chỉ dọn sau cửa sổ cấu hình dài nhất để không cắt tích lũy đang hiệu lực.
     for (const [key, st] of this.strikes) {
-      if (Date.now() - st.firstAt > MAX_WARN_STRIKE_WINDOW_MIN * MIN_MS) {
+      if (now - st.firstAt > MAX_WARN_STRIKE_WINDOW_MIN * MIN_MS) {
         this.strikes.delete(key);
         removed++;
       }
     }
     return removed;
+  }
+
+  /** Decay/phút dùng để ước nhiệt của entry khi quét: cấu hình hiện hành → mốc trên entry → giả định thấp. */
+  _sweepDecay(key, entry, decayOf) {
+    let current;
+    try {
+      current = decayOf?.(key.slice(0, key.indexOf(":")));
+    } catch {
+      // cache cấu hình lỗi → rơi về mốc lưu trên entry, không làm hỏng lượt dọn
+    }
+    if (Number.isFinite(current)) return Math.max(0, current);
+    if (Number.isFinite(entry.decayPerMin)) return Math.max(0, entry.decayPerMin);
+    return SWEEP_FALLBACK_DECAY_PER_MIN;
   }
 
   /** Nhiệt độ hiệu dụng (đã trừ decay) của một thành viên. */
@@ -310,6 +333,7 @@ class HeatTracker {
       updatedAt: Date.now(),
       lastPunishedAt: entry?.lastPunishedAt,
       username,
+      decayPerMin: s.decayPerMin,
     });
     const warned = await this._maybeWarn(guildId, userId, heat, s);
     this._scheduleFlush(guildId);
@@ -332,6 +356,7 @@ class HeatTracker {
       updatedAt: entry?.updatedAt ?? Date.now(),
       lastPunishedAt: Date.now(),
       username: entry?.username,
+      decayPerMin: entry?.decayPerMin,
     });
   }
 
@@ -477,6 +502,7 @@ class HeatTracker {
     }
     const s = heatSettings(config);
     const prefix = `${guildId}:`;
+    const flushedAt = Date.now();
     const keys = new Set([
       ...[...this.states.keys()].filter((k) => k.startsWith(prefix)),
       ...[...this.strikes.keys()].filter((k) => k.startsWith(prefix)),
@@ -493,7 +519,11 @@ class HeatTracker {
         userId,
         username: entry?.username || this.strikes.get(key)?.username || undefined,
         heat: Math.max(0, heat),
-        updatedAt: entry?.updatedAt ?? Date.now(),
+        // `heat` đã trừ decay TỚI BÂY GIỜ nên mốc thời gian phải là bây giờ. Giữ
+        // entry.updatedAt thì mọi nơi đọc (loadHeatStates, HeatBar, StatsPage) lại
+        // trừ decay lần nữa cho đoạn [updatedAt, bây giờ] — người đang nóng 30
+        // hiện 0 và biến khỏi /heat top.
+        updatedAt: flushedAt,
         warnStrikes: strikes,
       });
       // Chống rò rỉ RAM: entry nhiệt = 0 và không còn trong cửa sổ tái phạm

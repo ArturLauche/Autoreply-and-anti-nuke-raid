@@ -43,6 +43,8 @@ interface HeatRow {
   heat: number;
   warnStrikes: number | null;
   updatedAt: number;
+  /** Decay/phút thật của guild (server trả kèm); thiếu thì dùng mặc định. */
+  decayPerMin?: number;
 }
 
 /** 1 dòng số liệu từ convex/guildStats.ts (todaySummary). */
@@ -125,9 +127,11 @@ export default function StatsPage() {
 
   // Áp decay theo thời gian trôi qua (giống HeatBar trong dashboard) rồi lọc > 0.
   const ranked = useMemo(() => {
-    const decay = HEAT_DEFAULTS.decayPerMin;
     return (rows ?? [])
-      .map((r) => ({ ...r, heat: effectiveHeat(r.heat, r.updatedAt, decay) }))
+      .map((r) => ({
+        ...r,
+        heat: effectiveHeat(r.heat, r.updatedAt, r.decayPerMin ?? HEAT_DEFAULTS.decayPerMin),
+      }))
       .filter((r) => r.heat > 0)
       .sort((a, b) => b.heat - a.heat)
       .slice(0, 10);
