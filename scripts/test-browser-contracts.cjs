@@ -742,6 +742,328 @@ browserTest("G. Không có lỗi console trong suốt các route công khai", as
   t.assert.deepStrictEqual(pageErrors, [], "không được có exception khi chạy");
 });
 
+// ─── F. MÀN CHỜ CHUYỂN ROUTE (RouteLoader) ───────────────────────────────
+// Mọi route đều lazy() nên lúc chuyển trang <Suspense> phải hiện màn chờ.
+// Ba điều phải đúng, kiểm bằng hành vi thật chứ không đọc source:
+//   1. màn chờ CÓ hiện khi bấm sang route lazy,
+//   2. nó phủ kín màn hình + có role="status" (trình đọc màn hình),
+//   3. preloader #boot KHÔNG bị dựng lại/nhân bản cùng lúc (đây là lỗi
+//      "thấy load 2 lần" — báo cáo 30/09/2026).
+browserTest(
+  "F. Lần tải đầu bị treo → màn chờ RouteLoader hiện, phủ màn hình, #boot không nhân bản",
+  async (t) => {
+    const ctx = await setup();
+    const page = await ctx.openPage();
+    t.after(async () => {
+      await Promise.race([page.close(), new Promise((r) => setTimeout(r, 5000))]);
+    });
+
+    //
+    // VÌ SAO KHÔNG POLL TỪ NGOÀI: màn chờ chỉ tồn tại vài chục ms ở tải nhanh
+    // (nằm dưới #boot) và nếu đợi sự kiện `load` rồi mới đo thì nó đã biến
+    // mất → test "vô tình xanh". Script này chạy TRƯỚC mọi script của app,
+    // bắt mọi lần màn chờ xuất hiện kèm ảnh chụp ngay tại thời điểm đó.
+    await page.send("Page.addScriptToEvaluateOnNewDocument", {
+      source: `
+        window.__loaderSnaps = [];
+        window.__initProbe = { ran: true, at: Math.round(performance.now()) };
+        (function () {
+          var SEL = '[data-testid="route-loader"]';
+          function snap() {
+            // bootPeak phải được đo ở MỌI nhịp, kể cả lúc màn chờ không
+            // có trong DOM — nên nằm TRƯỚC lệnh return sớm bên dưới.
+            var bootCount = document.querySelectorAll('#boot').length;
+            if (bootCount > window.__bootPeak) window.__bootPeak = bootCount;
+            var el = document.querySelector(SEL);
+            if (!el || window.__loaderSnaps.length > 200) return;
+            var cs = getComputedStyle(el);
+            var box = el.getBoundingClientRect();
+            // Lớp thật sự trên cùng tại giữa viewport? Chỉ khi đúng vậy thì
+            // người dùng MẮT THẤY được, chứ không chỉ nằm trong DOM.
+            var top = document.elementFromPoint(
+              Math.floor(innerWidth / 2), Math.floor(innerHeight / 2));
+            var isTop = !!top && (top === el || el.contains(top));
+            // Chỉ ghi khi trạng thái ĐỔI — mỗi nhịp lấy mẫu là một phép
+            // elementFromPoint (ép tính lại layout).
+            var sig = isTop + '|' + bootCount;
+            if (window.__lastSig === sig) return;
+            window.__lastSig = sig;
+            window.__loaderSnaps.push({
+              role: el.getAttribute('role'),
+              ariaLive: el.getAttribute('aria-live'),
+              position: cs.position,
+              zIndex: cs.zIndex,
+              coversViewport:
+                box.width >= window.innerWidth - 1 && box.height >= window.innerHeight - 1,
+              isTopmostAtCenter: isTop,
+              bootCount: bootCount,
+              hasPreloaderLogo: !!el.querySelector('img[src*="logo-mark"]'),
+              hasBootIdInside: !!el.querySelector('#boot'),
+              announced: (el.querySelector('.sr-only')?.textContent || '').trim(),
+              t: Math.round(performance.now()),
+            });
+          }
+          function start() {
+            // MẪU THEO NHỊP, KHÔNG DÙNG MutationObserver.
+            //
+            // Lý do: observer subtree bắn theo MỌI biến động DOM, mà mỗi
+            // lần ta gọi elementFromPoint (ép tính lại layout) +
+            // querySelectorAll cả tài liệu. Trang Landing có framer-motion và
+            // animation liên tục → hàng nghìn lần reflow mỗi giây, làm trang
+            // nghẽn và kéo suite quá 170s. Interval 120ms vẫn bắt trọn
+            // khoảnh khắc cần đo (màn chờ hiện vài giây).
+            setInterval(snap, 120);
+            // Số bản #boot tồn tại cùng lúc được đo ngay trong snap().
+            window.__bootPeak = 0;
+            window.__obsStarted = true;
+          }
+          if (document.documentElement) start();
+          else document.addEventListener('DOMContentLoaded', start);
+        })();
+      `,
+    });
+
+    void 0;
+    // Chặn DUY NHẤT chunk route và trễ nó lại, thay vì bóp mạng toàn trang.
+    //
+    // VÌ SAO KHÔNG BÓP MẠNG CHUNG: bundle vào ~1.7MB, bóp 20KB/s thì mất
+    // hơn 80s — lâu hơn cả thời hạn test, và #root còn trống nên màn chờ
+    // chưa kịp render. Bóp mạng cũng vô tác dụng nếu chunk đã nằm trong
+    // HTTP cache từ các test A–G chạy trước (tài nguyên từ cache không bị
+    // bóp). Giải pháp: chỉ giữ lại chunk Landing vài giây — bundle vào vẫn
+    // tải nhanh, nhưng route chưa xong thì màn chờ hiện, và đã vượt mốc 7s
+    // mà preloader tự gỡ nên màn chờ là lớp người dùng thật sự thấy.
+    const ROUTE_CHUNK = "*Landing-*.js";
+    // Giữ chunk route lại LÂU HƠN mốc 7s mà preloader tự gỡ mình. Nếu ngắn
+    // hơn, app render xong lúc #boot còn phủ trên → màn chờ có trong DOM
+    // nhưng người dùng không hề thấy, và đó KHÔNG phải thứ ta muốn chứng
+    // minh. Giữ >7s thì lớp phủ #boot rời đi trước và màn chờ thành lớp trên
+    // cùng — đúng khoảnh khắc người dùng thật sự nhìn thấy nó.
+    const STALL_MS = 10000;
+    await page.send("Network.enable");
+    await page.send("Network.setCacheDisabled", { cacheDisabled: true });
+    if (!page.events.has("Fetch.requestPaused")) page.events.set("Fetch.requestPaused", []);
+    // Handler của harness tự xoá danh sách sau mỗi lần phát → phải tự
+    // "nạp lại" sau mỗi sự kiện để giữ được cho các request kế tiếp.
+    // Chốt chặn sạch trước khi đóng trang: request đang bị giữ sẽ bị
+    // huỷ theo trang và `Fetch.continueRequest` ném "Invalid InterceptionId"
+    // — lỗi đấy nổi thành unhandledRejection làm ĐỎ cả test dù các assert
+    // đã xanh.
+    t.after(async () => {
+      // Có chốt thời gian: renderer đang giữ một request bị chặn có thể khiến
+      // `Fetch.disable` không bao giờ trả lời, mà t.after treo thì cả suite
+      // treo theo (không có test nào báo kết quả).
+      await Promise.race([
+        page.send("Fetch.disable").catch(() => {}),
+        new Promise((r) => setTimeout(r, 5000)),
+      ]);
+    });
+    const onPaused = async (params) => {
+      page.events.get("Fetch.requestPaused").push(onPaused);
+      await new Promise((r) => setTimeout(r, STALL_MS));
+      try {
+        await page.send("Fetch.continueRequest", { requestId: params.requestId });
+      } catch {
+        /* request đã bị huỷ (đóng trang) — bỏ qua */
+      }
+    };
+    page.events.get("Fetch.requestPaused").push(onPaused);
+    await page.send("Fetch.enable", {
+      patterns: [{ urlPattern: ROUTE_CHUNK, requestStage: "Request" }],
+    });
+
+    void 0;
+    // Điều hướng KHÔNG đợi sự kiện `load` — chính chờ `load` là lý do bản
+    // test đầu báo "không thấy màn chờ" (nó biến mất trước khi ta kịp đo).
+    await page.send("Page.navigate", { url: ctx.base + "/" });
+    // Đợi execution context MỚI của trang được tạo. Gọi Runtime.evaluate ngay
+    // sau Page.navigate có thể bắn vào context cũ đang bị hủy — promise bên
+    // trong trang không bao giờ settle và `awaitPromise: true` treo vĩnh viễn,
+    // làm cả suite đứng. Đây chính là lý do bản chạy trước treo không ra kết quả.
+    await new Promise((r) => setTimeout(r, 800));
+
+    // Luôn có chốt an toàn ở phía Node: dù trong trang treo, test vẫn kết thúc
+    // và báo lỗi tử tế thay vì treo.
+    const snaps = await Promise.race([
+      page.evaluate(`new Promise((r) => {
+      const t0 = Date.now();
+      const i = setInterval(() => {
+        const s = window.__loaderSnaps || [];
+        // Ảnh nào màn chờ LÀ LỚP TRÊN CÙNG và #boot đã rời đi → đúng khoảnh
+        // khắc người dùng thật sự nhìn thấy nó.
+        const visible = s.find((x) => x.isTopmostAtCenter && x.bootCount === 0);
+        if (visible) { clearInterval(i); r(visible); }
+        else if (Date.now() - t0 > 45000) {
+          clearInterval(i);
+          r({
+            __none: true,
+            total: s.length,
+            initProbe: window.__initProbe ?? null,
+            observerStarted: window.__obsStarted ?? false,
+            rootHtml: (document.getElementById('root')?.innerHTML || '').slice(0, 120),
+            all: s.slice(0, 6),
+          });
+        }
+      }, 100);
+    })`),
+      new Promise((r) => setTimeout(() => r({ __timeout: true }), 60000)),
+    ]);
+
+    t.diagnostic(`màn chờ lúc tải đầu: ${JSON.stringify(snaps)}`);
+    t.assert.ok(snaps && !snaps.__timeout, "phải bắt được màn chờ khi lần tải đầu bị treo");
+    t.assert.ok(!(snaps && snaps.__none), "màn chờ phải từng xuất hiện trong DOM");
+    t.assert.ok(
+      snaps && !snaps.__timeout && !snaps.__none && snaps.role,
+      "màn chờ phải quan sát được",
+    );
+    t.assert.strictEqual(snaps.role, "status", 'màn chờ phải có role="status"');
+    t.assert.strictEqual(snaps.role, "status", 'màn chờ phải có role="status"');
+    t.assert.strictEqual(snaps.ariaLive, "polite", 'màn chờ phải aria-live="polite"');
+    t.assert.strictEqual(
+      snaps.position,
+      "fixed",
+      "màn chờ phải phủ toàn màn hình (position fixed)",
+    );
+    t.assert.ok(snaps.coversViewport, "màn chờ phải phủ kín viewport");
+    t.assert.ok(snaps.isTopmostAtCenter, "màn chờ phải là lớp trên cùng — người dùng thấy được");
+    t.assert.ok(snaps.announced.length > 0, "màn chờ phải có chữ cho trình đọc màn hình");
+    // Chốt "không load 2 lần": màn chờ không mang danh tính preloader và
+    // không tự dựng thêm một lớp phủ #boot nữa.
+    t.assert.strictEqual(snaps.bootCount, 0, "không được có #boot nào lúc màn chờ hiện");
+    t.assert.strictEqual(
+      snaps.hasPreloaderLogo,
+      false,
+      "màn chờ không được dựng lại logo preloader",
+    );
+    t.assert.strictEqual(snaps.hasBootIdInside, false, "màn chờ không được chứa phần tử #boot");
+
+    void 0;
+    // Preloader có đúng MỘT bản duy nhất trong suốt vòng đời trang (đo từ
+    // trước khi app mount, xem __bootPeak trong script khởi tạo).
+    const bootPeak = await Promise.race([
+      page.evaluate(`window.__bootPeak`),
+      new Promise((r) => setTimeout(() => r({ __timeout: true }), 15000)),
+    ]);
+    void 0;
+    t.diagnostic(`số bản #boot tối đa cùng lúc: ${JSON.stringify(bootPeak)}`);
+    t.assert.strictEqual(bootPeak, 1, "#boot phải có đúng 1 bản, không nhân bản");
+    void 0;
+
+    await page.send("Network.emulateNetworkConditions", {
+      offline: false,
+      latency: 0,
+      downloadThroughput: -1,
+      uploadThroughput: -1,
+    });
+  },
+);
+
+browserTest("G. Chuyển route không nháy màn chờ toàn màn hình (React giữ trang cũ)", async (t) => {
+  const ctx = await setup();
+  const page = await ctx.openPage();
+  t.after(() => page.close());
+
+  await page.goto(ctx.base + "/");
+  await page.evaluate(`new Promise((r) => {
+      const t0 = Date.now();
+      const i = setInterval(() => {
+        // Chờ app thật sự sẵn sàng: cây route đã render (bộ chọn trang chỉ
+        // mount khi <Suspense> xong) VÀ preloader đã rời DOM — thiếu điều
+        // kiện thứ hai thì #boot còn nằm trong DOM và assert phía dưới đỏ oan.
+        if (
+          document.querySelector('[data-testid="taskbar-dock"]') &&
+          !document.getElementById("boot")
+        ) { clearInterval(i); r(1); }
+        else if (Date.now() - t0 > 30000) { clearInterval(i); r(0); }
+      }, 50);
+    })`);
+
+  // Bóp mạng để chunk route mới tải đủ chậm để lỡ nháy cũng thấy. Tắt
+  // cache vì lý do như test F.
+  await page.send("Network.enable");
+  await page.send("Network.setCacheDisabled", { cacheDisabled: true });
+  await page.send("Network.emulateNetworkConditions", {
+    offline: false,
+    latency: 200,
+    downloadThroughput: 15 * 1024,
+    uploadThroughput: 15 * 1024,
+  });
+
+  const opened = await page.evaluate(`(() => {
+      const d = document.querySelector('[data-testid="taskbar-dock"]');
+      if (!d) return "không thấy dock";
+      d.click();
+      return "ok";
+    })()`);
+  t.assert.strictEqual(opened, "ok", "phải mở được bộ chọn trang");
+
+  const clicked = await page.evaluate(`new Promise((r) => {
+      const t0 = Date.now();
+      const i = setInterval(() => {
+        const a = [...document.querySelectorAll("a")].find(
+          (x) => x.getAttribute("href") === "/donate",
+        );
+        if (a) { clearInterval(i); a.click(); r("ok"); }
+        else if (Date.now() - t0 > 8000) { clearInterval(i); r("không thấy link /donate"); }
+      }, 50);
+    })`);
+  t.assert.strictEqual(clicked, "ok", "bộ chọn trang phải có link tới /donate");
+
+  // Lấy mẫu liên tục suốt lúc chuyển: đếm frame có loader toàn màn hình.
+  const samples = await page.evaluate(`(async () => {
+      const out = { loaderFrames: 0, total: 0, oldPageStillThere: 0 };
+      for (let i = 0; i < 300; i++) {
+        out.total++;
+        if (document.querySelector('[data-testid="route-loader"]')) out.loaderFrames++;
+        if (document.body.textContent.includes("Hệ thống chống raid") ||
+            document.querySelector("h1")) out.oldPageStillThere++;
+        if (location.pathname === "/donate" && i > 6) break;
+        await new Promise((r) => setTimeout(r, 40));
+      }
+      out.path = location.pathname;
+      return out;
+    })()`);
+
+  t.diagnostic(`mẫu lúc chuyển trang: ${JSON.stringify(samples)}`);
+  t.assert.strictEqual(samples.path, "/donate", "phải tới được /donate");
+  // React Router 7 bọc cập nhật trong startTransition → React GIữ trang cũ
+  // thay vì nháy fallback. Đây là hành vi ĐÚNG: nháy màn chờ toàn màn hình
+  // ở mỗi lần bấm link chính là cảm giác "load 2 lần" người dùng phàn nàn.
+  t.assert.strictEqual(
+    samples.loaderFrames,
+    0,
+    "chuyển route không được nháy màn chờ toàn màn hình (React giữ trang cũ)",
+  );
+  t.assert.ok(
+    samples.oldPageStillThere > 0,
+    "nội dung trang cũ phải còn hiện trong lúc chờ route mới",
+  );
+
+  await page.send("Network.emulateNetworkConditions", {
+    offline: false,
+    latency: 0,
+    downloadThroughput: -1,
+    uploadThroughput: -1,
+  });
+  await page.evaluate(`new Promise((r) => {
+      const t0 = Date.now();
+      const i = setInterval(() => {
+        if (!document.querySelector('[data-testid="route-loader"]') &&
+            location.pathname === "/donate") { clearInterval(i); r(1); }
+        else if (Date.now() - t0 > 30000) { clearInterval(i); r(0); }
+      }, 50);
+    })`);
+
+  const after = await page.evaluate(`(() => ({
+      boot: document.querySelectorAll("#boot").length,
+      loader: document.querySelectorAll('[data-testid="route-loader"]').length,
+      hasDonate: /Ủng hộ nhà phát triển|Support the developer/.test(document.body.textContent),
+    }))()`);
+  t.assert.strictEqual(after.boot, 0, "#boot không được xuất hiện lại lần nữa");
+  t.assert.strictEqual(after.loader, 0, "không còn màn chờ vẹn khi trang đã tải xong");
+  t.assert.ok(after.hasDonate, "trang /donate phải render ra nội dung thật");
+});
+
 // Dọn dẹp sau toàn bộ suite: giết Chromium + đóng server
 test.after(() => {
   teardown();

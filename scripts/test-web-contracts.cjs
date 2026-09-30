@@ -1177,19 +1177,54 @@ check(
   /class="boot-logo"/.test(html) && /logo-mark\.png/.test(html),
 );
 check("logo cá voi có trong BotLogo.tsx (web)", botLogoSrc.includes("/logo-mark.png"));
-// RouteFallback KHÔNG được dựng lại màn preloader (logo to + chữ "Đang tải…").
-// Mọi route đều lazy() nên màn này lộ ra ở MỌI lần chuyển trang; trước đây nó
-// giống hệt #boot nên người dùng thấy load 2 lần liên tiếp và tưởng web bị
-// nhân bản (báo cáo 30/09/2026). Phải còn thanh tiến trình + nền chủ đề.
+// ── MÀN CHỜ CHUYỂN TRANG (RouteLoader) ──
+// Nó hiện ở MỌI lần chuyển route lazy. Nếu dựng y hệt preloader #boot
+// (logo + chữ + thanh %) thì người dùng thấy đúng cái màn vừa xong lặp lại
+// và tưởng web bị nhân bản (báo cáo 30/09/2026). Luật ở đây chốt ranh giới
+// giữa "màn khởi động" và "màn chuyển trang".
+const routeLoaderPath = path.join(SRC, "components", "RouteLoader.tsx");
+check("có component RouteLoader riêng", fs.existsSync(routeLoaderPath));
+const loaderSrc = fs.existsSync(routeLoaderPath) ? fs.readFileSync(routeLoaderPath, "utf8") : "";
 check(
-  "RouteFallback chỉ là thanh tiến trình, không dựng lại màn preloader",
-  !appSrc.includes('src="/logo-mark.png"') &&
-    /animate-route-progress/.test(appSrc) &&
-    /min-h-screen bg-background/.test(appSrc),
+  "RouteLoader được dùng làm fallback của <Suspense> trong App.tsx",
+  /import RouteLoader from "\.\/components\/RouteLoader"/.test(appSrc) &&
+    /fallback=\{<RouteFallback\s*\/>\}/.test(appSrc) &&
+    /RouteFallback = RouteLoader/.test(appSrc),
 );
 check(
-  "RouteFallback giữ nhãn trạng thái cho trình đọc màn hình",
-  /role="status"[\s\S]{0,200}sr-only/.test(appSrc),
+  "RouteLoader KHÔNG lazy() — fallback phải nằm sẵn trong bundle chính",
+  !/lazy\(\(\)\s*=>\s*import\([^)]*RouteLoader/.test(appSrc + loaderSrc),
+);
+check(
+  'RouteLoader giữ role="status" + aria-live cho trình đọc màn hình',
+  /role="status"/.test(loaderSrc) && /aria-live="polite"/.test(loaderSrc),
+);
+check(
+  "RouteLoader thông báo cho trình đọc màn hình bằng sr-only",
+  /sr-only/.test(loaderSrc) && /translate\("Đang tải…"\)/.test(loaderSrc),
+);
+check(
+  "RouteLoader phủ toàn màn hình",
+  /fixed inset-0/.test(loaderSrc) && /z-\[60\]/.test(loaderSrc),
+);
+check(
+  "RouteLoader KHÔNG dựng lại danh tính preloader (logo / id=boot / số %)",
+  // Chỉ soi thuộc tính JSX thật, KHÔNG soi chữ trong ghi chú — file này cố tình
+  // giải thích "vì sao không dùng logo" nên tên ảnh có thể xuất hiện trong
+  // comment mà vẫn đúng.
+  !/src="\/logo-mark\.png"/.test(loaderSrc) &&
+    !/id="boot"/.test(loaderSrc) &&
+    !/boot-fill|boot-pct|boot-track/.test(loaderSrc),
+);
+check(
+  "RouteLoader tôn trọng prefers-reduced-motion (motion-safe:)",
+  /motion-safe:animate-/.test(loaderSrc),
+);
+check(
+  "RouteLoader KHÔNG tự khai báo lớp phủ preloader thứ hai",
+  (loaderSrc.match(/id="boot"/g) || []).length === 0 &&
+    !/window\.__bootDone/.test(loaderSrc) &&
+    !/finishBootOverlay/.test(loaderSrc),
 );
 check(
   "KHÔNG còn path cá voi vẽ tay và không còn public/favicon.svg",

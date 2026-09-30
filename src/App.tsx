@@ -6,8 +6,9 @@ import { Toaster } from "sonner";
 import NotFound from "./pages/NotFound";
 import RequireAuth from "./components/RequireAuth";
 import Taskbar from "./components/Taskbar";
+import RouteLoader from "./components/RouteLoader";
 
-import { translate, useT } from "./lib/i18n";
+import { useT } from "./lib/i18n";
 import { finishBootOverlay } from "./lib/bootOverlay";
 import { syncRouteMetadata } from "./lib/seo";
 
@@ -90,32 +91,17 @@ function BootSignal() {
 }
 
 /**
- * Màn chờ khi chunk route đang tải: CHỈ thanh tiến trình mảnh ở đỉnh trang
- * (kiểu GitHub/YouTube).
+ * Màn chờ toàn màn hình khi đang tải chunk của route mới.
  *
- * VÌ SAO KHÔNG DỰNG LẠI MÀN PRELOADER (logo to + chữ "Đang tải…"):
- * preloader #boot trong index.html ĐÃ giữ vai trò "app đang khởi động" rồi.
- * Ở lần tải đầu, #boot phủ kín (z-9999) nên người dùng không thấy màn này.
- * Nhưng MỌI route đều lazy() → khi chuyển trang, boundary treo lại và màn này
- * mới lộ ra. Trước đây nó dựng y hệt preloader (cùng logo, cùng dòng chữ
- * "đang tải") → người dùng thấy load 2 lần liên tiếp, tưởng web bị nhân bản
- * (báo cáo 30/09/2026). Giữ nền `bg-background` để không lóe trắng giữa
- * chừng, giữ nhãn `role="status"` (chỉ ẩn với mắt, trình đọc màn hình vẫn
- * đọc được trạng thái đang tải).
+ * Dùng component dựng sẵn ở `components/RouteLoader.tsx` — giải thích vì sao
+ * bố cục phải KHÁC HẲN preloader #boot nằm ở file đó.
+ *
+ * IMPORT TRỰC TIẾP, KHÔNG lazy(): fallback của <Suspense> phải nằm sẵn trong
+ * bundle chính. Nếu lazy() nó, lúc route treo React phải tải chunk của chính
+ * màn chờ — màn chờ lại cần tải thì treo tiếp, thành vòng lặp và người dùng
+ * chỉ thấy trang trắng.
  */
-function RouteFallback() {
-  return (
-    <main className="min-h-screen bg-background" aria-busy="true">
-      {/* Progress bar mảnh bám đỉnh — như top loading bar quen thuộc */}
-      <div aria-hidden className="fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden">
-        <div className="h-full w-1/3 animate-route-progress bg-foreground" />
-      </div>
-      <span role="status" aria-live="polite" className="sr-only">
-        {translate("Đang tải…")}
-      </span>
-    </main>
-  );
-}
+const RouteFallback = RouteLoader;
 
 export default function App() {
   // App là consumer của LangContext: khi người dùng đổi ngôn ngữ, App re-render

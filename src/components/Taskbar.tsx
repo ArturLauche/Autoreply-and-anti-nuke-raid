@@ -101,6 +101,7 @@ export default function Taskbar() {
         onClick={() => setOpen(true)}
         aria-label={translate("Mở bảng điều khiển nhanh")}
         aria-expanded={open}
+        data-testid="taskbar-dock"
         className={cn(
           "group fixed z-50 flex items-center gap-2.5 rounded-full border border-border bg-card/95 py-2.5 pl-3 pr-4 backdrop-blur-md",
           "left-4 transition-all duration-200 md:left-6",
