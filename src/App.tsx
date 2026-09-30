@@ -5,6 +5,7 @@ import { MotionConfig } from "framer-motion";
 import { Toaster } from "sonner";
 import NotFound from "./pages/NotFound";
 import RequireAuth from "./components/RequireAuth";
+import Taskbar from "./components/Taskbar";
 
 import { translate, useT } from "./lib/i18n";
 import { finishBootOverlay } from "./lib/bootOverlay";
@@ -34,6 +35,8 @@ const StatsPage = lazy(() => import("./pages/StatsPage"));
 // Trang pháp lý: 3 văn bản dùng CHUNG một component (khác tham số slug) — nội
 // dung nằm ở src/lib/legalContent.ts, không nhân bản code 3 lần.
 const LegalPage = lazy(() => import("./pages/LegalPage"));
+const DonatePage = lazy(() => import("./pages/DonatePage"));
+const PremiumPage = lazy(() => import("./pages/PremiumPage"));
 
 function RouteMetadataSync({ lang }: { lang: "vi" | "en" | "de" }) {
   const { pathname } = useLocation();
@@ -115,6 +118,12 @@ export default function App() {
   // và tạo lại element cho toàn bộ Routes → mọi component con vẽ lại bằng
   // translate() ở ngôn ngữ mới (translate đọc trạng thái module lúc render).
   const { lang } = useT();
+  const { pathname } = useLocation();
+  // Bộ chọn trang nổi: trước đây chỉ Landing mount, nên mọi trang còn lại
+  // không có đường vào nào (chính là lý do nó "không ai thấy"). Ẩn trên
+  // /auth và /discord/callback — hai màn hình tạm, có nút riêng và nút quay
+  // lại rõ ràng, thêm menu ở đó chỉ gây nhiễu.
+  const transient = pathname === "/auth" || pathname === "/discord/callback";
   return (
     <>
       <RouteMetadataSync lang={lang} />
@@ -131,6 +140,10 @@ export default function App() {
             <Route path="/privacy" element={<LegalPage slug="privacy" />} />
             <Route path="/data-deletion" element={<LegalPage slug="data-deletion" />} />
             <Route path="/monitor" element={<Monitor />} />
+            {/* Ủng hộ nhà phát triển + xem trước gói Premium. Cả hai trang công
+                khai: ai cũng đọc được, kể cả khách chưa đăng nhập. */}
+            <Route path="/donate" element={<DonatePage />} />
+            <Route path="/premium" element={<PremiumPage />} />
             {/* Trang tính năng công khai (SEO quốc tế, nội dung 3 thứ tiếng). */}
             <Route path="/features" element={<FeaturesPage />} />
             {/* Alias dễ nhớ của trang giám sát — không nhân bản component: cùng
@@ -191,6 +204,7 @@ export default function App() {
             />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          {!transient && <Taskbar />}
         </Suspense>
       </MotionConfig>
       <Toaster

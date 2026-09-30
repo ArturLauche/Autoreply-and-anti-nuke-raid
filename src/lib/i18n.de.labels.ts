@@ -490,4 +490,60 @@ export const DE_LABELS: Record<string, string> = {
   "Điều khoản sử dụng — Protogon": "Nutzungsbedingungen — Protogon",
   "Chính sách quyền riêng tư — Protogon": "Datenschutzerklärung — Protogon",
   "Lưu trữ & xoá dữ liệu — Protogon": "Aufbewahrung & Löschung — Protogon",
+  "Ủng hộ nhà phát triển — Protogon": "Entwickler unterstützen — Protogon",
+  "Giúp duy trì Protogon — bot Discord miễn phí do một người làm. Mọi tính năng luôn miễn phí, quyền góp giúp bot có thêm máy chủ và người sửa lỗi.":
+    "Protogon am Laufen halten — ein kostenloser Discord-Bot, gepflegt von einer Person. Alle Funktionen bleiben kostenlos; Spenden finanzieren Server und Fehlerbehebungen.",
+  "Gói Premium — Protogon": "Premium-Tarife — Protogon",
+  "Xem trước các gói Premium của Protogon: nhiều kênh riêng hơn, báo cáo nâng cao, tên bot riêng và hỗ trợ ưu tiên. Gói miễn phí luôn được giữ nguyên.":
+    "Protogon Premium-Tarife ansehen: mehr eigene Kanäle, erweiterte Berichte, eigener Bot-Name und priorisierter Support. Der kostenlose Tarif bleibt unverändert.",
+
+  // ── Beträge (VND) ──
+  "50.000đ": "VND 50.000",
+  "100.000đ": "VND 100.000",
+  "300.000đ": "VND 300.000",
+  "Một ly cà phê cho ngày thức khuya": "Ein Kaffee für eine späte Nacht",
+  "Một giờ server không phải lo lỗi cấu hình":
+    "Eine Stunde lang keine Angst vor einer kaputten Konfiguration",
+  "Một đêm deploy mà không sập giữa chừng": "Ein Deploy-Nacht ohne Absturz auf halbem Weg",
+
+  // ── Was die Unterstützung bewirkt ──
+  "Bot luôn miễn phí, không giới hạn số server": "Der Bot bleibt kostenlos, ohne Serverlimit",
+  "Không bán dữ liệu, không bán lịch sử tin nhắn của bạn":
+    "Kein Verkauf deiner Daten, kein Verkauf deines Nachrichtenverlaufs",
+  "Báo lỗi và yêu cầu tính năng được trả lời trong 24 giờ":
+    "Fehlerberichte und Feature-Wünsche werden innerhalb von 24 Stunden beantwortet",
+  "Ưu tiên hỗ trợ khi server của bạn gặp sự cố": "Priorisierte Hilfe, wenn dein Server ausfällt",
+
+  // ── Namen + Preise der Premium-Tarife ──
+  "Miễn phí": "Kostenlos",
+  "Đồng hành": "Unterstützer",
+  "Tiên phong": "Vorreiter",
+  "0đ": "VND 0",
+  "49.000đ": "VND 49.000",
+  "99.000đ": "VND 99.000",
+  "vĩnh viễn": "für immer",
+  "mỗi tháng": "pro Monat",
+  "Đủ dùng cho hầu hết server cộng đồng.": "Reicht für die meisten Community-Server.",
+  "Dành cho server muốn nhiều kênh riêng và báo cáo đẹp hơn.":
+    "Für Server mit mehr eigenen Kanälen und besseren Berichten.",
+  "Cho người muốn bot bám sát server mình nhất.":
+    "Für alle, die den Bot möglichst passend zum eigenen Server wollen.",
+
+  // ── Funktionen je Tarif ──
+  "Tự trả lời, chặn link độc hại, 32 module chống nuke":
+    "Auto-Antworten, Schadlinks-Blocker, 32 Anti-Nuke-Module",
+  "Không giới hạn số server": "Keine Obergrenze für die Anzahl der Server",
+  "Backup & khôi phục cấu trúc server": "Server-Backup & Wiederherstellung der Struktur",
+  "Số kênh riêng của bot (ví dụ bảng điều khiển)":
+    "Eigene Kanäle des Bots (zum Beispiel Dashboards)",
+  "Báo cáo nâng cao & xuất dữ liệu": "Erweiterte Berichte & Datenexport",
+  "Hỗ trợ ưu tiên": "Priorisierter Support",
+  "Tất cả tính năng của gói Miễn phí": "Alles im kostenlosen Tarif",
+  "Tất cả tính năng của gói Đồng hành": "Alles im Unterstützer-Tarif",
+  "Tối đa 10 kênh riêng có thư mục riêng": "Bis zu 10 eigene Kanäle mit je eigenem Ordner",
+  "Tên riêng cho bot (thay vì Protogon)": "Eigener Bot-Name statt Protogon",
+  "Số kênh riêng không giới hạn": "Unbegrenzt eigene Kanäle",
+  "Hỗ trợ ưu tiên trong 24 giờ": "Priorisierter Support innerhalb von 24 Stunden",
+  "Ý tưởng tính năng được xếp hạng đầu": "Feature-Ideen werden zuerst umgesetzt",
+  "Avatar & biểu tượng riêng cho bot": "Eigenes Avatar & Symbol für den Bot",
 };

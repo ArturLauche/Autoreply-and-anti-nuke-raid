@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  Activity,
   ExternalLink,
   Facebook,
-  LayoutDashboard,
-  Lock,
+  LayoutGrid,
   MessageCircle,
   Moon,
-  PanelLeft,
   ShieldCheck,
   Sun,
   User,
@@ -23,16 +20,21 @@ import { useBotStatus } from "../lib/useBotStatus";
 import { getSessionToken } from "../lib/discord";
 import { cn } from "../lib/utils";
 import LangSwitch from "./LangSwitch";
+import { NAV_GROUPS, isNavItemActive } from "../lib/navItems";
 
 import { translate } from "../lib/i18n";
 type ThemeMode = "light" | "dark";
 
 /**
- * Taskbar — widget nhanh cố định ở mép trái. Trigger là pill nhỏ gọn (icon +
- * chấm trạng thái bot), mở panel điều khiển: đổi giao diện sáng/tối, trạng
- * thái bot, điều hướng nhanh, chủ bot, link cộng đồng. Panel đóng được bằng
- * Escape, click ra ngoài, hay nút X; chuyển cảnh trượt mượt, hỗ trợ people
- * bật giảm chuyển động.
+ * Taskbar — bộ chọn trang + bảng điều khiển nhanh, nổi góc dưới trái.
+ *
+ * Vì sao đổi từ "pill dọc 40px" sang "dock có nhãn": pill cũ chỉ rộng 40px, chữ
+ * "Menu" viết dọc 9px — gần như vô hình trên desktop, và panel chỉ có 3 mục
+ * trong khi web có 12 route. Người dùng không thấy là không dùng.
+ *
+ * Dock nằm góc dưới trái vì mọi trang đều dồn nội dung lên trên (header
+ * dính ở đỉnh) nên góc này không đè lên gì; `pointer-events-none` + z-40 trên
+ * lớp nền để dock không chặn thao tác của trang phía dưới.
  */
 export default function Taskbar() {
   const [open, setOpen] = useState(false);
@@ -76,76 +78,82 @@ export default function Taskbar() {
   const ownerName = status?.ownerName ?? "wiothemilo";
   const ownerAvatar = status?.ownerAvatarUrl ?? null;
   const online = status?.online ?? false;
-  // /status là alias của /monitor (cùng component) — trạng thái "đang ở trang
-  // giám sát" phải nhận cả hai đường dẫn, không chỉ /monitor.
-  const onMonitorPage =
-    location.pathname.startsWith("/monitor") || location.pathname.startsWith("/status");
-  const onAdminPage = location.pathname.startsWith("/admin");
+
+  // Đổi trang thì tự đóng — panel là lớp phủ, để lại che nội dung mới.
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname]);
 
   return (
     <>
-      {/* Backdrop mờ — click ra ngoài là đóng. Không hiện trên desktop (panel
-          nằm sát mép, không che nội dung lắm), chỉ mobile. */}
+      {/* Nền mờ khi mở — chỉ mobile. Desktop panel dựng đứng góc dưới, không che. */}
       {open && (
         <button
           aria-label={translate("Đóng taskbar")}
           onClick={closePanel}
-          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px] md:hidden"
+          className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[2px] md:hidden"
         />
       )}
 
-      {/* ── Nút mở: pill dọc nhỏ gọn bám mép trái ── */}
+      {/* ── Dock: nút mở có NHÃN, luôn thấy được ── */}
       <button
         ref={triggerRef}
         onClick={() => setOpen(true)}
         aria-label={translate("Mở bảng điều khiển nhanh")}
         aria-expanded={open}
         className={cn(
-          "group fixed z-50 flex flex-col items-center gap-2.5 rounded-r-xl border border-border bg-card py-3 transition-all duration-200",
-          "left-0 top-24 w-10 md:top-28",
-          "shadow-sm hover:border-foreground/30 hover:shadow-md",
-          "max-md:[top:max(5.5rem,calc(env(safe-area-inset-top)+5rem))]",
-          open ? "pointer-events-none -translate-x-full opacity-0" : "",
+          "group fixed z-50 flex items-center gap-2.5 rounded-full border border-border bg-card/95 py-2.5 pl-3 pr-4 backdrop-blur-md",
+          "left-4 transition-all duration-200 md:left-6",
+          "shadow-lg shadow-black/10 hover:-translate-y-0.5 hover:border-foreground/30 hover:shadow-xl",
+          "max-md:bottom-[max(1rem,env(safe-area-inset-bottom))]",
+          "max-md:top-auto",
+          open ? "pointer-events-none scale-95 opacity-0" : "",
         )}
       >
-        <PanelLeft className="h-4 w-4 text-foreground transition-transform duration-200 group-hover:translate-x-0.5" />
-        {/* Chấm trạng thái bot — xanh xám/đen, offline thì danger */}
-        <span className="relative flex h-2 w-2">
-          {online ? (
-            <>
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-foreground opacity-50" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-foreground" />
-            </>
-          ) : (
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-danger" />
-          )}
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-primary-foreground">
+          <LayoutGrid className="h-4 w-4" />
         </span>
-        <span className="hidden text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground [writing-mode:vertical-rl] md:block">
-          Menu
+        <span className="flex flex-col items-start leading-none">
+          <span className="text-[13px] font-semibold text-foreground">{translate("Menu")}</span>
+          {/* Chấm trạng thái bot — xám/đen khi online, đỏ khi mất kết nối. */}
+          <span className="mt-1 flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+            <span className="relative flex h-1.5 w-1.5">
+              {online ? (
+                <>
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-foreground opacity-50" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-foreground" />
+                </>
+              ) : (
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-danger" />
+              )}
+            </span>
+            {online ? translate("đang chạy") : translate("mất kết nối")}
+          </span>
         </span>
       </button>
 
-      {/* ── Panel điều khiển ── */}
+      {/* ── Panel: bảng chọn trang + điều khiển nhanh ── */}
       {open && (
         <aside
           ref={panelRef}
           role="dialog"
           aria-label={translate("Bảng điều khiển nhanh")}
           className={cn(
-            "fixed left-0 top-0 bottom-0 z-50 flex w-[min(88vw,19rem)] flex-col overflow-hidden border-r border-border bg-card shadow-xl",
-            "motion-safe:animate-in motion-safe:slide-in-from-left motion-safe:fade-in motion-safe:duration-200",
+            "fixed z-50 flex w-[min(90vw,21rem)] flex-col overflow-hidden border border-border bg-card shadow-2xl",
+            "bottom-4 left-4 max-h-[min(85vh,44rem)] rounded-2xl md:bottom-6 md:left-6",
+            "motion-safe:animate-in motion-safe:slide-in-from-bottom-4 motion-safe:fade-in motion-safe:duration-200",
           )}
         >
           {/* Header */}
           <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-primary-foreground">
-              <PanelLeft className="h-4 w-4" />
+              <LayoutGrid className="h-4 w-4" />
             </span>
-            <div className="flex-1">
+            <div className="min-w-0 flex-1">
               <p className="font-display text-sm font-bold leading-tight text-foreground">
                 Protogon
               </p>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="truncate text-[11px] text-muted-foreground">
                 {translate("Bảng điều khiển nhanh")}
               </p>
             </div>
@@ -158,9 +166,41 @@ export default function Taskbar() {
             </button>
           </div>
 
-          <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+          <div className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+            {/* ── PHẦN CHỌN TRANG: nhóm theo vai trò, trang đang mở tô đậm ── */}
+            <nav aria-label={translate("Điều hướng")} className="space-y-4">
+              {NAV_GROUPS.map((group) => {
+                const items = group.items.filter((i) => !i.ownerOnly || isOwner === true);
+                if (items.length === 0) return null;
+                return (
+                  <div key={group.title}>
+                    <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      {translate(group.title)}
+                    </p>
+                    <ul className="space-y-0.5">
+                      {items.map((item) => (
+                        <li key={item.to}>
+                          <NavLink
+                            to={item.to}
+                            icon={item.icon}
+                            label={item.label}
+                            hint={item.hint}
+                            accent={item.accent}
+                            active={isNavItemActive(location.pathname, item.to)}
+                            onClick={closePanel}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </nav>
+
+            <div className="h-px bg-border" />
+
             {/* Giao diện sáng/tối — segmented control thay toggle tròn */}
-            <div>
+            <div className="px-1">
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 {translate("Giao diện")}{" "}
               </p>
@@ -190,7 +230,7 @@ export default function Taskbar() {
             </div>
 
             {/* Ngôn ngữ — đổi ngay, không cần tải lại trang */}
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2 px-1">
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 {translate("Ngôn ngữ")}
               </p>
@@ -210,38 +250,6 @@ export default function Taskbar() {
               <span className="font-mono text-[11px] text-muted-foreground">
                 {status ? `${status.guildCount} server` : "…"}
               </span>
-            </div>
-
-            {/* Điều hướng */}
-            <div>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                {translate("Điều hướng")}{" "}
-              </p>
-              <div className="space-y-1">
-                <TaskbarLink
-                  to="/monitor"
-                  icon={Activity}
-                  label={translate("Giám sát bot")}
-                  active={onMonitorPage}
-                  onClick={closePanel}
-                />
-                <TaskbarLink
-                  to="/dashboard"
-                  icon={LayoutDashboard}
-                  label={translate("Bảng điều khiển")}
-                  onClick={closePanel}
-                />
-                {isOwner === true && (
-                  <TaskbarLink
-                    to="/admin"
-                    icon={Lock}
-                    label={translate("Cửa sổ Admin")}
-                    active={onAdminPage}
-                    badge={translate("ẨN")}
-                    onClick={closePanel}
-                  />
-                )}
-              </div>
             </div>
 
             {/* Chủ bot */}
@@ -275,8 +283,8 @@ export default function Taskbar() {
 
           {/* Chân panel */}
           <div className="flex items-center gap-2 border-t border-border px-4 py-2.5 text-[10px] text-muted-foreground">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            {translate("Miễn phí · cập nhật tự động từ Discord")}{" "}
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{translate("Miễn phí · cập nhật tự động từ Discord")} </span>
           </div>
         </aside>
       )}
@@ -284,20 +292,25 @@ export default function Taskbar() {
   );
 }
 
-/** Link điều hướng trong panel — item gọn, active là đen đặc. */
-function TaskbarLink({
+/**
+ * Một mục trang trong panel. Trang đang mở = nền đậm + thanh nhấn bên trái
+ * (không chỉ dựa vào màu chữ — người mắt kém màu vẫn phân biệt được).
+ */
+function NavLink({
   to,
   icon: Icon,
   label,
+  hint,
   active,
-  badge,
+  accent,
   onClick,
 }: {
   to: string;
   icon: React.ComponentType<{ className?: string }>;
   label: string;
+  hint?: string;
   active?: boolean;
-  badge?: string;
+  accent?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -306,17 +319,39 @@ function TaskbarLink({
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-2.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+        "relative flex items-center gap-2.5 rounded-lg py-2 pl-2.5 pr-2 text-sm font-medium transition-colors",
         active
-          ? "border-foreground bg-foreground text-primary-foreground"
-          : "border-transparent hover:border-border hover:bg-secondary/60",
+          ? "bg-foreground text-primary-foreground"
+          : accent
+            ? "text-foreground hover:bg-secondary/70"
+            : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
       )}
     >
-      <Icon className="h-4 w-4" />
-      {label}
-      {badge && (
-        <span className="ml-auto rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-[9px] font-bold text-foreground">
-          {badge}
+      {/* Thanh nhấn trang đang mở — dấu hiệu thị giác không phụ thuộc màu */}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full transition-opacity",
+          active ? "bg-primary-foreground opacity-100" : "opacity-0",
+        )}
+      />
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {accent && !active && (
+        <span className="shrink-0 rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+          {translate("Mới")}
+        </span>
+      )}
+      {hint && (
+        <span
+          className={cn(
+            "ml-auto shrink-0 rounded border px-1.5 py-0.5 font-mono text-[9px] font-bold",
+            active
+              ? "border-primary-foreground/40 text-primary-foreground"
+              : "border-border bg-secondary text-foreground",
+          )}
+        >
+          {hint}
         </span>
       )}
     </Link>

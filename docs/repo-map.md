@@ -30,6 +30,8 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 | `pages/DiscordCallback.tsx` | Bắt callback OAuth                                     |
 | `pages/LegalPage.tsx`       | Văn bản pháp lý (/terms, /privacy, /data-deletion)     |
 | `pages/FeaturesPage.tsx`    | Trang tính năng công khai (/features, SEO 3 thứ tiếng) |
+| `pages/DonatePage.tsx`      | Trang ủng hộ nhà phát triển (/donate)                  |
+| `pages/PremiumPage.tsx`     | Trang gói Premium (/premium) — chưa mở bán             |
 | `pages/NotFound.tsx`        | 404                                                    |
 
 | Component nhóm               | Vai trò                                                                                                          |

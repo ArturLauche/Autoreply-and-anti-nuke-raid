@@ -1418,4 +1418,46 @@ export const EN: Record<string, string> = {
   "Đã lưu ngân sách tin nhắn": "Message budget saved",
   "Đã lưu quyền xem kênh ticket": "Ticket channel visibility saved",
   "Đã lưu cách chia danh mục": "Category layout saved",
+
+  // ── Bộ chọn trang + trang Ủng hộ / Premium ──
+  Menu: "Menu",
+  "Trang chủ": "Home",
+  "Thống kê": "Stats",
+  "Khám phá": "Explore",
+  "Tài khoản": "Account",
+  "Ủng hộ": "Support",
+  "Ủng hộ nhà phát triển": "Support the developer",
+  "Gói Premium": "Premium plans",
+  Mới: "New",
+  "Giữ cho Protogon mở cửa miễn phí": "Keep Protogon free and open",
+  "Protogon được một người duy trì, chi phí máy chủ và thời gian đều tự bỏ ra. Mọi tính năng đều miễn phí và sẽ luôn miễn phí — quyền góp của bạn giúp bot có thêm tháng độ ổn định, không phải để mở khoá tính năng.":
+    "Protogon is maintained by one person, who pays for the server and the time out of pocket. Every feature is free and always will be — your support buys the bot more uptime, not a feature unlock.",
+  "Ủng hộ qua Discord": "Support via Discord",
+  "Xem gói Premium": "See premium plans",
+  "Chọn mức tùy khả năng": "Pick whatever feels comfortable",
+  "Đây chỉ là gợi ý. Mọi mức đều được chào đón, kể cả một lời cảm ơn.":
+    "These are suggestions only. Every amount is welcome, including a simple thank-you.",
+  "Chưa có cổng thanh toán trực tuyến — hãy nhắn cho mình để được hướng dẫn nhanh nhất.":
+    "There is no online checkout yet — message me and I'll sort you out.",
+  "Quyền góp giúp được gì": "What your support pays for",
+  "Nói thẳng: quyền góp KHÔNG tạo ra tính năng độc quyền và không xoá được quảng cáo. Nó giữ cho bot có máy chủ và có người trực sửa lỗi.":
+    "Straight talk: support does not unlock exclusive features and does not remove ads. It keeps the server running and someone on hand to fix bugs.",
+  "Giúp theo cách khác": "Other ways to help",
+  "Tham gia cộng đồng Discord": "Join the Discord community",
+  "Báo lỗi, xin tính năng, hoặc chỉ để chào": "Report bugs, request features, or just say hi",
+  "Theo dõi trên Facebook": "Follow on Facebook",
+  "Cập nhật khi có phiên bản mới": "Updates when a new version ships",
+  "Trả phí để bot có thêm sức làm việc": "Pay to give the bot more room to work",
+  "Gói Miễn phí luôn ở đó và không bao giờ bị cắt bớt. Premium chỉ mở thêm tiện ích cho server cần nhiều hơn — và là cách duy nhất để duy trì bot trong dài hạn.":
+    "The free plan stays and is never trimmed down. Premium only adds extras for servers that need more — and it is the only way to keep the bot running long term.",
+  "Chưa mở bán — cổng thanh toán đang hoàn thiện":
+    "Not on sale yet — the payment rail is still being finished",
+  "Được nhiều người chọn": "Most popular",
+  "Sắp mở bán": "Coming soon",
+  "Giá chưa chốt và sẽ không bao giờ cao hơn mức này cho người đã đăng ký sớm. Huỷ bất kỳ lúc nào.":
+    "Prices are not final and will never be higher than this for people who signed up early. Cancel any time.",
+  "Muốn biết khi nào mở bán?": "Want to know when it opens?",
+  "Nhắn một câu trong Discord là được. Mình sẽ báo trước ít nhất một tuần trước khi mở, và cho bạn giữ nguyên mức giá này nếu bạn đã đăng ký.":
+    "Just send a message on Discord. I will announce it at least a week before launch, and you keep this price if you sign up.",
+  "Đăng ký qua Discord": "Sign up via Discord",
 };

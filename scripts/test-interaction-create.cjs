@@ -1379,6 +1379,80 @@ Module._load = function (request, parent) {
       replies[0].content,
     );
 
+    // ── /backup now: chỉ chạy ĐÚNG khi sub === "now" ──
+    // Lỗi gốc: khối `now` không có nhánh `if (sub === "now")` nên mọi
+    // subcommand lạ đều rơi xuống đây và tạo backup + đẩy server lên GitHub.
+    // Đăng ký slash dùng PUT nên thay thế toàn bộ cây lệnh: hễ thêm
+    // subcommand mới vào slash.js mà quên sửa handler, người dùng gõ đúng
+    // lệnh đó lại nhận hành vi của `now` — ghi dữ liệu + đẩy ra ngoài mà
+    // không hề được hỏi.
+    {
+      reset();
+      await run({ isChatInputCommand: true, commandName: "backup", subcommand: "now" });
+      const nowMut = calls.mutations.find((m) => m.name === "bot_writes:botSetBackupRequest");
+      check(
+        "backup now → mutation tạo backup (mặc định đẩy GitHub)",
+        !!nowMut && nowMut.args.pushToGithub === true,
+        JSON.stringify(nowMut?.args),
+      );
+      check("backup now → báo đã yêu cầu", (replies[0].content || "").includes("✅"));
+
+      // Bỏ trống `github` → discord.js trả null → `?? true` phải ra true
+      // (tắt default thành false sẽ lặng lẽ bỏ đẩy GitHub).
+      reset();
+      await run({ isChatInputCommand: true, commandName: "backup", subcommand: "now" });
+      const nowDefault = calls.mutations.find((m) => m.name === "bot_writes:botSetBackupRequest");
+      check(
+        "backup now bỏ trống github → vẫn đẩy GitHub (null → true)",
+        nowDefault?.args.pushToGithub === true,
+        JSON.stringify(nowDefault?.args),
+      );
+
+      reset();
+      await run({
+        isChatInputCommand: true,
+        commandName: "backup",
+        subcommand: "now",
+        booleans: { github: false },
+      });
+      const nowLocal = calls.mutations.find((m) => m.name === "bot_writes:botSetBackupRequest");
+      check(
+        "backup now github=false → chỉ lưu Convex",
+        nowLocal?.args.pushToGithub === false,
+        JSON.stringify(nowLocal?.args),
+      );
+    }
+
+    // Subcommand KHÔNG khai báo (client cache cũ, hoặc sub vừa thêm vào
+    // slash.js) → tuyệt đối không được tạo backup, phải báo lỗi rõ.
+    {
+      reset();
+      await run({ isChatInputCommand: true, commandName: "backup", subcommand: "plan" });
+      check(
+        "backup sub lạ → KHÔNG tạo backup, KHÔNG đẩy GitHub",
+        !calls.mutations.some((m) => m.name === "bot_writes:botSetBackupRequest"),
+        JSON.stringify(calls.mutations.map((m) => m.name)),
+      );
+      check(
+        "backup sub lạ → báo subcommand không hợp lệ + liệt kê cú pháp",
+        (replies[0]?.content || "").includes("không hợp lệ") &&
+          (replies[0]?.content || "").includes("keep"),
+        replies[0]?.content,
+      );
+
+      // Kể cả người không có quyền quản lý: phải báo subcommand lạ, không
+      // được rơi vào nhánh `now` rồi mới tới needPerm (đường chết im lặng).
+      reset();
+      ctl.perms.manage = false;
+      await run({ isChatInputCommand: true, commandName: "backup", subcommand: "plan" });
+      ctl.perms.manage = true;
+      check(
+        "backup sub lạ + thiếu quyền → vẫn KHÔNG tạo backup",
+        !calls.mutations.some((m) => m.name === "bot_writes:botSetBackupRequest"),
+        JSON.stringify(calls.mutations.map((m) => m.name)),
+      );
+    }
+
     // HỢP ĐỒNG giữa 2 file: handler đọc option nào thì lệnh PHẢI khai báo đúng
     // tên đó. Lệch 1 chữ là `/backup keep` không nhận được giá trị (getInteger
     // trả null) — chạy không lỗi nhưng cấu hình không bao giờ được đặt.

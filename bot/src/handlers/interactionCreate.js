@@ -2231,23 +2231,36 @@ module.exports = async function onInteractionCreate(client, interaction, store, 
       }
 
       // /backup now — mặc định đẩy lên GitHub (token của chủ bot, dùng chung mọi server)
-      if (!canManageGuild(interaction.member)) return needPerm(interaction);
-      const github = interaction.options.getBoolean("github") ?? true;
-      try {
-        await store.client.mutation("bot_writes:botSetBackupRequest", {
-          guildId,
-          pushToGithub: github,
-        });
-        store.invalidate(guildId);
-        return interaction.reply({
-          content: github
-            ? "✅ Đã yêu cầu tạo backup (đẩy lên GitHub của chủ bot) — bot thực hiện trong ~20 giây. Xem kết quả: `/backup list`"
-            : "✅ Đã yêu cầu tạo backup (chỉ lưu trên Convex) — bot thực hiện trong ~20 giây. Xem kết quả: `/backup list`",
-          ephemeral: true,
-        });
-      } catch (e) {
-        return interaction.reply({ content: `❌ ${e.message}`, ephemeral: true });
+      if (sub === "now") {
+        if (!canManageGuild(interaction.member)) return needPerm(interaction);
+        const github = interaction.options.getBoolean("github") ?? true;
+        try {
+          await store.client.mutation("bot_writes:botSetBackupRequest", {
+            guildId,
+            pushToGithub: github,
+          });
+          store.invalidate(guildId);
+          return interaction.reply({
+            content: github
+              ? "✅ Đã yêu cầu tạo backup (đẩy lên GitHub của chủ bot) — bot thực hiện trong ~20 giây. Xem kết quả: `/backup list`"
+              : "✅ Đã yêu cầu tạo backup (chỉ lưu trên Convex) — bot thực hiện trong ~20 giây. Xem kết quả: `/backup list`",
+            ephemeral: true,
+          });
+        } catch (e) {
+          return interaction.reply({ content: `❌ ${e.message}`, ephemeral: true });
+        }
       }
+
+      // Subcommand lạ → KHÔNG được rơi xuống nhánh `now` và âm thầm tạo backup +
+      // đẩy server lên GitHub. Đăng ký slash dùng PUT nên thay thế TOÀN BỘ cây
+      // lệnh: hễ thêm subcommand mới vào slash.js mà handler chưa kịp sửa, người
+      // dùng sẽ gõ đúng lệnh đó và nhận hành vi của `now` — một thao tác ghi dữ
+      // liệu + đẩy ra ngoài mà họ không hề được hỏi.
+      return interaction.reply({
+        content:
+          "Subcommand `/backup` không hợp lệ. Dùng: `now` · `list` · `restore <số>` · `auto <2-30|0>` · `keep <2-50> [ngày]`.",
+        ephemeral: true,
+      });
     }
 
     case "verify": {

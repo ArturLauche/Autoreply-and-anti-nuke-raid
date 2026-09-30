@@ -1303,5 +1303,58 @@ check(
   /@media \(prefers-reduced-motion: reduce\)[\s\S]{0,600}animation:\s*none/.test(html),
 );
 
+// ── BỘ CHỌN TRANG: mọi trang phải CÓ ĐƯỜNG VÀO từ giao diện ──
+// Lỗi thật 30/09/2026: bảng chọn trang (Taskbar) chỉ liệt kê 3 mục trong khi
+// web có 12 route, và nó chỉ được mount trên Landing — nên 9 trang không có
+// đường vào nào mà không ai báo lỗi. Hai luật bên dưới chặn tái diễn:
+//   (1) mọi route công khai phải xuất hiện trong bảng chọn trang,
+//   (2) bảng chọn trang phải mount ở App.tsx (mọi trang), không riêng 1 trang.
+const navSrc = fs.readFileSync(path.join(SRC, "lib", "navItems.ts"), "utf8");
+const appFileSrc = fs.readFileSync(path.join(SRC, "App.tsx"), "utf8");
+const navPaths = [...new Set([...navSrc.matchAll(/to:\s*"([^"]+)"/g)].map((m) => m[1]))];
+// Alias (có `redirect`) không phải trang riêng — hosting tự chuyển hướng.
+// Trang pháp lý KHÔNG đòi có trong bảng chọn trang: chúng nằm ở Footer, đó là
+// đường vào đúng của loại văn bản này. Đòi nhồi vào menu chính chỉ làm rối.
+const LEGAL = new Set(["/terms", "/privacy", "/data-deletion"]);
+const primaryRoutes = ROUTES.filter(
+  (r) => r.visibility === "public" && !r.redirect && !LEGAL.has(r.path),
+).map((r) => r.path);
+const unreachable = primaryRoutes.filter((p) => !navPaths.includes(p));
+check(
+  "mọi trang công khai đều có mặt trong bảng chọn trang",
+  unreachable.length === 0,
+  unreachable.join(", "),
+);
+// Trang pháp lý phải tới được từ Footer (nơi đúng của nó).
+const legalMissing = [...LEGAL].filter((p) => !footerSrc.includes(`to="${p}"`));
+check("trang pháp lý có link ở Footer", legalMissing.length === 0, legalMissing.join(", "));
+// Mục trong bảng chọn trang mà routes.json không có → link chết (404).
+// Được phép trỏ tới route private (/dashboard…) — đó là khu vực đăng nhập.
+const allRoutePaths = new Set(ROUTES.map((r) => r.path));
+const ghostNav = navPaths.filter((p) => !allRoutePaths.has(p));
+check(
+  "bảng chọn trang không trỏ tới trang không tồn tại",
+  ghostNav.length === 0,
+  ghostNav.join(", "),
+);
+check(
+  "bảng chọn trang mount ở App.tsx (mọi trang đều có, không riêng Landing)",
+  /\{!transient && <Taskbar \/>\}/.test(appFileSrc),
+);
+check(
+  "không trang nào tự mount Taskbar thêm lần nữa (tránh render trùng)",
+  ![...files.values()].some(
+    (src) => /import Taskbar from/.test(src) && !src.includes("routes.json"),
+  ),
+);
+// Trang đang mở phải tô đậm được: isNavItemActive phân biệt "/" (chỉ khớp
+// chính nó) với "/dashboard" (khớp cả "/dashboard/:guildId").
+const activeFn = navSrc.slice(navSrc.indexOf("export function isNavItemActive"));
+check(
+  "isNavItemActive: '/' chỉ khớp chính nó, trang con khớp theo tiền tố",
+  /if \(to === "\/"\) return path === "\/"/.test(activeFn) &&
+    /path\.startsWith\(`\$\{to\}\/`\)/.test(activeFn),
+);
+
 console.log(`\nKết quả web contracts: ${pass} PASS, ${fail} FAIL`);
 process.exit(fail === 0 ? 0 : 1);

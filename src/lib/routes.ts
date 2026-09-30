@@ -30,6 +30,8 @@ export type RouteSeoKind =
   | "privacy"
   | "data-deletion"
   | "monitor"
+  | "donate"
+  | "premium"
   | "auth"
   | "dashboard"
   | "stats"

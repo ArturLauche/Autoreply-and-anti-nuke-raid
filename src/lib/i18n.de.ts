@@ -1349,4 +1349,47 @@ export const DE: Record<string, string> = {
   "Đã lưu ngân sách tin nhắn": "Nachrichtenbudget gespeichert",
   "Đã lưu quyền xem kênh ticket": "Sichtbarkeit der Ticket-Kanäle gespeichert",
   "Đã lưu cách chia danh mục": "Kategorie-Layout gespeichert",
+
+  // ── Seitennavigator + Seiten Unterstützung / Premium ──
+  Menu: "Menü",
+  "Trang chủ": "Startseite",
+  "Thống kê": "Statistiken",
+  "Khám phá": "Entdecken",
+  "Tài khoản": "Konto",
+  "Ủng hộ": "Unterstützen",
+  "Ủng hộ nhà phát triển": "Entwickler unterstützen",
+  "Gói Premium": "Premium-Tarife",
+  Mới: "Neu",
+  "Giữ cho Protogon mở cửa miễn phí": "Halt Protogon kostenlos und offen",
+  "Protogon được một người duy trì, chi phí máy chủ và thời gian đều tự bỏ ra. Mọi tính năng đều miễn phí và sẽ luôn miễn phí — quyền góp của bạn giúp bot có thêm tháng độ ổn định, không phải để mở khoá tính năng.":
+    "Protogon wird von einer Person gepflegt, Server und Zeit laufen aus eigener Tasche. Alle Funktionen sind kostenlos und bleiben es — deine Unterstützung kauft dem Bot mehr Laufzeit, keine Entsperrung.",
+  "Ủng hộ qua Discord": "Über Discord unterstützen",
+  "Xem gói Premium": "Premium-Tarife ansehen",
+  "Chọn mức tùy khả năng": "Wähle, was dir entspricht",
+  "Đây chỉ là gợi ý. Mọi mức đều được chào đón, kể cả một lời cảm ơn.":
+    "Das sind nur Vorschläge. Jeder Betrag ist willkommen, auch ein einfaches Danke.",
+  "Chưa có cổng thanh toán trực tuyến — hãy nhắn cho mình để được hướng dẫn nhanh nhất.":
+    "Es gibt noch keine Online-Zahlung — schreib mir, ich kümmere mich darum.",
+  "Quyền góp giúp được gì": "Was deine Unterstützung bewirkt",
+  "Nói thẳng: quyền góp KHÔNG tạo ra tính năng độc quyền và không xoá được quảng cáo. Nó giữ cho bot có máy chủ và có người trực sửa lỗi.":
+    "Ganz direkt: Unterstützung schaltet keine Exklusivfunktionen frei und entfernt keine Werbung. Sie hält den Server am Laufen und jemanden da, der Fehler behebt.",
+  "Giúp theo cách khác": "Andere Wege zu helfen",
+  "Tham gia cộng đồng Discord": "Discord-Community beitreten",
+  "Báo lỗi, xin tính năng, hoặc chỉ để chào":
+    "Fehler melden, Features wünschen oder einfach hallo sagen",
+  "Theo dõi trên Facebook": "Auf Facebook folgen",
+  "Cập nhật khi có phiên bản mới": "Updates bei neuen Versionen",
+  "Trả phí để bot có thêm sức làm việc": "Bezahlen, damit der Bot mehr Luft bekommt",
+  "Gói Miễn phí luôn ở đó và không bao giờ bị cắt bớt. Premium chỉ mở thêm tiện ích cho server cần nhiều hơn — và là cách duy nhất để duy trì bot trong dài hạn.":
+    "Der kostenlose Tarif bleibt und wird nie beschnitten. Premium ergänzt nur Extras für Server mit mehr Bedarf — und ist der einzige Weg, den Bot dauerhaft zu betreiben.",
+  "Chưa mở bán — cổng thanh toán đang hoàn thiện":
+    "Noch nicht im Verkauf — die Zahlungsstrecke wird fertiggestellt",
+  "Được nhiều người chọn": "Am beliebtesten",
+  "Sắp mở bán": "Demnächst",
+  "Giá chưa chốt và sẽ không bao giờ cao hơn mức này cho người đã đăng ký sớm. Huỷ bất kỳ lúc nào.":
+    "Die Preise stehen nicht fest und werden für frühe Anmeldungen nie höher. Jederzeit kündbar.",
+  "Muốn biết khi nào mở bán?": "Du willst wissen, wann es startet?",
+  "Nhắn một câu trong Discord là được. Mình sẽ báo trước ít nhất một tuần trước khi mở, và cho bạn giữ nguyên mức giá này nếu bạn đã đăng ký.":
+    "Schreib einfach eine Nachricht auf Discord. Ich kündige es mindestens eine Woche vorher an, und du behältst diesen Preis.",
+  "Đăng ký qua Discord": "Über Discord anmelden",
 };

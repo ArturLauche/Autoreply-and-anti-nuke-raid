@@ -6,7 +6,6 @@ import { Button } from "../components/ui/button";
 import Nav from "../components/landing/Nav";
 import Footer from "../components/landing/Footer";
 import HaimiyaChat from "../components/HaimiyaChat";
-import Taskbar from "../components/Taskbar";
 import HeroChatCard from "../components/landing/HeroChatCard";
 import {
   Features,
@@ -168,7 +167,8 @@ export default function Landing() {
         <CtaBanner />
       </main>
       <Footer discordInvite={discordInvite} facebookUrl={facebookUrl} />
-      <Taskbar />
+      {/* Bộ chọn trang do App.tsx mount ở cấp gốc (mọi trang đều có, không
+          riêng Landing) — mount thêm ở đây sẽ render hai cái chồng lên nhau. */}
       {/* Hứng event "haimiya-open" từ các nút "Hỏi Haimiya" trên trang
           (hero + HaimiyaSection) — thiếu mount này nút bấm chết lặng. */}
       <HaimiyaChat />

@@ -55,6 +55,16 @@ const COPY: Record<Lang, Copy> = {
       description:
         "Theo dõi trạng thái, độ trễ và số liệu vận hành của bot Protogon theo thời gian thực.",
     },
+    donate: {
+      title: "Ủng hộ nhà phát triển — Protogon",
+      description:
+        "Giúp duy trì Protogon — bot Discord miễn phí do một người làm. Mọi tính năng luôn miễn phí, quyền góp giúp bot có thêm máy chủ và người sửa lỗi.",
+    },
+    premium: {
+      title: "Gói Premium — Protogon",
+      description:
+        "Xem trước các gói Premium của Protogon: nhiều kênh riêng hơn, báo cáo nâng cao, tên bot riêng và hỗ trợ ưu tiên. Gói miễn phí luôn được giữ nguyên.",
+    },
     auth: {
       title: "Đăng nhập — Protogon",
       description: "Đăng nhập an toàn bằng Discord để quản lý các server của bạn trên Protogon.",
@@ -102,6 +112,16 @@ const COPY: Record<Lang, Copy> = {
     monitor: {
       title: "Bot monitor — Protogon",
       description: "Live Protogon bot status, latency, and operational metrics.",
+    },
+    donate: {
+      title: "Support the developer — Protogon",
+      description:
+        "Help keep Protogon running — a free Discord bot maintained by one person. Every feature stays free; contributions pay for the server and the bug fixes.",
+    },
+    premium: {
+      title: "Premium plans — Protogon",
+      description:
+        "Preview Protogon premium tiers: more private channels, advanced reports, a custom bot name, and priority support. The free plan is never cut down.",
     },
     auth: {
       title: "Sign in — Protogon",
@@ -151,6 +171,16 @@ const COPY: Record<Lang, Copy> = {
     monitor: {
       title: "Bot-Monitor — Protogon",
       description: "Live-Status, Latenz und Betriebsdaten des Protogon-Bots.",
+    },
+    donate: {
+      title: "Entwickler unterstützen — Protogon",
+      description:
+        "Protogon am Laufen halten — ein kostenloser Discord-Bot, gepflegt von einer Person. Alle Funktionen bleiben kostenlos; Spenden finanzieren Server und Fehlerbehebungen.",
+    },
+    premium: {
+      title: "Premium-Tarife — Protogon",
+      description:
+        "Protogon Premium-Tarife ansehen: mehr eigene Kanäle, erweiterte Berichte, eigener Bot-Name und priorisierter Support. Der kostenlose Tarif bleibt unverändert.",
     },
     auth: {
       title: "Anmelden — Protogon",
