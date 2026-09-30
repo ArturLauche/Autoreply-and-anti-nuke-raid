@@ -552,6 +552,33 @@ function mkTracker(opts = {}) {
     check("strike thiếu username → giữ tên lần trước", tracker.strikeUsername("g1", "u3") === "C");
   }
 
+  console.log("\n── strike: cửa sổ neo tại strike ĐẦU, không trượt theo strike cuối ──");
+  {
+    // `firstAt` là mốc strike ĐẦU của cửa sổ. Bug cũ: ghi `now` ở mọi strike →
+    // cửa sổ trượt theo strike cuối, strike cách nhau gần một cửa sổ tích luỹ mãi.
+    const { tracker } = mkTracker();
+    const s = heatSettings({ warnStrikeLimit: 3, warnStrikeWindowMin: 60 });
+    tracker.strike("g1", "w1", s, "W");
+    tracker.strikes.get("g1:w1").firstAt = Date.now() - 50 * MIN; // strike đầu cách đây 50 phút
+    const st2 = tracker.strike("g1", "w1", s, "W");
+    check(
+      "strike thứ 2 trong cửa sổ: đếm 2, KHÔNG dời mốc đầu cửa sổ",
+      st2.count === 2 && Date.now() - tracker.strikes.get("g1:w1").firstAt >= 50 * MIN - 1_000,
+      JSON.stringify(st2),
+    );
+    tracker.strikes.get("g1:w1").firstAt = Date.now() - 61 * MIN; // cửa sổ gốc đã hết hạn
+    const st3 = tracker.strike("g1", "w1", s, "W");
+    check(
+      "strike thứ 3 sau khi cửa sổ gốc hết hạn: mở cửa sổ MỚI, không tăng cấp",
+      st3.escalated === false && st3.count === 1,
+      JSON.stringify(st3),
+    );
+    check(
+      "cửa sổ mới neo tại strike vừa rồi",
+      Date.now() - tracker.strikes.get("g1:w1").firstAt < 5_000,
+    );
+  }
+
   console.log("\n── resetGuild: xoá luôn warn tích luỹ ──");
   {
     const { tracker, calls } = mkTracker();

@@ -374,7 +374,14 @@ class HeatTracker {
       this._scheduleFlush(guildId);
       return { escalated: true, punish: s.warnStrikePunish, count };
     }
-    this.strikes.set(key, { count, firstAt: now, username: username || hit?.username });
+    // `firstAt` là mốc strike ĐẦU của cửa sổ: chỉ đặt lại khi mở cửa sổ mới. Ghi
+    // `now` ở mọi strike thì cửa sổ trượt theo strike cuối — strike cách nhau 59
+    // phút tích luỹ mãi và tăng cấp dù cửa sổ cấu hình chỉ 60 phút.
+    this.strikes.set(key, {
+      count,
+      firstAt: count > 1 ? hit.firstAt : now,
+      username: username || hit?.username,
+    });
     this._scheduleFlush(guildId);
     return { escalated: false, punish: "warn", count };
   }
