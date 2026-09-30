@@ -7,7 +7,6 @@
 //                                           bot/DM/exempt đi đúng đường bỏ qua
 // Corpus gồm: scam URL thật, invite link, unicode confusable (Cyrillic е), null
 // byte, RTL override, emoji, chuỗi 10KB, chuỗi rỗng. Chạy: node scripts/test-fuzz-filters.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 
 const Module = require("module");

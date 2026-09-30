@@ -9,7 +9,6 @@
 //   - markGone / ensureModules / isSyncHealthy.
 // LƯU Ý: module có state (firstRun/runCounter...) — require mới mỗi kịch bản
 // bằng cách xóa cache.
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 const Module = require("module");
 const fs = require("fs");

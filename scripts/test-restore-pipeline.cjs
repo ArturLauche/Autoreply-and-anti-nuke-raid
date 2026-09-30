@@ -6,7 +6,6 @@
 //   (mô phỏng batch) → runBackupJobs → botClaimBackup (claim/in-flight) →
 //   runRestore → botClearBackup (xong) | botReportRestoreError (lỗi).
 // Trước fix: restore lỗi bị XÓA CỜ IM LẶNG — dashboard không bao giờ biết.
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 const Module = require("module");
 const fs = require("fs");

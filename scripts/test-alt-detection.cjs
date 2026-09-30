@@ -8,7 +8,6 @@
 //   - joinGate: whitelist, alt whitelist, burst auto-lockdown, ghi join history
 // Không mạng (checkVPN không gọi — không IP), không DB thật. Chạy:
 //   node scripts/test-alt-detection.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 
 const Module = require("module");

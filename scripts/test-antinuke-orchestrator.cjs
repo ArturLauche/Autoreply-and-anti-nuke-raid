@@ -10,7 +10,6 @@
 // bot.
 //
 // Chạy: node scripts/test-antinuke-orchestrator.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 const Module = require("module");
 const fs = require("fs");

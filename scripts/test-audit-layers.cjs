@@ -5,7 +5,6 @@
 // bot logging hợp pháp không bị xử lý oan, thiếu member → chỉ ghi nhận,
 // dedupe 1 hành vi = 1 phạt, tick mở khóa + xóa nhiệt từ dashboard.
 // Không mạng, không DB thật. Chạy: node scripts/test-audit-layers.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 
 const Module = require("module");

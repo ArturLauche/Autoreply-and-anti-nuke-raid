@@ -5,7 +5,6 @@
 //   - analysis pass → chỉ ghi join history (recordJoin), không phạt
 //   - analysis punish → executePunishment + markJoinPunished + event antinuke
 // Không mạng, không DB thật. Chạy: node scripts/test-join-gate.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 
 const Module = require("module");

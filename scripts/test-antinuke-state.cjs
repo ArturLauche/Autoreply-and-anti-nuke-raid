@@ -7,7 +7,6 @@
 //   - sweepMemory: xóa guild đã rời + entry cũ của guild đang sống + cap BUCKET_MAX
 //   - recordEvent: ghi Convex, nuốt lỗi mạng
 // Không mạng, không DB thật. Chạy: node scripts/test-antinuke-state.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 
 const Module = require("module");

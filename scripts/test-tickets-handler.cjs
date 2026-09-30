@@ -6,7 +6,6 @@
 // vỡ: quyền gán sai là lộ khiếu nại ra công khai.
 //
 // Chạy: node scripts/test-tickets-handler.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 const Module = require("module");
 const fs = require("fs");

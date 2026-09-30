@@ -11,7 +11,6 @@
 //     lỗi AI throw → trả lời lỗi, không chết.
 //   - emergencyRaidAlert: cooldown 5 phút + toggle emergencyAlertEnabled=false
 //     + gửi kênh log thành công (không fallback) / kênh chết → fallback sendLog.
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 const Module = require("module");
 const fs = require("fs");

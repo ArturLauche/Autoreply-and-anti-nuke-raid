@@ -4,7 +4,6 @@
  * bộ nhớ bị lỡ trước đây (heat nguội, guild đã rời, cache cũ) mà KHÔNG xóa
  * nhầm dữ liệu còn nóng.
  */
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 const Module = require("module");
 

@@ -5,7 +5,6 @@
 //   purgeChannel (giới hạn 1..100, log).
 // Mock discord.js + caseLog + timeoutWatch (không gửi Discord thật).
 // Chạy: node scripts/test-mod-tools.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 
 const Module = require("module");

@@ -5,7 +5,6 @@
 //   handleRaidJoin — gate chống ban nhầm: hồ sơ bình thường → không phạt không khóa;
 //                    cụm acc mới đáng ngờ → chỉ phạt acc ĐÁNG NGỜ, người thật bỏ qua
 // Không mạng, không DB thật. Chạy: node scripts/test-member-layers.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 
 const Module = require("module");

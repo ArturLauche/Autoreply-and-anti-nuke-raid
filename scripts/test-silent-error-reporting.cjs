@@ -15,7 +15,6 @@
 //      vẫn xóa cờ + ghi log "đã tạo backup" → dashboard im lặng — bug thật 23/09)
 //  10. runBackup checksum trùng    → botClearBackup kèm unchanged=true (web báo "không đổi")
 //  11. runBackup thành công        → botClearBackup kèm unchanged=false (web báo "đã tạo xong")
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 const Module = require("module");
 const fs = require("fs");

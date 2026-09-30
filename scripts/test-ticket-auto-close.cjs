@@ -9,7 +9,6 @@
 //   1. Xoá kênh TRƯỚC khi lưu transcript → mất bằng chứng khiếu nại.
 //   2. idleHours = 0 (chủ server tắt) mà bot vẫn đóng → mất ticket đang xử lý.
 //   3. Tin nhắn cũ đọc lại từ backlog giữ ticket mở mãi.
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 const Module = require("module");
 

@@ -4,7 +4,6 @@
 // hàm thuần (fillPlaceholders/mentionRoles/canManageWithConfig).
 //
 // Chạy: node scripts/test-util.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 const Module = require("module");
 const fs = require("fs");

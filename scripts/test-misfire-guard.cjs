@@ -1,7 +1,6 @@
 // Test chống phạt nhầm cho pipeline moderation (filters.js + heat.js).
 // Mô phỏng các tình huống thành viên THẬT dễ bị bot xử lý oan.
 // Chạy: node scripts/test-misfire-guard.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 
 const Module = require("module");

@@ -5,7 +5,6 @@
 //                        chỉ ban nghi phạm >= 4 điểm, tôn trọng exempt + cờ tắt,
 //                        recordRaidSample (fire-and-forget).
 // Mock discord.js + bot/src/ai.js (không gọi mạng thật). Chạy: node scripts/test-antinuke-ai.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 
 const Module = require("module");

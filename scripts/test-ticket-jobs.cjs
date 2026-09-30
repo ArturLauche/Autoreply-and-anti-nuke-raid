@@ -6,7 +6,6 @@
 //   1. KHÔNG lưu được transcript → KHÔNG xoá kênh.
 //   2. Có transcript rồi → không xoá 2 lần.
 //   3. Một job hỏng KHÔNG được làm hỏng các job còn lại trong cùng lượt.
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 const Module = require("module");
 const fs = require("fs");

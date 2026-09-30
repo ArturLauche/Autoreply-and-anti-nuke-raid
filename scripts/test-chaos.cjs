@@ -9,7 +9,6 @@
 //   8. selfDiagnose: lỗi runtime → fingerprint → cooldown 1h → mutation thống kê được gọi
 //   9. selfDiagnose: chuỗi lỗi (không phải Error) → bỏ qua, không treo
 // Không mạng thật (fetch bị chặn), không DB thật. Chạy: node scripts/test-chaos.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 
 // ── Chặn MỌI mạng thật: fetch ném lỗi như server down ──

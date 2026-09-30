@@ -3,7 +3,6 @@
 //
 // Mock discord.js bằng đường dẫn trỏ sang module giả (Colors chỉ là object).
 const Module = require("module");
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 const origResolve = Module._resolveFilename;
 Module._resolveFilename = function (request, ...args) {

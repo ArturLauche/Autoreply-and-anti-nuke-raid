@@ -9,7 +9,6 @@
 //   3. botClearBackup xóa cờ sau khi xong.
 // Kiểm tra thêm các nhánh: tùy chỉnh khôi phục (tắt role/tin nhắn), guild mất, JSON hỏng.
 
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 const Module = require("module");
 const fs = require("fs");

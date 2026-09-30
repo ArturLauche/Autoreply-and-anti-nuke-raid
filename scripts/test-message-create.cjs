@@ -6,7 +6,6 @@
 //   - alt gate khi verify: rủi ro cao → phạt + từ chối; phạt thất bại → fail-open
 // Mock discord.js + ../commands/prefix + ../util + ../captchaStore + ../altDetection.
 // Chạy: node scripts/test-message-create.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 
 const Module = require("module");

@@ -8,7 +8,6 @@
 // mọi nút/modal ticket thêm ở đợt nâng cấp gần nhất chưa từng được test.
 //
 // Chạy: node scripts/test-ticket-interactions.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 const Module = require("module");
 const fs = require("fs");

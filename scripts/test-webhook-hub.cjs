@@ -7,7 +7,6 @@
 //   - reconcileDefaultWebhook: create (kênh chết → backoff 10 phút), delete
 //   - ensureDefaultWebhook: cache hit / Convex có sẵn / tạo mới / kênh hỏng → null
 //   - fillTemplate + buildPayload: placeholder + màu ghi đè
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 const Module = require("module");
 const fs = require("fs");

@@ -6,7 +6,6 @@
 // phân biệt app ngoài vs bot được mời vs kết nối twitch/youtube, dedupe 1 làn sóng,
 // xóa webhook + truy thủ phạm, debounce bấm nút. Không mạng, không DB thật.
 // Chạy: node scripts/test-external-app-layers.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 
 const Module = require("module");

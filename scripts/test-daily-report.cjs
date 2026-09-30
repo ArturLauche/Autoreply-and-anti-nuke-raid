@@ -6,7 +6,6 @@
 //   - lỗi từng guild không làm sập vòng lặp
 // Mock discord.js + ./antinuke + ../heat + ../util (không gửi Discord thật).
 // Chạy: node scripts/test-daily-report.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 
 const Module = require("module");

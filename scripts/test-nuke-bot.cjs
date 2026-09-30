@@ -1,7 +1,6 @@
 // Test chống nuke-bot: phân biệt BOT NUKE KHÔNG VERIFY (phạt ngay) với
 // bot xác minh / bot ở lại lâu / bot logging hợp pháp (không bị phạt oan).
 // Chạy: node scripts/test-nuke-bot.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 
 const Module = require("module");

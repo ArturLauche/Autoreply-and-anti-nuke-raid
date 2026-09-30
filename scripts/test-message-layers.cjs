@@ -4,7 +4,6 @@
 //   handleMessagePatterns — tin dài/lặp (massMessage) + blank noise; webhook → External App
 //   Chống ban oan: dương tính giả AI được tôn trọng; cleanup đúng cấu hình actions.
 // Không mạng, không DB thật. Chạy: node scripts/test-message-layers.cjs
-const path = require("path");
 const DJS_MOCK = require("./support/djs-mock-path.cjs");
 
 const Module = require("module");
