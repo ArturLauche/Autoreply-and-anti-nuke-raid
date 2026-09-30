@@ -1064,6 +1064,106 @@ browserTest("G. Chuyển route không nháy màn chờ toàn màn hình (React g
   t.assert.ok(after.hasDonate, "trang /donate phải render ra nội dung thật");
 });
 
+// ─── H. Từ điển i18n nạp LƯỜI ────────────────────────────────────────────────
+// Đo 30/09/2026: hai từ điển EN+DE chiếm ~404 KB / 509 KB chunk entry, nên người
+// dùng tiếng Việt (không cần bản dịch nào) từng tải cả hai. Chỉ trình duyệt thật
+// mới chứng minh được chunk nào THỰC SỰ được tải, và nạp lỗi không được làm kẹt trang.
+const DICT_CHUNK_RE = /i18n\.dict\.(en|de)-[\w-]+\.js/;
+
+/** Mở "/" với ngôn ngữ đã lưu `lang` (đặt trước mọi script của app). */
+async function openWithSavedLang(ctx, lang, { blockDict = false } = {}) {
+  const page = await ctx.openPage();
+  await page.send("Network.setBlockedURLs", { urls: blockDict ? ["*i18n.dict.*"] : [] });
+  await page.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `try { localStorage.setItem("protogon-lang", ${JSON.stringify(lang)}); } catch (e) {}`,
+  });
+  await page.goto(ctx.base + "/");
+  await new Promise((r) => setTimeout(r, 1800));
+  return page;
+}
+
+/** Các ngôn ngữ có chunk từ điển đã được tải về (theo phản hồi mạng thật). */
+const dictsLoaded = (page) =>
+  page.responses
+    .map((r) => DICT_CHUNK_RE.exec(r.url)?.[1])
+    .filter(Boolean)
+    .sort();
+
+const langState = (page) =>
+  page.evaluate(`(() => {
+    const text = document.body.innerText;
+    return {
+      lang: document.documentElement.lang,
+      vi: text.includes("Đăng nhập"),
+      en: text.includes("Sign in"),
+      de: text.includes("Anmelden"),
+      rootChildren: document.querySelectorAll("#root > *").length,
+      overlay: ${OVERLAY_STATE},
+    };
+  })()`);
+
+browserTest("H1. Tiếng Việt: KHÔNG tải chunk từ điển nào (VI là chính key)", async (t) => {
+  const ctx = await setup();
+  const page = await openWithSavedLang(ctx, "vi");
+  t.after(() => page.close());
+  const state = await langState(page);
+  t.diagnostic(`vi: ${JSON.stringify({ ...state, dicts: dictsLoaded(page) })}`);
+  t.assert.deepStrictEqual(dictsLoaded(page), [], "người dùng VI không được tải từ điển EN/DE");
+  t.assert.strictEqual(state.lang, "vi");
+  t.assert.ok(state.vi && !state.en && !state.de, "trang phải hiện tiếng Việt");
+  t.assert.strictEqual(state.overlay, "removed");
+});
+
+browserTest("H2. Tiếng Anh: chỉ tải từ điển EN, vẽ lần đầu đã đúng ngôn ngữ", async (t) => {
+  const ctx = await setup();
+  const page = await openWithSavedLang(ctx, "en");
+  t.after(() => page.close());
+  const state = await langState(page);
+  t.diagnostic(`en: ${JSON.stringify({ ...state, dicts: dictsLoaded(page) })}`);
+  t.assert.deepStrictEqual(dictsLoaded(page), ["en"], "chỉ chunk EN được tải");
+  t.assert.strictEqual(state.lang, "en");
+  t.assert.ok(state.en && !state.vi, "chuỗi phải được dịch sang EN (không nháy tiếng Việt)");
+});
+
+browserTest("H3. Tiếng Đức: chỉ tải từ điển DE", async (t) => {
+  const ctx = await setup();
+  const page = await openWithSavedLang(ctx, "de");
+  t.after(() => page.close());
+  const state = await langState(page);
+  t.diagnostic(`de: ${JSON.stringify({ ...state, dicts: dictsLoaded(page) })}`);
+  t.assert.deepStrictEqual(dictsLoaded(page), ["de"], "chỉ chunk DE được tải");
+  t.assert.ok(state.de && !state.vi, "chuỗi phải được dịch sang DE");
+});
+
+browserTest("H4. Chunk từ điển bị chặn → FAIL-OPEN: app vẫn hiện, rơi về tiếng Việt", async (t) => {
+  const ctx = await setup();
+  const page = await openWithSavedLang(ctx, "en", { blockDict: true });
+  t.after(() => page.close());
+  await new Promise((r) => setTimeout(r, 1500));
+  const state = await langState(page);
+  t.diagnostic(`en (từ điển bị chặn): ${JSON.stringify({ ...state, dicts: dictsLoaded(page) })}`);
+  t.assert.deepStrictEqual(dictsLoaded(page), [], "chunk bị chặn thật");
+  t.assert.ok(state.rootChildren > 0, "React vẫn phải render (không phải trang trắng)");
+  t.assert.strictEqual(state.overlay, "removed", "preloader không được kẹt vì từ điển hỏng");
+  t.assert.ok(state.vi, "thiếu từ điển → rơi về chuỗi VI như khi thiếu bản dịch");
+});
+
+browserTest("H5. Bấm công tắc ngôn ngữ: nạp đúng chunk rồi mới đổi, lưu lựa chọn", async (t) => {
+  const ctx = await setup();
+  const page = await openWithSavedLang(ctx, "vi");
+  t.after(() => page.close());
+  t.assert.deepStrictEqual(dictsLoaded(page), [], "đang ở VI chưa tải gì");
+  await page.clickText("DE");
+  await new Promise((r) => setTimeout(r, 1500));
+  const state = await langState(page);
+  const saved = await page.evaluate(`localStorage.getItem("protogon-lang")`);
+  t.diagnostic(`sau khi bấm DE: ${JSON.stringify({ ...state, saved, dicts: dictsLoaded(page) })}`);
+  t.assert.deepStrictEqual(dictsLoaded(page), ["de"], "bấm DE chỉ tải chunk DE");
+  t.assert.strictEqual(state.lang, "de");
+  t.assert.ok(state.de && !state.vi, "giao diện đã dịch sang DE");
+  t.assert.strictEqual(saved, "de", "lựa chọn được lưu");
+});
+
 // Dọn dẹp sau toàn bộ suite: giết Chromium + đóng server
 test.after(() => {
   teardown();
