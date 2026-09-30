@@ -21,11 +21,12 @@
  */
 const fs = require("fs");
 const path = require("path");
+const DJS_MOCK = require("./support/djs-mock-path.cjs");
 const Module = require("module");
 
 // shared.js require discord.js — cần mock như test-property để mutant nạp được.
 // KHÔNG có mock thì mutant "crash lúc import" bị đếm nhầm là bị giết (kill giả).
-const MOCK_PATH = path.join(__dirname, "..", "bot", "test-djs-mock.cjs");
+const MOCK_PATH = DJS_MOCK;
 /** Dọn file mock — gọi trước MỌI đường thoát để không để rác lại repo. */
 function cleanupMock() {
   try {
