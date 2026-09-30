@@ -11,7 +11,7 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
                                                       ⇄ protogon.freebuff.app (Freebuff hosting)
 ```
 
-- Cấu hìnhbot ⇄ dashboard đồng bộ qua Convex, trễ ~1 phút.
+- Cấu hình bot ⇄ dashboard đồng bộ qua Convex, trễ ~1 phút.
 - Deploy Convex: CI tự chạy sau push main (lint+test xanh); VPS agent cũng
   deploy được qua guardrail 4 lớp (xem `docs/opencode-vps-guide.md`).
 
@@ -25,7 +25,8 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 | `pages/GuildPage.tsx`       | Trang cấu hình 1 server (tabs → các panel dưới)        |
 | `pages/Monitor.tsx`         | Giám sát thời gian thực (chart, sự cố)                 |
 | `pages/StatsPage.tsx`       | Thống kê tổng                                          |
-| `pages/Admin.tsx`           | Trang admin                                            |     | `pages/GuildHistory.tsx` | Lịch sử sự kiện server |
+| `pages/Admin.tsx`           | Trang admin                                            |
+| `pages/GuildHistory.tsx`    | Lịch sử sự kiện server                                 |
 | `pages/GuildIncidents.tsx`  | Sự cố gom cụm (nhóm 15 phút) + đánh dấu đã xử lý       |
 | `pages/DiscordCallback.tsx` | Bắt callback OAuth                                     |
 | `pages/LegalPage.tsx`       | Văn bản pháp lý (/terms, /privacy, /data-deletion)     |
@@ -113,15 +114,16 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 
 ## Vòng lặp làm việc
 
-- Kiểm chứng: `bun run test` (81 CJS suites — gồm `test-browser-contracts` cháº¡y Chromium headless THáº¬T qua DevTools Protocol) · `bun run test:ts` (18 TS suites) · `bun tsc -b --noEmit` ·
+- Kiểm chứng: `bun run test` (82 CJS suites, chạy song song — gồm `test-browser-contracts` chạy Chromium headless THẬT qua DevTools Protocol) · `bun run test:ts` (21 TS suites) · `bun tsc -b --noEmit` ·
   `bun run lint` · `bun run format:check` — chi tiết gộp 1 lệnh xem skill
   `verification-loop`.
 - Route/SEO/hosting: `src/lib/routes.json` là NGUỒN DUY NHẤT — thêm trang công khai PHẢI khai báo ở đó; `scripts/test-web-contracts.cjs` + `scripts/test-route-manifest.ts` suy kỳ vọng cho vercel.json / nginx / sitemap / robots.txt TỪ bảng. Alias (`/status` → `/monitor`) chỉ redirect 301, không tự khai canonical.
 - Kiểm tra cấu trúc: `scripts/check-repo-map.cjs` (bản đồ khớp thật) +
   `scripts/check-convex-contract.cjs` (tên function bot gọi tồn tại phía
   Convex) +
-  `scripts/check-i18n.cjs` (mọi chuỗi người dùng có bản EN) — CI chạy cả 3
-  trong job lint.
+  `scripts/check-i18n.cjs` (mọi chuỗi người dùng có bản EN) +
+  `scripts/check-settings-signal.cjs` (thay đổi từ dashboard không được "đứng im") —
+  CI chạy cả 4 trong job lint.
 - Đa ngôn ngữ: UI viết chuỗi tiếng Việt thẳng trong JSX rồi bọc
   `translate("…")` (key = chuỗi VI). Thêm chuỗi mới → chạy
   `node scripts/check-i18n.cjs` để biết key nào còn thiếu bản EN; hằng số
