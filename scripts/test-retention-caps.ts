@@ -32,8 +32,10 @@ const check = (label: string, ok: boolean, detail?: unknown) => {
 
 type Row = Record<string, any>;
 const BOT_KEY = "khoa-bot-32-bytes-toi-day";
-const GUILD = "111111111111111111";
-const OTHER = "222222222222222222";
+// ID server giả, KHÔNG dùng chuỗi 18 chữ số kiểu snowflake: gitleaks (job security của CI)
+// coi đó là Discord client id và làm đỏ cả commit (xem b84af3c).
+const GUILD = "g-retention-main";
+const OTHER = "g-retention-other";
 
 /** ctx giả trong bộ nhớ: insert/delete/query(...).withIndex(eq).order().take()/collect()/first(). */
 function makeCtx(seed: Record<string, Row[]> = {}) {

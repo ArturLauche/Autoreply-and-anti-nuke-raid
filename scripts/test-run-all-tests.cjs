@@ -86,45 +86,83 @@ const PASS = `console.log("Kết quả: 3 pass, 0 fail");`;
   check("mỗi suite đỏ chỉ được in MỘT lần", (o.match(/❌ test-b-fail/g) || []).length === 1, o);
 }
 
-// ── 3. Nhạy tranh chấp: đỏ khi song song, xanh khi lẻ ──
+// ── 3. Nhạy tranh chấp: đỏ lần đầu, xanh khi chạy lại lẻ ──
+// Suite giả đỏ ở lần chạy ĐẦU rồi xanh (đếm lần chạy qua file): mô phỏng suite nhạy
+// tranh chấp mà KHÔNG phụ thuộc tốc độ máy. Bản trước dùng marker + sleep nên có thể
+// xanh giả trên runner chậm (hai tiến trình khởi động lệch hơn cửa sổ chờ).
 {
-  const marker = path.join(tmpRoot, "busy.marker");
+  const J = JSON.stringify;
+  const attempts = path.join(tmpRoot, "flaky.attempts");
+  const log = path.join(tmpRoot, "flaky.log");
   const dir = fixture("flaky", {
-    // Giữ marker ~1.5s để suite còn lại chắc chắn chạm phải nó khi chạy song song.
-    "test-d-slow.cjs": `const fs=require("fs");fs.writeFileSync(${JSON.stringify(marker)},"1");setTimeout(()=>{fs.rmSync(${JSON.stringify(marker)},{force:true});console.log("Kết quả: slow xong");},1500);`,
-    // Đỏ nếu thấy suite kia đang chạy (tranh chấp), xanh khi chạy một mình.
-    "test-c-flaky.cjs": `const fs=require("fs");setTimeout(()=>{if(fs.existsSync(${JSON.stringify(marker)})){console.log("FAIL chạm marker của suite song song");process.exit(1);}console.log("Kết quả: flaky xanh khi lẻ");},500);`,
+    "test-a-flaky.cjs":
+      `const fs=require("fs");const A=${J(attempts)},L=${J(log)};` +
+      `const n=(fs.existsSync(A)?Number(fs.readFileSync(A,"utf8")):0)+1;fs.writeFileSync(A,String(n));` +
+      `fs.appendFileSync(L,"flaky "+n+" "+Date.now()+"\\n");` +
+      `if(n===1){console.log("FAIL lần đầu (giả lập tranh chấp)");process.exit(1);}` +
+      `console.log("Kết quả: flaky xanh ở lần "+n);`,
+    "test-b-slow.cjs":
+      `const fs=require("fs");const L=${J(log)};` +
+      `setTimeout(()=>{fs.appendFileSync(L,"slow-end 0 "+Date.now()+"\\n");console.log("Kết quả: slow xong");},1200);`,
   });
+  const reset = () => {
+    fs.rmSync(attempts, { force: true });
+    fs.rmSync(log, { force: true });
+  };
+  const attemptCount = () => (fs.existsSync(attempts) ? fs.readFileSync(attempts, "utf8") : "0");
+
+  reset();
   const r = run(["--dir", dir, "--jobs", "2"]);
   const o = out(r);
   check(
-    "đỏ khi song song + xanh khi lẻ → exit 0 (không đỏ cả lượt)",
+    "đỏ lần đầu + xanh khi chạy lại lẻ → exit 0 (không đỏ cả lượt)",
     r.status === 0 && /✅ 2\/2 suites pass/.test(o),
     o,
   );
   check(
     "báo rõ ⚠️ nhạy tài nguyên kèm tên suite",
-    /⚠️ test-c-flaky — đỏ khi chạy song song nhưng xanh khi chạy lẻ/.test(o),
+    /⚠️ test-a-flaky — đỏ khi chạy song song nhưng xanh khi chạy lẻ/.test(o),
     o,
   );
   check(
     "tổng kết nhắc danh sách suite chỉ xanh khi chạy lẻ",
-    /chỉ xanh khi chạy lẻ: test-c-flaky/.test(o),
+    /chỉ xanh khi chạy lẻ: test-a-flaky/.test(o),
     o,
   );
   check("KHÔNG in ❌/THẤT BẠI (guardrails.js coi đó là đỏ)", !/❌|THẤT BẠI/.test(o), o);
+  check("chạy lại đúng MỘT lần (2 lượt tổng cộng)", attemptCount() === "2", attemptCount());
+  // Mốc thời gian do chính các suite ghi nên không phụ thuộc thứ tự in ra: lần chạy lại
+  // phải bắt đầu SAU khi suite kia (đang chạy lúc flaky đỏ) đã xong — tức chạy lẻ thật.
+  const ts = Object.fromEntries(
+    fs
+      .readFileSync(log, "utf8")
+      .trim()
+      .split("\n")
+      .map((l) => l.split(" "))
+      .map(([name, n, t]) => [`${name}#${n}`, Number(t)]),
+  );
+  check(
+    "lần chạy lại bắt đầu SAU khi pool đã xong (chạy lẻ, không chồng lên suite khác)",
+    ts["flaky#2"] >= ts["slow-end#0"],
+    ts,
+  );
 
+  reset();
   const strict = run(["--dir", dir, "--jobs", "2", "--no-retry"]);
   check(
-    "--no-retry: cùng kịch bản đỏ thật (exit 1)",
-    strict.status === 1 && /❌ test-c-flaky — THẤT BẠI/.test(out(strict)),
+    "--no-retry: suite đỏ lần đầu là đỏ thật (exit 1), không chạy lại",
+    strict.status === 1 && /❌ test-a-flaky — THẤT BẠI/.test(out(strict)) && attemptCount() === "1",
     out(strict),
   );
 
+  reset();
   const serial = run(["--dir", dir, "--serial"]);
   check(
-    "--serial: không tranh chấp nên xanh, không retry",
-    serial.status === 0 && !/↻|⚠️/.test(out(serial)),
+    "--serial: nghiêm ngặt — không retry nên lần đầu đỏ là đỏ thật",
+    serial.status === 1 &&
+      /❌ test-a-flaky — THẤT BẠI/.test(out(serial)) &&
+      !/↻|⚠️/.test(out(serial)) &&
+      attemptCount() === "1",
     out(serial),
   );
 }
@@ -136,33 +174,42 @@ if (process.platform !== "win32") {
     "test-a.cjs": PASS,
     "test-z-hang.cjs": `const {spawn}=require("child_process");const g=spawn(process.execPath,["-e","setInterval(()=>{},1000)"],{stdio:"ignore"});require("fs").writeFileSync(${JSON.stringify(pidFile)},String(g.pid));setInterval(()=>{},1000);`,
   });
-  const r = run(["--dir", dir, "--no-retry"], { TEST_SUITE_TIMEOUT_MS: "1500" });
+  const r = run(["--dir", dir, "--no-retry"], { TEST_SUITE_TIMEOUT_MS: "4000" });
   const o = out(r);
   check(
-    "quá hạn → đỏ, nói rõ quá 2s và đã giết nhóm",
-    r.status === 1 && /test-z-hang — THẤT BẠI \(quá 2s/.test(o),
+    "quá hạn → đỏ, nói rõ quá 4s và đã giết nhóm",
+    r.status === 1 && /test-z-hang — THẤT BẠI \(quá 4s/.test(o),
     o,
   );
-  const gpid = Number(fs.readFileSync(pidFile, "utf8"));
-  let alive = true;
-  try {
-    process.kill(gpid, 0);
-  } catch {
-    alive = false;
+  // Không ném khi máy quá chậm để suite kịp ghi pid: báo check đỏ có lý do rõ ràng.
+  const pidText = fs.existsSync(pidFile) ? fs.readFileSync(pidFile, "utf8") : "";
+  const gpid = Number(pidText);
+  check(
+    "suite treo kịp ghi pid tiến trình con trước khi bị giết",
+    gpid > 0,
+    pidText || "thiếu file pid",
+  );
+  let alive = gpid > 0;
+  if (alive) {
+    try {
+      process.kill(gpid, 0);
+    } catch {
+      alive = false;
+    }
   }
   check(
     "tiến trình CON của suite quá hạn đã bị giết (không mồ côi)",
     alive === false,
     `pid ${gpid} còn sống`,
   );
-  if (alive) process.kill(gpid, "SIGKILL");
+  if (alive && gpid > 0) process.kill(gpid, "SIGKILL");
 }
 
 // ── 5. Làn độc quyền: chạy SAU pool và không chồng lấn ──
 {
   const log = path.join(tmpRoot, "lanes.log");
   const body = (name) =>
-    `const fs=require("fs");const L=${JSON.stringify(log)};fs.appendFileSync(L,"${name} start "+Date.now()+"\\n");setTimeout(()=>{fs.appendFileSync(L,"${name} end "+Date.now()+"\\n");console.log("Kết quả: ok");},400);`;
+    `const fs=require("fs");const L=${JSON.stringify(log)};fs.appendFileSync(L,"${name} start "+Date.now()+"\\n");setTimeout(()=>{fs.appendFileSync(L,"${name} end "+Date.now()+"\\n");console.log("Kết quả: ok");},1500);`;
   const dir = fixture("lanes", {
     "test-x1.cjs": body("x1"),
     "test-x2.cjs": body("x2"),
