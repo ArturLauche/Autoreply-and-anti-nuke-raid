@@ -47,6 +47,18 @@
   test Chromium) · coverage 94,97% stmts / 79,66% nhánh / 98,19% hàm, sàn theo file đạt · 21/21
   TS · mutation 20/20 · tsc · eslint toàn repo · prettier toàn repo · repo-map · convex-contract ·
   i18n --self-test · settings-signal --self-test.
+- 🔁 **Kiểm lại sau check đỏ của PR #2** (check duy nhất đỏ là Kilo Code Review — app review AI bên
+  thứ ba báo "Assistant request timed out", không có finding nào; fork không có run Actions nào):
+  · Tái hiện CI cục bộ bằng binary release (kiểm checksum, để ở /tmp, không vào repo):
+  `gitleaks git --log-opts="upstream/main..HEAD"` (bản 8.24.3 như CI ghim) + so tập phát hiện của
+  cây cuối với cây `upstream/main` (7 phát hiện cũ, không cái nào do PR) · `actionlint` + `shellcheck` cho mọi
+  bước `run:` của ci.yml. Precedent b84af3c: ID giả 18 chữ số làm đỏ job security → test mới dùng ID chữ.
+  · `test-browser-contracts.cjs` test **B** (chờ CỐ ĐỊNH 1,6s cho preloader rời DOM) đỏ ở sandbox chậm
+  cả trên `upstream/main` chưa sửa: gỡ overlay sau `load` đo 1,1–2,1s (hai đỉnh ~1,1s / ~1,8s, TB
+  1665ms nhánh này vs 1639ms upstream, n=18) → KHÔNG do PR, nên đổi sang poll (`waitForPage`) như H/I.
+  · Sai lầm: `pkill -f <mẫu>` khớp luôn dòng lệnh của CHÍNH shell đang chạy nó → giết shell (exit 143) và
+  bỏ dở thí nghiệm; dùng PID đã lưu hoặc lọc theo `comm`. Và: `t.after(() => page.close())` treo khi
+  renderer kẹt thì một test đỏ kéo cả file đỏ — bọc bằng race 5s (`closeQuietly`).
 - ⚠️ **Backlog ĐÃ KIỂM CHỨNG NHƯNG CHƯA SỬA** (quyết định chính sách hoặc rủi ro đường raid — cần
   người quyết; chi tiết `file:line` từ đợt rà soát):
   · **Bot/raid**: `antinuke/shared.js:65-72` `isKnownLoggingBot` chỉ khớp TÊN (bot/webhook đặt tên
@@ -86,7 +98,8 @@
   `sessions.me` mới tải chunk, Google Fonts chặn render, HaimiyaChat 32 KB import tĩnh,
   framer-motion có thể `LazyMotion` (~35 KB).
   · **Tooling**: timing test nhạy tải (`test-chaos.cjs:346-378`, `test-convex-client.cjs:91`,
-  `test-local-snapshot.cjs:214`) — runner đã retry lẻ nhưng nên làm tất định;
+  `test-local-snapshot.cjs:214`, `test-browser-contracts.cjs` test B chờ cố định 1,6s) — runner đã
+  retry lẻ nhưng nên làm tất định;
   `check-sync-trust` / `check-research-chain` là script kiểm tra thật nhưng không nằm trong glob
   `test-*`; không có `.env.example`; ESLint không phủ `scripts/*.mjs` (gồm
   `kiira-retry-proxy.mjs` chạy production); `coverage` loại `commands/**`, `ai.js`, `index.js`
