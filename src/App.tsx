@@ -90,25 +90,29 @@ function BootSignal() {
 }
 
 /**
- * Màn hình chờ khi chunk route đang tải lần đầu: logo + thanh tiến trình mảnh
- * chạy vô hạn ở đỉnh trang (kiểu GitHub/YouTube — người dùng thấy "đang đi"
- * thay vì spinner đứng yên giữa màn hình trống).
+ * Màn chờ khi chunk route đang tải: CHỈ thanh tiến trình mảnh ở đỉnh trang
+ * (kiểu GitHub/YouTube).
+ *
+ * VÌ SAO KHÔNG DỰNG LẠI MÀN PRELOADER (logo to + chữ "Đang tải…"):
+ * preloader #boot trong index.html ĐÃ giữ vai trò "app đang khởi động" rồi.
+ * Ở lần tải đầu, #boot phủ kín (z-9999) nên người dùng không thấy màn này.
+ * Nhưng MỌI route đều lazy() → khi chuyển trang, boundary treo lại và màn này
+ * mới lộ ra. Trước đây nó dựng y hệt preloader (cùng logo, cùng dòng chữ
+ * "đang tải") → người dùng thấy load 2 lần liên tiếp, tưởng web bị nhân bản
+ * (báo cáo 30/09/2026). Giữ nền `bg-background` để không lóe trắng giữa
+ * chừng, giữ nhãn `role="status"` (chỉ ẩn với mắt, trình đọc màn hình vẫn
+ * đọc được trạng thái đang tải).
  */
 function RouteFallback() {
   return (
-    <main className="flex min-h-screen flex-col" aria-busy="true">
+    <main className="min-h-screen bg-background" aria-busy="true">
       {/* Progress bar mảnh bám đỉnh — như top loading bar quen thuộc */}
       <div aria-hidden className="fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden">
         <div className="h-full w-1/3 animate-route-progress bg-foreground" />
       </div>
-      <div
-        className="flex flex-1 flex-col items-center justify-center gap-4"
-        role="status"
-        aria-live="polite"
-      >
-        <img src="/logo-mark.png" alt="" className="h-10 w-10 animate-pulse-fade" />
-        <p className="text-xs tracking-wide text-muted-foreground">{translate("Đang tải…")}</p>
-      </div>
+      <span role="status" aria-live="polite" className="sr-only">
+        {translate("Đang tải…")}
+      </span>
     </main>
   );
 }

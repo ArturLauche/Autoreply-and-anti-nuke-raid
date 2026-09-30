@@ -1177,7 +1177,20 @@ check(
   /class="boot-logo"/.test(html) && /logo-mark\.png/.test(html),
 );
 check("logo cá voi có trong BotLogo.tsx (web)", botLogoSrc.includes("/logo-mark.png"));
-check("logo cá voi có trong RouteFallback (App.tsx)", appSrc.includes("/logo-mark.png"));
+// RouteFallback KHÔNG được dựng lại màn preloader (logo to + chữ "Đang tải…").
+// Mọi route đều lazy() nên màn này lộ ra ở MỌI lần chuyển trang; trước đây nó
+// giống hệt #boot nên người dùng thấy load 2 lần liên tiếp và tưởng web bị
+// nhân bản (báo cáo 30/09/2026). Phải còn thanh tiến trình + nền chủ đề.
+check(
+  "RouteFallback chỉ là thanh tiến trình, không dựng lại màn preloader",
+  !appSrc.includes('src="/logo-mark.png"') &&
+    /animate-route-progress/.test(appSrc) &&
+    /min-h-screen bg-background/.test(appSrc),
+);
+check(
+  "RouteFallback giữ nhãn trạng thái cho trình đọc màn hình",
+  /role="status"[\s\S]{0,200}sr-only/.test(appSrc),
+);
 check(
   "KHÔNG còn path cá voi vẽ tay và không còn public/favicon.svg",
   !/M59 11 C55 12/.test(`${html}${botLogoSrc}`) &&
