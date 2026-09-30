@@ -1164,6 +1164,39 @@ browserTest("H5. Bấm công tắc ngôn ngữ: nạp đúng chunk rồi mới �
   t.assert.strictEqual(saved, "de", "lựa chọn được lưu");
 });
 
+// ─── I. Chunk route bị xoá sau deploy → tự tải lại ĐÚNG MỘT lần ─────────────
+// Mọi lần deploy xoá file có hash cũ: tab đang mở từ bản trước mà bấm sang route
+// chưa tải sẽ lỗi "Failed to fetch dynamically imported module". Vite bắn
+// `vite:preloadError`; lib/staleChunk.ts tải lại trang, chống vòng lặp bằng mốc
+// thời gian trong sessionStorage. Cả hai vế đều phải đúng: THIẾU tự tải lại thì
+// người dùng kẹt màn lỗi; THIẾU chống lặp thì trang nhấp nháy mãi khi chunk hỏng.
+browserTest("I1. Chunk bị xoá → tự tải lại ĐÚNG MỘT lần, không lặp vô hạn", async (t) => {
+  const ctx = await setup();
+  const page = await ctx.openPage();
+  t.after(() => page.close());
+  await page.send("Network.setBlockedURLs", { urls: [] });
+  // Đếm số lần tài liệu được nạp (sessionStorage sống qua reload trong cùng tab).
+  await page.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `try { sessionStorage.setItem("__docLoads", String(Number(sessionStorage.getItem("__docLoads") || 0) + 1)); } catch (e) {}`,
+  });
+  await page.goto(ctx.base + "/");
+  await new Promise((r) => setTimeout(r, 1500));
+
+  // Giả lập deploy: chunk route CHƯA tải biến mất, rồi điều hướng SPA tới route đó.
+  await page.send("Network.setBlockedURLs", { urls: ["*FeaturesPage-*.js*"] });
+  await page.evaluate(
+    `history.pushState({}, "", "/features"); window.dispatchEvent(new PopStateEvent("popstate"));`,
+  );
+  // Đủ thời gian để: lỗi → tải lại → lỗi lần 2 (cooldown chặn tải lại tiếp).
+  await new Promise((r) => setTimeout(r, 4500));
+
+  const loads = await page.evaluate(`sessionStorage.getItem("__docLoads")`);
+  const stamp = await page.evaluate(`sessionStorage.getItem("protogon-chunk-reload-at")`);
+  t.diagnostic(`số lần nạp tài liệu = ${loads}, mốc tải lại = ${stamp}`);
+  t.assert.strictEqual(loads, "2", "đúng 1 lần tải lại (nạp đầu + 1 reload), không lặp vô hạn");
+  t.assert.ok(stamp, "mốc chống lặp đã được ghi");
+});
+
 // Dọn dẹp sau toàn bộ suite: giết Chromium + đóng server
 test.after(() => {
   teardown();

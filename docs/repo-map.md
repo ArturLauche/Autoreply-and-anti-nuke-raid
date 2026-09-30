@@ -51,6 +51,7 @@ bot/ (discord.js, Bun, pm2 trên VPS) ⇄ convex/ (DB + backend) ⇄ src/ (React
 | `lib/routes.json`            | **BẢNG TUYẾN ĐƯỜNG** — nguồn duy nhất: path, public/private, index, sitemap, SPA fallback, alias redirect        |
 | `lib/routes.ts`              | Lớp kiểu + hàm đọc bảng (`routeForPath`, `canonicalPathFor`, `SITEMAP_ROUTES`…) — seo.ts + test đều đọc từ đây   |
 | `lib/bootOverlay.ts`         | `finishBootOverlay()` — đường ra THỨ HAI cho preloader khi /boot.js hỏng (fail-open, không phụ thuộc file ngoài) |
+| `lib/staleChunk.ts`          | Tab cũ sau deploy: `vite:preloadError` → tải lại đúng 1 lần/10s (sessionStorage chống lặp)                       |
 | `lib/constants.ts`           | SERVER_THEMES (đã mono xám), hằng số                                                                             |
 
 ## bot/ — Discord bot (CommonJS, chạy pm2 `protogon`)

@@ -14,6 +14,8 @@ import {
 import { filterCommands, foldDiacritics, scoreCommand } from "../src/components/CommandPalette";
 import { syncState, SETTINGS_APPLY_WINDOW_MS, STALE_HEARTBEAT_MS } from "../src/lib/syncState";
 import { ensureDictionary, lookupTranslation, translate } from "../src/lib/i18n";
+import { safeRedirectPath } from "../src/lib/discord";
+import { CHUNK_RELOAD_COOLDOWN_MS, installStaleChunkRecovery } from "../src/lib/staleChunk";
 import { EN } from "../src/lib/i18n.en";
 import { EN_PANELS } from "../src/lib/i18n.en.panels";
 import { EN_LABELS } from "../src/lib/i18n.en.labels";
@@ -252,6 +254,98 @@ console.log("\n── #5 từ điển i18n nạp lười (EN/DE tách chunk, VI 
     translate("Đã lưu {n} rule", { n: 3 }) === "Đã lưu 3 rule",
   );
   check("nạp lại khi đã nạp → true ngay", (await ensureDictionary("en")) === true);
+}
+
+console.log("\n── #6 safeRedirectPath (hàm THẬT, không tái tạo) ──");
+// Hồi quy: hàm tự nhận "không chứa ký tự điều khiển" nhưng "/\t/evil.com" lọt qua,
+// mà bộ phân tích URL của trình duyệt bỏ tab → thành "//evil.com" (protocol-relative).
+{
+  const FALLBACK = "/dashboard";
+  check("đường dẫn nội bộ giữ nguyên", safeRedirectPath("/dashboard/g/123") === "/dashboard/g/123");
+  check(
+    "query string nội bộ giữ nguyên",
+    safeRedirectPath("/dashboard?tab=heat") === "/dashboard?tab=heat",
+  );
+  check("gốc '/' hợp lệ", safeRedirectPath("/") === "/");
+  check("khoảng trắng hai đầu được cắt", safeRedirectPath("  /ok ") === "/ok");
+  const evil = [
+    "//evil.com",
+    "/\\evil.com",
+    "/a\\b",
+    "/\t/evil.com",
+    "/\n/evil.com",
+    "/\r/evil.com",
+    "/\u0000/evil.com",
+    "/\u007f",
+    "https://evil.com",
+    "http://evil.com",
+    "javascript:alert(1)",
+    "evil.com",
+    "",
+  ];
+  for (const raw of evil) {
+    check(`từ chối ${JSON.stringify(raw)}`, safeRedirectPath(raw) === FALLBACK);
+  }
+  check(
+    "null/undefined/không phải chuỗi → fallback",
+    safeRedirectPath(null) === FALLBACK &&
+      safeRedirectPath(undefined) === FALLBACK &&
+      safeRedirectPath(42 as unknown as string) === FALLBACK,
+  );
+  check("fallback tuỳ chỉnh được dùng", safeRedirectPath("//evil.com", "/home") === "/home");
+}
+
+console.log("\n── #7 tự tải lại khi chunk bị xoá sau deploy (vite:preloadError) ──");
+{
+  const mk = (opts: { now?: () => number; storage?: any } = {}) => {
+    const target = new EventTarget();
+    const mem = new Map<string, string>();
+    const storage = opts.storage ?? {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => void mem.set(k, v),
+    };
+    let reloads = 0;
+    let t = 1_700_000_000_000;
+    const dispose = installStaleChunkRecovery({
+      target,
+      storage,
+      now: opts.now ?? (() => t),
+      reload: () => void reloads++,
+    });
+    const fire = () => {
+      const ev = new Event("vite:preloadError", { cancelable: true });
+      target.dispatchEvent(ev);
+      return ev;
+    };
+    return { fire, dispose, reloads: () => reloads, advance: (ms: number) => void (t += ms) };
+  };
+
+  const a = mk();
+  const ev1 = a.fire();
+  check("lỗi chunk đầu tiên → tải lại đúng 1 lần", a.reloads() === 1);
+  check("lỗi gốc bị chặn (không nháy màn lỗi lúc đang tải lại)", ev1.defaultPrevented);
+  a.advance(CHUNK_RELOAD_COOLDOWN_MS - 1);
+  const ev2 = a.fire();
+  check("vừa tải lại mà vẫn lỗi (trong cooldown) → KHÔNG tải lại nữa", a.reloads() === 1);
+  check("...và để lỗi nổi lên cho error boundary (không chặn)", !ev2.defaultPrevented);
+  a.advance(1);
+  a.fire();
+  check("hết cooldown → được tải lại lần nữa", a.reloads() === 2);
+  a.dispose();
+  a.fire();
+  check("đã gỡ listener → không phản ứng", a.reloads() === 2);
+
+  const b = mk({
+    storage: {
+      getItem: () => {
+        throw new Error("sessionStorage bị chặn");
+      },
+      setItem: () => {},
+    },
+  });
+  const evB = b.fire();
+  check("sessionStorage bị chặn → không có chống lặp nên KHÔNG tải lại", b.reloads() === 0);
+  check("...và không nuốt lỗi gốc", !evB.defaultPrevented);
 }
 
 console.log(`\n${pass} PASS, ${fail} FAIL`);

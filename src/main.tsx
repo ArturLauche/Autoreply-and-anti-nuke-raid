@@ -8,9 +8,11 @@ import { LangProvider, prepareInitialLanguage } from "./lib/i18n";
 import { resolveConvexUrl } from "./lib/convexUrl";
 import { clearLegacyDiscordAccess } from "./lib/discord";
 import { finishBootOverlay } from "./lib/bootOverlay";
+import { installStaleChunkRecovery } from "./lib/staleChunk";
 import "./index.css";
 
 clearLegacyDiscordAccess();
+installStaleChunkRecovery();
 
 async function start() {
   try {
