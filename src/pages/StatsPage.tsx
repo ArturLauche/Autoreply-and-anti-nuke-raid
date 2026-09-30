@@ -315,7 +315,7 @@ export default function StatsPage() {
                   {translate(
                     "Nhiệt giảm {decay} điểm/phút — thành viên ngoan tự rời bảng sau một lúc im giọng. ▪ {warn} cảnh báo · ▪ {timeout} tạm khóa · ▪ {kick} kick · ■ {ban} ban",
                     {
-                      decay: HEAT_DEFAULTS.decayPerMin,
+                      decay: rows?.[0]?.decayPerMin ?? HEAT_DEFAULTS.decayPerMin,
                       warn: HEAT_DEFAULTS.warnAt,
                       timeout: HEAT_DEFAULTS.timeoutAt,
                       kick: HEAT_DEFAULTS.kickAt,

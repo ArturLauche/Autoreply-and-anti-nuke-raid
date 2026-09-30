@@ -151,13 +151,36 @@ for (const sig of ["SIGINT", "SIGTERM"]) {
   });
 }
 
+/** Chờ thêm bấy nhiêu ms để đọc nốt stdio sau khi tiến trình chính của suite đã thoát. */
+const STDIO_GRACE_MS = Number(process.env.TEST_STDIO_GRACE_MS) || 3000;
+
 /** Chạy một suite; không bao giờ reject. */
 function runSuite(suite) {
   return new Promise((resolve) => {
     const t0 = Date.now();
     const chunks = [];
     let timedOut = false;
+    let settled = false;
+    let timer;
+    let grace;
     let child;
+    const finish = (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      clearTimeout(grace);
+      live.delete(child);
+      // Con cháu đã thoát khỏi nhóm tiến trình có thể còn giữ pipe: đóng phía mình để không rò.
+      child.stdout.destroy();
+      child.stderr.destroy();
+      resolve({
+        suite,
+        code: code === null ? 1 : code,
+        timedOut,
+        out: Buffer.concat(chunks).toString("utf8"),
+        ms: Date.now() - t0,
+      });
+    };
     try {
       child = spawn(RUNNER, [path.join(SUITE_DIR, suite)], {
         stdio: ["ignore", "pipe", "pipe"],
@@ -170,21 +193,18 @@ function runSuite(suite) {
     live.add(child);
     child.stdout.on("data", (d) => chunks.push(d));
     child.stderr.on("data", (d) => chunks.push(d));
-    const timer = setTimeout(() => {
+    timer = setTimeout(() => {
       timedOut = true;
       killGroup(child);
     }, TIMEOUT_MS);
     child.on("error", (e) => chunks.push(Buffer.from(`\n${e.message}\n`)));
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      live.delete(child);
-      resolve({
-        suite,
-        code: code === null ? 1 : code,
-        timedOut,
-        out: Buffer.concat(chunks).toString("utf8"),
-        ms: Date.now() - t0,
-      });
+    // `close` chỉ phát khi MỌI stdio đã EOF, mà pipe được mọi con cháu kế thừa: một con cháu đã
+    // thoát khỏi nhóm (setsid) mà còn giữ pipe khiến `close` không bao giờ tới và treo cả pool
+    // tới hết timeout của job CI. Nên khi tiến trình chính đã thoát (kể cả do bị giết vì quá
+    // hạn) chỉ chờ stdio thêm STDIO_GRACE_MS để đọc nốt dữ liệu rồi tự kết thúc.
+    child.on("close", (code) => finish(code));
+    child.on("exit", (code) => {
+      grace = setTimeout(() => finish(code), STDIO_GRACE_MS);
     });
   });
 }
@@ -198,13 +218,18 @@ function report(r) {
     console.log(`✅ ${name} (${(r.ms / 1000).toFixed(1)}s) — ${tail}`);
     return;
   }
+  const head = `❌ ${name} — THẤT BẠI${r.timedOut ? ` (quá ${Math.round(TIMEOUT_MS / 1000)}s, đã giết nhóm tiến trình)` : ""}`;
+  console.error([head, ...failureLines(r)].join("\n"));
+}
+
+/** Các dòng đáng xem của một lần chạy đỏ: dòng báo lỗi, không có thì 20 dòng cuối. */
+function failureLines(r) {
   const lines = r.out.split("\n");
   const fails = lines
     .filter((l) => /FAIL|❌|✗|✖|Error|THẤT BẠI/.test(l) && !/\b0 (FAIL|fail|sai)\b/.test(l))
     .slice(0, 15);
   const shown = fails.length > 0 ? fails : lines.filter((l) => l.trim()).slice(-20);
-  const head = `❌ ${name} — THẤT BẠI${r.timedOut ? ` (quá ${Math.round(TIMEOUT_MS / 1000)}s, đã giết nhóm tiến trình)` : ""}`;
-  console.error([head, ...shown.map((l) => `   ${l.trim()}`)].join("\n"));
+  return shown.map((l) => `   ${l.trim()}`);
 }
 
 /** Chạy `list` với tối đa `jobs` tiến trình; gọi `onDone` mỗi khi một suite xong. */
@@ -251,13 +276,33 @@ async function runPool(list, jobs, onDone) {
     );
     for (const first of held) {
       const again = await runSuite(first.suite);
+      const name = baseName(first.suite);
+      const firstNote = `lần chạy song song${first.timedOut ? ` (quá ${Math.round(TIMEOUT_MS / 1000)}s)` : ""}`;
       if (again.code === 0) {
-        flaky.push(baseName(first.suite));
+        flaky.push(name);
+        // Lỗi của lần chạy SONG SONG là chẩn đoán đáng giá nhất (EADDRINUSE, quá hạn dưới tải…)
+        // nên không được vứt. Dấu đỏ trong đoạn trích được đổi để cổng guardrails.js không đọc
+        // nhầm cả lượt là đỏ.
         console.log(
-          `⚠️ ${baseName(first.suite)} — đỏ khi chạy song song nhưng xanh khi chạy lẻ (${(again.ms / 1000).toFixed(1)}s): nghi nhạy tài nguyên/thời gian`,
+          [
+            `⚠️ ${name} — đỏ khi chạy song song nhưng xanh khi chạy lẻ (${(again.ms / 1000).toFixed(1)}s): nghi nhạy tài nguyên/thời gian`,
+            `   ${firstNote} đã ghi:`,
+            ...failureLines(first).map((l) =>
+              `  ${l}`.replace(/❌/g, "✗").replace(/THẤT BẠI/g, "thất bại"),
+            ),
+          ].join("\n"),
         );
+        // Hiện trong giao diện GitHub Actions dưới dạng annotation (không đổi kết quả xanh/đỏ).
+        if (process.env.GITHUB_ACTIONS === "true") {
+          console.log(
+            `::warning title=Suite nhạy tài nguyên::${name} đỏ khi chạy song song, xanh khi chạy lẻ`,
+          );
+        }
       } else {
         report(again);
+        console.error(
+          [`   (${firstNote} trước đó:)`, ...failureLines(first).map((l) => `  ${l}`)].join("\n"),
+        );
         failed.push(again);
       }
     }
@@ -273,7 +318,12 @@ async function runPool(list, jobs, onDone) {
     );
   }
   if (failed.length > 0) {
-    console.error(`Suites thất bại: ${failed.map((r) => r.suite).join(", ")}`);
+    console.error(
+      `Suites thất bại: ${failed
+        .map((r) => r.suite)
+        .sort()
+        .join(", ")}`,
+    );
     process.exit(1);
   }
 })();

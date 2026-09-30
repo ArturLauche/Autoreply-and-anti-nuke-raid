@@ -84,6 +84,24 @@ const PASS = `console.log("Kết quả: 3 pass, 0 fail");`;
     o,
   );
   check("mỗi suite đỏ chỉ được in MỘT lần", (o.match(/❌ test-b-fail/g) || []).length === 1, o);
+
+  // Thứ tự hoàn thành giữa hai suite tức thì là ngẫu nhiên: bảng tổng kết phải theo TÊN
+  // (ổn định), nếu không khẳng định trên sẽ đỏ giả khi máy bận.
+  check(
+    "danh sách thất bại theo tên suite, không theo thứ tự hoàn thành",
+    /Suites thất bại: test-b-fail\.cjs, test-c-crash\.cjs\s*$/.test(o.trim()),
+    o,
+  );
+
+  // Có retry, suite vẫn đỏ ở lần chạy lẻ: lỗi của lần chạy SONG SONG trước đó không được vứt.
+  const retried = run(["--dir", dir, "--jobs", "2"]);
+  const ro = out(retried);
+  check("retry vẫn đỏ → exit 1", retried.status === 1, retried.status);
+  check(
+    "vẫn đỏ sau chạy lẻ: in lại lỗi của lần chạy song song trước đó",
+    /lần chạy song song trước đó/.test(ro) && (ro.match(/FAIL something broke/g) || []).length >= 2,
+    ro,
+  );
 }
 
 // ── 3. Nhạy tranh chấp: đỏ lần đầu, xanh khi chạy lại lẻ ──
@@ -99,7 +117,7 @@ const PASS = `console.log("Kết quả: 3 pass, 0 fail");`;
       `const fs=require("fs");const A=${J(attempts)},L=${J(log)};` +
       `const n=(fs.existsSync(A)?Number(fs.readFileSync(A,"utf8")):0)+1;fs.writeFileSync(A,String(n));` +
       `fs.appendFileSync(L,"flaky "+n+" "+Date.now()+"\\n");` +
-      `if(n===1){console.log("FAIL lần đầu (giả lập tranh chấp)");process.exit(1);}` +
+      `if(n===1){console.log("  ❌ nhãn lỗi giả lập");console.log("FAIL lần đầu (giả lập tranh chấp)");process.exit(1);}` +
       `console.log("Kết quả: flaky xanh ở lần "+n);`,
     "test-b-slow.cjs":
       `const fs=require("fs");const L=${J(log)};` +
@@ -112,7 +130,7 @@ const PASS = `console.log("Kết quả: 3 pass, 0 fail");`;
   const attemptCount = () => (fs.existsSync(attempts) ? fs.readFileSync(attempts, "utf8") : "0");
 
   reset();
-  const r = run(["--dir", dir, "--jobs", "2"]);
+  const r = run(["--dir", dir, "--jobs", "2"], { GITHUB_ACTIONS: "" });
   const o = out(r);
   check(
     "đỏ lần đầu + xanh khi chạy lại lẻ → exit 0 (không đỏ cả lượt)",
@@ -131,6 +149,17 @@ const PASS = `console.log("Kết quả: 3 pass, 0 fail");`;
   );
   check("KHÔNG in ❌/THẤT BẠI (guardrails.js coi đó là đỏ)", !/❌|THẤT BẠI/.test(o), o);
   check("chạy lại đúng MỘT lần (2 lượt tổng cộng)", attemptCount() === "2", attemptCount());
+  check(
+    "in lại chẩn đoán của lần chạy song song (không vứt)",
+    /lần chạy song song đã ghi:/.test(o) && /FAIL lần đầu \(giả lập tranh chấp\)/.test(o),
+    o,
+  );
+  check(
+    "đoạn trích đã gỡ dấu đỏ (❌ → ✗) để guardrails không đọc nhầm",
+    /✗ nhãn lỗi giả lập/.test(o) && !/nhãn lỗi giả lập/.test(o.replace(/✗ nhãn lỗi giả lập/g, "")),
+    o,
+  );
+  check("ngoài GitHub Actions: không phát annotation", !/::warning/.test(o), o);
   // Mốc thời gian do chính các suite ghi nên không phụ thuộc thứ tự in ra: lần chạy lại
   // phải bắt đầu SAU khi suite kia (đang chạy lúc flaky đỏ) đã xong — tức chạy lẻ thật.
   const ts = Object.fromEntries(
@@ -145,6 +174,14 @@ const PASS = `console.log("Kết quả: 3 pass, 0 fail");`;
     "lần chạy lại bắt đầu SAU khi pool đã xong (chạy lẻ, không chồng lên suite khác)",
     ts["flaky#2"] >= ts["slow-end#0"],
     ts,
+  );
+
+  reset();
+  const onCi = run(["--dir", dir, "--jobs", "2"], { GITHUB_ACTIONS: "true" });
+  check(
+    "trên GitHub Actions: phát ::warning để suite nhạy tải hiện trên giao diện (vẫn xanh)",
+    onCi.status === 0 && /::warning title=Suite nhạy tài nguyên::test-a-flaky /.test(out(onCi)),
+    out(onCi),
   );
 
   reset();
@@ -203,6 +240,53 @@ if (process.platform !== "win32") {
     `pid ${gpid} còn sống`,
   );
   if (alive && gpid > 0) process.kill(gpid, "SIGKILL");
+}
+
+// ── 4b. Con cháu thoát khỏi nhóm tiến trình còn giữ pipe: runner KHÔNG được treo ──
+// `close` của child_process chỉ phát khi mọi stdio đã EOF; pipe lại được mọi con cháu kế
+// thừa. Suite thoát xong mà để lại một tiến trình setsid giữ pipe (hoặc suite treo bị giết
+// nhóm nhưng con cháu đã thoát nhóm) làm bản runner cũ treo tới hết timeout của job CI.
+if (process.platform !== "win32") {
+  const J = JSON.stringify;
+  const leakPid = path.join(tmpRoot, "leak.pid");
+  const hangPid = path.join(tmpRoot, "hang-detached.pid");
+  const holder = (pidFile) =>
+    `const {spawn}=require("child_process");` +
+    `const g=spawn(process.execPath,["-e","setInterval(()=>{},1000)"],{detached:true,stdio:["ignore","inherit","inherit"]});` +
+    `require("fs").writeFileSync(${J(pidFile)},String(g.pid));g.unref();`;
+  const dir = fixture("leak", {
+    // Thoát 0 ngay nhưng để lại con cháu (nhóm riêng) giữ stdout/stderr.
+    "test-a-leak.cjs": holder(leakPid) + `console.log("Kết quả: ok, để lại tiến trình con");`,
+    // Treo + con cháu thoát nhóm giữ pipe → bị giết theo timeout.
+    "test-b-hang-detached.cjs": holder(hangPid) + `setInterval(()=>{},1000);`,
+  });
+  const killQuietly = (f) => {
+    try {
+      process.kill(Number(fs.readFileSync(f, "utf8")), "SIGKILL");
+    } catch {
+      // đã chết hoặc chưa kịp ghi
+    }
+  };
+  const t0 = Date.now();
+  const r = run(["--dir", dir, "--no-retry"], {
+    TEST_SUITE_TIMEOUT_MS: "4000",
+    TEST_STDIO_GRACE_MS: "1000",
+  });
+  const took = Date.now() - t0;
+  const o = out(r);
+  killQuietly(leakPid);
+  killQuietly(hangPid);
+  check(
+    "runner kết thúc dù con cháu còn giữ pipe (không treo tới hết hạn của job)",
+    r.status !== null && took < 30_000,
+    `${took}ms · status=${r.status} · ${o}`,
+  );
+  check("suite thoát 0 để lại con cháu vẫn được tính xanh", /✅ test-a-leak/.test(o), o);
+  check(
+    "suite treo có con cháu thoát nhóm vẫn bị báo quá hạn, không im lặng",
+    r.status === 1 && /test-b-hang-detached — THẤT BẠI \(quá 4s/.test(o),
+    o,
+  );
 }
 
 // ── 5. Làn độc quyền: chạy SAU pool và không chồng lấn ──
